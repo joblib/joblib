@@ -48,28 +48,6 @@ def run_script(filename, **params):
     return Bunch(**namespace)
 
 
-def test_default_param():
-    """ Try running a script and checling that the default parameter is
-        indeed modified.
-    """
-    import tempfile
-    from StringIO import StringIO
-    script_file = tempfile.mktemp()
-    print >> file(script_file, 'w'), """
-from joblib.run_scripts import default_param
-print default_param('a', 1)
-    """
-    my_stdout = StringIO()
-    old_stdout = sys.stdout
-    sys.stdout = my_stdout
-    try:
-        run_script(script_file)
-        run_script(script_file, a=2)
-        assert my_stdout.getvalue() == '1\n2\n'
-    finally:
-        sys.stdout = old_stdout
-
-
 class PrintTime(object):
     """ An object to print messages while keeping track of time.
     """
