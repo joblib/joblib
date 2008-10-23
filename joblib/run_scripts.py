@@ -1,6 +1,13 @@
 """
 Useful functions to run scripts as files.
 """
+
+# Author: Gael Varoquaux <gael dot varoquaux at normalesup dot org> 
+# Copyright (c) 2008 Gael Varoquaux
+# License: BSD Style, 3 clauses.
+
+
+
 import time
 import sys
 import os

@@ -133,11 +133,6 @@ An example
     True
 
 
-Let us not forget to clean our cache dir once we are finished::
-
-    >>> import shutil
-    >>> shutil.rmtree(cachedir)
-
 `make` as a persistence model and lazy-re-evaluation execution engine
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -332,4 +327,10 @@ Writing your own
 
 How it works
 -------------
+
+Let us not forget to clean our cache dir once we are finished::
+
+    >>> import shutil
+    >>> shutil.rmtree(cachedir)
+
 

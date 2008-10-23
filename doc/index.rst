@@ -8,7 +8,10 @@ Joblib: running Python scripts as jobs
 Contents:
 
 .. toctree::
-   :maxdepth: 2
+    :maxdepth: 2
+
+    make.rst
+    memoize.rst
 
 Indices and tables
 ==================

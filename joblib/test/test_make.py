@@ -8,7 +8,6 @@ Tests for joblib.make.
 
 import shutil
 from tempfile import mkdtemp
-import traceback
 import time
 
 # Local imports
@@ -328,38 +327,5 @@ def test_lambda():
     _assert_equal(f(2), 1)
 
     shutil.rmtree(cachedir)
-
-
-def test_docs():
-    """ Run the doctests.
-
-        We do not rely on the nose doctest plugin, as this allows us to
-        specify the options we want to doctest, and to run the tests by
-        default.
-    """
-    try:
-        import numpy as np
-    except ImportError:
-        """ Pass this test if numpy is not installed."""
-        return 
-    import doctest
-    doctest.testfile('../make.rst', module_relative=True)
-
-################################################################################
-if __name__ == '__main__':
-    # Our own nosetest like behavior:
-    _globals = globals().keys()
-    for func_name in _globals:
-        if func_name.startswith('test_'):
-            func = globals()[func_name]
-            try:
-                func()
-            except:
-                print 80*'_'
-                print 'Exception in %s' % func_name
-                if hasattr(func, '__doc__'):
-                    print func.__doc__
-                traceback.print_exc()
-                print 80*'_'
 
 

@@ -1,6 +1,13 @@
 """
 Test the run_scripts modules.
 """
+
+# Author: Gael Varoquaux <gael dot varoquaux at normalesup dot org> 
+# Copyright (c) 2008 Gael Varoquaux
+# License: BSD Style, 3 clauses.
+
+
+
 import sys
 import tempfile
 from StringIO import StringIO

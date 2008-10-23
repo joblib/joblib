@@ -8,6 +8,11 @@ Taken from U{http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/466320}.
 
 """
 
+# Author: Gael Varoquaux <gael dot varoquaux at normalesup dot org> 
+# Copyright (c) 2008 Gael Varoquaux
+# License: BSD Style, 3 clauses.
+
+
 import os
 import warnings
 from shelve import open as sopen
@@ -183,32 +188,4 @@ def memoize(persist=True, cachedir='cache', debug=False):
     return lambda func: MemoizeFunctor(func, 
                                     persist=persist, cachedir=cachedir,
                                     debug=debug)
-
-
-if __name__ == "__main__":
-    # Some test/demo functions. 
-
-    # Remove the memoize decorator from this, and watch the speed
-    # difference!
-    @memoize()
-    def fibonacci(n):
-       "Return the n-th element of the Fibonacci series."
-       print('fibonacci(%i) called' % n)
-       if n < 3:
-          return 1
-       return fibonacci(n-1) + fibonacci(n-2)
-
-    print([fibonacci(i) for i in xrange(1, 101)])
-
-    @memoize()
-    def my_pow(x, p=2):
-        print('my_pow called')
-        if p==1:
-            return x
-        else:
-            return x * my_pow(x, p=p-1)
-
-    for i in xrange(1, 6):
-        print(my_pow(3, i))
-
 
