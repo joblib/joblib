@@ -271,10 +271,11 @@ class MakeFunctor(object):
     """
 
     def __init__(self, func, output=None, cachedir='cache', debug=False,
-                    name=None):
+                    raise_errors=False, name=None):
         self._output = output
         self._debug = debug
         self._func = func
+        self._raise_errors = raise_errors
         if name is None:
             name = func.func_name
         self._name = name
@@ -333,33 +334,49 @@ class MakeFunctor(object):
             run_func = True
         return not run_func
 
+    def _persist_output(self, new_output, persister):
+        """ Given a persister, recursively explore it to persist the
+            given output.
+        """
+        if isinstance(persister, Persister):
+            persister.save(new_output)
+        elif type(persister) in (t.ListType, t.TupleType):
+            try:
+                for out, sub_persister in zip(new_output, persister):
+                    self._persist_output(out, sub_persister)
+            except TypeError:
+                self.warn("Persistent output not properly specified")
+                if self._raise_errors:
+                    raise
+                elif self._debug:
+                    traceback.print_exc()
+        elif not type(persister) in non_mutable_types:
+            self.warn("Can't persist the output")
+
+
     def persist_output(self, new_output):
         """ Save the output values using the provided persisters.
         """
-        if isinstance(self._output, Persister):
-            self._output.save(new_output)
-        elif type(self._output) in (t.ListType, t.TupleType):
-            try:
-                for out, persistence in zip(new_output, self._output):
-                    persistence.save(out)
-            except TypeError:
-                self.warn("Persistent output not properly specified")
-                if self._debug:
-                    traceback.print_exc()
-        elif not type(self._output) in non_mutable_types:
-            self.warn("Can't persist the output of %s")
+        self._persist_output(new_output, self._output)
+
+    def _load_output(self, persister):
+        """ Load the output from a previous run, using the provided
+            persisters.
+        """
+        if isinstance(persister, Persister):
+            new_output = persister.load()
+        elif type(persister) in (t.ListType, t.TupleType):
+            new_output = tuple(self._load_output(sub_persister)
+                                            for sub_persister in persister)
+        else:
+            new_output = persister
+        return new_output
 
     def load_output(self):
         """ Load the output from a previous run, using the provided
             persisters.
         """
-        if issubclass(self._output.__class__, Persister):
-            new_output = self._output.load()
-        elif type(self._output) in (t.ListType, t.TupleType):
-            new_output = tuple(persistence.load() 
-                        for persistence in self._output)
-        else:
-            new_output = self._output
+        new_output =  self._load_output(self._output)
         cache = pickle.load(file(self._cachefile))
         self.store_output_time_stamps(new_output, cache['time_stamp'])
         return new_output
@@ -380,7 +397,9 @@ class MakeFunctor(object):
                 return self.load_output()
         except:
             self.warn('exception while loading previous results')
-            if self._debug:
+            if self._raise_errors:
+                raise
+            elif self._debug:
                 traceback.print_exc()
         # We need to rerun the function:
         new_output = self._func(*args, **kwargs)
@@ -397,14 +416,17 @@ class MakeFunctor(object):
         return new_output
 
 
-def make(func=None, output=None, cachedir='cache', debug=False, name=None):
+def make(func=None, output=None, cachedir='cache', debug=False,
+         name=None, raise_errors=False):
     # Some magic to use this both as a decorator and as a nicer function
     # call (is this magic evil?)
     if func is None:
         return lambda f: MakeFunctor(f, output=output, cachedir=cachedir,
-                                        debug=debug, name=name)
+                                        debug=debug, name=name, 
+                                        raise_errors=raise_errors)
     else:
         return MakeFunctor(func, output=output, cachedir=cachedir,
-                                        debug=debug, name=name)
+                                        debug=debug, name=name,
+                                        raise_errors=raise_errors)
 
 

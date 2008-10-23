@@ -136,6 +136,23 @@ def test_make_persistence():
     shutil.rmtree(cachedir)
 
 
+def test_make_complexe_persistence():
+    """ Test persistence using a nested list of persisters.
+    """
+    cachedir = mkdtemp()
+
+    @make(cachedir=cachedir, debug=True, raise_errors=True,
+          output=(PickleFile(cachedir+'/f_output_1'),
+                  (1, PickleFile(cachedir+'/f_output_2')))
+          )
+    def test3(a, b):
+        return (a, (1, b))
+
+    _assert_equal(test3('ab', (1, 2, 3)), test3('ab', (1, 2, 3)))
+
+    shutil.rmtree(cachedir)
+
+
 def test__numpy():
     """ Check that we can persist, load, and perform operations, with
         numpy arrays.
