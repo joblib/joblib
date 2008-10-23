@@ -22,3 +22,16 @@ Run the command::
 
 The docs are built in the build/sphinx/html directory.
 
+
+Making a source tarball
+----------------------------
+
+To create a source tarball, eg for packaging or distributing, run the
+following command:
+
+    python setupegg.py sdist
+
+The tarball will be created in the `dist` directory. This command will
+compile the docs, and the resulting tarball can be installed with
+no extra dependencies than the Python standard library.
+
