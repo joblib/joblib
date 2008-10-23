@@ -12,8 +12,8 @@ import traceback
 import time
 
 # Local imports
-from make import Serializer, _time_stamp_registry, PickleFile, NumpyFile, \
-    make, TimeStamp, ReferenceRegistry
+from joblib.make import Serializer, _time_stamp_registry, PickleFile, \
+    NumpyFile, make, TimeStamp, ReferenceRegistry
 
 class AClass(object):
     """ A class for our tests. """
@@ -48,6 +48,7 @@ def test_registry_time_stamps():
 if __name__ == '__main__':
     test_registry_garbage_collection()
     test_registry_time_stamps()
+
 
 def test_serializer():
     """ Test the serializer.
@@ -325,7 +326,7 @@ def test_docs():
         """ Pass this test if numpy is not installed."""
         return 
     import doctest
-    doctest.testfile('make.rst', module_relative=False)
+    doctest.testfile('../make.rst', module_relative=True)
 
 ################################################################################
 if __name__ == '__main__':

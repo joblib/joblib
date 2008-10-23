@@ -9,7 +9,10 @@ setup(name='joblib',
       author='Gael Varoquaux',
       author_email='gael.varoquaux@normalesup.org',
       url='None',
-      package_data={'joblib': ['joblib/*.rst']},
-      packages=['joblib', ],
+      package_data={'joblib': ['joblib/*.rst'],},
+      packages=['joblib', 'joblib.test'],
+      # Setuptools specific stuff (does no harm in being here)
+      tests_require=['nose', 'coverage'],
+      test_suite='nose.collector',
       )
 

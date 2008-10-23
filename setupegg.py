@@ -9,4 +9,4 @@ execfile('setup.py', dict(__name__='__main__'))
 
 # clean up the junk left around by setuptools
 if "develop" not in sys.argv:
-    os.system('rm -rf ipython.egg-info build')
+    os.system('rm -rf joblib.egg-info build')

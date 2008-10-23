@@ -1,6 +1,6 @@
 import time
 
-from reference_registry import ReferenceRegistry
+from joblib.reference_registry import ReferenceRegistry
 
 class AClass(object):
     """ A class for our tests. """

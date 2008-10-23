@@ -1,4 +1,3 @@
-
 ==============================
 The `make` function decorator
 ==============================
@@ -21,7 +20,7 @@ A simple example:
     >>> from tempfile import mkdtemp
     >>> cachedir = mkdtemp()
 
-    >>> from make import make, PickleFile
+    >>> from joblib.make import make, PickleFile
 
   Then we define our function, speicifying its cache directory, and that
   it persists its output using a pickle file in the chace directory::
@@ -86,7 +85,7 @@ An example
   functions with `make`, persisting the output in numpy files::
 
     >>> import numpy as np
-    >>> from make import NumpyFile
+    >>> from joblib.make import NumpyFile
 
     >>> @make(cachedir=cachedir, output=NumpyFile(cachedir+'/f.npy'))
     ... def f(x):
