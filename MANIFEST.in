@@ -1,0 +1,2 @@
+include *.txt *.py
+recursive-include joblib *.rst *.py
