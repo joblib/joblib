@@ -12,5 +12,8 @@ Sub-modules
 
 """
 
+__version__ = '0.1a'
+
+
 from run_scripts import default_param, PrintTime, run_script
 
