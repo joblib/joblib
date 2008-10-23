@@ -211,10 +211,4 @@ if __name__ == "__main__":
     for i in xrange(1, 6):
         print(my_pow(3, i))
 
-    @memoize()
-    def printlist(l):
-        print('printlist called')
-        print(l)
-    printlist([1,2,3,4])
-
 
