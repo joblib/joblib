@@ -64,6 +64,7 @@ extra_setuptools_args = dict(
                             tests_require=['nose', 'coverage'],
                             test_suite='nose.collector',
                             cmdclass={'zip_help':ZipHelp},
+                            zip_safe=False,
                             )
 
 
