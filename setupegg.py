@@ -20,9 +20,7 @@ def relative_path(filename):
 
 class ZipHelp(Command):
     description = \
-    """ A setuptools command to zip the help created by the build_sphinx, 
-        and put it where the users can find it.
-    """
+    """zip the help created by the build_sphinx, and put it in the source distribution. """
 
     user_options = [
         ('None', None, 'this command has no options'),
@@ -68,7 +66,8 @@ extra_setuptools_args = dict(
                             )
 
 
-execfile('setup.py', dict(__name__='__main__', 
+if __name__ == '__main__':
+    execfile('setup.py', dict(__name__='__main__', 
                           extra_setuptools_args=extra_setuptools_args))
 
 

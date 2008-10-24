@@ -24,7 +24,7 @@ Building the docs
 To build the docs you need to have setuptools and sphinx (>=0.5) installed. 
 Run the command::
 
-    python setupegg.py build_sphinx
+    python setup.py build_sphinx
 
 The docs are built in the build/sphinx/html directory.
 
@@ -35,9 +35,10 @@ Making a source tarball
 To create a source tarball, eg for packaging or distributing, run the
 following command:
 
-    python setupegg.py sdist
+    python setup.py sdist
 
 The tarball will be created in the `dist` directory. This command will
 compile the docs, and the resulting tarball can be installed with
-no extra dependencies than the Python standard library.
+no extra dependencies than the Python standard library. You will need
+setuptool and sphinx.
 
