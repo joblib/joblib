@@ -271,11 +271,12 @@ class MakeFunctor(object):
     """
 
     def __init__(self, func, output=None, cachedir='cache', debug=False,
-                    raise_errors=False, name=None):
+                    raise_errors=False, name=None, force=False):
         self._output = output
         self._debug = debug
         self._func = func
         self._raise_errors = raise_errors
+        self._force = force
         if name is None:
             name = func.func_name
         self._name = name
@@ -306,7 +307,9 @@ class MakeFunctor(object):
         """ Check to see if the cache files tells us we can use previous
             retults.
         """
-        # XXX This should probably be tested, using tempfiles
+        if self._force:
+            self.warn('Forcing the reload of the results')
+            return False
         run_func = False
         obj, call_signature = self.get_call_signature(args, kwargs)
         if os.path.exists(self._cachefile):
@@ -417,16 +420,18 @@ class MakeFunctor(object):
 
 
 def make(func=None, output=None, cachedir='cache', debug=False,
-         name=None, raise_errors=False):
+         name=None, raise_errors=False, force=False):
     # Some magic to use this both as a decorator and as a nicer function
     # call (is this magic evil?)
     if func is None:
         return lambda f: MakeFunctor(f, output=output, cachedir=cachedir,
                                         debug=debug, name=name, 
+                                        force=force,
                                         raise_errors=raise_errors)
     else:
         return MakeFunctor(func, output=output, cachedir=cachedir,
                                         debug=debug, name=name,
+                                        force=force,
                                         raise_errors=raise_errors)
 
 
