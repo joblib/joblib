@@ -12,42 +12,7 @@ import time
 
 # Local imports
 from joblib.make import Serializer, _time_stamp_registry, PickleFile, \
-    NumpyFile, make, TimeStamp, ReferenceRegistry
-
-class AClass(object):
-    """ A class for our tests. """
-
-
-def test_registry_garbage_collection():
-    """ Check that objects are cleaned from the registry when they are
-        removed.
-    """
-    registry = ReferenceRegistry()
-    a = AClass()
-    b = AClass()
-    registry.register(a)
-    assert a in registry
-    registry.register(b)
-    assert b in registry
-    del b
-    assert len(registry.id_table.keys()) == 2
-    del a
-    assert len(registry.id_table.keys()) == 1
-
-def test_registry_time_stamps():
-    """ Check that time_stamps are well kept and ordered in the registry. 
-    """
-    registry = ReferenceRegistry()
-    a = AClass()
-    b = AClass()
-    registry.register(a)
-    registry.register(b)
-    assert registry.latest_reference().id == id(b)
-
-if __name__ == '__main__':
-    test_registry_garbage_collection()
-    test_registry_time_stamps()
-
+    NumpyFile, make, TimeStamp
 
 def test_serializer():
     """ Test the serializer.

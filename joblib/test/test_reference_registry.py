@@ -4,8 +4,6 @@
 # License: BSD Style, 3 clauses.
 
 
-import time
-
 from joblib.reference_registry import ReferenceRegistry
 
 class AClass(object):

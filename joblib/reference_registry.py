@@ -37,8 +37,6 @@ class ReferenceRegistry(object):
         default_ref = Reference(None, time_stamp=0)
         self.id_table = {id(None):default_ref}
 
-        if default_time_stamp is None:
-            default_time_stamp = time.time()
         self.default_time_stamp = default_time_stamp
 
 
@@ -46,7 +44,10 @@ class ReferenceRegistry(object):
         """ Add a reference to the object in the registry.
         """
         if time_stamp is None:
-            time_stamp = self.default_time_stamp
+            if self.default_time_stamp is not None:
+                time_stamp = self.default_time_stamp
+            else:
+                time_stamp = time.time()
         reference =  Reference(obj, time_stamp=time_stamp, desc=desc)
 
         obj_id = id(obj)
