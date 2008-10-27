@@ -27,13 +27,13 @@ setup(name='joblib',
       url='https://launchpad.net/joblib',
       description="""
 A set of tools to run Python scripts as jobs; namely: persistence and lazy
-revaluation (between make and the memoize pattern), logging, and tools for
+re-evaluation (between make and the memoize pattern), logging, and tools for
 reusing scripts. 
 """,
       long_description="""
 Joblib provides a set of tools to run Python scripts as jobs; namely: 
 
-  1. persistence and lazy revaluation (between make and the memoize pattern), 
+  1. persistence and lazy re-evaluation (between make and the memoize pattern), 
 
   2. logging, 
 
