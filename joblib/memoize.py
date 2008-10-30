@@ -85,9 +85,15 @@ class MemoizeFunctor(object):
             # I cannot use inspect.getsource because it is not
             # reliable when using IPython's magic "%run".
             func_code = _function_code_hash(func)
-            if not ('__func_code__' in cache  and
-                        cache['__func_code__'] == func_code):
-                self._cache_clear()
+            try:
+                if not ('__func_code__' in cache  and
+                            cache['__func_code__'] == func_code):
+                    self._cache_clear()
+            except _bsddb.DBRunRecoveryError:
+                self.warn('Unrecoverable DB error, clearing DB')
+                self._cache = None
+                os.unlink(self._cache_filename)
+                self._cache = sopen(self._cache_filename, 'c')
 
 
     def _cache_clear(self):
