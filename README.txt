@@ -33,7 +33,7 @@ Making a source tarball
 ----------------------------
 
 To create a source tarball, eg for packaging or distributing, run the
-following command:
+following command::
 
     python setup.py sdist
 
@@ -41,4 +41,12 @@ The tarball will be created in the `dist` directory. This command will
 compile the docs, and the resulting tarball can be installed with
 no extra dependencies than the Python standard library. You will need
 setuptool and sphinx.
+
+Making a release and uploading it to PyPI
+------------------------------------------
+
+This command is only run by project manager, to make a release, and
+upload in to PyPI::
+
+    python setup.py sdist bdist_egg register upload
 
