@@ -170,9 +170,7 @@ class Serializer(object):
             keys = self._hash_iterable(item.keys(), desc='%s.keys()' % desc)
             values = self._hash_iterable(item.values(), 
                                     desc='%s.values()'% desc)
-            d = dict()
-            for key, value in zip(keys, values):
-                d[key] = value
+            return dict(zip(keys, values))
             return d
         # XXX: This is to avoid duplications with objects coming from
         # different functions having the same id. Maybe the solution is
