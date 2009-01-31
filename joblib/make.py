@@ -43,8 +43,11 @@ class Reference(object):
         self.desc = desc
 
     def __repr__(self):
-        return 'Ref to %s %s, id:%i, time_stamp %f' % (
-            self.repr, self.desc, self.id, self.time_stamp)
+        return 'Ref to %s %s, id:%i, time_stamp %s' % (
+            self.repr, self.desc, self.id, 
+            time.strftime("%a, %d %b %Y %H:%M:%S", 
+                                    time.localtime(self.time_stamp))
+            )
 
 
 class ReferenceRegistry(object):
@@ -334,7 +337,9 @@ class MakeFunctor(object):
         """
         if self._force:
             self.warn('Forcing the reload of the results')
-            return False
+            # FIXME: I need to check if I should return True or false
+            # here.
+            return True
         run_func = False
         obj, call_signature = self.get_call_signature(args, kwargs)
         if os.path.exists(self._cachefile):
@@ -345,8 +350,14 @@ class MakeFunctor(object):
                 run_func = True
             elif obj.time_stamp > cache['time_stamp']:
                 if self._debug:
-                    self.warn("Newer time stamp: %s, for %s %s"
-                                    % (obj.time_stamp, obj.desc, obj.repr)
+                    self.warn('obj.time_stamp %s, cache[time_stamp] %s' 
+                                % (obj.time_stamp, cache['time_stamp'])) # DBG
+                    self.warn("Newer time stamp: %s (function last ran %s), for %s %s"
+                            % (time.strftime("%a, %d %b %Y %H:%M:%S",
+                                   time.localtime(cache['time_stamp'])), 
+                               time.strftime("%a, %d %b %Y %H:%M:%S",
+                                   time.localtime(obj.time_stamp)), 
+                               obj.desc, obj.repr)
                               )
                     if not obj.id in _time_stamp_registry.id_table:
                         logging.warn(

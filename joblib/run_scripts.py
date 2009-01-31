@@ -11,6 +11,7 @@ Useful functions to run scripts as files.
 import time
 import sys
 import os
+import shutil
 
 class Bunch(dict):
     """ A dict that exposes its keys as attributes.
@@ -62,8 +63,18 @@ class PrintTime(object):
     def __init__(self, logfile=None):
         self.last_time = time.time()
         self.logfile = logfile
-        if logfile is not None and os.path.exists(logfile):
-            os.remove(logfile)
+        if logfile is not None:
+            if os.path.exists(logfile):
+                # Rotate the logs
+                for i in range(1, 9):
+                    if os.path.exists(logfile+'.%i' % i):
+                        shutil.move(logfile+'.%i' % i, logfile+'.%i' % (i+1))
+                # Use a copy rather than a move, so that a process
+                # monitoring this file does not get lost.
+                shutil.copy(logfile, logfile+'.1')
+            logfile = file(logfile, 'w')
+            logfile.write('\nLogging joblib python script\n')
+            logfile.write('\n---%s---\n' % time.ctime(self.last_time))
 
     def __call__(self, msg=''):
         """ Print the time elapsed between the last call and the current
@@ -77,8 +88,4 @@ class PrintTime(object):
         self.last_time = time.time()
 
 
-
-if __name__ == '__main__':
-    # Some tests
-    test_default_param()
 
