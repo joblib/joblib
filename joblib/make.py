@@ -223,6 +223,10 @@ class PickleFile(Persister):
 
 
 class NumpyFile(Persister):
+
+    def __init__(self, filename, mmap_mode=None):
+        self._filename = filename
+        self._mmap_mode = mmap_mode
     
     def save(self, ary):
         import numpy as np
@@ -233,7 +237,7 @@ class NumpyFile(Persister):
         filename = self._filename
         if not os.path.exists(filename):
             filename += '.npy'
-        return np.load(filename)
+        return np.load(filename, mmap_mode=self._mmap_mode)
 
 
 class NiftiFile(Persister):
@@ -253,6 +257,27 @@ class NiftiFile(Persister):
     def load(self):
         import nifti
         ary = nifti.NiftiImage(self._filename).asarray().T
+        if self._dtype is not None:
+            ary = ary.astype(self._dtype)
+        return ary
+
+
+class MemMappedNiftiFile(NiftiFile):
+
+    def save(self, ary):
+        import numpy as np
+        if np.dtype(self._dtype).kind == 'b':
+            ary = ary.astype(np.int8)
+        if hasattr(self, 'nifti_image'):
+            self.nifti_image.save(self._filename)
+        else:
+            from nifti import NiftiImage
+            NiftiImage(ary.T, self._header).save(self._filename)
+
+    def load(self):
+        from nifti.niftiimage import MemMappedNiftiImage
+        self.nifti_image = MemMappedNiftiImage(self._filename)
+        ary = self.nifti_image.asarray().T
         if self._dtype is not None:
             ary = ary.astype(self._dtype)
         return ary
