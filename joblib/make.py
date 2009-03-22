@@ -224,8 +224,14 @@ class PickleFile(Persister):
 
 
 class NumpyFile(Persister):
+    """ Persist the data to a file using a '.npy' or '.npz' file.
+    """
 
     def __init__(self, filename, mmap_mode=None):
+        """ mmap_mode is the mmap_mode argument to numpy.save. When
+            given, memmapping is used to read the results. This can be
+            much faster.
+        """
         self._filename = filename
         self._mmap_mode = mmap_mode
     
@@ -242,8 +248,18 @@ class NumpyFile(Persister):
 
 
 class NiftiFile(Persister):
+    """ Persists the data using a nifti file.
+        
+        Requires PyNifti to be installed.
+    """
 
     def __init__(self, filename, header=None, dtype=None):
+        """ header is the optional nifti header.
+
+            dtype is a numpy dtype and is used to force the loading of
+            the results with a certain dtype. Useful when the types
+            understood by nifti are not complete enough for your purpose.
+        """
         self._filename = filename
         self._header = header
         self._dtype = dtype
@@ -264,6 +280,8 @@ class NiftiFile(Persister):
 
 
 class MemMappedNiftiFile(NiftiFile):
+    """ Persists the data using a memmapped nifti file.
+    """
 
     def save(self, ary):
         import numpy as np
@@ -455,6 +473,42 @@ class MakeFunctor(object):
 
 def make(func=None, output=None, cachedir='cache', debug=False,
          name=None, raise_errors=False, force=False):
+    """ Decorate a function for lazy re-evaluation.
+
+        Parameters
+        -----------
+        func : a callable, optional
+            If func is given, the function is returned decorated.
+            Elsewhere, the call to 'make' returns a decorator object that
+            can be applied to a function.
+        output : persisters, optional
+            output can be a persistence objects, or a list of persistence
+            objects. This argument describes the mapping to the disk used
+            to save the output of the decorated function.
+        cachedir : string, optional
+            Name of the directory used to store the function calls cache 
+            information.
+        debug : boolean, optional
+            If debug is true, joblib produces a verbose output that can
+            be useful to understand why memoized functions are being 
+            re-evaluated.
+        name : string, optional
+            Identifier for the function used in the cache. If none is
+            given, the function name is used. Changing the default
+            value of this identifier is usefull when you want to call
+            the function several times with different arguments and 
+            store in different caches.
+        force : boolean, optional
+            If force is true, make tries to reload the results, even if
+            the input arguments have changed. This is useful to avoid 
+            long recalculation when minor details up the pipeline
+            changed.
+
+        Returns
+        ---------
+        The decorated function, if func is given. A decorator object
+        elsewhere.
+    """
     # Some magic to use this both as a decorator and as a nicer function
     # call (is this magic evil?)
     if func is None:

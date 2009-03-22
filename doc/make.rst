@@ -311,10 +311,18 @@ Gotchas
 
 .. _`reference chapter`: http://www.informit.com/articles/article.aspx?p=453682 
 
+Let us not forget to clean our cache dir once we are finished::
+
+    >>> import shutil
+    >>> shutil.rmtree(cachedir)
+
+.. currentmodule:: joblib.make
 
 
 Optional arguments to `make`
 -----------------------------
+
+.. autofunction:: make
 
 Persistence objects
 --------------------
@@ -322,15 +330,32 @@ Persistence objects
 Persistence objects provided with `make`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+.. autoclass:: PickleFile
+    :members: __init__
+
+.. autoclass:: NumpyFile
+    :members: __init__
+
+.. autoclass:: NiftiFile
+    :members: __init__
+
+.. autoclass:: MemMappedNiftiFile
+    :members: __init__
+
+
 Writing your own
 ~~~~~~~~~~~~~~~~~
+
+A persistence object inherits from `joblib.make.Persister` and exposes a
+`save` method, accepting the data as an argument, and a load method,
+returning the data. The filename is usually set in the initializer.
 
 How it works
 -------------
 
-Let us not forget to clean our cache dir once we are finished::
-
-    >>> import shutil
-    >>> shutil.rmtree(cachedir)
-
+Objects are tracked by their Python `id`. The `make` decorator stores
+information on the history of each object in the cache for the different
+functions, and reloads results only if objects given to a function are
+newer or different than the objects used in the previous run, or it
+cannot determine the history of these objects.
 
