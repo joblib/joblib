@@ -72,6 +72,8 @@ class PrintTime(object):
                 # Use a copy rather than a move, so that a process
                 # monitoring this file does not get lost.
                 shutil.copy(logfile, logfile+'.1')
+            if not os.path.exists(os.path.dirname(logfile)):
+                os.makedirs(os.path.dirname(logfile))
             logfile = file(logfile, 'w')
             logfile.write('\nLogging joblib python script\n')
             logfile.write('\n---%s---\n' % time.ctime(self.last_time))
