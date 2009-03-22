@@ -12,7 +12,7 @@ Sub-modules
 
 """
 
-__version__ = '0.1a'
+__version__ = '0.2a'
 
 
 from run_scripts import default_param, PrintTime, run_script
