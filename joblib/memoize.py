@@ -21,7 +21,13 @@ import inspect
 import itertools
 import traceback
 import logging
-from bsddb import _bsddb
+try:
+    from bsddb import _bsddb
+    DBError = _bsddb.DBError
+except ImportError:
+    # bsddb is not installed on every system.
+    DBError = Exception
+
 
 def _function_code_hash(func):
     """ Attempts to retrieve a reliable function code hash.
@@ -89,7 +95,7 @@ class MemoizeFunctor(object):
                 if not ('__func_code__' in cache  and
                             cache['__func_code__'] == func_code):
                     self._cache_clear()
-            except _bsddb.DBRunRecoveryError:
+            except DBError:
                 self.warn('Unrecoverable DB error, clearing DB')
                 self._cache = None
                 os.unlink(self._cache_filename)
@@ -152,7 +158,7 @@ class MemoizeFunctor(object):
                 try:
                     self._cache[dump] = result
                 except Exception, e:
-                    if isinstance(e, _bsddb.DBRunRecoveryError):
+                    if isinstance(e, DBError):
                         self.warn('Unrecoverable DB error, clearing DB')
                         self._cache = None
                         os.unlink(self._cache_filename)
