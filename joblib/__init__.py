@@ -8,12 +8,12 @@ Sub-modules
     caching to disk of functions. Memoize does not work well with
     functions taking arrays as arguments or returning arrays.
 
-  * run_scripts: functions for running scripts.
+  * make
 
 """
 
 __version__ = '0.2a'
 
 
-from run_scripts import default_param, PrintTime, run_script
+from run_scripts import PrintTime
 

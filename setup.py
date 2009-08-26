@@ -85,12 +85,7 @@ The tools that have been identified and developped so far are:
      problem, but it seems that the current implementation is good-enough to 
      work on a set of problems. 
 
-  2) A way of specifying default input parameters in scripts, that can
-     afterwards be overridden using a glorified 'execfile'. This is a way
-     to try and reuse standard processing steps written as script, thus
-     addressing problem 3). This is exposed in the run_scripts.py module.
-
-  3) The two functionalities described above will progressively acquire
+  2) The functionalities described above will progressively acquire
      better logging mechanism to help track what has been ran, and
      capture I/O easily. In addition, Joblib will provide a few I/O
      primitives, to easily define define logging and display streams,
