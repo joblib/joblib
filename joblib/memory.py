@@ -15,7 +15,7 @@ Taken from U{http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/466320}.
 
 
 import os
-import shutils
+import shutil
 from cPickle import dumps, PicklingError
 import inspect
 import itertools
@@ -29,7 +29,7 @@ from .memoize import _function_code_hash
 # XXX: Need to enable pickling, to use with multiprocessing.
 
 ################################################################################
-class MemoizeFunctor(object):
+class Memory(object):
     """ A context object for caching a function's return value each time 
     it are called.
     
@@ -47,10 +47,11 @@ class MemoizeFunctor(object):
         if not os.path.exists(self._cachedir):
             os.makedirs(self._cachedir)
 
+
     def eval(self, func, *args, **kwargs):
         # Compare the function code with the previous to see if the
         # function code has changed
-        if not self._check_previous_func_code(func)
+        if not self._check_previous_func_code(func):
             self._cache_clear(func)
 
 
@@ -58,7 +59,7 @@ class MemoizeFunctor(object):
         """ A decorator.
         """
         # XXX: Should not be using closures: this is not pickleable
-        @functools.wraps(func):
+        @functools.wraps(func)
         def my_func(*args, **kwargs):
             return self.eval(func, *args, **kwargs)
         return my_func
@@ -70,31 +71,39 @@ class MemoizeFunctor(object):
         """
         module = func.__module__
         module = module.split('.')
-        module.append(func.name)
+        module.append(func.func_name)
         func_dir = os.path.join(self._cachedir, *module)
         if not os.path.exists(func_dir):
             os.makedirs(func_dir)
         return func_dir
 
+
     def _check_previous_func_code(self, func):
         func_code = _function_code_hash(func)
         func_dir = self._get_func_dir(func)
-        func_code_file = os.path.join(func_dir, 'func_content.py')
+        func_code_file = os.path.join(func_dir, 'func_code.py')
         # I cannot use inspect.getsource because it is not
         # reliable when using IPython's magic "%run".
 
-        # XXX: This is where I should check if the function has changed,
-        # and if so, wipe the cache directory.
-        if ( not os.path.exists(func_code_file) or 
-                        not file(func_code_file).read() == func_code):
-            
+        if not os.path.exists(func_code_file): 
+            file(func_code_file, 'w').write(func_code)
+            return False
+        elif not file(func_code_file).read() == func_code:
+            # If the function has changed wipe the cache directory.
+            shutil.rmtree(func_dir)
+            os.makedirs(func_dir)
+            file(func_code_file, 'w').write(func_code)
+            return False
+        else:
+            return True
 
     def _cache_clear(self, func):
         func_code = _function_code_hash(func)
+        func_dir = self._get_func_dir(func)
         func_code_file = os.path.join(func_dir, 'func_content.py')
         if self._debug:
             self.warn("Clearing cache %s" % func_dir)
-        if os.path.exits(func_dir):
+        if os.path.exists(func_dir):
             shutil.rmtree(func_dir)
         os.makedirs(func_dir)
         func_code_file = os.path.join(func_dir, 'func_content.py')
@@ -106,6 +115,7 @@ class MemoizeFunctor(object):
             ( self.func.func_name, self.func.__module__,
               self.func.func_code.co_firstlineno, msg)
                 )
+
 
     def __call__(self, *args, **kwds):
         key = args
@@ -159,6 +169,7 @@ class MemoizeFunctor(object):
                     self._cache.sync()
                 return result
 
+
     def print_call(self, *args, **kwds):
         """ Print a debug statement displaying the function call with the 
             arguments.
@@ -168,8 +179,11 @@ class MemoizeFunctor(object):
                                     ', '.join('%s=%s' % (v, i) for v, i
                                     in kwds.iteritems())))
 
+
     def clear(self):
-        # Erase the complete cache directory and log.
+        """ Erase the complete cache directory and log.
+        """
+        # TODO
 
 
 

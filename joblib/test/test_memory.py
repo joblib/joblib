@@ -7,15 +7,46 @@ Test the memory module.
 # License: BSD Style, 3 clauses.
 
 import shutil
+import os
 from tempfile import mkdtemp
+
+import nose
 
 from ..memory import Memory
 
+################################################################################
+# Module-level variables for the tests
+def f(x):
+    """ A module-level function for testing purposes.
+    """
+    return x**2
 
-def test_memory():
+cachedir = None
+
+################################################################################
+# Test fixtures
+def setup():
+    """ Test setup.
+    """
+    global cachedir
+    #cachedir = mkdtemp()
+    cachedir = 'foobar'
+    if os.path.exists(cachedir):
+        shutil.rmtree(cachedir)
+    os.makedirs(cachedir)
+    
+
+def teardown():
+    """ Test teardown.
+    """
+    return True
+    shutil.rmtree(cachedir)
+
+################################################################################
+# Tests
+def aatest_memory_integration():
     """ Simple tests of memory features.
     """
-    cachedir = mkdtemp()
     memory = Memory(cachedir=cachedir)
     accumulator_f = list()
     accumulator_g = list()
@@ -35,15 +66,31 @@ def test_memory():
     for i in range(10):
         for j in range(3):
             for accumulator, func in zip(
-                    (accumulator_f, accumulator_g, accumulator_h), (f, g, h)):
-                _assert_equal(func(i), i)
-                _assert_equal(len(accumulator), i + 1)
+                    (accumulator_f, accumulator_g), (f, g)):
+                nose.tools.assert_equal(func(i), i)
+                nose.tools.assert_equal(len(accumulator), i + 1)
 
 
     # Test for an explicit keyword argument:
-    _assert_equal(g(l=30, m=2), 30)
-
-    shutil.rmtree(cachedir)
+    nose.tools.assert_equal(g(l=30, m=2), 30)
 
 
+def test_func_dir():
+    """ Test the creation of the cache directory for the function.
+    """
+    memory = Memory(cachedir=cachedir)
+    path = __name__.split('.')
+    path.append('f')
+    path = os.path.join(cachedir, *path)
+
+    # Test that the function directory is created on demand
+    yield nose.tools.assert_equal, memory._get_func_dir(f), path
+    
+    # Test that the code is stored.
+    yield nose.tools.assert_false, \
+        memory._check_previous_func_code(f)
+    yield nose.tools.assert_true, \
+            os.path.exists(os.path.join(path, 'func_code.py'))
+    yield nose.tools.assert_true, \
+        memory._check_previous_func_code(f)
 
