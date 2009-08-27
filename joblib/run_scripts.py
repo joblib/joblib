@@ -30,19 +30,35 @@ class PrintTime(object):
         self.last_time = time.time()
         self.logfile = logfile
         if logfile is not None:
+            if not os.path.exists(os.path.dirname(logfile)):
+                os.makedirs(os.path.dirname(logfile))
             if os.path.exists(logfile):
                 # Rotate the logs
                 for i in range(1, 9):
                     if os.path.exists(logfile+'.%i' % i):
-                        shutil.move(logfile+'.%i' % i, logfile+'.%i' % (i+1))
+                        try:
+                            shutil.move(logfile+'.%i' % i, 
+                                        logfile+'.%i' % (i+1))
+                        except:
+                            "No reason failing here"
                 # Use a copy rather than a move, so that a process
                 # monitoring this file does not get lost.
-                shutil.copy(logfile, logfile+'.1')
-            if not os.path.exists(os.path.dirname(logfile)):
-                os.makedirs(os.path.dirname(logfile))
-            logfile = file(logfile, 'w')
-            logfile.write('\nLogging joblib python script\n')
-            logfile.write('\n---%s---\n' % time.ctime(self.last_time))
+                try:
+                    shutil.copy(logfile, logfile+'.1')
+                except:
+                    "No reason failing here"
+            try:
+                logfile = file(logfile, 'w')
+                logfile.write('\nLogging joblib python script\n')
+                logfile.write('\n---%s---\n' % time.ctime(self.last_time))
+            except:
+                """ Multiprocessing writing to files can create race
+                    conditions. Rather fail silently than crash the
+                    caculation.
+                """
+                # XXX: We actually need a debug flag to disable this
+                # silent failure.
+
 
     def __call__(self, msg=''):
         """ Print the time elapsed between the last call and the current
@@ -52,7 +68,15 @@ class PrintTime(object):
         full_msg = "%s: %.2fs, %.1f min" % (msg, time_lapse, time_lapse/60)
         print >> sys.stderr, full_msg
         if self.logfile is not None:
-            print >> file(self.logfile, 'a'), full_msg
+            try:
+                print >> file(self.logfile, 'a'), full_msg
+            except:
+                """ Multiprocessing writing to files can create race
+                    conditions. Rather fail silently than crash the
+                    caculation.
+                """
+                # XXX: We actually need a debug flag to disable this
+                # silent failure.
         self.last_time = time.time()
 
 
