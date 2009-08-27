@@ -29,25 +29,7 @@ except ImportError:
     DBError = Exception
 
 
-def _function_code_hash(func):
-    """ Attempts to retrieve a reliable function code hash.
-    
-        The reason we don't use inspect.getsource is that it caches the
-        source, whereas we want this to be modified on the fly when the
-        function is modified.
-    """
-    try:
-        # Try to retrieve the source code.
-        source_file = file(func.func_code.co_filename)
-        first_line = func.func_code.co_firstlineno
-        # All the lines after the function definition:
-        source_lines = list(itertools.islice(source_file, first_line-1, None))
-        return ''.join(inspect.getblock(source_lines))
-    except:
-        # If the source code fails, we use the hash. This is fragile and
-        # might change from one session to another.
-        return func.func_code.__hash__()
-
+from .hashing import function_code_hash
 
 ################################################################################
 class MemoizeFunctor(object):
@@ -90,7 +72,7 @@ class MemoizeFunctor(object):
 
             # I cannot use inspect.getsource because it is not
             # reliable when using IPython's magic "%run".
-            func_code = _function_code_hash(func)
+            func_code = function_code_hash(func)
             try:
                 if not ('__func_code__' in cache  and
                             cache['__func_code__'] == func_code):
@@ -109,7 +91,7 @@ class MemoizeFunctor(object):
             self._cache.clear()
         except KeyError:
             "DB not found: the db has probably not yet been created."
-        self._cache['__func_code__'] = _function_code_hash(self.func)
+        self._cache['__func_code__'] = function_code_hash(self.func)
 
     def warn(self, msg):
         logging.warn("[memoize]%s (%s line %i): %s" %

@@ -23,7 +23,7 @@ import traceback
 from weakref import ref
 
 # Local imports 
-from memoize import _function_code_hash
+from .hashing import function_code_hash, NON_MUTABLE_TYPES
 
 ################################################################################
 # Central registry to hold time stamps for objects.
@@ -134,11 +134,6 @@ class TimeStamp(object):
 
 
 
-non_mutable_types = (t.BooleanType, t.NoneType, t.StringType, 
-                        t.UnicodeType, t.FloatType, t.IntType,
-                        t.LongType, t.ComplexType)
-
-
 ################################################################################
 class Serializer(object):
 
@@ -160,7 +155,7 @@ class Serializer(object):
             The 'desc' keyword argument refers to the human-readable
             description of the item, stored for debug information.
         """
-        if type(item) in non_mutable_types:
+        if type(item) in NON_MUTABLE_TYPES:
             return item 
         elif type(item) == t.ListType:
             return self._hash_iterable(item, desc=desc)
@@ -341,7 +336,7 @@ class MakeFunctor(object):
         """
         self._serializer = Serializer()
         out = dict()
-        out['func_code'] = _function_code_hash(self._func)
+        out['func_code'] = function_code_hash(self._func)
         out['args'] = self._serializer.hash(args, desc='args')
         out['kwargs'] = self._serializer.hash(kwargs, desc='kwargs') 
         return self._serializer.reference_registry.latest_reference(), out
@@ -404,7 +399,7 @@ class MakeFunctor(object):
                     raise
                 elif self._debug:
                     traceback.print_exc()
-        elif not type(persister) in non_mutable_types:
+        elif not type(persister) in NON_MUTABLE_TYPES:
             self.warn("Can't persist the output")
 
 

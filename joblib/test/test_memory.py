@@ -12,14 +12,14 @@ from tempfile import mkdtemp
 
 import nose
 
-from ..memory import Memory
+from ..memory import Memory, get_arg_hash
 
 ################################################################################
 # Module-level variables for the tests
-def f(x):
+def f(x, y=1):
     """ A module-level function for testing purposes.
     """
-    return x**2
+    return x**2 + y
 
 cachedir = None
 
@@ -93,4 +93,10 @@ def test_func_dir():
             os.path.exists(os.path.join(path, 'func_code.py'))
     yield nose.tools.assert_true, \
         memory._check_previous_func_code(f)
+
+def test_get_arg_hash():
+    """ Test argument hashing.
+    """
+    yield nose.tools.assert_equal, 'x=1', \
+                get_arg_hash(f, [1], {}) 
 

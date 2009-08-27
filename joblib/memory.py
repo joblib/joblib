@@ -16,43 +16,46 @@ Taken from U{http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/466320}.
 
 import os
 import shutil
-from cPickle import dumps, PicklingError
+try:
+    import cPickle as pickle
+except ImportError:
+    import pickle
 import inspect
-import itertools
+import hashlib
 import functools
 import traceback
 import logging
+import types
 
 # Local imports
-from .memoize import _function_code_hash
+from .hashing import function_code_hash, get_arg_hash, NON_MUTABLE_TYPES
+
 
 # XXX: Need to enable pickling, to use with multiprocessing.
 
 ################################################################################
+# class `Memory`
+################################################################################
 class Memory(object):
     """ A context object for caching a function's return value each time 
-    it are called.
+        it are called.
     
-    Cache is a file, hence memory is not lost even computer is shut down! :-)
-    The file is syncronized anytime a value is added to it.
-    
+        All values are cached on the filesystem, in a deep directory
+        structure.
     """
     # A cache to store the previous function code, for faster disk
     # access
     _previous_func_code = dict()
+
+    #-------------------------------------------------------------------------
+    # Public interface
+    #-------------------------------------------------------------------------
    
     def __init__(self, cachedir, debug=False):
         self._debug = debug
         self._cachedir = cachedir
         if not os.path.exists(self._cachedir):
             os.makedirs(self._cachedir)
-
-
-    def eval(self, func, *args, **kwargs):
-        # Compare the function code with the previous to see if the
-        # function code has changed
-        if not self._check_previous_func_code(func):
-            self._cache_clear(func)
 
 
     def cache(self, func):
@@ -65,57 +68,24 @@ class Memory(object):
         return my_func
 
 
-    def _get_func_dir(self, func):
-        """ Get the directory corresponding to the cache for the
-            function.
-        """
-        module = func.__module__
-        module = module.split('.')
-        module.append(func.func_name)
-        func_dir = os.path.join(self._cachedir, *module)
-        if not os.path.exists(func_dir):
-            os.makedirs(func_dir)
-        return func_dir
-
-
-    def _check_previous_func_code(self, func):
-        func_code = _function_code_hash(func)
-        func_dir = self._get_func_dir(func)
-        func_code_file = os.path.join(func_dir, 'func_code.py')
-        # I cannot use inspect.getsource because it is not
-        # reliable when using IPython's magic "%run".
-
-        if not os.path.exists(func_code_file): 
-            file(func_code_file, 'w').write(func_code)
-            return False
-        elif not file(func_code_file).read() == func_code:
-            # If the function has changed wipe the cache directory.
-            shutil.rmtree(func_dir)
-            os.makedirs(func_dir)
-            file(func_code_file, 'w').write(func_code)
-            return False
-        else:
-            return True
-
-    def _cache_clear(self, func):
-        func_code = _function_code_hash(func)
-        func_dir = self._get_func_dir(func)
-        func_code_file = os.path.join(func_dir, 'func_content.py')
-        if self._debug:
-            self.warn("Clearing cache %s" % func_dir)
-        if os.path.exists(func_dir):
-            shutil.rmtree(func_dir)
-        os.makedirs(func_dir)
-        func_code_file = os.path.join(func_dir, 'func_content.py')
-        file(func_code_file, 'w').write(func_code)
-
-
     def warn(self, msg):
-        logging.warn("[memory]%s (%s line %i): %s" %
-            ( self.func.func_name, self.func.__module__,
-              self.func.func_code.co_firstlineno, msg)
-                )
+        logging.warn("[%s]: %s" % (self, msg))
 
+
+
+    def clear(self):
+        """ Erase the complete cache directory.
+        """
+        self.warn('Flushing completely the cache')
+        shutil.rmtree(self._cachedir)
+        os.makedirs(self._cachedir)
+
+
+    def eval(self, func, *args, **kwargs):
+        # Compare the function code with the previous to see if the
+        # function code has changed
+        if not self._check_previous_func_code(func):
+            return self._call(func, args, kwargs)
 
     def __call__(self, *args, **kwds):
         key = args
@@ -135,8 +105,8 @@ class Memory(object):
             return result
         except TypeError:
             try:
-                dump = dumps(key)
-            except PicklingError:
+                dump = pickle.dumps(key)
+            except pickle.PicklingError:
                 if self._debug:
                     self.warn("Cannot hash arguments.")
                     self.print_call(*args, **kwds)
@@ -170,20 +140,81 @@ class Memory(object):
                 return result
 
 
-    def print_call(self, *args, **kwds):
+    #-------------------------------------------------------------------------
+    # Private interface
+    #-------------------------------------------------------------------------
+   
+    def _get_func_dir(self, func, mkdir=True):
+        """ Get the directory corresponding to the cache for the
+            function.
+        """
+        module = func.__module__
+        module = module.split('.')
+        module.append(func.func_name)
+        func_dir = os.path.join(self._cachedir, *module)
+        if mkdir and not os.path.exists(func_dir):
+            os.makedirs(func_dir)
+        return func_dir
+
+
+    def _check_previous_func_code(self, func):
+        func_code = _function_code_hash(func)
+        func_dir = self._get_func_dir(func)
+        func_code_file = os.path.join(func_dir, 'func_code.py')
+        # I cannot use inspect.getsource because it is not
+        # reliable when using IPython's magic "%run".
+
+        if not os.path.exists(func_code_file): 
+            file(func_code_file, 'w').write(func_code)
+            return False
+        elif not file(func_code_file).read() == func_code:
+            # If the function has changed wipe the cache directory.
+            self._cache_clear(func_dir)
+            return False
+        else:
+            return True
+
+
+    def _cache_clear(self, func):
+        """ Empty a function's cache. 
+        """
+        func_dir = self._get_func_dir(func, mkdir=False)
+        if self._debug:
+            self.warn("Clearing cache %s" % func_dir)
+        if os.path.exists(func_dir):
+            shutil.rmtree(func_dir)
+        os.makedirs(func_dir)
+        func_code = _function_code_hash(func)
+        func_code_file = os.path.join(func_dir, 'func_content.py')
+        file(func_code_file, 'w').write(func_code)
+
+
+
+    def print_call(self, func, *args, **kwds):
         """ Print a debug statement displaying the function call with the 
             arguments.
         """
-        self.warn('Calling %s(%s, %s)' % (self.func.func_name,
+        self.warn('Calling %s(%s, %s)' % (func.func_name,
                                     repr(args)[1:-1], 
                                     ', '.join('%s=%s' % (v, i) for v, i
                                     in kwds.iteritems())))
 
-
-    def clear(self):
-        """ Erase the complete cache directory and log.
+    def _persist_output(self, output, dir):
+        """ Persist the given output tuple in the directory.
         """
-        # TODO
 
+    def _get_arg_hash(self, func, args, kwargs):
+        """ Return the unique argument hash.
+        """
+
+    #-------------------------------------------------------------------------
+    # Private `object` interface
+    #-------------------------------------------------------------------------
+   
+    def __repr__(self):
+        return '%s(cachedir=%s)' % (
+                    self.__class__.__name__,
+                    self._cachedir,
+                    )
 
 
