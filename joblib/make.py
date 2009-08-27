@@ -171,7 +171,6 @@ class Serializer(object):
             values = self._hash_iterable(item.values(), 
                                     desc='%s.values()'% desc)
             return dict(zip(keys, values))
-            return d
         # XXX: This is to avoid duplications with objects coming from
         # different functions having the same id. Maybe the solution is
         # to trac the history of the object.
