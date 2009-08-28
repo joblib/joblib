@@ -29,8 +29,8 @@ def setup():
     """ Test setup.
     """
     global cachedir
-    #cachedir = mkdtemp()
-    cachedir = 'foobar'
+    cachedir = mkdtemp()
+    #cachedir = 'foobar'
     if os.path.exists(cachedir):
         shutil.rmtree(cachedir)
     os.makedirs(cachedir)
@@ -39,8 +39,9 @@ def setup():
 def teardown():
     """ Test teardown.
     """
-    return True
+    #return True
     shutil.rmtree(cachedir)
+
 
 ################################################################################
 # Tests
@@ -76,7 +77,7 @@ def test_memory_integration():
 
 
 def test_func_dir():
-    """ Test the creation of the cache directory for the function.
+    """ Test the creation of the memory cache directory for the function.
     """
     memory = Memory(cachedir=cachedir)
     path = __name__.split('.')

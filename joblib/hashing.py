@@ -96,7 +96,7 @@ def hash(obj, hash_name='md5'):
 
 ################################################################################
 # Function-specific hashing
-def function_code_hash(func):
+def get_func_code(func):
     """ Attempts to retrieve a reliable function code hash.
     
         The reason we don't use inspect.getsource is that it caches the
@@ -116,13 +116,16 @@ def function_code_hash(func):
         return func.func_code.__hash__()
 
 
-def get_arg_hash(self, args, kwargs):
-    """ Return a readable unique argument hash for the given function.
+def get_func_name(func):       
+    """ Return the function import path (as a list of module names), and
+        a name for the function.
     """
-    # First replace types that we want to hash by their hash
-    if len(args) > 4:
-        # TODO
-        raise NotImplementedError
-    output = '_'.join(args[:4])
-        
+    module = func.__module__
+    module = module.split('.')
+    name = func.func_name
+    # Hack to detect functions not defined at the module-level
+    if name in func.func_globals:
+        if not func.func_globals[name] is func:
+            name = '%s-local' % name
+    return module, name
 

@@ -23,7 +23,7 @@ import traceback
 from weakref import ref
 
 # Local imports 
-from .hashing import function_code_hash, NON_MUTABLE_TYPES
+from .hashing import get_func_code, NON_MUTABLE_TYPES
 
 ################################################################################
 # Central registry to hold time stamps for objects.
@@ -336,7 +336,7 @@ class MakeFunctor(object):
         """
         self._serializer = Serializer()
         out = dict()
-        out['func_code'] = function_code_hash(self._func)
+        out['func_code'] = get_func_code(self._func)
         out['args'] = self._serializer.hash(args, desc='args')
         out['kwargs'] = self._serializer.hash(kwargs, desc='kwargs') 
         return self._serializer.reference_registry.latest_reference(), out

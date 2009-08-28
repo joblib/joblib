@@ -28,7 +28,7 @@ import logging
 import types
 
 # Local imports
-from .hashing import function_code_hash, hash, NON_MUTABLE_TYPES
+from .hashing import get_func_code, get_func_name, hash, NON_MUTABLE_TYPES
 
 
 # XXX: Need to enable pickling, to use with multiprocessing.
@@ -84,8 +84,23 @@ class Memory(object):
     def eval(self, func, *args, **kwargs):
         # Compare the function code with the previous to see if the
         # function code has changed
-        if not self._check_previous_func_code(func):
+        output_dir = self._get_output_dir(func, args, kwargs)
+        if not (self._check_previous_func_code(func) and 
+                                 os.path.exists(output_dir)):
             return self._call(func, args, kwargs)
+        else:
+            try:
+                return self._read_output(func, args, kwargs)
+            except Exception, e:
+                # XXX: Should use an exception logger
+                self.warn('Exception while loading results for '
+                '%s(args=%s, kwargs=%s)\n %s' %
+                    (func, args, kwargs, traceback.format_exc())
+                    )
+                      
+                shutil.rmtree(output_dir)
+                return self._call(func, args, kwargs)
+
 
 
     def __call__(self, *args, **kwds):
@@ -149,17 +164,21 @@ class Memory(object):
         """ Get the directory corresponding to the cache for the
             function.
         """
-        module = func.__module__
-        module = module.split('.')
-        module.append(func.func_name)
+        module, name = get_func_name(func)
+        module.append(name)
         func_dir = os.path.join(self._cachedir, *module)
         if mkdir and not os.path.exists(func_dir):
             os.makedirs(func_dir)
         return func_dir
 
+    def _get_output_dir(self, func, args, kwargs):
+        output_dir = os.path.join(self._get_func_dir(func), 
+                            hash((args, kwargs)))
+        return output_dir
+        
 
     def _check_previous_func_code(self, func):
-        func_code = function_code_hash(func)
+        func_code = get_func_code(func)
         func_dir = self._get_func_dir(func)
         func_code_file = os.path.join(func_dir, 'func_code.py')
         # I cannot use inspect.getsource because it is not
@@ -169,14 +188,14 @@ class Memory(object):
             file(func_code_file, 'w').write(func_code)
             return False
         elif not file(func_code_file).read() == func_code:
-            # If the function has changed wipe the cache directory.
-            self._cache_clear(func)
+            # If the function has changed, wipe the cache directory.
+            self._func_cache_clear(func)
             return False
         else:
             return True
 
 
-    def _cache_clear(self, func):
+    def _func_cache_clear(self, func):
         """ Empty a function's cache. 
         """
         func_dir = self._get_func_dir(func, mkdir=False)
@@ -185,8 +204,8 @@ class Memory(object):
         if os.path.exists(func_dir):
             shutil.rmtree(func_dir)
         os.makedirs(func_dir)
-        func_code = function_code_hash(func)
-        func_code_file = os.path.join(func_dir, 'func_content.py')
+        func_code = get_func_code(func)
+        func_code_file = os.path.join(func_dir, 'func_code.py')
         file(func_code_file, 'w').write(func_code)
 
 
@@ -194,10 +213,9 @@ class Memory(object):
         """ Execute the function and persist the output arguments.
         """
         output = func(*args, **kwargs)
-        output_dir = os.path.join(self._get_func_dir(func), 
-                            hash((args, kwargs)))
-        os.makedirs(output_dir)
+        output_dir = self._get_output_dir(func, args, kwargs)
         self._persist_output(output, output_dir)
+        return output
 
 
     def print_call(self, func, *args, **kwds):
@@ -213,8 +231,18 @@ class Memory(object):
     def _persist_output(self, output, dir):
         """ Persist the given output tuple in the directory.
         """
+        if not os.path.exists(dir):
+            os.makedirs(dir)
         output_file = file(os.path.join(dir, 'output.pkl'), 'w')
-        pickle.dump(output_file, protocol=2)
+        pickle.dump(output, output_file, protocol=2)
+
+
+    def _read_output(self, func, args, kwargs):
+        """ Read the results of a previous calculation from a file.
+        """
+        output_dir = self._get_output_dir(func, args, kwargs)
+        output_file = file(os.path.join(output_dir, 'output.pkl'), 'r')
+        return pickle.load(output_file)
 
     #-------------------------------------------------------------------------
     # Private `object` interface

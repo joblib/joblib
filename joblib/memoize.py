@@ -29,7 +29,7 @@ except ImportError:
     DBError = Exception
 
 
-from .hashing import function_code_hash
+from .hashing import get_func_code 
 
 ################################################################################
 class MemoizeFunctor(object):
@@ -72,7 +72,7 @@ class MemoizeFunctor(object):
 
             # I cannot use inspect.getsource because it is not
             # reliable when using IPython's magic "%run".
-            func_code = function_code_hash(func)
+            func_code = get_func_code(func)
             try:
                 if not ('__func_code__' in cache  and
                             cache['__func_code__'] == func_code):
@@ -91,7 +91,7 @@ class MemoizeFunctor(object):
             self._cache.clear()
         except KeyError:
             "DB not found: the db has probably not yet been created."
-        self._cache['__func_code__'] = function_code_hash(self.func)
+        self._cache['__func_code__'] = get_func_code(self.func)
 
     def warn(self, msg):
         logging.warn("[memoize]%s (%s line %i): %s" %
