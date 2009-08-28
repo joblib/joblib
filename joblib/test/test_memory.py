@@ -52,7 +52,8 @@ def setup():
     #cachedir = 'foobar'
     if os.path.exists(cachedir):
         shutil.rmtree(cachedir)
-    os.makedirs(cachedir)
+    # Don't make the cachedir, Memory should be able to do that on the
+    # fly
     
 
 def teardown():
@@ -80,11 +81,18 @@ def test_memory_integration():
 
     # Now test clearing
     memory = Memory(cachedir=cachedir)
-    memory.clear()
+    g = memory.cache(f)
+    g(1)
+    g.clear()
     current_accumulator = len(accumulator)
-    f(1)
+    out = g(1)
     yield nose.tools.assert_equal, len(accumulator), \
                 current_accumulator + 1
+    # Also, check that Memory.eval works similarly
+    yield nose.tools.assert_equal, memory.eval(f, 1), out
+    yield nose.tools.assert_equal, len(accumulator), \
+                current_accumulator + 1
+
 
 
 def test_memory_kwarg():

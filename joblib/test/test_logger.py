@@ -24,7 +24,6 @@ def setup():
     #cachedir = 'foobar'
     if os.path.exists(cachedir):
         shutil.rmtree(cachedir)
-    os.makedirs(cachedir)
     
 
 def teardown():
@@ -42,6 +41,9 @@ def smoke_test_print_time():
     print_time = PrintTime(logfile=os.path.join(cachedir, 'test.log'))
     print_time('Foo')
     # Create a second time, to smoke test log rotation.
+    print_time = PrintTime(logfile=os.path.join(cachedir, 'test.log'))
+    print_time('Foo')
+    # And a third time 
     print_time = PrintTime(logfile=os.path.join(cachedir, 'test.log'))
     print_time('Foo')
 
