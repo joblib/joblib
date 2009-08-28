@@ -158,33 +158,43 @@ Gotchas
     ...     print x
 
     >>> f = memory.cache(lambda : my_print(1))
-    >>> g = memory.cache(func=lambda : my_print(2))
+    >>> g = memory.cache(lambda : my_print(2))
     
     >>> f()
     1
+    >>> f()
     >>> g()
     2
+    >>> g()
     >>> f()
     1
 
+..  
   Thus to use lambda functions reliably, you have to specify the name
   used for caching::
+  
+  FIXME
+ 
+ #   >>> f = make(func=lambda : my_print(1), cachedir=cachedir, name='f')
+ #   >>> g = make(func=lambda : my_print(2), cachedir=cachedir, name='g')
+ #   
+ #   >>> f()
+ #   1
+ #   >>> g()
+ #   2
+ #   >>> f()
 
-# FIXME
-#
-#    >>> f = make(func=lambda : my_print(1), cachedir=cachedir, name='f')
-#    >>> g = make(func=lambda : my_print(2), cachedir=cachedir, name='g')
-#    
-#    >>> f()
-#    1
-#    >>> g()
-#    2
-#    >>> f()
-
-* **make cannot be used on objects more complex than a function**, eg an
+* **make cannot be used on complex objects**, eg a callable
   object with a `__call__` method.
 
-# FIXME: Check
+  Howevers, it works on numpy ufuncs::
+
+    >>> sin = memory.cache(np.sin)
+    >>> print sin(0)
+    0.0
+
+..
+  FIXME: Check the above
 
 
 .. _`reference chapter`: http://www.informit.com/articles/article.aspx?p=453682 

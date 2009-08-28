@@ -42,7 +42,10 @@ class MemorizedFunc(Logger):
         self.func = func
         if not os.path.exists(self._cachedir):
             os.makedirs(self._cachedir)
-        functools.update_wrapper(self, func)
+        try:
+            functools.update_wrapper(self, func)
+        except:
+            " Objects like ufunc don't like that "
 
 
     def __call__(self, *args, **kwargs):

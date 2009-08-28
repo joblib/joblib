@@ -108,21 +108,42 @@ def get_func_code(func):
     except:
         # If the source code fails, we use the hash. This is fragile and
         # might change from one session to another.
-        return str(func.func_code.__hash__())
+        if hasattr(func, 'func_code'):
+            return str(func.func_code.__hash__())
+        else:
+            # Weird objects like numpy ufunc don't have func_code
+            # This is fragile, as quite often the id of the object is
+            # in the repr, so it might not persist accross sessions,
+            # however it will work for ufuncs.
+            return repr(func)
 
 
 def get_func_name(func):       
     """ Return the function import path (as a list of module names), and
         a name for the function.
     """
-    module = func.__module__
+    if hasattr(func, '__module__'):
+        module = func.__module__
+    else:
+        try:
+            module = inspect.getmodule(func)
+        except TypeError:
+            if hasattr(func, '__class__'):
+                module = func.__class__.__module__
+            else:
+                module = 'unkown'
     if module is None:
         # Happens in doctests, eg
         module = ''
     module = module.split('.')
-    name = func.func_name
+    if hasattr(func, 'func_name'):
+        name = func.func_name
+    elif hasattr(func, '__name__'): 
+        name = func.__name__
+    else:
+        name = 'unkown'
     # Hack to detect functions not defined at the module-level
-    if name in func.func_globals:
+    if hasattr(func, 'func_globals') and name in func.func_globals:
         if not func.func_globals[name] is func:
             name = '%s-local' % name
     return module, name
