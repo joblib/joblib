@@ -81,6 +81,9 @@ def test_memory_integration():
 
     # Now test clearing
     memory = Memory(cachedir=cachedir)
+    # First clear the cache directory, to check that our code can
+    # handle that:
+    shutil.rmtree(cachedir)
     g = memory.cache(f)
     g(1)
     g.clear()

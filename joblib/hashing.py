@@ -116,6 +116,9 @@ def get_func_name(func):
         a name for the function.
     """
     module = func.__module__
+    if module is None:
+        # Happens in doctests, eg
+        module = ''
     module = module.split('.')
     name = func.func_name
     # Hack to detect functions not defined at the module-level

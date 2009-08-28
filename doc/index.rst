@@ -10,8 +10,7 @@ Contents:
 .. toctree::
     :maxdepth: 2
 
-    make.rst
-    memoize.rst
+    memory.rst
 
 Indices and tables
 ==================

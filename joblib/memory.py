@@ -190,7 +190,8 @@ class Memory(Logger):
 
 
     def cache(self, func):
-        """ Decorates the given function. 
+        """ Decorates the given function func to only compute its return
+            value for input arguments not cached on disk.
         """
         return MemorizedFunc(func, cachedir=self._cachedir,
                                    debug=self._debug)
@@ -205,6 +206,14 @@ class Memory(Logger):
 
 
     def eval(self, func, *args, **kwargs):
+        """ Eval function func with arguments `*args` and `**kwargs`,
+            in the context of the memory.
+
+            This method works similarly to the builtin `apply`, except
+            that the function is called only if the cache is not
+            up to date.
+
+        """
         return self.cache(func)(*args, **kwargs)
 
     #-------------------------------------------------------------------------
