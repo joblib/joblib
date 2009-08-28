@@ -24,6 +24,24 @@ def f(x, y=1):
 cachedir = None
 
 ################################################################################
+# Helper function for the tests
+def check_identity_lazy(func, accumulator):
+    """ Given a function and an accumulator (a list that grows every
+        time the function is called, check that the function can be
+        decorated by memory to be a lazy identity.
+    """
+    # Call each function with several arguments, and check that it is
+    # evaluated only once per argument.
+    memory = Memory(cachedir=cachedir)
+    memory.clear()
+    func = memory.cache(func)
+    for i in range(3):
+        for _ in range(2):
+            yield nose.tools.assert_equal, func(i), i
+            yield nose.tools.assert_equal, len(accumulator), i + 1
+
+
+################################################################################
 # Test fixtures
 def setup():
     """ Test setup.
@@ -46,57 +64,66 @@ def teardown():
 ################################################################################
 # Tests
 def test_memory_integration():
-    """ Simple tests of memory features.
+    """ Simple test of memory lazy evaluation.
     """
-    memory = Memory(cachedir=cachedir)
-    # We use lists to count if functions are being re-evaluated.
-    accumulator_f = list()
-    accumulator_g = list()
-
+    accumulator = list()
     # Rmk: this function has the same name than a module-level function,
     # thus it serves as a test to see that both are identified
     # as different.
-    @memory.cache
     def f(l):
-        " Function to test memory "
-        accumulator_f.append(1)
+        accumulator.append(1)
         return l
 
-    @memory.cache
+    for test in check_identity_lazy(f, accumulator):
+        yield test
+
+    # Now test clearing
+    memory = Memory(cachedir=cachedir)
+    memory.clear()
+    current_accumulator = len(accumulator)
+    f(1)
+    yield nose.tools.assert_equal, len(accumulator), \
+                current_accumulator + 1
+
+
+def test_memory_kwarg():
+    " Test memory with a function with keyword arguments."
+    accumulator = list()
     def g(l=None, m=1):
-        " Function to test memory with keyword arguments "
-        accumulator_g.append(1)
+        accumulator.append(1)
         return l
 
-    accumulator_l = list()
+    for test in check_identity_lazy(g, accumulator):
+        yield test
+
+    memory = Memory(cachedir=cachedir)
+    g = memory.cache(g)
+    # Smoke test with an explicit keyword argument:
+    nose.tools.assert_equal(g(l=30, m=2), 30)
+
+
+def test_memory_lambda():
+    " Test memory with a function with a lambda."
+    accumulator = list()
     def helper(x):
         """ A helper function to define l as a lambda.
         """
-        accumulator_l.append(1)
+        accumulator.append(1)
         return x
 
     l = lambda x: helper(x)
-    l = memory.cache(l)
 
-    # Call each function with several arguments, and check that it is
-    # evaluated only once per argument.
-    for i in range(10):
-        for _ in range(3):
-            for accumulator, func in zip(
-                    (accumulator_f, accumulator_g, accumulator_l), 
-                    (f, g, l)):
-                nose.tools.assert_equal(func(i), i)
-                nose.tools.assert_equal(len(accumulator), i + 1)
+    for test in check_identity_lazy(l, accumulator):
+        yield test
 
-    # Now test clearing
-    memory.clear()
-    current_accumulator = len(accumulator_f)
-    f(1)
-    yield nose.tools.assert_equal, len(accumulator_f), \
-                current_accumulator + 1
 
-    # Test for an explicit keyword argument:
-    nose.tools.assert_equal(g(l=30, m=2), 30)
+def test_memory_eval():
+    " Smoke test memory with a function with a function defined in an eval."
+    memory = Memory(cachedir=cachedir)
+
+    m = eval('lambda x: x')
+
+    yield nose.tools.assert_equal, 1, m(1)
 
 
 def test_memory_exception():
@@ -119,14 +146,6 @@ def test_memory_exception():
         yield nose.tools.assert_raises, MyException, h, 1
 
 
-def test_memory_eval():
-    """ Test memory with functions defined on the fly that do not have
-        underlying code.
-    """
-    return 
-    memory = Memory(cachedir=cachedir)
-    yield nose.tools.assert_equal, l(0), l(0)
- 
 
 def test_func_dir():
     """ Test the creation of the memory cache directory for the function.
