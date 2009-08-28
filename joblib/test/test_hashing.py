@@ -35,6 +35,20 @@ def relative_time(func1, func2, *args):
                           /  (time_func1 + time_func2) )
     return relative_diff
 
+try:
+    import numpy as np
+    def with_numpy(func):
+        """ A decorator to skip tests requiring numpy.
+        """
+        return func
+
+except ImportError:    
+    def with_numpy(func):
+        """ A decorator to skip tests requiring numpy.
+        """
+        def my_func():
+            raise nose.SkipTest('Test requires numpy')
+        return my_func
 
 ################################################################################
 # Tests
@@ -42,44 +56,58 @@ def relative_time(func1, func2, *args):
 def test_trival_hash():
     """ Smoke test hash on various types.
     """
-    for obj in [1, 1., 1+1j,
+    obj_list = [1, 1., 1+1j,
                 'a', 
                 (1, ), [1, ], {1:1},
                 None,
-                ]:
-        yield nose.tools.assert_equal, hash(obj), hash(obj)
-    # XXX: Need to check that all these hashes are different, using a
-    # double for loop.
+               ]
+    for obj1 in obj_list:
+        for obj2 in obj_list:
+            yield nose.tools.assert_equal, hash(obj1) == hash(obj2), \
+                obj1 is obj2
 
 
 
+@with_numpy
 def test_hash_numpy():
     """ Test hashing with numpy arrays.
     """
-    try:
-        import numpy as np
-    except ImportError:
-        return
-    obj = np.random.random((10, 10))
-    yield nose.tools.assert_equal, hash(obj), hash(obj)
+    arr1 = np.random.random((10, 10))
+    arr2 = arr1.copy()
+    arr3 = arr2.copy()
+    arr3[0] += 1
+    obj_list = (arr1, arr2, arr3)
+    for obj1 in obj_list:
+        for obj2 in obj_list:
+            yield nose.tools.assert_equal, hash(obj1) == hash(obj2), \
+                np.all(obj1 == obj2)
 
-    # Check the performance: we should not be getting more than a factor
-    # of 1.1 compared to directly hashing the array
-    """
-    In [22]: a = np.random.random(1000000)
+    d1 = {1:arr1, 2:arr1}
+    d2 = {1:arr2, 2:arr2}
+    yield nose.tools.assert_equal, hash(d1), hash(d2)
 
-    In [23]: %timeit hashlib.md5(a).hexdigest()
-    100 loops, best of 3: 20.7 ms per loop
+    d3 = {1:arr2, 2:arr3}
+    yield nose.tools.assert_not_equal, hash(d1), hash(d3)
 
-    In [24]: %timeit hashlib.md5(pickle.dumps(a, protocol=2)).hexdigest()
-    1 loops, best of 3: 73.1 ms per loop
 
-    In [25]: %timeit hashlib.md5(cPickle.dumps(a, protocol=2)).hexdigest()
-    10 loops, best of 3: 53.9 ms per loop
 
-    In [26]: %timeit hash(a)
-    100 loops, best of 3: 20.8 ms per loop
+@with_numpy
+def test_hash_numpy_performance():
+    """ Check the performance of hashing numpy arrays:
 
+        In [22]: a = np.random.random(1000000)
+
+        In [23]: %timeit hashlib.md5(a).hexdigest()
+        100 loops, best of 3: 20.7 ms per loop
+
+        In [24]: %timeit hashlib.md5(pickle.dumps(a, protocol=2)).hexdigest()
+        1 loops, best of 3: 73.1 ms per loop
+
+        In [25]: %timeit hashlib.md5(cPickle.dumps(a, protocol=2)).hexdigest()
+        10 loops, best of 3: 53.9 ms per loop
+
+        In [26]: %timeit hash(a)
+        100 loops, best of 3: 20.8 ms per loop
     """
     a = np.random.random(1000000)
     md5_hash = lambda x: hashlib.md5(x).hexdigest()

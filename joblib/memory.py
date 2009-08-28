@@ -2,11 +2,6 @@
 A context object for caching a function's return value each time it
 are called.
 
-If called later with the same arguments, the cached value is returned, and
-not re-evaluated. Slow for mutable types.
-
-Taken from U{http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/466320}.
-
 """
 
 # Author: Gael Varoquaux <gael dot varoquaux at normalesup dot org> 
