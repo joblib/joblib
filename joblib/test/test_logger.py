@@ -41,4 +41,7 @@ def smoke_test_print_time():
     """
     print_time = PrintTime(logfile=os.path.join(cachedir, 'test.log'))
     print_time('Foo')
+    # Create a second time, to smoke test log rotation.
+    print_time = PrintTime(logfile=os.path.join(cachedir, 'test.log'))
+    print_time('Foo')
 
