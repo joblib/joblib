@@ -20,15 +20,12 @@ try:
     import cPickle as pickle
 except ImportError:
     import pickle
-import inspect
-import hashlib
 import functools
 import traceback
 import logging
-import types
 
 # Local imports
-from .hashing import get_func_code, get_func_name, hash, NON_MUTABLE_TYPES
+from .hashing import get_func_code, get_func_name, hash
 
 
 # XXX: Need to enable pickling, to use with multiprocessing.
@@ -72,7 +69,6 @@ class Memory(object):
         logging.warn("[%s]: %s" % (self, msg))
 
 
-
     def clear(self):
         """ Erase the complete cache directory.
         """
@@ -100,61 +96,6 @@ class Memory(object):
                       
                 shutil.rmtree(output_dir)
                 return self._call(func, args, kwargs)
-
-
-
-    def __call__(self, *args, **kwds):
-        key = args
-        if kwds:
-            items = kwds.items()
-            key = key + tuple(items)
-        try:
-            if key in self._cache:
-                return self._cache[key]
-            if self._debug:
-                self.warn("Arguments not in cache.")
-                self.print_call(*args, **kwds)
-            self._cache[key] = result = self.func(*args, **kwds)
-            if self._persist:
-                # cache the result to file
-                self._cache.sync()
-            return result
-        except TypeError:
-            try:
-                dump = pickle.dumps(key)
-            except pickle.PicklingError:
-                if self._debug:
-                    self.warn("Cannot hash arguments.")
-                    self.print_call(*args, **kwds)
-                return self.func(*args, **kwds)
-            else:
-                try:
-                    if dump in self._cache:
-                        return self._cache[dump]
-                    if self._debug:
-                        self.warn("Arguments hash not in cache.")
-                        self.print_call(*args, **kwds)
-                except:
-                    if self._debug:
-                        self.warn("Error while unpickling for %s." % \
-                                        self.func.func_name)
-                        traceback.print_exc()
-                    self._cache_clear()
-                result = self.func(*args, **kwds)
-                try:
-                    self._cache[dump] = result
-                except Exception, e:
-                    if isinstance(e, _bsddb.DBRunRecoveryError):
-                        self.warn('Unrecoverable DB error, clearing DB')
-                        self._cache = None
-                        os.unlink(self._cache_filename)
-                        self._cache = sopen(self._cache_filename, 'c')
-                        self._cache[dump] = result
-                if self._persist:
-                    # cache the result to file
-                    self._cache.sync()
-                return result
-
 
     #-------------------------------------------------------------------------
     # Private interface

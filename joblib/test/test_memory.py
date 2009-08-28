@@ -49,9 +49,13 @@ def test_memory_integration():
     """ Simple tests of memory features.
     """
     memory = Memory(cachedir=cachedir)
+    # We use lists to count if functions are being re-evaluated.
     accumulator_f = list()
     accumulator_g = list()
 
+    # Rmk: this function has the same name than a module-level function,
+    # thus it serves as a test to see that both are identified
+    # as different.
     @memory.cache
     def f(l):
         " Function to test simple memoize "
