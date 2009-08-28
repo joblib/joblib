@@ -1,5 +1,7 @@
 """
-Useful functions to run scripts as files.
+Helpers for logging.
+
+This module needs much love to become useful.
 """
 
 # Author: Gael Varoquaux <gael dot varoquaux at normalesup dot org> 
@@ -7,20 +9,10 @@ Useful functions to run scripts as files.
 # License: BSD Style, 3 clauses.
 
 
-
 import time
 import sys
 import os
 import shutil
-
-class Bunch(dict):
-    """ A dict that exposes its keys as attributes.
-    """
-
-    def __init__(self, *args, **kwargs):
-        self.__dict__ = self
-        dict.__init__(self, *args, **kwargs)
-
 
 class PrintTime(object):
     """ An object to print messages while keeping track of time.

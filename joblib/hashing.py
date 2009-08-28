@@ -9,14 +9,9 @@ Utilities for hashing input arguments of functions.
 import itertools
 import inspect
 import pickle
-import types
 import hashlib
 import sys
 import cStringIO
-
-NON_MUTABLE_TYPES = (types.BooleanType, types.NoneType, types.StringType,
-                     types.UnicodeType, types.FloatType, types.IntType,
-                     types.LongType, types.ComplexType)
 
 
 ################################################################################
@@ -113,7 +108,7 @@ def get_func_code(func):
     except:
         # If the source code fails, we use the hash. This is fragile and
         # might change from one session to another.
-        return func.func_code.__hash__()
+        return str(func.func_code.__hash__())
 
 
 def get_func_name(func):       

@@ -4,16 +4,18 @@ Joblib: a package for dealing with long running calculation.
 Sub-modules
 -------------
 
-  * memoize: An implementation of the memoize pattern: automatic
-    caching to disk of functions. Memoize does not work well with
-    functions taking arrays as arguments or returning arrays.
+  * memory: a context for caching calls to function to the disk.
+    Unlike the memoize pattern, this is suited for persistent use with
+    big data or arrays.
 
-  * make
+  * logger: helper objects for logging.
 
 """
 
 __version__ = '0.2a'
 
 
-from run_scripts import PrintTime
+from memory import Memory
+
+from logger import PrintTime
 
