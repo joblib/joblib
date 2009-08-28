@@ -28,7 +28,7 @@ import logging
 import types
 
 # Local imports
-from .hashing import function_code_hash, get_arg_hash, NON_MUTABLE_TYPES
+from .hashing import function_code_hash, hash, NON_MUTABLE_TYPES
 
 
 # XXX: Need to enable pickling, to use with multiprocessing.
@@ -86,6 +86,7 @@ class Memory(object):
         # function code has changed
         if not self._check_previous_func_code(func):
             return self._call(func, args, kwargs)
+
 
     def __call__(self, *args, **kwds):
         key = args
@@ -158,7 +159,7 @@ class Memory(object):
 
 
     def _check_previous_func_code(self, func):
-        func_code = _function_code_hash(func)
+        func_code = function_code_hash(func)
         func_dir = self._get_func_dir(func)
         func_code_file = os.path.join(func_dir, 'func_code.py')
         # I cannot use inspect.getsource because it is not
@@ -169,7 +170,7 @@ class Memory(object):
             return False
         elif not file(func_code_file).read() == func_code:
             # If the function has changed wipe the cache directory.
-            self._cache_clear(func_dir)
+            self._cache_clear(func)
             return False
         else:
             return True
@@ -184,10 +185,19 @@ class Memory(object):
         if os.path.exists(func_dir):
             shutil.rmtree(func_dir)
         os.makedirs(func_dir)
-        func_code = _function_code_hash(func)
+        func_code = function_code_hash(func)
         func_code_file = os.path.join(func_dir, 'func_content.py')
         file(func_code_file, 'w').write(func_code)
 
+
+    def _call(self, func, args, kwargs):
+        """ Execute the function and persist the output arguments.
+        """
+        output = func(*args, **kwargs)
+        output_dir = os.path.join(self._get_func_dir(func), 
+                            hash((args, kwargs)))
+        os.makedirs(output_dir)
+        self._persist_output(output, output_dir)
 
 
     def print_call(self, func, *args, **kwds):
@@ -199,13 +209,12 @@ class Memory(object):
                                     ', '.join('%s=%s' % (v, i) for v, i
                                     in kwds.iteritems())))
 
+
     def _persist_output(self, output, dir):
         """ Persist the given output tuple in the directory.
         """
-
-    def _get_arg_hash(self, func, args, kwargs):
-        """ Return the unique argument hash.
-        """
+        output_file = file(os.path.join(dir, 'output.pkl'), 'w')
+        pickle.dump(output_file, protocol=2)
 
     #-------------------------------------------------------------------------
     # Private `object` interface

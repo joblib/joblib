@@ -12,7 +12,7 @@ from tempfile import mkdtemp
 
 import nose
 
-from ..memory import Memory, get_arg_hash
+from ..memory import Memory
 
 ################################################################################
 # Module-level variables for the tests
@@ -44,7 +44,7 @@ def teardown():
 
 ################################################################################
 # Tests
-def aatest_memory_integration():
+def test_memory_integration():
     """ Simple tests of memory features.
     """
     memory = Memory(cachedir=cachedir)
@@ -94,9 +94,4 @@ def test_func_dir():
     yield nose.tools.assert_true, \
         memory._check_previous_func_code(f)
 
-def test_get_arg_hash():
-    """ Test argument hashing.
-    """
-    yield nose.tools.assert_equal, 'x=1', \
-                get_arg_hash(f, [1], {}) 
 
