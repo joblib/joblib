@@ -27,25 +27,26 @@ class Hasher(pickle.Pickler):
         pickling.
     """
 
-    def __init__(self, hash_name='sh1'):
+    def __init__(self, hash_name='md5'):
         self.stream = cStringIO.StringIO()
-        pickle.Pickler(self, self.stream, protocol=None)
+        pickle.Pickler.__init__(self, self.stream, protocol=2)
         # Initialise the hash obj
-        self.hash = hashlib.new(hash_name)
+        self._hash = hashlib.new(hash_name)
 
     def hash(self, obj, return_digest=True):
         self.dump(obj)
-        self.hash.update(self.stream.getvalue())
+        dumps = self.stream.getvalue()
+        self._hash.update(dumps)
         if return_digest:
-            return self.hash.hexdigest()
+            return self._hash.hexdigest()
 
 
 class NumpyHasher(Hasher):
     """ Special case the haser for when numpy is loaded.
     """
 
-    def __init__(self, hash_name='sh1'):
-        Hasher.__init__(self, hash_name='sh1')
+    def __init__(self, hash_name='md5'):
+        Hasher.__init__(self, hash_name=hash_name)
         # delayed import of numpy, to avoid tight coupling
         import numpy as np
         self.np = np
@@ -57,7 +58,7 @@ class NumpyHasher(Hasher):
         """
         if isinstance(obj, self.np.ndarray):
             # Compute a hash of the object:
-            self.hash.update(obj)
+            self._hash.update(obj)
 
             # We store the class, to be able to distinguish between 
             # Objects with the same binary content, but different
@@ -76,13 +77,20 @@ class NumpyHasher(Hasher):
 
             # The object will be pickled by the pickler hashed at the end.
             obj = (klass, ('HASHED', obj.dtype, obj.shape))
+        Hasher.save(self, obj)
 
 
-def hash(obj, hash_name='sha1'):
+def hash(obj, hash_name='md5'):
+    """
+        Parameters
+        -----------
+        hash_name: 'md5' or 'sha1'
+            sha1 is supposedly safer, but md5 is faster.
+    """
     if 'numpy' in sys.modules:
-        hasher = NumpyHasher(hash_name='sh1')
+        hasher = NumpyHasher(hash_name=hash_name)
     else:
-        hasher = Hasher(hash_name='sh1')
+        hasher = Hasher(hash_name=hash_name)
     return hasher.hash(obj)
 
 

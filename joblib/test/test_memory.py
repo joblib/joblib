@@ -94,4 +94,3 @@ def test_func_dir():
     yield nose.tools.assert_true, \
         memory._check_previous_func_code(f)
 
-
