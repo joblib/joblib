@@ -9,6 +9,7 @@ Test the memory module.
 import shutil
 import os
 from tempfile import mkdtemp
+import pickle
 
 import nose
 
@@ -166,4 +167,16 @@ def test_func_dir():
             os.path.exists(os.path.join(path, 'func_code.py'))
     yield nose.tools.assert_true, \
         g._check_previous_func_code()
+
+
+def test_pickling():
+    """ Test the memorized functions can be pickled and restored.
+    """
+    memory = Memory(cachedir=cachedir)
+    g = memory.cache(f)
+    output = g(1)
+
+    h = pickle.loads(pickle.dumps(g))
+
+    nose.tools.assert_equal(output, h._read_output((1,), {}))
 

@@ -154,6 +154,8 @@ class MemorizedFunc(Logger):
         output_file = file(os.path.join(output_dir, 'output.pkl'), 'r')
         return pickle.load(output_file)
 
+    # XXX: Need a method to check if results are available.
+
     #-------------------------------------------------------------------------
     # Private `object` interface
     #-------------------------------------------------------------------------
