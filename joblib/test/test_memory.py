@@ -146,7 +146,6 @@ def test_memory_exception():
         yield nose.tools.assert_raises, MyException, h, 1
 
 
-
 def test_func_dir():
     """ Test the creation of the memory cache directory for the function.
     """
@@ -155,15 +154,16 @@ def test_func_dir():
     path.append('f')
     path = os.path.join(cachedir, *path)
 
+    g = memory.cache(f)
     # Test that the function directory is created on demand
-    yield nose.tools.assert_equal, memory._get_func_dir(f), path
+    yield nose.tools.assert_equal, g._get_func_dir(), path
     yield nose.tools.assert_true, os.path.exists(path)
 
     # Test that the code is stored.
     yield nose.tools.assert_false, \
-        memory._check_previous_func_code(f)
+        g._check_previous_func_code()
     yield nose.tools.assert_true, \
             os.path.exists(os.path.join(path, 'func_code.py'))
     yield nose.tools.assert_true, \
-        memory._check_previous_func_code(f)
+        g._check_previous_func_code()
 

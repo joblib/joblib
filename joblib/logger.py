@@ -14,6 +14,21 @@ import sys
 import os
 import shutil
 
+import logging
+
+################################################################################
+# class `Logger`
+################################################################################
+class Logger(object):
+    
+    def warn(self, msg):
+        logging.warn("[%s]: %s" % (self, msg))
+
+
+
+################################################################################
+# class `PrintTime`
+################################################################################
 class PrintTime(object):
     """ An object to print messages while keeping track of time.
     """

@@ -17,105 +17,79 @@ except ImportError:
     import pickle
 import functools
 import traceback
-import logging
 
 # Local imports
 from .hashing import get_func_code, get_func_name, hash
-
-
-# XXX: Need to enable pickling, to use with multiprocessing.
+from .logger import Logger
 
 ################################################################################
 # class `Memory`
 ################################################################################
-class Memory(object):
-    """ A context object for caching a function's return value each time 
-        it are called.
+class MemorizedFunc(Logger):
+    """ A functor (callable object) for caching a function's return value 
+        each time it are called.
     
         All values are cached on the filesystem, in a deep directory
         structure.
     """
-    # A cache to store the previous function code, for faster disk
-    # access
-    _previous_func_code = dict()
-
     #-------------------------------------------------------------------------
     # Public interface
     #-------------------------------------------------------------------------
    
-    def __init__(self, cachedir, debug=False):
+    def __init__(self, func, cachedir, debug=False):
         self._debug = debug
         self._cachedir = cachedir
+        self.func = func
         if not os.path.exists(self._cachedir):
             os.makedirs(self._cachedir)
+        functools.update_wrapper(self, func)
 
 
-    def cache(self, func):
-        """ A decorator.
-        """
-        # XXX: Should not be using closures: this is not pickleable
-        @functools.wraps(func)
-        def my_func(*args, **kwargs):
-            return self.eval(func, *args, **kwargs)
-        return my_func
-
-
-    def warn(self, msg):
-        logging.warn("[%s]: %s" % (self, msg))
-
-
-    def clear(self):
-        """ Erase the complete cache directory.
-        """
-        self.warn('Flushing completely the cache')
-        shutil.rmtree(self._cachedir)
-        os.makedirs(self._cachedir)
-
-
-    def eval(self, func, *args, **kwargs):
+    def __call__(self, *args, **kwargs):
         # Compare the function code with the previous to see if the
         # function code has changed
-        output_dir = self._get_output_dir(func, args, kwargs)
-        if not (self._check_previous_func_code(func) and 
+        output_dir = self._get_output_dir(args, kwargs)
+        if not (self._check_previous_func_code() and 
                                  os.path.exists(output_dir)):
-            return self._call(func, args, kwargs)
+            return self._call(args, kwargs)
         else:
             try:
-                return self._read_output(func, args, kwargs)
+                return self._read_output(args, kwargs)
             except Exception, e:
                 # XXX: Should use an exception logger
                 self.warn('Exception while loading results for '
-                '%s(args=%s, kwargs=%s)\n %s' %
-                    (func, args, kwargs, traceback.format_exc())
+                '(args=%s, kwargs=%s)\n %s' %
+                    (args, kwargs, traceback.format_exc())
                     )
                       
                 shutil.rmtree(output_dir)
-                return self._call(func, args, kwargs)
+                return self._call(args, kwargs)
 
     #-------------------------------------------------------------------------
     # Private interface
     #-------------------------------------------------------------------------
    
-    def _get_func_dir(self, func, mkdir=True):
+    def _get_func_dir(self, mkdir=True):
         """ Get the directory corresponding to the cache for the
             function.
         """
-        module, name = get_func_name(func)
+        module, name = get_func_name(self.func)
         module.append(name)
         func_dir = os.path.join(self._cachedir, *module)
         if mkdir and not os.path.exists(func_dir):
             os.makedirs(func_dir)
         return func_dir
 
-    def _get_output_dir(self, func, args, kwargs):
-        output_dir = os.path.join(self._get_func_dir(func), 
-                            hash((args, kwargs)))
+
+    def _get_output_dir(self, args, kwargs):
+        output_dir = os.path.join(self._get_func_dir(self.func),
+                                  hash((args, kwargs)))
         return output_dir
         
 
-    def _check_previous_func_code(self, func):
-        func_code = get_func_code(func)
-        func_dir = self._get_func_dir(func)
+    def _check_previous_func_code(self):
+        func_code = get_func_code(self.func)
+        func_dir = self._get_func_dir()
         func_code_file = os.path.join(func_dir, 'func_code.py')
         # I cannot use inspect.getsource because it is not
         # reliable when using IPython's magic "%run".
@@ -125,40 +99,40 @@ class Memory(object):
             return False
         elif not file(func_code_file).read() == func_code:
             # If the function has changed, wipe the cache directory.
-            self._func_cache_clear(func)
+            self.clear()
             return False
         else:
             return True
 
 
-    def _func_cache_clear(self, func):
-        """ Empty a function's cache. 
+    def clear(self):
+        """ Empty the function's cache. 
         """
-        func_dir = self._get_func_dir(func, mkdir=False)
+        func_dir = self._get_func_dir(mkdir=False)
         if self._debug:
             self.warn("Clearing cache %s" % func_dir)
         if os.path.exists(func_dir):
             shutil.rmtree(func_dir)
         os.makedirs(func_dir)
-        func_code = get_func_code(func)
+        func_code = get_func_code(self.func)
         func_code_file = os.path.join(func_dir, 'func_code.py')
         file(func_code_file, 'w').write(func_code)
 
 
-    def _call(self, func, args, kwargs):
+    def _call(self, args, kwargs):
         """ Execute the function and persist the output arguments.
         """
-        output = func(*args, **kwargs)
-        output_dir = self._get_output_dir(func, args, kwargs)
+        output = self.func(*args, **kwargs)
+        output_dir = self._get_output_dir(args, kwargs)
         self._persist_output(output, output_dir)
         return output
 
 
-    def print_call(self, func, *args, **kwds):
+    def print_call(self, *args, **kwds):
         """ Print a debug statement displaying the function call with the 
             arguments.
         """
-        self.warn('Calling %s(%s, %s)' % (func.func_name,
+        self.warn('Calling %s(%s, %s)' % (self.func.func_name,
                                     repr(args)[1:-1], 
                                     ', '.join('%s=%s' % (v, i) for v, i
                                     in kwds.iteritems())))
@@ -173,12 +147,63 @@ class Memory(object):
         pickle.dump(output, output_file, protocol=2)
 
 
-    def _read_output(self, func, args, kwargs):
+    def _read_output(self, args, kwargs):
         """ Read the results of a previous calculation from a file.
         """
-        output_dir = self._get_output_dir(func, args, kwargs)
+        output_dir = self._get_output_dir(args, kwargs)
         output_file = file(os.path.join(output_dir, 'output.pkl'), 'r')
         return pickle.load(output_file)
+
+    #-------------------------------------------------------------------------
+    # Private `object` interface
+    #-------------------------------------------------------------------------
+   
+    def __repr__(self):
+        return '%s(func=%s, cachedir=%s)' % (
+                    self.__class__.__name__,
+                    self.func,
+                    self._cachedir,
+                    )
+
+
+################################################################################
+# class `Memory`
+################################################################################
+class Memory(Logger):
+    """ A context object for caching a function's return value each time 
+        it are called.
+    
+        All values are cached on the filesystem, in a deep directory
+        structure.
+    """
+    #-------------------------------------------------------------------------
+    # Public interface
+    #-------------------------------------------------------------------------
+   
+    def __init__(self, cachedir, debug=False):
+        self._debug = debug
+        self._cachedir = cachedir
+        if not os.path.exists(self._cachedir):
+            os.makedirs(self._cachedir)
+
+
+    def cache(self, func):
+        """ Decorates the given function. 
+        """
+        return MemorizedFunc(func, cachedir=self._cachedir,
+                                   debug=self._debug)
+
+
+    def clear(self):
+        """ Erase the complete cache directory.
+        """
+        self.warn('Flushing completely the cache')
+        shutil.rmtree(self._cachedir)
+        os.makedirs(self._cachedir)
+
+
+    def eval(self, func, *args, **kwargs):
+        return self.cache(func)(*args, **kwargs)
 
     #-------------------------------------------------------------------------
     # Private `object` interface
