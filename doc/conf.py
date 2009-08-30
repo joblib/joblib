@@ -44,7 +44,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'joblib'
-copyright = u'2008, Gaël Varoquaux'
+copyright = u'2008-2009, Gaël Varoquaux'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
