@@ -11,13 +11,16 @@ The `Memory` class defines a context for lazy evaluation of function, by
 storing the results to the disk, and not rerunning the function twice for
 the same arguments.
 
-You can use it as a context, with its `eval` method:
-
-.. automethod:: Memory.eval
-
-or decorate functions with the `cache` method:
-
-.. automethod:: Memory.cache
+..
+ Commented out in favor of briefness
+ 
+    You can use it as a context, with its `eval` method:
+ 
+    .. automethod:: Memory.eval
+ 
+    or decorate functions with the `cache` method:
+ 
+    .. automethod:: Memory.cache
 
 It works by explicitely saving the output to a file and it is designed to
 work with non-hashable and potentially large input and output data types
@@ -221,7 +224,7 @@ Gotchas
  #   2
  #   >>> f()
 
-* **make cannot be used on complex objects**, eg a callable
+* **memory cannot be used on some complex objects**, eg a callable
   object with a `__call__` method.
 
   Howevers, it works on numpy ufuncs::

@@ -60,7 +60,8 @@ class MemorizedFunc(Logger):
                 arguments. Only used if save_npy was true when the
                 cache was created.
             debug: boolean, optional
-                If True, debug messages will be issued
+                If True, debug messages will be issued as functions 
+                are revaluated.
         """
         self._debug = debug
         self._cachedir = cachedir
@@ -238,7 +239,8 @@ class Memory(Logger):
                 arguments. Only used if save_npy was true when the
                 cache was created.
             debug: boolean, optional
-                If True, debug messages will be issued
+                If True, debug messages will be issued as functions 
+                are revaluated.
         """
         self._debug = debug
         self._cachedir = cachedir
