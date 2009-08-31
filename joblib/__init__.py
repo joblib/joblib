@@ -36,10 +36,10 @@ possible.
 The tools that have been identified and developped so far are:
 
   1) **Transparent and fast disk-caching of output value:** a make-like
-     functionality for Python functions. The goal is to separate a script
-     in a set of steps, with well-defined inputs and outputs, that can be
-     saved and reran only if necessary, by using standard Python
-     functions::
+     functionality for Python functions that works well with large numpy
+     arrays. The goal is to separate a script in a set of steps, with 
+     well-defined inputs and outputs, that can be saved and reran only if 
+     necessary, by using standard Python functions::
 
         >>> from joblib import Memory
         >>> mem = Memory(cachedir='/tmp/joblib', debug=True)
@@ -75,7 +75,7 @@ and publishing it along-side my branch is dead-easy.
 
 """
 
-__version__ = '0.3.2a'
+__version__ = '0.3.2b'
 
 
 from .memory import Memory
