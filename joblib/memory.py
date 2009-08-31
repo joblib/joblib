@@ -11,6 +11,7 @@ are called.
 
 import os
 import shutil
+import sys
 try:
     import cPickle as pickle
 except ImportError:
@@ -22,6 +23,10 @@ import traceback
 from .hashing import get_func_code, get_func_name, hash
 from .logger import Logger
 from . import numpy_pickle
+
+# TODO: The following object should have a data store object as a sub
+# object, and the interface to persist and query should be separated in
+# the data store.
 
 ################################################################################
 # class `Memory`
@@ -37,10 +42,31 @@ class MemorizedFunc(Logger):
     # Public interface
     #-------------------------------------------------------------------------
    
-    def __init__(self, func, cachedir, debug=False):
+    def __init__(self, func, cachedir, save_npy=True, 
+                             mmap_mode=None, debug=False):
+        """
+            Parameters
+            ----------
+            func: callable
+                The function to decorate
+            cachedir: string
+                The path of the base directory to use as a data store
+            save_npy: boolean, optional
+                If True, numpy arrays are saved outside of the pickle
+                files in the cache, as npy files.
+            mmap_mode: {None, 'r+', 'r', 'w+', 'c'}, optional
+                The memmapping mode used when loading from cache
+                numpy arrays. See numpy.load for the meaning of the
+                arguments. Only used if save_npy was true when the
+                cache was created.
+            debug: boolean, optional
+                If True, debug messages will be issued
+        """
         self._debug = debug
         self._cachedir = cachedir
         self.func = func
+        self.save_npy = save_npy
+        self.mmap_mode = mmap_mode
         if not os.path.exists(self._cachedir):
             os.makedirs(self._cachedir)
         try:
@@ -147,16 +173,26 @@ class MemorizedFunc(Logger):
         """
         if not os.path.exists(dir):
             os.makedirs(dir)
-        output_file = file(os.path.join(dir, 'output.pkl'), 'w')
-        pickle.dump(output, output_file, protocol=2)
+        filename = os.path.join(dir, 'output.pkl')
+
+        if 'numpy' in sys.modules and self.save_npy:
+            numpy_pickle.dump(output, filename) 
+        else:
+            output_file = file(filename, 'w')
+            pickle.dump(output, output_file, protocol=2)
 
 
     def _read_output(self, args, kwargs):
         """ Read the results of a previous calculation from a file.
         """
         output_dir = self._get_output_dir(args, kwargs)
-        output_file = file(os.path.join(output_dir, 'output.pkl'), 'r')
-        return pickle.load(output_file)
+        filename = os.path.join(output_dir, 'output.pkl')
+        output_file = file(filename, 'r')
+        if self.save_npy:
+            return numpy_pickle.load(filename, 
+                                     mmap_mode=self.mmap_mode)
+        else:
+            return pickle.load(output_file)
 
     # XXX: Need a method to check if results are available.
 
@@ -186,9 +222,28 @@ class Memory(Logger):
     # Public interface
     #-------------------------------------------------------------------------
    
-    def __init__(self, cachedir, debug=False):
+    def __init__(self, cachedir, save_npy=True, mmap_mode=None,
+                       debug=False):
+        """
+            Parameters
+            ----------
+            cachedir: string
+                The path of the base directory to use as a data store
+            save_npy: boolean, optional
+                If True, numpy arrays are saved outside of the pickle
+                files in the cache, as npy files.
+            mmap_mode: {None, 'r+', 'r', 'w+', 'c'}, optional
+                The memmapping mode used when loading from cache
+                numpy arrays. See numpy.load for the meaning of the
+                arguments. Only used if save_npy was true when the
+                cache was created.
+            debug: boolean, optional
+                If True, debug messages will be issued
+        """
         self._debug = debug
         self._cachedir = cachedir
+        self.save_npy = save_npy
+        self.mmap_mode = mmap_mode
         if not os.path.exists(self._cachedir):
             os.makedirs(self._cachedir)
 
@@ -198,6 +253,8 @@ class Memory(Logger):
             value for input arguments not cached on disk.
         """
         return MemorizedFunc(func, cachedir=self._cachedir,
+                                   save_npy=self.save_npy,
+                                   mmap_mode=self.mmap_mode,
                                    debug=self._debug)
 
 

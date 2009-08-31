@@ -122,6 +122,46 @@ An example
     >>> np.allclose(b, b2)
     True
 
+Using memmapping
+~~~~~~~~~~~~~~~~
+
+To speed up cache looking of large numpy arrays, you can load them
+using memmapping (memory mapping)::
+
+    >>> memory2 = Memory(cachedir=cachedir, mmap_mode='r')
+    >>> square = memory2.cache(np.square)
+    >>> a = np.vander(np.arange(3))
+    >>> square(a)
+    array([[ 0,  0,  1],
+           [ 1,  1,  1],
+           [16,  4,  1]])
+
+If the `square` function is called with the same input argument, its
+return value is loaded from the disk using memmapping::
+
+    >>> square(a)
+    memmap([[ 0,  0,  1],
+           [ 1,  1,  1],
+           [16,  4,  1]])
+
+   
+.. note::
+
+   If the memory mapping mode used was 'r', as in the above example, the
+   array will be read only, and will be impossible to modified in place.
+
+   On the other hand, using 'r+' or 'w+' will enable modification of the
+   array, but will propagate these modification to the disk, which will
+   corrupt the cache. If you want modification of the array in memory, we
+   suggest you use the 'c' mode: copy on write.
+
+
+.. warning::
+
+   Because in the first run the array is a plain ndarray, and in the
+   second run the array is a memmap, you can have side effects of using
+   the `Memory`, especially when using `mmap_mode='r'` as the array is
+   writable in the first run, and not the second.
 
 Gotchas
 --------
@@ -201,11 +241,11 @@ Let us not forget to clean our cache dir once we are finished::
     >>> import shutil
     >>> shutil.rmtree(cachedir)
 
-Reference documentation
-------------------------
 
-..
- .. autoclass:: MemMappedNiftiFile
-    :members: __init__
+Reference documentation of the `Memory` class
+----------------------------------------------
+
+.. autoclass:: Memory
+    :members: __init__, cache, eval, clear
 
 
