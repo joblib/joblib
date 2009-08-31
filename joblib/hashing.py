@@ -40,7 +40,17 @@ class NumpyHasher(Hasher):
     """ Special case the haser for when numpy is loaded.
     """
 
-    def __init__(self, hash_name='md5'):
+    def __init__(self, hash_name='md5', coerce_mmap=False):
+        """
+            Parameters
+            ----------
+            hash_name: string
+                The hash algorithm to be used
+            coerce_mmap: boolean
+                Make no difference between np.memmap and np.ndarray
+                objects.
+        """
+        self.coerce_mmap = coerce_mmap
         Hasher.__init__(self, hash_name=hash_name)
         # delayed import of numpy, to avoid tight coupling
         import numpy as np
@@ -58,9 +68,7 @@ class NumpyHasher(Hasher):
             # We store the class, to be able to distinguish between 
             # Objects with the same binary content, but different
             # classes.
-            if isinstance(obj, self.np.memmap):
-                # XXX: I should add a keyword argument to make this 
-                # optional.
+            if self.coerce_mmap and isinstance(obj, self.np.memmap):
                 # We don't make the difference between memmap and
                 # normal ndarrays, to be able to reload previously
                 # computed results with memmap.
@@ -75,12 +83,14 @@ class NumpyHasher(Hasher):
         Hasher.save(self, obj)
 
 
-def hash(obj, hash_name='md5'):
+def hash(obj, hash_name='md5', coerce_mmap=False):
     """
         Parameters
         -----------
         hash_name: 'md5' or 'sha1'
             sha1 is supposedly safer, but md5 is faster.
+        coerce_mmap: boolean
+            Make no difference between np.memmap and np.ndarray
     """
     if 'numpy' in sys.modules:
         hasher = NumpyHasher(hash_name=hash_name)

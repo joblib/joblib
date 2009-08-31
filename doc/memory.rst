@@ -123,9 +123,6 @@ An example
     True
 
 
-`make` as a persistence model and lazy-re-evaluation execution engine
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
 Gotchas
 --------
 

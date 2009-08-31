@@ -27,7 +27,9 @@ class NDArrayWrapper(object):
 # Pickler classes
 
 class NumpyPickler(pickle.Pickler):
-    # XXX: Docstring!
+    """ A pickler subclass that extracts ndarrays and saves them in .npy
+        files outside of the pickle.
+    """
 
     def __init__(self, filename):
         self._filename = filename
@@ -47,8 +49,6 @@ class NumpyPickler(pickle.Pickler):
             total abuse of the Pickler class.
         """
         if isinstance(obj, self.np.ndarray):
-            # XXX: The way to do this would be to replace with an object
-            # that has a __reduce_ex__ that does the work.
             self._npy_counter += 1
             try:
                 filename = '%s_%02i.npy' % (self._filename,
@@ -59,7 +59,9 @@ class NumpyPickler(pickle.Pickler):
             except:
                 self._npy_counter -= 1
                 # XXX: We should have a logging mechanism
-                print traceback.print_exc()
+                print 'Failed to save %s to .npy file:\n%s' % (
+                        type(obj),
+                        traceback.format_exc())
         pickle.Pickler.save(self, obj)
 
 
@@ -104,9 +106,10 @@ class NumpyUnpickler(pickle.Unpickler):
 # Utility functions
 
 def dump(value, filename):
-    """Pickles the object (`value`) into the passed filename.
+    """ Pickles the object (`value`) into the passed filename.
 
-    XXX: Add info on the npy files created.
+        The numpy arrays contained in the object are saved as separate
+        .npy files alongside the main pickle file. 
     """
     try:
         pickler = NumpyPickler(filename)
@@ -120,6 +123,11 @@ def dump(value, filename):
 
 def load(filename, mmap_mode=None):
     """ Load the pickled objects from the given file.
+
+        This function loads the numpy array files saved separately. If
+        the mmap_mode argument is given, it is passed to np.save and
+        arrays are loaded as memmaps. As a consequence, the reconstructed
+        object might not match the original pickled object.
     """
     try:
         unpickler = NumpyUnpickler(filename, mmap_mode=mmap_mode)

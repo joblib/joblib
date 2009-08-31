@@ -126,3 +126,13 @@ def test_memmap_persistence():
     yield nose.tools.assert_true, isinstance(b, np.memmap)
 
 
+@with_numpy
+def test_masked_array_persistence():
+    a = np.random.random(10)
+    a = np.ma.masked_greater(a, 0.5)
+    filename = env['filename']
+    numpy_pickle.dump(a, filename)
+    b = numpy_pickle.load(filename, mmap_mode='r')
+    yield nose.tools.assert_true, isinstance(b, np.ma.masked_array)
+
+

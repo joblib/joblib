@@ -104,7 +104,6 @@ def test_memory_integration():
                 current_accumulator + 1
 
 
-
 def test_memory_kwarg():
     " Test memory with a function with keyword arguments."
     accumulator = list()
@@ -136,6 +135,23 @@ def test_memory_lambda():
         yield test
 
 
+def test_memory_partial():
+    " Test memory with functools.partial."
+    accumulator = list()
+    def func(x, y):
+        """ A helper function to define l as a lambda.
+        """
+        accumulator.append(1)
+        return y
+
+    import functools
+    function = functools.partial(func, 1)
+
+    for test in check_identity_lazy(function, accumulator):
+        yield test
+
+
+
 def test_memory_eval():
     " Smoke test memory with a function with a function defined in an eval."
     memory = Memory(cachedir=env['dir'])
@@ -143,7 +159,6 @@ def test_memory_eval():
     m = eval('lambda x: x')
 
     yield nose.tools.assert_equal, 1, m(1)
-
 
 
 def test_memory_exception():
