@@ -108,6 +108,10 @@ class NumpyUnpickler(pickle.Unpickler):
 def dump(value, filename):
     """ Persist a Python into a filename, with numpy arrays saved as
         separate .npy files.
+
+        See Also
+        --------
+        joblib.load : corresponding loader
     """
     try:
         pickler = NumpyPickler(filename)
@@ -127,6 +131,10 @@ def load(filename, mmap_mode=None):
         the mmap_mode argument is given, it is passed to np.save and
         arrays are loaded as memmaps. As a consequence, the reconstructed
         object might not match the original pickled object.
+
+        See Also
+        --------
+        joblib.dump : function to save the object
     """
     try:
         unpickler = NumpyUnpickler(filename, mmap_mode=mmap_mode)

@@ -36,13 +36,12 @@ A simple example:
     >>> from tempfile import mkdtemp
     >>> cachedir = mkdtemp()
 
+  We can instanciate a memory context, using this cache directory::
+
     >>> from joblib import Memory
-
-  We can then instance a memory context, using this cache directory::
-
     >>> memory = Memory(cachedir=cachedir)
 
-  Then we can decorator a function to be cached in this context::
+  Then we can decorate a function to be cached in this context::
 
     >>> @memory.cache
     ... def f(x):
@@ -76,7 +75,9 @@ overhead. However, it compares input objects with those in cache on each
 call. As a result, for big objects there is a huge overhead. More over
 this approach does not work with numpy arrays, or other objects subject
 to non-significant fluctuations. Finally, using `memoize` with large
-object will consume all the memory.
+object will consume all the memory, where with `Memory`, objects are
+persisted to the disk, using a persister optimized for speed and memory
+usage (:func:`joblib.dump`).
 
 In short, `memoize` is best suited for functions with "small" input and
 output objects, whereas `Memory` is best suited for functions with complex
@@ -235,19 +236,22 @@ Gotchas
     >>> print sin(0)
     0.0
 
-
-.. _`reference chapter`: http://www.informit.com/articles/article.aspx?p=453682 
-
-Let us not forget to clean our cache dir once we are finished::
-
-    >>> import shutil
-    >>> shutil.rmtree(cachedir)
-
-
 Reference documentation of the `Memory` class
 ----------------------------------------------
 
 .. autoclass:: Memory
     :members: __init__, cache, eval, clear
+
+
+..
+ Let us not forget to clean our cache dir once we are finished::
+ 
+    >>> import shutil
+    >>> shutil.rmtree(cachedir)
+ 
+ And we check that it has indeed been remove::
+ 
+    >>> import os ; os.path.exists(cachedir)
+    False
 
 
