@@ -35,7 +35,8 @@ class NumpyPickler(pickle.Pickler):
         self.file = open(filename, 'w')
         # Count the number of npy files that we have created:
         self._npy_counter = 0
-        pickle.Pickler.__init__(self, self.file, protocol=2)
+        pickle.Pickler.__init__(self, self.file,
+                                protocol=pickle.HIGHEST_PROTOCOL)
         # delayed import of numpy, to avoid tight coupling
         import numpy as np
         self.np = np
@@ -58,7 +59,7 @@ class NumpyPickler(pickle.Pickler):
             except:
                 self._npy_counter -= 1
                 # XXX: We should have a logging mechanism
-                traceback.print_exc()
+                print traceback.print_exc()
         pickle.Pickler.save(self, obj)
 
 

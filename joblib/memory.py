@@ -21,6 +21,7 @@ import traceback
 # Local imports
 from .hashing import get_func_code, get_func_name, hash
 from .logger import Logger
+from . import numpy_pickle
 
 ################################################################################
 # class `Memory`

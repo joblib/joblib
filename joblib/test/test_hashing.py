@@ -11,7 +11,7 @@ import time
 import hashlib
 
 from ..hashing import hash
-from .testing_utils import np, with_numpy
+from .common import np, with_numpy
 
 ################################################################################
 # Helper functions for the tests 

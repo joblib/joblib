@@ -10,40 +10,39 @@ import shutil
 import os
 from tempfile import mkdtemp
 
-import nose
-
 from ..logger import PrintTime
 
 ################################################################################
 # Test fixtures
+env = dict()
+
 def setup():
     """ Test setup.
     """
-    global cachedir
     cachedir = mkdtemp()
-    #cachedir = 'foobar'
     if os.path.exists(cachedir):
         shutil.rmtree(cachedir)
+    env['dir'] = cachedir
     
 
 def teardown():
     """ Test teardown.
     """
     #return True
-    shutil.rmtree(cachedir)
+    shutil.rmtree(env['dir'])
 
 
 ################################################################################
 # Tests
-def smoke_test_print_time():
+def test_print_time():
     """ A simple smoke test for PrintTime.
     """
-    print_time = PrintTime(logfile=os.path.join(cachedir, 'test.log'))
+    print_time = PrintTime(logfile=os.path.join(env['dir'], 'test.log'))
     print_time('Foo')
     # Create a second time, to smoke test log rotation.
-    print_time = PrintTime(logfile=os.path.join(cachedir, 'test.log'))
+    print_time = PrintTime(logfile=os.path.join(env['dir'], 'test.log'))
     print_time('Foo')
     # And a third time 
-    print_time = PrintTime(logfile=os.path.join(cachedir, 'test.log'))
+    print_time = PrintTime(logfile=os.path.join(env['dir'], 'test.log'))
     print_time('Foo')
 

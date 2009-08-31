@@ -10,11 +10,11 @@ import os
 
 import nose
 
-from .testing_utils import np, with_numpy
+from .common import np, with_numpy
 
 # numpy_pickle is not a drop-in replacement of pickle, as it takes
 # filenames instead of open files as arguments.
-from .. import numpy_pickle as pickle
+from .. import numpy_pickle
 
 ################################################################################
 # Define a list of standard types.
@@ -55,52 +55,60 @@ def _function(x): yield x; typelist.append(_function)
 ################################################################################
 # Test fixtures
 
-cachedir = None
-filename = None
+env = dict()
 
-def setup():
+def setup_module():
     """ Test setup.
     """
-    global cachedir, filename
-    cachedir = mkdtemp()
-    filename = os.path.join(cachedir, 'test.pkl')
+    env['dir'] = mkdtemp()
+    env['filename'] = os.path.join(env['dir'], 'test.pkl')
+    print 80*'_'
+    print 'setup numpy_pickle'
+    print 80*'_'
 
 
-def teardown():
+def teardown_module():
     """ Test teardown.
     """
-    shutil.rmtree(cachedir)
+    shutil.rmtree(env['dir'])
+    #del env['dir']
+    #del env['filename']
+    print 80*'_'
+    print 'teardown numpy_pickle'
+    print 80*'_'
 
 
 ################################################################################
 # Tests
 
 def test_standard_types():
-  """ Test pickling and saving with standard types.
-  """
-  for member in typelist:
-      pickle.dump(member, filename)
-      _member = pickle.load(filename)
-      # We compare the pickled instance to the reloaded one only if it
-      # can be compared to a copied one
-      if member == copy.deepcopy(member):
-          yield nose.tools.assert_equal, member, _member
+    #""" Test pickling and saving with standard types.
+    #"""
+    filename = env['filename']
+    for member in typelist:
+        numpy_pickle.dump(member, filename)
+        _member = numpy_pickle.load(filename)
+        # We compare the pickled instance to the reloaded one only if it
+        # can be compared to a copied one
+        if member == copy.deepcopy(member):
+            yield nose.tools.assert_equal, member, _member
 
 
 @with_numpy
-def test_numpy_pickling():
+def test_numpy_persistence():
+    filename = env['filename']
     a = np.random.random(10)
     for obj in (a,), (a, a), [a, a, a]:
-        filenames = pickle.dump(obj, filename)
+        filenames = numpy_pickle.dump(obj, filename)
         # Check that one file was created per array
         yield nose.tools.assert_equal, len(filenames), len(obj) + 1
         # Check that these files do exist
         for file in filenames:
             yield nose.tools.assert_true, \
-                os.path.exists(os.path.join(cachedir, file))
+                os.path.exists(os.path.join(env['dir'], file))
 
         # Unpickle the object
-        obj_ = pickle.load(filename)
+        obj_ = numpy_pickle.load(filename)
         # Check that the items are indeed arrays
         for item in obj_:
             yield nose.tools.assert_true, isinstance(item, np.ndarray)
@@ -110,10 +118,11 @@ def test_numpy_pickling():
 
 
 @with_numpy
-def test_memap_unpickling():
+def test_memmap_persistence():
     a = np.random.random(10)
-    pickle.dump(a, filename)
-    b = pickle.load(filename, mmap_mode='r')
-    nose.tools.assert_true(isinstance(b, np.memmap))
+    filename = env['filename']
+    numpy_pickle.dump(a, filename)
+    b = numpy_pickle.load(filename, mmap_mode='r')
+    yield nose.tools.assert_true, isinstance(b, np.memmap)
 
 
