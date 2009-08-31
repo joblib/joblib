@@ -57,11 +57,10 @@ features for a while before I can figure out what is the right set of
 functionalities to expose. 
 
 The code is hosted on launchpad for the good reason that branching the project
-and publishing it along-side my branch is dead-easy. I suspect that some of the
-existing functionality (such as the make decorator) can already be useful.
+and publishing it along-side my branch is dead-easy. 
 """
 
-__version__ = '0.3a'
+__version__ = '0.3.1a'
 
 
 from .memory import Memory
