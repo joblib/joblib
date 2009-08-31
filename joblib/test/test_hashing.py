@@ -11,6 +11,7 @@ import time
 import hashlib
 
 from ..hashing import hash
+from .testing_utils import np, with_numpy
 
 ################################################################################
 # Helper functions for the tests 
@@ -35,20 +36,6 @@ def relative_time(func1, func2, *args):
                           /  (time_func1 + time_func2) )
     return relative_diff
 
-try:
-    import numpy as np
-    def with_numpy(func):
-        """ A decorator to skip tests requiring numpy.
-        """
-        return func
-
-except ImportError:    
-    def with_numpy(func):
-        """ A decorator to skip tests requiring numpy.
-        """
-        def my_func():
-            raise nose.SkipTest('Test requires numpy')
-        return my_func
 
 ################################################################################
 # Tests
