@@ -13,14 +13,11 @@ import os
 ################################################################################
 # Utility objects for persistence.
 
-class NDArrayWrapper:
+class NDArrayWrapper(object):
     """ An object to be persisted instead of numpy arrays.
 
         The only thing this object does, is store the filename in wich
         the array has been persisted.
-
-        We use an old-style class, because it is easy to override the
-        unpickler with old-style classes. This is a hack, of course.
     """
     def __init__(self, filename):
         self.filename = filename
@@ -67,23 +64,34 @@ class NumpyPickler(pickle.Pickler):
 
 
 class NumpyUnpickler(pickle.Unpickler):
-    # XXX: Docstring!
+    """ A subclass of the Unpickler to unpickle our numpy pickles.
+    """
     dispatch = pickle.Unpickler.dispatch.copy()
 
-    def __init__(self, filename):
+    def __init__(self, filename, mmap_mode=None):
         self._filename = filename
+        self.mmap_mode = mmap_mode
         self._dirname  = os.path.dirname(filename)
         self.file = open(filename, 'rb')
         pickle.Unpickler.__init__(self, self.file)
         import numpy as np
         self.np = np
 
+
     def load_build(self):
+        """ This method is called to set the state of a knewly created
+            object. 
+            
+            We capture it to replace our place-holder objects,
+            NDArrayWrapper, by the array we are interested in. We
+            replace directly in the stack of pickler.
+        """
         pickle.Unpickler.load_build(self)
         if isinstance(self.stack[-1], NDArrayWrapper):
             nd_array_wrapper = self.stack.pop()
             array = self.np.load(os.path.join(self._dirname,
-                                                nd_array_wrapper.filename))
+                                                nd_array_wrapper.filename),
+                                                mmap_mode=self.mmap_mode)
             self.stack.append(array)
 
 
@@ -109,11 +117,11 @@ def dump(value, filename):
     return pickler._filenames
 
 
-def load(filename):
+def load(filename, mmap_mode=None):
     """ Load the pickled objects from the given file.
     """
     try:
-        unpickler = NumpyUnpickler(filename)
+        unpickler = NumpyUnpickler(filename, mmap_mode=mmap_mode)
         obj = unpickler.load()
     finally:
         if 'unpickler' in locals() and hasattr(unpickler, 'file'):

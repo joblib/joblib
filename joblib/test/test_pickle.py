@@ -109,3 +109,11 @@ def test_numpy_pickling():
                                              np.array(obj_))
 
 
+@with_numpy
+def test_memap_unpickling():
+    a = np.random.random(10)
+    pickle.dump(a, filename)
+    b = pickle.load(filename, mmap_mode='r')
+    nose.tools.assert_true(isinstance(b, np.memmap))
+
+
