@@ -134,10 +134,13 @@ Using memmapping
 To speed up cache looking of large numpy arrays, you can load them
 using memmapping (memory mapping)::
 
-    >>> memory2 = Memory(cachedir=cachedir, mmap_mode='r')
+    >>> memory2 = Memory(cachedir=cachedir, mmap_mode='r', debug=True)
     >>> square = memory2.cache(np.square)
     >>> a = np.vander(np.arange(3))
     >>> square(a)
+    DBG:Call square(array([[0, 0, 1],
+           [1, 1, 1],
+           [4, 2, 1]]))
     array([[ 0,  0,  1],
            [ 1,  1,  1],
            [16,  4,  1]])

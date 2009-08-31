@@ -26,6 +26,9 @@ class Logger(object):
     def warn(self, msg):
         logging.warn("[%s]: %s" % (self, msg))
 
+    def debug(self, msg):
+        logging.debug("[%s]: %s" % (self, msg))
+
 
 
 ################################################################################

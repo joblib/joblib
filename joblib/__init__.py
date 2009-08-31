@@ -35,11 +35,23 @@ possible.
 
 The tools that have been identified and developped so far are:
 
-  1) **Transparent disk-caching of output value:** a make-like
+  1) **Transparent and fast disk-caching of output value:** a make-like
      functionality for Python functions. The goal is to separate a script
      in a set of steps, with well-defined inputs and outputs, that can be
      saved and reran only if necessary, by using standard Python
-     functions. 
+     functions::
+
+        >>> from joblib import Memory
+        >>> mem = Memory(cachedir='/tmp/joblib', debug=True)
+        >>> import numpy as np
+        >>> a = np.vander(np.arange(3))
+        >>> square = mem.cache(np.square)
+        >>> b = square(a)
+        DBG:Call square(array([[0, 0, 1],
+               [1, 1, 1],
+               [4, 2, 1]]))
+        >>> c = square(a)
+
 
   2) **Logging/tracing:** The functionalities described above will
      progressively acquire better logging mechanism to help track what
@@ -57,6 +69,10 @@ functionalities to expose.
 
 The code is hosted on launchpad for the good reason that branching the project
 and publishing it along-side my branch is dead-easy. 
+
+.. 
+    >>> import shutil ; shutil.rmtree('/tmp/joblib/')
+
 """
 
 __version__ = '0.3.1a'

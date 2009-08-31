@@ -153,6 +153,8 @@ class MemorizedFunc(Logger):
     def _call(self, args, kwargs):
         """ Execute the function and persist the output arguments.
         """
+        if self._debug:
+            self.print_call(*args, **kwargs)
         output = self.func(*args, **kwargs)
         output_dir = self._get_output_dir(args, kwargs)
         self._persist_output(output, output_dir)
@@ -163,10 +165,20 @@ class MemorizedFunc(Logger):
         """ Print a debug statement displaying the function call with the 
             arguments.
         """
-        self.warn('Calling %s(%s, %s)' % (self.func.func_name,
-                                    repr(args)[1:-1], 
-                                    ', '.join('%s=%s' % (v, i) for v, i
-                                    in kwds.iteritems())))
+        module, name = get_func_name(self.func)
+        module = [m for m in module if m]
+        if module:
+            module.append(name)
+            module = '.'.join(module)
+        else:
+            module = name
+        args = [repr(arg) for arg in args]
+        args.extend('%s=%s' % (v, i) for v, i in kwds.iteritems())
+
+        msg = 'DBG:Call %s(%s)' % (module, ', '.join(args))
+        print msg
+        # XXX: Not using logging framework
+        #self.debug(msg)
 
 
     def _persist_output(self, output, dir):
