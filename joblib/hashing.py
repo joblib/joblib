@@ -84,11 +84,15 @@ class NumpyHasher(Hasher):
 
 
 def hash(obj, hash_name='md5', coerce_mmap=False):
-    """
+    """ Quick calculation of a hash to identify uniquely Python objects 
+        containing numpy arrays.
+
+    
         Parameters
         -----------
         hash_name: 'md5' or 'sha1'
-            sha1 is supposedly safer, but md5 is faster.
+            Hashing algorithm used. sha1 is supposedly safer, but md5 is 
+            faster.
         coerce_mmap: boolean
             Make no difference between np.memmap and np.ndarray
     """

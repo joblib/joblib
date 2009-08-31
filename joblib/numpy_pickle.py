@@ -106,10 +106,8 @@ class NumpyUnpickler(pickle.Unpickler):
 # Utility functions
 
 def dump(value, filename):
-    """ Pickles the object (`value`) into the passed filename.
-
-        The numpy arrays contained in the object are saved as separate
-        .npy files alongside the main pickle file. 
+    """ Persist a Python into a filename, with numpy arrays saved as
+        separate .npy files.
     """
     try:
         pickler = NumpyPickler(filename)
@@ -122,7 +120,8 @@ def dump(value, filename):
 
 
 def load(filename, mmap_mode=None):
-    """ Load the pickled objects from the given file.
+    """ Reconstruct a Python object and the numpy arrays it contains from 
+        a persisted file.
 
         This function loads the numpy array files saved separately. If
         the mmap_mode argument is given, it is passed to np.save and

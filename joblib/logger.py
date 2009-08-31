@@ -20,6 +20,8 @@ import logging
 # class `Logger`
 ################################################################################
 class Logger(object):
+    """ Base class for logging messages.
+    """
     
     def warn(self, msg):
         logging.warn("[%s]: %s" % (self, msg))
@@ -30,7 +32,7 @@ class Logger(object):
 # class `PrintTime`
 ################################################################################
 class PrintTime(object):
-    """ An object to print messages while keeping track of time.
+    """ Print and log messages while keeping track of time.
     """
 
     def __init__(self, logfile=None):

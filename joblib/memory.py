@@ -1,6 +1,6 @@
 """
 A context object for caching a function's return value each time it
-are called.
+is called with the same input arguments.
 
 """
 
@@ -213,11 +213,13 @@ class MemorizedFunc(Logger):
 # class `Memory`
 ################################################################################
 class Memory(Logger):
-    """ A context object for caching a function's return value each time 
-        it are called.
+    """ A context object for caching a function's return value each time it
+        is called with the same input arguments.
     
         All values are cached on the filesystem, in a deep directory
         structure.
+
+        see :ref:`memory`
     """
     #-------------------------------------------------------------------------
     # Public interface

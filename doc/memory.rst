@@ -1,5 +1,7 @@
+.. _memory:
+
 ==============================
-The `Memory` class 
+The `Memory` class
 ==============================
 
 .. currentmodule:: joblib.memory
@@ -232,9 +234,6 @@ Gotchas
     >>> sin = memory.cache(np.sin)
     >>> print sin(0)
     0.0
-
-..
-  FIXME: Check the above
 
 
 .. _`reference chapter`: http://www.informit.com/articles/article.aspx?p=453682 

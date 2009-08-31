@@ -12,16 +12,19 @@ Joblib: running Python function as pipeline jobs
 Introduction
 ------------
 
+
 .. automodule:: joblib
 
+Module contents
+----------------
 
 .. autosummary:: 
     :toctree: generated
-
-    joblib.Memory
-    joblib.PrintTime
-    joblib.Logger
-    joblib.hash
-    joblib.dump
-    joblib.load
+ 
+    Memory
+    dump
+    load
+    PrintTime
+    Logger
+    hash
 
