@@ -1,13 +1,12 @@
-"""
-Joblib provides a set of tools for long running Python functions as
-pipeline jobs:
+""" Joblib provides a set of tools for using long-running Python
+functions as pipeline jobs:
 
-  1. transparent disk caching of the output values and lazy re-evaluation 
+  1. transparent disk-caching of the output values and lazy re-evaluation 
 
   2. logging of the execution 
 
 The original focus was on scientific-computing scripts, but any long-running
-succession of functions can profit from the tools provided by joblib.
+succession of operation can profit from the tools provided by joblib.
 
 ____
 
@@ -18,37 +17,37 @@ provide a light-weight make replacement.
 
 The main problems identified are:
 
- 1) Rerunning over and over the same script as it is tuned, but commenting
-    out steps, or uncommenting steps, as they are needed, as they take
-    long to run.
+ 1) **Lazy evaluation:** People need to rerun over and over the same
+    script as it is tuned, but end up commenting out steps, or
+    uncommenting steps, as they are needed, as they take long to run.
 
- 2) Not ideal persistence model, too often hand-implemented by the
-    scientist, which leads to people having a hard time resuming the job,
-    eg after a crash.
+ 2) **Persistance:** It is difficult to persist in an efficient way
+    arbitrary objects containing large numpy arrays. In addition,
+    hand-written persistence to disk does not link easily the file on
+    disk to the corresponding Python object it was persists from in the
+    script. This leads to people not a having a hard time resuming the
+    job, eg after a crash and persistence getting in the way of work.
 
-The approach take by Joblib to address these problems is not to build a heavy
-framework and coerce user into using it. It strives to build a set of
-easy-to-use, light-weight tools that fit with the users's mind of running a
-script, and not developing a library.
+The approach take by Joblib to address these problems is not to build a
+heavy framework and coerce user into using it (e.g. with pipeline). It
+strives to leave your code and your flow control as unmodified as
+possible.
 
 The tools that have been identified and developped so far are:
 
-  1) A make-like functionality. The goal is to separate a script in a set
-     of steps, with well-defined inputs and outputs, that can be saved
-     and reran only if necessary. 
+  1) **Transparent disk-caching of output value:** a make-like
+     functionality for Python functions. The goal is to separate a script
+     in a set of steps, with well-defined inputs and outputs, that can be
+     saved and reran only if necessary, by using standard Python
+     functions. 
 
-  2) The functionalities described above will progressively acquire
-     better logging mechanism to help track what has been ran, and
-     capture I/O easily. In addition, Joblib will provide a few I/O
-     primitives, to easily define define logging and display streams,
-     and maybe provide a way of compiling a report, probably with some
-     graphics captured from pylab plots, or anything else (here arises to
-     need to define an easy API for a visualization mechanism in addition
-     to the one defined for persistence). In the long run, we would like to be
-     able to quickly inspect what has been run, and visualize
-     the results to be able to compare multiple runs. This would try to
-     achieve a virtual lab-book. Moreover, combined with the persistence model,
-     the lab-book would also have the data stored.
+  2) **Logging/tracing:** The functionalities described above will
+     progressively acquire better logging mechanism to help track what
+     has been ran, and capture I/O easily. In addition, Joblib will
+     provide a few I/O primitives, to easily define define logging and
+     display streams, and maybe provide a way of compiling a report. In
+     the long run, we would like to be able to quickly inspect what has
+     been run.
 
 As stated on the project page, currently the project is in alpha quality. I am
 testing heavily all the features, as I care more about robustness than having
