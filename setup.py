@@ -21,12 +21,12 @@ if not 'extra_setuptools_args' in globals():
 
 setup(name='joblib',
       version=joblib.__version__,
-      summary='Tools to use long-running Python functions as pipeline jobs.',
+      summary='Tools to use Python functions as pipeline jobs.',
       author='Gael Varoquaux',
       author_email='gael.varoquaux@normalesup.org',
       url='https://launchpad.net/joblib',
       description="""
-A set of tools to use Python long-running function as pipeline jobs; 
+Tools to use Python functions as pipeline jobs:
 output-value caching and execution logging.
 """,
       long_description=joblib.__doc__,
