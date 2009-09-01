@@ -216,25 +216,23 @@ def test_persistence():
     yield nose.tools.assert_equal, output, h._read_output((1,), {})
 
 
-def test_print_call():
-    """ Test the print_call formatting.
+def test_format_signature():
+    """ Test the signature formatting.
     """
-    def other_lines(string):
-        " Throw away the first line "
-        return '\n'.join(string.split('\n')[1:])
-
     func = MemorizedFunc(f, cachedir=env['dir'])
-    msg = func.print_call(range(10))
+    path, sgn = func.format_signature(f, range(10))
     yield nose.tools.assert_equal, \
-                other_lines(msg), \
+                sgn, \
                 'f([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])'
-    msg = func.print_call(range(10), y=range(10))
+    path, sgn = func.format_signature(f, range(10), y=range(10))
     yield nose.tools.assert_equal, \
-                other_lines(msg), \
+                sgn, \
         'f([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], y=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9])'
 
 
 @with_numpy
-def test_print_call_numpy():
-    """ Test the print_call formatting with numpy.
+def test_format_signature_numpy():
+    """ Test the format signature formatting with numpy.
     """
+
+# FIXME: Need to test that memmapping does not force recomputing.

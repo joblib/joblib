@@ -155,38 +155,46 @@ class MemorizedFunc(Logger):
         """ Execute the function and persist the output arguments.
         """
         if self._debug:
-            print self.print_call(*args, **kwargs)
+            print self.format_call(*args, **kwargs)
         output = self.func(*args, **kwargs)
         output_dir = self._get_output_dir(args, kwargs)
         self._persist_output(output, output_dir)
         return output
 
 
-    def print_call(self, *args, **kwds):
+    def format_call(self, *args, **kwds):
         """ Print a debug statement displaying the function call with the 
             arguments.
         """
-        module, name = get_func_name(self.func)
-        module = [m for m in module if m]
-        if module:
-            module.append(name)
-            module = '.'.join(module)
-        else:
-            module = name
-        indent = len(name)
-        if args:
-            args = self.format(args, indent=indent)[1:-2]
-        else:
-            args = ''
-        kwds = ', '.join(('%s=%s' % (v, self.format(i)) for v, i in
-                                kwds.iteritems()))
-        if kwds and args:
-            args += ', '
-
-        msg = 'DBG:Calling %s\n%s(%s%s)' % (module, name, args, kwds)
+        path, signature = self.format_signature(self, self.func, *args,
+                            **kwds)
+        msg = '%s\nDBG:Calling %s\n%s' % (80*'_', path, signature, 80*'_')
         return msg
         # XXX: Not using logging framework
         #self.debug(msg)
+
+    def format_signature(self, func, *args, **kwds):
+        # XXX: This should be moved out to a function
+        module, name = get_func_name(func)
+        module = [m for m in module if m]
+        if module:
+            module.append(name)
+            module_path = '.'.join(module)
+        else:
+            module_path = name
+        indent = len(name)
+        arg_str = list()
+        for arg in args:
+            arg = self.format(arg, indent=indent)
+            if len(arg) > 1500:
+                arg = '%s...' % arg[:1000]
+            arg_str.append(arg)
+        arg_str.extend(['%s=%s' % (v, self.format(i)) for v, i in
+                                    kwds.iteritems()])
+        arg_str = ', '.join(arg_str)
+
+        signature = '%s(%s)' % (name, arg_str)
+        return module_path, signature
 
 
     def _persist_output(self, output, dir):
@@ -267,11 +275,12 @@ class Memory(Logger):
                 are revaluated.
         """
         # XXX: Bad explaination of the None value of cachedir
+        Logger.__init__(self)
         self._debug = debug
         self._cachedir = cachedir
         self.save_npy = save_npy
         self.mmap_mode = mmap_mode
-        if not os.path.exists(self._cachedir):
+        if cachedir is not None and not os.path.exists(self._cachedir):
             os.makedirs(self._cachedir)
 
 
