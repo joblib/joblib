@@ -6,7 +6,7 @@ functions as pipeline jobs:
   2. logging of the execution 
 
 The original focus was on scientific-computing scripts, but any long-running
-succession of operation can profit from the tools provided by joblib.
+succession of operations can profit from the tools provided by joblib.
 
 ____
 
