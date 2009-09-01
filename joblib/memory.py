@@ -242,8 +242,10 @@ class Memory(Logger):
         """
             Parameters
             ----------
-            cachedir: string
+            cachedir: string or None
                 The path of the base directory to use as a data store
+                or None. If None is given, no caching is done and
+                the Memory object is completely transparent.
             save_npy: boolean, optional
                 If True, numpy arrays are saved outside of the pickle
                 files in the cache, as npy files.
@@ -256,6 +258,7 @@ class Memory(Logger):
                 If True, debug messages will be issued as functions 
                 are revaluated.
         """
+        # XXX: Bad explaination of the None value of cachedir
         self._debug = debug
         self._cachedir = cachedir
         self.save_npy = save_npy
@@ -268,6 +271,8 @@ class Memory(Logger):
         """ Decorates the given function func to only compute its return
             value for input arguments not cached on disk.
         """
+        if self._cachedir is None:
+            return func
         return MemorizedFunc(func, cachedir=self._cachedir,
                                    save_npy=self.save_npy,
                                    mmap_mode=self.mmap_mode,
@@ -291,6 +296,8 @@ class Memory(Logger):
             up to date.
 
         """
+        if self._cachedir is None:
+            return func(*args, **kwargs)
         return self.cache(func)(*args, **kwargs)
 
     #-------------------------------------------------------------------------
