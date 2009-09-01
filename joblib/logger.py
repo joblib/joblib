@@ -38,8 +38,14 @@ class PrintTime(object):
     """ Print and log messages while keeping track of time.
     """
 
-    def __init__(self, logfile=None):
+    def __init__(self, logfile=None, logdir=None):
+        if logfile is not None and logdir is not None:
+            raise ValueError('Cannot specify both logfile and logdir')
+        # XXX: Need argument docstring
         self.last_time = time.time()
+        sefl.start_time = self.last_time
+        if logdir is not None:
+            logfile = os.path.join(logdir, 'joblib.log')
         self.logfile = logfile
         if logfile is not None:
             if not os.path.exists(os.path.dirname(logfile)):
@@ -72,12 +78,17 @@ class PrintTime(object):
                 # silent failure.
 
 
-    def __call__(self, msg=''):
+    def __call__(self, msg='', total=False):
         """ Print the time elapsed between the last call and the current
             call, with an optional message.
         """
-        time_lapse = time.time() - self.last_time
-        full_msg = "%s: %.2fs, %.1f min" % (msg, time_lapse, time_lapse/60)
+        if not total:
+            time_lapse = time.time() - self.last_time
+            full_msg = "%s: %.2fs, %.1f min" % (msg, time_lapse, time_lapse/60)
+        else:
+            # FIXME: Too much logic duplicated
+            time_lapse = time.time() - self.start_time
+            full_msg = "%s: %.2fs, %.1f min" % (msg, time_lapse, time_lapse/60)
         print >> sys.stderr, full_msg
         if self.logfile is not None:
             try:
