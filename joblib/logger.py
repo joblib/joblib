@@ -13,8 +13,8 @@ import time
 import sys
 import os
 import shutil
-
 import logging
+import pprint
 
 ################################################################################
 # class `Logger`
@@ -23,12 +23,34 @@ class Logger(object):
     """ Base class for logging messages.
     """
     
+    def __init__(self, depth=3):
+        """
+            Parameters
+            ----------
+            depth: int, optional
+                The depth of objects printed.
+        """
+        self.depth = depth
+
     def warn(self, msg):
         logging.warn("[%s]: %s" % (self, msg))
 
     def debug(self, msg):
         logging.debug("[%s]: %s" % (self, msg))
 
+    def format(self, obj, indent=0):
+        """ Return the formated representation of the object.
+        """
+        if 'numpy' in sys.modules:
+            import numpy as np
+            print_options = np.get_printoptions()
+            np.set_printoptions(precision=6, threshold=64, edgeitems=2)
+        else:
+            print_options = None
+        out = pprint.pformat(obj, depth=self.depth, indent=indent)
+        if print_options:
+            np.set_printoptions(**print_options)
+        return out
 
 
 ################################################################################
@@ -43,7 +65,7 @@ class PrintTime(object):
             raise ValueError('Cannot specify both logfile and logdir')
         # XXX: Need argument docstring
         self.last_time = time.time()
-        sefl.start_time = self.last_time
+        self.start_time = self.last_time
         if logdir is not None:
             logfile = os.path.join(logdir, 'joblib.log')
         self.logfile = logfile

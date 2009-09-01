@@ -63,6 +63,7 @@ class MemorizedFunc(Logger):
                 If True, debug messages will be issued as functions 
                 are revaluated.
         """
+        Logger.__init__(self)
         self._debug = debug
         self._cachedir = cachedir
         self.func = func
@@ -154,7 +155,7 @@ class MemorizedFunc(Logger):
         """ Execute the function and persist the output arguments.
         """
         if self._debug:
-            self.print_call(*args, **kwargs)
+            print self.print_call(*args, **kwargs)
         output = self.func(*args, **kwargs)
         output_dir = self._get_output_dir(args, kwargs)
         self._persist_output(output, output_dir)
@@ -172,11 +173,18 @@ class MemorizedFunc(Logger):
             module = '.'.join(module)
         else:
             module = name
-        args = [repr(arg) for arg in args]
-        args.extend('%s=%s' % (v, i) for v, i in kwds.iteritems())
+        indent = len(name)
+        if args:
+            args = self.format(args, indent=indent)[1:-2]
+        else:
+            args = ''
+        kwds = ', '.join(('%s=%s' % (v, self.format(i)) for v, i in
+                                kwds.iteritems()))
+        if kwds and args:
+            args += ', '
 
-        msg = 'DBG:Call %s(%s)' % (module, ', '.join(args))
-        print msg
+        msg = 'DBG:Calling %s\n%s(%s%s)' % (module, name, args, kwds)
+        return msg
         # XXX: Not using logging framework
         #self.debug(msg)
 
