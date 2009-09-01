@@ -44,7 +44,7 @@ output-value caching and execution logging.
           'Topic :: Utilities',
       ],
       platforms='any',
-      package_data={'joblib': ['joblib/*.rst'],},
-      packages=['joblib', 'joblib.test'],
+      #package_data={'joblib': ['joblib/*.rst'],},
+      #packages=['joblib', 'joblib.test'],
       **extra_setuptools_args)
 
