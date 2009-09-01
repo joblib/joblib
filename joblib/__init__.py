@@ -12,8 +12,9 @@ ____
 
 Joblib came out of long-running data-analysis Python scripts. The long
 term vision is to provide tools for scientists to achieve better
-reproducibility when running jobs. However, Joblib can also be used to
-provide a light-weight make replacement.
+reproducibility when running jobs, without changing the way numerical
+code looks like. However, Joblib can also be used to provide a
+light-weight make replacement.
 
 The main problems identified are:
 
