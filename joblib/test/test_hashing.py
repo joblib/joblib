@@ -9,6 +9,8 @@ Test the hashing module.
 import nose
 import time
 import hashlib
+import tempfile
+import os
 
 from ..hashing import hash
 from .common import np, with_numpy
@@ -76,6 +78,25 @@ def test_hash_numpy():
     d3 = {1:arr2, 2:arr3}
     yield nose.tools.assert_not_equal, hash(d1), hash(d3)
 
+
+@with_numpy
+def test_hash_memmap():
+    """ Check that memmap and arrays hash identically if coerce_mmap is
+        True.
+    """
+    filename = tempfile.mktemp()
+    try:
+        m = np.memmap(filename, shape=(10, 10), mode='w+')
+        a = np.asarray(m)
+        for coerce_mmap in (False, True):
+            yield (nose.tools.assert_equal,
+                            hash(a, coerce_mmap=coerce_mmap) 
+                                == hash(m, coerce_mmap=coerce_mmap),
+                            coerce_mmap)
+    finally:
+        if 'm' in locals():
+            del m
+            os.unlink(filename)
 
 
 @with_numpy

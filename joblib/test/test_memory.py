@@ -152,7 +152,6 @@ def test_memory_partial():
         yield test
 
 
-
 def test_memory_eval():
     " Smoke test memory with a function with a function defined in an eval."
     memory = Memory(cachedir=env['dir'])
@@ -160,6 +159,26 @@ def test_memory_eval():
     m = eval('lambda x: x')
 
     yield nose.tools.assert_equal, 1, m(1)
+
+
+@with_numpy
+def test_memory_numpy():
+    " Test memory with a function with numpy arrays."
+    # Check with memmapping and without.
+    for mmap_mode in (None, 'r'):
+        accumulator = list()
+        def n(l=None):
+            accumulator.append(1)
+            return l
+
+        memory = Memory(cachedir=env['dir'], mmap_mode=mmap_mode)
+        memory.clear()
+        cached_n = memory.cache(n)
+        for i in range(3):
+            a = np.random.random((10, 10))
+            for _ in range(3):
+                yield nose.tools.assert_true, np.all(cached_n(a) == a)
+                yield nose.tools.assert_equal, len(accumulator), i + 1
 
 
 def test_memory_exception():
@@ -236,3 +255,5 @@ def test_format_signature_numpy():
     """
 
 # FIXME: Need to test that memmapping does not force recomputing.
+
+

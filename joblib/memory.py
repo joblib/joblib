@@ -114,8 +114,10 @@ class MemorizedFunc(Logger):
 
 
     def _get_output_dir(self, args, kwargs):
+        coerce_mmap = (self.mmap_mode is not None)
         output_dir = os.path.join(self._get_func_dir(self.func),
-                                  hash((args, kwargs)))
+                                  hash((args, kwargs), 
+                                    coerce_mmap=coerce_mmap))
         return output_dir
         
 

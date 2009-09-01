@@ -97,7 +97,7 @@ def hash(obj, hash_name='md5', coerce_mmap=False):
             Make no difference between np.memmap and np.ndarray
     """
     if 'numpy' in sys.modules:
-        hasher = NumpyHasher(hash_name=hash_name)
+        hasher = NumpyHasher(hash_name=hash_name, coerce_mmap=coerce_mmap)
     else:
         hasher = Hasher(hash_name=hash_name)
     return hasher.hash(obj)
