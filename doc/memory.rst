@@ -138,9 +138,12 @@ using memmapping (memory mapping)::
     >>> square = memory2.cache(np.square)
     >>> a = np.vander(np.arange(3))
     >>> square(a)
-    DBG:Call square(array([[0, 0, 1],
+    ________________________________________________________________________________
+    [Memory] Calling square
+    square(array([[0, 0, 1],
            [1, 1, 1],
            [4, 2, 1]]))
+    ________________________________________________________________________________
     array([[ 0,  0,  1],
            [ 1,  1,  1],
            [16,  4,  1]])

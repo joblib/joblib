@@ -166,9 +166,9 @@ class MemorizedFunc(Logger):
         """ Print a debug statement displaying the function call with the 
             arguments.
         """
-        path, signature = self.format_signature(self, self.func, *args,
+        path, signature = self.format_signature(self.func, *args,
                             **kwds)
-        msg = '%s\nDBG:Calling %s\n%s' % (80*'_', path, signature, 80*'_')
+        msg = '%s\n[Memory] Calling %s\n%s\n%s' % (80*'_', path, signature, 80*'_')
         return msg
         # XXX: Not using logging framework
         #self.debug(msg)
@@ -182,12 +182,15 @@ class MemorizedFunc(Logger):
             module_path = '.'.join(module)
         else:
             module_path = name
-        indent = len(name)
         arg_str = list()
+        previous_length = 0
         for arg in args:
-            arg = self.format(arg, indent=indent)
+            arg = self.format(arg, indent=2)
             if len(arg) > 1500:
-                arg = '%s...' % arg[:1000]
+                arg = '%s...' % arg[:700]
+            if previous_length > 80:
+                arg = '\n%s' % arg
+            previous_length = len(arg)
             arg_str.append(arg)
         arg_str.extend(['%s=%s' % (v, self.format(i)) for v, i in
                                     kwds.iteritems()])

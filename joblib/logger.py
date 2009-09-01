@@ -44,7 +44,7 @@ class Logger(object):
         if 'numpy' in sys.modules:
             import numpy as np
             print_options = np.get_printoptions()
-            np.set_printoptions(precision=6, threshold=64, edgeitems=2)
+            np.set_printoptions(precision=6, threshold=64, edgeitems=1)
         else:
             print_options = None
         out = pprint.pformat(obj, depth=self.depth, indent=indent)

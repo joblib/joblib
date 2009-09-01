@@ -47,9 +47,13 @@ The tools that have been identified and developped so far are:
         >>> a = np.vander(np.arange(3))
         >>> square = mem.cache(np.square)
         >>> b = square(a)
-        DBG:Call square(array([[0, 0, 1],
+        ________________________________________________________________________________
+        [Memory] Calling square
+        square(array([[0, 0, 1],
                [1, 1, 1],
                [4, 2, 1]]))
+        ________________________________________________________________________________
+
         >>> c = square(a)
 
 
