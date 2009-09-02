@@ -3,7 +3,7 @@ functions as pipeline jobs:
 
   1. transparent disk-caching of the output values and lazy re-evaluation 
 
-  2. logging of the execution 
+  2. logging and tracing of the execution
 
 The original focus was on scientific-computing scripts, but any long-running
 succession of operations can profit from the tools provided by joblib.
@@ -30,16 +30,16 @@ The main problems identified are:
     job, eg after a crash and persistence getting in the way of work.
 
 The approach take by Joblib to address these problems is not to build a
-heavy framework and coerce user into using it (e.g. with pipeline). It
-strives to leave your code and your flow control as unmodified as
-possible.
+heavy framework and coerce user into using it (e.g. with an explicit
+pipeline). It strives to leave your code and your flow control as
+unmodified as possible.
 
 The tools that have been identified and developped so far are:
 
   1) **Transparent and fast disk-caching of output value:** a make-like
      functionality for Python functions that works well with large numpy
-     arrays. The goal is to separate a script in a set of steps, with 
-     well-defined inputs and outputs, that can be saved and reran only if 
+     arrays. The goal is to separate operations in a set of steps with 
+     well-defined inputs and outputs, that are saved and reran only if 
      necessary, by using standard Python functions::
 
         >>> from joblib import Memory
@@ -53,9 +53,10 @@ The tools that have been identified and developped so far are:
         square(array([[0, 0, 1],
                [1, 1, 1],
                [4, 2, 1]]))
-        _________________________________________________________square - 0.00s, 0.0 min
+        __________________________________________________________square - 0.00s, 0.0min
 
         >>> c = square(a)
+        >>> # The above call did not trigger an evaluation
 
 
   2) **Logging/tracing:** The functionalities described above will
@@ -65,6 +66,8 @@ The tools that have been identified and developped so far are:
      display streams, and maybe provide a way of compiling a report. In
      the long run, we would like to be able to quickly inspect what has
      been run.
+
+_____
 
 As stated on the project page, currently the project is in alpha quality. I am
 testing heavily all the features, as I care more about robustness than having
