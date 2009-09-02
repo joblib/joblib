@@ -16,6 +16,9 @@ import shutil
 import logging
 import pprint
 
+def format_time(t):
+    return "%.2fs, %.1f min" % (t, t/60)
+
 ################################################################################
 # class `Logger`
 ################################################################################
@@ -106,7 +109,7 @@ class PrintTime(object):
         """
         if not total:
             time_lapse = time.time() - self.last_time
-            full_msg = "%s: %.2fs, %.1f min" % (msg, time_lapse, time_lapse/60)
+            full_msg = "%s: %s" % (msg, format_time(time_lapse) )
         else:
             # FIXME: Too much logic duplicated
             time_lapse = time.time() - self.start_time

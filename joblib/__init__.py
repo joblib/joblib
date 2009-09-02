@@ -49,11 +49,11 @@ The tools that have been identified and developped so far are:
         >>> square = mem.cache(np.square)
         >>> b = square(a)
         ________________________________________________________________________________
-        [Memory] Calling square
+        [Memory] Calling square...
         square(array([[0, 0, 1],
                [1, 1, 1],
                [4, 2, 1]]))
-        ________________________________________________________________________________
+        _________________________________________________________square - 0.00s, 0.0 min
 
         >>> c = square(a)
 

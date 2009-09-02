@@ -12,6 +12,7 @@ is called with the same input arguments.
 import os
 import shutil
 import sys
+import time
 try:
     import cPickle as pickle
 except ImportError:
@@ -21,7 +22,7 @@ import traceback
 
 # Local imports
 from .hashing import get_func_code, get_func_name, hash
-from .logger import Logger
+from .logger import Logger, format_time
 from . import numpy_pickle
 
 # TODO: The following object should have a data store object as a sub
@@ -158,9 +159,15 @@ class MemorizedFunc(Logger):
         """
         if self._debug:
             print self.format_call(*args, **kwargs)
+        start_time = time.time()
         output = self.func(*args, **kwargs)
         output_dir = self._get_output_dir(args, kwargs)
         self._persist_output(output, output_dir)
+        if self._debug:
+            _, name = get_func_name(self.func)
+            msg = '%s - %s' % (name, 
+                               format_time(time.time() - start_time))
+            print max(0, (80 - len(msg)))*'_' + msg
         return output
 
 
@@ -170,7 +177,7 @@ class MemorizedFunc(Logger):
         """
         path, signature = self.format_signature(self.func, *args,
                             **kwds)
-        msg = '%s\n[Memory] Calling %s\n%s\n%s' % (80*'_', path, signature, 80*'_')
+        msg = '%s\n[Memory] Calling %s...\n%s' % (80*'_', path, signature)
         return msg
         # XXX: Not using logging framework
         #self.debug(msg)
