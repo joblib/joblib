@@ -17,7 +17,7 @@ import logging
 import pprint
 
 def format_time(t):
-    return "%.2fs, %.1f min" % (t, t/60)
+    return "%.2fs, %.1fmin" % (t, t/60)
 
 ################################################################################
 # class `Logger`
