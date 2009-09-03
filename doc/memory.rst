@@ -1,3 +1,9 @@
+..  
+    For doctests:
+ 
+    >>> from joblib.testing import warnings_to_stdout
+    >>> warnings_to_stdout()
+
 .. _memory:
 
 ==============================
@@ -83,6 +89,7 @@ In short, `memoize` is best suited for functions with "small" input and
 output objects, whereas `Memory` is best suited for functions with complex
 input and output objects, and agressive persistence to the disk.
 
+
 Using with `numpy`
 -------------------
 
@@ -100,27 +107,27 @@ An example
     >>> import numpy as np
 
     >>> @memory.cache
-    ... def f(x):
+    ... def g(x):
     ...     print 'A long-running calculation, with parameter', x
     ...     return np.hamming(x)
 
     >>> @memory.cache
-    ... def g(x):
-    ...     print 'A second long-running calculation, using f(x)'
+    ... def h(x):
+    ...     print 'A second long-running calculation, using g(x)'
     ...     return np.vander(x)
 
-  If we call the function g with the array created by the same call to f,
-  g is not re-run::
+  If we call the function h with the array created by the same call to g,
+  h is not re-run::
 
-    >>> a = f(3)
+    >>> a = g(3)
     A long-running calculation, with parameter 3
     >>> a
     array([ 0.08,  1.  ,  0.08])
-    >>> f(3)
+    >>> g(3)
     array([ 0.08,  1.  ,  0.08])
-    >>> b = g(a)
-    A second long-running calculation, using f(x)
-    >>> b2 = g(a)
+    >>> b = h(a)
+    A second long-running calculation, using g(x)
+    >>> b2 = h(a)
     >>> b2
     array([[ 0.0064,  0.08  ,  1.    ],
            [ 1.    ,  1.    ,  1.    ],
@@ -143,10 +150,15 @@ using memmapping (memory mapping)::
     square(array([[0, 0, 1],
            [1, 1, 1],
            [4, 2, 1]]))
-    __________________________________________________________square - 0.00s, 0.0min
+    ___________________________________________________________square - 0.0s, 0.0min
     array([[ 0,  0,  1],
            [ 1,  1,  1],
            [16,  4,  1]])
+
+.. note::
+
+    Notice the debug mode used in the above example. It is useful for
+    tracing of what is being reexecuted, and where the time is spent.
 
 If the `square` function is called with the same input argument, its
 return value is loaded from the disk using memmapping::
@@ -179,27 +191,29 @@ Gotchas
 --------
 
 * **Function cache is identified by the function's name**. Thus if you have 
-  the same name to different functions, their cache will override each-others, 
-  and you well get unwanted re-run::
+  the same name to different functions, their cache will override 
+  each-others (you have 'name collisions'), and you will get unwanted 
+  re-run::
 
     >>> @memory.cache
-    ... def f(x):
-    ...     print 'Running f(%s)' % x
+    ... def func(x):
+    ...     print 'Running func(%s)' % x
 
-    >>> g = f
+    >>> func2 = func
 
     >>> @memory.cache
-    ... def f(x):
-    ...     print 'Running a different f(%s)' % x
+    ... def func(x):
+    ...     print 'Running a different func(%s)' % x
 
-    >>> f(1)
-    Running a different f(1)
-    >>> g(1)
-    Running f(1)
-    >>> f(1)
-    Running a different f(1)
-    >>> g(1)
-    Running f(1)
+    >>> func(1)
+    Running a different func(1)
+    >>> func2(1)
+    memory.rst:0: JobLibCollisionWarning: Cannot detect name collisions for function 'func'
+    Running func(1)
+    >>> func(1)
+    Running a different func(1)
+    >>> func2(1)
+    Running func(1)
 
   Beware that all lambda functions have the same name::
 
@@ -213,6 +227,7 @@ Gotchas
     1
     >>> f()
     >>> g()
+    memory.rst:0: JobLibCollisionWarning: Cannot detect name collisions for function '<lambda>'
     2
     >>> g()
     >>> f()

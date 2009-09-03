@@ -53,7 +53,7 @@ The tools that have been identified and developped so far are:
         square(array([[0, 0, 1],
                [1, 1, 1],
                [4, 2, 1]]))
-        __________________________________________________________square - 0.00s, 0.0min
+        ___________________________________________________________square - 0.0s, 0.0min
 
         >>> c = square(a)
         >>> # The above call did not trigger an evaluation
@@ -75,7 +75,7 @@ plenty of features. On the other side, I expect to be playing with the API and
 features for a while before I can figure out what is the right set of
 functionalities to expose. 
 
-The code is hosted on launchpad for the good reason that branching the project
+The code is `hosted <https://launchpad.net/joblib>`_ on launchpad for the good reason that branching the project
 and publishing it along-side my branch is dead-easy. 
 
 .. 
@@ -83,7 +83,7 @@ and publishing it along-side my branch is dead-easy.
 
 """
 
-__version__ = '0.3.2f'
+__version__ = '0.3.2g'
 
 
 from .memory import Memory

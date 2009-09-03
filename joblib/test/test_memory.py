@@ -6,10 +6,13 @@ Test the memory module.
 # Copyright (c) 2009 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
+from __future__ import with_statement
+
 import shutil
 import os
 from tempfile import mkdtemp
 import pickle
+import warnings
 
 import nose
 
@@ -63,7 +66,7 @@ def check_identity_lazy(func, accumulator):
     # Call each function with several arguments, and check that it is
     # evaluated only once per argument.
     memory = Memory(cachedir=env['dir'])
-    memory.clear()
+    memory.clear(warn=False)
     func = memory.cache(func)
     for i in range(3):
         for _ in range(2):
@@ -94,7 +97,7 @@ def test_memory_integration():
     shutil.rmtree(env['dir'])
     g = memory.cache(f)
     g(1)
-    g.clear()
+    g.clear(warn=False)
     current_accumulator = len(accumulator)
     out = g(1)
     yield nose.tools.assert_equal, len(accumulator), \
@@ -135,6 +138,79 @@ def test_memory_lambda():
     for test in check_identity_lazy(l, accumulator):
         yield test
 
+def test_memory_name_collision():
+    " Check that name collisions with functions will raise warnings"
+    memory = Memory(cachedir=env['dir'])
+
+    @memory.cache
+    def name_collision(x):
+        """ A first function called name_collision 
+        """
+        return x
+
+    a = name_collision
+
+    @memory.cache
+    def name_collision(x):
+        """ A second function called name_collision 
+        """
+        return x
+
+    b = name_collision
+
+    with warnings.catch_warnings(record=True) as w:
+        # Cause all warnings to always be triggered.
+        warnings.simplefilter("always")
+        a(1)
+        b(1)
+
+        yield nose.tools.assert_equal, len(w), 1
+        yield nose.tools.assert_true, "collision" in str(w[-1].message)
+
+
+def test_memory_warning_lambda_collisions():
+    " Check that multiple use of lambda will raise collisions"
+    memory = Memory(cachedir=env['dir'])
+    a = lambda x: x
+    a = memory.cache(a)
+    b = lambda x: x+1
+    b = memory.cache(b)
+
+    if not hasattr(warnings, 'catch_warnings'):
+        # catch_warnings is new in Python 2.6
+        return
+
+    with warnings.catch_warnings(record=True) as w:
+        # Cause all warnings to always be triggered.
+        warnings.simplefilter("always")
+        a(1)
+        b(1)
+
+        yield nose.tools.assert_equal, len(w), 2
+        yield nose.tools.assert_true, "collision" in str(w[-1].message)
+        yield nose.tools.assert_true, "collision" in str(w[-2].message)
+
+
+def test_memory_warning_collision_detection():
+    """ Check that collisions impossible to detect will raise appropriate 
+        warnings.
+    """
+    memory = Memory(cachedir=env['dir'])
+    a = eval('lambda x: x')
+    a = memory.cache(a)
+    b = eval('lambda x: x+1')
+    b = memory.cache(b)
+
+    with warnings.catch_warnings(record=True) as w:
+        # Cause all warnings to always be triggered.
+        warnings.simplefilter("always")
+        a(1)
+        b(1)
+
+        yield nose.tools.assert_equal, len(w), 1
+        yield nose.tools.assert_true, \
+                "cannot detect" in str(w[-1].message).lower()
+
 
 def test_memory_partial():
     " Test memory with functools.partial."
@@ -172,7 +248,7 @@ def test_memory_numpy():
             return l
 
         memory = Memory(cachedir=env['dir'], mmap_mode=mmap_mode)
-        memory.clear()
+        memory.clear(warn=False)
         cached_n = memory.cache(n)
         for i in range(3):
             a = np.random.random((10, 10))

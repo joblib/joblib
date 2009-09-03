@@ -1,21 +1,17 @@
 """
-Utilities for hashing input arguments of functions.
+Fast cryptographic hash of Python objects, with a special case for fast 
+hashing of numpy arrays.
 """
 
 # Author: Gael Varoquaux <gael dot varoquaux at normalesup dot org> 
 # Copyright (c) 2009 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
-import itertools
-import inspect
 import pickle
 import hashlib
 import sys
 import cStringIO
 
-
-################################################################################
-# Functions for non-human readable hashing
 
 class Hasher(pickle.Pickler):
     """ A subclass of pickler, to do cryptographic hashing, rather than
@@ -101,64 +97,4 @@ def hash(obj, hash_name='md5', coerce_mmap=False):
     else:
         hasher = Hasher(hash_name=hash_name)
     return hasher.hash(obj)
-
-
-################################################################################
-# Function-specific hashing
-def get_func_code(func):
-    """ Attempts to retrieve a reliable function code hash.
-    
-        The reason we don't use inspect.getsource is that it caches the
-        source, whereas we want this to be modified on the fly when the
-        function is modified.
-    """
-    try:
-        # Try to retrieve the source code.
-        source_file = file(func.func_code.co_filename)
-        first_line = func.func_code.co_firstlineno
-        # All the lines after the function definition:
-        source_lines = list(itertools.islice(source_file, first_line-1, None))
-        return ''.join(inspect.getblock(source_lines))
-    except:
-        # If the source code fails, we use the hash. This is fragile and
-        # might change from one session to another.
-        if hasattr(func, 'func_code'):
-            return str(func.func_code.__hash__())
-        else:
-            # Weird objects like numpy ufunc don't have func_code
-            # This is fragile, as quite often the id of the object is
-            # in the repr, so it might not persist accross sessions,
-            # however it will work for ufuncs.
-            return repr(func)
-
-
-def get_func_name(func):       
-    """ Return the function import path (as a list of module names), and
-        a name for the function.
-    """
-    if hasattr(func, '__module__'):
-        module = func.__module__
-    else:
-        try:
-            module = inspect.getmodule(func)
-        except TypeError:
-            if hasattr(func, '__class__'):
-                module = func.__class__.__module__
-            else:
-                module = 'unkown'
-    if module is None:
-        # Happens in doctests, eg
-        module = ''
-    module = module.split('.')
-    if hasattr(func, 'func_name'):
-        name = func.func_name
-    elif hasattr(func, '__name__'): 
-        name = func.__name__
-    else:
-        name = 'unkown'
-    # Hack to detect functions not defined at the module-level
-    if hasattr(func, 'func_globals') and name in func.func_globals:
-        if not func.func_globals[name] is func:
-            name = '%s-local' % name
-    return module, name
 
