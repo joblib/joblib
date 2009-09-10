@@ -263,6 +263,16 @@ Reference documentation of the `Memory` class
 .. autoclass:: Memory
     :members: __init__, cache, eval, clear
 
+Useful methods of decorated functions
+--------------------------------------
+
+Function decorated by :meth:`Memory.cache` are :class:`MemorizedFunc`
+objects that, in addtion of behaving like normal functions, expose
+methods useful for cache exploration and management.
+
+.. autoclass:: MemorizedFunc
+    :members: __init__, clear, format_signature, format_call
+
 
 ..
  Let us not forget to clean our cache dir once we are finished::

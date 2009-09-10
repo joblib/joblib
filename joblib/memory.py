@@ -61,11 +61,12 @@ class JobLibCollisionWarning(UserWarning):
 # class `Memory`
 ################################################################################
 class MemorizedFunc(Logger):
-    """ A functor (callable object) for caching a function's return value 
-        each time it are called.
+    """ Functor (callable object) created by the Memory object and
+        decorating a function for caching its return value 
+        each time it is called.
     
         All values are cached on the filesystem, in a deep directory
-        structure.
+        structure. Methods are provided to inspect the cache or clean it.
     """
     #-------------------------------------------------------------------------
     # Public interface
@@ -94,12 +95,12 @@ class MemorizedFunc(Logger):
         """
         Logger.__init__(self)
         self._debug = debug
-        self._cachedir = cachedir
+        self.cachedir = cachedir
         self.func = func
         self.save_npy = save_npy
         self.mmap_mode = mmap_mode
-        if not os.path.exists(self._cachedir):
-            os.makedirs(self._cachedir)
+        if not os.path.exists(self.cachedir):
+            os.makedirs(self.cachedir)
         try:
             functools.update_wrapper(self, func)
         except:
@@ -138,7 +139,7 @@ class MemorizedFunc(Logger):
         """
         module, name = get_func_name(self.func)
         module.append(name)
-        func_dir = os.path.join(self._cachedir, *module)
+        func_dir = os.path.join(self.cachedir, *module)
         if mkdir and not os.path.exists(func_dir):
             os.makedirs(func_dir)
         return func_dir
@@ -326,7 +327,7 @@ class MemorizedFunc(Logger):
         return '%s(func=%s, cachedir=%s)' % (
                     self.__class__.__name__,
                     self.func,
-                    self._cachedir,
+                    self.cachedir,
                     )
 
 
@@ -370,20 +371,28 @@ class Memory(Logger):
         # XXX: Bad explaination of the None value of cachedir
         Logger.__init__(self)
         self._debug = debug
-        self._cachedir = cachedir
+        self.cachedir = cachedir
         self.save_npy = save_npy
         self.mmap_mode = mmap_mode
-        if cachedir is not None and not os.path.exists(self._cachedir):
-            os.makedirs(self._cachedir)
+        if cachedir is not None and not os.path.exists(self.cachedir):
+            os.makedirs(self.cachedir)
 
 
     def cache(self, func):
         """ Decorates the given function func to only compute its return
             value for input arguments not cached on disk.
+
+            Returns
+            -------
+            decorated_func: MemorizedFunc object
+                The returned object is a MemorizedFunc object, that is 
+                callable (behaves like a function), but offers extra
+                methods for cache lookup and management. See the
+                documentation for :class:`joblib.memory.MemorizedFunc`.
         """
-        if self._cachedir is None:
+        if self.cachedir is None:
             return func
-        return MemorizedFunc(func, cachedir=self._cachedir,
+        return MemorizedFunc(func, cachedir=self.cachedir,
                                    save_npy=self.save_npy,
                                    mmap_mode=self.mmap_mode,
                                    debug=self._debug)
@@ -394,8 +403,8 @@ class Memory(Logger):
         """
         if warn:
             self.warn('Flushing completely the cache')
-        shutil.rmtree(self._cachedir)
-        os.makedirs(self._cachedir)
+        shutil.rmtree(self.cachedir)
+        os.makedirs(self.cachedir)
 
 
     def eval(self, func, *args, **kwargs):
@@ -407,7 +416,7 @@ class Memory(Logger):
             up to date.
 
         """
-        if self._cachedir is None:
+        if self.cachedir is None:
             return func(*args, **kwargs)
         return self.cache(func)(*args, **kwargs)
 
@@ -418,7 +427,7 @@ class Memory(Logger):
     def __repr__(self):
         return '%s(cachedir=%s)' % (
                     self.__class__.__name__,
-                    self._cachedir,
+                    self.cachedir,
                     )
 
 

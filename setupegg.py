@@ -6,6 +6,7 @@ import os
 import sys
 
 from setuptools import Command
+from sphinx_pypi_upload import UploadDoc
 
 ################################################################################
 # Code to copy the sphinx-generated html docs in the distribution.
@@ -47,7 +48,7 @@ class ZipHelp(Command):
             if not relative.startswith('.doctrees'):
                 for f in files:
                     zf.write(os.path.join(root, f), 
-                            os.path.join(relative, 'html_docs', f))
+                            os.path.join(relative, f))
         zf.close()
 
     def initialize_options(self):
@@ -84,7 +85,8 @@ extra_setuptools_args = dict(
                             tests_require=['nose', 'coverage'],
                             test_suite='nose.collector',
                             cmdclass={'zip_help':ZipHelp,
-                                      'generate_help':GenerateHelp},
+                                      'generate_help':GenerateHelp,
+                                      'upload_help': UploadDoc},
                             zip_safe=False,
                             )
 

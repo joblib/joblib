@@ -7,6 +7,7 @@ Joblib: running Python function as pipeline jobs
  .. toctree::
     :maxdepth: 2
 
+    installing.rst
     memory.rst
 
 Introduction

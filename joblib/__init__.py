@@ -10,6 +10,12 @@ succession of operations can profit from the tools provided by joblib.
 
 ____
 
+The latest documentation for `joblib` can be found on
+http://packages.python.org/joblib/
+
+Vision
+--------
+
 Joblib came out of long-running data-analysis Python scripts. The long
 term vision is to provide tools for scientists to achieve better
 reproducibility when running jobs, without changing the way numerical
@@ -67,7 +73,8 @@ The tools that have been identified and developped so far are:
      the long run, we would like to be able to quickly inspect what has
      been run.
 
-_____
+Status
+-------
 
 As stated on the project page, currently the project is in alpha quality. I am
 testing heavily all the features, as I care more about robustness than having
@@ -83,7 +90,7 @@ and publishing it along-side my branch is dead-easy.
 
 """
 
-__version__ = '0.3.2g'
+__version__ = '0.3.2f'
 
 
 from .memory import Memory
