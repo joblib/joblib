@@ -26,13 +26,30 @@ mem = Memory(cachedir=tempfile.gettempdir())
 def g(x):
     return x
 
+def h(x, y=0, *args, **kwargs):
+    pass
+
 ################################################################################
 # Tests
 
 def test_filter_args():
-    yield nose.tools.assert_equal, filter_args(f, ['x'], 0), ([], {})
-    nose.tools.assert_equal(filter_args(f, ['x']), ([], {}))
+    yield nose.tools.assert_equal, filter_args(f, [], 1), {'x': 1, 'y': 0}
+    yield nose.tools.assert_equal, filter_args(f, ['x'], 1), {'y': 0}
+    yield nose.tools.assert_equal, filter_args(f, ['y'], 0), {'x': 0}
+    yield nose.tools.assert_equal, filter_args(f, ['x', 'y'], 0), {}
+    yield nose.tools.assert_equal, filter_args(f, [], 0, y=1), {'x':0, 'y':1}
 
+
+def test_filter_varargs():
+    yield nose.tools.assert_equal, filter_args(h, [], 1), \
+                            {'x': 1, 'y': 0, '*':[], '**':{}}
+    yield nose.tools.assert_equal, filter_args(h, [], 1, 2, 3), \
+                            {'x': 1, 'y': 0, '*':[2, 3], '**':{}}
+    yield nose.tools.assert_equal, filter_args(h, [], 1, 25, ee=2), \
+                            {'x': 1, 'y': 0, '*':[25], '**':{'ee':2}}
+    yield nose.tools.assert_equal, filter_args(h, ['*'], 1, 25, ee=2), \
+                            {'x': 1, 'y': 0, '**':{'ee':2}}
+    
 
 def test_func_name():
     yield nose.tools.assert_equal, 'f', get_func_name(f)[1]
