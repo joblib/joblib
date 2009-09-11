@@ -308,7 +308,8 @@ def test_persistence():
 
     h = pickle.loads(pickle.dumps(g))
 
-    yield nose.tools.assert_equal, output, h._read_output((1,), {})
+    output_dir = g.get_output_dir(1)
+    yield nose.tools.assert_equal, output, h.load_output(output_dir)
 
 
 def test_format_signature():

@@ -104,7 +104,7 @@ def filter_args(func, ignore_lst, *args, **kwargs):
             Function giving the argument specification
         ignore_lst: list of strings
             List of arguments to ignore (either a name of an argument 
-            in the function spec, or '*args', or '**kwdargs')
+            in the function spec, or '*', or '**')
         *args: list
             Positional arguments passed to the function.
         **kwargs: dict
@@ -117,6 +117,35 @@ def filter_args(func, ignore_lst, *args, **kwargs):
         filtered_kwdargs: dict
             List of filtered Keyword arguments.
     """
-    # TODO
-
+    args = list(args)
+    arg_spec = inspect.getargspec(func)
+    arg_names = arg_spec.args
+    arg_defaults = arg_spec.defaults
+    #arg_keywords = arg_spec.keywords or {}
+    # XXX: Need to check that we have a valid argument list.
+    arg_dict = dict()
+    for arg_position, arg_name in enumerate(arg_names):
+        if arg_position < len(args):
+            arg_dict[arg_names] = args[arg_position]
+        
+    for item in ignore_lst:
+        if item in arg_names:
+            if item in kwargs:
+                kwargs.pop(item)
+            else:
+                args.pop(arg_names.index(item))
+        elif item == '*':
+            " Must implement logic to get rid of *args "
+        elif item == '**':
+            " Must implement logic to get rid of **kwargs "
+        else:
+            module, name = get_func_name(func, resolv_alias=False)
+            raise ValueError("Argument '%s' is not defined for f" % 
+                            (item, 
+                             inspect.formatargspec(arg_names,
+                                                   arg_spec.varargs,
+                                                   arg_spec.keywords,
+                                                   arg_defaults,
+                                                   )))
+    return args, kwargs
 

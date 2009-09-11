@@ -39,6 +39,7 @@ class Logger(object):
         logging.warn("[%s]: %s" % (self, msg))
 
     def debug(self, msg):
+        # XXX: This conflicts with the debug flag used in children class
         logging.debug("[%s]: %s" % (self, msg))
 
     def format(self, obj, indent=0):

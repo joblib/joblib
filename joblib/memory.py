@@ -33,6 +33,8 @@ FIRST_LINE_TEXT = "# first line:"
 # object, and the interface to persist and query should be separated in
 # the data store.
 
+# TODO: Same remark for the logger.
+
 # TODO: Track history as objects are called, to be able to garbage
 # collect them.
 
@@ -67,6 +69,21 @@ class MemorizedFunc(Logger):
     
         All values are cached on the filesystem, in a deep directory
         structure. Methods are provided to inspect the cache or clean it.
+
+        Attributes
+        ----------
+        func: callable
+            The original, undecorated, function.
+        cachedir: string
+            Path to the base cache directory of the memory context.
+        mmap_mode: {None, 'r+', 'r', 'w+', 'c'}
+            The memmapping mode used when loading from cache
+            numpy arrays. See numpy.load for the meaning of the
+            arguments. Only used if save_npy was true when the
+            cache was created.
+        debug: boolean
+            If True, debug messages are issued as the function
+            is revaluated.
     """
     #-------------------------------------------------------------------------
     # Public interface
@@ -110,14 +127,14 @@ class MemorizedFunc(Logger):
     def __call__(self, *args, **kwargs):
         # Compare the function code with the previous to see if the
         # function code has changed
-        output_dir = self._get_output_dir(args, kwargs)
+        output_dir = self.get_output_dir(*args, **kwargs)
         # FIXME: The statements below should be try/excepted
         if not (self._check_previous_func_code(stacklevel=3) and 
                                  os.path.exists(output_dir)):
-            return self._call(args, kwargs)
+            return self.call(*args, **kwargs)
         else:
             try:
-                return self._read_output(args, kwargs)
+                return self.load_output(output_dir)
             except Exception, e:
                 # XXX: Should use an exception logger
                 self.warn(
@@ -127,7 +144,7 @@ class MemorizedFunc(Logger):
                     )
                       
                 shutil.rmtree(output_dir)
-                return self._call(args, kwargs)
+                return self.call(*args, **kwargs)
 
     #-------------------------------------------------------------------------
     # Private interface
@@ -145,7 +162,12 @@ class MemorizedFunc(Logger):
         return func_dir
 
 
-    def _get_output_dir(self, args, kwargs):
+    def get_output_dir(self, *args, **kwargs):
+        """ Returns the directory in which are persisted the results
+            of the function corresponding to the given arguments.
+
+            The results can be loaded using the .load_output method.
+        """
         coerce_mmap = (self.mmap_mode is not None)
         output_dir = os.path.join(self._get_func_dir(self.func),
                                   hash((args, kwargs), 
@@ -235,14 +257,15 @@ class MemorizedFunc(Logger):
         self._write_func_code(func_code_file, func_code, first_line)
 
 
-    def _call(self, args, kwargs):
-        """ Execute the function and persist the output arguments.
+    def call(self, *args, **kwargs):
+        """ Force the execution of the function with the given arguments and 
+            persist the output values.
         """
         if self._debug:
             print self.format_call(*args, **kwargs)
-        start_time = time.time()
+            start_time = time.time()
         output = self.func(*args, **kwargs)
-        output_dir = self._get_output_dir(args, kwargs)
+        output_dir = self.get_output_dir(*args, **kwargs)
         self._persist_output(output, output_dir)
         if self._debug:
             _, name = get_func_name(self.func)
@@ -253,8 +276,8 @@ class MemorizedFunc(Logger):
 
 
     def format_call(self, *args, **kwds):
-        """ Print a debug statement displaying the function call with the 
-            arguments.
+        """ Returns a nicely formatted statement displaying the function 
+            call with the given arguments.
         """
         path, signature = self.format_signature(self.func, *args,
                             **kwds)
@@ -305,16 +328,16 @@ class MemorizedFunc(Logger):
             pickle.dump(output, output_file, protocol=2)
 
 
-    def _read_output(self, args, kwargs):
-        """ Read the results of a previous calculation from a file.
+    def load_output(self, output_dir):
+        """ Read the results of a previous calculation from the directory
+            it was cached in.
         """
-        output_dir = self._get_output_dir(args, kwargs)
         filename = os.path.join(output_dir, 'output.pkl')
-        output_file = file(filename, 'r')
         if self.save_npy:
             return numpy_pickle.load(filename, 
                                      mmap_mode=self.mmap_mode)
         else:
+            output_file = file(filename, 'r')
             return pickle.load(output_file)
 
     # XXX: Need a method to check if results are available.

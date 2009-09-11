@@ -271,7 +271,8 @@ objects that, in addtion of behaving like normal functions, expose
 methods useful for cache exploration and management.
 
 .. autoclass:: MemorizedFunc
-    :members: __init__, clear, format_signature, format_call
+    :members: __init__, call, clear, format_signature, format_call,
+	      get_output_dir, load_output
 
 
 ..

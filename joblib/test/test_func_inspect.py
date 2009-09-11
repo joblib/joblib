@@ -29,8 +29,10 @@ def g(x):
 ################################################################################
 # Tests
 
-def xxtest_filter_args():
-    nose.testing.assert_equal(filter_args(['x']))
+def test_filter_args():
+    yield nose.tools.assert_equal, filter_args(f, ['x'], 0), ([], {})
+    nose.tools.assert_equal(filter_args(f, ['x']), ([], {}))
+
 
 def test_func_name():
     yield nose.tools.assert_equal, 'f', get_func_name(f)[1]
