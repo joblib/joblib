@@ -257,6 +257,22 @@ Gotchas
     >>> print sin(0)
     0.0
 
+Ignoring some arguments
+------------------------
+
+It may be useful not to recalculate a function when certain arguments
+change, for instance a debug flag. `Memory` provides the `ignore` list::
+
+    >>> @memory.cache(ignore=['debug'])
+    ... def my_func(x, debug=True):
+    ...	    print 'Called with x =', x
+    >>> my_func(0)
+    Called with x = 0
+    >>> my_func(0, debug=False)
+    >>> my_func(0, debug=True)
+    >>> # my_func was not reevaluated
+
+
 Reference documentation of the `Memory` class
 ----------------------------------------------
 

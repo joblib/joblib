@@ -76,6 +76,9 @@ class MemorizedFunc(Logger):
             The original, undecorated, function.
         cachedir: string
             Path to the base cache directory of the memory context.
+        ignore: list or None
+            List of variable names to ignore when choosing whether to
+            recompute.
         mmap_mode: {None, 'r+', 'r', 'w+', 'c'}
             The memmapping mode used when loading from cache
             numpy arrays. See numpy.load for the meaning of the
