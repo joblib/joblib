@@ -39,6 +39,7 @@ def test_filter_args():
     yield nose.tools.assert_equal, filter_args(f, [], 1), {'x': 1, 'y': 0}
     yield nose.tools.assert_equal, filter_args(f, ['x'], 1), {'y': 0}
     yield nose.tools.assert_equal, filter_args(f, ['y'], 0), {'x': 0}
+    yield nose.tools.assert_equal, filter_args(f, ['y'], 0, y=1), {'x': 0}
     yield nose.tools.assert_equal, filter_args(f, ['x', 'y'], 0), {}
     yield nose.tools.assert_equal, filter_args(f, [], 0, y=1), {'x':0, 'y':1}
 

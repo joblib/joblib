@@ -278,6 +278,25 @@ def test_memory_exception():
         yield nose.tools.assert_raises, MyException, h, 1
 
 
+def test_memory_ignore():
+    " Test the ignore feature of memory "
+    memory = Memory(cachedir=env['dir'])
+    accumulator = list()
+
+    @memory.cache(ignore=['y'])
+    def z(x, y=1):
+        accumulator.append(1)
+
+    yield nose.tools.assert_equal, z.ignore, ['y']
+
+    z(0, y=1)
+    yield nose.tools.assert_equal, len(accumulator), 1
+    z(0, y=1)
+    yield nose.tools.assert_equal, len(accumulator), 1
+    z(0, y=2)
+    yield nose.tools.assert_equal, len(accumulator), 1
+
+
 def test_func_dir():
     """ Test the creation of the memory cache directory for the function.
     """

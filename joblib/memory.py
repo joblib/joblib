@@ -408,7 +408,7 @@ class Memory(Logger):
             os.makedirs(self.cachedir)
 
 
-    def cache(self, func):
+    def cache(self, func=None, ignore=None):
         """ Decorates the given function func to only compute its return
             value for input arguments not cached on disk.
 
@@ -420,11 +420,16 @@ class Memory(Logger):
                 methods for cache lookup and management. See the
                 documentation for :class:`joblib.memory.MemorizedFunc`.
         """
+        if func is None:
+            # Partial application, to be able to specify extra keyword 
+            # arguments in decorators
+            return functools.partial(self.cache, ignore=ignore)
         if self.cachedir is None:
             return func
         return MemorizedFunc(func, cachedir=self.cachedir,
                                    save_npy=self.save_npy,
                                    mmap_mode=self.mmap_mode,
+                                   ignore=ignore,
                                    debug=self._debug)
 
 
