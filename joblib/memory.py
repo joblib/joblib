@@ -23,7 +23,7 @@ import warnings
 
 # Local imports
 from .hashing import hash
-from .func_inspect import get_func_code, get_func_name
+from .func_inspect import get_func_code, get_func_name, filter_args
 from .logger import Logger, format_time
 from . import numpy_pickle
 
@@ -89,7 +89,7 @@ class MemorizedFunc(Logger):
     # Public interface
     #-------------------------------------------------------------------------
    
-    def __init__(self, func, cachedir, save_npy=True, 
+    def __init__(self, func, cachedir, ignore=None, save_npy=True, 
                              mmap_mode=None, debug=False):
         """
             Parameters
@@ -98,6 +98,8 @@ class MemorizedFunc(Logger):
                 The function to decorate
             cachedir: string
                 The path of the base directory to use as a data store
+            ignore: list or None
+                List of variable names to ignore.
             save_npy: boolean, optional
                 If True, numpy arrays are saved outside of the pickle
                 files in the cache, as npy files.
@@ -116,6 +118,9 @@ class MemorizedFunc(Logger):
         self.func = func
         self.save_npy = save_npy
         self.mmap_mode = mmap_mode
+        if ignore is None:
+            ignore = []
+        self.ignore = ignore
         if not os.path.exists(self.cachedir):
             os.makedirs(self.cachedir)
         try:
@@ -169,9 +174,13 @@ class MemorizedFunc(Logger):
             The results can be loaded using the .load_output method.
         """
         coerce_mmap = (self.mmap_mode is not None)
+        print filter_args(self.func, self.ignore,
+                             *args, **kwargs)
+        argument_hash = hash(filter_args(self.func, self.ignore,
+                             *args, **kwargs), 
+                             coerce_mmap=coerce_mmap)
         output_dir = os.path.join(self._get_func_dir(self.func),
-                                  hash((args, kwargs), 
-                                    coerce_mmap=coerce_mmap))
+                                    argument_hash)
         return output_dir
         
 

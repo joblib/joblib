@@ -9,7 +9,7 @@ My own variation on function-specific inspect-like features.
 import itertools
 import inspect
 import copy
-
+import warnings
 
 def get_func_code(func):
     """ Attempts to retrieve a reliable function code hash.
@@ -118,19 +118,27 @@ def filter_args(func, ignore_lst, *args, **kwargs):
         filtered_kwdargs: dict
             List of filtered Keyword arguments.
     """
-    args = copy.copy(list(args))
+    args = list(args)
+    # Special case for functools.partial objects
+    if (not inspect.ismethod(func) and not inspect.isfunction(func)): 
+        if ignore_lst:
+            warnings.warn('Cannot inspect object %s, ignore list will '
+                'not work.' % func, stacklevel=2)
+        return {'*':args, '**':kwargs}
     arg_spec = inspect.getargspec(func)
     arg_names = arg_spec.args
-    arg_defaults = arg_spec.defaults
+    arg_defaults = arg_spec.defaults or {}
     _, name = get_func_name(func, resolv_alias=False)
-    # XXX: Need to check that we have a valid argument list.
+    
     arg_dict = dict()
     for arg_position, arg_name in enumerate(arg_names):
-        if arg_position < len(arg_names) - len(arg_defaults):
-            arg_dict[arg_name] = args.pop(arg_position)
+        if arg_position < len(args):
+            # Positional argument or keyword argument given as positional
+            arg_dict[arg_name] = args[arg_position]
         else:
             arg_dict[arg_name] = arg_defaults[arg_position - len(arg_names)]
-        
+    varargs = args[arg_position+1:]
+
     varkwargs = dict()
     for arg_name, arg_value in kwargs.iteritems():
         if arg_name in arg_dict:
@@ -138,19 +146,20 @@ def filter_args(func, ignore_lst, *args, **kwargs):
         elif arg_spec.varargs is not None:
             varkwargs[arg_name] = arg_value
         else:
-            raise TypeError("%s() got an unexpected keyword argument '%s'"
-                            % (name, arg_name))
+            raise TypeError("Ignore list for %s() contains an unexpected "
+                            "keyword argument '%s'" % (name, arg_name))
 
     if arg_spec.keywords is not None:
         arg_dict['**'] = varkwargs
     if arg_spec.varargs is not None:
-        arg_dict['*'] = args
+        arg_dict['*'] = varargs
 
+    # Now remove the arguments to be ignored
     for item in ignore_lst:
         if item in arg_dict:
             arg_dict.pop(item)
         else:
-            raise ValueError("Argument '%s' is not defined for "
+            raise ValueError("Ignore list: argument '%s' is not defined for "
             "function %s%s" % 
                             (item, name,
                              inspect.formatargspec(arg_names,

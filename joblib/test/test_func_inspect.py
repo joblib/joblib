@@ -29,6 +29,9 @@ def g(x):
 def h(x, y=0, *args, **kwargs):
     pass
 
+def i(x=1):
+    pass
+
 ################################################################################
 # Tests
 
@@ -39,16 +42,18 @@ def test_filter_args():
     yield nose.tools.assert_equal, filter_args(f, ['x', 'y'], 0), {}
     yield nose.tools.assert_equal, filter_args(f, [], 0, y=1), {'x':0, 'y':1}
 
+    yield nose.tools.assert_equal, filter_args(i, [], 2), {'x': 2}
+
 
 def test_filter_varargs():
     yield nose.tools.assert_equal, filter_args(h, [], 1), \
                             {'x': 1, 'y': 0, '*':[], '**':{}}
-    yield nose.tools.assert_equal, filter_args(h, [], 1, 2, 3), \
-                            {'x': 1, 'y': 0, '*':[2, 3], '**':{}}
+    yield nose.tools.assert_equal, filter_args(h, [], 1, 2, 3, 4), \
+                            {'x': 1, 'y': 2, '*':[3, 4], '**':{}}
     yield nose.tools.assert_equal, filter_args(h, [], 1, 25, ee=2), \
-                            {'x': 1, 'y': 0, '*':[25], '**':{'ee':2}}
-    yield nose.tools.assert_equal, filter_args(h, ['*'], 1, 25, ee=2), \
-                            {'x': 1, 'y': 0, '**':{'ee':2}}
+                            {'x': 1, 'y': 25, '*':[], '**':{'ee':2}}
+    yield nose.tools.assert_equal, filter_args(h, ['*'], 1, 2, 25, ee=2), \
+                            {'x': 1, 'y': 2, '**':{'ee':2}}
     
 
 def test_func_name():

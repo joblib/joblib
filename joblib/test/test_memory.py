@@ -138,6 +138,7 @@ def test_memory_lambda():
     for test in check_identity_lazy(l, accumulator):
         yield test
 
+
 def test_memory_name_collision():
     " Check that name collisions with functions will raise warnings"
     memory = Memory(cachedir=env['dir'])
