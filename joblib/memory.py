@@ -174,8 +174,6 @@ class MemorizedFunc(Logger):
             The results can be loaded using the .load_output method.
         """
         coerce_mmap = (self.mmap_mode is not None)
-        print filter_args(self.func, self.ignore,
-                             *args, **kwargs)
         argument_hash = hash(filter_args(self.func, self.ignore,
                              *args, **kwargs), 
                              coerce_mmap=coerce_mmap)

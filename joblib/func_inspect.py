@@ -131,13 +131,13 @@ def filter_args(func, ignore_lst, *args, **kwargs):
     _, name = get_func_name(func, resolv_alias=False)
     
     arg_dict = dict()
+    arg_position = 0
     for arg_position, arg_name in enumerate(arg_names):
         if arg_position < len(args):
             # Positional argument or keyword argument given as positional
             arg_dict[arg_name] = args[arg_position]
         else:
             arg_dict[arg_name] = arg_defaults[arg_position - len(arg_names)]
-    varargs = args[arg_position+1:]
 
     varkwargs = dict()
     for arg_name, arg_value in kwargs.iteritems():
@@ -152,6 +152,7 @@ def filter_args(func, ignore_lst, *args, **kwargs):
     if arg_spec.keywords is not None:
         arg_dict['**'] = varkwargs
     if arg_spec.varargs is not None:
+        varargs = args[arg_position+1:]
         arg_dict['*'] = varargs
 
     # Now remove the arguments to be ignored
