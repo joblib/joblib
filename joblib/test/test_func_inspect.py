@@ -32,6 +32,11 @@ def h(x, y=0, *args, **kwargs):
 def i(x=1):
     pass
 
+class Klass(object):
+
+    def f(self, x):
+        return x
+
 ################################################################################
 # Tests
 
@@ -45,6 +50,10 @@ def test_filter_args():
 
     yield nose.tools.assert_equal, filter_args(i, [], 2), {'x': 2}
 
+
+def test_filter_args_method():
+    obj = Klass()
+    nose.tools.assert_equal(filter_args(obj.f, [], 1), {'x': 1})
 
 def test_filter_varargs():
     yield nose.tools.assert_equal, filter_args(h, [], 1), \

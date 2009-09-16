@@ -323,6 +323,7 @@ class MemorizedFunc(Logger):
         signature = '%s(%s)' % (name, arg_str)
         return module_path, signature
 
+    # Make make public
 
     def _persist_output(self, output, dir):
         """ Persist the given output tuple in the directory.
@@ -362,6 +363,7 @@ class MemorizedFunc(Logger):
                     self.func,
                     self.cachedir,
                     )
+
 
 
 ################################################################################

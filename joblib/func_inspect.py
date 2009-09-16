@@ -127,6 +127,9 @@ def filter_args(func, ignore_lst, *args, **kwargs):
         return {'*':args, '**':kwargs}
     arg_spec = inspect.getargspec(func)
     arg_names = arg_spec.args
+    if inspect.ismethod(func):
+        # First argument is 'self', it has been removed by Python
+        arg_names.pop(0)
     arg_defaults = arg_spec.defaults or {}
     _, name = get_func_name(func, resolv_alias=False)
     
@@ -137,7 +140,8 @@ def filter_args(func, ignore_lst, *args, **kwargs):
             # Positional argument or keyword argument given as positional
             arg_dict[arg_name] = args[arg_position]
         else:
-            arg_dict[arg_name] = arg_defaults[arg_position - len(arg_names)]
+            position = arg_position - len(arg_names)
+            arg_dict[arg_name] = arg_defaults[position]
 
     varkwargs = dict()
     for arg_name, arg_value in kwargs.iteritems():
