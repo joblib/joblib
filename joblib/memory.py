@@ -166,7 +166,13 @@ class MemorizedFunc(Logger):
         module.append(name)
         func_dir = os.path.join(self.cachedir, *module)
         if mkdir and not os.path.exists(func_dir):
-            os.makedirs(func_dir)
+            try:
+                os.makedirs(func_dir)
+            except OSError:
+                """ Dir exists: we have a race condition here, when using 
+                    multiprocessing.
+                """
+                # XXX: Ugly
         return func_dir
 
 
