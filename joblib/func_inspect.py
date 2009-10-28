@@ -8,7 +8,6 @@ My own variation on function-specific inspect-like features.
 
 import itertools
 import inspect
-import copy
 import warnings
 
 def get_func_code(func):
@@ -94,7 +93,6 @@ def get_func_name(func, resolv_alias=True):
     return module, name
 
 
-# XXX: Needed to implement the 'ignore' functionality.
 def filter_args(func, ignore_lst, *args, **kwargs):
     """ Filters the given args and kwargs using a list of arguments to
         ignore, and a function specification.
@@ -126,13 +124,19 @@ def filter_args(func, ignore_lst, *args, **kwargs):
                 'not work.' % func, stacklevel=2)
         return {'*':args, '**':kwargs}
     arg_spec = inspect.getargspec(func)
-    arg_names = arg_spec.args
+    # We need to if/them to account for different versions of Python
+    if hasattr(arg_spec, 'args'):
+        arg_names    = arg_spec.args
+        arg_defaults = arg_spec.defaults
+        arg_keywords = arg_spec.keywords
+        arg_varargs  = arg_spec.varargs
+    else:
+        arg_names, arg_keywords, arg_varargs, arg_defaults = arg_spec
+    arg_defaults = arg_defaults or {}
     if inspect.ismethod(func):
         # First argument is 'self', it has been removed by Python
         arg_names.pop(0)
-    arg_defaults = arg_spec.defaults or {}
     _, name = get_func_name(func, resolv_alias=False)
-    
     arg_dict = dict()
     arg_position = 0
     for arg_position, arg_name in enumerate(arg_names):
@@ -141,21 +145,25 @@ def filter_args(func, ignore_lst, *args, **kwargs):
             arg_dict[arg_name] = args[arg_position]
         else:
             position = arg_position - len(arg_names)
-            arg_dict[arg_name] = arg_defaults[position]
+            if arg_name in kwargs:
+                arg_dict[arg_name] = kwargs.pop(arg_name)
+            else:
+                arg_dict[arg_name] = arg_defaults[position]
+
 
     varkwargs = dict()
     for arg_name, arg_value in kwargs.iteritems():
         if arg_name in arg_dict:
             arg_dict[arg_name] = arg_value
-        elif arg_spec.varargs is not None:
+        elif arg_varargs is not None:
             varkwargs[arg_name] = arg_value
         else:
             raise TypeError("Ignore list for %s() contains an unexpected "
                             "keyword argument '%s'" % (name, arg_name))
 
-    if arg_spec.keywords is not None:
+    if arg_keywords is not None:
         arg_dict['**'] = varkwargs
-    if arg_spec.varargs is not None:
+    if arg_varargs is not None:
         varargs = args[arg_position+1:]
         arg_dict['*'] = varargs
 
@@ -168,8 +176,8 @@ def filter_args(func, ignore_lst, *args, **kwargs):
             "function %s%s" % 
                             (item, name,
                              inspect.formatargspec(arg_names,
-                                                   arg_spec.varargs,
-                                                   arg_spec.keywords,
+                                                   arg_varargs,
+                                                   arg_keywords,
                                                    arg_defaults,
                                                    )))
     # XXX: Return a sorted list of pairs?

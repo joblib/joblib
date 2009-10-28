@@ -17,6 +17,9 @@ from ..memory import Memory
 def f(x, y=0):
     pass
 
+def f2(x):
+    pass
+
 # Create a Memory object to test decorated functions.
 # We should be careful not to call the decorated functions, so that
 # cache directories are not created in the temp dir.
@@ -49,6 +52,7 @@ def test_filter_args():
     yield nose.tools.assert_equal, filter_args(f, [], 0, y=1), {'x':0, 'y':1}
 
     yield nose.tools.assert_equal, filter_args(i, [], 2), {'x': 2}
+    yield nose.tools.assert_equal, filter_args(f2, [], x=1), {'x': 1}
 
 
 def test_filter_args_method():
