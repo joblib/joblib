@@ -1,0 +1,23 @@
+
+* use np.getbuffer for hashing arrays, rather than .data, here is a
+  failing example:
+
+>>> import numpy as np
+>>> import hashlib
+>>> a = np.zeros(10)
+>>> b = a[::2]
+>>> hashlib.md5(b.data)
+------------------------------------------------------------
+Traceback (most recent call last):
+  File "<ipython console>", line 1, in <module>
+AttributeError: cannot get single-segment buffer for discontiguous array
+
+* add a 'argument_hash' keyword argument to Memory.cache, to be able to
+  replace the hashing logic of memory for the input arguments. It should
+  accept as an input the dictionnary of arguments, as returned in
+  func_inspect, and return a string.
+
+* add a 'depends' keyword argument to memory.cache, to be able to
+  specify that a function depends on other functions, and thus that the
+  cache should be cleared.
+
