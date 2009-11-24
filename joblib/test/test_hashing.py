@@ -11,6 +11,7 @@ import time
 import hashlib
 import tempfile
 import os
+import gc
 
 from ..hashing import hash
 from .common import np, with_numpy
@@ -96,6 +97,10 @@ def test_hash_memmap():
     finally:
         if 'm' in locals():
             del m
+            # Force a garbage-collection cycle, to be certain that the
+            # object is delete, and we don't run in a problem under 
+            # Windows with a file handle still open.
+            gc.collect()
             os.unlink(filename)
 
 
