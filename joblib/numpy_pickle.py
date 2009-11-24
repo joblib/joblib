@@ -34,7 +34,7 @@ class NumpyPickler(pickle.Pickler):
     def __init__(self, filename):
         self._filename = filename
         self._filenames = [filename, ]
-        self.file = open(filename, 'w')
+        self.file = open(filename, 'wb')
         # Count the number of npy files that we have created:
         self._npy_counter = 0
         pickle.Pickler.__init__(self, self.file,
