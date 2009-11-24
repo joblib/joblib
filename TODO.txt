@@ -2,15 +2,17 @@
 * use np.getbuffer for hashing arrays, rather than .data, here is a
   failing example:
 
->>> import numpy as np
->>> import hashlib
->>> a = np.zeros(10)
->>> b = a[::2]
->>> hashlib.md5(b.data)
-------------------------------------------------------------
-Traceback (most recent call last):
-  File "<ipython console>", line 1, in <module>
-AttributeError: cannot get single-segment buffer for discontiguous array
+    >>> import numpy as np
+    >>> import hashlib
+    >>> a = np.zeros(10)
+    >>> b = a[::2]
+    >>> hashlib.md5(b.data)
+    ------------------------------------------------------------
+    Traceback (most recent call last):
+    File "<ipython console>", line 1, in <module>
+    AttributeError: cannot get single-segment buffer for discontiguous array
+
+  use np.ascontinuousarray to avoid the problem?
 
 * add a 'argument_hash' keyword argument to Memory.cache, to be able to
   replace the hashing logic of memory for the input arguments. It should
@@ -21,3 +23,4 @@ AttributeError: cannot get single-segment buffer for discontiguous array
   specify that a function depends on other functions, and thus that the
   cache should be cleared.
 
+* use Michel Siamonato's decorator module.
