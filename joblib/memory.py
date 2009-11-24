@@ -343,6 +343,7 @@ class MemorizedFunc(Logger):
         else:
             output_file = file(filename, 'w')
             pickle.dump(output, output_file, protocol=2)
+            output_file.close()
 
 
     def load_output(self, output_dir):
