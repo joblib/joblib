@@ -9,6 +9,7 @@ My own variation on function-specific inspect-like features.
 import itertools
 import inspect
 import warnings
+import os
 
 def get_func_code(func):
     """ Attempts to retrieve a reliable function code hash.
@@ -90,6 +91,11 @@ def get_func_name(func, resolv_alias=True):
         if hasattr(func, 'func_globals') and name in func.func_globals:
             if not func.func_globals[name] is func:
                 name = '%s-alias' % name
+    if os.name == 'nt':
+        # Stupid windows can't encode certain characters in filenames
+        import urllib
+        for char in ('<', '>', '!', ':'):
+            name = name.replace(char, urllib.quote(char))
     return module, name
 
 
