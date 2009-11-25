@@ -50,19 +50,21 @@ resolved to a Python object, and otherwise it becomes simple emphasis.
 This can be used as the default role to make links 'smart'.
 
 """
-import sys, os, posixpath, re
+import sys, posixpath, re
 
-from docutils.parsers.rst import directives
-from docutils.statemachine import ViewList
-from docutils import nodes
+try:
+    from docutils import nodes
+except ImportError:
+    # This won't work, but we have to have the module importable,
+    # so that nose can do its discovery scan
+    nodes = object
 
-import sphinx.addnodes, sphinx.roles
-from sphinx.util import patfilter
 
 from docscrape_sphinx import get_doc_object
 
 
 def setup(app):
+    from docutils.parsers.rst import directives
     app.add_directive('autosummary', autosummary_directive, True, (0, 0, False),
                       toctree=directives.unchanged,
                       nosignatures=directives.flag)
@@ -86,6 +88,7 @@ def process_autosummary_toc(app, doctree):
     not generate the toctree:: list.
 
     """
+    import sphinx.addnodes
     env = app.builder.env
     crawled = {}
     def crawl_toc(node, depth=1):
@@ -127,6 +130,7 @@ def autosummary_directive(dirname, arguments, options, content, lineno,
     autosummary also generates a (hidden) toctree:: node.
 
     """
+    import sphinx.addnodes
 
     names = []
     names += [x.strip() for x in content if x.strip()]
@@ -179,6 +183,7 @@ def get_autosummary(names, state, no_signatures=False):
         Docutils document object
     
     """
+    from docutils.statemachine import ViewList
     document = state.document
     
     real_names = {}
@@ -320,6 +325,7 @@ def autolink_role(typ, rawtext, etext, lineno, inliner,
     Expands to ":obj:`text`" if `text` is an object that can be imported;
     otherwise expands to "*text*".
     """
+    import sphinx.roles
     r = sphinx.roles.xfileref_role('obj', rawtext, etext, lineno, inliner,
                                    options, content)
     pnode = r[0][0]
