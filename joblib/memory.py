@@ -474,7 +474,7 @@ class Memory(Logger):
     def __repr__(self):
         return '%s(cachedir=%s)' % (
                     self.__class__.__name__,
-                    self.cachedir,
+                    repr(self.cachedir),
                     )
 
 
