@@ -368,7 +368,7 @@ class MemorizedFunc(Logger):
         return '%s(func=%s, cachedir=%s)' % (
                     self.__class__.__name__,
                     self.func,
-                    self.cachedir,
+                    repr(self.cachedir),
                     )
 
 
