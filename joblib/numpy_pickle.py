@@ -92,9 +92,14 @@ class NumpyUnpickler(pickle.Unpickler):
         pickle.Unpickler.load_build(self)
         if isinstance(self.stack[-1], NDArrayWrapper):
             nd_array_wrapper = self.stack.pop()
-            array = self.np.load(os.path.join(self._dirname,
+            if self.np.__version__ >= '1.3':
+                array = self.np.load(os.path.join(self._dirname,
                                                 nd_array_wrapper.filename),
                                                 mmap_mode=self.mmap_mode)
+            else:
+                # Numpy does not have mmap_mode before 1.3
+                array = self.np.load(os.path.join(self._dirname,
+                                                nd_array_wrapper.filename))
             self.stack.append(array)
 
 

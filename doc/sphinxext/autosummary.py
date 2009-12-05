@@ -56,8 +56,9 @@ try:
     from docutils import nodes
 except ImportError:
     # This won't work, but we have to have the module importable,
-    # so that nose can do its discovery scan
-    nodes = object
+    # so that nose can do its discovery scan, so we stub docutils
+    class nodes(object):
+        comment = object
 
 
 from docscrape_sphinx import get_doc_object

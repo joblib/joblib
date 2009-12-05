@@ -101,8 +101,12 @@ def test_hash_memmap():
             # object is delete, and we don't run in a problem under 
             # Windows with a file handle still open.
             gc.collect()
-            os.unlink(filename)
-
+            try:
+                os.unlink(filename)
+            except OSError, e:
+                # Under windows, some files don't get erased.
+                if not os.name == 'nt':
+                    raise e
 
 @with_numpy
 def test_hash_numpy_performance():
