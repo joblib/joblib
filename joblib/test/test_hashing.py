@@ -127,7 +127,7 @@ def test_hash_numpy_performance():
         100 loops, best of 3: 20.8 ms per loop
     """
     a = np.random.random(1000000)
-    md5_hash = lambda x: hashlib.md5(x).hexdigest()
+    md5_hash = lambda x: hashlib.md5(np.getbuffer(x)).hexdigest()
 
     relative_diff = relative_time(md5_hash, hash, a)
     yield nose.tools.assert_true, relative_diff < 0.05

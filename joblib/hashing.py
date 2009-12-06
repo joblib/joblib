@@ -59,7 +59,7 @@ class NumpyHasher(Hasher):
         """
         if isinstance(obj, self.np.ndarray):
             # Compute a hash of the object:
-            self._hash.update(obj)
+            self._hash.update(self.np.getbuffer(obj))
 
             # We store the class, to be able to distinguish between 
             # Objects with the same binary content, but different
