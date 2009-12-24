@@ -32,13 +32,17 @@ FIRST_LINE_TEXT = "# first line:"
 # TODO: The following object should have a data store object as a sub
 # object, and the interface to persist and query should be separated in
 # the data store.
+#
+# This would enable creating 'Memory' objects with a different logic for 
+# pickling that would simply span a MemorizedFunc with the same
+# store (or do we want to copy it to avoid cross-talks?), for instance to
+# implement HDF5 pickling. 
 
-# TODO: Same remark for the logger.
+# TODO: Same remark for the logger, and probably use the Python logging
+# mechanism.
 
 # TODO: Track history as objects are called, to be able to garbage
 # collect them.
-
-# TODO: Add an 'ignore' decorator' to ignore arguments by name
 
 
 def extract_first_line(func_code):
