@@ -79,6 +79,8 @@ def test_hash_numpy():
     d3 = {1:arr2, 2:arr3}
     yield nose.tools.assert_not_equal, hash(d1), hash(d3)
 
+    yield nose.tools.assert_not_equal, hash(arr1), hash(arr1.T)
+
 
 @with_numpy
 def test_hash_memmap():
