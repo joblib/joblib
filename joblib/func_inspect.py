@@ -161,7 +161,7 @@ def filter_args(func, ignore_lst, *args, **kwargs):
     for arg_name, arg_value in kwargs.iteritems():
         if arg_name in arg_dict:
             arg_dict[arg_name] = arg_value
-        elif arg_varargs is not None:
+        elif arg_keywords is not None:
             varkwargs[arg_name] = arg_value
         else:
             raise TypeError("Ignore list for %s() contains an unexpected "
