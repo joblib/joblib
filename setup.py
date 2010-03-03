@@ -45,6 +45,6 @@ output-value caching and execution logging.
       ],
       platforms='any',
       #package_data={'joblib': ['joblib/*.rst'],},
-      #packages=['joblib', 'joblib.test'],
+      packages=['joblib', 'joblib.test'],
       **extra_setuptools_args)
 
