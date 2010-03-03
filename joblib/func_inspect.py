@@ -123,6 +123,10 @@ def filter_args(func, ignore_lst, *args, **kwargs):
             List of filtered Keyword arguments.
     """
     args = list(args)
+    if isinstance(ignore_lst, basestring):
+        # Catch a common mistake
+        raise ValueError('ignore_lst must be a list of parameters to ignore '
+            '%s (type %s) was given' % (ignore_lst, type(ignore_lst)))
     # Special case for functools.partial objects
     if (not inspect.ismethod(func) and not inspect.isfunction(func)): 
         if ignore_lst:
@@ -137,7 +141,7 @@ def filter_args(func, ignore_lst, *args, **kwargs):
         arg_keywords = arg_spec.keywords
         arg_varargs  = arg_spec.varargs
     else:
-        arg_names, arg_keywords, arg_varargs, arg_defaults = arg_spec
+        arg_names, arg_varargs, arg_keywords, arg_defaults = arg_spec
     arg_defaults = arg_defaults or {}
     if inspect.ismethod(func):
         # First argument is 'self', it has been removed by Python
