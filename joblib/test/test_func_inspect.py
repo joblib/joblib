@@ -93,3 +93,9 @@ def test_bound_methods():
     nose.tools.assert_not_equal(filter_args(a.f, [], 1), 
                                 filter_args(b.f, [], 1))
 
+
+def test_filter_args_error_msg():
+    """ Make sure that filter_args returns decent error messages, for the
+        sake of the user.
+    """
+    nose.tools.assert_raises(ValueError, filter_args, f, [])

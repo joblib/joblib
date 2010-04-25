@@ -149,6 +149,7 @@ def filter_args(func, ignore_lst, *args, **kwargs):
         args = [func.im_self, ] + args
     # XXX: Maybe I need an inspect.isbuiltin to detect C-level methods, such 
     # as on ndarrays.
+
     _, name = get_func_name(func, resolv_alias=False)
     arg_dict = dict()
     arg_position = 0
@@ -161,7 +162,21 @@ def filter_args(func, ignore_lst, *args, **kwargs):
             if arg_name in kwargs:
                 arg_dict[arg_name] = kwargs.pop(arg_name)
             else:
-                arg_dict[arg_name] = arg_defaults[position]
+                try:
+                    arg_dict[arg_name] = arg_defaults[position]
+                except IndexError:
+                    # Missing argument
+                    raise ValueError('Wrong number of arguments for %s%s:\n'
+                                     '     %s(%s, %s) was called.'
+                        % (name, 
+                           inspect.formatargspec(*inspect.getargspec(func)),
+                           name,
+                           repr(args)[1:-1],
+                           ', '.join('%s=%s' % (k, v) 
+                                    for k, v in kwargs.iteritems())
+                           )
+                        )
+                    
 
 
     varkwargs = dict()
