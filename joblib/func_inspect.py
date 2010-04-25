@@ -145,7 +145,10 @@ def filter_args(func, ignore_lst, *args, **kwargs):
     arg_defaults = arg_defaults or {}
     if inspect.ismethod(func):
         # First argument is 'self', it has been removed by Python
-        arg_names.pop(0)
+        # we need to add it back:
+        args = [func.im_self, ] + args
+    # XXX: Maybe I need an inspect.isbuiltin to detect C-level methods, such 
+    # as on ndarrays.
     _, name = get_func_name(func, resolv_alias=False)
     arg_dict = dict()
     arg_position = 0

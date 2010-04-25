@@ -60,7 +60,8 @@ def test_filter_args():
 
 def test_filter_args_method():
     obj = Klass()
-    nose.tools.assert_equal(filter_args(obj.f, [], 1), {'x': 1})
+    nose.tools.assert_equal(filter_args(obj.f, [], 1), 
+        {'x': 1, 'self': obj})
 
 
 def test_filter_varargs():
@@ -81,4 +82,14 @@ def test_func_name():
     yield nose.tools.assert_equal, 'f', get_func_name(f)[1]
     # Check that we are not confused by the decoration
     yield nose.tools.assert_equal, 'g', get_func_name(g)[1]
+
+
+def test_bound_methods():
+    """ Make sure that calling the same method on two different instances
+        of the same class does resolv to different signatures.
+    """
+    a = Klass()
+    b = Klass()
+    nose.tools.assert_not_equal(filter_args(a.f, [], 1), 
+                                filter_args(b.f, [], 1))
 
