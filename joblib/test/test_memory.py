@@ -108,6 +108,22 @@ def test_memory_integration():
                 current_accumulator + 1
 
 
+def test_no_memory():
+    """ Test memory with cachedir=None: no memoize
+    """
+    accumulator = list()
+    def ff(l):
+        accumulator.append(1)
+        return l
+    mem = Memory(cachedir=None)
+    gg = mem.cache(ff)
+    for _ in range(4):
+        current_accumulator = len(accumulator)
+        gg(1)
+        yield nose.tools.assert_equal, len(accumulator), \
+                    current_accumulator + 1
+
+
 def test_memory_kwarg():
     " Test memory with a function with keyword arguments."
     accumulator = list()
@@ -325,6 +341,14 @@ def test_func_dir():
             os.path.exists(os.path.join(path, 'func_code.py'))
     yield nose.tools.assert_true, \
         g._check_previous_func_code()
+
+    # Test the robustness to failure of loading previous results.
+    dir = g.get_output_dir(1)
+    a = g(1)
+    yield nose.tools.assert_true, os.path.exists(dir)
+    os.remove(os.path.join(dir, 'output.pkl'))
+    yield nose.tools.assert_equal, a, g(1)
+
 
 
 def test_persistence():

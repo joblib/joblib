@@ -175,7 +175,7 @@ def _format_traceback_lines(lnum, index, lines, lvals=None):
     return res
 
 
-def format_records(records, print_globals=False):
+def format_records(records):   #, print_globals=False):
     # Loop over all records printing context and info
     frames = []
     abspath = os.path.abspath
@@ -293,16 +293,16 @@ def format_records(records, print_globals=False):
                     value = "undefined"
                 name = name_full
                 lvals.append('%s = %s' % (name,value))
-            elif print_globals:
-                if frame.f_globals.has_key(name_base):
-                    try:
-                        value = repr(eval(name_full,frame.f_globals))
-                    except:
-                        value = "undefined"
-                else:
-                    value = "undefined"
-                name = 'global %s' % name_full
-                lvals.append('%s = %s' % (name,value))
+            #elif print_globals:
+            #    if frame.f_globals.has_key(name_base):
+            #        try:
+            #            value = repr(eval(name_full,frame.f_globals))
+            #        except:
+            #            value = "undefined"
+            #    else:
+            #        value = "undefined"
+            #    name = 'global %s' % name_full
+            #    lvals.append('%s = %s' % (name,value))
         if lvals:
             lvals = '%s%s' % (INDENT, ('\n%s' % INDENT).join(lvals))
         else:

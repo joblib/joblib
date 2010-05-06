@@ -7,7 +7,10 @@ Helpers for embarassingly parallel code.
 
 import sys
 import functools
-import pickle
+try:
+    import cPickle as pickle
+except:
+    import pickle
 
 try:
     import multiprocessing
