@@ -59,7 +59,12 @@ class NumpyHasher(Hasher):
         """
         if isinstance(obj, self.np.ndarray):
             # Compute a hash of the object:
-            self._hash.update(self.np.getbuffer(obj))
+            try:
+                self._hash.update(self.np.getbuffer(obj))
+            except TypeError:
+                # Cater for non-single-segment arrays
+                # XXX: There might be a more efficient way of doing this
+                self._hash.update(self.np.getbuffer(obj.flatten()))
 
             # We store the class, to be able to distinguish between 
             # Objects with the same binary content, but different
