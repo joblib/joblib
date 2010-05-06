@@ -67,7 +67,6 @@ def eq_repr(value, repr=safe_repr):
     return '=%s' % repr(value)
 
 
-
 ################################################################################
 def uniq_stable(elems):
     """uniq_stable(elems) -> list
@@ -88,7 +87,6 @@ def uniq_stable(elems):
             unique.append(nn)
             unique_set.add(nn)
     return unique
-
 
 
 ################################################################################
@@ -177,7 +175,7 @@ def _format_traceback_lines(lnum, index, lines, lvals=None):
     return res
 
 
-def print_records(records, print_globals=False):
+def format_records(records, print_globals=False):
     # Loop over all records printing context and info
     frames = []
     abspath = os.path.abspath
@@ -343,9 +341,9 @@ def format_exc(etype, evalue, etb, context=5, tb_offset=0):
     date = time.ctime(time.time())
     pid = 'PID: %i' % os.getpid()
     
-    head = '%s%s%s\n%s%s%s' % (etype, ' '*(75-len(str(etype))-len(pyver)),
-                           pyver, pid, ' '*(75-len(str(pid))-len(date)),
-                           date)
+    head = '%s%s%s\n%s%s%s' % (etype, ' '*(75-len(str(etype))-len(date)),
+                           date, pid, ' '*(75-len(str(pid))-len(pyver)),
+                           pyver)
 
     # Flush cache before calling inspect.  This helps alleviate some of the
     # problems with python 2.3's inspect.py.
@@ -384,8 +382,8 @@ def format_exc(etype, evalue, etb, context=5, tb_offset=0):
             value = safe_repr(getattr(evalue, name))
             exception.append('\n%s%s = %s' % (INDENT, name, value))
 
-    frames = print_records(records)
-    return '%s\n\n%s\n%s' % (head,'\n'.join(frames),''.join(exception[0]) )
+    frames = format_records(records)
+    return '%s\n%s\n%s' % (head,'\n'.join(frames),''.join(exception[0]) )
 
 
 ################################################################################
@@ -426,7 +424,7 @@ def format_outer_frames(context=5, stack_start=None, stack_end=None,
         buf[INDEX_POS] = line_no - 1 - start
         buf[LINES_POS] = lines
         output.append(tuple(buf))
-    return '\n'.join(print_records(output[stack_end:stack_start:-1]))
+    return '\n'.join(format_records(output[stack_end:stack_start:-1]))
 
 
 

@@ -14,7 +14,7 @@ try:
 except ImportError:
     multiprocessing = None
 
-from .exception_fmt import format_exc, format_outer_frames
+from .format_stack import format_exc, format_outer_frames
 
 ################################################################################
 
@@ -130,10 +130,13 @@ class Parallel(object):
                                                 context=10,
                                                 stack_start=1,
                                                 )
-                        report = 'JoblibException: multiprocessing exception\n%s\n%s\nSub-process traceback:\n%s\n%s' % (
+                        report = """Multiprocessing exception:
+%s
+---------------------------------------------------------------------------
+Sub-process traceback: 
+---------------------------------------------------------------------------
+%s""" % (
                                     this_report,
-                                    75*'.',
-                                    75*'.',
                                     exception.message,
                                 )
                         raise JoblibException(report)
