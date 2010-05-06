@@ -6,14 +6,13 @@ Helpers for embarassingly parallel code.
 # License: BSD 3 clause
 
 import sys
+import functools
+import pickle
 
 try:
     import multiprocessing
 except ImportError:
     multiprocessing = None
-
-import functools
-import pickle
 
 from .exception_fmt import print_exc, print_outer_frame
 
@@ -125,18 +124,18 @@ class Parallel(object):
                         # Capture exception to add information on 
                         # the local stack in addition to the distant
                         # stack
-                        this_text = print_outer_frame(
+                        this_report = print_outer_frame(
                                                 context=10,
                                                 stack_start=1,
                                                 #stack_end=3,
                                                 )
-                        text = 'JoblibException: multiprocessing exception\n%s\n%s\nSub-process traceback:\n%s\n%s' % (
-                                    this_text,
+                        report = 'JoblibException: multiprocessing exception\n%s\n%s\nSub-process traceback:\n%s\n%s' % (
+                                    this_report,
                                     75*'.',
                                     75*'.',
                                     exception.message,
                                 )
-                        raise JoblibException(text)
+                        raise JoblibException(report)
         finally:
             if n_jobs > 1:
                 pool.close()
