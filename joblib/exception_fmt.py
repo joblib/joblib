@@ -1,8 +1,24 @@
 """
 Represent an exception with a lot of information.
 
+Provides 2 useful functions:
+
+format_exc: format an exception into a complete traceback, with full
+            debugging instruction.
+
+format_outer_frames: format the current position in the stack call.
+
 Adapted from IPython's VerboseTB.
 """
+# Authors: Gael Varoquaux < gael dot varoquaux at normalesup dot org >
+#          Nathaniel Gray <n8gray@caltech.edu>
+#          Fernando Perez <fperez@colorado.edu>
+# Copyright: 2010, Gael Varoquaux
+#            2001-2004, Fernando Perez
+#            2001 Nathaniel Gray
+# License: BSD 3 clause
+
+
 import inspect
 import keyword
 import linecache
@@ -63,16 +79,14 @@ def uniq_stable(elems):
     elements as keys fails to respect the stability condition, since
     dictionaries are unsorted by nature.
 
-    Note: All elements in the input must be valid dictionary keys for this
-    routine to work, as it internally uses a dictionary for efficiency
-    reasons."""
-
+    Note: All elements in the input must be hashable.
+    """
     unique = []
-    unique_dict = {}
+    unique_set = set()
     for nn in elems:
-        if nn not in unique_dict:
+        if nn not in unique_set:
             unique.append(nn)
-            unique_dict[nn] = None
+            unique_set.add(nn)
     return unique
 
 
@@ -109,9 +123,8 @@ def _fixed_getframes(etb, context=1, tb_offset=0):
     rec_check = records[tb_offset:]
     try:
         rname = rec_check[0][1]
-        if rname == '<ipython console>':# or rname.endswith('<string>'):
-            pass
-            #return rec_check
+        if rname == '<ipython console>' or rname.endswith('<string>'):
+            return rec_check
     except IndexError:
         pass
 
@@ -164,7 +177,7 @@ def _format_traceback_lines(lnum, index, lines, lvals=None):
     return res
 
 
-def print_records(records):
+def print_records(records, print_globals=False):
     # Loop over all records printing context and info
     frames = []
     abspath = os.path.abspath
@@ -184,8 +197,6 @@ def print_records(records):
             # This can happen due to a bug in python2.3.  We should be
             # able to remove this try/except when 2.4 becomes a
             # requirement.  Bug details at http://python.org/sf/1005466
-            # XXX: Not using this functionality because of Term.cerr
-            #traceback.print_exc(file=Term.cerr)
             print "\nJoblib's exception reporting continues...\n"
             
         if func == '?':
@@ -195,7 +206,7 @@ def print_records(records):
             try:
                 call = 'in %s%s' % (func,inspect.formatargvalues(args,
                                             varargs, varkw,
-                                            locals,formatvalue=eq_repr))
+                                            locals, formatvalue=eq_repr))
             except KeyError:
                 # Very odd crash from inspect.formatargvalues().  The
                 # scenario under which it appeared was a call to
@@ -204,8 +215,6 @@ def print_records(records):
                 # inspect messes up resolving the argument list of view()
                 # and barfs out. At some point I should dig into this one
                 # and file a bug report about it.
-                # XXX: Not using this functionality because of Term.cerr
-                #traceback.print_exc(file=Term.cerr)
                 print "\nJoblib's exception reporting continues...\n"
                 call = 'in %s(***failed resolving arguments***)' % func
 
@@ -265,7 +274,7 @@ def print_records(records):
             # signals exit of tokenizer
             pass
         except tokenize.TokenError,msg:
-            print ("aN UNEXPECTED ERROR OCCURRED WHILE tokenizing input\n"
+            print ("An unexpected error occurred while tokenizing input\n"
                     "The following traceback may be corrupted or invalid\n"
                     "The error message is: %s\n" % msg)
         
@@ -286,7 +295,7 @@ def print_records(records):
                     value = "undefined"
                 name = name_full
                 lvals.append('%s = %s' % (name,value))
-            elif False: # XXX: don't print globals
+            elif print_globals:
                 if frame.f_globals.has_key(name_base):
                     try:
                         value = repr(eval(name_full,frame.f_globals))
@@ -308,20 +317,12 @@ def print_records(records):
         else:
             frames.append('%s%s' % (level,''.join(
                 _format_traceback_lines(lnum, index, lines, lvals))))
-
-    # vds: >>
-    if records:
-            filepath, lnum = records[-1][1:3]
-            #print "file:", str(file), "linenb", str(lnum) # dbg
-            filepath = os.path.abspath(filepath)
-    # vds: <<
-            
-    # return all our info assembled as a single string
+           
     return frames
 
 
 ################################################################################
-def print_exc(etype, evalue, etb, context=5, tb_offset=0):
+def format_exc(etype, evalue, etb, context=5, tb_offset=0):
     """ Return a nice text document describing the traceback.
     
         Parameters
@@ -340,11 +341,11 @@ def print_exc(etype, evalue, etb, context=5, tb_offset=0):
     # Header with the exception type, python version, and date
     pyver = 'Python ' + string.split(sys.version)[0] + ': ' + sys.executable
     date = time.ctime(time.time())
+    pid = 'PID: %i' % os.getpid()
     
-    head = '%s%s%s\n%s' % (etype, ' '*(75-len(str(etype))-len(pyver)),
-                           pyver, string.rjust(date, 75) )
-    head += "\nA problem occured executing Python code.  Here is the sequence of function"\
-            "\ncalls leading up to the error, with the most recent (innermost) call last."
+    head = '%s%s%s\n%s%s%s' % (etype, ' '*(75-len(str(etype))-len(pyver)),
+                           pyver, pid, ' '*(75-len(str(pid))-len(date)),
+                           date)
 
     # Flush cache before calling inspect.  This helps alleviate some of the
     # problems with python 2.3's inspect.py.
@@ -388,8 +389,8 @@ def print_exc(etype, evalue, etb, context=5, tb_offset=0):
 
 
 ################################################################################
-def print_outer_frame(context=5, stack_start=None, stack_end=None,
-            ignore_ipython=True):
+def format_outer_frames(context=5, stack_start=None, stack_end=None,
+                        ignore_ipython=True):
     LNUM_POS, LINES_POS, INDEX_POS =  2, 4, 5
     records = inspect.getouterframes(inspect.currentframe())
     output = list()

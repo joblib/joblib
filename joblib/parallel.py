@@ -2,7 +2,7 @@
 Helpers for embarassingly parallel code.
 """
 # Author: Gael Varoquaux < gael dot varoquaux at normalesup dot org >
-# Copyright: Gael Varoquaux
+# Copyright: 2010, Gael Varoquaux
 # License: BSD 3 clause
 
 import sys
@@ -14,7 +14,7 @@ try:
 except ImportError:
     multiprocessing = None
 
-from .exception_fmt import print_exc, print_outer_frame
+from .exception_fmt import format_exc, format_outer_frames
 
 ################################################################################
 
@@ -40,9 +40,10 @@ class JoblibException(Exception):
 
 
 class SafeFunction(object):
-    """ Wraps a function to make it raise errors with full traceback. 
-        Useful for parallel computing, for which errors cannot be
-        captured.
+    """ Wraps a function to make it exception with full traceback in
+        their representation.
+        Useful for parallel computing with multiprocessing, for which 
+        exceptions cannot be captured.
     """
 
     def __init__(self, func):
@@ -54,7 +55,7 @@ class SafeFunction(object):
             return self.func(*args, **kwargs)
         except:
             e_type, e_value, e_tb = sys.exc_info()
-            text = print_exc(e_type, e_value, e_tb, context=10,
+            text = format_exc(e_type, e_value, e_tb, context=10,
                              tb_offset=1)
             raise JoblibException(text)
 
@@ -96,6 +97,7 @@ class Parallel(object):
         # be able to close it ASAP, and not burden the user with closing
         # it.
 
+
     def __call__(self, iterable):
         n_jobs = self.n_jobs
         if n_jobs is None or multiprocessing is None or n_jobs == 1:
@@ -124,10 +126,9 @@ class Parallel(object):
                         # Capture exception to add information on 
                         # the local stack in addition to the distant
                         # stack
-                        this_report = print_outer_frame(
+                        this_report = format_outer_frames(
                                                 context=10,
                                                 stack_start=1,
-                                                #stack_end=3,
                                                 )
                         report = 'JoblibException: multiprocessing exception\n%s\n%s\nSub-process traceback:\n%s\n%s' % (
                                     this_report,
