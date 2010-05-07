@@ -7,6 +7,7 @@ Helpers for embarassingly parallel code.
 
 import sys
 import functools
+import time
 try:
     import cPickle as pickle
 except:
@@ -18,7 +19,7 @@ except ImportError:
     multiprocessing = None
 
 from .format_stack import format_exc, format_outer_frames
-from .logger import Logger
+from .logger import Logger, short_format_time
 
 ################################################################################
 
@@ -122,15 +123,30 @@ class Parallel(Logger):
                 output.append(apply(function, args, kwargs))
 
             if n_jobs > 1:
+                start_time = time.time()
                 jobs = output
                 output = list()
-                if self.verbose:
-                    self.warn('Retrieving jobs')
                 for index, job in enumerate(jobs):
                     try:
                         output.append(job.get())
-                        self.warn(' ..retrieved job % 2i out of % 2i'
-                                    % (index, len(jobs)))
+                        # XXX: Not using the logger framework: need to
+                        # learn to use logger better.
+                        if self.verbose:
+                            if len(jobs) > 2*n_jobs:
+                                # Report less often
+                                if not index % n_jobs == 0:
+                                    continue
+                            elapsed_time = time.time() - start_time
+                            remaining_time = (elapsed_time/(index + 1)*
+                                        (len(jobs) - index - 1.))
+                            sys.stderr.write(
+                        '[%s]: Done %3i out of %3i  (elapsed: %s remaining: %s)\n'
+                                    % (self,
+                                       index+1, 
+                                       len(jobs), 
+                                       short_format_time(elapsed_time),
+                                       short_format_time(remaining_time),
+                                      ))
                     except JoblibException, exception:
                         # Capture exception to add information on 
                         # the local stack in addition to the distant
@@ -160,7 +176,6 @@ Sub-process traceback:
         return '%s(n_jobs=%s)' % (
                     self.__class__.__name__,
                     self.n_jobs,
-                    self.verbose,
                 )
 
 
