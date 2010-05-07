@@ -10,8 +10,13 @@ succession of operations can profit from the tools provided by joblib.
 
 ____
 
-The latest documentation for `joblib` can be found on
-http://packages.python.org/joblib/
+* The latest user documentation for `joblib` can be found on
+  http://packages.python.org/joblib/
+
+* Instructions for developpers can be found at:
+  http://github.com/GaelVaroquaux/joblib
+
+joblib is BSD-licensed.
 
 Vision
 --------
