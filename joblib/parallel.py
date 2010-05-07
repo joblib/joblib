@@ -18,6 +18,7 @@ except ImportError:
     multiprocessing = None
 
 from .format_stack import format_exc, format_outer_frames
+from .logger import Logger
 
 ################################################################################
 
@@ -77,7 +78,7 @@ def delayed(function):
     return delayed_function
 
 
-class Parallel(object):
+class Parallel(Logger):
     """ Helper class for readable parallel mapping.
 
         Parameters
@@ -94,7 +95,8 @@ class Parallel(object):
         [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
     """
 
-    def __init__(self, n_jobs=None):
+    def __init__(self, n_jobs=None, verbose=0):
+        self.verbose = verbose
         self.n_jobs = n_jobs
         # Not starting the pool in the __init__ is a design decision, to
         # be able to close it ASAP, and not burden the user with closing
@@ -122,9 +124,13 @@ class Parallel(object):
             if n_jobs > 1:
                 jobs = output
                 output = list()
-                for job in jobs:
+                if self.verbose:
+                    self.warn('Retrieving jobs')
+                for index, job in enumerate(jobs):
                     try:
                         output.append(job.get())
+                        self.warn(' ..retrieved job % 2i out of % 2i'
+                                    % (index, len(jobs)))
                     except JoblibException, exception:
                         # Capture exception to add information on 
                         # the local stack in addition to the distant
@@ -148,6 +154,14 @@ Sub-process traceback:
                 pool.close()
                 pool.join()
         return output
+
+
+    def __repr__(self):
+        return '%s(n_jobs=%s)' % (
+                    self.__class__.__name__,
+                    self.n_jobs,
+                    self.verbose,
+                )
 
 
 
