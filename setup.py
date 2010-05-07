@@ -24,7 +24,7 @@ setup(name='joblib',
       summary='Tools to use Python functions as pipeline jobs.',
       author='Gael Varoquaux',
       author_email='gael.varoquaux@normalesup.org',
-      url='https://launchpad.net/joblib',
+      url='http://github.com/GaelVaroquaux/joblib',
       description="""
 Tools to use Python functions as pipeline jobs:
 output-value caching and execution logging.

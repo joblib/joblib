@@ -1,11 +1,14 @@
+Presentation
+=============
+
+The homepage of joblib is located on:
+
+http://packages.python.org/joblib/
+
+
 Development
 ===================
 
-Using bzr and launchpad
-------------------------
-
-See the following article, and the related ShowMeDo video:
-http://wiki.showmedo.com/index.php/Using_Launchpad_and_Bazaar
 
 Running the test suite
 ------------------------

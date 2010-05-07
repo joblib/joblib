@@ -82,7 +82,8 @@ plenty of features. On the other side, I expect to be playing with the API and
 features for a while before I can figure out what is the right set of
 functionalities to expose. 
 
-The code is `hosted <https://launchpad.net/joblib>`_ on launchpad for the good reason that branching the project
+The code is `hosted <http://github.com/GaelVaroquaux/joblib>`_ on github for the
+good reason that cloning the project
 and publishing it along-side my branch is dead-easy. 
 
 .. 
@@ -90,7 +91,7 @@ and publishing it along-side my branch is dead-easy.
 
 """
 
-__version__ = '0.3.5'
+__version__ = '0.3.6'
 
 
 from .memory import Memory
