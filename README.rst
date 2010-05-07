@@ -1,14 +1,13 @@
 Presentation
 =============
 
-The homepage of joblib is located on:
+The homepage of joblib with user documentation is located on:
 
 http://packages.python.org/joblib/
 
 
 Development
 ===================
-
 
 Running the test suite
 ------------------------

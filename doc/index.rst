@@ -2,7 +2,14 @@
 Joblib: running Python function as pipeline jobs
 =================================================
 
-.. topic:: **User guide contents:**
+Introduction
+------------
+
+
+.. automodule:: joblib
+
+User manual
+--------------
 
  .. toctree::
     :maxdepth: 2
@@ -10,14 +17,9 @@ Joblib: running Python function as pipeline jobs
     installing.rst
     memory.rst
 
-Introduction
-------------
 
-
-.. automodule:: joblib
-
-Module contents
-----------------
+Module reference
+-----------------
 
 .. autosummary:: 
     :toctree: generated
