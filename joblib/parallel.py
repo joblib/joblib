@@ -64,7 +64,25 @@ class SafeFunction(object):
                              tb_offset=1)
             raise JoblibException(text)
 
- 
+def print_progress(self, index, total, start_time, n_jobs=1):
+    # XXX: Not using the logger framework: need to
+    # learn to use logger better.
+    if total > 2*n_jobs:
+        # Report less often
+        if not index % n_jobs == 0:
+            return
+    elapsed_time = time.time() - start_time
+    remaining_time = (elapsed_time/(index + 1)*
+                (total - index - 1.))
+    sys.stderr.write('[%s]: Done %3i out of %3i |elapsed: %s remaining: %s\n'
+            % (self,
+                index+1, 
+                total, 
+                short_format_time(elapsed_time),
+                short_format_time(remaining_time),
+                ))
+
+
 ################################################################################
 def delayed(function):
     """ Decorator used to capture the arguments of a function.
@@ -77,6 +95,7 @@ def delayed(function):
     def delayed_function(*args, **kwargs):
         return function, args, kwargs
     return delayed_function
+
 
 
 class Parallel(Logger):
@@ -116,12 +135,17 @@ class Parallel(Logger):
             apply = pool.apply_async
 
         output = list()
+        start_time = time.time()
         try:
-            for function, args, kwargs in iterable:
+            for index, (function, args, kwargs) in enumerate(iterable):
                 if n_jobs > 1:
                     function = SafeFunction(function)
                 output.append(apply(function, args, kwargs))
-
+                if self.verbose and n_jobs == 1:
+                    print '[%s]: Done job %3i | elapsed: %s' % (
+                            self, index, 
+                            short_format_time(time.time() - start_time)
+                        )
             if n_jobs > 1:
                 start_time = time.time()
                 jobs = output
@@ -129,24 +153,9 @@ class Parallel(Logger):
                 for index, job in enumerate(jobs):
                     try:
                         output.append(job.get())
-                        # XXX: Not using the logger framework: need to
-                        # learn to use logger better.
                         if self.verbose:
-                            if len(jobs) > 2*n_jobs:
-                                # Report less often
-                                if not index % n_jobs == 0:
-                                    continue
-                            elapsed_time = time.time() - start_time
-                            remaining_time = (elapsed_time/(index + 1)*
-                                        (len(jobs) - index - 1.))
-                            sys.stderr.write(
-                        '[%s]: Done %3i out of %3i  (elapsed: %s remaining: %s)\n'
-                                    % (self,
-                                       index+1, 
-                                       len(jobs), 
-                                       short_format_time(elapsed_time),
-                                       short_format_time(remaining_time),
-                                      ))
+                            print_progress(self, index, len(jobs), start_time,
+                                           n_jobs=n_jobs)
                     except JoblibException, exception:
                         # Capture exception to add information on 
                         # the local stack in addition to the distant
