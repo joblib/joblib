@@ -101,6 +101,11 @@ def get_func_name(func, resolv_alias=True):
         if hasattr(func, 'func_globals') and name in func.func_globals:
             if not func.func_globals[name] is func:
                 name = '%s-alias' % name
+    if inspect.ismethod(func):
+        # We need to add the name of the class    
+        if hasattr(func, 'im_class'):
+            klass = func.im_class
+            module.append(klass.__name__)
     if os.name == 'nt':
         # Stupid windows can't encode certain characters in filenames
         import urllib
