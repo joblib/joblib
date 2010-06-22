@@ -96,7 +96,7 @@ and publishing it along-side my branch is dead-easy.
 
 """
 
-__version__ = '0.3.7'
+__version__ = '0.4.0'
 
 
 from .memory import Memory
