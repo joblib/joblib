@@ -62,7 +62,8 @@ class NumpyHasher(Hasher):
             try:
                 self._hash.update(self.np.getbuffer(obj))
             except TypeError:
-                # Cater for non-single-segment arrays
+                # Cater for non-single-segment arrays: this creates a
+                # copy, and thus aleviates this issue.
                 # XXX: There might be a more efficient way of doing this
                 self._hash.update(self.np.getbuffer(obj.flatten()))
 
