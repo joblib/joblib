@@ -45,7 +45,7 @@ A simple example:
   We can instanciate a memory context, using this cache directory::
 
     >>> from joblib import Memory
-    >>> memory = Memory(cachedir=cachedir)
+    >>> memory = Memory(cachedir=cachedir, verbose=0)
 
   Then we can decorate a function to be cached in this context::
 
@@ -141,7 +141,7 @@ Using memmapping
 To speed up cache looking of large numpy arrays, you can load them
 using memmapping (memory mapping)::
 
-    >>> memory2 = Memory(cachedir=cachedir, mmap_mode='r', debug=True)
+    >>> memory2 = Memory(cachedir=cachedir, mmap_mode='r')
     >>> square = memory2.cache(np.square)
     >>> a = np.vander(np.arange(3))
     >>> square(a)

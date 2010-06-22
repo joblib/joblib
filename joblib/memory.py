@@ -88,16 +88,16 @@ class MemorizedFunc(Logger):
             numpy arrays. See numpy.load for the meaning of the
             arguments. Only used if save_npy was true when the
             cache was created.
-        debug: boolean
-            If True, debug messages are issued as the function
-            is revaluated.
+        verbose: int, optional
+            The verbosity flag, controls messages that are issued as 
+            the function is revaluated.
     """
     #-------------------------------------------------------------------------
     # Public interface
     #-------------------------------------------------------------------------
    
     def __init__(self, func, cachedir, ignore=None, save_npy=True, 
-                             mmap_mode=None, debug=False):
+                             mmap_mode=None, verbose=1):
         """
             Parameters
             ----------
@@ -115,12 +115,12 @@ class MemorizedFunc(Logger):
                 numpy arrays. See numpy.load for the meaning of the
                 arguments. Only used if save_npy was true when the
                 cache was created.
-            debug: boolean, optional
-                If True, debug messages will be issued as functions 
-                are revaluated.
+            verbose: int, optional
+                Verbosity flag, controls the debug messages that are issued 
+                as functions are revaluated.
         """
         Logger.__init__(self)
-        self._debug = debug
+        self._verbose = verbose
         self.cachedir = cachedir
         self.func = func
         self.save_npy = save_npy
@@ -267,7 +267,7 @@ class MemorizedFunc(Logger):
         """ Empty the function's cache. 
         """
         func_dir = self._get_func_dir(mkdir=False)
-        if self._debug and warn:
+        if self._verbose and warn:
             self.warn("Clearing cache %s" % func_dir)
         if os.path.exists(func_dir):
             shutil.rmtree(func_dir)
@@ -281,13 +281,13 @@ class MemorizedFunc(Logger):
         """ Force the execution of the function with the given arguments and 
             persist the output values.
         """
-        if self._debug:
+        if self._verbose:
             print self.format_call(*args, **kwargs)
             start_time = time.time()
         output = self.func(*args, **kwargs)
         output_dir = self.get_output_dir(*args, **kwargs)
         self._persist_output(output, output_dir)
-        if self._debug:
+        if self._verbose:
             _, name = get_func_name(self.func)
             msg = '%s - %s' % (name, 
                                format_time(time.time() - start_time))
@@ -394,7 +394,7 @@ class Memory(Logger):
     #-------------------------------------------------------------------------
    
     def __init__(self, cachedir, save_npy=True, mmap_mode=None,
-                       debug=False):
+                       verbose=1):
         """
             Parameters
             ----------
@@ -410,13 +410,13 @@ class Memory(Logger):
                 numpy arrays. See numpy.load for the meaning of the
                 arguments. Only used if save_npy was true when the
                 cache was created.
-            debug: boolean, optional
-                If True, debug messages will be issued as functions 
-                are revaluated.
+            verbose: int, optional
+                Verbosity flag, controls the debug messages that are issued 
+                as functions are revaluated.
         """
         # XXX: Bad explaination of the None value of cachedir
         Logger.__init__(self)
-        self._debug = debug
+        self._verbose = verbose
         self.cachedir = cachedir
         self.save_npy = save_npy
         self.mmap_mode = mmap_mode
@@ -446,7 +446,7 @@ class Memory(Logger):
                                    save_npy=self.save_npy,
                                    mmap_mode=self.mmap_mode,
                                    ignore=ignore,
-                                   debug=self._debug)
+                                   verbose=self._verbose)
 
 
     def clear(self, warn=True):

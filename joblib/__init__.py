@@ -54,7 +54,7 @@ The tools that have been identified and developped so far are:
      necessary, by using standard Python functions::
 
         >>> from joblib import Memory
-        >>> mem = Memory(cachedir='/tmp/joblib', debug=True)
+        >>> mem = Memory(cachedir='/tmp/joblib')
         >>> import numpy as np
         >>> a = np.vander(np.arange(3))
         >>> square = mem.cache(np.square)
@@ -96,7 +96,7 @@ and publishing it along-side my branch is dead-easy.
 
 """
 
-__version__ = '0.3.6'
+__version__ = '0.3.7'
 
 
 from .memory import Memory
