@@ -2,6 +2,8 @@ Tasks at hand on joblib, in increasing order of difficulty.
 
 * use Michele Siamonato's decorator module.
 
+* document and test the parallel feature.
+
 * Make a sensible error message when wrong keyword arguments are given,
   currently we have::
 
