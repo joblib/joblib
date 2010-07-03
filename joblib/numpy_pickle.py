@@ -111,8 +111,8 @@ class NumpyUnpickler(pickle.Unpickler):
 # Utility functions
 
 def dump(value, filename):
-    """ Persist a Python into a filename, with numpy arrays saved as
-        separate .npy files.
+    """ Persist an arbitrary Python object into a filename, with numpy arrays 
+        saved as separate .npy files.
 
         See Also
         --------

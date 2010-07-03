@@ -408,7 +408,7 @@ def format_outer_frames(context=5, stack_start=None, stack_end=None,
         if ignore_ipython:
             # Hack to avoid printing the interals of IPython
             if (os.path.basename(filename) == 'iplib.py' 
-                        and func_name == 'safe_execfile'):
+                        and func_name in ('safe_execfile', 'runcode')):
                 break
         maybeStart = line_no -1 - context//2
         start =  max(maybeStart, 0)

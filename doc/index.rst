@@ -25,6 +25,7 @@ Module reference
     :toctree: generated
  
     Memory
+    Parallel
     dump
     load
     PrintTime

@@ -99,22 +99,102 @@ def delayed(function):
 
 
 class Parallel(Logger):
-    """ Helper class for readable parallel mapping.
+    ''' Helper class for readable parallel mapping.
 
         Parameters
         -----------
         n_jobs: int
             The number of jobs to use for the computation. If -1 all CPUs
-            are used.
+            are used. If 1 is given, no parallel computing code is used
+            at all, which is useful for debuging.
+        verbose: int, optional
+            The verbosity level. If 1 is given, the elapsed time as well
+            as the estimated remaining time are displayed.
+        
+        Notes
+        -----
 
-        Example
+        This object uses the multiprocessing module to compute in
+        parallel the application of a function to many different
+        arguments. The main functionnality it brings in addition to 
+        using the raw multiprocessing API are (see examples for details):
+
+            * More readable code, in particular since it avoids 
+              constructing list of arguments.
+
+            * Easier debuging:
+                - informative tracebacks even when the error happens on
+                  the client side
+                - using 'n_jobs=1' enables to turn of parallel computing
+                  for debuging without changing the codepath
+                - early capture of pickling errors
+
+            * An optional progress meter.
+
+        Examples
         --------
 
+        A simple example:
+
         >>> from math import sqrt
+        >>> from joblib import Parallel, delayed
         >>> Parallel(n_jobs=1)(delayed(sqrt)(i**2) for i in range(10))
         [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
-    """
 
+        Reshaping the output when the function has several return
+        values:
+        
+        >>> from math import modf
+        >>> from joblib import Parallel, delayed
+        >>> r = Parallel(n_jobs=1)(delayed(modf)(i/2.) for i in range(10))
+        >>> res, i = zip(*r)
+        >>> res
+        (0.0, 0.5, 0.0, 0.5, 0.0, 0.5, 0.0, 0.5, 0.0, 0.5)
+        >>> i
+        (0.0, 0.0, 1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0)
+       
+        The progress meter::
+
+            >>> from time import sleep
+            >>> from joblib import Parallel, delayed
+            >>> r = Parallel(n_jobs=2, verbose=1)(delayed(sleep)(.1) for _ in range(10)) #doctest: +SKIP
+            [Parallel(n_jobs=2)]: Done   1 out of  10 |elapsed:    0.1s remaining:    0.9s
+            [Parallel(n_jobs=2)]: Done   3 out of  10 |elapsed:    0.2s remaining:    0.5s
+            [Parallel(n_jobs=2)]: Done   5 out of  10 |elapsed:    0.3s remaining:    0.3s
+            [Parallel(n_jobs=2)]: Done   7 out of  10 |elapsed:    0.4s remaining:    0.2s
+            [Parallel(n_jobs=2)]: Done   9 out of  10 |elapsed:    0.5s remaining:    0.1s
+
+        Traceback example, note how the ligne of the error is indicated 
+        as well as the values of the parameter passed to the function that
+        triggered the exception, eventhough the traceback happens in the 
+        child process::
+
+         >>> from string import atoi
+         >>> from joblib import Parallel, delayed
+         >>> Parallel(n_jobs=2)(delayed(atoi)(n) for n in ('1', '300', 30)) #doctest: +SKIP
+         #...
+         ---------------------------------------------------------------------------
+         Sub-process traceback: 
+         ---------------------------------------------------------------------------
+         TypeError                                          Fri Jul  2 20:32:05 2010
+         PID: 4151                                     Python 2.6.5: /usr/bin/python
+         ...........................................................................
+         /usr/lib/python2.6/string.pyc in atoi(s=30, base=10)
+             398     is chosen from the leading characters of s, 0 for octal, 0x or
+             399     0X for hexadecimal.  If base is 16, a preceding 0x or 0X is
+             400     accepted.
+             401 
+             402     """
+         --> 403     return _int(s, base)
+             404 
+             405 
+             406 # Convert string to long integer
+             407 def atol(s, base=10):
+         
+         TypeError: int() can't convert non-string with explicit base
+         ___________________________________________________________________________
+
+    '''
     def __init__(self, n_jobs=None, verbose=0):
         self.verbose = verbose
         self.n_jobs = n_jobs
