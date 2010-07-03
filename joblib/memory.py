@@ -13,6 +13,7 @@ import os
 import shutil
 import sys
 import time
+import pydoc
 try:
     import cPickle as pickle
 except ImportError:
@@ -20,6 +21,8 @@ except ImportError:
 import functools
 import traceback
 import warnings
+import inspect
+import json
 
 # Local imports
 from .hashing import hash
@@ -67,8 +70,7 @@ class JobLibCollisionWarning(UserWarning):
 # class `Memory`
 ################################################################################
 class MemorizedFunc(Logger):
-    """ Functor (callable object) created by the Memory object and
-        decorating a function for caching its return value 
+    """ Callable object decorating a function for caching its return value 
         each time it is called.
     
         All values are cached on the filesystem, in a deep directory
@@ -134,6 +136,13 @@ class MemorizedFunc(Logger):
             functools.update_wrapper(self, func)
         except:
             " Objects like ufunc don't like that "
+        if inspect.isfunction(func):
+            doc = pydoc.TextDoc().document(func
+                                    ).replace('\n', '\n\n', 1)
+        else:
+            # Pydoc does a poor job on other objects
+            doc = func.__doc__
+        self.__doc__ = 'Memoized version of %s' % doc
 
 
     def __call__(self, *args, **kwargs):
@@ -287,6 +296,7 @@ class MemorizedFunc(Logger):
         output = self.func(*args, **kwargs)
         output_dir = self.get_output_dir(*args, **kwargs)
         self._persist_output(output, output_dir)
+        self._persist_input(output_dir, *args, **kwargs)
         if self._verbose:
             _, name = get_func_name(self.func)
             msg = '%s - %s' % (name, 
@@ -349,6 +359,18 @@ class MemorizedFunc(Logger):
             pickle.dump(output, output_file, protocol=2)
             output_file.close()
 
+
+    def _persist_input(self, output_dir, *args, **kwargs):
+        """ Save a small summary of the call using json format in the
+            output directory.
+        """
+        argument_dict = filter_args(self.func, self.ignore,
+                                    *args, **kwargs)
+        json.dump(
+            dict((k, repr(v)) 
+                 for k, v in argument_dict.iteritems()),
+            file(os.path.join(output_dir, 'input_args.json'), 'w'),
+            )
 
     def load_output(self, output_dir):
         """ Read the results of a previous calculation from the directory
