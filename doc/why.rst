@@ -54,7 +54,7 @@ Design choices
 * Fast and suitable for scientific computing on big dataset without
   changing the original code
 
-    
+* Only local imports: **embed joblib in your code by copying it** 
 
 
 
