@@ -6,9 +6,9 @@
 
 .. _memory:
 
-==============================
-The `Memory` class
-==============================
+===========================================
+On demand recomputing: the `Memory` class
+===========================================
 
 .. currentmodule:: joblib.memory
 

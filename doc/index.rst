@@ -14,8 +14,10 @@ User manual
  .. toctree::
     :maxdepth: 2
 
+    why.rst
     installing.rst
     memory.rst
+    parallel.rst
 
 
 Module reference
@@ -28,7 +30,5 @@ Module reference
     Parallel
     dump
     load
-    PrintTime
-    Logger
     hash
 

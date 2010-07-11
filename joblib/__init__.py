@@ -33,7 +33,7 @@ The main problems identified are:
     script as it is tuned, but end up commenting out steps, or
     uncommenting steps, as they are needed, as they take long to run.
 
- 2) **Persistance:** It is difficult to persist in an efficient way
+ 2) **Persistence:** It is difficult to persist in an efficient way
     arbitrary objects containing large numpy arrays. In addition,
     hand-written persistence to disk does not link easily the file on
     disk to the corresponding Python object it was persists from in the
@@ -73,10 +73,10 @@ Current features
 2) **Embarrassingly parallel helper:** to make is easy to write readable 
    parallel code and debug it quickly:
 
-        >>> from joblib import Parallel, delayed
-        >>> from math import sqrt
-        >>> Parallel(n_jobs=1)(delayed(sqrt)(i**2) for i in range(10))
-        [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
+      >>> from joblib import Parallel, delayed
+      >>> from math import sqrt
+      >>> Parallel(n_jobs=1)(delayed(sqrt)(i**2) for i in range(10))
+      [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
 
 
 3) **Logging/tracing:** The different functionalities will
