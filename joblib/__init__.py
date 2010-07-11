@@ -1,12 +1,12 @@
-""" Joblib provides a set of tools for using long-running Python
-functions as pipeline jobs:
+""" Joblib is a set of tools to provide **lightweight pipelining in
+Python**. In particular, joblib offers:
 
   1. transparent disk-caching of the output values and lazy re-evaluation 
 
   2. logging and tracing of the execution
 
-The original focus was on scientific-computing scripts, but any long-running
-succession of operations can profit from the tools provided by joblib.
+Joblib is optimized to be fast and robust in particular on large,
+long-running function and has specific optimizations for numpy arrays.
 
 ____
 
@@ -16,7 +16,7 @@ ____
 * Instructions for developpers can be found at:
   http://github.com/GaelVaroquaux/joblib
 
-joblib is BSD-licensed.
+joblib is **BSD-licensed**.
 
 Vision
 --------
@@ -45,51 +45,54 @@ heavy framework and coerce user into using it (e.g. with an explicit
 pipeline). It strives to leave your code and your flow control as
 unmodified as possible.
 
-The tools that have been identified and developped so far are:
+Current features
+------------------
 
-  1) **Transparent and fast disk-caching of output value:** a make-like
-     functionality for Python functions that works well with large numpy
-     arrays. The goal is to separate operations in a set of steps with 
-     well-defined inputs and outputs, that are saved and reran only if 
-     necessary, by using standard Python functions::
+1) **Transparent and fast disk-caching of output value:** a make-like
+   functionality for Python functions that works well with large numpy
+   arrays. The goal is to separate operations in a set of steps with 
+   well-defined inputs and outputs, that are saved and reran only if 
+   necessary, by using standard Python functions::
 
-        >>> from joblib import Memory
-        >>> mem = Memory(cachedir='/tmp/joblib')
-        >>> import numpy as np
-        >>> a = np.vander(np.arange(3))
-        >>> square = mem.cache(np.square)
-        >>> b = square(a)
-        ________________________________________________________________________________
-        [Memory] Calling square...
-        square(array([[0, 0, 1],
-               [1, 1, 1],
-               [4, 2, 1]]))
-        ___________________________________________________________square - 0.0s, 0.0min
+      >>> from joblib import Memory
+      >>> mem = Memory(cachedir='/tmp/joblib')
+      >>> import numpy as np
+      >>> a = np.vander(np.arange(3))
+      >>> square = mem.cache(np.square)
+      >>> b = square(a)
+      ________________________________________________________________________________
+      [Memory] Calling square...
+      square(array([[0, 0, 1],
+             [1, 1, 1],
+             [4, 2, 1]]))
+      ___________________________________________________________square - 0.0s, 0.0min
 
-        >>> c = square(a)
-        >>> # The above call did not trigger an evaluation
+      >>> c = square(a)
+      >>> # The above call did not trigger an evaluation
+
+2) **Embarrassingly parallel helper:** to make is easy to write readable 
+   parallel code and debug it quickly:
+
+        >>> from joblib import Parallel, delayed
+        >>> from math import sqrt
+        >>> Parallel(n_jobs=1)(delayed(sqrt)(i**2) for i in range(10))
+        [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
 
 
-  2) **Logging/tracing:** The functionalities described above will
-     progressively acquire better logging mechanism to help track what
-     has been ran, and capture I/O easily. In addition, Joblib will
-     provide a few I/O primitives, to easily define define logging and
-     display streams, and maybe provide a way of compiling a report. In
-     the long run, we would like to be able to quickly inspect what has
-     been run.
+3) **Logging/tracing:** The different functionalities will
+   progressively acquire better logging mechanism to help track what
+   has been ran, and capture I/O easily. In addition, Joblib will
+   provide a few I/O primitives, to easily define define logging and
+   display streams, and provide a way of compiling a report. 
+   We want to be able to quickly inspect what has been run.
 
-Status
--------
+Contributing
+-------------
 
-As stated on the project page, currently the project is in alpha quality. I am
-testing heavily all the features, as I care more about robustness than having
-plenty of features. On the other side, I expect to be playing with the API and
-features for a while before I can figure out what is the right set of
-functionalities to expose. 
-
-The code is `hosted <http://github.com/GaelVaroquaux/joblib>`_ on github for the
-good reason that cloning the project
-and publishing it along-side my branch is dead-easy. 
+The code is `hosted <http://github.com/GaelVaroquaux/joblib>`_ on github.
+It is easy to clone the project and experiment with making your own
+modifications. If you need extra features, don't hesitate to contribute
+them.
 
 .. 
     >>> import shutil ; shutil.rmtree('/tmp/joblib/')
