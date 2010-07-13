@@ -125,7 +125,7 @@ class Parallel(Logger):
             * Easier debuging:
                 - informative tracebacks even when the error happens on
                   the client side
-                - using 'n_jobs=1' enables to turn of parallel computing
+                - using 'n_jobs=1' enables to turn off parallel computing
                   for debuging without changing the codepath
                 - early capture of pickling errors
 
