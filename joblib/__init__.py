@@ -1,12 +1,15 @@
 """ Joblib is a set of tools to provide **lightweight pipelining in
 Python**. In particular, joblib offers:
 
-  1. transparent disk-caching of the output values and lazy re-evaluation 
+  1. transparent disk-caching of the output values and lazy re-evaluation
+     (memoize pattern)
 
-  2. logging and tracing of the execution
+  2. easy simple parallel computing
+
+  3. logging and tracing of the execution
 
 Joblib is optimized to be fast and robust in particular on large,
-long-running function and has specific optimizations for numpy arrays.
+long-running functions and has specific optimizations for `numpy` arrays.
 
 ____
 
@@ -40,7 +43,7 @@ The main problems identified are:
     script. This leads to people not a having a hard time resuming the
     job, eg after a crash and persistence getting in the way of work.
 
-The approach take by Joblib to address these problems is not to build a
+The approach taken by Joblib to address these problems is not to build a
 heavy framework and coerce user into using it (e.g. with an explicit
 pipeline). It strives to leave your code and your flow control as
 unmodified as possible.
