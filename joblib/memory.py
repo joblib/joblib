@@ -22,7 +22,15 @@ import functools
 import traceback
 import warnings
 import inspect
-import json
+try:
+    # json is in the standard library for Python >= 2.6
+    import json
+except ImportError:
+    try:
+        import simplejson as json
+    except ImportError:
+        # Not the end of the world: we'll do without this functionality
+        json = None
 
 # Local imports
 from .hashing import hash
@@ -366,11 +374,12 @@ class MemorizedFunc(Logger):
         """
         argument_dict = filter_args(self.func, self.ignore,
                                     *args, **kwargs)
-        json.dump(
-            dict((k, repr(v)) 
-                 for k, v in argument_dict.iteritems()),
-            file(os.path.join(output_dir, 'input_args.json'), 'w'),
-            )
+        if json is not None:
+            json.dump(
+                dict((k, repr(v)) 
+                    for k, v in argument_dict.iteritems()),
+                file(os.path.join(output_dir, 'input_args.json'), 'w'),
+                )
 
     def load_output(self, output_dir):
         """ Read the results of a previous calculation from the directory
