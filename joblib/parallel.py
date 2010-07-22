@@ -64,7 +64,7 @@ class SafeFunction(object):
                              tb_offset=1)
             raise JoblibException(text)
 
-def print_progress(self, index, total, start_time, n_jobs=1):
+def print_progress(msg, index, total, start_time, n_jobs=1):
     # XXX: Not using the logger framework: need to
     # learn to use logger better.
     if total > 2*n_jobs:
@@ -75,7 +75,7 @@ def print_progress(self, index, total, start_time, n_jobs=1):
     remaining_time = (elapsed_time/(index + 1)*
                 (total - index - 1.))
     sys.stderr.write('[%s]: Done %3i out of %3i |elapsed: %s remaining: %s\n'
-            % (self,
+            % (msg,
                 index+1, 
                 total, 
                 short_format_time(elapsed_time),
