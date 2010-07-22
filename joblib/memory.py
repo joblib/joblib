@@ -301,8 +301,8 @@ class MemorizedFunc(Logger):
         if self._verbose:
             print self.format_call(*args, **kwargs)
             start_time = time.time()
-        output = self.func(*args, **kwargs)
         output_dir = self.get_output_dir(*args, **kwargs)
+        output = self.func(*args, **kwargs)
         self._persist_output(output, output_dir)
         self._persist_input(output_dir, *args, **kwargs)
         if self._verbose:

@@ -262,6 +262,30 @@ def test_memory_eval():
     yield nose.tools.assert_equal, 1, m(1)
 
 
+def count_and_append(x=[]):
+    """ A function with a side effect in its arguments. 
+
+        Return the lenght of its argument and append one element.
+    """
+    len_x = len(x)
+    x.append(None)
+    return len_x
+
+def test_argument_change():
+    """ Check that if a function has a side effect in its arguments, it
+        should use the hash of changing arguments.
+    """
+    mem = Memory(cachedir=env['dir'])
+
+    func = mem.cache(count_and_append)
+    # call the function for the first time, is should cache it with
+    # argument x=[]
+    assert func() == 0
+    # the second time the argument is x=[None], which is not cached
+    # yet, so the functions should be called a second time
+    assert func() == 1
+
+
 @with_numpy
 def test_memory_numpy():
     " Test memory with a function with numpy arrays."
