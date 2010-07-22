@@ -16,8 +16,11 @@ ____
 * The latest user documentation for `joblib` can be found on
   http://packages.python.org/joblib/
 
+* The latest packages can be downloaded from
+  http://pypi.python.org/pypi/joblib
+
 * Instructions for developpers can be found at:
-  http://github.com/GaelVaroquaux/joblib
+  http://github.com/joblib/joblib
 
 joblib is **BSD-licensed**.
 
