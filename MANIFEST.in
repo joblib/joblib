@@ -1,0 +1,6 @@
+include *.txt *.py
+recursive-include joblib *.rst *.py
+graft doc
+graft doc/_static
+graft doc/_templates
+global-exclude *~ *.swp
