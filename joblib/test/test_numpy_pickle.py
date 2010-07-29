@@ -129,6 +129,10 @@ def test_memmap_persistence():
 
 @with_numpy
 def test_masked_array_persistence():
+    if np.__version__ < '1.5':
+        # Skip this test: numpy versions < 1.5 cannot pickle masked
+        # arrays
+        return
     a = np.random.random(10)
     a = np.ma.masked_greater(a, 0.5)
     filename = env['filename']
