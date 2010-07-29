@@ -1,0 +1,7 @@
+joblib for Debian
+-----------------
+
+Source package is generated directly from git repository using
+git-buildpackage.
+
+ -- Yaroslav Halchenko <debian@onerussian.com>, Wed, 28 Jul 2010 20:41:52 -0400

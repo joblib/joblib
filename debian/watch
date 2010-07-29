@@ -1,0 +1,2 @@
+version=3
+http://github.com/joblib/joblib/downloads .*tarball/([\d\.a-z]+)

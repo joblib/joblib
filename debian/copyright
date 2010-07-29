@@ -1,0 +1,38 @@
+Format-Specification: http://svn.debian.org/wsvn/dep/web/deps/dep5.mdwn?op=file&rev=135
+Name: joblib
+Maintainer: NeuroDebian Team <team@neuro.debian.net>
+Source: http://github.com/joblib/joblib
+
+Files: *
+Copyright: 2009-2010, Gael Varoquaux <gael.varoquaux@normalesup.org>
+License: BSD-3
+  Redistribution and use in source and binary forms, with or without
+  modification, are permitted provided that the following conditions are met:
+  * Redistributions of source code must retain the above copyright notice,
+    this list of conditions and the following disclaimer.
+  * Redistributions in binary form must reproduce the above copyright notice,
+    this list of conditions and the following disclaimer in the documentation
+    and/or other materials provided with the distribution.
+  * Neither the name of Gael Varoquaux. nor the names of other joblib
+    contributors may be used to endorse or promote products derived from
+    this software without specific prior written permission.
+  This software is provided by the copyright holders and contributors
+  "as is" and any express or implied warranties, including, but not
+  limited to, the implied warranties of merchantability and fitness for
+  a particular purpose are disclaimed. In no event shall the copyright
+  owner or contributors be liable for any direct, indirect, incidental,
+  special, exemplary, or consequential damages (including, but not
+  limited to, procurement of substitute goods or services; loss of use,
+  data, or profits; or business interruption) however caused and on any
+  theory of liability, whether in contract, strict liability, or tort
+  (including negligence or otherwise) arising in any way out of the use
+  of this software, even if advised of the possibility of such
+  damage.
+
+Files: sphinx_pypi_upload.py
+Copyright: 2009, Jannis Leidel <jannis@leidel.info>
+License: BSD-3
+
+Files: debian/*
+Copyright: 2010, NeuroDebian Team <team@neuro.debian.net>
+License: BSD-3

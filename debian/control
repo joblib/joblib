@@ -1,0 +1,24 @@
+Source: joblib
+Section: python
+Priority: optional
+Maintainer: Yaroslav Halchenko <debian@onerussian.com>
+Build-Depends: debhelper (>= 7.0.50~), python (>= 2.5), python-support (>= 0.6), python-setuptools(>= 0.6), python-nose
+Standards-Version: 3.9.0
+Homepage: http://packages.python.org/joblib/
+XS-Vcs-Git: git://git.debian.org/git/pkg-exppsy/joblib.git
+XS-Vcs-Browser: http://git.debian.org/?p=pkg-exppsy/joblib.git
+
+
+Package: python-joblib
+Architecture: all
+Depends: ${python:Depends}, ${misc:Depends}
+Description: tools to provide lightweight pipelining in Python
+ Joblib is a set of tools to provide lightweight pipelining in
+ Python. In particular, joblib offers:
+ - transparent disk-caching of the output values and lazy
+   re-evaluation (memoize pattern)
+ - easy simple parallel computing
+ - logging and tracing of the execution
+ .
+ Joblib is optimized to be fast and robust in particular on large,
+ long-running functions and has specific optimizations for numpy arrays.
