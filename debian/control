@@ -16,10 +16,10 @@ Recommends: python-simplejson
 Description: tools to provide lightweight pipelining in Python
  Joblib is a set of tools to provide lightweight pipelining in
  Python. In particular, joblib offers:
- - transparent disk-caching of the output values and lazy
-   re-evaluation (memoize pattern)
- - easy simple parallel computing
- - logging and tracing of the execution
+  - transparent disk-caching of the output values and lazy
+    re-evaluation (memoize pattern)
+  - easy simple parallel computing
+  - logging and tracing of the execution
  .
  Joblib is optimized to be fast and robust in particular on large,
  long-running functions and has specific optimizations for numpy arrays.
