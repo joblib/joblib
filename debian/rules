@@ -4,5 +4,9 @@
 %:
 	dh $@
 
+override_dh_clean:
+	rm -rf *.egg-info
+	dh_clean
+
 override_dh_auto_test:
 	python setup.py nosetests
