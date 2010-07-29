@@ -1,5 +1,6 @@
 joblib (0.4.3-1) unstable; urgency=low
 
-  * Initial release (Closes: #590747): includes 1 commit past 0.4.2 tag
+  * Initial release (Closes: #590747). Includes 1 commit past 0.4.3 tag: test
+    interface in setup.py
 
  -- Yaroslav Halchenko <debian@onerussian.com>  Wed, 28 Jul 2010 20:24:17 -0400
