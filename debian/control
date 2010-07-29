@@ -2,7 +2,7 @@ Source: joblib
 Section: python
 Priority: optional
 Maintainer: Yaroslav Halchenko <debian@onerussian.com>
-Build-Depends: debhelper (>= 7.0.50~), python (>= 2.5), python-support (>= 0.6), python-setuptools(>= 0.6), python-nose
+Build-Depends: debhelper (>= 7.0.50~), python (>= 2.5), python-support (>= 0.6), python-setuptools(>= 0.6), python-nose, python-numpy
 Standards-Version: 3.9.0
 Homepage: http://packages.python.org/joblib/
 XS-Vcs-Git: git://git.debian.org/git/pkg-exppsy/joblib.git
@@ -11,7 +11,8 @@ XS-Vcs-Browser: http://git.debian.org/?p=pkg-exppsy/joblib.git
 
 Package: python-joblib
 Architecture: all
-Depends: ${python:Depends}, ${misc:Depends}
+Depends: ${python:Depends}, ${misc:Depends}, python-numpy
+Recommends: python-simplejson
 Description: tools to provide lightweight pipelining in Python
  Joblib is a set of tools to provide lightweight pipelining in
  Python. In particular, joblib offers:
