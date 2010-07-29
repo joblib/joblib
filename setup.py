@@ -18,6 +18,13 @@ if len(set(('develop', 'sdist', 'release', 'bdist_egg', 'bdist_rpm',
 if not 'extra_setuptools_args' in globals():
     extra_setuptools_args = dict()
 
+# if nose available, provide test command
+try:
+    from nose.commands import nosetests
+    extra_setuptools_args['cmdclass']={'test': nosetests,
+                                       'nosetests': nosetests}
+except ImportError:
+    pass
 
 setup(name='joblib',
       version=joblib.__version__,
