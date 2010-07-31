@@ -31,7 +31,7 @@ setup(name='joblib',
       summary='Tools to use Python functions as pipeline jobs.',
       author='Gael Varoquaux',
       author_email='gael.varoquaux@normalesup.org',
-      url='http://github.com/joblib/joblib',
+      url='http://packages.python.org/joblib/',
       description="""
 Lightweight pipelining: using Python functions as pipeline jobs.
 """,
