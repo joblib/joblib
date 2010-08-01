@@ -11,8 +11,8 @@ XS-Vcs-Browser: http://git.debian.org/?p=pkg-exppsy/joblib.git
 
 Package: python-joblib
 Architecture: all
-Depends: ${python:Depends}, ${misc:Depends}, python-numpy
-Recommends: python-simplejson
+Depends: ${python:Depends}, ${misc:Depends}
+Recommends: python-numpy, python-nose, python-simplejson
 Description: tools to provide lightweight pipelining in Python
  Joblib is a set of tools to provide lightweight pipelining in
  Python. In particular, joblib offers:
