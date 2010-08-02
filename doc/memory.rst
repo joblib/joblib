@@ -265,18 +265,18 @@ Gotchas
     class Foo(object):
 
         @mem.cache  # WRONG
-        def method(self, ...):
-            #...
+        def method(self, args):
+	    pass
 
   The right way to do this is to decorate at instanciation time::
 
     class Foo(object):
 
-        def __init__(self, ...):
+        def __init__(self, args):
             self.method = mem.cache(self.method)
 
-        def method(self, ...)
-            #...
+        def method(self, ...):
+	    pass
 
 Ignoring some arguments
 ------------------------
