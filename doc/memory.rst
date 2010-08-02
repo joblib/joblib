@@ -257,6 +257,27 @@ Gotchas
     >>> print sin(0)
     0.0
 
+* **caching methods**: you cannot decorate a method at class definition,
+  because when the class is instanciated, the first argument (self) is 
+  *bound*, and no longer accessible to the `Memory` object. The following
+  code won't work::
+
+    class Foo(object):
+
+        @mem.cache  # WRONG
+        def method(self, ...):
+            #...
+
+  The right way to do this is to decorate at instanciation time::
+
+    class Foo(object):
+
+        def __init__(self, ...):
+            self.method = mem.cache(self.method)
+
+        def method(self, ...)
+            #...
+
 Ignoring some arguments
 ------------------------
 
