@@ -70,6 +70,15 @@ def extract_first_line(func_code):
     return func_code, first_line
 
 
+def disk_used(path):
+    """ Return the disk usage in a directory. 
+    """
+    size = 0
+    for file in os.listdir(path):
+        size += os.stat(os.path.join(path, file)).st_size
+    return size/1024
+
+
 class JobLibCollisionWarning(UserWarning):
     """ Warn that there might be a collision between names of functions.
     """
@@ -311,6 +320,7 @@ class MemorizedFunc(Logger):
         input_repr = self._persist_input(output_dir, *args, **kwargs)
         duration = time.time() - start_time
         if self.db is not None:
+            size = disk_used(output_dir)
             module, func_name  = get_func_name(self.func)
             module = '.'.join(module)
             key = ':'.join((module, func_name, argument_hash))
@@ -323,8 +333,8 @@ class MemorizedFunc(Logger):
                         creation_time=start_time,
                         access_time=start_time,
                         computation_time=duration,
-                        size=10,
-                        last_cost=10,
+                        size=size,
+                        last_cost=1,
                     ))
         if self._verbose:
             _, name = get_func_name(self.func)
