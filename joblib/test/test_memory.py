@@ -352,7 +352,7 @@ def test_func_dir():
     memory = Memory(cachedir=env['dir'], verbose=0)
     path = __name__.split('.')
     path.append('f')
-    path = os.path.join(env['dir'], *path)
+    path = os.path.join(env['dir'], 'joblib', *path)
 
     g = memory.cache(f)
     # Test that the function directory is created on demand
@@ -368,7 +368,7 @@ def test_func_dir():
         g._check_previous_func_code()
 
     # Test the robustness to failure of loading previous results.
-    dir = g.get_output_dir(1)
+    dir, _ = g.get_output_dir(1)
     a = g(1)
     yield nose.tools.assert_true, os.path.exists(dir)
     os.remove(os.path.join(dir, 'output.pkl'))
@@ -385,7 +385,7 @@ def test_persistence():
 
     h = pickle.loads(pickle.dumps(g))
 
-    output_dir = g.get_output_dir(1)
+    output_dir, _ = g.get_output_dir(1)
     yield nose.tools.assert_equal, output, h.load_output(output_dir)
 
 
