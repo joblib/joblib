@@ -19,6 +19,7 @@ def test_store_retrieve():
     db = CacheDB()
     e = dict(key='key', func_name='foo', module='bar', 
               args='', creation_time=10, access_time=20, 
+              argument_hash='foobar',
               computation_time=5, size=100, last_cost=.5)
     db.new_entry(e)
     d = db.get('key')

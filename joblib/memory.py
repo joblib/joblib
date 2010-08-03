@@ -319,6 +319,7 @@ class MemorizedFunc(Logger):
                         func_name=func_name,
                         module=module,
                         args=repr(input_repr),
+                        argument_hash=argument_hash,
                         creation_time=start_time,
                         access_time=start_time,
                         computation_time=duration,

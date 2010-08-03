@@ -19,6 +19,7 @@ class CacheDB(object):
                 ('func_name', 'TEXT NOT NULL'), 
                 ('module', 'TEXT NOT NULL'), 
                 ('args', 'TEXT NOT NULL'), 
+                ('argument_hash', 'TEXT NOT NULL'),
                 ('creation_time', 'FLOAT NOT NULL'), 
                 ('access_time', 'FLOAT NOT NULL'),
                 ('computation_time', 'FLOAT NOT NULL'),
