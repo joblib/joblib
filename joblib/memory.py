@@ -336,6 +336,10 @@ class MemorizedFunc(Logger):
                         size=size,
                         last_cost=1,
                     ))
+            self.db.update_entry('__INDEX__', 
+                        size=self.db.get('__INDEX__')['size'] + size,
+                        access_time=time.time()
+                    )
         if self._verbose:
             _, name = get_func_name(self.func)
             msg = '%s - %s' % (name, format_time(duration))

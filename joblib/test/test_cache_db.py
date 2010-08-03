@@ -17,6 +17,7 @@ def test_store_retrieve():
     """ A simple test for CacheDb
     """
     db = CacheDB()
+    yield nose.tools.assert_true, '__INDEX__' in db
     e = dict(key='key', func_name='foo', module='bar', 
               args='', creation_time=10, access_time=20, 
               argument_hash='foobar',

@@ -7,7 +7,7 @@ The persistence model for a joblib cache directory.
 # License: BSD Style, 3 clauses.
 
 import sqlite3
-
+import time
 
 ################################################################################
 # The db class
@@ -18,7 +18,7 @@ class CacheDB(object):
     entries =  (('key', 'TEXT PRIMARY KEY'), 
                 ('func_name', 'TEXT NOT NULL'), 
                 ('module', 'TEXT NOT NULL'), 
-                ('args', 'TEXT NOT NULL'), 
+                ('args', 'TEXT'), 
                 ('argument_hash', 'TEXT NOT NULL'),
                 ('creation_time', 'FLOAT NOT NULL'), 
                 ('access_time', 'FLOAT NOT NULL'),
@@ -45,6 +45,23 @@ class CacheDB(object):
                         ', '.join(keys),
                         self.tablename,
                         )
+        # Create a key to store the global info
+        try:
+            self.update_entry('__INDEX__', access_time=time.time())
+        except KeyError:
+            self.conn.commit()
+            self.new_entry(dict(
+                    key='__INDEX__', 
+                    func_name='', 
+                    module='', 
+                    args='', 
+                    argument_hash='',
+                    creation_time=time.time(),
+                    access_time=time.time(),
+                    computation_time=0,
+                    size=0,
+                    last_cost=0,
+                ))
 
 
     def get(self, key):
@@ -65,18 +82,22 @@ class CacheDB(object):
         
 
     def update_entry(self, key, **values):
-        UPDATE_ITEM = 'UPDATE %s SET %s WHERE key=%s' % (
+        if not key in self:
+            raise KeyError(key)
+        UPDATE_ITEM = "UPDATE %s SET %s WHERE key = ?" % (
                         self.tablename,
                         ','.join("%s=%s" % (k, v) for k, v in values.items()),
-                        key,
                       )
-        self.conn.execute(UPDATE_ITEM, )
+        self.conn.execute(UPDATE_ITEM, (key, ))
         self.conn.commit()
  
 
-    def remove(self, key):
+    def __contains__(self, key):
         HAS_ITEM = 'SELECT 1 FROM %s WHERE key = ?' % self.tablename
-        if self.conn.execute(HAS_ITEM, (key,)).fetchone() is None:
+        return self.conn.execute(HAS_ITEM, (key,)).fetchone() is not None
+
+    def remove(self, key):
+        if not key in self:
             raise KeyError(key)
         DEL_ITEM = 'DELETE FROM %s WHERE key = ?' % self.tablename
         self.conn.execute(DEL_ITEM, (key,))
