@@ -35,4 +35,11 @@ def test_store_retrieve():
     db.clear()
  
 
+def test_pickle():
+    """ Check that cache_db objects do pickle.
+    """
+    import pickle
+    db = CacheDB()
+    pickle.dumps(db)
+
 

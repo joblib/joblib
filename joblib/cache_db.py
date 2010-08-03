@@ -19,9 +19,9 @@ class CacheDB(object):
                 ('func_name', 'TEXT NOT NULL'), 
                 ('module', 'TEXT NOT NULL'), 
                 ('args', 'TEXT NOT NULL'), 
-                ('creation_time', 'INTEGER NOT NULL'), 
-                ('access_time', 'INTEGER NOT NULL'),
-                ('computation_time', 'INTEGER NOT NULL'),
+                ('creation_time', 'FLOAT NOT NULL'), 
+                ('access_time', 'FLOAT NOT NULL'),
+                ('computation_time', 'FLOAT NOT NULL'),
                 ('size', 'INTEGER NOT NULL'),
                 ('last_cost', 'FLOAT NOT NULL'),
                )
@@ -33,6 +33,8 @@ class CacheDB(object):
                     ", ".join("%s %s" % (k, v) 
                               for k, v in self.entries),
                    )
+        # Store the filename to enable pickling
+        self._filename = filename
         self.conn = sqlite3.connect(filename)
         self.conn.text_factory = str
         self.conn.execute(CREATE)
@@ -101,5 +103,11 @@ class CacheDB(object):
     def __del__(self):
         self.close()
 
+
+    def __reduce__(self):
+        """ Used by the pickler to reconstruct without trying to pickle
+            the connection object.
+        """
+        return (self.__class__, (self._filename, ))
 
 # XXX: ORDERBY
