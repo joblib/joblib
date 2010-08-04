@@ -35,7 +35,23 @@ def test_store_retrieve():
     # Smoke test the two remaining functions
     db.sync()
     db.clear()
- 
+
+    # Test iteration
+    c1 = d.copy()
+    c1['key'] = 'c1'
+    db.new_entry(c1)
+    c2 = d.copy()
+    c2['key'] = 'c2'
+    db.new_entry(c2)
+    c3 = d.copy()
+    c3['key'] = 'c3'
+    db.new_entry(c3)
+
+    entries = list(db)
+    # We should have 4 entries, as we should always have the __INDEX__
+    # entry.
+    yield nose.tools.assert_equal, len(entries), 4
+
 
 def test_pickle():
     """ Check that cache_db objects do pickle.

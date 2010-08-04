@@ -45,6 +45,13 @@ class CacheDB(object):
                         ', '.join(keys),
                         self.tablename,
                         )
+        self._GET_ALL_ITEMS = 'SELECT %s FROM %s ORDER BY size' % (
+                        ', '.join(keys),
+                        self.tablename,
+                        )
+        self._create_index_entry()
+
+    def _create_index_entry(self):
         # Create a key to store the global info
         try:
             self.update_entry('__INDEX__', access_time=time.time())
@@ -108,6 +115,7 @@ class CacheDB(object):
         CLEAR_ALL = 'DELETE FROM %s; VACUUM;' % self.tablename
         self.conn.executescript(CLEAR_ALL)
         self.conn.commit()
+        self._create_index_entry()
 
 
     def sync(self):
@@ -132,4 +140,8 @@ class CacheDB(object):
         """
         return (self.__class__, (self._filename, ))
 
-# XXX: ORDERBY
+    def __iter__(self):
+        cursor = self.conn.cursor()
+        cursor.execute(self._GET_ALL_ITEMS)
+        return iter(cursor)
+
