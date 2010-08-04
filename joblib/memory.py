@@ -169,13 +169,32 @@ class MemorizedFunc(Logger):
     def __call__(self, *args, **kwargs):
         # Compare the function code with the previous to see if the
         # function code has changed
-        output_dir, _ = self.get_output_dir(*args, **kwargs)
+        output_dir, argument_hash = self.get_output_dir(*args, **kwargs)
         # FIXME: The statements below should be try/excepted
         if not (self._check_previous_func_code(stacklevel=3) and 
                                  os.path.exists(output_dir)):
             return self.call(*args, **kwargs)
         else:
             try:
+                # Update the stored cost
+                module, func_name  = get_func_name(self.func)
+                module = '.'.join(module)
+                key = ':'.join((module, func_name, argument_hash))
+                db_entry = self.db.get(key)
+                current_time = time.time()
+                last_cost        = db_entry['last_cost']
+                size             = db_entry['size']
+                last_access      = db_entry['access_time']
+                computation_time = db_entry['computation_time']
+                delta_t = current_time - last_access
+                alpha = 1 - computation_time/delta_t
+                new_cost = alpha*last_cost + size
+                self.db.update_entry(key,
+                            last_cost=new_cost,
+                            access_time=current_time,
+                    )
+
+                # Return the stored value
                 return self.load_output(output_dir)
             except Exception:
                 # XXX: Should use an exception logger
@@ -334,7 +353,7 @@ class MemorizedFunc(Logger):
                         access_time=start_time,
                         computation_time=duration,
                         size=size,
-                        last_cost=1,
+                        last_cost=float(size),
                     ))
             self.db.update_entry('__INDEX__', 
                         size=self.db.get('__INDEX__')['size'] + size,
