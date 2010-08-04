@@ -143,5 +143,6 @@ class CacheDB(object):
     def __iter__(self):
         cursor = self.conn.cursor()
         cursor.execute(self._GET_ALL_ITEMS)
-        return iter(cursor)
+        keys = self._keys
+        return (zip(keys, items) for items in cursor)
 
