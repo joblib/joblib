@@ -144,5 +144,5 @@ class CacheDB(object):
         cursor = self.conn.cursor()
         cursor.execute(self._GET_ALL_ITEMS)
         keys = self._keys
-        return (zip(keys, items) for items in cursor)
+        return (dict(zip(keys, items)) for items in cursor)
 
