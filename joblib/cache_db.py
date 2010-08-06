@@ -64,7 +64,7 @@ class CacheDB(object):
                     args='', 
                     argument_hash='',
                     creation_time=time.time(),
-                    access_time=time.time(),
+                    access_time=0,
                     computation_time=0,
                     size=0,
                     last_cost=0,

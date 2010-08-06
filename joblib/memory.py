@@ -101,6 +101,24 @@ def disk_free(path):
     return available, 100*available/float(capacity)
 
 
+def cost(db_entry, current_time):
+    """ The cost per cache entry for the cache replacement policy.
+    """
+    last_cost        = db_entry['last_cost']
+    size             = db_entry['size']
+    last_access      = db_entry['access_time']
+    computation_time = db_entry['computation_time']
+    delta_t = current_time - last_access
+    alpha = 1 - computation_time/delta_t
+    new_cost = alpha*last_cost + size
+    return new_cost
+
+
+def sort_entries(db):
+    current_time = time.time()
+    return sorted(db, key=lambda x: cost(x, current_time))
+
+
 class JobLibCollisionWarning(UserWarning):
     """ Warn that there might be a collision between names of functions.
     """
@@ -204,13 +222,7 @@ class MemorizedFunc(Logger):
                 key = ':'.join((module, func_name, argument_hash))
                 db_entry = self.db.get(key)
                 current_time = time.time()
-                last_cost        = db_entry['last_cost']
-                size             = db_entry['size']
-                last_access      = db_entry['access_time']
-                computation_time = db_entry['computation_time']
-                delta_t = current_time - last_access
-                alpha = 1 - computation_time/delta_t
-                new_cost = alpha*last_cost + size
+                new_cost = cost(db_entry, current_time)
                 self.db.update_entry(key,
                             last_cost=new_cost,
                             access_time=current_time,
@@ -361,7 +373,8 @@ class MemorizedFunc(Logger):
         input_repr = self._persist_input(output_dir, *args, **kwargs)
         duration = time.time() - start_time
         if self.db is not None:
-            size = disk_used(output_dir)
+            # Add one to size to avoid it being 0
+            size = disk_used(output_dir) + 1
             module, func_name  = get_func_name(self.func)
             module = '.'.join(module)
             key = ':'.join((module, func_name, argument_hash))
@@ -378,7 +391,7 @@ class MemorizedFunc(Logger):
                         last_cost=float(size),
                     ))
             self.db.update_entry('__INDEX__', 
-                        size=self.db.get('__INDEX__')['size'] + size,
+                        size=self.db.get('__INDEX__')['size'] - size,
                         access_time=time.time()
                     )
         if self._verbose:
