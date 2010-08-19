@@ -55,16 +55,20 @@ class CacheDB(object):
 
     def _create_index_entry(self):
         # Create a key to store the global info
+        create = not ('__INDEX__' in self)
         try:
             self.update_entry('__INDEX__', access_time=time.time())
         except KeyError:
+            create = True
+
+        if create:
             self.conn.commit()
             self.new_entry(dict(
                     key='__INDEX__', 
                     func_name='', 
                     module='', 
                     args='', 
-                    argument_hash='',
+                    argument_hash='None',
                     creation_time=time.time(),
                     access_time=0,
                     computation_time=0,

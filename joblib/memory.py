@@ -179,24 +179,23 @@ class MemorizedFunc(Logger):
     def __call__(self, *args, **kwargs):
         # Compare the function code with the previous to see if the
         # function code has changed
-        output_dir, argument_hash = self.get_output_dir(*args, **kwargs)
+        db_entry = self.get_db_entry(*args, **kwargs)
+        output_dir = db_entry['output_dir']
         # FIXME: The statements below should be try/excepted
-        if not (self._check_previous_func_code(stacklevel=3) and 
-                                 os.path.exists(output_dir)):
+        if (not self._check_previous_func_code(stacklevel=3) 
+                or not 'size' in db_entry):
             return self.call(*args, **kwargs)
         else:
             try:
                 # Update the stored cost
-                module, func_name  = get_func_name(self.func)
-                module = '.'.join(module)
-                key = ':'.join((module, func_name, argument_hash))
-                db_entry = self.db.get(key)
                 current_time = time.time()
                 new_cost = cost(db_entry, current_time)
                 # XXX: We should probably add the option to commit only
                 # every once in a while for speed reasons. For joblib, 
-                # commiting is important only in multiprocess situations.
-                self.db.update_entry(key,
+                # commiting is important only in multiprocess situations,
+                # or in case of crashes. The commit policy could be
+                # based on computation/loading time
+                self.db.update_entry(db_entry['key'],
                             last_cost=new_cost,
                             access_time=current_time,
                     )
@@ -235,6 +234,44 @@ class MemorizedFunc(Logger):
                 # XXX: Ugly
         return func_dir
 
+
+    def get_db_entry(self, *args, **kwargs):
+        output_dir, argument_hash = self.get_output_dir(*args, **kwargs)
+        module, func_name  = get_func_name(self.func)
+        module = '.'.join(module)
+        key = ':'.join((module, func_name, argument_hash))
+        if self.db is None or not os.path.exists(output_dir):
+            # FIXME: Really ugly way of dealing we no db
+            db_entry = dict()
+        else:
+            try:
+                db_entry = self.db.get(key)
+            except KeyError:
+                # The key is not in the database, but the cache directory
+                # may exist, we can try to rebuild the key
+                input_repr = self._persist_input(None, *args, **kwargs)
+                size = disk_used(output_dir) + 1
+                db_entry = self.db.get('__INDEX__')
+                db_entry.update(key=key,
+                                func_name=func_name, 
+                                module=module, 
+                                args=repr(input_repr), 
+                                argument_hash=argument_hash,
+                                # We are using as a creation time, the
+                                # creation_time of the repo, as an
+                                # access_time, we are using a date half time 
+                                # between the current time and the
+                                # creation_time
+                                access_time=.5*(db_entry['creation_time'] +
+                                                time.time()),
+                                # A computation time of 100ms, as a guess
+                                computation_time=100,
+                                size=size,
+                                last_cost=size,
+                            )
+
+        db_entry['output_dir'] = output_dir
+        return db_entry
 
     def get_output_dir(self, *args, **kwargs):
         """ Returns the directory in which are persisted the results
@@ -437,7 +474,7 @@ class MemorizedFunc(Logger):
                                     *args, **kwargs)
 
         input_repr = dict((k, repr(v)) for k, v in argument_dict.iteritems())
-        if json is not None:
+        if json is not None and output_dir is not None:
             json.dump(
                 input_repr,
                 file(os.path.join(output_dir, 'input_args.json'), 'w'),
