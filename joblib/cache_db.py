@@ -39,6 +39,9 @@ class CacheDB(object):
         self.conn = sqlite3.connect(filename)
         self.conn.text_factory = str
         self.conn.execute(CREATE)
+        # A few tweaks for faster write speed, and less safety
+        self.conn.execute('PRAGMA temp_store = MEMORY')
+        self.conn.execute('PRAGMA synchronous=OFF')
         self.conn.commit()
         # We control our commit strategy ourselves, for speed.
         self.conn.isolation_level = None
