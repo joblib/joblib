@@ -193,6 +193,9 @@ class MemorizedFunc(Logger):
                 db_entry = self.db.get(key)
                 current_time = time.time()
                 new_cost = cost(db_entry, current_time)
+                # XXX: We should probably add the option to commit only
+                # every once in a while for speed reasons. For joblib, 
+                # commiting is important only in multiprocess situations.
                 self.db.update_entry(key,
                             last_cost=new_cost,
                             access_time=current_time,

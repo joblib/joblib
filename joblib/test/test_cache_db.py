@@ -26,6 +26,8 @@ def test_store_retrieve():
     d = db.get('key')
     yield nose.tools.assert_equal, d, e
     db.update_entry('key', args='2')
+    # Check that the update_entry also works for strings
+    db.update_entry('key', argument_hash='foo')
     yield nose.tools.assert_equal, '2', db.get('key')['args']
     db.remove('key')
     yield nose.tools.assert_raises, KeyError, db.get, 'key'
