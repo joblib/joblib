@@ -86,7 +86,7 @@ class CacheDB(object):
             raise KeyError(key)
         UPDATE_ITEM = "UPDATE %s SET %s WHERE key = ?" % (
                         self.tablename,
-                        ','.join("%s=%s" % (k, v) for k, v in values.items()),
+                        ','.join("%s=%s" % (k, repr(v)) for k, v in values.items()),
                       )
         self.conn.execute(UPDATE_ITEM, (key, ))
         self.conn.commit()
