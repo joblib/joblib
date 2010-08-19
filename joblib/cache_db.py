@@ -41,7 +41,7 @@ class CacheDB(object):
         self.conn.execute(CREATE)
         self.conn.commit()
         # We control our commit strategy ourselves, for speed.
-        db.conn.isolation_level = None
+        self.conn.isolation_level = None
         # precompute a few string, for speed
         self._GET_ITEM = 'SELECT %s FROM %s WHERE key = ?' % (
                         ', '.join(keys),
