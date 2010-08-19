@@ -16,7 +16,9 @@ def disk_used(path):
     size = 0
     for file in os.listdir(path):
         size += os.stat(os.path.join(path, file)).st_size
-    return size/1024
+    # We need to convert to int to avoid having longs on some systems (we
+    # don't want longs to avoid problems we SQLite)
+    return int(size/1024)
 
 
 def disk_free(path):
@@ -37,7 +39,9 @@ def disk_free(path):
         cache_st = os.statvfs(path)
         capacity = cache_st.f_bsize * cache_st.f_blocks
         available = cache_st.f_bsize * cache_st.f_bavail
-    return available, 100*available/float(capacity)
+    # We need to convert to int to avoid having longs on some systems (we
+    # don't want longs to avoid problems we SQLite)
+    return int(available), 100*available/float(capacity)
 
 
 def memstr_to_kbytes(text):
