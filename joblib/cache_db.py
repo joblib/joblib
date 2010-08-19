@@ -40,6 +40,8 @@ class CacheDB(object):
         self.conn.text_factory = str
         self.conn.execute(CREATE)
         self.conn.commit()
+        # We control our commit strategy ourselves, for speed.
+        db.conn.isolation_level = None
         # precompute a few string, for speed
         self._GET_ITEM = 'SELECT %s FROM %s WHERE key = ?' % (
                         ', '.join(keys),
@@ -82,11 +84,13 @@ class CacheDB(object):
         
 
     def update_entry(self, key, **values):
-        if not key in self:
-            raise KeyError(key)
+        # 2/3 faster without the check: too bad for useful error messages
+        #if not key in self:
+        #    raise KeyError(key)
         UPDATE_ITEM = "UPDATE %s SET %s WHERE key = ?" % (
                         self.tablename,
-                        ','.join("%s=%s" % (k, repr(v)) for k, v in values.items()),
+                        ','.join("%s=%s" % (k, repr(v)) 
+                                 for k, v in values.items()),
                       )
         self.conn.execute(UPDATE_ITEM, (key, ))
         self.conn.commit()

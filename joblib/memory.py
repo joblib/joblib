@@ -211,6 +211,9 @@ class MemorizedFunc(Logger):
                 delta_t = current_time - last_access
                 alpha = 1 - computation_time/delta_t
                 new_cost = alpha*last_cost + size
+                # XXX: We should probably add the option to commit only
+                # every once in a while for speed reasons. For joblib, 
+                # commiting is important only in multiprocess situations.
                 self.db.update_entry(key,
                             last_cost=new_cost,
                             access_time=current_time,
