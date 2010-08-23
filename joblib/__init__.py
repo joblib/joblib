@@ -96,7 +96,7 @@ Current features
 Contributing
 -------------
 
-The code is `hosted <http://github.com/GaelVaroquaux/joblib>`_ on github.
+The code is `hosted <http://github.com/joblib/joblib>`_ on github.
 It is easy to clone the project and experiment with making your own
 modifications. If you need extra features, don't hesitate to contribute
 them.
