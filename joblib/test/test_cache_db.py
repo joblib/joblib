@@ -37,6 +37,8 @@ def test_store_retrieve():
     # Smoke test the two remaining functions
     db.sync()
     db.clear()
+    # Even after clearing, we should have an '__INDEX__'
+    yield nose.tools.assert_true, '__INDEX__' in db
 
     # Test iteration
     c1 = d.copy()

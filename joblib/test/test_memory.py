@@ -3,13 +3,14 @@ Test the memory module.
 """
 
 # Author: Gael Varoquaux <gael dot varoquaux at normalesup dot org> 
-# Copyright (c) 2009 Gael Varoquaux
+# Copyright (c) 2009-2010 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
 from __future__ import with_statement
 
 import shutil
 import os
+import array
 from tempfile import mkdtemp
 import pickle
 import warnings
@@ -375,7 +376,6 @@ def test_func_dir():
     yield nose.tools.assert_equal, a, g(1)
 
 
-
 def test_persistence():
     """ Test the memorized functions can be pickled and restored.
     """
@@ -410,4 +410,33 @@ def test_format_signature_numpy():
 
 # FIXME: Need to test that memmapping does not force recomputing.
 
+def test_cache_limit():
+    """ Test that we can more or less impose sensible cache limits
+    """
+    mem = Memory(cachedir=env['dir'], verbose=0, limit='40K')
+    mem.clear(warn=False)
 
+    accumulator = list()
+    def m(size=10):
+        accumulator.append(1)
+        return range(size)
+    
+    # Run the function a few times with one value of the argument, and
+    # check that memoizing does work
+    for i in range(3):
+        mem.cache(m)(10)
+    nose.tools.assert_equal(len(accumulator), 1)
+
+    # Run with different arguments to flush the cache
+    for i in range(3):
+        mem.cache(m)(11)
+    n_runs = len(accumulator)
+
+    for i in range(3):
+        mem.cache(m)(11)
+
+    nose.tools.assert_equal(len(accumulator), n_runs)
+
+    # Now check that the second run pushed the first one out of cache
+    mem.cache(m)(10)
+    nose.tools.assert_equal(len(accumulator), n_runs+1)

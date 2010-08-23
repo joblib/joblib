@@ -13,7 +13,7 @@ from tempfile import mkdtemp
 
 import nose
 
-from ..disk import memstr_to_kbytes, disk_used
+from ..disk import memstr_to_kbytes, disk_used, disk_free
 
 ################################################################################
 
@@ -36,6 +36,12 @@ def test_disk_used():
         nose.tools.assert_true(disk_used(cachedir) < target_size + 12)
     finally:
         shutil.rmtree(cachedir)
+
+
+def test_disk_free():
+    """ Smoke test disk_free
+    """
+    disk_free('.')
 
 
 def test_memstr_to_kbytes():
