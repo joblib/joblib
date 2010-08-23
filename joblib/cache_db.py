@@ -40,8 +40,12 @@ class CacheDB(object):
         self.conn.text_factory = str
         self.conn.execute(CREATE)
         # A few tweaks for faster write speed, and less safety
-        self.conn.execute('PRAGMA temp_store = MEMORY')
+        # XXX: They should be optional with a 'safe' mode.
+        self.conn.execute('PRAGMA temp_store=MEMORY')
         self.conn.execute('PRAGMA synchronous=OFF')
+        # These ones don't seem to make much of a difference
+        self.conn.execute('PRAGMA cache_size=1048576')
+        self.conn.execute('PRAGMA count_changes=OFF')
         self.conn.commit()
         # We control our commit strategy ourselves, for speed.
         self.conn.isolation_level = None
@@ -55,6 +59,7 @@ class CacheDB(object):
                         self.tablename,
                         )
         self._create_index_entry()
+
 
     def _create_index_entry(self):
         # Create a key to store the global info
@@ -75,7 +80,9 @@ class CacheDB(object):
                     creation_time=time.time(),
                     access_time=0,
                     computation_time=0,
-                    size=0,
+                    # Start with a guesstimate of the size used by the db
+                    # and the directories.
+                    size=-19,
                     last_cost=0,
                 ))
 
