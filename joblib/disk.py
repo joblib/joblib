@@ -19,7 +19,6 @@ def disk_used(path):
         size += stat.st_blocks * 512
     # We need to convert to int to avoid having longs on some systems (we
     # don't want longs to avoid problems we SQLite)
-    print path, size
     return int(size/1024.)
 
 
