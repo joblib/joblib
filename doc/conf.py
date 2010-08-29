@@ -211,3 +211,8 @@ html_theme_options = {
     "codebgcolor": "#f5efe7",
 }
 
+################################################################################
+# Hack to copy the CHANGES.rst file
+import shutil
+shutil.copyfile('../CHANGES.rst', 'CHANGES.rst')
+
