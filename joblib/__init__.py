@@ -8,19 +8,17 @@ Python**. In particular, joblib offers:
 
   3. logging and tracing of the execution
 
-Joblib is optimized to be fast and robust in particular on large,
+Joblib is optimized to be **fast** and **robust** in particular on large,
 long-running functions and has specific optimizations for `numpy` arrays.
 
-____
 
-* The latest user documentation for `joblib` can be found on
-  http://packages.python.org/joblib/
-
-* The latest packages can be downloaded from
-  http://pypi.python.org/pypi/joblib
-
-* Instructions for developpers can be found at:
-  http://github.com/joblib/joblib
+    ============================== ========================================
+    **User documentation**:             http://packages.python.org/joblib
+                               
+    **Download packages**:              http://pypi.python.org/pypi/joblib
+                               
+    **Source code**:                    http://github.com/joblib/joblib
+    ============================== ========================================
 
 joblib is **BSD-licensed**.
 
