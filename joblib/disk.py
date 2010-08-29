@@ -16,7 +16,12 @@ def disk_used(path):
     size = 0
     for file in os.listdir(path) + ['.']:
         stat =  os.stat(os.path.join(path, file))
-        size += stat.st_blocks * 512
+        if hasattr(stat, 'st_blocks'):
+            size += stat.st_blocks * 512
+        else:
+            # on some platform st_blocks is not available (e.g., Windows)
+            # approximate by rounding to next multiple of 512
+            size += (stat.st_size // 512 + 1) * 512;
     # We need to convert to int to avoid having longs on some systems (we
     # don't want longs to avoid problems we SQLite)
     return int(size/1024.)
