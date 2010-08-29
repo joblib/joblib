@@ -78,7 +78,7 @@ def cost(db_entry, current_time):
     size             = db_entry['size']
     last_access      = db_entry['access_time']
     computation_time = db_entry['computation_time']
-    delta_t = current_time - last_access
+    delta_t = max(1e-6, current_time - last_access)
     alpha = 1 - computation_time/delta_t
     new_cost = alpha*last_cost + size
     return new_cost
