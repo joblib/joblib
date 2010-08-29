@@ -37,6 +37,7 @@ from .hashing import hash
 from .func_inspect import get_func_code, get_func_name, filter_args
 from .logger import Logger, format_time
 from . import numpy_pickle
+from .disk import rmsubdirs
 
 FIRST_LINE_TEXT = "# first line:"
 
@@ -490,7 +491,7 @@ class Memory(Logger):
         """
         if warn:
             self.warn('Flushing completely the cache')
-        shutil.rmtree(self.cachedir)
+        rmsubdirs(self.cachedir)
         os.makedirs(self.cachedir)
 
 
@@ -518,23 +519,3 @@ class Memory(Logger):
                     )
 
 
-class MemoryManager(object):
-    """Contect manager for the Memory object.
-    
-    Closes the database when leaving the context.
-    
-    Using the context manager avoids having to write a long try ... except
-    statement around every test.
-    """ 
-    
-    def __init__(self, *args, **kwargs):
-        self._args = args
-        self._kwargs = kwargs
-        
-    def __enter__(self):
-        self.mem = Memory(*self._args, **self._kwargs)
-        return self.mem
-    
-    def __exit__(self, type, value, traceback):
-        if self.mem.db is not None:
-            self.mem.db.close()
