@@ -28,8 +28,8 @@ Vision
 --------
 
 Joblib came out of long-running data-analysis Python scripts. The long
-term vision is to provide tools for scientists to achieve better
-reproducibility when running jobs, without changing the way numerical
+term vision is to provide tools to achieve better
+reproducibility when running jobs, without changing the way 
 code looks like. However, Joblib can also be used to provide a
 light-weight make replacement.
 
@@ -50,6 +50,8 @@ The approach taken by Joblib to address these problems is not to build a
 heavy framework and coerce user into using it (e.g. with an explicit
 pipeline). It strives to leave your code and your flow control as
 unmodified as possible.
+
+`More ... <http://packages.python.org/joblib/why.html>`__
 
 Current features
 ------------------
@@ -100,6 +102,8 @@ The code is `hosted <http://github.com/joblib/joblib>`_ on github.
 It is easy to clone the project and experiment with making your own
 modifications. If you need extra features, don't hesitate to contribute
 them.
+
+`More ... <http://github.com/joblib/joblib/blob/master/README.rst>`__
 
 .. 
     >>> import shutil ; shutil.rmtree('/tmp/joblib/')
