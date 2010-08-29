@@ -29,5 +29,6 @@ dist
 doc/documentation.zip
 doc/generated
 doc/CHANGES.rst
+doc/README.rst
 # Coverage report
 .coverage

@@ -1,5 +1,5 @@
-Changes
-=========
+Latest changes
+===============
 
 Release 0.4.4
 ----------------

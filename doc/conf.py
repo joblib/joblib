@@ -215,4 +215,5 @@ html_theme_options = {
 # Hack to copy the CHANGES.rst file
 import shutil
 shutil.copyfile('../CHANGES.rst', 'CHANGES.rst')
+shutil.copyfile('../README.rst', 'README.rst')
 

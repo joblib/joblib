@@ -21,6 +21,10 @@
         text-align: center;
         font-size: 270% ;
     }
+
+    div.bodywrapper blockquote {
+	margin: 0 ;
+    }
   
   </style>
 
@@ -44,7 +48,7 @@ User manual
     installing.rst
     memory.rst
     parallel.rst
-    CHANGES.rst
+    developing.rst
 
 Module reference
 -----------------
