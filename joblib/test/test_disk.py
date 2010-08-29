@@ -32,7 +32,7 @@ def test_disk_used():
         n = target_size*1024/sizeof_i
         a = array.array('i', n*(1,))
         a.tofile(file(os.path.join(cachedir, 'test'), 'w'))
-        nose.tools.assert_true(disk_used(cachedir) > target_size)
+        nose.tools.assert_true(disk_used(cachedir) >= target_size)
         nose.tools.assert_true(disk_used(cachedir) < target_size + 12)
     finally:
         shutil.rmtree(cachedir)
