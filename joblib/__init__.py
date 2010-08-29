@@ -95,7 +95,7 @@ Current features
    display streams, and provide a way of compiling a report. 
    We want to be able to quickly inspect what has been run.
 
-Contributing
+Development
 -------------
 
 The code is `hosted <http://github.com/joblib/joblib>`_ on github.

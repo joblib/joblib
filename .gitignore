@@ -27,5 +27,7 @@ dist
 # Mac droppings
 .DS_Store
 doc/documentation.zip
+doc/generated
+doc/CHANGES.rst
 # Coverage report
 .coverage
