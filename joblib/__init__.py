@@ -32,12 +32,12 @@ reproducibility when working with long running jobs. In addition, Joblib
 can also be used to provide a light-weight make replacement or caching
 solution.
 
- 1) **Avoid computing twice the same thing**: code is rerun over an
+ *  **Avoid computing twice the same thing**: code is rerun over an
     over, for instance when prototyping computational-heavy jobs (as in
     scientific development), but hand-crafted solution to aleviate this
     issue is error-prone and often leads to unreproducible results
  
- 2) **Persist to disk transparently**: persisting in an efficient way
+ *  **Persist to disk transparently**: persisting in an efficient way
     arbitrary objects containing large data is hard. In addition,
     hand-written persistence does not link easily the file on disk to the
     execution context of the original Python object. As a result, it is
