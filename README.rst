@@ -1,4 +1,4 @@
-Presentation
+Joblib
 =============
 
 The homepage of joblib with user documentation is located on:
@@ -10,49 +10,10 @@ Getting the latest code
 
 To get the latest code using git, simply type::
 
-    git clone git://github.com/GaelVaroquaux/joblib.git
+    git clone git://github.com/joblib/joblib.git
 
 If you don't have git installed, you can download a zip or tarball
-of the latest code: http://github.com/GaelVaroquaux/joblib/archives/master
-
-Licensing
-==========
-
-joblib is **BSD-licenced** (3 clause):
-
-    This software is OSI Certified Open Source Software.
-    OSI Certified is a certification mark of the Open Source Initiative.
-
-    Copyright (c) 2009-2010, Gael Varoquaux
-    All rights reserved.
-
-    Redistribution and use in source and binary forms, with or without
-    modification, are permitted provided that the following conditions are met:
-
-    * Redistributions of source code must retain the above copyright notice, 
-      this list of conditions and the following disclaimer.
-
-    * Redistributions in binary form must reproduce the above copyright notice,
-      this list of conditions and the following disclaimer in the documentation
-      and/or other materials provided with the distribution.
-
-    * Neither the name of Gael Varoquaux. nor the names of other joblib 
-      contributors may be used to endorse or promote products derived from 
-      this software without specific prior written permission.
-
-    **This software is provided by the copyright holders and contributors
-    "as is" and any express or implied warranties, including, but not
-    limited to, the implied warranties of merchantability and fitness for
-    a particular purpose are disclaimed. In no event shall the copyright
-    owner or contributors be liable for any direct, indirect, incidental,
-    special, exemplary, or consequential damages (including, but not
-    limited to, procurement of substitute goods or services; loss of use,
-    data, or profits; or business interruption) however caused and on any
-    theory of liability, whether in contract, strict liability, or tort
-    (including negligence or otherwise) arising in any way out of the use
-    of this software, even if advised of the possibility of such
-    damage.**
-
+of the latest code: http://github.com/joblib/joblib/archives/master
 
 Development
 ===================
@@ -62,7 +23,7 @@ Workflow to contribute
 
 To contribute to joblib, first create an account on `github
 <http://github.com/>`_. Once this is done, fork the `joblib repository
-<http://github.com/GaelVaroquaux/joblib>`_ to have you own repository,
+<http://github.com/joblib/joblib>`_ to have you own repository,
 clone it using 'git clone' on the computers where you want to work. Make
 your changes in your clone, push them to your github account, test them
 on several computer, and when you are happy with them, send a pull
@@ -110,4 +71,44 @@ This command is only run by project manager, to make a release, and
 upload in to PyPI::
 
     python setup.py sdist bdist_egg register upload
+
+Licensing
+==========
+
+joblib is **BSD-licenced** (3 clause):
+
+    This software is OSI Certified Open Source Software.
+    OSI Certified is a certification mark of the Open Source Initiative.
+
+    Copyright (c) 2009-2010, Gael Varoquaux
+    All rights reserved.
+
+    Redistribution and use in source and binary forms, with or without
+    modification, are permitted provided that the following conditions are met:
+
+    * Redistributions of source code must retain the above copyright notice, 
+      this list of conditions and the following disclaimer.
+
+    * Redistributions in binary form must reproduce the above copyright notice,
+      this list of conditions and the following disclaimer in the documentation
+      and/or other materials provided with the distribution.
+
+    * Neither the name of Gael Varoquaux. nor the names of other joblib 
+      contributors may be used to endorse or promote products derived from 
+      this software without specific prior written permission.
+
+    **This software is provided by the copyright holders and contributors
+    "as is" and any express or implied warranties, including, but not
+    limited to, the implied warranties of merchantability and fitness for
+    a particular purpose are disclaimed. In no event shall the copyright
+    owner or contributors be liable for any direct, indirect, incidental,
+    special, exemplary, or consequential damages (including, but not
+    limited to, procurement of substitute goods or services; loss of use,
+    data, or profits; or business interruption) however caused and on any
+    theory of liability, whether in contract, strict liability, or tort
+    (including negligence or otherwise) arising in any way out of the use
+    of this software, even if advised of the possibility of such
+    damage.**
+
+
 
