@@ -38,7 +38,7 @@ from .func_inspect import get_func_code, get_func_name, filter_args
 from .logger import Logger, format_time
 from . import numpy_pickle
 from .cache_db import CacheDB
-from .disk import disk_used, memstr_to_kbytes
+from .disk import disk_used, memstr_to_kbytes, rmsubdirs
 
 FIRST_LINE_TEXT = "# first line:"
 
@@ -653,8 +653,7 @@ class Memory(Logger):
         """
         if warn:
             self.warn('Flushing completely the cache')
-        shutil.rmtree(self.cachedir)
-        os.makedirs(self.cachedir)
+        rmsubdirs(self.cachedir)
         if self.db is not None:
             self.db.clear()
 
@@ -681,5 +680,3 @@ class Memory(Logger):
                     self.__class__.__name__,
                     repr(self.cachedir),
                     )
-
-
