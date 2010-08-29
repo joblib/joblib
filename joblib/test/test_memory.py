@@ -430,22 +430,18 @@ def test_cache_limit():
             accumulator.append(1)
             return range(size)
         
+        arg1, arg2 = 1000, 1100
         # Run the function a few times with one value of the argument, and
         # check that memoizing does work
         for i in range(3):
-            mem.cache(m)(10)
+            mem.cache(m)(arg1)
         nose.tools.assert_equal(len(accumulator), 1)
     
         # Run with different arguments to flush the cache
-        for i in range(3):
-            mem.cache(m)(11)
+        for i in range(10):
+            mem.cache(m)(arg2+i)
         n_runs = len(accumulator)
     
-        for i in range(3):
-            mem.cache(m)(11)
-    
-        nose.tools.assert_equal(len(accumulator), n_runs)
-    
         # Now check that the second run pushed the first one out of cache
-        mem.cache(m)(10)
+        mem.cache(m)(arg1)
         nose.tools.assert_equal(len(accumulator), n_runs+1)
