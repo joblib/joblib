@@ -12,15 +12,17 @@ Joblib is optimized to be **fast** and **robust** in particular on large,
 long-running functions and has specific optimizations for `numpy` arrays.
 
 
-    ============================== ========================================
-    **User documentation**:             http://packages.python.org/joblib
+    ============================== ==========================================
+    **User documentation**:        http://packages.python.org/joblib
                                
-    **Download packages**:              http://pypi.python.org/pypi/joblib
+    **Download packages**:         http://pypi.python.org/pypi/joblib
                                
-    **Source code**:                    http://github.com/joblib/joblib
-    ============================== ========================================
+    **Source code**:               http://github.com/joblib/joblib
 
-joblib is **BSD-licensed**.
+    **Report issues**:             http://github.com/joblib/joblib/issues
+    ============================== ==========================================
+
+Joblib is **BSD-licensed**.
 
 Vision
 --------
