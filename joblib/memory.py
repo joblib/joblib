@@ -680,3 +680,24 @@ class Memory(Logger):
                     self.__class__.__name__,
                     repr(self.cachedir),
                     )
+
+class MemoryManager(object):
+    """Contect manager for the Memory object.
+    
+    Closes the database when leaving the context.
+    
+    Using the context manager avoids having to write a long try ... except
+    statement around every test.
+    """ 
+    
+    def __init__(self, *args, **kwargs):
+        self._args = args
+        self._kwargs = kwargs
+        
+    def __enter__(self):
+        self.mem = Memory(*self._args, **self._kwargs)
+        return self.mem
+    
+    def __exit__(self, type, value, traceback):
+        if self.mem.db is not None:
+            self.mem.db.close()
