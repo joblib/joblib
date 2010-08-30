@@ -8,6 +8,7 @@ The persistence model for a joblib cache directory.
 
 import sqlite3
 import time
+from .common import JoblibException
 
 ################################################################################
 # The db class
@@ -28,40 +29,13 @@ class CacheDB(object):
                )
 
     def __init__(self, filename=':memory:'):
-        keys = self._keys = [k for k, v in self.entries]
-        CREATE = "CREATE TABLE IF NOT EXISTS %s (%s)" % (
-                    self.tablename,
-                    ", ".join("%s %s" % (k, v) 
-                              for k, v in self.entries),
-                   )
         # Store the filename to enable pickling
         self._filename = filename
-        self.conn = sqlite3.connect(filename)
-        self.conn.text_factory = str
-        self.conn.execute(CREATE)
-        # A few tweaks for faster write speed, and less safety
-        # XXX: They should be optional with a 'safe' mode.
-        self.conn.execute('PRAGMA temp_store=MEMORY')
-        self.conn.execute('PRAGMA synchronous=OFF')
-        # These ones don't seem to make much of a difference
-        self.conn.execute('PRAGMA cache_size=1048576')
-        self.conn.execute('PRAGMA count_changes=OFF')
-        self.conn.commit()
-        # We control our commit strategy ourselves, for speed.
-        self.conn.isolation_level = None
-        # precompute a few string, for speed
-        self._GET_ITEM = 'SELECT %s FROM %s WHERE key = ?' % (
-                        ', '.join(keys),
-                        self.tablename,
-                        )
-        self._GET_ALL_ITEMS = 'SELECT %s FROM %s ORDER BY size' % (
-                        ', '.join(keys),
-                        self.tablename,
-                        )
-        self._create_index_entry()
+        self.open()
 
 
     def _create_index_entry(self):
+        self._raise_if_closed()
         # Create a key to store the global info
         create = not ('__INDEX__' in self)
         try:
@@ -88,6 +62,7 @@ class CacheDB(object):
 
 
     def get(self, key):
+        self._raise_if_closed()
         item = self.conn.execute(self._GET_ITEM, (key,)).fetchone()
         if item is None:
             raise KeyError(key)
@@ -95,6 +70,7 @@ class CacheDB(object):
 
 
     def new_entry(self, entry):
+        self._raise_if_closed()
         ADD_ITEM = 'REPLACE INTO %s (%s) VALUES (%s)' % (
                         self.tablename,
                         ', '.join(self._keys),
@@ -105,6 +81,7 @@ class CacheDB(object):
         
 
     def update_entry(self, key, **values):
+        self._raise_if_closed()
         # 2/3 faster without the check: too bad for useful error messages
         #if not key in self:
         #    raise KeyError(key)
@@ -118,10 +95,12 @@ class CacheDB(object):
  
 
     def __contains__(self, key):
+        self._raise_if_closed()
         HAS_ITEM = 'SELECT 1 FROM %s WHERE key = ?' % self.tablename
         return self.conn.execute(HAS_ITEM, (key,)).fetchone() is not None
 
     def remove(self, key):
+        self._raise_if_closed()
         if not key in self:
             raise KeyError(key)
         DEL_ITEM = 'DELETE FROM %s WHERE key = ?' % self.tablename
@@ -129,7 +108,8 @@ class CacheDB(object):
         self.conn.commit()
 
 
-    def clear(self):        
+    def clear(self):
+        self._raise_if_closed()
         CLEAR_ALL = 'DELETE FROM %s; VACUUM;' % self.tablename
         self.conn.executescript(CLEAR_ALL)
         self.conn.commit()
@@ -137,8 +117,39 @@ class CacheDB(object):
 
 
     def sync(self):
-        if self.conn is not None:    
-            self.conn.commit()
+        self._raise_if_closed()
+        self.conn.commit()
+
+    def open(self):
+        keys = self._keys = [k for k, v in self.entries]
+        CREATE = "CREATE TABLE IF NOT EXISTS %s (%s)" % (
+                    self.tablename,
+                    ", ".join("%s %s" % (k, v) 
+                              for k, v in self.entries),
+                   )
+        self.conn = sqlite3.connect(self._filename)
+        self.conn.text_factory = str
+        self.conn.execute(CREATE)
+        # A few tweaks for faster write speed, and less safety
+        # XXX: They should be optional with a 'safe' mode.
+        self.conn.execute('PRAGMA temp_store=MEMORY')
+        self.conn.execute('PRAGMA synchronous=OFF')
+        # These ones don't seem to make much of a difference
+        self.conn.execute('PRAGMA cache_size=1048576')
+        self.conn.execute('PRAGMA count_changes=OFF')
+        self.conn.commit()
+        # We control our commit strategy ourselves, for speed.
+        self.conn.isolation_level = None
+        # precompute a few string, for speed
+        self._GET_ITEM = 'SELECT %s FROM %s WHERE key = ?' % (
+                        ', '.join(keys),
+                        self.tablename,
+                        )
+        self._GET_ALL_ITEMS = 'SELECT %s FROM %s ORDER BY size' % (
+                        ', '.join(keys),
+                        self.tablename,
+                        )
+        self._create_index_entry()
 
 
     def close(self):
@@ -146,6 +157,13 @@ class CacheDB(object):
             self.conn.commit()
             self.conn.close()
             self.conn = None
+
+
+    def _raise_if_closed(self):
+        if self.conn is None:
+            text = ('Cache database is closed; call the open() method to '
+                    're-establish a connection')
+            raise JoblibException(text)
 
 
     def __del__(self):

@@ -8,8 +8,11 @@ Test the cache_db module.
 
 import nose
 
-from ..cache_db import CacheDB
+from tempfile import mkdtemp
 
+from ..cache_db import CacheDB
+from ..memory import MemoryManager
+from ..common import JoblibException
 
 ################################################################################
 # Tests
@@ -64,4 +67,19 @@ def test_pickle():
     db = CacheDB()
     pickle.dumps(db)
 
+
+def test_closed_exception():
+    """ Check that a exception is raised when a closed database is accessed.
+    """
+    def f(x):
+        return x
+    
+    cachedir = mkdtemp()
+    with MemoryManager(cachedir=cachedir, verbose=0) as mem:
+        f = mem.cache(f)
+        yield nose.tools.assert_equal, 1, f(1)
+    yield nose.tools.assert_raises, JoblibException, f, 1
+    # test explicitly re-opening the database
+    mem.db.open()
+    yield nose.tools.assert_equal, 1, f(1)
 
