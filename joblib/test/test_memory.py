@@ -17,7 +17,7 @@ import warnings
 
 import nose
 
-from ..memory import Memory, MemorizedFunc, MemoryManager
+from ..memory import Memory, MemorizedFunc
 from ..disk import rm_subdirs
 from .common import with_numpy, np
 
@@ -72,7 +72,7 @@ def check_identity_lazy(func, accumulator):
     """
     # Call each function with several arguments, and check that it is
     # evaluated only once per argument.
-    with MemoryManager(cachedir=env['dir'], verbose=0) as memory:
+    with Memory(cachedir=env['dir'], verbose=0) as memory:
         memory.clear(warn=False)
         func = memory.cache(func)
         for i in range(3):
@@ -125,7 +125,7 @@ def test_no_memory():
     def ff(l):
         accumulator.append(1)
         return l
-    with MemoryManager(cachedir=None, verbose=0) as mem:
+    with Memory(cachedir=None, verbose=0) as mem:
         gg = mem.cache(ff)
         for _ in range(4):
             current_accumulator = len(accumulator)
@@ -144,7 +144,7 @@ def test_memory_kwarg():
     for test in check_identity_lazy(g, accumulator):
         yield test
 
-    with MemoryManager(cachedir=env['dir'], verbose=0) as memory:
+    with Memory(cachedir=env['dir'], verbose=0) as memory:
         g = memory.cache(g)
         # Smoke test with an explicit keyword argument:
         nose.tools.assert_equal(g(l=30, m=2), 30)
@@ -201,7 +201,7 @@ def test_memory_name_collision():
 
 def test_memory_warning_lambda_collisions():
     " Check that multiple use of lambda will raise collisions"
-    with MemoryManager(cachedir=env['dir'], verbose=0) as memory:
+    with Memory(cachedir=env['dir'], verbose=0) as memory:
         a = lambda x: x
         a = memory.cache(a)
         b = lambda x: x+1
@@ -226,7 +226,7 @@ def test_memory_warning_collision_detection():
     """ Check that collisions impossible to detect will raise appropriate 
         warnings.
     """
-    with MemoryManager(cachedir=env['dir'], verbose=0) as memory:
+    with Memory(cachedir=env['dir'], verbose=0) as memory:
         a = eval('lambda x: x')
         a = memory.cache(a)
         b = eval('lambda x: x+1')
@@ -286,7 +286,7 @@ def test_argument_change():
     """ Check that if a function has a side effect in its arguments, it
         should use the hash of changing arguments.
     """
-    with MemoryManager(cachedir=env['dir'], verbose=0) as mem:
+    with Memory(cachedir=env['dir'], verbose=0) as mem:
         func = mem.cache(count_and_append)
         # call the function for the first time, is should cache it with
         # argument x=[]
@@ -306,7 +306,7 @@ def test_memory_numpy():
             accumulator.append(1)
             return l
 
-        with MemoryManager(cachedir=env['dir'], mmap_mode=mmap_mode,
+        with Memory(cachedir=env['dir'], mmap_mode=mmap_mode,
                             verbose=0) as memory:
             memory.clear(warn=False)
             cached_n = memory.cache(n)
@@ -320,7 +320,7 @@ def test_memory_numpy():
 def test_memory_exception():
     """ Smoketest the exception handling of Memory. 
     """
-    with MemoryManager(cachedir=env['dir'], verbose=0) as memory:
+    with Memory(cachedir=env['dir'], verbose=0) as memory:
         class MyException(Exception):
             pass
     
@@ -339,7 +339,7 @@ def test_memory_exception():
 
 def test_memory_ignore():
     " Test the ignore feature of memory "
-    with MemoryManager(cachedir=env['dir'], verbose=0) as memory:
+    with Memory(cachedir=env['dir'], verbose=0) as memory:
         accumulator = list()
     
         @memory.cache(ignore=['y'])
@@ -359,7 +359,7 @@ def test_memory_ignore():
 def test_func_dir():
     """ Test the creation of the memory cache directory for the function.
     """
-    with MemoryManager(cachedir=env['dir'], verbose=0) as memory:
+    with Memory(cachedir=env['dir'], verbose=0) as memory:
         path = __name__.split('.')
         path.append('f')
         path = os.path.join(env['dir'], 'joblib', *path)
@@ -388,7 +388,7 @@ def test_func_dir():
 def test_persistence():
     """ Test the memorized functions can be pickled and restored.
     """
-    with MemoryManager(cachedir=env['dir'], verbose=0) as memory:
+    with Memory(cachedir=env['dir'], verbose=0) as memory:
         g = memory.cache(f)
         output = g(1)
     
@@ -422,7 +422,7 @@ def test_format_signature_numpy():
 def test_cache_limit():
     """ Test that we can more or less impose sensible cache limits
     """
-    with MemoryManager(cachedir=env['dir'], verbose=0, limit='40K') as mem:
+    with Memory(cachedir=env['dir'], verbose=0, limit='40K') as mem:
         mem.clear(warn=False)
     
         accumulator = list()

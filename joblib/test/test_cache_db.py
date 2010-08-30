@@ -11,7 +11,7 @@ import nose
 from tempfile import mkdtemp
 
 from ..cache_db import CacheDB
-from ..memory import MemoryManager
+from ..memory import Memory
 from ..common import JoblibException
 
 ################################################################################
@@ -75,7 +75,7 @@ def test_closed_exception():
         return x
     
     cachedir = mkdtemp()
-    with MemoryManager(cachedir=cachedir, verbose=0) as mem:
+    with Memory(cachedir=cachedir, verbose=0) as mem:
         f = mem.cache(f)
         yield nose.tools.assert_equal, 1, f(1)
     yield nose.tools.assert_raises, JoblibException, f, 1
