@@ -17,7 +17,7 @@ import warnings
 import nose
 
 from ..memory import Memory, MemorizedFunc, MemoryManager
-from ..disk import rmsubdirs
+from ..disk import rm_subdirs
 from .common import with_numpy, np
 
 ################################################################################

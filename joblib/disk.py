@@ -42,7 +42,7 @@ def memstr_to_kbytes(text):
                 )
     return size
 
-def rmsubdirs(path, onerror=None):
+def rm_subdirs(path, onerror=None):
     """Remove all subdirectories in this path.
 
     If onerror is set, it is called to handle the error with arguments (func,
@@ -51,6 +51,9 @@ def rmsubdirs(path, onerror=None):
     exc_info is a tuple returned by sys.exc_info().  If ignore_errors
     is false and onerror is None, an exception is raised.
     """
+
+    # NOTE this code is adapted from the one in shutil.rmtree, and is
+    # just as fast
 
     names = []
     try:
