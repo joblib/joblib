@@ -22,29 +22,6 @@ def disk_used(path):
     return int(size/1024.)
 
 
-def disk_free(path):
-    """ Return the disk free in bytes and percentage.
-    """
-    if platform.system() == 'Windows':
-        import ctypes
-        capacity = ctypes.c_ulonglong(0)
-        available = ctypes.c_ulonglong(0)
-        ctypes.windll.kernel32.GetDiskFreeSpaceExW(
-                                    ctypes.c_wchar_p(path),
-                                    None,
-                                    ctypes.pointer(capacity),
-                                    ctypes.pointer(available))
-        capacity  = capacity.value
-        available = available.value
-    else:
-        cache_st = os.statvfs(path)
-        capacity = cache_st.f_bsize * cache_st.f_blocks
-        available = cache_st.f_bsize * cache_st.f_bavail
-    # We need to convert to int to avoid having longs on some systems (we
-    # don't want longs to avoid problems we SQLite)
-    return int(available), 100*available/float(capacity)
-
-
 def memstr_to_kbytes(text):
     """ Convert a memory text to it's value in kilobytes.
     """
