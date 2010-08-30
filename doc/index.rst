@@ -17,11 +17,6 @@
         list-style-type: circle;
         }
 
-    div.bodywrapper h1 {
-        text-align: center;
-        font-size: 270% ;
-    }
-
     div.bodywrapper blockquote {
 	margin: 0 ;
     }
@@ -29,8 +24,11 @@
   </style>
 
 
-Joblib: running Python function as pipeline jobs
-=================================================
+.. raw:: html
+
+    <h1 style='text-align: center; font-size: 270%;'>
+    Joblib: running Python function as pipeline jobs
+    </h1>
 
 Introduction
 ------------
