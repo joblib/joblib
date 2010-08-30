@@ -214,6 +214,10 @@ html_theme_options = {
 ################################################################################
 # Hack to copy the CHANGES.rst file
 import shutil
-shutil.copyfile('../CHANGES.rst', 'CHANGES.rst')
-shutil.copyfile('../README.rst', 'README.rst')
-
+try:
+    shutil.copyfile('../CHANGES.rst', 'CHANGES.rst')
+    shutil.copyfile('../README.rst', 'README.rst')
+except IOError:
+    pass
+    # This fails during the tesing, as the code is ran in a different
+    # directory
