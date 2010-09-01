@@ -77,6 +77,17 @@ def delayed(function):
     return delayed_function
 
 
+class LazyApply (object):
+    """
+    Lazy version of the apply builtin function.
+    """
+    def __init__ (self, *args):
+        self.args = args
+
+    def get (self):
+        from __builtin__ import apply
+        return apply(*self.args)
+
 
 class Parallel(Logger):
     ''' Helper class for readable parallel mapping.
@@ -193,7 +204,7 @@ class Parallel(Logger):
 
         if n_jobs is None or multiprocessing is None or n_jobs == 1:
             n_jobs = 1
-            from __builtin__ import apply
+            apply = LazyApply 
         else:
             pool = multiprocessing.Pool(n_jobs)
             apply = pool.apply_async
@@ -202,42 +213,41 @@ class Parallel(Logger):
         start_time = time.time()
         try:
             for index, (function, args, kwargs) in enumerate(iterable):
-                if n_jobs > 1:
-                    function = SafeFunction(function)
+                function = SafeFunction(function)
                 output.append(apply(function, args, kwargs))
                 if self.verbose and n_jobs == 1:
                     print '[%s]: Done job %3i | elapsed: %s' % (
                             self, index, 
                             short_format_time(time.time() - start_time)
                         )
-            if n_jobs > 1:
-                start_time = time.time()
-                jobs = output
-                output = list()
-                for index, job in enumerate(jobs):
-                    try:
-                        output.append(job.get())
-                        if self.verbose:
-                            print_progress(self, index, len(jobs), start_time,
-                                           n_jobs=n_jobs)
-                    except JoblibException, exception:
-                        # Capture exception to add information on 
-                        # the local stack in addition to the distant
-                        # stack
-                        this_report = format_outer_frames(
-                                                context=10,
-                                                stack_start=1,
-                                                )
-                        report = """Multiprocessing exception:
+
+            start_time = time.time()
+            jobs = output
+            output = list()
+            for index, job in enumerate(jobs):
+                try:
+                    output.append(job.get())
+                    if self.verbose:
+                        print_progress(self, index, len(jobs), start_time,
+                                       n_jobs=n_jobs)
+                except JoblibException, exception:
+                    # Capture exception to add information on 
+                    # the local stack in addition to the distant
+                    # stack
+                    this_report = format_outer_frames(
+                                            context=10,
+                                            stack_start=1,
+                                            )
+                    report = """Multiprocessing exception:
 %s
 ---------------------------------------------------------------------------
 Sub-process traceback: 
 ---------------------------------------------------------------------------
 %s""" % (
-                                    this_report,
-                                    exception.message,
-                                )
-                        raise JoblibException(report)
+                                this_report,
+                                exception.message,
+                            )
+                    raise JoblibException(report)
         finally:
             if n_jobs > 1:
                 pool.close()
