@@ -1,6 +1,7 @@
 """
 Test the cache_db module.
 """
+from __future__ import with_statement
 
 # Author: Gael Varoquaux <gael dot varoquaux at normalesup dot org> 
 # Copyright (c) 2009 Gael Varoquaux
