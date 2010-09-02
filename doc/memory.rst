@@ -42,7 +42,7 @@ A simple example:
     >>> from tempfile import mkdtemp
     >>> cachedir = mkdtemp()
 
-  We can instanciate a memory context, using this cache directory::
+  We can instantiate a memory context, using this cache directory::
 
     >>> from joblib import Memory
     >>> memory = Memory(cachedir=cachedir, verbose=0)
@@ -258,25 +258,37 @@ Gotchas
     0.0
 
 * **caching methods**: you cannot decorate a method at class definition,
-  because when the class is instanciated, the first argument (self) is 
+  because when the class is instantiated, the first argument (self) is 
   *bound*, and no longer accessible to the `Memory` object. The following
   code won't work::
 
-    class Foo(object):
+    >>> class Foo(object):
+    ...     @memory.cache  # WRONG
+    ...     def method(self, args):
+    ...         print 'Running Foo.method(%s)' % x
 
-        @mem.cache  # WRONG
-        def method(self, args):
-	    pass
+  The right way to do this is to decorate at instantiation time::
 
-  The right way to do this is to decorate at instanciation time::
+    >>> class Foo(object):
+    ...     def __init__(self):
+    ...         self.method = memory.cache(self.method)
+    ...         
+    ...     def method(self, x):
+    ...         print 'Running Foo.method(%s)' % x
+    
+..
+ Allow the Pickler to find the class
+    >>> import sys
+    >>> setattr(sys.modules[__name__], 'Foo', Foo)
 
-    class Foo(object):
+..
 
-        def __init__(self, args):
-            self.method = mem.cache(self.method)
+  Calling the method twice shows that the cache is active:
 
-        def method(self, ...):
-	    pass
+    >>> foo = Foo()
+    >>> foo.method(1)
+    Running Foo.method(1)
+    >>> foo.method(1)
 
 Ignoring some arguments
 ------------------------
