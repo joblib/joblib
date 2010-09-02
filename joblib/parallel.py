@@ -20,7 +20,7 @@ except ImportError:
 
 from .format_stack import format_exc, format_outer_frames
 from .logger import Logger, short_format_time
-from .my_exceptions import JoblibException
+from .my_exceptions import JoblibException, _mk_exception
 
 ################################################################################
 
@@ -42,7 +42,8 @@ class SafeFunction(object):
             e_type, e_value, e_tb = sys.exc_info()
             text = format_exc(e_type, e_value, e_tb, context=10,
                              tb_offset=1)
-            raise JoblibException(text)
+            exception = _mk_exception(e_type)[0]
+            raise exception(text)
 
 def print_progress(msg, index, total, start_time, n_jobs=1):
     # XXX: Not using the logger framework: need to
@@ -248,7 +249,9 @@ Sub-process traceback:
                                 this_report,
                                 exception.message,
                             )
-                    raise JoblibException(report)
+                    # No need to convert this to a JoblibException, the
+                    # SafeFunction already did it
+                    raise exception.__class__(report)
         finally:
             if n_jobs > 1:
                 pool.close()
