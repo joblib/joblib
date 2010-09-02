@@ -81,12 +81,13 @@ class LazyApply (object):
     """
     Lazy version of the apply builtin function.
     """
-    def __init__ (self, *args):
-        self.args = args
+    def __init__ (self, func, args, kwargs):
+        self.func   = func
+        self.args   = args
+        self.kwargs = kwargs
 
     def get (self):
-        from __builtin__ import apply
-        return apply(*self.args)
+        return self.func(*self.args, **self.kwargs)
 
 
 class Parallel(Logger):
