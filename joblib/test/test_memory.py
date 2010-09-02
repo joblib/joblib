@@ -14,6 +14,7 @@ import array
 from tempfile import mkdtemp
 import pickle
 import warnings
+import sys
 
 import nose
 
@@ -445,3 +446,24 @@ def test_cache_limit():
         # Now check that the second run pushed the first one out of cache
         mem.cache(m)(arg1)
         nose.tools.assert_equal(len(accumulator), n_runs+1)
+
+def test_method_caching():
+    """ Test that we are able to cache instance methods.
+    """
+    with Memory(cachedir=env['dir'], verbose=0) as mem:
+        accumulator = list()
+        class Foo(object):
+            def __init__(self):
+                self.method = mem.cache(self.method)
+            def method(self):
+                accumulator.append(1)
+
+        # allow the Pickler to find the class
+        setattr(sys.modules[__name__], 'Foo', Foo)
+
+        # create instance and test caching
+        foo = Foo()
+        foo.method()
+        nose.tools.assert_equal(len(accumulator), 1)
+        foo.method()
+        nose.tools.assert_equal(len(accumulator), 1)
