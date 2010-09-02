@@ -133,7 +133,7 @@ def filter_args(func, ignore_lst, *args, **kwargs):
         Returns
         -------
         filtered_args: list
-            List of filtered positionnal arguments.
+            List of filtered positional arguments.
         filtered_kwdargs: dict
             List of filtered Keyword arguments.
     """
