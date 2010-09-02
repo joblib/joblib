@@ -2,6 +2,7 @@
 Common tools and utils.
 """
 # Author: Gael Varoquaux < gael dot varoquaux at normalesup dot org >
+#         Pietro Berkes
 # Copyright: 2010, Gael Varoquaux
 # License: BSD 3 clause
 
@@ -24,4 +25,6 @@ class JoblibException(Exception):
                     75*'_')
 
     __str__ = __repr__
+
+
 
