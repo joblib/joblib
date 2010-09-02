@@ -1,10 +1,12 @@
 """
-Common tools and utils.
+Exceptions
 """
 # Author: Gael Varoquaux < gael dot varoquaux at normalesup dot org >
 #         Pietro Berkes
 # Copyright: 2010, Gael Varoquaux
 # License: BSD 3 clause
+
+import exceptions
 
 class JoblibException(Exception):
     """ A simple exception with an error message that you can get to.
