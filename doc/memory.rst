@@ -293,6 +293,39 @@ change, for instance a debug flag. `Memory` provides the `ignore` list::
     >>> my_func(0, debug=True)
     >>> # my_func was not reevaluated
 
+The `Memory` context manager
+----------------------------
+
+It is possible to use `Memory` as a context manager. At the exit of the
+`with` block, the context manager takes care of closing the database
+that keeps track of the access to the cache. This is useful in particular
+to avoid locking the caching directory. A typical usage example is when
+the caching directory needs to be erased (e.g., after the tests).
+
+	>>> def func(x):
+	...     print 'Running func(%s)' % x
+	>>> tmp_cachedir = mkdtemp()
+	>>> with Memory(cachedir=tmp_cachedir, verbose=0) as memory:
+	...     cached_func = memory.cache(func)
+	...     cached_func(1)
+	Running func(1)
+
+The database is closed after the block, and calling the cached function
+again raises an exception:
+
+	>>> cached_func(1)
+	Traceback (most recent call last):
+		...
+	JoblibException: JoblibException
+	___________________________________________________________________________
+	Cache database is closed; call the open() method to re-establish a connection
+	___________________________________________________________________________
+
+It is now possible to delete the caching directory without locking errors:
+
+	>>> import shutil
+	>>> shutil.rmtree(tmp_cachedir)
+
 
 Reference documentation of the `Memory` class
 ----------------------------------------------
@@ -304,7 +337,7 @@ Useful methods of decorated functions
 --------------------------------------
 
 Function decorated by :meth:`Memory.cache` are :class:`MemorizedFunc`
-objects that, in addtion of behaving like normal functions, expose
+objects that, in addition of behaving like normal functions, expose
 methods useful for cache exploration and management.
 
 .. autoclass:: MemorizedFunc
@@ -318,7 +351,7 @@ methods useful for cache exploration and management.
     >>> import shutil
     >>> shutil.rmtree(cachedir)
  
- And we check that it has indeed been remove::
+ And we check that it has indeed been removed::
  
     >>> import os ; os.path.exists(cachedir)
     False
