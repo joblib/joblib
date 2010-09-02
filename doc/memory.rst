@@ -309,10 +309,12 @@ The `Memory` context manager
 ----------------------------
 
 It is possible to use `Memory` as a context manager. At the exit of the
-`with` block, the context manager takes care of closing the database
-that keeps track of the access to the cache. This is useful in particular
-to avoid locking the caching directory. A typical usage example is when
-the caching directory needs to be erased (e.g., after the tests).
+`with` block, the context manager takes care of closing the database that
+keeps track of the access to the cache. This is useful in particular to
+avoid locking the caching directory (the file semantics between Windows
+and Unix differ, so you may be getting lock erros under Windows even if
+your code works well under Unix). A typical usage example is when the
+caching directory needs to be erased (e.g., after the tests).
 
 	>>> def func(x):
 	...     print 'Running func(%s)' % x
