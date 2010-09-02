@@ -13,15 +13,15 @@ data and has specific optimizations for `numpy` arrays. It is
 **BSD-licensed**.
 
 
-    ============================== ==========================================
+    ============================== ==============================================
     **User documentation**:        http://packages.python.org/joblib
                                
-    **Download packages**:         http://pypi.python.org/pypi/joblib
+    **Download packages**:         http://pypi.python.org/pypi/joblib#downloads
                                
     **Source code**:               http://github.com/joblib/joblib
 
     **Report issues**:             http://github.com/joblib/joblib/issues
-    ============================== ==========================================
+    ============================== ==============================================
 
 
 Vision
