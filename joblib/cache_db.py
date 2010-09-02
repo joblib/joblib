@@ -8,7 +8,7 @@ The persistence model for a joblib cache directory.
 
 import sqlite3
 import time
-from .common import JoblibException
+from .exceptions import JoblibException
 
 ################################################################################
 # The db class

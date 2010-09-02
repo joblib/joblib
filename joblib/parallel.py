@@ -20,7 +20,7 @@ except ImportError:
 
 from .format_stack import format_exc, format_outer_frames
 from .logger import Logger, short_format_time
-from .common import JoblibException
+from .exceptions import JoblibException
 
 ################################################################################
 

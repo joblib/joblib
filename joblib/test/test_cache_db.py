@@ -13,7 +13,7 @@ from tempfile import mkdtemp
 
 from ..cache_db import CacheDB
 from ..memory import Memory
-from ..common import JoblibException
+from ..exceptions import JoblibException
 
 ################################################################################
 # Tests
