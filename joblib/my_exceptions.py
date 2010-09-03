@@ -40,7 +40,10 @@ def _mk_exception(exception, name=None):
         # Avoid creating twice the same exception
         this_exception = _exception_mapping[this_name]
     else:
-        this_exception = type(this_name, (exception, JoblibException), {})
+        this_exception = type(this_name, (exception, JoblibException), 
+                    dict(__repr__=JoblibException.__repr__,
+                         __str__=JoblibException.__str__),
+                    )
         _exception_mapping[this_name] = this_exception
     return this_exception, this_name
 
