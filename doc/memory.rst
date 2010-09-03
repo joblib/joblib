@@ -308,37 +308,39 @@ change, for instance a debug flag. `Memory` provides the `ignore` list::
 The `Memory` context manager
 ----------------------------
 
+.. We have to skip the doctests here, as they fail under Python 2.5
+
 It is possible to use `Memory` as a context manager. At the exit of the
 `with` block, the context manager takes care of closing the database that
 keeps track of the access to the cache. This is useful in particular to
 avoid locking the caching directory (the file semantics between Windows
 and Unix differ, so you may be getting lock erros under Windows even if
 your code works well under Unix). A typical usage example is when the
-caching directory needs to be erased (e.g., after the tests).
+caching directory needs to be erased (e.g., after the tests)::
 
-	>>> def func(x):
-	...     print 'Running func(%s)' % x
-	>>> tmp_cachedir = mkdtemp()
-	>>> with Memory(cachedir=tmp_cachedir, verbose=0) as memory:
-	...     cached_func = memory.cache(func)
-	...     cached_func(1)
-	Running func(1)
+    >>> def func(x):
+    ...     print 'Running func(%s)' % x
+    >>> tmp_cachedir = mkdtemp()
+    >>> with Memory(cachedir=tmp_cachedir, verbose=0) as memory: #doctest: +SKIP
+    ...     cached_func = memory.cache(func)
+    ...     cached_func(1)
+    Running func(1)
 
 The database is closed after the block, and calling the cached function
-again raises an exception:
+again raises an exception::
 
-	>>> cached_func(1)
-	Traceback (most recent call last):
-		...
-	JoblibException: JoblibException
-	___________________________________________________________________________
-	Cache database is closed; call the open() method to re-establish a connection
-	___________________________________________________________________________
+    >>> cached_func(1) #doctest: +SKIP
+    Traceback (most recent call last):
+            ...
+    JoblibException: JoblibException
+    ___________________________________________________________________________
+    Cache database is closed; call the open() method to re-establish a connection
+    ___________________________________________________________________________
 
-It is now possible to delete the caching directory without locking errors:
+It is now possible to delete the caching directory without locking errors::
 
-	>>> import shutil
-	>>> shutil.rmtree(tmp_cachedir)
+    >>> import shutil
+    >>> shutil.rmtree(tmp_cachedir)
 
 
 Reference documentation of the `Memory` class
