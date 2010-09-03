@@ -20,6 +20,7 @@ import nose
 
 from ..memory import Memory, MemorizedFunc
 from ..disk import rm_subdirs
+from ..parallel import Parallel, delayed
 from .common import with_numpy, np
 
 ################################################################################
@@ -467,3 +468,12 @@ def test_method_caching():
         nose.tools.assert_equal(len(accumulator), 1)
         foo.method()
         nose.tools.assert_equal(len(accumulator), 1)
+
+################################################################################
+# Test memory in parallel (multi-process) to investigate for locks
+# between processes
+def test_memory_parallel():
+    import math
+    with Memory(cachedir=env['dir'], verbose=0, limit='100K') as mem:
+        sqrt = mem.cache(math.sqrt)
+        Parallel(n_jobs=4)(delayed(sqrt)(i) for i in range(100))

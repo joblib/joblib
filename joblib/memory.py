@@ -38,7 +38,7 @@ from .func_inspect import get_func_code, get_func_name, filter_args
 from .logger import Logger, format_time
 from . import numpy_pickle
 from .cache_db import CacheDB
-from .disk import disk_used, memstr_to_kbytes, rm_subdirs
+from .disk import disk_used, memstr_to_kbytes, rm_subdirs, safe_listdir
 
 FIRST_LINE_TEXT = "# first line:"
 
@@ -113,9 +113,14 @@ def compress_cache(db, cachedir, fraction=.1):
                     # XXX: Where is our logging framework?
                     print ('[joblib] Warning could not empty cache directory %s'
                             % argument_dir)
-            db.remove(db_entry['key'])
-            cache_size -= db_entry['size']
-            if os.listdir(func_dir) == ['func_code.py']:
+            try:
+                db.remove(db_entry['key'])
+                cache_size -= db_entry['size']
+            except KeyError:
+                # A KeyError can be created by a race-condition between
+                # different processes trying to remove the same entry
+                pass
+            if safe_listdir(func_dir) == ['func_code.py']:
                 try:    
                     shutil.rmtree(func_dir)
                 except:

@@ -34,13 +34,17 @@ def memstr_to_kbytes(text):
     kilo = 1024
     units = dict(K=1, M=kilo, G=kilo**2)
     try:
-        size = int(units[text[-1]]*float(text[:-1]))
+        size = int(units[text[-1].upper()]*float(text[:-1]))
     except (KeyError, ValueError):
         raise ValueError(
-                "Invalid literal for size give: %s (type %s) should be "
+                "Invalid literal for size given: %s (type %s) should be "
                 "alike '10G', '500M', '50K'." % (text, type(text))
                 )
     return size
+
+
+################################################################################
+# Safe functions to avoid crashers
 
 def rm_subdirs(path, onerror=None):
     """Remove all subdirectories in this path.
@@ -65,3 +69,11 @@ def rm_subdirs(path, onerror=None):
         fullname = os.path.join(path, name)
         if os.path.isdir(fullname):
             shutil.rmtree(fullname, False, onerror)
+
+def safe_listdir(dir):
+    # List the directory content, and simply returns [] if it does
+    # not exist
+    try:
+        return os.listdir(dir)
+    except OSError:
+        return []
