@@ -22,6 +22,7 @@ import functools
 import traceback
 import warnings
 import inspect
+from sqlite3 import OperationalError
 try:
     # json is in the standard library for Python >= 2.6
     import json
@@ -116,9 +117,12 @@ def compress_cache(db, cachedir, fraction=.1):
             try:
                 db.remove(db_entry['key'])
                 cache_size -= db_entry['size']
-            except KeyError:
+            except KeyError, OperationalError:
                 # A KeyError can be created by a race-condition between
                 # different processes trying to remove the same entry
+                # An operational error means that the db is locked. Not a
+                # big deal: we erased the directory, so JobLib will
+                # figure out that the key is obsolete
                 pass
             if safe_listdir(func_dir) == ['func_code.py']:
                 try:    
@@ -359,11 +363,14 @@ class MemorizedFunc(Logger):
         func_dir = self._get_func_dir()
         func_code_file = os.path.join(func_dir, 'func_code.py')
 
-        if not os.path.exists(func_code_file): 
+        try:
+            old_func_code, old_first_line = \
+                            extract_first_line(file(func_code_file).read())
+        except IOError:
+            # Either the file did not exist, or it has been erased while we 
+            # weren't looking
             self._write_func_code(func_code_file, func_code, first_line)
             return False
-        old_func_code, old_first_line = \
-                        extract_first_line(file(func_code_file).read())
         if old_func_code == func_code:
             return True
 

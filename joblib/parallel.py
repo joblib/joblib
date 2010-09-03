@@ -20,7 +20,7 @@ except ImportError:
 
 from .format_stack import format_exc, format_outer_frames
 from .logger import Logger, short_format_time
-from .my_exceptions import JoblibException, _mk_exception
+from .my_exceptions import TransportableException, _mk_exception
 
 ################################################################################
 
@@ -42,8 +42,7 @@ class SafeFunction(object):
             e_type, e_value, e_tb = sys.exc_info()
             text = format_exc(e_type, e_value, e_tb, context=10,
                              tb_offset=1)
-            exception = _mk_exception(e_type)[0]
-            raise exception(text)
+            raise TransportableException(text, e_type)
 
 def print_progress(msg, index, total, start_time, n_jobs=1):
     # XXX: Not using the logger framework: need to
@@ -232,7 +231,7 @@ class Parallel(Logger):
                     if self.verbose:
                         print_progress(self, index, len(jobs), start_time,
                                        n_jobs=n_jobs)
-                except JoblibException, exception:
+                except TransportableException, exception:
                     # Capture exception to add information on 
                     # the local stack in addition to the distant
                     # stack
@@ -249,9 +248,9 @@ Sub-process traceback:
                                 this_report,
                                 exception.message,
                             )
-                    # No need to convert this to a JoblibException, the
-                    # SafeFunction already did it
-                    raise exception.__class__(report)
+                    # Convert this to a JoblibException
+                    exception_type = _mk_exception(exception.etype)[0]
+                    raise exception_type(report)
         finally:
             if n_jobs > 1:
                 pool.close()

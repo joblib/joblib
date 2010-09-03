@@ -35,7 +35,6 @@ def test_store_retrieve():
     yield nose.tools.assert_equal, '2', db.get('key')['args']
     db.remove('key')
     yield nose.tools.assert_raises, KeyError, db.get, 'key'
-    yield nose.tools.assert_raises, KeyError, db.remove, 'key'
     e.pop('module')
     yield nose.tools.assert_raises, KeyError, db.new_entry, e
     # Smoke test the two remaining functions

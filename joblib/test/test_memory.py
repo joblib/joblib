@@ -476,4 +476,8 @@ def test_memory_parallel():
     import math
     with Memory(cachedir=env['dir'], verbose=0, limit='100K') as mem:
         sqrt = mem.cache(math.sqrt)
-        Parallel(n_jobs=4)(delayed(sqrt)(i) for i in range(100))
+        # In this test, we are hitting the same function with many
+        # processes, but for different entry points.
+        # XXX: The SQLite data store does not scale to multiple processes
+        # pounding on it.
+        Parallel(n_jobs=2)(delayed(sqrt)(i) for i in range(100))

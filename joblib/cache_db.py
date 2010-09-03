@@ -101,8 +101,10 @@ class CacheDB(object):
 
     def remove(self, key):
         self._raise_if_closed()
-        if not key in self:
-            raise KeyError(key)
+        # Don't test to see if the key is in the DB: less access means
+        # more robustness to races, and better ask for forgivness anyhow
+        #if not key in self:
+        #    raise KeyError(key)
         DEL_ITEM = 'DELETE FROM %s WHERE key = ?' % self.tablename
         self.conn.execute(DEL_ITEM, (key,))
         self.conn.commit()
