@@ -199,7 +199,7 @@ class Parallel(Logger):
         n_jobs = self.n_jobs
         if n_jobs == -1:
             if multiprocessing is None:
-                 n_jobs = 1
+                n_jobs = 1
             else:
                 n_jobs = multiprocessing.cpu_count()
 

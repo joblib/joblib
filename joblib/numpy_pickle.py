@@ -45,7 +45,7 @@ class NumpyPickler(pickle.Pickler):
 
     def save(self, obj):
         """ Subclass the save method, to save ndarray subclasses in npy
-            files, rather than pickling them. Off course, this is a 
+            files, rather than pickling them. Of course, this is a 
             total abuse of the Pickler class.
         """
         if isinstance(obj, self.np.ndarray):
