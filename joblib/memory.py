@@ -172,7 +172,7 @@ class MemorizedFunc(Logger):
                 '(args=%s, kwargs=%s)\n %s' %
                     (args, kwargs, traceback.format_exc())
                     )
-                      
+
                 shutil.rmtree(output_dir)
                 return self.call(*args, **kwargs)
 
@@ -245,7 +245,8 @@ class MemorizedFunc(Logger):
         # changed?
 
         if old_first_line == first_line == -1:
-            _, func_name = get_func_name(self.func, resolv_alias=False)
+            _, func_name = get_func_name(self.func, resolv_alias=False,
+                                         win_characters=False)
             if not first_line == -1:
                 func_description = '%s (%s:%i)' % (func_name, 
                                                 source_file, first_line)
