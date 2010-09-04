@@ -92,6 +92,7 @@ Main features
    We want to be able to quickly inspect what has been run.
 
 .. 
+    >>> mem.db.close()
     >>> import shutil ; shutil.rmtree('/tmp/joblib/')
 
 """
