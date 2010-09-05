@@ -329,7 +329,7 @@ caching directory needs to be erased (e.g., after the tests)::
     >>> def func(x):
     ...     print 'Running func(%s)' % x
     >>> tmp_cachedir = mkdtemp()
-    >>> with Memory(cachedir=tmp_cachedir, verbose=0) as memor: #doctest: +SKIP
+    >>> with Memory(cachedir=tmp_cachedir, verbose=0) as memory: #doctest: +SKIP
     ...     cached_func = memory.cache(func)
     ...     cached_func(1)
     Running func(1)
