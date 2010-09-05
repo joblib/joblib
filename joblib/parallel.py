@@ -77,9 +77,8 @@ def delayed(function):
     return delayed_function
 
 
-class LazyApply (object):
-    """
-    Lazy version of the apply builtin function.
+class LazyApply(object):
+    """ Lazy version of the apply builtin function.
     """
     def __init__ (self, func, args, kwargs):
         self.func   = func
@@ -88,6 +87,7 @@ class LazyApply (object):
 
     def get (self):
         return self.func(*self.args, **self.kwargs)
+
 
 
 class Parallel(Logger):
@@ -208,13 +208,13 @@ class Parallel(Logger):
             apply = LazyApply 
         else:
             pool = multiprocessing.Pool(n_jobs)
-            apply = pool.apply_async
+            def apply(func, args, kwargs):
+                return pool.apply_async(SafeFunction(function), args, kwargs)
 
         output = list()
         start_time = time.time()
         try:
             for index, (function, args, kwargs) in enumerate(iterable):
-                function = SafeFunction(function)
                 output.append(apply(function, args, kwargs))
                 if self.verbose and n_jobs == 1:
                     print '[%s]: Done job %3i | elapsed: %s' % (
