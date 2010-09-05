@@ -5,7 +5,7 @@ import time
 import random
 import os
 
-from lockfile import FileLock
+from locked_file import LockedFile
 from joblib import Parallel, delayed
 
 central_file = 'central.db'
@@ -13,12 +13,10 @@ central_file = 'central.db'
 def append(i):
     random.seed()
     file('test.db', 'ab').write('% 3i %s\n' % (i, os.getpid()))
-    with FileLock(central_file, force=True, timeout=1):
-    #try:
-        current_value = int(file(central_file, 'rb').read())
-        file(central_file, 'wb').write('%i' % (i + current_value))
-    #except:
-    #    pass
+    with LockedFile(central_file) as size_file:
+        current_value = int(size_file.read())
+        size_file.seek(0)
+        size_file.write('%i' % (i + current_value))
     time.sleep(.1*random.random())
 
 if __name__ == '__main__':
