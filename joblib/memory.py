@@ -541,6 +541,12 @@ class MemorizedFunc(Logger):
 
         input_repr = dict((k, repr(v)) for k, v in argument_dict.iteritems())
         if json is not None and output_dir is not None:
+            # Make sure that our output_dir has not been deleted
+            # in the mean time
+            # XXX: We should have a function to create the output_dir,
+            # that would populate it correctly (func_code.py)
+            if not os.path.exists(output_dir):
+                os.makedirs(output_dir)
             json.dump(
                 input_repr,
                 file(os.path.join(output_dir, 'input_args.json'), 'w'),
