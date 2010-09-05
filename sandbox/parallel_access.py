@@ -13,12 +13,12 @@ central_file = 'central.db'
 def append(i):
     random.seed()
     file('test.db', 'ab').write('% 3i %s\n' % (i, os.getpid()))
-    #with FileLock(central_file):
-    try:
+    with FileLock(central_file, force=True, timeout=1):
+    #try:
         current_value = int(file(central_file, 'rb').read())
         file(central_file, 'wb').write('%i' % (i + current_value))
-    except:
-        pass
+    #except:
+    #    pass
     time.sleep(.1*random.random())
 
 file(central_file, 'wb').write('0')
