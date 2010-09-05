@@ -1,5 +1,7 @@
 """ Efficient file locking for posix and windows.
 """
+# Author: Gael Varoquaux <gael.varoquaux@normalesup.org>
+# License: BSD
 
 import os
 if os.name == 'nt':
@@ -17,11 +19,16 @@ if os.name == 'nt':
 elif os.name == 'posix':
     import fcntl
     def locker(fd):
-        # Need a try/except, as this will fail on an NFS drive
-        return fcntl.flock(fd, fcntl.LOCK_EX)
+        try:
+            return fcntl.flock(fd, fcntl.LOCK_EX)
+        except:
+            # This fails on an NFS drive or a BSD system:
+            return fcntl.fcntl(fd, fcntl.F_EXLCK)
 else:
     raise Exception('Unsupported platform')
 
+
+################################################################################
 class LockedFile(object):
     """ A minimalistic file-like object that establishes a OS-level lock.
     """
