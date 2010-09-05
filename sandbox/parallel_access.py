@@ -21,10 +21,12 @@ def append(i):
     #    pass
     time.sleep(.1*random.random())
 
-file(central_file, 'wb').write('0')
+if __name__ == '__main__':
+    # having the file importable is needed to run on windows.
+    file(central_file, 'wb').write('0')
 
-t0 = time.time()
-Parallel(n_jobs=20)(delayed(append)(i) 
-                    for i in range(1000))
-print time.time() - t0
+    t0 = time.time()
+    Parallel(n_jobs=20)(delayed(append)(i) 
+                        for i in range(1000))
+    print time.time() - t0
 
