@@ -41,6 +41,7 @@ class LockedFile(object):
         self.write = self.file.write
         self.read  = self.file.read
         self.seek  = self.file.seek
+        self.readline = self.file.readline
 
     def __enter__(self):
         """ For use in the with statement.
