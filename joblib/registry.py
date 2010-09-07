@@ -7,7 +7,7 @@ import pickle
 import time
 import itertools
 
-from locked_file import LockedFile
+from .locked_file import LockedFile
 
 def cumulative_cost(last_cost, size, computation_time, access_times, 
                     current_time):
