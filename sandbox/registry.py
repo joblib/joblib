@@ -23,6 +23,10 @@ def cumulative_cost(last_cost, size, computation_time, access_times,
     return cost, start
 
 
+def sort_entries(db):
+    items = db.items()
+    return sorted(items, key=lambda x: -x[1][0])
+
 ################################################################################
 class Registry(object):
 
@@ -68,6 +72,10 @@ class Registry(object):
             f.write('%i' % (total_size))
         return total_size
 
+    
+    def read_size(self):
+        return int(open(self.size_file, 'r').read())
+
 
     def add_entry(self, module, func_name, argument_hash, computation_time, 
                   size, access_time, last_cost):
@@ -97,11 +105,11 @@ class Registry(object):
             # Oops, someone if modifying this file while we are
             return
 
-        # First merge the two registries
         # Maybe we should use a locked file? XXX: Risk of deadlock
-        with LockedFile(self.registry_store) as f:
+        with LockedFile(self.registry_store) as store_file:
+            # First merge the two registries
             registry_file = open(self.compressing_registry, 'rb')
-            db = pickle.load(f)
+            db = pickle.load(store_file)
             for line in registry_file:
                 # XXX: This should probably be in a separate function
                 (func_name, argument_hash, module, computation_time, 
@@ -127,14 +135,54 @@ class Registry(object):
                                             access_times, current_time)
                 db[key] = cost, size, computation_time, [last_access]
 
-            f.seek(0)
-            pickle.dump(db, f)
+            # Third remove entries
+            db, size_gain = self._compress_and_flush(db)
+            self.increment_size(-size_gain)
+            store_file.seek(0)
+            pickle.dump(db, store_file)
 
 
     def clear(self):
         # XXX: Will need to deal with locks
         # XXX: This is killing to much: our directory, our size_file...
         shutil.rmtree(self.dir_name)
+
+
+    def _compress_and_flush(self, db, fraction=.1):
+        """ Cache replacement: remove 'fraction' of the size of the stored 
+            cache.
+        """
+        cachedir = self.dir_name
+        cache_size = self.read_size()
+        target_gain = (1-fraction) * cache_size
+        size_gain = 0
+        for db_entry in sort_entries(db):
+            key, (cost, size, computation_time, access_times) = db_entry
+            argument_dir = os.path.join(cachedir, key)
+            if os.path.exists(argument_dir):
+                self._rm_dir(argument_dir)
+            db.remove(key)
+            size_gain += size
+            #if safe_listdir(func_dir) == ['func_code.py']:
+            #    try:    
+            #        shutil.rmtree(func_dir)
+            #    except:
+            #        # XXX: Where is our logging framework?
+            #        print ('[joblib] Warning could not empty cache directory %s'
+            #                % func_dir)
+            if size_gain >= target_gain:
+                break
+        return db, size_gain
+
+
+    def _rm_dir(self, dir_name)
+        try:
+            shutil.rmtree(dir_name)
+        except:
+            # XXX: Where is our logging framework?
+            print (
+            '[joblib] Warning could not empty cache directory %s'
+                    % dir_name)
 
 
 if __name__ == '__main__':
