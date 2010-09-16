@@ -37,7 +37,6 @@ from .hashing import hash
 from .func_inspect import get_func_code, get_func_name, filter_args
 from .logger import Logger, format_time
 from . import numpy_pickle
-from .cache_db import CacheDB
 
 FIRST_LINE_TEXT = "# first line:"
 
@@ -108,7 +107,7 @@ class MemorizedFunc(Logger):
     #-------------------------------------------------------------------------
    
     def __init__(self, func, cachedir, ignore=None, save_npy=True, 
-                             mmap_mode=None, verbose=1, db=None):
+                             mmap_mode=None, verbose=1):
         """
             Parameters
             ----------
@@ -129,8 +128,6 @@ class MemorizedFunc(Logger):
             verbose: int, optional
                 Verbosity flag, controls the debug messages that are issued 
                 as functions are revaluated.
-            db: CacheDB object or None
-                The database to keep track of the access.
         """
         Logger.__init__(self)
         self._verbose = verbose
@@ -138,7 +135,6 @@ class MemorizedFunc(Logger):
         self.func = func
         self.save_npy = save_npy
         self.mmap_mode = mmap_mode
-        self.db = db
         if ignore is None:
             ignore = []
         self.ignore = ignore
@@ -310,21 +306,6 @@ class MemorizedFunc(Logger):
         self._persist_output(output, output_dir)
         input_repr = self._persist_input(output_dir, *args, **kwargs)
         duration = time.time() - start_time
-        if self.db is not None:
-            module, func_name  = get_func_name(self.func)
-            module = '.'.join(module)
-            key = ':'.join((module, func_name, argument_hash))
-            self.db.new_entry(dict(
-                        key=key,
-                        func_name=func_name,
-                        module=module,
-                        args=repr(input_repr),
-                        creation_time=start_time,
-                        access_time=start_time,
-                        computation_time=duration,
-                        size=10,
-                        last_cost=10,
-                    ))
         if self._verbose:
             _, name = get_func_name(self.func)
             msg = '%s - %s' % (name, format_time(duration))
@@ -473,13 +454,10 @@ class Memory(Logger):
         self.mmap_mode = mmap_mode
         if cachedir is None:
             self.cachedir = None
-            self.db = None
         else:
             self.cachedir = os.path.join(cachedir, 'joblib')
             if not os.path.exists(self.cachedir):
                 os.makedirs(self.cachedir)
-            self.db = CacheDB(filename=os.path.join(self.cachedir,
-                                                    'db.sqlite'))
 
 
     def cache(self, func=None, ignore=None):
@@ -504,8 +482,7 @@ class Memory(Logger):
                                    save_npy=self.save_npy,
                                    mmap_mode=self.mmap_mode,
                                    ignore=ignore,
-                                   verbose=self._verbose, 
-                                   db=self.db)
+                                   verbose=self._verbose)
 
 
     def clear(self, warn=True):
