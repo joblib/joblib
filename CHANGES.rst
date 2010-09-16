@@ -1,6 +1,29 @@
 Latest changes
 ===============
 
+Release 0.4.5
+----------------
+
+Pietro Berkes
+2010-09-04
+
+    BUG: Fix Windows peculiarities with path separators and file names
+    BUG: Fix more windows locking bugs
+
+Gael varoquaux
+2010-09-03
+
+    ENH: Make sure that exceptions raised in Parallel also inherit from
+    the original exception class
+    ENH: Add a shadow set of exceptions
+
+Fabian Pedregosa
+2010-09-01
+
+    ENH: Clean up the code for parallel. Thanks to Fabian Pedregosa for
+    the patch.
+
+
 Release 0.4.4
 ----------------
 
