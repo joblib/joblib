@@ -323,8 +323,6 @@ methods useful for cache exploration and management.
 ..
  Let us not forget to clean our cache dir once we are finished::
  
-    >>> memory.db.close()
-    >>> memory2.db.close()
     >>> import shutil
     >>> shutil.rmtree(cachedir)
     >>> import shutil

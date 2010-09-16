@@ -16,8 +16,7 @@ import warnings
 
 import nose
 
-from ..memory import Memory, MemorizedFunc, MemoryManager
-from ..disk import rm_subdirs
+from ..memory import Memory, MemorizedFunc
 from .common import with_numpy, np
 
 ################################################################################
@@ -71,13 +70,13 @@ def check_identity_lazy(func, accumulator):
     """
     # Call each function with several arguments, and check that it is
     # evaluated only once per argument.
-    with MemoryManager(cachedir=env['dir'], verbose=0) as memory:
-        memory.clear(warn=False)
-        func = memory.cache(func)
-        for i in range(3):
-            for _ in range(2):
-                yield nose.tools.assert_equal, func(i), i
-                yield nose.tools.assert_equal, len(accumulator), i + 1
+    memory = Memory(cachedir=env['dir'], verbose=0)
+    memory.clear(warn=False)
+    func = memory.cache(func)
+    for i in range(3):
+        for _ in range(2):
+            yield nose.tools.assert_equal, func(i), i
+            yield nose.tools.assert_equal, len(accumulator), i + 1
 
 
 ################################################################################
@@ -124,13 +123,13 @@ def test_no_memory():
     def ff(l):
         accumulator.append(1)
         return l
-    with MemoryManager(cachedir=None, verbose=0) as mem:
-        gg = mem.cache(ff)
-        for _ in range(4):
-            current_accumulator = len(accumulator)
-            gg(1)
-            yield nose.tools.assert_equal, len(accumulator), \
-                        current_accumulator + 1
+    mem = Memory(cachedir=None, verbose=0)
+    gg = mem.cache(ff)
+    for _ in range(4):
+        current_accumulator = len(accumulator)
+        gg(1)
+        yield nose.tools.assert_equal, len(accumulator), \
+                    current_accumulator + 1
 
 
 def test_memory_kwarg():
@@ -143,10 +142,10 @@ def test_memory_kwarg():
     for test in check_identity_lazy(g, accumulator):
         yield test
 
-    with MemoryManager(cachedir=env['dir'], verbose=0) as memory:
-        g = memory.cache(g)
-        # Smoke test with an explicit keyword argument:
-        nose.tools.assert_equal(g(l=30, m=2), 30)
+    memory = Memory(cachedir=env['dir'], verbose=0)
+    g = memory.cache(g)
+    # Smoke test with an explicit keyword argument:
+    nose.tools.assert_equal(g(l=30, m=2), 30)
 
 
 def test_memory_lambda():
@@ -200,50 +199,50 @@ def test_memory_name_collision():
 
 def test_memory_warning_lambda_collisions():
     " Check that multiple use of lambda will raise collisions"
-    with MemoryManager(cachedir=env['dir'], verbose=0) as memory:
-        a = lambda x: x
-        a = memory.cache(a)
-        b = lambda x: x+1
-        b = memory.cache(b)
-    
-        if not hasattr(warnings, 'catch_warnings'):
-            # catch_warnings is new in Python 2.6
-            return
-    
-        with warnings.catch_warnings(record=True) as w:
-            # Cause all warnings to always be triggered.
-            warnings.simplefilter("always")
-            a(1)
-            b(1)
-    
-            yield nose.tools.assert_equal, len(w), 2
-            yield nose.tools.assert_true, "collision" in str(w[-1].message)
-            yield nose.tools.assert_true, "collision" in str(w[-2].message)
+    memory = Memory(cachedir=env['dir'], verbose=0)
+    a = lambda x: x
+    a = memory.cache(a)
+    b = lambda x: x+1
+    b = memory.cache(b)
+
+    if not hasattr(warnings, 'catch_warnings'):
+        # catch_warnings is new in Python 2.6
+        return
+
+    with warnings.catch_warnings(record=True) as w:
+        # Cause all warnings to always be triggered.
+        warnings.simplefilter("always")
+        a(1)
+        b(1)
+
+        yield nose.tools.assert_equal, len(w), 2
+        yield nose.tools.assert_true, "collision" in str(w[-1].message)
+        yield nose.tools.assert_true, "collision" in str(w[-2].message)
 
 
 def test_memory_warning_collision_detection():
     """ Check that collisions impossible to detect will raise appropriate 
         warnings.
     """
-    with MemoryManager(cachedir=env['dir'], verbose=0) as memory:
-        a = eval('lambda x: x')
-        a = memory.cache(a)
-        b = eval('lambda x: x+1')
-        b = memory.cache(b)
-    
-        if not hasattr(warnings, 'catch_warnings'):
-            # catch_warnings is new in Python 2.6
-            return
-    
-        with warnings.catch_warnings(record=True) as w:
-            # Cause all warnings to always be triggered.
-            warnings.simplefilter("always")
-            a(1)
-            b(1)
-    
-            yield nose.tools.assert_equal, len(w), 1
-            yield nose.tools.assert_true, \
-                    "cannot detect" in str(w[-1].message).lower()
+    memory = Memory(cachedir=env['dir'], verbose=0)
+    a = eval('lambda x: x')
+    a = memory.cache(a)
+    b = eval('lambda x: x+1')
+    b = memory.cache(b)
+
+    if not hasattr(warnings, 'catch_warnings'):
+        # catch_warnings is new in Python 2.6
+        return
+
+    with warnings.catch_warnings(record=True) as w:
+        # Cause all warnings to always be triggered.
+        warnings.simplefilter("always")
+        a(1)
+        b(1)
+
+        yield nose.tools.assert_equal, len(w), 1
+        yield nose.tools.assert_true, \
+                "cannot detect" in str(w[-1].message).lower()
 
 
 def test_memory_partial():
@@ -264,12 +263,12 @@ def test_memory_partial():
 
 def test_memory_eval():
     " Smoke test memory with a function with a function defined in an eval."
-    # XXX this test doesn't seem to test anything
     memory = Memory(cachedir=env['dir'], verbose=0)
 
     m = eval('lambda x: x')
+    mm = memory.cache(m)
 
-    yield nose.tools.assert_equal, 1, m(1)
+    yield nose.tools.assert_equal, 1, mm(1)
 
 
 def count_and_append(x=[]):
@@ -285,14 +284,14 @@ def test_argument_change():
     """ Check that if a function has a side effect in its arguments, it
         should use the hash of changing arguments.
     """
-    with MemoryManager(cachedir=env['dir'], verbose=0) as mem:
-        func = mem.cache(count_and_append)
-        # call the function for the first time, is should cache it with
-        # argument x=[]
-        assert func() == 0
-        # the second time the argument is x=[None], which is not cached
-        # yet, so the functions should be called a second time
-        assert func() == 1
+    mem = Memory(cachedir=env['dir'], verbose=0)
+    func = mem.cache(count_and_append)
+    # call the function for the first time, is should cache it with
+    # argument x=[]
+    assert func() == 0
+    # the second time the argument is x=[None], which is not cached
+    # yet, so the functions should be called a second time
+    assert func() == 1
 
 
 @with_numpy
@@ -305,97 +304,97 @@ def test_memory_numpy():
             accumulator.append(1)
             return l
 
-        with MemoryManager(cachedir=env['dir'], mmap_mode=mmap_mode,
-                            verbose=0) as memory:
-            memory.clear(warn=False)
-            cached_n = memory.cache(n)
-            for i in range(3):
-                a = np.random.random((10, 10))
-                for _ in range(3):
-                    yield nose.tools.assert_true, np.all(cached_n(a) == a)
-                    yield nose.tools.assert_equal, len(accumulator), i + 1
+        memory = Memory(cachedir=env['dir'], mmap_mode=mmap_mode,
+                            verbose=0)
+        memory.clear(warn=False)
+        cached_n = memory.cache(n)
+        for i in range(3):
+            a = np.random.random((10, 10))
+            for _ in range(3):
+                yield nose.tools.assert_true, np.all(cached_n(a) == a)
+                yield nose.tools.assert_equal, len(accumulator), i + 1
 
 
 def test_memory_exception():
     """ Smoketest the exception handling of Memory. 
     """
-    with MemoryManager(cachedir=env['dir'], verbose=0) as memory:
-        class MyException(Exception):
-            pass
-    
-        @memory.cache
-        def h(exc=0):
-            if exc:
-                raise MyException
-    
-        # Call once, to initialise the cache
-        h()
-    
-        for _ in range(3):
-            # Call 3 times, to be sure that the Exception is always raised
-            yield nose.tools.assert_raises, MyException, h, 1
+    memory = Memory(cachedir=env['dir'], verbose=0)
+    class MyException(Exception):
+        pass
+
+    @memory.cache
+    def h(exc=0):
+        if exc:
+            raise MyException
+
+    # Call once, to initialise the cache
+    h()
+
+    for _ in range(3):
+        # Call 3 times, to be sure that the Exception is always raised
+        yield nose.tools.assert_raises, MyException, h, 1
 
 
 def test_memory_ignore():
     " Test the ignore feature of memory "
-    with MemoryManager(cachedir=env['dir'], verbose=0) as memory:
-        accumulator = list()
-    
-        @memory.cache(ignore=['y'])
-        def z(x, y=1):
-            accumulator.append(1)
-    
-        yield nose.tools.assert_equal, z.ignore, ['y']
-    
-        z(0, y=1)
-        yield nose.tools.assert_equal, len(accumulator), 1
-        z(0, y=1)
-        yield nose.tools.assert_equal, len(accumulator), 1
-        z(0, y=2)
-        yield nose.tools.assert_equal, len(accumulator), 1
+    memory = Memory(cachedir=env['dir'], verbose=0)
+    accumulator = list()
+
+    @memory.cache(ignore=['y'])
+    def z(x, y=1):
+        accumulator.append(1)
+
+    yield nose.tools.assert_equal, z.ignore, ['y']
+
+    z(0, y=1)
+    yield nose.tools.assert_equal, len(accumulator), 1
+    z(0, y=1)
+    yield nose.tools.assert_equal, len(accumulator), 1
+    z(0, y=2)
+    yield nose.tools.assert_equal, len(accumulator), 1
 
 
 def test_func_dir():
     """ Test the creation of the memory cache directory for the function.
     """
-    with MemoryManager(cachedir=env['dir'], verbose=0) as memory:
-        path = __name__.split('.')
-        path.append('f')
-        path = os.path.join(env['dir'], 'joblib', *path)
-    
-        g = memory.cache(f)
-        # Test that the function directory is created on demand
-        yield nose.tools.assert_equal, g._get_func_dir(), path
-        yield nose.tools.assert_true, os.path.exists(path)
-    
-        # Test that the code is stored.
-        yield nose.tools.assert_false, \
-            g._check_previous_func_code()
-        yield nose.tools.assert_true, \
-                os.path.exists(os.path.join(path, 'func_code.py'))
-        yield nose.tools.assert_true, \
-            g._check_previous_func_code()
-    
-        # Test the robustness to failure of loading previous results.
-        dir, _ = g.get_output_dir(1)
-        a = g(1)
-        yield nose.tools.assert_true, os.path.exists(dir)
-        os.remove(os.path.join(dir, 'output.pkl'))
-        yield nose.tools.assert_equal, a, g(1)
+    memory = Memory(cachedir=env['dir'], verbose=0)
+    path = __name__.split('.')
+    path.append('f')
+    path = os.path.join(env['dir'], 'joblib', *path)
+
+    g = memory.cache(f)
+    # Test that the function directory is created on demand
+    yield nose.tools.assert_equal, g._get_func_dir(), path
+    yield nose.tools.assert_true, os.path.exists(path)
+
+    # Test that the code is stored.
+    yield nose.tools.assert_false, \
+        g._check_previous_func_code()
+    yield nose.tools.assert_true, \
+            os.path.exists(os.path.join(path, 'func_code.py'))
+    yield nose.tools.assert_true, \
+        g._check_previous_func_code()
+
+    # Test the robustness to failure of loading previous results.
+    dir, _ = g.get_output_dir(1)
+    a = g(1)
+    yield nose.tools.assert_true, os.path.exists(dir)
+    os.remove(os.path.join(dir, 'output.pkl'))
+    yield nose.tools.assert_equal, a, g(1)
 
 
 
 def test_persistence():
     """ Test the memorized functions can be pickled and restored.
     """
-    with MemoryManager(cachedir=env['dir'], verbose=0) as memory:
-        g = memory.cache(f)
-        output = g(1)
-    
-        h = pickle.loads(pickle.dumps(g))
-    
-        output_dir, _ = g.get_output_dir(1)
-        yield nose.tools.assert_equal, output, h.load_output(output_dir)
+    memory = Memory(cachedir=env['dir'], verbose=0)
+    g = memory.cache(f)
+    output = g(1)
+
+    h = pickle.loads(pickle.dumps(g))
+
+    output_dir, _ = g.get_output_dir(1)
+    yield nose.tools.assert_equal, output, h.load_output(output_dir)
 
 
 def test_format_signature():

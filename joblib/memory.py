@@ -37,7 +37,6 @@ from .hashing import hash
 from .func_inspect import get_func_code, get_func_name, filter_args
 from .logger import Logger, format_time
 from . import numpy_pickle
-from .cache_db import CacheDB
 from .disk import rm_subdirs
 
 FIRST_LINE_TEXT = "# first line:"
