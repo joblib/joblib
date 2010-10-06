@@ -1,3 +1,10 @@
+joblib (0.4.5-1) experimental; urgency=low
+
+  * New upstream release
+  * Moved numpy into Recommends
+
+ -- Yaroslav Halchenko <debian@onerussian.com>  Wed, 06 Oct 2010 17:38:06 -0400
+
 joblib (0.4.3-1) unstable; urgency=low
 
   * Initial release (Closes: #590747). Includes 1 commit past 0.4.3 tag: test
