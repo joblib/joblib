@@ -31,8 +31,8 @@ Provenance tracking for understanding the code
 .. topic:: But pipeline frameworks can get in the way
     :class: warning
 
-    We want our code to look like the underlying mathematical
-    operations, not like a software framework.
+    We want our code to look like the underlying algorithm, 
+    not like a software framework.
 
 Joblib's approach
 --------------------

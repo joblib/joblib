@@ -21,8 +21,10 @@ if not 'extra_setuptools_args' in globals():
 # if nose available, provide test command
 try:
     from nose.commands import nosetests
-    extra_setuptools_args['cmdclass']={'test': nosetests,
-                                       'nosetests': nosetests}
+    cmdclass = extra_setuptools_args.pop('cmdclass', {})
+    cmdclass['test'] = nosetests
+    cmdclass['nosetests'] = nosetests
+    extra_setuptools_args['cmdclass'] = cmdclass
 except ImportError:
     pass
 
@@ -31,7 +33,7 @@ setup(name='joblib',
       summary='Tools to use Python functions as pipeline jobs.',
       author='Gael Varoquaux',
       author_email='gael.varoquaux@normalesup.org',
-      url='http://github.com/joblib/joblib',
+      url='http://packages.python.org/joblib/',
       description="""
 Lightweight pipelining: using Python functions as pipeline jobs.
 """,

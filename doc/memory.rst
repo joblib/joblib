@@ -141,7 +141,8 @@ Using memmapping
 To speed up cache looking of large numpy arrays, you can load them
 using memmapping (memory mapping)::
 
-    >>> memory2 = Memory(cachedir=cachedir, mmap_mode='r')
+    >>> cachedir2 = mkdtemp()
+    >>> memory2 = Memory(cachedir=cachedir2, mmap_mode='r')
     >>> square = memory2.cache(np.square)
     >>> a = np.vander(np.arange(3))
     >>> square(a)
@@ -163,11 +164,18 @@ using memmapping (memory mapping)::
 If the `square` function is called with the same input argument, its
 return value is loaded from the disk using memmapping::
 
-    >>> square(a)
+    >>> res = square(a)
+    >>> print repr(res)
     memmap([[ 0,  0,  1],
            [ 1,  1,  1],
            [16,  4,  1]])
 
+..
+
+ We need to close the memmap file to avoid file locking on Windows; closing
+ numpy.memmap objects is done with del, which flushes changes to the disk
+ 
+    >>> del res
    
 .. note::
 
@@ -257,6 +265,27 @@ Gotchas
     >>> print sin(0)
     0.0
 
+* **caching methods**: you cannot decorate a method at class definition,
+  because when the class is instanciated, the first argument (self) is 
+  *bound*, and no longer accessible to the `Memory` object. The following
+  code won't work::
+
+    class Foo(object):
+
+        @mem.cache  # WRONG
+        def method(self, args):
+	    pass
+
+  The right way to do this is to decorate at instanciation time::
+
+    class Foo(object):
+
+        def __init__(self, args):
+            self.method = mem.cache(self.method)
+
+        def method(self, ...):
+	    pass
+
 Ignoring some arguments
 ------------------------
 
@@ -296,10 +325,14 @@ methods useful for cache exploration and management.
  
     >>> import shutil
     >>> shutil.rmtree(cachedir)
+    >>> import shutil
+    >>> shutil.rmtree(cachedir2)
  
  And we check that it has indeed been remove::
  
     >>> import os ; os.path.exists(cachedir)
+    False
+    >>> os.path.exists(cachedir2)
     False
 
 

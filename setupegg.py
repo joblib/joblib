@@ -84,8 +84,8 @@ class GenerateHelp(Command):
 extra_setuptools_args = dict(
                             tests_require=['nose', 'coverage'],
                             test_suite='nose.collector',
-                            cmdclass={'zip_help':ZipHelp,
-                                      'generate_help':GenerateHelp,
+                            cmdclass={'zip_help': ZipHelp,
+                                      'generate_help': GenerateHelp,
                                       'upload_help': UploadDoc},
                             zip_safe=False,
                             )

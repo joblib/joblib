@@ -192,3 +192,32 @@ latex_documents = [
 
 # If false, no module index is generated.
 #latex_use_modindex = True
+
+html_theme_options = {
+#    "bgcolor": "#fff",
+#    "footertextcolor": "#666",
+    "relbarbgcolor": "#333",
+#    "relbarlinkcolor": "#445481",
+#    "relbartextcolor": "#445481",
+    "sidebarlinkcolor": "#e15617",
+    "sidebarbgcolor": "#000",
+#    "sidebartextcolor": "#333",
+    "footerbgcolor": "#111",
+    "linkcolor": "#aa560c",
+#    "bodyfont": '"Lucida Grande",Verdana,Lucida,Helvetica,Arial,sans-serif',
+#    "headfont": "georgia, 'bitstream vera sans serif', 'lucida grande', helvetica, verdana, sans-serif",
+#    "headbgcolor": "#F5F5F5",
+    "headtextcolor": "#643200",
+    "codebgcolor": "#f5efe7",
+}
+
+################################################################################
+# Hack to copy the CHANGES.rst file
+import shutil
+try:
+    shutil.copyfile('../CHANGES.rst', 'CHANGES.rst')
+    shutil.copyfile('../README.rst', 'README.rst')
+except IOError:
+    pass
+    # This fails during the tesing, as the code is ran in a different
+    # directory
