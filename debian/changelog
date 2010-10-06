@@ -1,7 +1,11 @@
 joblib (0.4.5-1) experimental; urgency=low
 
   * New upstream release
-  * Moved numpy into Recommends
+  * debian/control:
+    - moved numpy into Recommends
+    - point -vcs to github
+    - policy boost to 3.9.1 -- no changes
+
 
  -- Yaroslav Halchenko <debian@onerussian.com>  Wed, 06 Oct 2010 17:38:06 -0400
 
