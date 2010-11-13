@@ -182,7 +182,7 @@ def filter_args(func, ignore_lst, *args, **kwargs):
             else:
                 try:
                     arg_dict[arg_name] = arg_defaults[position]
-                except IndexError:
+                except (IndexError, KeyError):
                     # Missing argument
                     raise ValueError('Wrong number of arguments for %s%s:\n'
                                      '     %s(%s, %s) was called.'
