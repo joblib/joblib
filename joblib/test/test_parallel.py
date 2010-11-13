@@ -76,7 +76,12 @@ def test_error_capture():
                                 Parallel(n_jobs=2),
                     [delayed(division)(x, y) for x, y in zip((0, 1), (1, 0))],
                         )
-
+    try:
+        Parallel(n_jobs=1)(
+                    delayed(division)(x, y) for x, y in zip((0, 1), (1, 0)))
+    except Exception, e:
+        pass
+    nose.tools.assert_false(isinstance(e, JoblibException))
 
 ################################################################################
 # Test helpers
