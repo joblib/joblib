@@ -175,7 +175,7 @@ class Registry(object):
         return db, size_gain
 
 
-    def _rm_dir(self, dir_name)
+    def _rm_dir(self, dir_name):
         try:
             shutil.rmtree(dir_name)
         except:
