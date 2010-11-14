@@ -28,6 +28,21 @@ class JoblibException(Exception):
     __str__ = __repr__
 
 
+class TransportableException(JoblibException):
+    """ An exception containing all the info to wrap an original
+        exception and recreate it.
+    """
+    
+    def __init__(self, message, etype):
+        self.message = message
+        self.etype   = etype
+
+    def __reduce__(self):
+        # For pickling
+        return self.__class__, (self.message, self.etype), {}
+
+    
+
 _exception_mapping = dict()
 
 def _mk_exception(exception, name=None):
