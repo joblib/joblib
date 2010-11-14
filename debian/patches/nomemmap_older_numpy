@@ -1,0 +1,19 @@
+From: Yaroslav Halchenko <debian@onerussian.com>
+Subject: skip 1 doctest of automatic memmapping on older numpys
+
+ To be used with older versions of numpy (<=1.2.1 e.g. as on lenny)
+
+Vendor: Debian
+diff --git a/doc/memory.rst b/doc/memory.rst
+index 9998b05..2b84c5f 100644
+--- a/doc/memory.rst
++++ b/doc/memory.rst
+@@ -165,7 +165,7 @@ If the `square` function is called with the same input argument, its
+ return value is loaded from the disk using memmapping::
+ 
+     >>> res = square(a)
+-    >>> print repr(res)
++    >>> print repr(res) # doctest: +SKIP
+     memmap([[ 0,  0,  1],
+            [ 1,  1,  1],
+            [16,  4,  1]])
