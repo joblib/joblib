@@ -68,7 +68,14 @@ def test_error_capture():
     """ Check that error are captured, and that correct exceptions
         are raised.
     """
-    nose.tools.assert_raises(JoblibException,
+    try:
+        import multiprocessing
+    except ImportError:
+        multiprocessing = None
+    if multiprocessing is not None:
+        # A JoblibException will be raised only if there is indeed
+        # multiprocessing
+        nose.tools.assert_raises(JoblibException,
                                 Parallel(n_jobs=2),
                     [delayed(division)(x, y) for x, y in zip((0, 1), (1, 0))],
                         )
