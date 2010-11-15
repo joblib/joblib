@@ -23,6 +23,14 @@ from .logger import Logger, short_format_time
 from .my_exceptions import TransportableException, _mk_exception
 
 ################################################################################
+class WorkerInterrupt(Exception):
+    """ An exception that is not KeyboardInterrupt to allow subprocesses
+        to be interrupted.
+    """
+    pass
+
+
+################################################################################
 
 class SafeFunction(object):
     """ Wraps a function to make it exception with full traceback in
@@ -38,6 +46,11 @@ class SafeFunction(object):
     def __call__(self, *args, **kwargs):
         try:
             return self.func(*args, **kwargs)
+        except KeyboardInterrupt:
+            # We capture the KeyboardInterrupt and reraise it as
+            # something different, as multiprocessing does not
+            # interrupt processing for a KeyboardInterrupt
+            raise WorkerInterrupt()
         except:
             e_type, e_value, e_tb = sys.exc_info()
             text = format_exc(e_type, e_value, e_tb, context=10,
@@ -77,6 +90,7 @@ def delayed(function):
     return delayed_function
 
 
+################################################################################
 class LazyApply(object):
     """ Lazy version of the apply builtin function.
     """
@@ -90,6 +104,7 @@ class LazyApply(object):
 
 
 
+################################################################################
 class Parallel(Logger):
     ''' Helper class for readable parallel mapping.
 
@@ -122,6 +137,8 @@ class Parallel(Logger):
                 - early capture of pickling errors
 
             * An optional progress meter.
+
+            * Interruption of multiprocesses jobs with 'Ctrl-C'
 
         Examples
         --------
@@ -203,6 +220,8 @@ class Parallel(Logger):
             else:
                 n_jobs = multiprocessing.cpu_count()
 
+        # The list of exceptions that we will capture
+        exceptions = [TransportableException]
         if n_jobs is None or multiprocessing is None or n_jobs == 1:
             n_jobs = 1
             apply = LazyApply 
@@ -210,6 +229,9 @@ class Parallel(Logger):
             pool = multiprocessing.Pool(n_jobs)
             def apply(func, args, kwargs):
                 return pool.apply_async(SafeFunction(function), args, kwargs)
+            # We are using multiprocessing, we also want to capture
+            # KeyboardInterrupts
+            exceptions.extend([KeyboardInterrupt, WorkerInterrupt])
 
         output = list()
         start_time = time.time()
@@ -231,15 +253,22 @@ class Parallel(Logger):
                     if self.verbose:
                         print_progress(self, index, len(jobs), start_time,
                                        n_jobs=n_jobs)
-                except TransportableException, exception:
-                    # Capture exception to add information on 
-                    # the local stack in addition to the distant
-                    # stack
-                    this_report = format_outer_frames(
-                                            context=10,
-                                            stack_start=1,
-                                            )
-                    report = """Multiprocessing exception:
+                except tuple(exceptions), exception:
+                    if isinstance(exception, 
+                            (KeyboardInterrupt, WorkerInterrupt)):
+                        # We have captured a user interruption, clean up
+                        # everything
+                        pool.terminate()
+                        raise exception
+                    elif isinstance(exception, TransportableException):
+                        # Capture exception to add information on 
+                        # the local stack in addition to the distant
+                        # stack
+                        this_report = format_outer_frames(
+                                                context=10,
+                                                stack_start=1,
+                                                )
+                        report = """Multiprocessing exception:
 %s
 ---------------------------------------------------------------------------
 Sub-process traceback: 
@@ -248,9 +277,10 @@ Sub-process traceback:
                                 this_report,
                                 exception.message,
                             )
-                    # Convert this to a JoblibException
-                    exception_type = _mk_exception(exception.etype)[0]
-                    raise exception_type(report)
+                        # Convert this to a JoblibException
+                        exception_type = _mk_exception(exception.etype)[0]
+                        raise exception_type(report)
+                    raise exception
         finally:
             if n_jobs > 1:
                 pool.close()

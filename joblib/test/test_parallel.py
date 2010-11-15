@@ -6,6 +6,7 @@ Test the parallel module.
 # Copyright (c) 2010 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
+import time
 try:
     import cPickle as pickle
     PickleError = TypeError
@@ -13,7 +14,7 @@ except:
     import pickle
     PickleError = pickle.PicklingError
 
-from ..parallel import Parallel, delayed, SafeFunction
+from ..parallel import Parallel, delayed, SafeFunction, WorkerInterrupt
 from ..my_exceptions import JoblibException
 
 import nose
@@ -25,6 +26,10 @@ def division(x, y):
 
 def square(x):
     return x**2
+
+def interrupt_raiser(x):
+    time.sleep(.05)
+    raise KeyboardInterrupt
 
 def f(x, y=0, z=0):
     """ A module-level function so that it can be spawn with
@@ -79,6 +84,15 @@ def test_error_capture():
                                 Parallel(n_jobs=2),
                     [delayed(division)(x, y) for x, y in zip((0, 1), (1, 0))],
                         )
+        nose.tools.assert_raises(WorkerInterrupt,
+                                    Parallel(n_jobs=2),
+                        [delayed(interrupt_raiser)(x) for x in (1, 0)],
+                            )
+    else:
+        nose.tools.assert_raises(KeyboardInterrupt,
+                                    Parallel(n_jobs=2),
+                        [delayed(interrupt_raiser)(x) for x in (1, 0)],
+                            )
     nose.tools.assert_raises(ZeroDivisionError,
                                 Parallel(n_jobs=2),
                     [delayed(division)(x, y) for x, y in zip((0, 1), (1, 0))],
