@@ -176,7 +176,7 @@ class MemorizedFunc(Logger):
    
     def __init__(self, func, cachedir, ignore=None, save_npy=True, 
                              mmap_mode=None, verbose=1, db=None,
-                             limit=None):
+                             limit=None, timestamp=None):
         """
             Parameters
             ----------
@@ -201,6 +201,9 @@ class MemorizedFunc(Logger):
                 The database to keep track of the access.
             limit: string of the form '1M' or None, optional
                 The maximum size of the cache stored on disk
+            timestamp: float, optional
+                The reference time from which times in tracing messages
+                are reported.
         """
         Logger.__init__(self)
         self._verbose = verbose
@@ -214,6 +217,9 @@ class MemorizedFunc(Logger):
         self.save_npy = save_npy
         self.mmap_mode = mmap_mode
         self.db = db
+        if timestamp is None:
+            timestamp = time.time()
+        self.timestamp = timestamp
         if ignore is None:
             ignore = []
         self.ignore = ignore
@@ -557,6 +563,12 @@ class MemorizedFunc(Logger):
         """ Read the results of a previous calculation from the directory
             it was cached in.
         """
+        if self._verbose > 1:
+            t = time.time() - self.timestamp
+            print '[Memory]% 16s: Loading %s...' % (
+                                    format_time(t),
+                                    self.format_signature(self.func)[0]
+                                    )
         filename = os.path.join(output_dir, 'output.pkl')
         if self.save_npy:
             return numpy_pickle.load(filename, 
@@ -629,6 +641,7 @@ class Memory(Logger):
             'The cache size limit should be greater than 40K, %s was passed'
             % limit)
         self.limit = limit
+        self.timestamp = time.time()
         if cachedir is None:
             self.cachedir = None
             self.db = None
@@ -664,7 +677,8 @@ class Memory(Logger):
                                    ignore=ignore,
                                    verbose=self._verbose, 
                                    db=self.db, 
-                                   limit=self.limit)
+                                   limit=self.limit,
+                                   timestamp=self.timestamp)
 
 
     def clear(self, warn=True):
