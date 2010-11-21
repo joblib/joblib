@@ -108,7 +108,7 @@ class MemorizedFunc(Logger):
     #-------------------------------------------------------------------------
    
     def __init__(self, func, cachedir, ignore=None, save_npy=True, 
-                             mmap_mode=None, verbose=1):
+                             mmap_mode=None, verbose=1, timestamp=None):
         """
             Parameters
             ----------
@@ -128,7 +128,10 @@ class MemorizedFunc(Logger):
                 cache was created.
             verbose: int, optional
                 Verbosity flag, controls the debug messages that are issued 
-                as functions are revaluated.
+                as functions are revaluated. The higher, the more verbose
+            timestamp: float, optional
+                The reference time from which times in tracing messages
+                are reported.
         """
         Logger.__init__(self)
         self._verbose = verbose
@@ -136,6 +139,9 @@ class MemorizedFunc(Logger):
         self.func = func
         self.save_npy = save_npy
         self.mmap_mode = mmap_mode
+        if timestamp is None:
+            timestamp = time.time()
+        self.timestamp = timestamp
         if ignore is None:
             ignore = []
         self.ignore = ignore
@@ -389,6 +395,12 @@ class MemorizedFunc(Logger):
         """ Read the results of a previous calculation from the directory
             it was cached in.
         """
+        if self._verbose > 1:
+            t = time.time() - self.timestamp
+            print '[Memory]% 16s: Loading %s...' % (
+                                    format_time(t),
+                                    self.format_signature(self.func)[0]
+                                    )
         filename = os.path.join(output_dir, 'output.pkl')
         if self.save_npy:
             return numpy_pickle.load(filename, 
@@ -454,6 +466,7 @@ class Memory(Logger):
         self._verbose = verbose
         self.save_npy = save_npy
         self.mmap_mode = mmap_mode
+        self.timestamp = time.time()
         if cachedir is None:
             self.cachedir = None
         else:
@@ -484,7 +497,8 @@ class Memory(Logger):
                                    save_npy=self.save_npy,
                                    mmap_mode=self.mmap_mode,
                                    ignore=ignore,
-                                   verbose=self._verbose)
+                                   verbose=self._verbose,
+                                   timestamp=self.timestamp)
 
 
     def clear(self, warn=True):
