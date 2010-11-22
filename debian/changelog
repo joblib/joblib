@@ -1,4 +1,4 @@
-joblib (0.4.6~rc2-1) experimental; urgency=low
+joblib (0.4.6-1) experimental; urgency=low
 
   * Upcoming upstream bugfix release
   * Added a patch for older distributions (e.g. lenny) to avoid
