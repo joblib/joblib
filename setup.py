@@ -40,7 +40,7 @@ Lightweight pipelining: using Python functions as pipeline jobs.
       long_description=joblib.__doc__,
       license='BSD',
       classifiers=[
-          'Development Status :: 2 - Pre-Alpha',
+          'Development Status :: 4 - Beta',
           'Environment :: Console',
           'Intended Audience :: Developers',
           'Intended Audience :: Science/Research',

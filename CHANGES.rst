@@ -1,6 +1,25 @@
 Latest changes
 ===============
 
+Release 0.4.6
+----------------
+
+Gael varoquaux
+2010-11-15
+
+    ENH: Deal with interruption in parallel
+
+Gael varoquaux
+2010-11-13
+
+    BUG: Exceptions raised by Parallel when n_job=1 are no longer captured.
+
+Gael varoquaux
+2010-11-13
+
+    BUG: Capture wrong arguments properly (better error message)
+
+
 Release 0.4.5
 ----------------
 
