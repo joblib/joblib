@@ -385,10 +385,17 @@ class MemorizedFunc(Logger):
 
         input_repr = dict((k, repr(v)) for k, v in argument_dict.iteritems())
         if json is not None:
-            json.dump(
-                input_repr,
-                file(os.path.join(output_dir, 'input_args.json'), 'w'),
-                )
+            # This can fail do to race-conditions with multiple
+            # concurrent joblibs removing the file or the directory
+            try:
+                if not os.path.exists(output_dir):
+                    os.makedirs(output_dir)
+                json.dump(
+                    input_repr,
+                    file(os.path.join(output_dir, 'input_args.json'), 'w'),
+                    )
+            except:
+                pass
         return input_repr
 
     def load_output(self, output_dir):
