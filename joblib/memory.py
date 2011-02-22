@@ -364,16 +364,19 @@ class MemorizedFunc(Logger):
     def _persist_output(self, output, dir):
         """ Persist the given output tuple in the directory.
         """
-        if not os.path.exists(dir):
-            os.makedirs(dir)
-        filename = os.path.join(dir, 'output.pkl')
+        try:
+            if not os.path.exists(dir):
+                os.makedirs(dir)
+            filename = os.path.join(dir, 'output.pkl')
 
-        if 'numpy' in sys.modules and self.save_npy:
-            numpy_pickle.dump(output, filename) 
-        else:
-            output_file = file(filename, 'w')
-            pickle.dump(output, output_file, protocol=2)
-            output_file.close()
+            if 'numpy' in sys.modules and self.save_npy:
+                numpy_pickle.dump(output, filename) 
+            else:
+                output_file = file(filename, 'w')
+                pickle.dump(output, output_file, protocol=2)
+                output_file.close()
+        except OSError:
+            " Race condition in the creation of the directory "
 
 
     def _persist_input(self, output_dir, *args, **kwargs):
