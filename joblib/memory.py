@@ -485,9 +485,24 @@ class Memory(Logger):
                 os.makedirs(self.cachedir)
 
 
-    def cache(self, func=None, ignore=None):
+    def cache(self, func=None, ignore=None, verbose=None,
+                        mmap_mode=False):
         """ Decorates the given function func to only compute its return
             value for input arguments not cached on disk.
+
+            Parameters
+            ----------
+            func: callable, optional
+                The function to be decorated
+            ignore: list of strings
+                A list of arguments name to ignore in the hashing
+            verbose: integer, optional
+                The verbosity mode of the function. By default that
+                of the memory object is used.
+            mmap_mode: {None, 'r+', 'r', 'w+', 'c'}, optional
+                The memmapping mode used when loading from cache
+                numpy arrays. See numpy.load for the meaning of the
+                arguments. By default that of the memory object is used.
 
             Returns
             -------
@@ -503,11 +518,17 @@ class Memory(Logger):
             return functools.partial(self.cache, ignore=ignore)
         if self.cachedir is None:
             return func
+        if verbose is None:
+            verbose = self._verbose
+        if mmap_mode is False:
+            mmap_mode = self.mmap_mode
+        if isinstance(func, MemorizedFunc):
+            func = func.func
         return MemorizedFunc(func, cachedir=self.cachedir,
                                    save_npy=self.save_npy,
-                                   mmap_mode=self.mmap_mode,
+                                   mmap_mode=mmap_mode,
                                    ignore=ignore,
-                                   verbose=self._verbose,
+                                   verbose=verbose,
                                    timestamp=self.timestamp)
 
 
