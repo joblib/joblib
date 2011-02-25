@@ -179,7 +179,7 @@ class MemorizedFunc(Logger):
                     (args, kwargs, traceback.format_exc())
                     )
 
-                shutil.rmtree(output_dir)
+                shutil.rmtree(output_dir, ignore_errors=True)
                 return self.call(*args, **kwargs)
 
     #-------------------------------------------------------------------------
@@ -238,11 +238,14 @@ class MemorizedFunc(Logger):
         func_dir = self._get_func_dir()
         func_code_file = os.path.join(func_dir, 'func_code.py')
 
-        if not os.path.exists(func_code_file): 
-            self._write_func_code(func_code_file, func_code, first_line)
-            return False
-        old_func_code, old_first_line = \
-                        extract_first_line(file(func_code_file).read())
+        try:
+            if not os.path.exists(func_code_file): 
+                raise IOError
+            old_func_code, old_first_line = \
+                            extract_first_line(file(func_code_file).read())
+        except IOError:
+                self._write_func_code(func_code_file, func_code, first_line)
+                return False
         if old_func_code == func_code:
             return True
 
@@ -295,7 +298,7 @@ class MemorizedFunc(Logger):
         if self._verbose and warn:
             self.warn("Clearing cache %s" % func_dir)
         if os.path.exists(func_dir):
-            shutil.rmtree(func_dir)
+            shutil.rmtree(func_dir, ignore_errors=True)
         os.makedirs(func_dir)
         func_code, _, first_line = get_func_code(self.func)
         func_code_file = os.path.join(func_dir, 'func_code.py')
