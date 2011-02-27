@@ -207,10 +207,17 @@ class Parallel(Logger):
     def __init__(self, n_jobs=None, verbose=0):
         self.verbose = verbose
         self.n_jobs = n_jobs
+        self._pool = None
         # Not starting the pool in the __init__ is a design decision, to
         # be able to close it ASAP, and not burden the user with closing
         # it.
 
+    def _apply(self, func, args, kwargs):
+        """ Do the apply, with or without multiprocessing """
+        if self._pool is None:
+            return LazyApply(func, args, kwargs)
+        # XXX: Must add callback here
+        return self._pool.apply_async(SafeFunction(func), args, kwargs)
 
     def __call__(self, iterable):
         n_jobs = self.n_jobs
@@ -224,11 +231,9 @@ class Parallel(Logger):
         exceptions = [TransportableException]
         if n_jobs is None or multiprocessing is None or n_jobs == 1:
             n_jobs = 1
-            apply = LazyApply 
+            self._pool = None
         else:
-            pool = multiprocessing.Pool(n_jobs)
-            def apply(func, args, kwargs):
-                return pool.apply_async(SafeFunction(function), args, kwargs)
+            self._pool = multiprocessing.Pool(n_jobs)
             # We are using multiprocessing, we also want to capture
             # KeyboardInterrupts
             exceptions.extend([KeyboardInterrupt, WorkerInterrupt])
@@ -237,7 +242,7 @@ class Parallel(Logger):
         start_time = time.time()
         try:
             for index, (function, args, kwargs) in enumerate(iterable):
-                output.append(apply(function, args, kwargs))
+                output.append(self._apply(function, args, kwargs))
                 if self.verbose and n_jobs == 1:
                     print '[%s]: Done job %3i | elapsed: %s' % (
                             self, index, 
@@ -258,7 +263,7 @@ class Parallel(Logger):
                             (KeyboardInterrupt, WorkerInterrupt)):
                         # We have captured a user interruption, clean up
                         # everything
-                        pool.terminate()
+                        self._pool.terminate()
                         raise exception
                     elif isinstance(exception, TransportableException):
                         # Capture exception to add information on 
@@ -283,8 +288,8 @@ Sub-process traceback:
                     raise exception
         finally:
             if n_jobs > 1:
-                pool.close()
-                pool.join()
+                self._pool.close()
+                self._pool.join()
         return output
 
 
