@@ -238,19 +238,19 @@ class Parallel(Logger):
             # KeyboardInterrupts
             exceptions.extend([KeyboardInterrupt, WorkerInterrupt])
 
-        output = list()
+        jobs = list()
         start_time = time.time()
         try:
             for index, (function, args, kwargs) in enumerate(iterable):
-                output.append(self._apply(function, args, kwargs))
+                jobs.append(self._apply(function, args, kwargs))
                 if self.verbose and n_jobs == 1:
+                    # XXX: This should go in the callback mecanism
                     print '[%s]: Done job %3i | elapsed: %s' % (
                             self, index, 
                             short_format_time(time.time() - start_time)
                         )
 
             start_time = time.time()
-            jobs = output
             output = list()
             for index, job in enumerate(jobs):
                 try:
