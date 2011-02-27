@@ -231,8 +231,9 @@ class Parallel(Logger):
         self._jobs = list()
 
 
-    def _apply(self, func, args, kwargs):
-        """ Do the apply, with or without multiprocessing """
+    def queue(self, func, args, kwargs):
+        """ Queue the function for computing, with or without multiprocessing 
+        """
         index = len(self._jobs)
         if self._pool is None:
             job = LazyApply(func, args, kwargs)
@@ -251,11 +252,8 @@ class Parallel(Logger):
         if self._jobs:
             raise ValueError('This Parallel instance is already running')
         n_jobs = self.n_jobs
-        if n_jobs == -1:
-            if multiprocessing is None:
-                n_jobs = 1
-            else:
-                n_jobs = multiprocessing.cpu_count()
+        if n_jobs == -1 and multiprocessing is not None:
+            n_jobs = multiprocessing.cpu_count()
 
         # The list of exceptions that we will capture
         exceptions = [TransportableException]
@@ -271,10 +269,10 @@ class Parallel(Logger):
         self._start_time = time.time()
         try:
             for index, (function, args, kwargs) in enumerate(iterable):
-                self._apply(function, args, kwargs)
+                self.queue(function, args, kwargs)
 
             self._output = list()
-            for index, job in enumerate(self._jobs):
+            for job in self._jobs:
                 try:
                     self._output.append(job.get())
                 except tuple(exceptions), exception:
