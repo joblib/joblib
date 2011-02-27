@@ -118,11 +118,17 @@ class CallBack(object):
         elapsed_time = time.time() - self.parallel._start_time
         remaining_time = (elapsed_time/(index + 1)*
                     (total - index - 1.))
+        if self.parallel._iterable:
+            # The object is still building it's job list
+            total = "%3i+" % total
+        else:
+            total = "%3i " % total
+
         if self.parallel.verbose < 50:
             writer = sys.stderr.write
         else:
             writer = sys.stdout.write
-        writer('[%s]: Done %3i out of %3i |elapsed: %s remaining: %s\n'
+        writer('[%s]: Done %3i out of %s |elapsed: %s remaining: %s\n'
                 % (self.parallel,
                     index+1, 
                     total, 
@@ -143,7 +149,8 @@ class Parallel(Logger):
             at all, which is useful for debuging.
         verbose: int, optional
             The verbosity level. If 1 is given, the elapsed time as well
-            as the estimated remaining time are displayed.
+            as the estimated remaining time are displayed. Above 100, the
+            output is sent to stdout.
         pre_dispatch: {'all', integer, or expression, as in '3*n_jobs'}
             The amount of jobs to be pre-dispatched. Default is 'all',
             but it may be memory consuming, for instance if each job 
@@ -237,7 +244,8 @@ class Parallel(Logger):
         Using pre_dispatch in a producer/consumer situation, where the
         data is generated on the fly. Note how the producer is first
         called a 3 times before the parallel loop is initiated, and then
-        called to generate new data on the fly::
+        called to generate new data on the fly. In this case the total
+        number of iterations reported is underestimated::
 
          >>> from math import sqrt
          >>> from joblib import Parallel, delayed
@@ -252,9 +260,9 @@ class Parallel(Logger):
          Produced 0
          Produced 1
          Produced 2
-         [Parallel(n_jobs=2)]: Done   1 out of   3 |elapsed:    0.0s remaining:    0.0s
+         [Parallel(n_jobs=2)]: Done   1 out of   3+ |elapsed:    0.0s remaining:    0.0s
          Produced 3
-         [Parallel(n_jobs=2)]: Done   2 out of   4 |elapsed:    0.0s remaining:    0.0s
+         [Parallel(n_jobs=2)]: Done ... out of   4+ |elapsed:    0.0s remaining:    0.0s
          ...
 
     '''
@@ -300,6 +308,7 @@ class Parallel(Logger):
                     the dispatch will be done later.
                 """
             except StopIteration:
+                self._iterable = None
                 return
 
 
