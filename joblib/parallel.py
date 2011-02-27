@@ -222,13 +222,13 @@ class Parallel(Logger):
     '''
     def __init__(self, n_jobs=None, verbose=0):
         self.verbose = verbose
-        self.n_jobs = n_jobs
-        self._pool = None
+        self.n_jobs  = n_jobs
+        self._pool   = None
         # Not starting the pool in the __init__ is a design decision, to
         # be able to close it ASAP, and not burden the user with closing
         # it.
         self._output = None
-        self._jobs = list()
+        self._jobs   = list()
 
 
     def queue(self, func, args, kwargs):
@@ -268,7 +268,7 @@ class Parallel(Logger):
 
         self._start_time = time.time()
         try:
-            for index, (function, args, kwargs) in enumerate(iterable):
+            for function, args, kwargs in iterable:
                 self.queue(function, args, kwargs)
 
             self._output = list()
