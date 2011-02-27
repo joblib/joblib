@@ -57,25 +57,6 @@ class SafeFunction(object):
                              tb_offset=1)
             raise TransportableException(text, e_type)
 
-def print_progress(msg, index, total, start_time, n_jobs=1):
-    # XXX: Not using the logger framework: need to
-    # learn to use logger better.
-    if total > 2*n_jobs:
-        # Report less often
-        if not index % n_jobs == 0:
-            return
-    elapsed_time = time.time() - start_time
-    remaining_time = (elapsed_time/(index + 1)*
-                (total - index - 1.))
-    sys.stderr.write('[%s]: Done %3i out of %3i |elapsed: %s remaining: %s\n'
-            % (msg,
-                index+1, 
-                total, 
-                short_format_time(elapsed_time),
-                short_format_time(remaining_time),
-                ))
-
-
 ################################################################################
 def delayed(function):
     """ Decorator used to capture the arguments of a function.
@@ -101,6 +82,41 @@ class LazyApply(object):
 
     def get (self):
         return self.func(*self.args, **self.kwargs)
+
+
+################################################################################
+class CallBack(object):
+    """ Callback used by parallel
+    """
+    def __init__(self, index, parallel):
+        self.index = index
+        self.parallel = parallel
+
+    def __call__(self, out):
+        if self.parallel.verbose:
+            self.print_progress()
+
+    def print_progress(self):
+        # XXX: Not using the logger framework: need to
+        # learn to use logger better.
+        n_jobs = len(self.parallel._pool._pool)
+        index  = self.index
+        total  = len(self.parallel._jobs)
+        if total > 2*n_jobs:
+            # Report less often
+            if not index % n_jobs == 0:
+                return
+        elapsed_time = time.time() - self.parallel._start_time
+        remaining_time = (elapsed_time/(index + 1)*
+                    (total - index - 1.))
+        sys.stderr.write('[%s]: Done %3i out of %3i |elapsed: %s remaining: %s\n'
+                % (self.parallel,
+                    index+1, 
+                    total, 
+                    short_format_time(elapsed_time),
+                    short_format_time(remaining_time),
+                    ))
+
 
 
 
@@ -211,19 +227,33 @@ class Parallel(Logger):
         # Not starting the pool in the __init__ is a design decision, to
         # be able to close it ASAP, and not burden the user with closing
         # it.
+        self._output = None
+        self._jobs = list()
+
 
     def _apply(self, func, args, kwargs):
         """ Do the apply, with or without multiprocessing """
+        index = len(self._jobs)
         if self._pool is None:
-            return LazyApply(func, args, kwargs)
-        # XXX: Must add callback here
-        return self._pool.apply_async(SafeFunction(func), args, kwargs)
+            job = LazyApply(func, args, kwargs)
+            if self.verbose:
+                print '[%s]: Done job %3i | elapsed: %s' % (
+                        self, index+1,
+                        short_format_time(time.time() - self._start_time)
+                    )
+        else:
+            job = self._pool.apply_async(SafeFunction(func), args,
+                            kwargs, callback=CallBack(index, self))
+        self._jobs.append(job)
+
 
     def __call__(self, iterable):
+        if self._jobs:
+            raise ValueError('This Parallel instance is already running')
         n_jobs = self.n_jobs
         if n_jobs == -1:
             if multiprocessing is None:
-                 n_jobs = 1
+                n_jobs = 1
             else:
                 n_jobs = multiprocessing.cpu_count()
 
@@ -238,26 +268,15 @@ class Parallel(Logger):
             # KeyboardInterrupts
             exceptions.extend([KeyboardInterrupt, WorkerInterrupt])
 
-        jobs = list()
-        start_time = time.time()
+        self._start_time = time.time()
         try:
             for index, (function, args, kwargs) in enumerate(iterable):
-                jobs.append(self._apply(function, args, kwargs))
-                if self.verbose and n_jobs == 1:
-                    # XXX: This should go in the callback mecanism
-                    print '[%s]: Done job %3i | elapsed: %s' % (
-                            self, index, 
-                            short_format_time(time.time() - start_time)
-                        )
+                self._apply(function, args, kwargs)
 
-            start_time = time.time()
-            output = list()
-            for index, job in enumerate(jobs):
+            self._output = list()
+            for index, job in enumerate(self._jobs):
                 try:
-                    output.append(job.get())
-                    if self.verbose:
-                        print_progress(self, index, len(jobs), start_time,
-                                       n_jobs=n_jobs)
+                    self._output.append(job.get())
                 except tuple(exceptions), exception:
                     if isinstance(exception, 
                             (KeyboardInterrupt, WorkerInterrupt)):
@@ -290,6 +309,9 @@ Sub-process traceback:
             if n_jobs > 1:
                 self._pool.close()
                 self._pool.join()
+            self._jobs = list()
+        output = self._output
+        self._output = None
         return output
 
 
