@@ -3,7 +3,7 @@ Test the parallel module.
 """
 
 # Author: Gael Varoquaux <gael dot varoquaux at normalesup dot org> 
-# Copyright (c) 2010 Gael Varoquaux
+# Copyright (c) 2010-2011 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
 import time
@@ -103,6 +103,31 @@ def test_error_capture():
     except Exception, e:
         pass
     nose.tools.assert_false(isinstance(e, JoblibException))
+
+
+class Counter(object):
+    def __init__(self, list1, list2):
+        self.list1 = list1
+        self.list2 = list2
+
+    def __call__(self, i):
+        self.list1.append(i)
+        nose.tools.assert_equal(len(self.list1), len(self.list2))
+
+
+def test_dispatch_one_job():
+    """ Test that with only one job, Parallel does act as a iterator.
+    """
+    produced = list()
+    consumed = list()
+    def producer():
+        for i in range(6):
+            produced.append(i)
+            yield i
+    consumer = Counter(list1=consumed, list2=consumed)
+
+    Parallel(n_jobs=1)(delayed(consumer)(x) for x in producer())
+
 
 ################################################################################
 # Test helpers

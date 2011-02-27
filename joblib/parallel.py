@@ -8,6 +8,7 @@ Helpers for embarassingly parallel code.
 import sys
 import functools
 import time
+import itertools
 try:
     import cPickle as pickle
 except:
@@ -22,6 +23,7 @@ from .format_stack import format_exc, format_outer_frames
 from .logger import Logger, short_format_time
 from .my_exceptions import TransportableException, _mk_exception
 
+
 ################################################################################
 class WorkerInterrupt(Exception):
     """ An exception that is not KeyboardInterrupt to allow subprocesses
@@ -31,7 +33,6 @@ class WorkerInterrupt(Exception):
 
 
 ################################################################################
-
 class SafeFunction(object):
     """ Wraps a function to make it exception with full traceback in
         their representation.
@@ -57,6 +58,7 @@ class SafeFunction(object):
                              tb_offset=1)
             raise TransportableException(text, e_type)
 
+
 ################################################################################
 def delayed(function):
     """ Decorator used to capture the arguments of a function.
@@ -65,28 +67,32 @@ def delayed(function):
     # using with multiprocessing
     pickle.dumps(function)
 
-    @functools.wraps(function)
     def delayed_function(*args, **kwargs):
         return function, args, kwargs
+    try:
+        delayed_function = functools.wraps(function)(delayed_function)
+    except AttributeError:
+        " functools.wraps fails on some callable objects "
     return delayed_function
 
 
 ################################################################################
-class LazyApply(object):
-    """ Lazy version of the apply builtin function.
+class ImmediateApply(object):
+    """ A non-delayed apply function.
     """
     def __init__ (self, func, args, kwargs):
-        self.func   = func
-        self.args   = args
-        self.kwargs = kwargs
+        # Don't delay the application, to avoid keeping the input
+        # arguments in memory
+        self.results = func(*args, **kwargs)
 
     def get (self):
-        return self.func(*self.args, **self.kwargs)
+        return self.results
 
 
 ################################################################################
 class CallBack(object):
-    """ Callback used by parallel
+    """ Callback used by parallel: it is used for progress reporting, and 
+        to add data to be processed
     """
     def __init__(self, index, parallel):
         self.index = index
@@ -95,6 +101,9 @@ class CallBack(object):
     def __call__(self, out):
         if self.parallel.verbose:
             self.print_progress()
+        if self.parallel._iterable:
+            self.parallel._dispatch_amount += 1
+            self.parallel.dispatch_next()
 
     def print_progress(self):
         # XXX: Not using the logger framework: need to
@@ -109,15 +118,17 @@ class CallBack(object):
         elapsed_time = time.time() - self.parallel._start_time
         remaining_time = (elapsed_time/(index + 1)*
                     (total - index - 1.))
-        sys.stderr.write('[%s]: Done %3i out of %3i |elapsed: %s remaining: %s\n'
+        if self.parallel.verbose < 50:
+            writer = sys.stderr.write
+        else:
+            writer = sys.stdout.write
+        writer('[%s]: Done %3i out of %3i |elapsed: %s remaining: %s\n'
                 % (self.parallel,
                     index+1, 
                     total, 
                     short_format_time(elapsed_time),
                     short_format_time(remaining_time),
                     ))
-
-
 
 
 ################################################################################
@@ -133,6 +144,10 @@ class Parallel(Logger):
         verbose: int, optional
             The verbosity level. If 1 is given, the elapsed time as well
             as the estimated remaining time are displayed.
+        pre_dispatch: {'all', integer, or expression, as in '3*n_jobs'}
+            The amount of jobs to be pre-dispatched. Default is 'all',
+            but it may be memory consuming, for instance if each job 
+            involves a lot of a data.
         
         Notes
         -----
@@ -219,10 +234,34 @@ class Parallel(Logger):
          TypeError: int() can't convert non-string with explicit base
          ___________________________________________________________________________
 
+        Using pre_dispatch in a producer/consumer situation, where the
+        data is generated on the fly. Note how the producer is first
+        called a 3 times before the parallel loop is initiated, and then
+        called to generate new data on the fly::
+
+         >>> from math import sqrt
+         >>> from joblib import Parallel, delayed
+
+         >>> def producer():
+         ...     for i in range(6):
+         ...         print 'Produced %s' % i
+         ...         yield i
+         
+         >>> out = Parallel(n_jobs=2, verbose=100, pre_dispatch='1.5*n_jobs')(
+         ...                         delayed(sqrt)(i) for i in producer()) #doctest: +ELLIPSIS
+         Produced 0
+         Produced 1
+         Produced 2
+         [Parallel(n_jobs=2)]: Done   1 out of   3 |elapsed:    0.0s remaining:    0.0s
+         Produced 3
+         [Parallel(n_jobs=2)]: Done   2 out of   4 |elapsed:    0.0s remaining:    0.0s
+         ...
+
     '''
-    def __init__(self, n_jobs=None, verbose=0):
+    def __init__(self, n_jobs=None, verbose=0, pre_dispatch='all'):
         self.verbose = verbose
         self.n_jobs  = n_jobs
+        self.pre_dispatch   = pre_dispatch
         self._pool   = None
         # Not starting the pool in the __init__ is a design decision, to
         # be able to close it ASAP, and not burden the user with closing
@@ -231,12 +270,12 @@ class Parallel(Logger):
         self._jobs   = list()
 
 
-    def queue(self, func, args, kwargs):
+    def dispatch(self, func, args, kwargs):
         """ Queue the function for computing, with or without multiprocessing 
         """
         index = len(self._jobs)
         if self._pool is None:
-            job = LazyApply(func, args, kwargs)
+            job = ImmediateApply(func, args, kwargs)
             if self.verbose:
                 print '[%s]: Done job %3i | elapsed: %s' % (
                         self, index+1,
@@ -246,6 +285,22 @@ class Parallel(Logger):
             job = self._pool.apply_async(SafeFunction(func), args,
                             kwargs, callback=CallBack(index, self))
         self._jobs.append(job)
+
+
+    def dispatch_next(self):
+        """ Dispatch more data for parallel processing
+        """
+        for _ in range(self._dispatch_amount):
+            try:
+                func, args, kwargs = self._iterable.next()
+                self.dispatch(func, args, kwargs)
+                self._dispatch_amount -= 1
+            except ValueError:
+                """ Race condition in accessing a generator, we skip,
+                    the dispatch will be done later.
+                """
+            except StopIteration:
+                return
 
 
     def __call__(self, iterable):
@@ -266,10 +321,21 @@ class Parallel(Logger):
             # KeyboardInterrupts
             exceptions.extend([KeyboardInterrupt, WorkerInterrupt])
 
+        if self.pre_dispatch == 'all' or n_jobs == 1:
+            self._iterable = None
+        else:
+            self._iterable = iterable
+            self._dispatch_amount = 0
+            pre_dispatch = self.pre_dispatch
+            if hasattr(pre_dispatch, 'endswith'):
+                pre_dispatch = eval(pre_dispatch)
+            pre_dispatch = int(pre_dispatch)
+            iterable = itertools.islice(iterable, pre_dispatch)
+
         self._start_time = time.time()
         try:
             for function, args, kwargs in iterable:
-                self.queue(function, args, kwargs)
+                self.dispatch(function, args, kwargs)
 
             self._output = list()
             for job in self._jobs:
