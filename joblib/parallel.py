@@ -8,6 +8,7 @@ Helpers for embarassingly parallel code.
 import sys
 import functools
 import time
+import threading
 import itertools
 try:
     import cPickle as pickle
@@ -94,22 +95,22 @@ class CallBack(object):
     """ Callback used by parallel: it is used for progress reporting, and 
         to add data to be processed
     """
-    def __init__(self, index, parallel):
-        self.index = index
+    def __init__(self, parallel):
         self.parallel = parallel
 
     def __call__(self, out):
         if self.parallel.verbose:
             self.print_progress()
         if self.parallel._iterable:
-            self.parallel._dispatch_amount += 1
             self.parallel.dispatch_next()
 
     def print_progress(self):
         # XXX: Not using the logger framework: need to
         # learn to use logger better.
         n_jobs = len(self.parallel._pool._pool)
-        index  = self.index
+        index  = (0 if self.parallel._output is None else 
+                    len(self.parallel._output))
+        # Total is wrong, as it is an estimation of the remaining jobs
         total  = len(self.parallel._jobs)
         if total > 2*n_jobs:
             # Report less often
@@ -281,35 +282,80 @@ class Parallel(Logger):
     def dispatch(self, func, args, kwargs):
         """ Queue the function for computing, with or without multiprocessing 
         """
-        index = len(self._jobs)
         if self._pool is None:
             job = ImmediateApply(func, args, kwargs)
             if self.verbose:
                 print '[%s]: Done job %3i | elapsed: %s' % (
-                        self, index+1,
+                        self, len(self._jobs)+1,
                         short_format_time(time.time() - self._start_time)
                     )
+            self._jobs.append(job)
         else:
+            self._lock.acquire()
             job = self._pool.apply_async(SafeFunction(func), args,
-                            kwargs, callback=CallBack(index, self))
-        self._jobs.append(job)
+                            kwargs, callback=CallBack(self))
+            self._jobs.append(job)
+            self._lock.release()
 
 
     def dispatch_next(self):
         """ Dispatch more data for parallel processing
         """
-        for _ in range(self._dispatch_amount):
+        self._dispatch_amount += 1
+        while self._dispatch_amount:
             try:
+                # XXX: possible race condition shuffling the order of 
+                # dispatchs in the next two lines.
                 func, args, kwargs = self._iterable.next()
                 self.dispatch(func, args, kwargs)
                 self._dispatch_amount -= 1
-            except ValueError:
-                """ Race condition in accessing a generator, we skip,
-                    the dispatch will be done later.
-                """
+            #except ValueError:
+            #    """ Race condition in accessing a generator, we skip,
+            #        the dispatch will be done later.
+            #    """
             except StopIteration:
                 self._iterable = None
                 return
+
+
+    def retrieve(self):
+        self._output = list()
+        while self._jobs:
+            # We need to be careful: the job queue can be filling up as
+            # we empty it
+            self._lock.acquire()
+            job = self._jobs.pop(0)
+            self._lock.release()
+            try:
+                self._output.append(job.get())
+            except tuple(self.exceptions), exception:
+                if isinstance(exception, 
+                        (KeyboardInterrupt, WorkerInterrupt)):
+                    # We have captured a user interruption, clean up
+                    # everything
+                    self._pool.terminate()
+                    raise exception
+                elif isinstance(exception, TransportableException):
+                    # Capture exception to add information on 
+                    # the local stack in addition to the distant
+                    # stack
+                    this_report = format_outer_frames(
+                                            context=10,
+                                            stack_start=1,
+                                            )
+                    report = """Multiprocessing exception:
+%s
+---------------------------------------------------------------------------
+Sub-process traceback: 
+---------------------------------------------------------------------------
+%s""" % (
+                            this_report,
+                            exception.message,
+                        )
+                    # Convert this to a JoblibException
+                    exception_type = _mk_exception(exception.etype)[0]
+                    raise exception_type(report)
+                raise exception
 
 
     def __call__(self, iterable):
@@ -320,15 +366,16 @@ class Parallel(Logger):
             n_jobs = multiprocessing.cpu_count()
 
         # The list of exceptions that we will capture
-        exceptions = [TransportableException]
+        self.exceptions = [TransportableException]
         if n_jobs is None or multiprocessing is None or n_jobs == 1:
             n_jobs = 1
             self._pool = None
         else:
             self._pool = multiprocessing.Pool(n_jobs)
+            self._lock = threading.Lock()
             # We are using multiprocessing, we also want to capture
             # KeyboardInterrupts
-            exceptions.extend([KeyboardInterrupt, WorkerInterrupt])
+            self.exceptions.extend([KeyboardInterrupt, WorkerInterrupt])
 
         if self.pre_dispatch == 'all' or n_jobs == 1:
             self._iterable = None
@@ -345,39 +392,8 @@ class Parallel(Logger):
         try:
             for function, args, kwargs in iterable:
                 self.dispatch(function, args, kwargs)
-
-            self._output = list()
-            for job in self._jobs:
-                try:
-                    self._output.append(job.get())
-                except tuple(exceptions), exception:
-                    if isinstance(exception, 
-                            (KeyboardInterrupt, WorkerInterrupt)):
-                        # We have captured a user interruption, clean up
-                        # everything
-                        self._pool.terminate()
-                        raise exception
-                    elif isinstance(exception, TransportableException):
-                        # Capture exception to add information on 
-                        # the local stack in addition to the distant
-                        # stack
-                        this_report = format_outer_frames(
-                                                context=10,
-                                                stack_start=1,
-                                                )
-                        report = """Multiprocessing exception:
-%s
----------------------------------------------------------------------------
-Sub-process traceback: 
----------------------------------------------------------------------------
-%s""" % (
-                                this_report,
-                                exception.message,
-                            )
-                        # Convert this to a JoblibException
-                        exception_type = _mk_exception(exception.etype)[0]
-                        raise exception_type(report)
-                    raise exception
+            
+            self.retrieve()
         finally:
             if n_jobs > 1:
                 self._pool.close()

@@ -299,7 +299,11 @@ class MemorizedFunc(Logger):
             self.warn("Clearing cache %s" % func_dir)
         if os.path.exists(func_dir):
             shutil.rmtree(func_dir, ignore_errors=True)
-        os.makedirs(func_dir)
+        try:
+            os.makedirs(func_dir)
+        except OSError:
+            """ Directory exists: it has been created by another process
+            in the mean time. """
         func_code, _, first_line = get_func_code(self.func)
         func_code_file = os.path.join(func_dir, 'func_code.py')
         self._write_func_code(func_code_file, func_code, first_line)
