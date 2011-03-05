@@ -95,8 +95,9 @@ class CallBack(object):
     """ Callback used by parallel: it is used for progress reporting, and 
         to add data to be processed
     """
-    def __init__(self, parallel):
+    def __init__(self, index, parallel):
         self.parallel = parallel
+        self.index = index
 
     def __call__(self, out):
         if self.parallel.verbose:
@@ -108,22 +109,18 @@ class CallBack(object):
         # XXX: Not using the logger framework: need to
         # learn to use logger better.
         n_jobs = len(self.parallel._pool._pool)
-        index  = (0 if self.parallel._output is None else 
-                    len(self.parallel._output))
-        # Total is wrong, as it is an estimation of the remaining jobs
-        total  = len(self.parallel._jobs)
-        if total > 2*n_jobs:
+        if self.parallel.n_dispatched > 2*n_jobs:
             # Report less often
-            if not index % n_jobs == 0:
+            if not self.index % n_jobs == 0:
                 return
         elapsed_time = time.time() - self.parallel._start_time
-        remaining_time = (elapsed_time/(index + 1)*
-                    (total - index - 1.))
+        remaining_time = (elapsed_time/(self.index + 1)*
+                    (self.parallel.n_dispatched - self.index - 1.))
         if self.parallel._iterable:
             # The object is still building it's job list
-            total = "%3i+" % total
+            total = "%3i+" % self.parallel.n_dispatched
         else:
-            total = "%3i " % total
+            total = "%3i " % self.parallel.n_dispatched
 
         if self.parallel.verbose < 50:
             writer = sys.stderr.write
@@ -131,7 +128,7 @@ class CallBack(object):
             writer = sys.stdout.write
         writer('[%s]: Done %3i out of %s |elapsed: %s remaining: %s\n'
                 % (self.parallel,
-                    index+1, 
+                    self.index+1, 
                     total, 
                     short_format_time(elapsed_time),
                     short_format_time(remaining_time),
@@ -292,10 +289,16 @@ class Parallel(Logger):
             self._jobs.append(job)
         else:
             self._lock.acquire()
-            job = self._pool.apply_async(SafeFunction(func), args,
-                            kwargs, callback=CallBack(self))
-            self._jobs.append(job)
-            self._lock.release()
+            # If job.get() catches an exception, it closes the queue:
+            try:
+                job = self._pool.apply_async(SafeFunction(func), args,
+                            kwargs, callback=CallBack(self.n_dispatched, self))
+                self._jobs.append(job)
+            except AssertionError:
+                print '[Parallel] Pool seems closed'
+            finally:
+                self._lock.release()
+        self.n_dispatched += 1
 
 
     def dispatch_next(self):
@@ -309,10 +312,10 @@ class Parallel(Logger):
                 func, args, kwargs = self._iterable.next()
                 self.dispatch(func, args, kwargs)
                 self._dispatch_amount -= 1
-            #except ValueError:
-            #    """ Race condition in accessing a generator, we skip,
-            #        the dispatch will be done later.
-            #    """
+            except ValueError:
+                """ Race condition in accessing a generator, we skip,
+                    the dispatch will be done later.
+                """
             except StopIteration:
                 self._iterable = None
                 return
@@ -333,6 +336,7 @@ class Parallel(Logger):
                         (KeyboardInterrupt, WorkerInterrupt)):
                     # We have captured a user interruption, clean up
                     # everything
+                    self.close()
                     self._pool.terminate()
                     raise exception
                 elif isinstance(exception, TransportableException):
@@ -389,6 +393,7 @@ Sub-process traceback:
             iterable = itertools.islice(iterable, pre_dispatch)
 
         self._start_time = time.time()
+        self.n_dispatched = 0
         try:
             for function, args, kwargs in iterable:
                 self.dispatch(function, args, kwargs)
