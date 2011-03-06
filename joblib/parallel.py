@@ -287,6 +287,7 @@ class Parallel(Logger):
                         short_format_time(time.time() - self._start_time)
                     )
             self._jobs.append(job)
+            self.n_dispatched += 1
         else:
             self._lock.acquire()
             # If job.get() catches an exception, it closes the queue:
@@ -294,11 +295,11 @@ class Parallel(Logger):
                 job = self._pool.apply_async(SafeFunction(func), args,
                             kwargs, callback=CallBack(self.n_dispatched, self))
                 self._jobs.append(job)
+                self.n_dispatched += 1
             except AssertionError:
                 print '[Parallel] Pool seems closed'
             finally:
                 self._lock.release()
-        self.n_dispatched += 1
 
 
     def dispatch_next(self):
@@ -326,9 +327,11 @@ class Parallel(Logger):
         while self._jobs:
             # We need to be careful: the job queue can be filling up as
             # we empty it
-            self._lock.acquire()
+            if hasattr(self, '_lock'):
+                self._lock.acquire()
             job = self._jobs.pop(0)
-            self._lock.release()
+            if hasattr(self, '_lock'):
+                self._lock.release()
             try:
                 self._output.append(job.get())
             except tuple(self.exceptions), exception:
@@ -336,8 +339,9 @@ class Parallel(Logger):
                         (KeyboardInterrupt, WorkerInterrupt)):
                     # We have captured a user interruption, clean up
                     # everything
-                    self.close()
-                    self._pool.terminate()
+                    if hasattr(self, '_pool'):
+                        self._pool.close()
+                        self._pool.terminate()
                     raise exception
                 elif isinstance(exception, TransportableException):
                     # Capture exception to add information on 
