@@ -27,6 +27,11 @@ def division(x, y):
 def square(x):
     return x**2
 
+def exception_raiser(x):
+    if x == 7:
+        raise ValueError
+    return x
+
 def interrupt_raiser(x):
     time.sleep(.05)
     raise KeyboardInterrupt
@@ -127,6 +132,15 @@ def test_dispatch_one_job():
     consumer = Counter(list1=consumed, list2=consumed)
 
     Parallel(n_jobs=1)(delayed(consumer)(x) for x in producer())
+
+
+def test_exception_dispatch():
+    "Make sure that exception raised during dispatch are indeed captured"
+    nose.tools.assert_raises(
+            ValueError,
+            Parallel(n_jobs=6, pre_dispatch=16, verbose=0),
+                    (delayed(exception_raiser)(i) for i in range(30)),
+            )
 
 
 ################################################################################
