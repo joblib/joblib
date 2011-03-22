@@ -54,8 +54,8 @@ def test_print_time():
         print_time = PrintTime(logfile=os.path.join(env['dir'], 'test.log'))
         print_time('Foo')
         printed_text = sys.stderr.getvalue()
-        match = r"Foo: 0\..s, 0\.0min\nFoo: 0\..s, 0.0min\nFoo: 0\..s, 0.0min\n"
         # Use regexps to be robust to time variations
+        match = r"Foo: 0\..s, 0\.0min\nFoo: 0\..s, 0.0min\nFoo: .\..s, 0.0min\n"
         if not re.match(match, printed_text):
             raise AssertionError('Excepted %s, got %s' % 
                                     (match, printed_text))
