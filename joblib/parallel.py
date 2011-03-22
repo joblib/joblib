@@ -258,9 +258,9 @@ class Parallel(Logger):
          Produced 0
          Produced 1
          Produced 2
-         [Parallel(n_jobs=2)]: Done   1 out of   3+ |elapsed:    ...s remaining:    0.0s
+         [Parallel(n_jobs=2)]: Done   1 out of   3+ |elapsed:    ...s remaining:    ...s
          Produced 3
-         [Parallel(n_jobs=2)]: Done ... out of   4+ |elapsed:    ...s remaining:    0.0s
+         [Parallel(n_jobs=2)]: Done ... out of   4+ |elapsed:    ...s remaining:    ...s
          ...
 
     '''
