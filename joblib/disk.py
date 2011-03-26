@@ -42,6 +42,7 @@ def memstr_to_kbytes(text):
                 )
     return size
 
+
 def rm_subdirs(path, onerror=None):
     """Remove all subdirectories in this path.
 
