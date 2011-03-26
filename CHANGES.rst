@@ -1,6 +1,52 @@
 Latest changes
 ===============
 
+Release 0.5.0
+---------------
+
+2011-03-26
+Pietro Berkes
+    
+    BUG: fix error management in rm_subdirs
+
+Gael varoquaux
+2011-03-22...2011-03-26
+
+    TEST: Improve test coverage and robustness
+
+Gael varoquaux
+2011-03-19
+
+    BUG: hashing functions with only \*var \**kwargs
+
+Gael varoquaux
+2011-02-01... 2011-03-22
+
+    BUG: Many fixes to capture interprocess race condition when mem.cache
+    is used by several processes on the same cache.
+
+Fabian Pedregosa
+2011-02-28
+
+    First work on Py3K compatibility
+
+Gael varoquaux
+2011-02-27
+
+    ENH: pre_dispatch in parallel: lazy generation of jobs in parallel
+    for to avoid drowning memory.
+
+GaelVaroquaux
+2011-02-24
+
+    ENH: Add the option of overloading the arguments of the mother
+    'Memory' object in the cache method that is doing the decoration.
+
+Gael varoquaux
+2010-11-21
+
+    ENH: Add a verbosity level for more verbosity
+
 Release 0.4.6
 ----------------
 
