@@ -12,6 +12,7 @@ import hashlib
 import tempfile
 import os
 import gc
+import StringIO
 
 from ..hashing import hash
 from .common import np, with_numpy
@@ -56,6 +57,13 @@ def test_trival_hash():
             yield nose.tools.assert_equal, hash(obj1) == hash(obj2), \
                 obj1 is obj2
 
+
+def test_hash_methods():
+    """ Check that hashing instance methods works """
+    a = StringIO.StringIO('a')
+    b = StringIO.StringIO('b')
+    nose.tools.assert_equal(hash(a.flush), hash(a.flush))
+    nose.tools.assert_not_equal(hash(a.flush), hash(b.flush))
 
 
 @with_numpy

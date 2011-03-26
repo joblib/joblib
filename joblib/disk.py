@@ -7,7 +7,7 @@ Disk management utilities.
 # License: BSD Style, 3 clauses.
 
 
-import platform
+import sys
 import os
 import shutil
 
