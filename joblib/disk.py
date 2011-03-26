@@ -63,7 +63,10 @@ def rm_subdirs(path, onerror=None):
     try:
         names = os.listdir(path)
     except os.error, err:
-        onerror(os.listdir, path, sys.exc_info())
+        if onerror is not None:
+            onerror(os.listdir, path, sys.exc_info())
+        else:
+            raise
         
     for name in names:
         fullname = os.path.join(path, name)
