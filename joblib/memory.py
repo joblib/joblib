@@ -76,7 +76,7 @@ class JobLibCollisionWarning(UserWarning):
 
 
 ################################################################################
-# class `Memory`
+# class `MemorizedFunc`
 ################################################################################
 class MemorizedFunc(Logger):
     """ Callable object decorating a function for caching its return value 
@@ -181,6 +181,15 @@ class MemorizedFunc(Logger):
 
                 shutil.rmtree(output_dir, ignore_errors=True)
                 return self.call(*args, **kwargs)
+
+
+    def __reduce__(self):
+        """ We don't store the timestamp when pickling, to avoid the hash
+            depending from it.
+            In addition, when unpickling, we run the __init__
+        """
+        return (self.__class__, (self.func, self.cachedir, self.ignore, 
+                self.save_npy, self.mmap_mode, self._verbose))
 
     #-------------------------------------------------------------------------
     # Private interface
