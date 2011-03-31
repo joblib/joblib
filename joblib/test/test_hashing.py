@@ -13,8 +13,11 @@ import tempfile
 import os
 import gc
 import StringIO
+import shutil
 
 from ..hashing import hash
+from ..func_inspect import filter_args
+from ..memory import Memory
 from .common import np, with_numpy
 
 ################################################################################
@@ -39,6 +42,28 @@ def relative_time(func1, func2, *args):
     relative_diff = 0.5*( abs(time_func1 - time_func2)
                           /  (time_func1 + time_func2) )
     return relative_diff
+
+
+class Klass(object):
+
+    def f(self, x):
+        return x
+
+
+class KlassWithCachedMethod(object):
+
+    def __init__(self):
+        cachedir = tempfile.mktemp()
+        mem = Memory(cachedir=cachedir)
+        mem.clear()
+        self.f = mem.cache(self.f)
+        self.cachedir = cachedir
+
+    def f(self, x):
+        return x
+
+    def __del__(self):
+        shutil.rmtree(self.cachedir)
 
 
 ################################################################################
@@ -151,3 +176,20 @@ def test_hash_numpy_performance():
 
     yield nose.tools.assert_true, relative_diff < 0.2
 
+def test_bound_methods_hash():
+    """ Make sure that calling the same method on two different instances
+    of the same class does resolve to the same hashes.
+    """
+    a = Klass()
+    b = Klass()
+    nose.tools.assert_equal(hash(filter_args(a.f, [], 1)),
+                            hash(filter_args(b.f, [], 1)))
+
+def test_bound_cached_methods_hash():
+    """ Make sure that calling the same _cached_ method on two different
+    instances of the same class does resolve to the same hashes.
+    """
+    a = KlassWithCachedMethod()
+    b = KlassWithCachedMethod()
+    nose.tools.assert_equal(hash(filter_args(a.f.func, [], 1)),
+                            hash(filter_args(b.f.func, [], 1)))
