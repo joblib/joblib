@@ -182,10 +182,17 @@ class MemorizedFunc(Logger):
                 shutil.rmtree(output_dir, ignore_errors=True)
                 return self.call(*args, **kwargs)
 
+
+    def __getstate__(self):
+        odict = self.__dict__.copy()
+        odict['timestamp'] = None
+        return odict
+
+
     #-------------------------------------------------------------------------
     # Private interface
     #-------------------------------------------------------------------------
-   
+
     def _get_func_dir(self, mkdir=True):
         """ Get the directory corresponding to the cache for the
             function.
