@@ -4,10 +4,21 @@ Latest changes
 Release 0.5.0
 ---------------
 
-2011-03-26
+2011-04-01
+Gael varoquaux
+
+    BUG: pickling MemoizeFunc does not store timestamp
+
+2011-03-31
+Nicolas Pinto
+
+    TEST: expose hashing bug with cached method
+
+2011-03-26...2011-03-27
 Pietro Berkes
     
     BUG: fix error management in rm_subdirs
+    BUG: fix for race condition during tests in mem.clear()
 
 Gael varoquaux
 2011-03-22...2011-03-26
