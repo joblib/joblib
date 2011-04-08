@@ -170,7 +170,14 @@ class MemorizedFunc(Logger):
             return self.call(*args, **kwargs)
         else:
             try:
-                return self.load_output(output_dir)
+                t0 = time.time()
+                out = self.load_output(output_dir)
+                if self._verbose > 4:
+                    t = time.time() - t0
+                    _, name = get_func_name(self.func)
+                    msg = '%s cache loaded - %s' % (name, format_time(t))
+                    print max(0, (80 - len(msg)))*'_' + msg
+                return out
             except Exception:
                 # XXX: Should use an exception logger
                 self.warn(
