@@ -249,6 +249,7 @@ class MemorizedFunc(Logger):
             return self.call(*args, **kwargs)
         else:
             try:
+                t0 = time.time()
                 # Update the stored cost
                 current_time = time.time()
                 new_cost = cost(db_entry, current_time)
@@ -263,7 +264,13 @@ class MemorizedFunc(Logger):
                     )
 
                 # Return the stored value
-                return self.load_output(output_dir)
+                out = self.load_output(output_dir)
+                t = time.time() - t0
+                if self._verbose > 4:
+                    _, name = get_func_name(self.func)
+                    msg = '%s cache loaded - %s' % (name, format_time(t))
+                    print max(0, (80 - len(msg)))*'_' + msg
+                return out
             except Exception:
                 # XXX: Should use an exception logger
                 self.warn(
