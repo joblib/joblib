@@ -172,8 +172,8 @@ class MemorizedFunc(Logger):
             try:
                 t0 = time.time()
                 out = self.load_output(output_dir)
-                t = time.time() - t0
                 if self._verbose > 4:
+                    t = time.time() - t0
                     _, name = get_func_name(self.func)
                     msg = '%s cache loaded - %s' % (name, format_time(t))
                     print max(0, (80 - len(msg)))*'_' + msg
