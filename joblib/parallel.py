@@ -157,18 +157,18 @@ class Parallel(Logger):
             output is sent to stdout.
         pre_dispatch: {'all', integer, or expression, as in '3*n_jobs'}
             The amount of jobs to be pre-dispatched. Default is 'all',
-            but it may be memory consuming, for instance if each job 
+            but it may be memory consuming, for instance if each job
             involves a lot of a data.
-        
+
         Notes
         -----
 
         This object uses the multiprocessing module to compute in
         parallel the application of a function to many different
-        arguments. The main functionnality it brings in addition to 
+        arguments. The main functionality it brings in addition to
         using the raw multiprocessing API are (see examples for details):
 
-            * More readable code, in particular since it avoids 
+            * More readable code, in particular since it avoids
               constructing list of arguments.
 
             * Easier debuging:
@@ -194,7 +194,7 @@ class Parallel(Logger):
 
         Reshaping the output when the function has several return
         values:
-        
+
         >>> from math import modf
         >>> from joblib import Parallel, delayed
         >>> r = Parallel(n_jobs=1)(delayed(modf)(i/2.) for i in range(10))
@@ -215,9 +215,9 @@ class Parallel(Logger):
             [Parallel(n_jobs=2)]: Done   7 out of  10 |elapsed:    0.4s remaining:    0.2s
             [Parallel(n_jobs=2)]: Done   9 out of  10 |elapsed:    0.5s remaining:    0.1s
 
-        Traceback example, note how the ligne of the error is indicated 
+        Traceback example, note how the line of the error is indicated
         as well as the values of the parameter passed to the function that
-        triggered the exception, eventhough the traceback happens in the 
+        triggered the exception, even though the traceback happens in the
         child process::
 
          >>> from string import atoi
