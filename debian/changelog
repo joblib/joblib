@@ -1,6 +1,9 @@
 joblib (0.5.1~pre1-1) unstable; urgency=low
 
   * Preparing for joblib 0.5.1 release
+  * Enforce python_distutils dh buildsystem (upstream has Makefile now)
+  * Handle 'nocheck' to avoid build-time testing
+  * Install CHANGES.rst as the upstream changelog
 
  -- Yaroslav Halchenko <debian@onerussian.com>  Mon, 11 Apr 2011 17:11:12 -0400
 

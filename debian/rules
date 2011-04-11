@@ -2,11 +2,18 @@
 # -*- makefile -*-
 
 %:
-	dh $@
+	dh $@ --buildsystem=python_distutils
 
 override_dh_clean:
 	rm -rf *.egg-info
 	dh_clean
 
 override_dh_auto_test:
+ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
 	python setup.py nosetests
+else
+	: # no tests
+endif
+
+override_dh_installchangelogs:
+	dh_installchangelogs CHANGES.rst
