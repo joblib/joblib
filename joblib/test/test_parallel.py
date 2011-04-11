@@ -78,10 +78,7 @@ def test_error_capture():
     """ Check that error are captured, and that correct exceptions
         are raised.
     """
-    try:
-        import multiprocessing
-    except ImportError:
-        multiprocessing = None
+    from ..parallel import multiprocessing
     if multiprocessing is not None:
         # A JoblibException will be raised only if there is indeed
         # multiprocessing

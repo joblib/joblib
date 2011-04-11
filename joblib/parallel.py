@@ -1,10 +1,11 @@
 """
-Helpers for embarassingly parallel code.
+Helpers for embarrassingly parallel code.
 """
 # Author: Gael Varoquaux < gael dot varoquaux at normalesup dot org >
 # Copyright: 2010, Gael Varoquaux
 # License: BSD 3 clause
 
+import os
 import sys
 import functools
 import time
@@ -15,10 +16,15 @@ try:
 except:
     import pickle
 
-try:
-    import multiprocessing
-except ImportError:
-    multiprocessing = None
+# Obtain possible configuration from the environment, assuming 1 (on)
+# by default, upon 0 set to None. Should instructively fail if some non
+# 0/1 value is set.
+multiprocessing = int(os.environ.get('JOBLIB_MULTIPROCESSING', 1)) or None
+if multiprocessing:
+    try:
+        import multiprocessing
+    except ImportError:
+        multiprocessing = None
 
 from .format_stack import format_exc, format_outer_frames
 from .logger import Logger, short_format_time
