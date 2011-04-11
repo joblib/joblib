@@ -1,3 +1,9 @@
+joblib (0.5.1~pre1-1) unstable; urgency=low
+
+  * Preparing for joblib 0.5.1 release
+
+ -- Yaroslav Halchenko <debian@onerussian.com>  Mon, 11 Apr 2011 17:11:12 -0400
+
 joblib (0.4.6-2) unstable; urgency=low
 
   * Upload to unstable
