@@ -20,7 +20,7 @@
     div.bodywrapper blockquote {
 	margin: 0 ;
     }
-  
+
   </style>
 
 
@@ -51,9 +51,9 @@ User manual
 Module reference
 -----------------
 
-.. autosummary:: 
+.. autosummary::
     :toctree: generated
- 
+
     Memory
     Parallel
     dump

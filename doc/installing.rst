@@ -54,7 +54,7 @@ the changes are local to your account and easy to clean up.
 
     #. In the directory created by expanding the `joblib` tarball, run the
        following command::
-    
+
 	python setup.py install --prefix ~/usr
 
        You should not be required to become administrator, if you have
