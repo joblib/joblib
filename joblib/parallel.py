@@ -260,7 +260,7 @@ class Parallel(Logger):
          ...         yield i
          
          >>> out = Parallel(n_jobs=2, verbose=100, pre_dispatch='1.5*n_jobs')(
-         ...                         delayed(sqrt)(i) for i in producer()) #doctest: +ELLIPSIS
+         ...                         delayed(sqrt)(i) for i in producer()) #doctest: +SKIP
          Produced 0
          Produced 1
          Produced 2

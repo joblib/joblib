@@ -7,6 +7,7 @@ Test the parallel module.
 # License: BSD Style, 3 clauses.
 
 import time
+import operator
 try:
     import cPickle as pickle
     PickleError = TypeError
@@ -14,7 +15,8 @@ except:
     import pickle
     PickleError = pickle.PicklingError
 
-from ..parallel import Parallel, delayed, SafeFunction, WorkerInterrupt
+from ..parallel import Parallel, delayed, SafeFunction, WorkerInterrupt, \
+        multiprocessing
 from ..my_exceptions import JoblibException
 
 import nose
@@ -78,7 +80,6 @@ def test_error_capture():
     """ Check that error are captured, and that correct exceptions
         are raised.
     """
-    from ..parallel import multiprocessing
     if multiprocessing is not None:
         # A JoblibException will be raised only if there is indeed
         # multiprocessing
@@ -117,18 +118,50 @@ class Counter(object):
         nose.tools.assert_equal(len(self.list1), len(self.list2))
 
 
+def consumer(queue, item):
+    queue.append('Consumed %s' % item)
+
+
 def test_dispatch_one_job():
     """ Test that with only one job, Parallel does act as a iterator.
     """
-    produced = list()
-    consumed = list()
+    queue = list()
     def producer():
         for i in range(6):
-            produced.append(i)
+            queue.append('Produced %i' % i)
             yield i
-    consumer = Counter(list1=consumed, list2=consumed)
 
-    Parallel(n_jobs=1)(delayed(consumer)(x) for x in producer())
+    Parallel(n_jobs=1)(delayed(consumer)(queue, x) for x in producer())
+    nose.tools.assert_equal(queue, 
+                              ['Produced 0', 'Consumed 0', 
+                               'Produced 1', 'Consumed 1', 
+                               'Produced 2', 'Consumed 2', 
+                               'Produced 3', 'Consumed 3', 
+                               'Produced 4', 'Consumed 4', 
+                               'Produced 5', 'Consumed 5']
+                               )
+    nose.tools.assert_equal(len(queue), 12)
+
+
+def test_dispatch_multiprocessing():
+    """ Check that using pre_dispatch Parallel does indeed dispatch items
+        lazily.
+    """
+    if multiprocessing is None:
+        return
+    manager = multiprocessing.Manager()
+    queue = manager.list()
+    def producer():
+        for i in range(6):
+            queue.append('Produced %i' % i)
+            yield i
+
+    Parallel(n_jobs=2, pre_dispatch=3)(delayed(consumer)(queue, i)
+                                       for i in producer())
+    nose.tools.assert_equal(list(queue)[:4], 
+            ['Produced 0', 'Produced 1', 'Produced 2', 
+             'Consumed 0', ])
+    nose.tools.assert_equal(len(queue), 12)
 
 
 def test_exception_dispatch():
