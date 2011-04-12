@@ -7,7 +7,6 @@ Test the parallel module.
 # License: BSD Style, 3 clauses.
 
 import time
-import operator
 try:
     import cPickle as pickle
     PickleError = TypeError
