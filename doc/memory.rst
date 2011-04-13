@@ -1,6 +1,6 @@
-..  
+..
     For doctests:
- 
+
     >>> from joblib.testing import warnings_to_stdout
     >>> warnings_to_stdout()
 
@@ -21,18 +21,18 @@ the same arguments.
 
 ..
  Commented out in favor of briefness
- 
+
     You can use it as a context, with its `eval` method:
- 
+
     .. automethod:: Memory.eval
- 
+
     or decorate functions with the `cache` method:
- 
+
     .. automethod:: Memory.cache
 
-It works by explicitely saving the output to a file and it is designed to
+It works by explicitly saving the output to a file and it is designed to
 work with non-hashable and potentially large input and output data types
-such as numpy arrays. 
+such as numpy arrays.
 
 A simple example:
 ~~~~~~~~~~~~~~~~~
@@ -42,7 +42,7 @@ A simple example:
     >>> from tempfile import mkdtemp
     >>> cachedir = mkdtemp()
 
-  We can instanciate a memory context, using this cache directory::
+  We can instantiate a memory context, using this cache directory::
 
     >>> from joblib import Memory
     >>> memory = Memory(cachedir=cachedir, verbose=0)
@@ -55,7 +55,7 @@ A simple example:
     ...     return x
 
   When we call this function twice with the same argument, it does not
-  get executed the second time, an the output is loaded from the pickle
+  get executed the second time, and the output gets loaded from the pickle
   file::
 
     >>> print f(1)
@@ -87,7 +87,7 @@ usage (:func:`joblib.dump`).
 
 In short, `memoize` is best suited for functions with "small" input and
 output objects, whereas `Memory` is best suited for functions with complex
-input and output objects, and agressive persistence to the disk.
+input and output objects, and aggressive persistence to the disk.
 
 
 Using with `numpy`
@@ -174,9 +174,9 @@ return value is loaded from the disk using memmapping::
 
  We need to close the memmap file to avoid file locking on Windows; closing
  numpy.memmap objects is done with del, which flushes changes to the disk
- 
+
     >>> del res
-   
+
 .. note::
 
    If the memory mapping mode used was 'r', as in the above example, the
@@ -198,9 +198,9 @@ return value is loaded from the disk using memmapping::
 Gotchas
 --------
 
-* **Function cache is identified by the function's name**. Thus if you have 
-  the same name to different functions, their cache will override 
-  each-others (you have 'name collisions'), and you will get unwanted 
+* **Function cache is identified by the function's name**. Thus if you have
+  the same name to different functions, their cache will override
+  each-others (you have 'name collisions'), and you will get unwanted
   re-run::
 
     >>> @memory.cache
@@ -230,7 +230,7 @@ Gotchas
 
     >>> f = memory.cache(lambda : my_print(1))
     >>> g = memory.cache(lambda : my_print(2))
-    
+
     >>> f()
     1
     >>> f()
@@ -241,32 +241,32 @@ Gotchas
     >>> f()
     1
 
-..  
+..
   Thus to use lambda functions reliably, you have to specify the name
   used for caching::
-  
+
   FIXME
- 
+
  #   >>> f = make(func=lambda : my_print(1), cachedir=cachedir, name='f')
  #   >>> g = make(func=lambda : my_print(2), cachedir=cachedir, name='g')
- #   
+ #
  #   >>> f()
  #   1
  #   >>> g()
  #   2
  #   >>> f()
 
-* **memory cannot be used on some complex objects**, eg a callable
+* **memory cannot be used on some complex objects**, e.g. a callable
   object with a `__call__` method.
 
-  Howevers, it works on numpy ufuncs::
+  However, it works on numpy ufuncs::
 
     >>> sin = memory.cache(np.sin)
     >>> print sin(0)
     0.0
 
 * **caching methods**: you cannot decorate a method at class definition,
-  because when the class is instanciated, the first argument (self) is 
+  because when the class is instantiated, the first argument (self) is
   *bound*, and no longer accessible to the `Memory` object. The following
   code won't work::
 
@@ -276,7 +276,7 @@ Gotchas
         def method(self, args):
 	    pass
 
-  The right way to do this is to decorate at instanciation time::
+  The right way to do this is to decorate at instantiation time::
 
     class Foo(object):
 
@@ -302,6 +302,8 @@ change, for instance a debug flag. `Memory` provides the `ignore` list::
     >>> # my_func was not reevaluated
 
 
+.. _memory_reference:
+
 Reference documentation of the `Memory` class
 ----------------------------------------------
 
@@ -312,7 +314,7 @@ Useful methods of decorated functions
 --------------------------------------
 
 Function decorated by :meth:`Memory.cache` are :class:`MemorizedFunc`
-objects that, in addtion of behaving like normal functions, expose
+objects that, in addition of behaving like normal functions, expose
 methods useful for cache exploration and management.
 
 .. autoclass:: MemorizedFunc
@@ -322,14 +324,14 @@ methods useful for cache exploration and management.
 
 ..
  Let us not forget to clean our cache dir once we are finished::
- 
+
     >>> import shutil
     >>> shutil.rmtree(cachedir)
     >>> import shutil
     >>> shutil.rmtree(cachedir2)
- 
+
  And we check that it has indeed been remove::
- 
+
     >>> import os ; os.path.exists(cachedir)
     False
     >>> os.path.exists(cachedir2)

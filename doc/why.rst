@@ -31,7 +31,7 @@ Provenance tracking for understanding the code
 .. topic:: But pipeline frameworks can get in the way
     :class: warning
 
-    We want our code to look like the underlying algorithm, 
+    We want our code to look like the underlying algorithm,
     not like a software framework.
 
 Joblib's approach
@@ -49,12 +49,12 @@ Design choices
 
 * No dependencies other than Python
 
-* Robust, well-tested code, at the cost of functionnality
+* Robust, well-tested code, at the cost of functionality
 
 * Fast and suitable for scientific computing on big dataset without
   changing the original code
 
-* Only local imports: **embed joblib in your code by copying it** 
+* Only local imports: **embed joblib in your code by copying it**
 
 
 

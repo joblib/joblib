@@ -53,9 +53,6 @@ FIRST_LINE_TEXT = "# first line:"
 # TODO: Same remark for the logger, and probably use the Python logging
 # mechanism.
 
-# TODO: Track history as objects are called, to be able to garbage
-# collect them.
-
 
 def extract_first_line(func_code):
     """ Extract the first line information from the function code
@@ -467,7 +464,7 @@ class Memory(Logger):
         All values are cached on the filesystem, in a deep directory
         structure.
 
-        see :ref:`memory`
+        see :ref:`memory_reference`
     """
     #-------------------------------------------------------------------------
     # Public interface
