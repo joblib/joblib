@@ -302,6 +302,8 @@ change, for instance a debug flag. `Memory` provides the `ignore` list::
     >>> # my_func was not reevaluated
 
 
+.. _memory_reference:
+
 Reference documentation of the `Memory` class
 ----------------------------------------------
 
