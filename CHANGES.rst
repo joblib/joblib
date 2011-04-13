@@ -1,6 +1,32 @@
 Latest changes
 ===============
 
+Release 0.5.1
+---------------
+
+2011-04-12
+Gael varoquaux
+
+    TEST: Better testing of parallel and pre_dispatch
+
+Yaroslav Halchenko
+2011-04-12
+
+    DOC: quick pass over docs -- trailing spaces/spelling
+
+Yaroslav Halchenko
+2011-04-11
+
+    ENH: JOBLIB_MULTIPROCESSING env var to disable multiprocessing from the 
+    environment
+    
+Alexandre Gramfort
+2011-04-08
+
+    ENH : adding log message to know how long it takes to load from disk the 
+    cache
+
+
 Release 0.5.0
 ---------------
 
