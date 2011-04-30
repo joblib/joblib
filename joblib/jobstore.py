@@ -253,7 +253,6 @@ class DirectoryJobStore(BaseJobStore):
         # TODO: Ugh. Refactor this in a better way.
         return '<cachedir:%s>' % self._get_func_dir(func)
 
-NIL = object() # used for output_to_write, _output below, since None is a valid value
 def _noop(): pass
 
 class DirectoryJob(object):
@@ -269,8 +268,9 @@ class DirectoryJob(object):
         self.mmap_mode = mmap_mode
         self._work_path = None
         self._args_dict_to_write = None
-        self._output_to_write = NIL
-        self._output = NIL
+        self._has_output_to_write = False
+        self._output_to_write = None
+        self._output = None
 
     def __del__(self):
         if self.job_path is not None:
@@ -286,6 +286,7 @@ class DirectoryJob(object):
         if self._work_path is None:
             raise IllegalOperationError("call attempt_compute_lock first")
         # TODO: Use a temporary work path and atomically move it instead
+        self._has_output_to_write = True # because output can legally be None
         self._output_to_write = output
 
     def get_output(self):
@@ -347,28 +348,27 @@ class DirectoryJob(object):
         try:
             ensure_dir(self._work_path)
             # Persist output
-            if self._output_to_write is not NIL:
+            if self._has_output_to_write:
                 filename = pjoin(self._work_path, 'output.pkl')
                 if 'numpy' in sys.modules and self.save_npy:
                     numpy_pickle.dump(self._output_to_write, filename) 
                 else:
                     with file(filename, 'w') as f:
                         pickle.dump(self._output_to_write, f, protocol=2)
-            self._output_to_write = NIL
 
             # Persist input
-            if json is not None and self._args_dict_to_write is not NIL:
+            if json is not None and self._args_dict_to_write is not None:
                 input_repr = dict((k, repr(v)) for k, v in self._args_dict_to_write.iteritems())
                 with file(pjoin(self._work_path, 'input_args.json'), 'w') as f:
                     json.dump(input_repr, f)
-            self._args_dict_to_write = NIL
         finally:
             self.rollback()
 
     def rollback(self):
         self._work_path = None
-        self._output_to_write = NIL
-        self._args_dict_to_write = NIL
+        self._output_to_write = None
+        self._has_output_to_write = False
+        self._args_dict_to_write = None
 
     def close(self):
         self.rollback()
