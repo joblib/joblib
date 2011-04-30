@@ -17,6 +17,7 @@ import warnings
 import nose
 
 from ..memory import Memory, MemorizedFunc
+from ..jobstore import COMPUTED
 from .common import with_numpy, np
 
 ################################################################################
@@ -364,25 +365,26 @@ def test_func_dir():
 
     g = memory.cache(f)
     # Test that the function directory is created on demand
-    yield nose.tools.assert_equal, g._get_func_dir(), path
-    yield nose.tools.assert_true, os.path.exists(path)
+    yield nose.tools.assert_equal, g.store._get_func_dir(g.func), path
 
     # Test that the code is stored.
     yield nose.tools.assert_false, \
-        g._check_previous_func_code()
+        g.store._check_previous_func_code(g.func)
     yield nose.tools.assert_true, \
             os.path.exists(os.path.join(path, 'func_code.py'))
     yield nose.tools.assert_true, \
-        g._check_previous_func_code()
+        g.store._check_previous_func_code(g.func)
 
     # Test the robustness to failure of loading previous results.
-    dir, _ = g.get_output_dir(1)
+    x = g.get_job(1)
+    try:
+        dir = x.job_path
+    finally:
+        x.close()
     a = g(1)
     yield nose.tools.assert_true, os.path.exists(dir)
     os.remove(os.path.join(dir, 'output.pkl'))
     yield nose.tools.assert_equal, a, g(1)
-
-
 
 def test_persistence():
     """ Test the memorized functions can be pickled and restored.
@@ -393,9 +395,41 @@ def test_persistence():
 
     h = pickle.loads(pickle.dumps(g))
 
-    output_dir, _ = g.get_output_dir(1)
-    yield nose.tools.assert_equal, output, h.load_output(output_dir)
+    x = g.get_job(1)
+    y = h.get_job(1)
+    try:
+        if not x.attempt_compute_lock() == COMPUTED:
+            assert False
+        if not y.attempt_compute_lock() == COMPUTED:
+            assert False
+        yield nose.tools.assert_equal, x.job_path, y.job_path
+        yield (nose.tools.assert_equal,
+               x.get_output(),
+               y.get_output())
+    finally:
+        x.close()
+        y.close()
 
+_counter = 0
+def f_side_effects(x):
+    global _counter
+    _counter += 1
+    return 2 * x
+
+def test_call():
+    """ Test that the call() method forces a call.
+    """
+    global _counter
+    memory = Memory(cachedir=env['dir'], verbose=0)
+    gse = memory.cache(f_side_effects)
+    _counter = 0
+    yield nose.tools.assert_equal, 4, gse(2)
+    yield nose.tools.assert_equal, _counter, 1
+    yield nose.tools.assert_equal, 4, gse(2)
+    yield nose.tools.assert_equal, _counter, 1
+    yield nose.tools.assert_equal, 4, gse.call(2)
+    yield nose.tools.assert_equal, _counter, 2
+    
 
 def test_format_signature():
     """ Test the signature formatting.
@@ -410,6 +444,11 @@ def test_format_signature():
                 sgn, \
         'f([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], y=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9])'
 
+
+def test_repr():
+    memory = Memory(cachedir=env['dir'], verbose=0)
+    yield nose.tools.assert_true, 'test_memory/f' in repr(memory.cache(f))
+    
 
 @with_numpy
 def test_format_signature_numpy():

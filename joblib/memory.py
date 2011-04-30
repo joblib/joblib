@@ -10,34 +10,20 @@ is called with the same input arguments.
 
 
 import os
-import shutil
 import sys
 import time
 import pydoc
-try:
-    import cPickle as pickle
-except ImportError:
-    import pickle
 import functools
-import traceback
-import warnings
 import inspect
-try:
-    # json is in the standard library for Python >= 2.6
-    import json
-except ImportError:
-    try:
-        import simplejson as json
-    except ImportError:
-        # Not the end of the world: we'll do without this functionality
-        json = None
 
 # Local imports
-from .hashing import hash
-from .func_inspect import get_func_code, get_func_name, filter_args
+from .func_inspect import get_func_name, filter_args
 from .logger import Logger, format_time
-from . import numpy_pickle
 from .disk import rm_subdirs
+from .jobstore import DirectoryJobStore, COMPUTED, MUST_COMPUTE, WAIT
+
+# Backwards compatability imports -- they used to be found here:
+from .jobstore import JobLibCollisionWarning
 
 FIRST_LINE_TEXT = "# first line:"
 
@@ -57,22 +43,6 @@ FIRST_LINE_TEXT = "# first line:"
 # collect them.
 
 
-def extract_first_line(func_code):
-    """ Extract the first line information from the function code
-        text if available.
-    """
-    if func_code.startswith(FIRST_LINE_TEXT):
-        func_code = func_code.split('\n')
-        first_line = int(func_code[0][len(FIRST_LINE_TEXT):])
-        func_code = '\n'.join(func_code[1:])
-    else:
-        first_line = -1
-    return func_code, first_line
-
-
-class JobLibCollisionWarning(UserWarning):
-    """ Warn that there might be a collision between names of functions.
-    """
 
 
 ################################################################################
@@ -107,15 +77,17 @@ class MemorizedFunc(Logger):
     # Public interface
     #-------------------------------------------------------------------------
    
-    def __init__(self, func, cachedir, ignore=None, save_npy=True, 
-                             mmap_mode=None, verbose=1, timestamp=None):
+    def __init__(self, func, cachedir=None, ignore=None, save_npy=True, 
+                             mmap_mode=None, verbose=1, timestamp=None,
+                             store=None):
         """
             Parameters
             ----------
             func: callable
                 The function to decorate
             cachedir: string
-                The path of the base directory to use as a data store
+                The path of the base directory to use as a data store.
+                Should be None if and only if ``store`` is provided.
             ignore: list or None
                 List of variable names to ignore.
             save_npy: boolean, optional
@@ -132,12 +104,22 @@ class MemorizedFunc(Logger):
             timestamp: float, optional
                 The reference time from which times in tracing messages
                 are reported.
+            store: object
+                Object fullfilling the store API. By default, a
+                ``joblib.jobstore.DirectoryJobStore`` is created with the
+                parameters given.
         """
         Logger.__init__(self)
         self._verbose = verbose
-        self.cachedir = cachedir
         self.func = func
-        self.save_npy = save_npy
+        if store is None:
+            store = DirectoryJobStore(cachedir, save_npy=save_npy, mmap_mode=mmap_mode)
+        else:
+            if not (cachedir is save_npy is None):
+                raise TypeError('Either provide store instance or DirectoryStore arguments')
+            if mmap_mode != store.mmap_mode:
+                raise ValueError('store has mismatching mmap_mode')
+        self.store = store
         self.mmap_mode = mmap_mode
         if timestamp is None:
             timestamp = time.time()
@@ -145,8 +127,6 @@ class MemorizedFunc(Logger):
         if ignore is None:
             ignore = []
         self.ignore = ignore
-        if not os.path.exists(self.cachedir):
-            os.makedirs(self.cachedir)
         try:
             functools.update_wrapper(self, func)
         except:
@@ -159,191 +139,86 @@ class MemorizedFunc(Logger):
             doc = func.__doc__
         self.__doc__ = 'Memoized version of %s' % doc
 
-
     def __call__(self, *args, **kwargs):
-        # Compare the function code with the previous to see if the
-        # function code has changed
-        output_dir, _ = self.get_output_dir(*args, **kwargs)
-        # FIXME: The statements below should be try/excepted
-        if not (self._check_previous_func_code(stacklevel=3) and 
-                                 os.path.exists(output_dir)):
-            return self.call(*args, **kwargs)
-        else:
-            try:
-                t0 = time.time()
-                out = self.load_output(output_dir)
-                if self._verbose > 4:
-                    t = time.time() - t0
-                    _, name = get_func_name(self.func)
-                    msg = '%s cache loaded - %s' % (name, format_time(t))
-                    print max(0, (80 - len(msg)))*'_' + msg
-                return out
-            except Exception:
-                # XXX: Should use an exception logger
-                self.warn(
-                'Exception while loading results for '
-                '(args=%s, kwargs=%s)\n %s' %
-                    (args, kwargs, traceback.format_exc())
-                    )
-
-                shutil.rmtree(output_dir, ignore_errors=True)
-                return self.call(*args, **kwargs)
-
+        return self._compute(args, kwargs, force=False)
 
     def __reduce__(self):
         """ We don't store the timestamp when pickling, to avoid the hash
             depending from it.
             In addition, when unpickling, we run the __init__
         """
-        return (self.__class__, (self.func, self.cachedir, self.ignore, 
-                self.save_npy, self.mmap_mode, self._verbose))
+        return (self.__class__, (self.func, None, None, None, None, self._verbose,
+                                 None, self.store))
 
     #-------------------------------------------------------------------------
     # Private interface
     #-------------------------------------------------------------------------
-   
-    def _get_func_dir(self, mkdir=True):
-        """ Get the directory corresponding to the cache for the
-            function.
-        """
-        module, name = get_func_name(self.func)
-        module.append(name)
-        func_dir = os.path.join(self.cachedir, *module)
-        if mkdir and not os.path.exists(func_dir):
-            try:
-                os.makedirs(func_dir)
-            except OSError:
-                """ Dir exists: we have a race condition here, when using 
-                    multiprocessing.
-                """
-                # XXX: Ugly
-        return func_dir
-
-
-    def get_output_dir(self, *args, **kwargs):
-        """ Returns the directory in which are persisted the results
-            of the function corresponding to the given arguments.
-
-            The results can be loaded using the .load_output method.
-        """
-        coerce_mmap = (self.mmap_mode is not None)
-        argument_hash = hash(filter_args(self.func, self.ignore,
-                             *args, **kwargs), 
-                             coerce_mmap=coerce_mmap)
-        output_dir = os.path.join(self._get_func_dir(self.func),
-                                    argument_hash)
-        return output_dir, argument_hash
-        
-
-    def _write_func_code(self, filename, func_code, first_line):
-        """ Write the function code and the filename to a file.
-        """
-        func_code = '%s %i\n%s' % (FIRST_LINE_TEXT, first_line, func_code)
-        file(filename, 'w').write(func_code)
-
-
-    def _check_previous_func_code(self, stacklevel=2):
-        """ 
-            stacklevel is the depth a which this function is called, to
-            issue useful warnings to the user.
-        """
-        # Here, we go through some effort to be robust to dynamically
-        # changing code and collision. We cannot inspect.getsource
-        # because it is not reliable when using IPython's magic "%run".
-        func_code, source_file, first_line = get_func_code(self.func)
-        func_dir = self._get_func_dir()
-        func_code_file = os.path.join(func_dir, 'func_code.py')
-
+    def get_job(self, *args, **kwargs):
+        filtered_args_dict = filter_args(self.func, self.ignore,
+                                         *args, **kwargs)
+        job = self.store.get_job(self.func, filtered_args_dict)
+        return job
+    
+    def _compute(self, args_tuple, kwargs_dict, force):
+        filtered_args_dict = filter_args(self.func, self.ignore,
+                                         *args_tuple, **kwargs_dict)
+        job = self.store.get_job(self.func, filtered_args_dict)
         try:
-            if not os.path.exists(func_code_file): 
-                raise IOError
-            old_func_code, old_first_line = \
-                            extract_first_line(file(func_code_file).read())
-        except IOError:
-                self._write_func_code(func_code_file, func_code, first_line)
-                return False
-        if old_func_code == func_code:
-            return True
+            if force:
+                job.clear()
 
-        # We have differing code, is this because we are refering to
-        # differing functions, or because the function we are refering as 
-        # changed?
-
-        if old_first_line == first_line == -1:
-            _, func_name = get_func_name(self.func, resolv_alias=False,
-                                         win_characters=False)
-            if not first_line == -1:
-                func_description = '%s (%s:%i)' % (func_name, 
-                                                source_file, first_line)
+            # TODO Delegate this logging to the store, and remove
+            # the hooks
+            t0 = time.time()            
+            def pre_load():
+                if self._verbose > 1:
+                    t = time.time() - self.timestamp
+                    print '[Memory]% 16s: Loading %s...' % (
+                        format_time(t),
+                        self.format_signature(self.func)[0]
+                        )
+            def post_load():
+                if self._verbose > 4:
+                    t = time.time() - t0
+                    _, name = get_func_name(self.func)
+                    msg = '%s cache loaded - %s' % (name, format_time(t))
+                    print max(0, (80 - len(msg)))*'_' + msg
+                
+            state = job.attempt_compute_lock(True, pre_load, post_load)
+            if state == COMPUTED:
+                return job.get_output()
+            elif state == MUST_COMPUTE:
+                start_time = time.time()
+                if self._verbose:
+                    print self.format_call(*args_tuple, **kwargs_dict)
+                job.persist_input(args_tuple, kwargs_dict, filtered_args_dict)
+                output = self.func(*args_tuple, **kwargs_dict)
+                job.persist_output(output)
+                duration = time.time() - start_time
+                if self._verbose:
+                    _, name = get_func_name(self.func)
+                    msg = '%s - %s' % (name, format_time(duration))
+                    print max(0, (80 - len(msg)))*'_' + msg
+                job.commit()
             else:
-                func_description = func_name
-            warnings.warn(JobLibCollisionWarning(
-                "Cannot detect name collisions for function '%s'"
-                        % func_description), stacklevel=stacklevel)
-
-        # Fetch the code at the old location and compare it. If it is the
-        # same than the code store, we have a collision: the code in the
-        # file has not changed, but the name we have is pointing to a new
-        # code block.
-        if (not old_first_line == first_line 
-                                    and source_file is not None
-                                    and os.path.exists(source_file)):
-            _, func_name = get_func_name(self.func, resolv_alias=False)
-            num_lines = len(func_code.split('\n'))
-            on_disk_func_code = file(source_file).readlines()[
-                        old_first_line-1:old_first_line-1+num_lines-1]
-            on_disk_func_code = ''.join(on_disk_func_code)
-            if on_disk_func_code.rstrip() == old_func_code.rstrip():
-                warnings.warn(JobLibCollisionWarning(
-                'Possible name collisions between functions '
-                "'%s' (%s:%i) and '%s' (%s:%i)" %
-                (func_name, source_file, old_first_line, 
-                 func_name, source_file, first_line)),
-                 stacklevel=stacklevel)
-
-        # The function has changed, wipe the cache directory.
-        # XXX: Should be using warnings, and giving stacklevel
-        self.clear(warn=True)
-        return False
-
+                assert False
+        finally:
+            job.close()
+        return output
 
     def clear(self, warn=True):
         """ Empty the function's cache. 
         """
-        func_dir = self._get_func_dir(mkdir=False)
-        if self._verbose and warn:
-            self.warn("Clearing cache %s" % func_dir)
-        if os.path.exists(func_dir):
-            shutil.rmtree(func_dir, ignore_errors=True)
-        try:
-            os.makedirs(func_dir)
-        except OSError:
-            """ Directory exists: it has been created by another process
-            in the mean time. """
-        func_code, _, first_line = get_func_code(self.func)
-        func_code_file = os.path.join(func_dir, 'func_code.py')
-        self._write_func_code(func_code_file, func_code, first_line)
+        self.store.clear(self.func, warn=warn and self._verbose)
+
 
 
     def call(self, *args, **kwargs):
         """ Force the execution of the function with the given arguments and 
             persist the output values.
         """
-        start_time = time.time()
-        if self._verbose:
-            print self.format_call(*args, **kwargs)
-        output_dir, argument_hash = self.get_output_dir(*args, **kwargs)
-        output = self.func(*args, **kwargs)
-        self._persist_output(output, output_dir)
-        input_repr = self._persist_input(output_dir, *args, **kwargs)
-        duration = time.time() - start_time
-        if self._verbose:
-            _, name = get_func_name(self.func)
-            msg = '%s - %s' % (name, format_time(duration))
-            print max(0, (80 - len(msg)))*'_' + msg
-        return output
-
-
+        return self._compute(args, kwargs, force=True)
+    
     def format_call(self, *args, **kwds):
         """ Returns a nicely formatted statement displaying the function 
             call with the given arguments.
@@ -382,66 +257,6 @@ class MemorizedFunc(Logger):
         signature = '%s(%s)' % (name, arg_str)
         return module_path, signature
 
-    # Make make public
-
-    def _persist_output(self, output, dir):
-        """ Persist the given output tuple in the directory.
-        """
-        try:
-            if not os.path.exists(dir):
-                os.makedirs(dir)
-            filename = os.path.join(dir, 'output.pkl')
-
-            if 'numpy' in sys.modules and self.save_npy:
-                numpy_pickle.dump(output, filename) 
-            else:
-                output_file = file(filename, 'w')
-                pickle.dump(output, output_file, protocol=2)
-                output_file.close()
-        except OSError:
-            " Race condition in the creation of the directory "
-
-
-    def _persist_input(self, output_dir, *args, **kwargs):
-        """ Save a small summary of the call using json format in the
-            output directory.
-        """
-        argument_dict = filter_args(self.func, self.ignore,
-                                    *args, **kwargs)
-
-        input_repr = dict((k, repr(v)) for k, v in argument_dict.iteritems())
-        if json is not None:
-            # This can fail do to race-conditions with multiple
-            # concurrent joblibs removing the file or the directory
-            try:
-                if not os.path.exists(output_dir):
-                    os.makedirs(output_dir)
-                json.dump(
-                    input_repr,
-                    file(os.path.join(output_dir, 'input_args.json'), 'w'),
-                    )
-            except:
-                pass
-        return input_repr
-
-    def load_output(self, output_dir):
-        """ Read the results of a previous calculation from the directory
-            it was cached in.
-        """
-        if self._verbose > 1:
-            t = time.time() - self.timestamp
-            print '[Memory]% 16s: Loading %s...' % (
-                                    format_time(t),
-                                    self.format_signature(self.func)[0]
-                                    )
-        filename = os.path.join(output_dir, 'output.pkl')
-        if self.save_npy:
-            return numpy_pickle.load(filename, 
-                                     mmap_mode=self.mmap_mode)
-        else:
-            output_file = file(filename, 'r')
-            return pickle.load(output_file)
-
     # XXX: Need a method to check if results are available.
 
     #-------------------------------------------------------------------------
@@ -449,10 +264,10 @@ class MemorizedFunc(Logger):
     #-------------------------------------------------------------------------
    
     def __repr__(self):
-        return '%s(func=%s, cachedir=%s)' % (
+        return '%s(func=%s, store=%s)' % (
                     self.__class__.__name__,
                     self.func,
-                    repr(self.cachedir),
+                    self.store.repr_for_func(self.func), # ugh
                     )
 
 
