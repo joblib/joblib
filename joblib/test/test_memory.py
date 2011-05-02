@@ -398,14 +398,13 @@ def test_persistence():
     x = g.get_job(1)
     y = h.get_job(1)
     try:
-        if not x.attempt_compute_lock() == COMPUTED:
-            assert False
-        if not y.attempt_compute_lock() == COMPUTED:
-            assert False
+        status, x_output = x.load_or_lock()
+        yield nose.tools.assert_equal, status, COMPUTED
+        status, y_output = y.load_or_lock()
+        yield nose.tools.assert_equal, status, COMPUTED
+        yield nose.tools.assert_equal, x_output, y_output
+        yield nose.tools.assert_true, x_output is not None
         yield nose.tools.assert_equal, x.job_path, y.job_path
-        yield (nose.tools.assert_equal,
-               x.get_output(),
-               y.get_output())
     finally:
         x.close()
         y.close()

@@ -183,16 +183,16 @@ class MemorizedFunc(Logger):
                     msg = '%s cache loaded - %s' % (name, format_time(t))
                     print max(0, (80 - len(msg)))*'_' + msg
                 
-            state = job.attempt_compute_lock(True, pre_load, post_load)
-            if state == COMPUTED:
-                return job.get_output()
-            elif state == MUST_COMPUTE:
+            status, output = job.load_or_lock(True, pre_load, post_load)
+            if status == COMPUTED:
+                return output
+            elif status == MUST_COMPUTE:
                 start_time = time.time()
                 if self._verbose:
                     print self.format_call(*args_tuple, **kwargs_dict)
-                job.persist_input(args_tuple, kwargs_dict, filtered_args_dict)
                 output = self.func(*args_tuple, **kwargs_dict)
                 job.persist_output(output)
+                job.persist_input(args_tuple, kwargs_dict, filtered_args_dict)
                 duration = time.time() - start_time
                 if self._verbose:
                     _, name = get_func_name(self.func)

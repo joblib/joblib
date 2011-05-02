@@ -55,26 +55,26 @@ def key_function():
 @with_store()
 def test_basic():
     job = store_instance.get_job(key_function, dict(a=1))
-    yield eq_, job.is_computed(), False
-    yield eq_, job.attempt_compute_lock(blocking=False), MUST_COMPUTE
-    job.persist_output((1, 2, 3))
-    job.rollback()
+
+    #No transactional security, at least yet
+    #yield eq_, job.is_computed(), False
+    #yield eq_, job.load_or_lock(blocking=False)[0], MUST_COMPUTE
+    #job.persist_output((1, 2, 3))
+    #job.rollback()
 
     yield eq_, job.is_computed(), False
-    yield eq_, job.attempt_compute_lock(blocking=False), MUST_COMPUTE
+    yield eq_, job.load_or_lock(blocking=False)[0], MUST_COMPUTE
     job.persist_output((1, 2, 3))
     job.persist_input(34, {}, {'a': 34})
     job.commit()
-    yield eq_, job.attempt_compute_lock(blocking=False), COMPUTED    
+    yield eq_, job.load_or_lock(blocking=False), (COMPUTED, (1, 2, 3))
     yield eq_, job.is_computed(), True
-    yield eq_, job.get_output(), (1, 2, 3)
 
     job.close()
     
     job = store_instance.get_job(key_function, dict(a=1))
     yield eq_, job.is_computed(), True
-    yield eq_, job.attempt_compute_lock(blocking=False), COMPUTED    
-    yield eq_, job.get_output(), (1, 2, 3)
+    yield eq_, job.load_or_lock(blocking=False), (COMPUTED, (1, 2, 3))
     job.close()
 
     # Check contents of dir
@@ -89,6 +89,5 @@ def test_errors():
     job = store_instance.get_job(key_function, dict(a=1))
     yield assert_raises, IllegalOperationError, job.persist_output, (1, 2, 3)
     yield assert_raises, IllegalOperationError, job.persist_input, 34, {}, {'a':34}
-    yield assert_raises, IllegalOperationError, job.get_output
     job.close()
 

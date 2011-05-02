@@ -269,11 +269,6 @@ class DirectoryJob(object):
         self.save_npy = save_npy
         self.mmap_mode = mmap_mode
         self._work_path = None
-        self._args_dict_to_write = None
-        self._has_output_to_write = False
-        self._output_to_write = None
-        self._output_loaded = False
-        self._output = None
 
     def __del__(self):
         if self.job_path is not None:
@@ -282,29 +277,23 @@ class DirectoryJob(object):
     def persist_input(self, args_tuple, kwargs_dict, filtered_args_dict):
         if self._work_path is None:
             raise IllegalOperationError("call attempt_compute_lock first")
-        # TODO: Use a temporary work path and atomically move it instead
-        self._args_dict_to_write = filtered_args_dict
+        if json is not None and filtered_args_dict is not None:
+            input_repr = dict((k, repr(v)) for k, v in filtered_args_dict.iteritems())
+            with file(pjoin(self._work_path, 'input_args.json'), 'w') as f:
+                json.dump(input_repr, f)
 
     def persist_output(self, output):
         if self._work_path is None:
             raise IllegalOperationError("call attempt_compute_lock first")
         # TODO: Use a temporary work path and atomically move it instead
-        self._has_output_to_write = True # because output can legally be None
-        self._output_to_write = output
-
-    def get_output(self):
-        if not self._output_loaded:
+        if self._work_path is None:
             raise IllegalOperationError("call attempt_compute_lock first")
-        return self._output
-
-    def _load_output(self):
-        filename = pjoin(self.job_path, 'output.pkl')
-        if self.save_npy:
-            return numpy_pickle.load(filename, 
-                                     mmap_mode=self.mmap_mode)
+        filename = pjoin(self._work_path, 'output.pkl')
+        if 'numpy' in sys.modules and self.save_npy:
+            numpy_pickle.dump(output, filename) 
         else:
-            with file(filename, 'r') as f:
-                return pickle.load(f)
+            with file(filename, 'w') as f:
+                pickle.dump(output, f, protocol=2)
 
     def is_computed(self):
         """ Whether the job is computed or not. Use this method only
@@ -322,26 +311,36 @@ class DirectoryJob(object):
         if os.path.exists(self.job_path):
             shutil.rmtree(self.job_path, ignore_errors=True)
 
-    def attempt_compute_lock(self, blocking=True, pre_load_hook=_noop,
-                             post_load_hook=_noop):
-        """
-        Call this to simultaneously probe whether a task is computed
-        and offer to compute it if not.
+    def load_or_lock(self, blocking=True, pre_load_hook=_noop,
+                     post_load_hook=_noop):
+        """ Fetch result of or offer to compute the job.
 
-        Returns either MUST_COMPUTE, WAIT, or COMPUTE. If
+        The API supports both transactional safety and pessimistic
+        locking, but this implementation provides neither.
+
+        Returns
+        -------
+
+        (status, output)
+
+        Status is either MUST_COMPUTE, WAIT, or COMPUTED. If
         it returns MUST_COMPUTE then you *must* call commit() or
-        rollback(). If 'blocking' is True, then WAIT can not be
+        rollback() (although rollback() is called by close()).
+        If 'blocking' is True, then WAIT can not be
         returned.
+
+        When ``status == COMPUTED``, the output of the job is
+        present in ``output``. Otherwise, ``output`` is ``None``.
         """
         self.store._check_previous_func_code(self.func, stacklevel=3)
+        output = None
         if self.is_computed():
             try:
                 # TODO pre_load_hook and post_load_hook are ugly
                 # hacks that should go once logging framework is
                 # fixed
                 pre_load_hook()
-                self._output_loaded = True
-                self._output = self._load_output()
+                output = self._load_output()
                 post_load_hook()
             except BaseException:
                 # Corrupt output; recompute
@@ -349,44 +348,35 @@ class DirectoryJob(object):
                         'Exception while loading results for %s\n %s' % (
                         self.job_path, traceback.format_exc()))
                 self.clear()
-                self._work_path = self.job_path
-                return MUST_COMPUTE
+                status = MUST_COMPUTE
             else:
-                return COMPUTED
+                status = COMPUTED
         else:
+            status = MUST_COMPUTE
+        if status == MUST_COMPUTE:
             self._work_path = self.job_path
-            return MUST_COMPUTE
+            ensure_dir(self._work_path)            
+        return (status, output)
 
     def commit(self):
-        try:
-            ensure_dir(self._work_path)
-            # Persist output
-            if self._has_output_to_write:
-                filename = pjoin(self._work_path, 'output.pkl')
-                if 'numpy' in sys.modules and self.save_npy:
-                    numpy_pickle.dump(self._output_to_write, filename) 
-                else:
-                    with file(filename, 'w') as f:
-                        pickle.dump(self._output_to_write, f, protocol=2)
-
-            # Persist input
-            if json is not None and self._args_dict_to_write is not None:
-                input_repr = dict((k, repr(v)) for k, v in self._args_dict_to_write.iteritems())
-                with file(pjoin(self._work_path, 'input_args.json'), 'w') as f:
-                    json.dump(input_repr, f)
-        finally:
-            self.rollback()
+        self._work_path = None
 
     def rollback(self):
         self._work_path = None
-        self._output_to_write = None
-        self._has_output_to_write = False
-        self._args_dict_to_write = None
 
     def close(self):
         self.rollback()
         self.job_path = None
         self._output = None
+
+    def _load_output(self):
+        filename = pjoin(self.job_path, 'output.pkl')
+        if self.save_npy:
+            return numpy_pickle.load(filename, 
+                                     mmap_mode=self.mmap_mode)
+        else:
+            with file(filename, 'r') as f:
+                return pickle.load(f)        
 
 def ensure_dir(path):
     """ Ensure that a directory exists with graceful race handling
