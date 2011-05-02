@@ -147,10 +147,12 @@ class BaseJobStore(object):
         return input_hash
 
 class DirectoryJobStore(BaseJobStore):
-    def __init__(self, path, logger=print_logger, save_npy=True, mmap_mode=None):
+    def __init__(self, path, logger=print_logger, save_npy=True, mmap_mode=None,
+                 verbose=1):
         BaseJobStore.__init__(self, logger=logger, mmap_mode=mmap_mode)
         self.store_path = os.path.abspath(path)
         self.save_npy = save_npy
+        self.verbose = verbose
 
     def _get_job_from_hash(self, func, input_hash):
         job_path = pjoin(self.store_path, self._get_func_name(func), input_hash)
@@ -163,7 +165,7 @@ class DirectoryJobStore(BaseJobStore):
         """ Delete all computed results for the given function.
         """
         func_dir = pjoin(self.store_path, self._get_func_name(func))
-        if warn:
+        if self.verbose and warn:
             self.logger.warn("Clearing cache %s" % func_dir)
         if os.path.exists(func_dir):
             shutil.rmtree(func_dir, ignore_errors=True)

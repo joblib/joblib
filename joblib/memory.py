@@ -43,8 +43,6 @@ FIRST_LINE_TEXT = "# first line:"
 # collect them.
 
 
-
-
 ################################################################################
 # class `MemorizedFunc`
 ################################################################################
@@ -113,7 +111,8 @@ class MemorizedFunc(Logger):
         self._verbose = verbose
         self.func = func
         if store is None:
-            store = DirectoryJobStore(cachedir, save_npy=save_npy, mmap_mode=mmap_mode)
+            store = DirectoryJobStore(cachedir, save_npy=save_npy, mmap_mode=mmap_mode,
+                                      verbose=verbose)
         else:
             if not (cachedir is save_npy is None):
                 raise TypeError('Either provide store instance or DirectoryStore arguments')
@@ -209,9 +208,7 @@ class MemorizedFunc(Logger):
     def clear(self, warn=True):
         """ Empty the function's cache. 
         """
-        self.store.clear(self.func, warn=warn and self._verbose)
-
-
+        self.store.clear(self.func, warn=warn)
 
     def call(self, *args, **kwargs):
         """ Force the execution of the function with the given arguments and 
