@@ -20,10 +20,10 @@ import inspect
 from .func_inspect import get_func_name, filter_args
 from .logger import Logger, format_time
 from .disk import rm_subdirs
-from .jobstore import DirectoryJobStore, COMPUTED, MUST_COMPUTE, WAIT
+from .job_store import DirectoryJobStore, COMPUTED, MUST_COMPUTE, WAIT
 
 # Backwards compatability imports -- they used to be found here:
-from .jobstore import JobLibCollisionWarning
+from .job_store import JobLibCollisionWarning
 
 FIRST_LINE_TEXT = "# first line:"
 
@@ -104,7 +104,7 @@ class MemorizedFunc(Logger):
                 are reported.
             store: object
                 Object fullfilling the store API. By default, a
-                ``joblib.jobstore.DirectoryJobStore`` is created with the
+                ``joblib.job_store.DirectoryJobStore`` is created with the
                 parameters given.
         """
         Logger.__init__(self)

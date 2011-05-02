@@ -17,7 +17,7 @@ import warnings
 import nose
 
 from ..memory import Memory, MemorizedFunc
-from ..jobstore import COMPUTED
+from ..job_store import COMPUTED
 from .common import with_numpy, np
 
 ################################################################################
