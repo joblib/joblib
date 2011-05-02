@@ -272,6 +272,7 @@ class DirectoryJob(object):
         self._args_dict_to_write = None
         self._has_output_to_write = False
         self._output_to_write = None
+        self._output_loaded = False
         self._output = None
 
     def __del__(self):
@@ -292,8 +293,8 @@ class DirectoryJob(object):
         self._output_to_write = output
 
     def get_output(self):
-        if not self.is_computed():
-            raise IllegalOperationError('output not stored')
+        if not self._output_loaded:
+            raise IllegalOperationError("call attempt_compute_lock first")
         return self._output
 
     def _load_output(self):
@@ -306,6 +307,15 @@ class DirectoryJob(object):
                 return pickle.load(f)
 
     def is_computed(self):
+        """ Whether the job is computed or not. Use this method only
+        if you know what you are doing, since it is not race-safe:
+
+        If the return value is ``True``, then a subsequent call to
+        ``attempt_compute_lock`` is guaranteed to return ``COMPUTED``,
+        up to unpickling errors.  However, if it returns ``False``,
+        it could of course have changed by the time the caller gets
+        the result and can act on it.
+        """
         return os.path.exists(self.job_path)
 
     def clear(self):
@@ -330,6 +340,7 @@ class DirectoryJob(object):
                 # hacks that should go once logging framework is
                 # fixed
                 pre_load_hook()
+                self._output_loaded = True
                 self._output = self._load_output()
                 post_load_hook()
             except BaseException:
