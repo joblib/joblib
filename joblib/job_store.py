@@ -276,7 +276,7 @@ class DirectoryJob(object):
 
     def persist_input(self, args_tuple, kwargs_dict, filtered_args_dict):
         if self._work_path is None:
-            raise IllegalOperationError("call attempt_compute_lock first")
+            raise IllegalOperationError("call load_or_lock first")
         if json is not None and filtered_args_dict is not None:
             input_repr = dict((k, repr(v)) for k, v in filtered_args_dict.iteritems())
             with file(pjoin(self._work_path, 'input_args.json'), 'w') as f:
@@ -284,10 +284,10 @@ class DirectoryJob(object):
 
     def persist_output(self, output):
         if self._work_path is None:
-            raise IllegalOperationError("call attempt_compute_lock first")
+            raise IllegalOperationError("call load_or_lock first")
         # TODO: Use a temporary work path and atomically move it instead
         if self._work_path is None:
-            raise IllegalOperationError("call attempt_compute_lock first")
+            raise IllegalOperationError("call load_or_lock first")
         filename = pjoin(self._work_path, 'output.pkl')
         if 'numpy' in sys.modules and self.save_npy:
             numpy_pickle.dump(output, filename) 
@@ -300,7 +300,7 @@ class DirectoryJob(object):
         if you know what you are doing, since it is not race-safe:
 
         If the return value is ``True``, then a subsequent call to
-        ``attempt_compute_lock`` is guaranteed to return ``COMPUTED``,
+        ``load_or_lock`` is guaranteed to return ``COMPUTED``,
         up to unpickling errors.  However, if it returns ``False``,
         it could of course have changed by the time the caller gets
         the result and can act on it.
