@@ -17,7 +17,7 @@ import warnings
 import nose
 
 from ..memory import Memory, MemorizedFunc
-from ..job_store import COMPUTED
+from ..job_store import COMPUTED, DirectoryJobStore
 from .common import with_numpy, np
 
 ################################################################################
@@ -453,4 +453,22 @@ def test_repr():
 def test_format_signature_numpy():
     """ Test the format signature formatting with numpy.
     """
+
+class CustomStore(object):
+    def __init__(self, wrapped):
+        self.wrapped = wrapped
+        self.calls = []
+    
+    def get_job(self, func, args_dict):
+        self.calls.append((func, args_dict))
+        return self.wrapped.get_job(func, args_dict)
+
+def test_custom_store():
+    """ Test using a custom store object
+    """
+    store = CustomStore(DirectoryJobStore(env['dir']))
+    memory = Memory(store=store)
+    g = memory.cache(f)
+    yield nose.tools.assert_equal, 2, g(1)
+    yield nose.tools.assert_equal, [(f, {'x' : 1, 'y' : 1})], store.calls
 

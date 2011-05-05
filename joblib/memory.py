@@ -102,24 +102,21 @@ class MemorizedFunc(Logger):
             timestamp: float, optional
                 The reference time from which times in tracing messages
                 are reported.
-            store: object
-                Object fullfilling the store API. By default, a
-                ``joblib.job_store.DirectoryJobStore`` is created with the
-                parameters given.
+            store: object, optional
+                Object implementing the job store API, see the
+                ``joblib.job_store`` module. If provided, then
+                ``cachedir`` should not be provided, and ``save_npy``
+                and ``mmap_mode`` will be ignored.
         """
         Logger.__init__(self)
         self._verbose = verbose
         self.func = func
+        if store is not None and cachedir is not None:
+            raise TypeError('Provide either store or cachedir')
         if store is None:
             store = DirectoryJobStore(cachedir, save_npy=save_npy, mmap_mode=mmap_mode,
                                       verbose=verbose)
-        else:
-            if not (cachedir is save_npy is None):
-                raise TypeError('Either provide store instance or DirectoryStore arguments')
-            if mmap_mode != store.mmap_mode:
-                raise ValueError('store has mismatching mmap_mode')
         self.store = store
-        self.mmap_mode = mmap_mode
         if timestamp is None:
             timestamp = time.time()
         self.timestamp = timestamp
@@ -285,15 +282,15 @@ class Memory(Logger):
     # Public interface
     #-------------------------------------------------------------------------
    
-    def __init__(self, cachedir, save_npy=True, mmap_mode=None,
-                       verbose=1):
+    def __init__(self, cachedir=None, save_npy=True, mmap_mode=None,
+                       verbose=1, store=None):
         """
             Parameters
             ----------
             cachedir: string or None
                 The path of the base directory to use as a data store
-                or None. If None is given, no caching is done and
-                the Memory object is completely transparent.
+                or None. If neither ``cachedir`` nor ``store`` is given,
+                no caching is done and the Memory object is completely transparent.
             save_npy: boolean, optional
                 If True, numpy arrays are saved outside of the pickle
                 files in the cache, as npy files.
@@ -305,6 +302,11 @@ class Memory(Logger):
             verbose: int, optional
                 Verbosity flag, controls the debug messages that are issued 
                 as functions are revaluated.
+            store: object, optional
+                Object implementing the job store API, see the
+                ``joblib.job_store`` module. If provided, then
+                ``cachedir`` should not be provided, and ``save_npy``
+                and ``mmap_mode`` will be ignored.                
         """
         # XXX: Bad explaination of the None value of cachedir
         Logger.__init__(self)
@@ -312,6 +314,7 @@ class Memory(Logger):
         self.save_npy = save_npy
         self.mmap_mode = mmap_mode
         self.timestamp = time.time()
+        self.store = store
         if cachedir is None:
             self.cachedir = None
         else:
@@ -351,7 +354,7 @@ class Memory(Logger):
             # Partial application, to be able to specify extra keyword 
             # arguments in decorators
             return functools.partial(self.cache, ignore=ignore)
-        if self.cachedir is None:
+        if self.cachedir is self.store is None:
             return func
         if verbose is None:
             verbose = self._verbose
@@ -364,7 +367,8 @@ class Memory(Logger):
                                    mmap_mode=mmap_mode,
                                    ignore=ignore,
                                    verbose=verbose,
-                                   timestamp=self.timestamp)
+                                   timestamp=self.timestamp,
+                                   store=self.store)
 
 
     def clear(self, warn=True):
