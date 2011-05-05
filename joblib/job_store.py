@@ -305,7 +305,7 @@ class DirectoryJob(object):
         it could of course have changed by the time the caller gets
         the result and can act on it.
         """
-        return os.path.exists(self.job_path)
+        return os.path.exists(pjoin(self.job_path, 'output.pkl'))
 
     def clear(self):
         if os.path.exists(self.job_path):

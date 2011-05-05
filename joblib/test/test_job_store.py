@@ -54,13 +54,9 @@ def key_function():
 
 @with_store()
 def test_basic():
+    """ Basic functionality
+    """
     job = store_instance.get_job(key_function, dict(a=1))
-
-    #No transactional security, at least yet
-    #yield eq_, job.is_computed(), False
-    #yield eq_, job.load_or_lock(blocking=False)[0], MUST_COMPUTE
-    #job.persist_output((1, 2, 3))
-    #job.rollback()
 
     yield eq_, job.is_computed(), False
     yield eq_, job.load_or_lock(blocking=False)[0], MUST_COMPUTE
@@ -83,6 +79,26 @@ def test_basic():
     yield ok_, os.path.exists(job_path)
     if os.path.exists(job_path):
         yield eq_, ls(job_path), set(['input_args.json', 'output.pkl'])
+
+@with_store()
+def test_simple_race():
+    """ Check that is_computed depends on presence of output.pkl
+    """
+    a = store_instance.get_job(key_function, dict(a=1))
+    b = store_instance.get_job(key_function, dict(a=1))
+    yield eq_, a.is_computed(), False
+    yield eq_, a.load_or_lock(blocking=False)[0], MUST_COMPUTE
+    yield eq_, a.is_computed(), False
+    yield eq_, b.load_or_lock(blocking=False)[0], MUST_COMPUTE
+    b.rollback()
+    a.persist_output((1, 2, 3))
+    yield eq_, a.is_computed(), True
+    yield eq_, b.is_computed(), True
+    yield eq_, a.load_or_lock(blocking=False)[0], COMPUTED
+    yield eq_, b.load_or_lock(blocking=False)[0], COMPUTED
+    a.commit()
+    a.close()
+    b.close()
 
 @with_store()
 def test_errors():
