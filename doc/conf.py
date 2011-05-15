@@ -91,6 +91,8 @@ exclude_trees = []
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = 'sphinx'
 
+# Avoid '+DOCTEST...' comments in the docs
+trim_doctest_flags = True
 
 # Options for HTML output
 # -----------------------
