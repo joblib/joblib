@@ -584,3 +584,13 @@ class Memory(Logger):
                     )
 
 
+    def __reduce__(self):
+        """ We don't store the timestamp when pickling, to avoid the hash
+            depending from it.
+            In addition, when unpickling, we run the __init__
+        """
+        # We need to remove 'joblib' from the end of cachedir
+        return (self.__class__, (self.cachedir[:-7], 
+                self.save_npy, self.mmap_mode, self._verbose))
+
+
