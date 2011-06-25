@@ -30,6 +30,17 @@ from .format_stack import format_exc, format_outer_frames
 from .logger import Logger, short_format_time
 from .my_exceptions import TransportableException, _mk_exception
 
+################################################################################
+# CPU that works also when multiprocessing is not installed (python2.5)
+def cpu_count():
+    """ Return the number of CPUs.
+    """
+    if multiprocessing is None:
+        return 1
+    return multiprocessing.cpu_count()
+
+
+
 
 ################################################################################
 class WorkerInterrupt(Exception):

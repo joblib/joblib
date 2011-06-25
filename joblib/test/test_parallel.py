@@ -15,7 +15,7 @@ except:
     PickleError = pickle.PicklingError
 
 from ..parallel import Parallel, delayed, SafeFunction, WorkerInterrupt, \
-        multiprocessing
+        multiprocessing, cpu_count
 from ..my_exceptions import JoblibException
 
 import nose
@@ -42,6 +42,10 @@ def f(x, y=0, z=0):
     multiprocessing.
     """
     return x**2 + y + z
+
+################################################################################
+def test_cpu_count():
+    assert cpu_count() > 0
 
 ################################################################################
 # Test parallel
