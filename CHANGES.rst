@@ -1,6 +1,14 @@
 Latest changes
 ===============
 
+Release 0.5.2
+---------------
+
+2011-06-25
+Gael varoquaux
+
+    ENH: Add cpu_count
+
 Release 0.5.1
 ---------------
 
