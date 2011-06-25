@@ -103,5 +103,5 @@ from .memory import Memory
 from .logger import PrintTime, Logger
 from .hashing import hash
 from .numpy_pickle import dump, load
-from .parallel import Parallel, delayed
+from .parallel import Parallel, delayed, cpu_count
 
