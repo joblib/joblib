@@ -2,7 +2,7 @@
 Test the parallel module.
 """
 
-# Author: Gael Varoquaux <gael dot varoquaux at normalesup dot org> 
+# Author: Gael Varoquaux <gael dot varoquaux at normalesup dot org>
 # Copyright (c) 2010-2011 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
@@ -20,22 +20,27 @@ from ..my_exceptions import JoblibException
 
 import nose
 
-################################################################################
+
+###############################################################################
 
 def division(x, y):
-    return x/y
+    return x / y
+
 
 def square(x):
     return x**2
+
 
 def exception_raiser(x):
     if x == 7:
         raise ValueError
     return x
 
+
 def interrupt_raiser(x):
     time.sleep(.05)
     raise KeyboardInterrupt
+
 
 def f(x, y=0, z=0):
     """ A module-level function so that it can be spawn with
@@ -43,11 +48,13 @@ def f(x, y=0, z=0):
     """
     return x**2 + y + z
 
-################################################################################
+
+###############################################################################
 def test_cpu_count():
     assert cpu_count() > 0
 
-################################################################################
+
+###############################################################################
 # Test parallel
 def test_simple_parallel():
     X = range(10)
@@ -61,12 +68,12 @@ def test_parallel_kwargs():
     """
     lst = range(10)
     for n_jobs in (1, 4):
-        yield (nose.tools.assert_equal, 
-               [f(x, y=1) for x in lst], 
+        yield (nose.tools.assert_equal,
+               [f(x, y=1) for x in lst],
                Parallel(n_jobs=n_jobs)(delayed(f)(x, y=1) for x in lst)
               )
 
-        
+
 def test_parallel_pickling():
     """ Check that pmap captures the errors when it is passed an object
         that cannot be pickled.
@@ -74,7 +81,7 @@ def test_parallel_pickling():
     def g(x):
         return x**2
     nose.tools.assert_raises(PickleError,
-                             Parallel(), 
+                             Parallel(),
                              (delayed(g)(x) for x in range(10))
                             )
 
@@ -129,18 +136,19 @@ def test_dispatch_one_job():
     """ Test that with only one job, Parallel does act as a iterator.
     """
     queue = list()
+
     def producer():
         for i in range(6):
             queue.append('Produced %i' % i)
             yield i
 
     Parallel(n_jobs=1)(delayed(consumer)(queue, x) for x in producer())
-    nose.tools.assert_equal(queue, 
-                              ['Produced 0', 'Consumed 0', 
-                               'Produced 1', 'Consumed 1', 
-                               'Produced 2', 'Consumed 2', 
-                               'Produced 3', 'Consumed 3', 
-                               'Produced 4', 'Consumed 4', 
+    nose.tools.assert_equal(queue,
+                              ['Produced 0', 'Consumed 0',
+                               'Produced 1', 'Consumed 1',
+                               'Produced 2', 'Consumed 2',
+                               'Produced 3', 'Consumed 3',
+                               'Produced 4', 'Consumed 4',
                                'Produced 5', 'Consumed 5']
                                )
     nose.tools.assert_equal(len(queue), 12)
@@ -154,6 +162,7 @@ def test_dispatch_multiprocessing():
         return
     manager = multiprocessing.Manager()
     queue = manager.list()
+
     def producer():
         for i in range(6):
             queue.append('Produced %i' % i)
@@ -161,8 +170,8 @@ def test_dispatch_multiprocessing():
 
     Parallel(n_jobs=2, pre_dispatch=3)(delayed(consumer)(queue, i)
                                        for i in producer())
-    nose.tools.assert_equal(list(queue)[:4], 
-            ['Produced 0', 'Produced 1', 'Produced 2', 
+    nose.tools.assert_equal(list(queue)[:4],
+            ['Produced 0', 'Produced 1', 'Produced 2',
              'Consumed 0', ])
     nose.tools.assert_equal(len(queue), 12)
 
@@ -176,7 +185,7 @@ def test_exception_dispatch():
             )
 
 
-################################################################################
+###############################################################################
 # Test helpers
 def test_joblib_exception():
     # Smoke-test the custom exception
@@ -190,4 +199,3 @@ def test_joblib_exception():
 def test_safe_function():
     safe_division = SafeFunction(division)
     nose.tools.assert_raises(JoblibException, safe_division, 1, 0)
-

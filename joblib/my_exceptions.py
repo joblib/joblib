@@ -7,6 +7,7 @@ Exceptions
 
 import sys
 
+
 class JoblibException(Exception):
     """ A simple exception with an error message that you can get to.
     """
@@ -21,9 +22,9 @@ class JoblibException(Exception):
     def __repr__(self):
         return '%s\n%s\n%s\n%s' % (
                     self.__class__.__name__,
-                    75*'_',
+                    75 * '_',
                     self.message,
-                    75*'_')
+                    75 * '_')
 
     __str__ = __repr__
 
@@ -32,18 +33,18 @@ class TransportableException(JoblibException):
     """ An exception containing all the info to wrap an original
         exception and recreate it.
     """
-    
+
     def __init__(self, message, etype):
         self.message = message
-        self.etype   = etype
+        self.etype = etype
 
     def __reduce__(self):
         # For pickling
         return self.__class__, (self.message, self.etype), {}
 
-    
 
 _exception_mapping = dict()
+
 
 def _mk_exception(exception, name=None):
     # Create an exception inheriting from both JoblibException
@@ -55,7 +56,7 @@ def _mk_exception(exception, name=None):
         # Avoid creating twice the same exception
         this_exception = _exception_mapping[this_name]
     else:
-        this_exception = type(this_name, (exception, JoblibException), 
+        this_exception = type(this_name, (exception, JoblibException),
                     dict(__repr__=JoblibException.__repr__,
                          __str__=JoblibException.__str__),
                     )
@@ -88,7 +89,6 @@ def _mk_common_exceptions():
     return namespace
 
 
-# Updating module locals so that the exceptions pickle right. AFAIK this 
+# Updating module locals so that the exceptions pickle right. AFAIK this
 # works only at module-creation time
 locals().update(_mk_common_exceptions())
-

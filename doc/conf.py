@@ -11,7 +11,8 @@
 # All configuration values have a default; values that are commented out
 # serve to show the default.
 
-import sys, os
+import sys
+import os
 
 import joblib
 
@@ -28,7 +29,7 @@ sys.path.append(os.path.abspath('./sphinxext'))
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 extensions = ['sphinx.ext.autodoc', 'sphinx.ext.pngmath', 'numpydoc',
-              'phantom_import', 'autosummary', 
+              'phantom_import', 'autosummary',
               'sphinx.ext.coverage']
 #extensions = ['sphinx.ext.autodoc', 'sphinx.ext.doctest']
 

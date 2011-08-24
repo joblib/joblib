@@ -55,4 +55,3 @@ Lightweight pipelining: using Python functions as pipeline jobs.
       #package_data={'joblib': ['joblib/*.rst'],},
       packages=['joblib', 'joblib.test'],
       **extra_setuptools_args)
-

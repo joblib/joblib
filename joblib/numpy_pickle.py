@@ -2,21 +2,23 @@
 A pickler to save numpy arrays in separate .npy files.
 """
 
-# Author: Gael Varoquaux <gael dot varoquaux at normalesup dot org> 
+# Author: Gael Varoquaux <gael dot varoquaux at normalesup dot org>
 # Copyright (c) 2009 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
 import pickle
 import traceback
-import sys, os
+import sys
+import os
 
 if sys.version_info[0] == 3:
     from pickle import _Unpickler as Unpickler
 else:
     from pickle import Unpickler
 
-################################################################################
+###############################################################################
 # Utility objects for persistence.
+
 
 class NDArrayWrapper(object):
     """ An object to be persisted instead of numpy arrays.
@@ -28,7 +30,7 @@ class NDArrayWrapper(object):
         self.filename = filename
 
 
-################################################################################
+###############################################################################
 # Pickler classes
 
 class NumpyPickler(pickle.Pickler):
@@ -50,14 +52,14 @@ class NumpyPickler(pickle.Pickler):
 
     def save(self, obj):
         """ Subclass the save method, to save ndarray subclasses in npy
-            files, rather than pickling them. Off course, this is a 
+            files, rather than pickling them. Off course, this is a
             total abuse of the Pickler class.
         """
         if isinstance(obj, self.np.ndarray):
             self._npy_counter += 1
             try:
                 filename = '%s_%02i.npy' % (self._filename,
-                                            self._npy_counter )
+                                            self._npy_counter)
                 self._filenames.append(filename)
                 self.np.save(filename, obj)
                 obj = NDArrayWrapper(os.path.basename(filename))
@@ -70,7 +72,6 @@ class NumpyPickler(pickle.Pickler):
         pickle.Pickler.save(self, obj)
 
 
-
 class NumpyUnpickler(Unpickler):
     """ A subclass of the Unpickler to unpickle our numpy pickles.
     """
@@ -79,17 +80,16 @@ class NumpyUnpickler(Unpickler):
     def __init__(self, filename, mmap_mode=None):
         self._filename = filename
         self.mmap_mode = mmap_mode
-        self._dirname  = os.path.dirname(filename)
+        self._dirname = os.path.dirname(filename)
         self.file = open(filename, 'rb')
         Unpickler.__init__(self, self.file)
         import numpy as np
         self.np = np
 
-
     def load_build(self):
         """ This method is called to set the state of a knewly created
-            object. 
-            
+            object.
+
             We capture it to replace our place-holder objects,
             NDArrayWrapper, by the array we are interested in. We
             replace directly in the stack of pickler.
@@ -107,16 +107,15 @@ class NumpyUnpickler(Unpickler):
                                                 nd_array_wrapper.filename))
             self.stack.append(array)
 
-
     # Be careful to register our new method.
     dispatch[pickle.BUILD] = load_build
 
 
-################################################################################
+###############################################################################
 # Utility functions
 
 def dump(value, filename):
-    """ Persist an arbitrary Python object into a filename, with numpy arrays 
+    """ Persist an arbitrary Python object into a filename, with numpy arrays
         saved as separate .npy files.
 
         See Also
@@ -134,7 +133,7 @@ def dump(value, filename):
 
 
 def load(filename, mmap_mode=None):
-    """ Reconstruct a Python object and the numpy arrays it contains from 
+    """ Reconstruct a Python object and the numpy arrays it contains from
         a persisted file.
 
         This function loads the numpy array files saved separately. If
@@ -153,4 +152,3 @@ def load(filename, mmap_mode=None):
         if 'unpickler' in locals() and hasattr(unpickler, 'file'):
             unpickler.file.close()
     return obj
-

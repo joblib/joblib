@@ -4,7 +4,7 @@ Helpers for logging.
 This module needs much love to become useful.
 """
 
-# Author: Gael Varoquaux <gael dot varoquaux at normalesup dot org> 
+# Author: Gael Varoquaux <gael dot varoquaux at normalesup dot org>
 # Copyright (c) 2008 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
@@ -16,6 +16,7 @@ import shutil
 import logging
 import pprint
 
+
 def _squeeze_time(t):
     """Remove .1s to the time under Windows: this is the time it take to
     stat files. This is needed to make results similar to timings under
@@ -26,24 +27,27 @@ def _squeeze_time(t):
     else:
         return t
 
+
 def format_time(t):
     t = _squeeze_time(t)
-    return "%.1fs, %.1fmin" % (t, t/60.)
+    return "%.1fs, %.1fmin" % (t, t / 60.)
+
 
 def short_format_time(t):
     t = _squeeze_time(t)
     if t > 60:
-        return "%4.1fmin" % (t/60.)
+        return "%4.1fmin" % (t / 60.)
     else:
         return " %5.1fs" % (t)
 
-################################################################################
+
+###############################################################################
 # class `Logger`
-################################################################################
+###############################################################################
 class Logger(object):
     """ Base class for logging messages.
     """
-    
+
     def __init__(self, depth=3):
         """
             Parameters
@@ -75,9 +79,9 @@ class Logger(object):
         return out
 
 
-################################################################################
+###############################################################################
 # class `PrintTime`
-################################################################################
+###############################################################################
 class PrintTime(object):
     """ Print and log messages while keeping track of time.
     """
@@ -97,16 +101,16 @@ class PrintTime(object):
             if os.path.exists(logfile):
                 # Rotate the logs
                 for i in range(1, 9):
-                    if os.path.exists(logfile+'.%i' % i):
+                    if os.path.exists(logfile + '.%i' % i):
                         try:
-                            shutil.move(logfile+'.%i' % i, 
-                                        logfile+'.%i' % (i+1))
+                            shutil.move(logfile + '.%i' % i,
+                                        logfile + '.%i' % (i + 1))
                         except:
                             "No reason failing here"
                 # Use a copy rather than a move, so that a process
                 # monitoring this file does not get lost.
                 try:
-                    shutil.copy(logfile, logfile+'.1')
+                    shutil.copy(logfile, logfile + '.1')
                 except:
                     "No reason failing here"
             try:
@@ -121,18 +125,18 @@ class PrintTime(object):
                 # XXX: We actually need a debug flag to disable this
                 # silent failure.
 
-
     def __call__(self, msg='', total=False):
         """ Print the time elapsed between the last call and the current
             call, with an optional message.
         """
         if not total:
             time_lapse = time.time() - self.last_time
-            full_msg = "%s: %s" % (msg, format_time(time_lapse) )
+            full_msg = "%s: %s" % (msg, format_time(time_lapse))
         else:
             # FIXME: Too much logic duplicated
             time_lapse = time.time() - self.start_time
-            full_msg = "%s: %.2fs, %.1f min" % (msg, time_lapse, time_lapse/60)
+            full_msg = "%s: %.2fs, %.1f min" % (msg, time_lapse,
+                                                time_lapse / 60)
         print >> sys.stderr, full_msg
         if self.logfile is not None:
             try:
@@ -145,6 +149,3 @@ class PrintTime(object):
                 # XXX: We actually need a debug flag to disable this
                 # silent failure.
         self.last_time = time.time()
-
-
-
