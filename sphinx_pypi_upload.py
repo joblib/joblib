@@ -25,6 +25,7 @@ import cStringIO as StringIO
 from distutils import log
 from distutils.command.upload import upload
 
+
 class UploadDoc(upload):
     """Distutils command to upload Sphinx documentation."""
 
@@ -45,20 +46,20 @@ class UploadDoc(upload):
     def finalize_options(self):
         upload.finalize_options(self)
         if self.upload_file is None:
-            self.upload_file = 'doc/documentation.zip'    
+            self.upload_file = 'doc/documentation.zip'
         self.announce('Using upload file %s' % self.upload_file)
 
-
     def upload(self, filename):
-        content = open(filename,'rb').read()
+        content = open(filename, 'rb').read()
         meta = self.distribution.metadata
         data = {
             ':action': 'doc_upload',
             'name': meta.get_name(),
-            'content': (os.path.basename(filename),content),
+            'content': (os.path.basename(filename), content),
         }
         # set up the authentication
-        auth = "Basic " + base64.encodestring(self.username + ":" + self.password).strip()
+        auth = "Basic " + base64.encodestring(self.username + ":" + \
+                self.password).strip()
 
         # Build up the MIME payload for the POST data
         boundary = '--------------GHSKFJDLGDS7543FJKLFHRE75642756743254'
@@ -77,7 +78,7 @@ class UploadDoc(upload):
                     fn = ""
                 value = str(value)
                 body.write(sep_boundary)
-                body.write('\nContent-Disposition: form-data; name="%s"'%key)
+                body.write('\nContent-Disposition: form-data; name="%s"' % key)
                 body.write(fn)
                 body.write("\n\n")
                 body.write(value)
@@ -87,7 +88,8 @@ class UploadDoc(upload):
         body.write("\n")
         body = body.getvalue()
 
-        self.announce("Submitting documentation to %s" % (self.repository), log.INFO)
+        self.announce("Submitting documentation to %s" % (self.repository),
+                      log.INFO)
 
         # build the Request
         # We can't use urllib2 since we need to send the Basic
@@ -100,7 +102,7 @@ class UploadDoc(upload):
         elif schema == 'https':
             http = httplib.HTTPSConnection(netloc)
         else:
-            raise AssertionError, "unsupported schema "+schema
+            raise AssertionError("unsupported schema " + schema)
 
         data = ''
         loglevel = log.INFO
@@ -108,7 +110,7 @@ class UploadDoc(upload):
             http.connect()
             http.putrequest("POST", url)
             http.putheader('Content-type',
-                           'multipart/form-data; boundary=%s'%boundary)
+                           'multipart/form-data; boundary=%s' % boundary)
             http.putheader('Content-length', str(len(body)))
             http.putheader('Authorization', auth)
             http.endheaders()
@@ -119,8 +121,8 @@ class UploadDoc(upload):
 
         response = http.getresponse()
         if response.status == 200:
-            self.announce('Server response (%s): %s' % (response.status, response.reason),
-                          log.INFO)
+            self.announce('Server response (%s): %s' %
+                          (response.status, response.reason), log.INFO)
         elif response.status == 301:
             location = response.getheader('Location')
             if location is None:
@@ -128,10 +130,10 @@ class UploadDoc(upload):
             self.announce('Upload successful. Visit %s' % location,
                           log.INFO)
         else:
-            self.announce('Upload failed (%s): %s' % (response.status, response.reason),
-                          log.ERROR)
+            self.announce('Upload failed (%s): %s' % \
+            (response.status, response.reason), log.ERROR)
         if self.show_response:
-            print '-'*75, response.read(), '-'*75
+            print '-' * 75, response.read(), '-' * 75
 
     def run(self):
         zip_file = self.upload_file
