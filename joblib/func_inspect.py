@@ -89,7 +89,9 @@ def get_func_name(func, resolv_alias=True, win_characters=True):
         except:
             filename = None
         if filename is not None:
-            filename = filename.replace('/', '-')
+            # mangling of full path to filename
+            filename = filename.replace(os.sep, '-')
+            filename = filename.replace(":", "-")
             if filename.endswith('.py'):
                 filename = filename[:-3]
             module = module + '-' + filename
