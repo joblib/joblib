@@ -1,6 +1,25 @@
 Latest changes
 ===============
 
+Release 0.5.4
+---------------
+
+2011-09-29
+Jon Olav Vik
+
+    BUG: Make mangling path to filename work on Windows
+
+2011-09-25
+Olivier Grisel
+
+    FIX: doctest heisenfailure on execution time
+
+2011-08-24
+Ralf Gommers
+
+    STY: PEP8 cleanup.
+    
+
 Release 0.5.3
 ---------------
 
