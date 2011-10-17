@@ -31,7 +31,17 @@ from .logger import Logger, short_format_time
 from .my_exceptions import TransportableException, _mk_exception
 
 
-################################################################################
+###############################################################################
+# CPU that works also when multiprocessing is not installed (python2.5)
+def cpu_count():
+    """ Return the number of CPUs.
+    """
+    if multiprocessing is None:
+        return 1
+    return multiprocessing.cpu_count()
+
+
+###############################################################################
 class WorkerInterrupt(Exception):
     """ An exception that is not KeyboardInterrupt to allow subprocesses
         to be interrupted.
@@ -39,17 +49,15 @@ class WorkerInterrupt(Exception):
     pass
 
 
-################################################################################
+###############################################################################
 class SafeFunction(object):
     """ Wraps a function to make it exception with full traceback in
         their representation.
-        Useful for parallel computing with multiprocessing, for which 
+        Useful for parallel computing with multiprocessing, for which
         exceptions cannot be captured.
     """
-
     def __init__(self, func):
         self.func = func
-
 
     def __call__(self, *args, **kwargs):
         try:
@@ -66,7 +74,7 @@ class SafeFunction(object):
             raise TransportableException(text, e_type)
 
 
-################################################################################
+###############################################################################
 def delayed(function):
     """ Decorator used to capture the arguments of a function.
     """
@@ -83,22 +91,22 @@ def delayed(function):
     return delayed_function
 
 
-################################################################################
+###############################################################################
 class ImmediateApply(object):
     """ A non-delayed apply function.
     """
-    def __init__ (self, func, args, kwargs):
+    def __init__(self, func, args, kwargs):
         # Don't delay the application, to avoid keeping the input
         # arguments in memory
         self.results = func(*args, **kwargs)
 
-    def get (self):
+    def get(self):
         return self.results
 
 
-################################################################################
+###############################################################################
 class CallBack(object):
-    """ Callback used by parallel: it is used for progress reporting, and 
+    """ Callback used by parallel: it is used for progress reporting, and
         to add data to be processed
     """
     def __init__(self, index, parallel):
@@ -115,15 +123,15 @@ class CallBack(object):
         # XXX: Not using the logger framework: need to
         # learn to use logger better.
         n_jobs = len(self.parallel._pool._pool)
-        if self.parallel.n_dispatched > 2*n_jobs:
+        if self.parallel.n_dispatched > 2 * n_jobs:
             # Report less often
             if not self.index % n_jobs == 0:
                 return
         elapsed_time = time.time() - self.parallel._start_time
-        remaining_time = (elapsed_time/(self.index + 1)*
+        remaining_time = (elapsed_time / (self.index + 1) *
                     (self.parallel.n_dispatched - self.index - 1.))
         if self.parallel._iterable:
-            # The object is still building it's job list
+            # The object is still building its job list
             total = "%3i+" % self.parallel.n_dispatched
         else:
             total = "%3i " % self.parallel.n_dispatched
@@ -134,14 +142,14 @@ class CallBack(object):
             writer = sys.stdout.write
         writer('[%s]: Done %3i out of %s |elapsed: %s remaining: %s\n'
                 % (self.parallel,
-                    self.index+1, 
-                    total, 
+                    self.index + 1,
+                    total,
                     short_format_time(elapsed_time),
                     short_format_time(remaining_time),
                     ))
 
 
-################################################################################
+###############################################################################
 class Parallel(Logger):
     ''' Helper class for readable parallel mapping.
 
@@ -203,7 +211,7 @@ class Parallel(Logger):
         (0.0, 0.5, 0.0, 0.5, 0.0, 0.5, 0.0, 0.5, 0.0, 0.5)
         >>> i
         (0.0, 0.0, 1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0)
-       
+
         The progress meter::
 
             >>> from time import sleep
@@ -225,7 +233,7 @@ class Parallel(Logger):
          >>> Parallel(n_jobs=2)(delayed(atoi)(n) for n in ('1', '300', 30)) #doctest: +SKIP
          #...
          ---------------------------------------------------------------------------
-         Sub-process traceback: 
+         Sub-process traceback:
          ---------------------------------------------------------------------------
          TypeError                                          Fri Jul  2 20:32:05 2010
          PID: 4151                                     Python 2.6.5: /usr/bin/python
@@ -234,14 +242,14 @@ class Parallel(Logger):
              398     is chosen from the leading characters of s, 0 for octal, 0x or
              399     0X for hexadecimal.  If base is 16, a preceding 0x or 0X is
              400     accepted.
-             401 
+             401
              402     """
          --> 403     return _int(s, base)
-             404 
-             405 
+             404
+             405
              406 # Convert string to long integer
              407 def atol(s, base=10):
-         
+
          TypeError: int() can't convert non-string with explicit base
          ___________________________________________________________________________
 
@@ -258,7 +266,7 @@ class Parallel(Logger):
          ...     for i in range(6):
          ...         print 'Produced %s' % i
          ...         yield i
-         
+
          >>> out = Parallel(n_jobs=2, verbose=100, pre_dispatch='1.5*n_jobs')(
          ...                         delayed(sqrt)(i) for i in producer()) #doctest: +SKIP
          Produced 0
@@ -272,24 +280,22 @@ class Parallel(Logger):
     '''
     def __init__(self, n_jobs=None, verbose=0, pre_dispatch='all'):
         self.verbose = verbose
-        self.n_jobs  = n_jobs
-        self.pre_dispatch   = pre_dispatch
-        self._pool   = None
-        # Not starting the pool in the __init__ is a design decision, to
-        # be able to close it ASAP, and not burden the user with closing
-        # it.
+        self.n_jobs = n_jobs
+        self.pre_dispatch = pre_dispatch
+        self._pool = None
+        # Not starting the pool in the __init__ is a design decision, to be
+        # able to close it ASAP, and not burden the user with closing it.
         self._output = None
-        self._jobs   = list()
-
+        self._jobs = list()
 
     def dispatch(self, func, args, kwargs):
-        """ Queue the function for computing, with or without multiprocessing 
+        """ Queue the function for computing, with or without multiprocessing
         """
         if self._pool is None:
             job = ImmediateApply(func, args, kwargs)
             if self.verbose:
                 print '[%s]: Done job %3i | elapsed: %s' % (
-                        self, len(self._jobs)+1,
+                        self, len(self._jobs) + 1,
                         short_format_time(time.time() - self._start_time)
                     )
             self._jobs.append(job)
@@ -307,14 +313,13 @@ class Parallel(Logger):
             finally:
                 self._lock.release()
 
-
     def dispatch_next(self):
         """ Dispatch more data for parallel processing
         """
         self._dispatch_amount += 1
         while self._dispatch_amount:
             try:
-                # XXX: possible race condition shuffling the order of 
+                # XXX: possible race condition shuffling the order of
                 # dispatchs in the next two lines.
                 func, args, kwargs = self._iterable.next()
                 self.dispatch(func, args, kwargs)
@@ -326,7 +331,6 @@ class Parallel(Logger):
             except StopIteration:
                 self._iterable = None
                 return
-
 
     def retrieve(self):
         self._output = list()
@@ -341,7 +345,7 @@ class Parallel(Logger):
             try:
                 self._output.append(job.get())
             except tuple(self.exceptions), exception:
-                if isinstance(exception, 
+                if isinstance(exception,
                         (KeyboardInterrupt, WorkerInterrupt)):
                     # We have captured a user interruption, clean up
                     # everything
@@ -350,17 +354,14 @@ class Parallel(Logger):
                         self._pool.terminate()
                     raise exception
                 elif isinstance(exception, TransportableException):
-                    # Capture exception to add information on 
-                    # the local stack in addition to the distant
-                    # stack
-                    this_report = format_outer_frames(
-                                            context=10,
-                                            stack_start=1,
-                                            )
+                    # Capture exception to add information on the local stack
+                    # in addition to the distant stack
+                    this_report = format_outer_frames(context=10,
+                                                      stack_start=1)
                     report = """Multiprocessing exception:
 %s
 ---------------------------------------------------------------------------
-Sub-process traceback: 
+Sub-process traceback:
 ---------------------------------------------------------------------------
 %s""" % (
                             this_report,
@@ -370,7 +371,6 @@ Sub-process traceback:
                     exception_type = _mk_exception(exception.etype)[0]
                     raise exception_type(report)
                 raise exception
-
 
     def __call__(self, iterable):
         if self._jobs:
@@ -407,7 +407,7 @@ Sub-process traceback:
         try:
             for function, args, kwargs in iterable:
                 self.dispatch(function, args, kwargs)
-            
+
             self.retrieve()
         finally:
             if n_jobs > 1:
@@ -418,12 +418,5 @@ Sub-process traceback:
         self._output = None
         return output
 
-
     def __repr__(self):
-        return '%s(n_jobs=%s)' % (
-                    self.__class__.__name__,
-                    self.n_jobs,
-                )
-
-
-
+        return '%s(n_jobs=%s)' % ( self.__class__.__name__, self.n_jobs)

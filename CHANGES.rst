@@ -1,6 +1,48 @@
 Latest changes
 ===============
 
+Release 0.5.4
+---------------
+
+2011-09-29
+Jon Olav Vik
+
+    BUG: Make mangling path to filename work on Windows
+
+2011-09-25
+Olivier Grisel
+
+    FIX: doctest heisenfailure on execution time
+
+2011-08-24
+Ralf Gommers
+
+    STY: PEP8 cleanup.
+    
+
+Release 0.5.3
+---------------
+
+2011-06-25
+Gael varoquaux
+
+   API: All the usefull symbols in the __init__
+
+
+Release 0.5.2
+---------------
+
+2011-06-25
+Gael varoquaux
+
+    ENH: Add cpu_count
+
+2011-06-06
+Gael varoquaux
+
+    ENH: Make sure memory hash in a reproducible way
+
+
 Release 0.5.1
 ---------------
 

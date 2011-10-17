@@ -8,9 +8,10 @@ import sys
 from setuptools import Command
 from sphinx_pypi_upload import UploadDoc
 
-################################################################################
+###############################################################################
 # Code to copy the sphinx-generated html docs in the distribution.
 DOC_BUILD_DIR = os.path.join('build', 'sphinx', 'html')
+
 
 def relative_path(filename):
     """ Return the relative path to the file, assuming the file is
@@ -21,39 +22,39 @@ def relative_path(filename):
 
 
 class ZipHelp(Command):
-    description = \
-    """zip the help created by the build_sphinx, and put it in the source distribution. """
+    description = "zip the help created by the build_sphinx, " + \
+                  "and put it in the source distribution. "
 
     user_options = [
         ('None', None, 'this command has no options'),
         ]
- 
+
     def run(self):
         if not os.path.exists(DOC_BUILD_DIR):
-            raise OSError, 'Doc directory does not exist.'
+            raise OSError('Doc directory does not exist.')
         target_file = os.path.join('doc', 'documentation.zip')
         # ZIP_DEFLATED actually compresses the archive. However, there
         # will be a RuntimeError if zlib is not installed, so we check
         # for it. ZIP_STORED produces an uncompressed zip, but does not
         # require zlib.
         try:
-            zf = zipfile.ZipFile(target_file, 'w', 
+            zf = zipfile.ZipFile(target_file, 'w',
                                             compression=zipfile.ZIP_DEFLATED)
         except RuntimeError:
-            zf = zipfile.ZipFile(target_file, 'w', 
-                                            compression=zipfile.ZIP_STORED)    
+            zf = zipfile.ZipFile(target_file, 'w',
+                                            compression=zipfile.ZIP_STORED)
 
         for root, dirs, files in os.walk(DOC_BUILD_DIR):
             relative = relative_path(root)
             if not relative.startswith('.doctrees'):
                 for f in files:
-                    zf.write(os.path.join(root, f), 
+                    zf.write(os.path.join(root, f),
                             os.path.join(relative, f))
         zf.close()
 
     def initialize_options(self):
         pass
-    
+
     def finalize_options(self):
         pass
 
@@ -64,21 +65,20 @@ class GenerateHelp(Command):
     user_options = [
         ('None', None, 'this command has no options'),
         ]
- 
-    def run(self):
-        os.system('%s doc/sphinxext/autosummary_generate.py -o doc/generated/ doc/*.rst'
-                  % sys.executable)
 
+    def run(self):
+        os.system( \
+            "%s doc/sphinxext/autosummary_generate.py " % sys.executable + \
+            "-o doc/generated/ doc/*.rst")
 
     def initialize_options(self):
         pass
-    
+
     def finalize_options(self):
         pass
 
-    
 
-################################################################################
+###############################################################################
 # Call the setup.py script, injecting the setuptools-specific arguments.
 
 extra_setuptools_args = dict(
@@ -92,7 +92,5 @@ extra_setuptools_args = dict(
 
 
 if __name__ == '__main__':
-    execfile('setup.py', dict(__name__='__main__', 
+    execfile('setup.py', dict(__name__='__main__',
                           extra_setuptools_args=extra_setuptools_args))
-
-

@@ -1,9 +1,9 @@
 """
-Fast cryptographic hash of Python objects, with a special case for fast 
+Fast cryptographic hash of Python objects, with a special case for fast
 hashing of numpy arrays.
 """
 
-# Author: Gael Varoquaux <gael dot varoquaux at normalesup dot org> 
+# Author: Gael Varoquaux <gael dot varoquaux at normalesup dot org>
 # Copyright (c) 2009 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
@@ -12,6 +12,7 @@ import hashlib
 import sys
 import cStringIO
 import types
+
 
 class Hasher(pickle.Pickler):
     """ A subclass of pickler, to do cryptographic hashing, rather than
@@ -40,6 +41,7 @@ class Hasher(pickle.Pickler):
             cls = obj.im_class
             obj = (func_name, inst, cls)
         pickle.Pickler.save(self, obj)
+
 
 class NumpyHasher(Hasher):
     """ Special case the hasher for when numpy is loaded.
@@ -76,7 +78,7 @@ class NumpyHasher(Hasher):
                 # XXX: There might be a more efficient way of doing this
                 self._hash.update(self.np.getbuffer(obj.flatten()))
 
-            # We store the class, to be able to distinguish between 
+            # We store the class, to be able to distinguish between
             # Objects with the same binary content, but different
             # classes.
             if self.coerce_mmap and isinstance(obj, self.np.memmap):
@@ -86,7 +88,7 @@ class NumpyHasher(Hasher):
                 klass = self.np.ndarray
             else:
                 klass = obj.__class__
-            # We also return the dtype and the shape, to distinguish 
+            # We also return the dtype and the shape, to distinguish
             # different views on the same data with different dtypes.
 
             # The object will be pickled by the pickler hashed at the end.
@@ -95,14 +97,14 @@ class NumpyHasher(Hasher):
 
 
 def hash(obj, hash_name='md5', coerce_mmap=False):
-    """ Quick calculation of a hash to identify uniquely Python objects 
+    """ Quick calculation of a hash to identify uniquely Python objects
         containing numpy arrays.
 
-    
+
         Parameters
         -----------
         hash_name: 'md5' or 'sha1'
-            Hashing algorithm used. sha1 is supposedly safer, but md5 is 
+            Hashing algorithm used. sha1 is supposedly safer, but md5 is
             faster.
         coerce_mmap: boolean
             Make no difference between np.memmap and np.ndarray
@@ -112,4 +114,3 @@ def hash(obj, hash_name='md5', coerce_mmap=False):
     else:
         hasher = Hasher(hash_name=hash_name)
     return hasher.hash(obj)
-
