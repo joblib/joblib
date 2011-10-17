@@ -1,3 +1,10 @@
+joblib (0.5.4-1) unstable; urgency=low
+
+  * Fresh upstream release
+  * Policy boost to 3.9.2 -- no changes
+
+ -- Yaroslav Halchenko <debian@onerussian.com>  Mon, 17 Oct 2011 19:21:36 -0400
+
 joblib (0.5.1-1) unstable; urgency=low
 
   * Fresh upstream release
