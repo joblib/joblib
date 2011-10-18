@@ -1,6 +1,8 @@
 joblib (0.5.4-1) unstable; urgency=low
 
   * Fresh upstream release
+  * Package is now clean without any spurious post-release changes
+    (Closes: #643170)
   * Policy boost to 3.9.2 -- no changes
   * debian/watch: adjusted for change in github layout
 
