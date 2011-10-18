@@ -2,6 +2,7 @@ joblib (0.5.4-1) unstable; urgency=low
 
   * Fresh upstream release
   * Policy boost to 3.9.2 -- no changes
+  * debian/watch: adjusted for change in github layout
 
  -- Yaroslav Halchenko <debian@onerussian.com>  Mon, 17 Oct 2011 19:21:36 -0400
 

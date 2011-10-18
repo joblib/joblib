@@ -1,2 +1,3 @@
 version=3
-http://github.com/joblib/joblib/downloads .*tarball/([\d\.a-z]+)
+opts="filenamemangle=s/.*\/(.*)/joblib-$1\.tar\.gz/" \
+ https://github.com/joblib/joblib/tags .*tarball/([\d\.a-z]+)
