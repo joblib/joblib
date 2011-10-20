@@ -1,6 +1,14 @@
 Latest changes
 ===============
 
+Release 0.5.5
+---------------
+
+2011-19-10
+Fabian Pedregosa
+
+    ENH: Make joblib installable under Python 3.X
+
 Release 0.5.4
 ---------------
 
