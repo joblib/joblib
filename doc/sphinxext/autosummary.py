@@ -17,7 +17,7 @@ The autosummary directive has the form::
     .. autosummary::
        :nosignatures:
        :toctree: generated/
-       
+
        module.function_1
        module.function_2
        ...
@@ -50,7 +50,9 @@ resolved to a Python object, and otherwise it becomes simple emphasis.
 This can be used as the default role to make links 'smart'.
 
 """
-import sys, posixpath, re
+import sys
+import posixpath
+import re
 
 try:
     from docutils import nodes
@@ -66,22 +68,29 @@ from docscrape_sphinx import get_doc_object
 
 def setup(app):
     from docutils.parsers.rst import directives
-    app.add_directive('autosummary', autosummary_directive, True, (0, 0, False),
-                      toctree=directives.unchanged,
-                      nosignatures=directives.flag)
+    app.add_directive('autosummary',
+                                 autosummary_directive, True, (0, 0, False),
+                                 toctree=directives.unchanged,
+                                 nosignatures=directives.flag)
     app.add_role('autolink', autolink_role)
-    
+
     app.add_node(autosummary_toc,
-                 html=(autosummary_toc_visit_html, autosummary_toc_depart_noop),
-                 latex=(autosummary_toc_visit_latex, autosummary_toc_depart_noop))
+                            html=(autosummary_toc_visit_html,
+                                       autosummary_toc_depart_noop),
+                            latex=(autosummary_toc_visit_latex,
+                                       autosummary_toc_depart_noop))
+
     app.connect('doctree-read', process_autosummary_toc)
+
 
 #------------------------------------------------------------------------------
 # autosummary_toc node
 #------------------------------------------------------------------------------
 
+
 class autosummary_toc(nodes.comment):
     pass
+
 
 def process_autosummary_toc(app, doctree):
     """
@@ -92,6 +101,7 @@ def process_autosummary_toc(app, doctree):
     import sphinx.addnodes
     env = app.builder.env
     crawled = {}
+
     def crawl_toc(node, depth=1):
         crawled[node] = True
         for j, subnode in enumerate(node):
@@ -105,23 +115,28 @@ def process_autosummary_toc(app, doctree):
             if not isinstance(subnode, nodes.section):
                 continue
             if subnode not in crawled:
-                crawl_toc(subnode, depth+1)
+                crawl_toc(subnode, depth + 1)
     crawl_toc(doctree)
+
 
 def autosummary_toc_visit_html(self, node):
     """Hide autosummary toctree list in HTML output"""
     raise nodes.SkipNode
 
+
 def autosummary_toc_visit_latex(self, node):
     """Show autosummary toctree (= put the referenced pages here) in Latex"""
     pass
 
+
 def autosummary_toc_depart_noop(self, node):
     pass
+
 
 #------------------------------------------------------------------------------
 # .. autosummary::
 #------------------------------------------------------------------------------
+
 
 def autosummary_directive(dirname, arguments, options, content, lineno,
                           content_offset, block_text, state, state_machine):
@@ -165,12 +180,13 @@ def autosummary_directive(dirname, arguments, options, content, lineno,
         tocnode['includefiles'] = docnames
         tocnode['maxdepth'] = -1
         tocnode['glob'] = None
-        tocnode['entries'] = [] 
+        tocnode['entries'] = []
 
         tocnode = autosummary_toc('', '', tocnode)
         return warnings + [node] + [tocnode]
     else:
         return warnings + [node]
+
 
 def get_autosummary(names, state, no_signatures=False):
     """
@@ -182,11 +198,12 @@ def get_autosummary(names, state, no_signatures=False):
         Names of Python objects to be imported and added to the table.
     document : document
         Docutils document object
-    
+
     """
+
     from docutils.statemachine import ViewList
     document = state.document
-    
+
     real_names = {}
     warnings = []
 
@@ -228,7 +245,7 @@ def get_autosummary(names, state, no_signatures=False):
             title = " ".join(doc['Summary'])
         else:
             title = ""
-        
+
         col1 = ":obj:`%s <%s>`" % (name, real_name)
         if doc['Signature']:
             sig = re.sub('^[a-zA-Z_0-9.-]*', '', doc['Signature'])
@@ -248,6 +265,7 @@ def get_autosummary(names, state, no_signatures=False):
 
     return table, warnings, real_names
 
+
 def import_by_name(name, prefixes=[None]):
     """
     Import a Python object that has the given name, under one of the prefixes.
@@ -266,8 +284,9 @@ def import_by_name(name, prefixes=[None]):
         The imported object
     name
         Name of the imported object (useful if `prefixes` was used)
-    
+
     """
+
     for prefix in prefixes:
         try:
             if prefix:
@@ -278,6 +297,7 @@ def import_by_name(name, prefixes=[None]):
         except ImportError:
             pass
     raise ImportError
+
 
 def _import_by_name(name):
     """Import a Python object given its full name"""
@@ -290,11 +310,11 @@ def _import_by_name(name):
             return getattr(sys.modules[modname], name_parts[-1])
         except (ImportError, IndexError, AttributeError):
             pass
-       
+
         # ... then as MODNAME, MODNAME.OBJ1, MODNAME.OBJ1.OBJ2, ...
         last_j = 0
         modname = None
-        for j in reversed(range(1, len(name_parts)+1)):
+        for j in reversed(range(1, len(name_parts) + 1)):
             last_j = j
             modname = '.'.join(name_parts[:j])
             try:
@@ -317,6 +337,7 @@ def _import_by_name(name):
 #------------------------------------------------------------------------------
 # :autolink: (smart default role)
 #------------------------------------------------------------------------------
+
 
 def autolink_role(typ, rawtext, etext, lineno, inliner,
                   options={}, content=[]):

@@ -25,7 +25,7 @@ from .common import with_numpy, np
 def f(x, y=1):
     """ A module-level function for testing purposes.
     """
-    return x**2 + y
+    return x ** 2 + y
 
 
 ###############################################################################

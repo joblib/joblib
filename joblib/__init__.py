@@ -65,12 +65,12 @@ Main features
       >>> a = np.vander(np.arange(3))
       >>> square = mem.cache(np.square)
       >>> b = square(a)                                   # doctest: +ELLIPSIS
-      ________________________________________________________________________________
+      ________________________________________________________________________
       [Memory] Calling square...
       square(array([[0, 0, 1],
              [1, 1, 1],
              [4, 2, 1]]))
-      ___________________________________________________________square - 0...s, 0.0min
+      __________________________________________________square - 0...s, 0.0min
 
       >>> c = square(a)
       >>> # The above call did not trigger an evaluation
@@ -100,7 +100,11 @@ __version__ = '0.5.5'
 
 
 from .memory import Memory
-from .logger import PrintTime, Logger
+from .logger import PrintTime
+from .logger import Logger
 from .hashing import hash
-from .numpy_pickle import dump, load
-from .parallel import Parallel, delayed, cpu_count
+from .numpy_pickle import dump
+from .numpy_pickle import load
+from .parallel import Parallel
+from .parallel import delayed
+from .parallel import cpu_count

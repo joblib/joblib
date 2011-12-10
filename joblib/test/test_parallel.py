@@ -28,7 +28,7 @@ def division(x, y):
 
 
 def square(x):
-    return x**2
+    return x ** 2
 
 
 def exception_raiser(x):
@@ -46,7 +46,7 @@ def f(x, y=0, z=0):
     """ A module-level function so that it can be spawn with
     multiprocessing.
     """
-    return x**2 + y + z
+    return x ** 2 + y + z
 
 
 ###############################################################################
@@ -79,7 +79,7 @@ def test_parallel_pickling():
         that cannot be pickled.
     """
     def g(x):
-        return x**2
+        return x ** 2
     nose.tools.assert_raises(PickleError,
                              Parallel(),
                              (delayed(g)(x) for x in range(10))
