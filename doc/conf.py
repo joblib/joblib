@@ -3,10 +3,12 @@
 # joblib documentation build configuration file, created by
 # sphinx-quickstart on Thu Oct 23 16:36:51 2008.
 #
-# This file is execfile()d with the current directory set to its containing dir.
+# This file is execfile()d with the current directory set to its
+# containing dir.
 #
-# The contents of this file are pickled, so don't put values in the namespace
-# that aren't pickleable (module imports are okay, they're removed automatically).
+# The contents of this file are pickled, so don't put values in the
+# namespace that aren't pickleable (module imports are okay,
+# they're removed automatically).
 #
 # All configuration values have a default; values that are commented out
 # serve to show the default.
@@ -26,8 +28,9 @@ sys.path.append(os.path.abspath('./sphinxext'))
 # General configuration
 # ---------------------
 
-# Add any Sphinx extension module names here, as strings. They can be extensions
-# coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
+# Add any Sphinx extension module names here, as strings. They can be
+# extensions coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
+
 extensions = ['sphinx.ext.autodoc', 'sphinx.ext.pngmath', 'numpydoc',
               'phantom_import', 'autosummary',
               'sphinx.ext.coverage']
@@ -75,7 +78,8 @@ release = version
 # for source files.
 exclude_trees = []
 
-# The reST default role (used for this markup: `text`) to use for all documents.
+# The reST default role (used for this markup: `text`) to use for all
+# documents.
 #default_role = None
 
 # If true, '()' will be appended to :func: etc. cross-reference text.
@@ -173,7 +177,8 @@ htmlhelp_basename = 'joblibdoc'
 #latex_font_size = '10pt'
 
 # Grouping the document tree into LaTeX files. List of tuples
-# (source start file, target name, title, author, document class [howto/manual]).
+# (source start file, target name, title, author,
+# document class [howto/manual]).
 latex_documents = [
   ('index', 'joblib.tex', ur'joblib Documentation',
    ur'Gaël Varoquaux', 'manual'),
@@ -208,13 +213,14 @@ html_theme_options = {
     "footerbgcolor": "#111",
     "linkcolor": "#aa560c",
 #    "bodyfont": '"Lucida Grande",Verdana,Lucida,Helvetica,Arial,sans-serif',
-#    "headfont": "georgia, 'bitstream vera sans serif', 'lucida grande', helvetica, verdana, sans-serif",
+#    "headfont": "georgia, 'bitstream vera sans serif', 'lucida grande',
+#                       helvetica, verdana, sans-serif",
 #    "headbgcolor": "#F5F5F5",
     "headtextcolor": "#643200",
     "codebgcolor": "#f5efe7",
 }
 
-################################################################################
+##############################################################################
 # Hack to copy the CHANGES.rst file
 import shutil
 try:
