@@ -9,6 +9,7 @@ is called with the same input arguments.
 # License: BSD Style, 3 clauses.
 
 
+from __future__ import with_statement
 import os
 import shutil
 import sys
@@ -230,7 +231,8 @@ class MemorizedFunc(Logger):
         """ Write the function code and the filename to a file.
         """
         func_code = '%s %i\n%s' % (FIRST_LINE_TEXT, first_line, func_code)
-        file(filename, 'w').write(func_code)
+        with open(filename, 'w') as out:
+            out.write(func_code)
 
     def _check_previous_func_code(self, stacklevel=2):
         """
@@ -245,10 +247,9 @@ class MemorizedFunc(Logger):
         func_code_file = os.path.join(func_dir, 'func_code.py')
 
         try:
-            if not os.path.exists(func_code_file):
-                raise IOError
-            old_func_code, old_first_line = \
-                            extract_first_line(file(func_code_file).read())
+            with open(func_code_file) as infile:
+                old_func_code, old_first_line = \
+                            extract_first_line(infile.read())
         except IOError:
                 self._write_func_code(func_code_file, func_code, first_line)
                 return False
@@ -382,9 +383,8 @@ class MemorizedFunc(Logger):
             if 'numpy' in sys.modules and self.save_npy:
                 numpy_pickle.dump(output, filename)
             else:
-                output_file = file(filename, 'w')
-                pickle.dump(output, output_file, protocol=2)
-                output_file.close()
+                with open(filename, 'w') as output_file:
+                    pickle.dump(output, output_file, protocol=2)
         except OSError:
             " Race condition in the creation of the directory "
 

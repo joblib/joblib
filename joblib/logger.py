@@ -114,9 +114,9 @@ class PrintTime(object):
                 except:
                     "No reason failing here"
             try:
-                logfile = file(logfile, 'w')
-                logfile.write('\nLogging joblib python script\n')
-                logfile.write('\n---%s---\n' % time.ctime(self.last_time))
+                with open(logfile, 'w') as logfile:
+                    logfile.write('\nLogging joblib python script\n')
+                    logfile.write('\n---%s---\n' % time.ctime(self.last_time))
             except:
                 """ Multiprocessing writing to files can create race
                     conditions. Rather fail silently than crash the

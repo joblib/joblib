@@ -6,6 +6,7 @@ Unit tests for the disk utilities.
 # Copyright (c) 2010 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
+from __future__ import with_statement
 import os
 import shutil
 import array
@@ -32,7 +33,8 @@ def test_disk_used():
         target_size = 1024
         n = target_size * 1024 / sizeof_i
         a = array.array('i', n * (1,))
-        a.tofile(file(os.path.join(cachedir, 'test'), 'w'))
+        with open(os.path.join(cachedir, 'test'), 'w') as output:
+            a.tofile(output)
         nose.tools.assert_true(disk_used(cachedir) >= target_size)
         nose.tools.assert_true(disk_used(cachedir) < target_size + 12)
     finally:
