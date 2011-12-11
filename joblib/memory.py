@@ -38,7 +38,7 @@ from .hashing import hash
 from .func_inspect import get_func_code, get_func_name, filter_args
 from .logger import Logger, format_time
 from . import numpy_pickle
-from .disk import rm_subdirs
+from .disk import mkdirp, rm_subdirs
 
 FIRST_LINE_TEXT = "# first line:"
 
@@ -143,8 +143,7 @@ class MemorizedFunc(Logger):
         if ignore is None:
             ignore = []
         self.ignore = ignore
-        if not os.path.exists(self.cachedir):
-            os.makedirs(self.cachedir)
+        mkdirp(self.cachedir)
         try:
             functools.update_wrapper(self, func)
         except:
@@ -203,14 +202,8 @@ class MemorizedFunc(Logger):
         module, name = get_func_name(self.func)
         module.append(name)
         func_dir = os.path.join(self.cachedir, *module)
-        if mkdir and not os.path.exists(func_dir):
-            try:
-                os.makedirs(func_dir)
-            except OSError:
-                """ Dir exists: we have a race condition here, when using
-                    multiprocessing.
-                """
-                # XXX: Ugly
+        if mkdir:
+            mkdirp(func_dir)
         return func_dir
 
     def get_output_dir(self, *args, **kwargs):
@@ -305,11 +298,7 @@ class MemorizedFunc(Logger):
             self.warn("Clearing cache %s" % func_dir)
         if os.path.exists(func_dir):
             shutil.rmtree(func_dir, ignore_errors=True)
-        try:
-            os.makedirs(func_dir)
-        except OSError:
-            """ Directory exists: it has been created by another process
-            in the mean time. """
+        mkdirp(func_dir)
         func_code, _, first_line = get_func_code(self.func)
         func_code_file = os.path.join(func_dir, 'func_code.py')
         self._write_func_code(func_code_file, func_code, first_line)
@@ -376,8 +365,7 @@ class MemorizedFunc(Logger):
         """ Persist the given output tuple in the directory.
         """
         try:
-            if not os.path.exists(dir):
-                os.makedirs(dir)
+            mkdirp(dir)
             filename = os.path.join(dir, 'output.pkl')
 
             if 'numpy' in sys.modules and self.save_npy:
@@ -400,8 +388,7 @@ class MemorizedFunc(Logger):
             # This can fail do to race-conditions with multiple
             # concurrent joblibs removing the file or the directory
             try:
-                if not os.path.exists(output_dir):
-                    os.makedirs(output_dir)
+                mkdirp(output_dir)
                 json.dump(
                     input_repr,
                     file(os.path.join(output_dir, 'input_args.json'), 'w'),
@@ -489,8 +476,7 @@ class Memory(Logger):
             self.cachedir = None
         else:
             self.cachedir = os.path.join(cachedir, 'joblib')
-            if not os.path.exists(self.cachedir):
-                os.makedirs(self.cachedir)
+            mkdirp(self.cachedir)
 
     def cache(self, func=None, ignore=None, verbose=None,
                         mmap_mode=False):

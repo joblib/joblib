@@ -2,7 +2,8 @@
 Unit tests for the disk utilities.
 """
 
-# Author: Gael Varoquaux <gael dot varoquaux at normalesup dot org>
+# Authors: Gael Varoquaux <gael dot varoquaux at normalesup dot org>
+#          Lars Buitinck <L.J.Buitinck@uva.nl>
 # Copyright (c) 2010 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
@@ -14,7 +15,7 @@ from tempfile import mkdtemp
 
 import nose
 
-from ..disk import memstr_to_kbytes, disk_used
+from ..disk import disk_used, memstr_to_kbytes, mkdirp
 
 
 ###############################################################################
@@ -47,3 +48,18 @@ def test_memstr_to_kbytes():
         yield nose.tools.assert_equal, memstr_to_kbytes(text), value
 
     nose.tools.assert_raises(ValueError, memstr_to_kbytes, 'foobar')
+
+
+def test_mkdirp():
+    try:
+        tmp = mkdtemp()
+
+        mkdirp(os.path.join(tmp, "ham"))
+        mkdirp(os.path.join(tmp, "ham"))
+        mkdirp(os.path.join(tmp, "spam", "spam"))
+
+        # Not all OSErrors are ignored
+        nose.tools.assert_raises(OSError, mkdirp, "")
+
+    finally:
+        shutil.rmtree(tmp)

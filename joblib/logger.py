@@ -16,6 +16,8 @@ import shutil
 import logging
 import pprint
 
+from .disk import mkdirp
+
 
 def _squeeze_time(t):
     """Remove .1s to the time under Windows: this is the time it take to
@@ -96,17 +98,15 @@ class PrintTime(object):
             logfile = os.path.join(logdir, 'joblib.log')
         self.logfile = logfile
         if logfile is not None:
-            if not os.path.exists(os.path.dirname(logfile)):
-                os.makedirs(os.path.dirname(logfile))
+            mkdirp(os.path.dirname(logfile))
             if os.path.exists(logfile):
                 # Rotate the logs
-                for i in range(1, 9):
-                    if os.path.exists(logfile + '.%i' % i):
-                        try:
-                            shutil.move(logfile + '.%i' % i,
-                                        logfile + '.%i' % (i + 1))
-                        except:
-                            "No reason failing here"
+                for i in xrange(1, 9):
+                    try:
+                        shutil.move(logfile + '.%i' % i,
+                                    logfile + '.%i' % (i + 1))
+                    except:
+                        "No reason failing here"
                 # Use a copy rather than a move, so that a process
                 # monitoring this file does not get lost.
                 try:
@@ -120,7 +120,7 @@ class PrintTime(object):
             except:
                 """ Multiprocessing writing to files can create race
                     conditions. Rather fail silently than crash the
-                    caculation.
+                    computation.
                 """
                 # XXX: We actually need a debug flag to disable this
                 # silent failure.
