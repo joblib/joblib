@@ -419,4 +419,4 @@ Sub-process traceback:
         return output
 
     def __repr__(self):
-        return '%s(n_jobs=%s)' % ( self.__class__.__name__, self.n_jobs)
+        return '%s(n_jobs=%s)' % (self.__class__.__name__, self.n_jobs)

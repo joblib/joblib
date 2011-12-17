@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 
 from distutils.core import setup
-import os, sys, shutil
+import os
+import sys
+import shutil
 
 # Python 3 compatibility
 local_path = os.path.dirname(os.path.abspath(sys.argv[0]))
@@ -25,7 +27,9 @@ if sys.version_info[0] == 3:
     print("Converting to Python3 via 2to3...")
     try:
         sys.stdout = StringIO()  # supress noisy output
-        res = lib2to3.main.main("lib2to3.fixes", ['-x', 'import', '-w', py3k_path])
+        res = lib2to3.main.main("lib2to3.fixes",
+                                                 ['-x', 'import',
+                                                  '-w', py3k_path])
     finally:
         sys.stdout = sys.__stdout__
 
@@ -86,4 +90,3 @@ Lightweight pipelining: using Python functions as pipeline jobs.
       #package_data={'joblib': ['joblib/*.rst'],},
       packages=['joblib', 'joblib.test'],
       **extra_setuptools_args)
-
