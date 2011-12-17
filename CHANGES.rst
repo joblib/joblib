@@ -1,6 +1,21 @@
 Latest changes
 ===============
 
+Release 0.5.6
+---------------
+
+2011-12-11
+Lars Buitinck
+
+    ENH: Replace os.path.exists before makedirs with exception check
+    New disk.mkdirp will fail with other errnos than EEXIST.
+
+2011-12-10
+Bala Subrahmanyam Varanasi
+
+    MISC: pep8 compliant
+
+
 Release 0.5.5
 ---------------
 
