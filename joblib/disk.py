@@ -2,14 +2,16 @@
 Disk management utilities.
 """
 
-# Author: Gael Varoquaux <gael dot varoquaux at normalesup dot org>
+# Authors: Gael Varoquaux <gael dot varoquaux at normalesup dot org>
+#          Lars Buitinck <L.J.Buitinck@uva.nl>
 # Copyright (c) 2010 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
 
-import sys
+import errno
 import os
 import shutil
+import sys
 import time
 
 
@@ -42,6 +44,18 @@ def memstr_to_kbytes(text):
                 "alike '10G', '500M', '50K'." % (text, type(text))
                 )
     return size
+
+
+def mkdirp(d):
+    """Ensure directory d exists (like mkdir -p on Unix)
+    No guarantee that the directory is writable.
+    """
+    try:
+        os.makedirs(d)
+    except OSError, e:
+        if e.errno != errno.EEXIST:
+            raise
+
 
 # if a rmtree operation fails in rm_subdirs, wait for this much time (in secs),
 # then retry once. if it still fails, raise the exception
