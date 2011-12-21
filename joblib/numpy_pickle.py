@@ -10,11 +10,15 @@ import pickle
 import traceback
 import sys
 import os
+import shutil
+import tempfile
+import zipfile
 
 if sys.version_info[0] == 3:
     from pickle import _Unpickler as Unpickler
 else:
     from pickle import Unpickler
+
 
 ###############################################################################
 # Utility objects for persistence.
@@ -121,6 +125,7 @@ def dump(value, filename):
         See Also
         --------
         joblib.load : corresponding loader
+        joblib.dump : function to save the object in a compressed dump
     """
     try:
         pickler = NumpyPickler(filename)
@@ -143,7 +148,8 @@ def load(filename, mmap_mode=None):
 
         See Also
         --------
-        joblib.dump : function to save the object
+        joblib.dump : function to save an object
+        joblib.loadz: load from a compressed file dump
     """
     try:
         unpickler = NumpyUnpickler(filename, mmap_mode=mmap_mode)
@@ -152,3 +158,63 @@ def load(filename, mmap_mode=None):
         if 'unpickler' in locals() and hasattr(unpickler, 'file'):
             unpickler.file.close()
     return obj
+
+
+def dumpz(value, filename):
+    """ Persist an arbitrary Python object into a compressed zip
+        filename.
+
+        See Also
+        --------
+        joblib.loadz : corresponding loader
+        joblib.dump : function to save an object
+     """
+    kwargs = dict(compression=zipfile.ZIP_DEFLATED, mode='w')
+    if sys.version_info >= (2, 5):
+        kwargs['allowZip64'] = True
+    dump_file = zipfile.ZipFile(filename, **kwargs)
+
+    # Stage file in a temporary dir on disk, before writing to zip.
+    tmp_dir = tempfile.mkdtemp(prefix='joblib-',
+                                   dir=os.path.dirname(filename))
+    try:
+        dump(value, os.path.join(tmp_dir, 'joblib_dump.pkl'))
+        for sub_file in os.listdir(tmp_dir):
+            # We use a different arcname (archive name) to avoid having
+            # the name of our tmp_dir in the archive
+            dump_file.write(os.path.join(tmp_dir, sub_file),
+                            arcname=os.path.join('dump_file', sub_file))
+    finally:
+        shutil.rmtree(tmp_dir)
+
+    dump_file.close()
+    return [filename]
+
+
+def loadz(filename):
+    """ Reconstruct a Python object and the numpy arrays it contains from
+        a persisted zipped dump.
+
+        See Also
+        --------
+        joblib.dump : function to save an object
+        joblib.loadz: load from a compressed file dump
+    """
+    kwargs = dict(compression=zipfile.ZIP_DEFLATED, mode='r')
+    if sys.version_info >= (2, 5):
+        kwargs['allowZip64'] = True
+    dump_file = zipfile.ZipFile(filename, **kwargs)
+
+    # Stage files in a temporary dir on disk, before writing to zip.
+    tmp_dir = tempfile.mkdtemp(prefix='joblib-',
+                                   dir=os.path.dirname(filename))
+    try:
+        dump_file.extractall(path=tmp_dir)
+        output = load(os.path.join(tmp_dir, 'dump_file', 'joblib_dump.pkl'))
+    finally:
+        shutil.rmtree(tmp_dir)
+
+    dump_file.close()
+    return output
+
+
