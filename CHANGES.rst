@@ -1,6 +1,21 @@
 Latest changes
 ===============
 
+
+Release 0.5.7
+---------------
+
+2011-12-21
+Gael varoquaux
+
+    ENH: add zip-based pickling
+
+2011-12-19
+Fabian Pedregosa
+
+    Py3k: compatibility fixes.
+    This makes run fine the tests test_disk and test_parallel
+
 Release 0.5.6
 ---------------
 
