@@ -13,6 +13,7 @@ import os
 import shutil
 import tempfile
 import zipfile
+import cStringIO
 
 if sys.version_info[0] == 3:
     from pickle import _Unpickler as Unpickler
@@ -124,6 +125,25 @@ class NumpyUnpickler(Unpickler):
     dispatch[pickle.BUILD] = load_build
 
 
+class ZipNumpyUnpickler(NumpyUnpickler):
+    """ A subclass of our Unpickler to unpickle on the fly from zips.
+    """
+
+    def __init__(self, filename):
+        kwargs = dict(compression=zipfile.ZIP_DEFLATED, mode='r')
+        if sys.version_info >= (2, 5):
+            kwargs['allowZip64'] = True
+        self._zip_file = zipfile.ZipFile(filename, **kwargs)
+        NumpyUnpickler.__init__(self, 'joblib_dump.pkl',
+                                mmap_mode=None)
+
+    def _open_file(self, name):
+        "Return the path of the given file in our store"
+        decompression_buffer = cStringIO.StringIO(
+                self._zip_file.read(os.path.join('dump_file', name)))
+        return decompression_buffer
+
+
 ###############################################################################
 # Utility functions
 
@@ -209,21 +229,12 @@ def loadz(filename):
         joblib.dump : function to save an object
         joblib.loadz: load from a compressed file dump
     """
-    kwargs = dict(compression=zipfile.ZIP_DEFLATED, mode='r')
-    if sys.version_info >= (2, 5):
-        kwargs['allowZip64'] = True
-    dump_file = zipfile.ZipFile(filename, **kwargs)
-
-    # Stage files in a temporary dir on disk, before writing to zip.
-    tmp_dir = tempfile.mkdtemp(prefix='joblib-',
-                                   dir=os.path.dirname(filename))
     try:
-        dump_file.extractall(path=tmp_dir)
-        output = load(os.path.join(tmp_dir, 'dump_file', 'joblib_dump.pkl'))
+        unpickler = ZipNumpyUnpickler(filename)
+        obj = unpickler.load()
     finally:
-        shutil.rmtree(tmp_dir)
-
-    dump_file.close()
-    return output
+        if 'unpickler' in locals() and hasattr(unpickler, 'file'):
+            unpickler._zip_file.close()
+    return obj
 
 
