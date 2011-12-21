@@ -82,13 +82,21 @@ class NumpyUnpickler(Unpickler):
     dispatch = Unpickler.dispatch.copy()
 
     def __init__(self, filename, mmap_mode=None):
-        self._filename = filename
+        self._filename = os.path.basename(filename)
         self.mmap_mode = mmap_mode
         self._dirname = os.path.dirname(filename)
-        self.file = open(filename, 'rb')
-        Unpickler.__init__(self, self.file)
+        file_handle = self._open_file(self._filename)
+        if isinstance(file_handle, basestring):
+            # To hanlde memmap, we need to have file names
+            file_handle = open(file_handle, 'rb')
+        self.file_handle = file_handle
+        Unpickler.__init__(self, self.file_handle)
         import numpy as np
         self.np = np
+
+    def _open_file(self, name):
+        "Return the path of the given file in our store"
+        return os.path.join(self._dirname, name)
 
     def load_build(self):
         """ This method is called to set the state of a knewly created
@@ -102,13 +110,14 @@ class NumpyUnpickler(Unpickler):
         if isinstance(self.stack[-1], NDArrayWrapper):
             nd_array_wrapper = self.stack.pop()
             if self.np.__version__ >= '1.3':
-                array = self.np.load(os.path.join(self._dirname,
-                                                nd_array_wrapper.filename),
-                                                mmap_mode=self.mmap_mode)
+                array = self.np.load(
+                                self._open_file(nd_array_wrapper.filename),
+                                mmap_mode=self.mmap_mode)
             else:
                 # Numpy does not have mmap_mode before 1.3
-                array = self.np.load(os.path.join(self._dirname,
-                                                nd_array_wrapper.filename))
+                array = self.np.load(
+                                self._open_file(nd_array_wrapper.filename),
+                                mmap_mode=self.mmap_mode)
             self.stack.append(array)
 
     # Be careful to register our new method.
