@@ -66,15 +66,16 @@ class NumpyPickler(pickle.Pickler):
             total abuse of the Pickler class.
         """
         if isinstance(obj, self.np.ndarray):
-            self._npy_counter += 1
             try:
                 filename = '%s_%02i.npy' % (self._filename,
-                                            self._npy_counter)
-                self._filenames.append(filename)
+                                            self._npy_counter + 1)
                 self.np.save(filename, obj)
                 obj = NDArrayWrapper(os.path.basename(filename))
-            except:
-                self._npy_counter -= 1
+                self._npy_counter += 1
+                self._filenames.append(filename)
+            except NotImplementedError:
+                pass
+            except Exception:
                 # XXX: We should have a logging mechanism
                 print 'Failed to save %s to .npy file:\n%s' % (
                         type(obj),
