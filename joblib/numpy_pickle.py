@@ -62,7 +62,7 @@ class NumpyPickler(pickle.Pickler):
 
     def save(self, obj):
         """ Subclass the save method, to save ndarray subclasses in npy
-            files, rather than pickling them. Off course, this is a
+            files, rather than pickling them. Of course, this is a
             total abuse of the Pickler class.
         """
         if isinstance(obj, self.np.ndarray):
@@ -106,7 +106,7 @@ class NumpyUnpickler(Unpickler):
         return os.path.join(self._dirname, name)
 
     def load_build(self):
-        """ This method is called to set the state of a knewly created
+        """ This method is called to set the state of a newly created
             object.
 
             We capture it to replace our place-holder objects,
@@ -236,7 +236,7 @@ def load(filename, mmap_mode=None):
             If not None, the arrays are memory-mapped from the disk. This
             mode has not effect for zipped files. Note that in this
             case the reconstructed object might not longer match exactly 
-            the originaly pickled object.
+            the originally pickled object.
 
         Returns
         -------
