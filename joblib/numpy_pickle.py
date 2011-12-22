@@ -65,21 +65,13 @@ class NumpyPickler(pickle.Pickler):
             files, rather than pickling them. Of course, this is a
             total abuse of the Pickler class.
         """
-        if isinstance(obj, self.np.ndarray):
-            try:
-                filename = '%s_%02i.npy' % (self._filename,
-                                            self._npy_counter + 1)
-                self.np.save(filename, obj)
-                obj = NDArrayWrapper(os.path.basename(filename))
-                self._npy_counter += 1
-                self._filenames.append(filename)
-            except NotImplementedError:
-                pass
-            except Exception:
-                # XXX: We should have a logging mechanism
-                print 'Failed to save %s to .npy file:\n%s' % (
-                        type(obj),
-                        traceback.format_exc())
+        if type(obj) is self.np.ndarray:
+            filename = '%s_%02i.npy' % (self._filename,
+                                        self._npy_counter + 1)
+            self.np.save(filename, obj)
+            obj = NDArrayWrapper(os.path.basename(filename))
+            self._npy_counter += 1
+            self._filenames.append(filename)
         pickle.Pickler.save(self, obj)
 
 
