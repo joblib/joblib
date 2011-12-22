@@ -113,11 +113,10 @@ def test_standard_types():
     #""" Test pickling and saving with standard types.
     #"""
     filename = env['filename']
-    for dump, load in [(numpy_pickle.dump, numpy_pickle.load),
-                       (numpy_pickle.dumpz, numpy_pickle.loadz)]:
+    for zipped in [True, False]:
         for member in typelist:
-            dump(member, filename)
-            _member = load(filename)
+            numpy_pickle.dump(member, filename, zipped=zipped)
+            _member = numpy_pickle.load(filename)
             # We compare the pickled instance to the reloaded one only if it
             # can be compared to a copied one
             if member == copy.deepcopy(member):
@@ -128,20 +127,21 @@ def test_standard_types():
 def test_numpy_persistence():
     filename = env['filename']
     a = np.random.random(10)
-    for dump, load in [(numpy_pickle.dump, numpy_pickle.load),
-                       (numpy_pickle.dumpz, numpy_pickle.loadz)]:
+    for zipped in [True, False]:
         for obj in (a,), (a, a), [a, a, a]:
-            filenames = dump(obj, filename)
-            if dump is numpy_pickle.dump:
+            filenames = numpy_pickle.dump(obj, filename, zipped=zipped)
+            if not zipped:
                 # Check that one file was created per array
                 yield nose.tools.assert_equal, len(filenames), len(obj) + 1
                 # Check that these files do exist
                 for file in filenames:
                     yield nose.tools.assert_true, \
                         os.path.exists(os.path.join(env['dir'], file))
+            else:
+                yield nose.tools.assert_equal, len(filenames), 1
 
             # Unpickle the object
-            obj_ = load(filename)
+            obj_ = numpy_pickle.load(filename)
             # Check that the items are indeed arrays
             for item in obj_:
                 yield nose.tools.assert_true, isinstance(item, np.ndarray)

@@ -105,8 +105,6 @@ from .logger import Logger
 from .hashing import hash
 from .numpy_pickle import dump
 from .numpy_pickle import load
-from .numpy_pickle import dumpz
-from .numpy_pickle import loadz
 from .parallel import Parallel
 from .parallel import delayed
 from .parallel import cpu_count
