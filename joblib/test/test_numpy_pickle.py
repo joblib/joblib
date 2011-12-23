@@ -169,6 +169,6 @@ def test_masked_array_persistence():
     filename = env['filename']
     numpy_pickle.dump(a, filename)
     b = numpy_pickle.load(filename, mmap_mode='r')
-    nose.tools.assert_true, isinstance(b, np.ma.masked_array)
+    nose.tools.assert_true(isinstance(b, np.ma.masked_array))
 
 

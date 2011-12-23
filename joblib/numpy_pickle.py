@@ -62,23 +62,18 @@ class NumpyPickler(pickle.Pickler):
 
     def save(self, obj):
         """ Subclass the save method, to save ndarray subclasses in npy
-            files, rather than pickling them. Off course, this is a
+            files, rather than pickling them. Of course, this is a
             total abuse of the Pickler class.
         """
-        if isinstance(obj, self.np.ndarray):
+        if type(obj) is self.np.matrix:
+            return self.save_reduce(self.np.matrix, (obj.A,), obj=obj)
+        if type(obj) is self.np.ndarray:
+            filename = '%s_%02i.npy' % (self._filename,
+                                        self._npy_counter + 1)
+            self.np.save(filename, obj)
+            obj = NDArrayWrapper(os.path.basename(filename))
             self._npy_counter += 1
-            try:
-                filename = '%s_%02i.npy' % (self._filename,
-                                            self._npy_counter)
-                self._filenames.append(filename)
-                self.np.save(filename, obj)
-                obj = NDArrayWrapper(os.path.basename(filename))
-            except:
-                self._npy_counter -= 1
-                # XXX: We should have a logging mechanism
-                print 'Failed to save %s to .npy file:\n%s' % (
-                        type(obj),
-                        traceback.format_exc())
+            self._filenames.append(filename)
         pickle.Pickler.save(self, obj)
 
 
@@ -106,7 +101,7 @@ class NumpyUnpickler(Unpickler):
         return os.path.join(self._dirname, name)
 
     def load_build(self):
-        """ This method is called to set the state of a knewly created
+        """ This method is called to set the state of a newly created
             object.
 
             We capture it to replace our place-holder objects,
@@ -236,7 +231,7 @@ def load(filename, mmap_mode=None):
             If not None, the arrays are memory-mapped from the disk. This
             mode has not effect for zipped files. Note that in this
             case the reconstructed object might not longer match exactly 
-            the originaly pickled object.
+            the originally pickled object.
 
         Returns
         -------
