@@ -54,7 +54,10 @@ class NumpyPickler(pickle.Pickler):
         pickle.Pickler.__init__(self, self.file,
                                 protocol=pickle.HIGHEST_PROTOCOL)
         # delayed import of numpy, to avoid tight coupling
-        import numpy as np
+        try:
+            import numpy as np
+        except ImportError:
+            np = None
         self.np = np
 
     def save(self, obj):
