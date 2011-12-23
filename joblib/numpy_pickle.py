@@ -62,6 +62,8 @@ class NumpyPickler(pickle.Pickler):
             files, rather than pickling them. Of course, this is a
             total abuse of the Pickler class.
         """
+        if type(obj) is self.np.matrix:
+            return self.save_reduce(self.np.matrix, (obj.A,), obj=obj)
         if type(obj) is self.np.ndarray:
             filename = '%s_%02i.npy' % (self._filename,
                                         self._npy_counter + 1)
