@@ -33,8 +33,9 @@ class NDArrayWrapper(object):
         The only thing this object does, is store the filename in wich
         the array has been persisted.
     """
-    def __init__(self, filename):
+    def __init__(self, filename, subclass=None):
         self.filename = filename
+        self.subclass = subclass
 
 
 ###############################################################################
@@ -65,13 +66,22 @@ class NumpyPickler(pickle.Pickler):
             files, rather than pickling them. Of course, this is a
             total abuse of the Pickler class.
         """
-        if type(obj) is self.np.ndarray:
-            filename = '%s_%02i.npy' % (self._filename,
-                                        self._npy_counter + 1)
-            self.np.save(filename, obj)
-            obj = NDArrayWrapper(os.path.basename(filename))
+        if type(obj) in (self.np.ndarray, self.np.matrix,
+                         self.np.memmap):
             self._npy_counter += 1
-            self._filenames.append(filename)
+            try:
+                filename = '%s_%02i.npy' % (self._filename,
+                                            self._npy_counter)
+                self._filenames.append(filename)
+                self.np.save(filename, obj)
+                obj = NDArrayWrapper(os.path.basename(filename),
+                                     type(obj))
+            except:
+                self._npy_counter -= 1
+                # XXX: We should have a logging mechanism
+                print 'Failed to save %s to .npy file:\n%s' % (
+                        type(obj),
+                        traceback.format_exc())
         pickle.Pickler.save(self, obj)
 
 
@@ -118,6 +128,12 @@ class NumpyUnpickler(Unpickler):
                 array = self.np.load(
                                 self._open_file(nd_array_wrapper.filename),
                                 mmap_mode=self.mmap_mode)
+            if not nd_array_wrapper.subclass is self.np.ndarray:
+                # We need to reconstruct another subclass
+                new_array = self.np.core.multiarray._reconstruct(
+                        nd_array_wrapper.subclass, (0,), 'b')
+                new_array.__array_prepare__(array)
+                array = new_array
             self.stack.append(array)
 
     # Be careful to register our new method.

@@ -149,6 +149,12 @@ def test_numpy_persistence():
             yield nose.tools.assert_true, np.all(np.array(obj) ==
                                                 np.array(obj_))
 
+        # Now test with array subclasses
+        obj = np.matrix(np.zeros(10))
+        filenames = numpy_pickle.dump(obj, filename, zipped=zipped)
+        obj_ = numpy_pickle.load(filename)
+        yield nose.tools.assert_true, isinstance(obj_, np.matrix)
+
 
 @with_numpy
 def test_memmap_persistence():
