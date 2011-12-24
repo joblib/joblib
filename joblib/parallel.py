@@ -295,6 +295,7 @@ class Parallel(Logger):
         # able to close it ASAP, and not burden the user with closing it.
         self._output = None
         self._jobs = list()
+        self.report_every = None
         if report_every != None:
             assert report_every > 0
             self.report_every = report_every
