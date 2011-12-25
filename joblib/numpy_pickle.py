@@ -66,14 +66,14 @@ class NumpyPickler(pickle.Pickler):
             files, rather than pickling them. Of course, this is a
             total abuse of the Pickler class.
         """
-        if type(obj) in (self.np.ndarray, self.np.matrix,
-                         self.np.memmap):
+        if self.np is not None and type(obj) in (self.np.ndarray,
+                                                 self.np.matrix, self.np.memmap):
             self._npy_counter += 1
             try:
                 filename = '%s_%02i.npy' % (self._filename,
                                             self._npy_counter)
-                self._filenames.append(filename)
                 self.np.save(filename, obj)
+                self._filenames.append(filename)
                 obj = NDArrayWrapper(os.path.basename(filename),
                                      type(obj))
             except:

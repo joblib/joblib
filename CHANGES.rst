@@ -5,6 +5,11 @@ Latest changes
 Release 0.5.7
 ---------------
 
+Kenneth C. Arnold and Gael varoquaux
+2011-12-22
+
+    BUG: fix numpy_pickle for array subclasses
+
 2011-12-21
 Gael varoquaux
 
