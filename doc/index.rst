@@ -58,7 +58,5 @@ Module reference
     Parallel
     dump
     load
-    dumpz
-    loadz
     hash
 
