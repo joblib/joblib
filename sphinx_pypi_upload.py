@@ -16,11 +16,16 @@ Modified for joblib by Gael Varoquaux
 
 import os
 import socket
-import httplib
+try:
+    import httplib
+    import urlparse
+    from cStringIO import StringIO as BytesIO
+except ImportError:
+    # Python3k
+    import http as httplib
+    from urllib import parse as urlparse
+    from io import BytesIO
 import base64
-import urlparse
-import tempfile
-import cStringIO as StringIO
 
 from distutils import log
 from distutils.command.upload import upload
@@ -65,7 +70,7 @@ class UploadDoc(upload):
         boundary = '--------------GHSKFJDLGDS7543FJKLFHRE75642756743254'
         sep_boundary = '\n--' + boundary
         end_boundary = sep_boundary + '--'
-        body = StringIO.StringIO()
+        body = BytesIO()
         for key, value in data.items():
             # handle multiple entries for the same name
             if type(value) != type([]):
@@ -115,7 +120,7 @@ class UploadDoc(upload):
             http.putheader('Authorization', auth)
             http.endheaders()
             http.send(body)
-        except socket.error, e:
+        except socket.error as e:
             self.announce(str(e), log.ERROR)
             return
 
@@ -133,7 +138,7 @@ class UploadDoc(upload):
             self.announce('Upload failed (%s): %s' % \
             (response.status, response.reason), log.ERROR)
         if self.show_response:
-            print '-' * 75, response.read(), '-' * 75
+            print('-' * 75 + response.read() + '-' * 75)
 
     def run(self):
         zip_file = self.upload_file
