@@ -96,7 +96,7 @@ Main features
 
 """
 
-__version__ = '0.5.7a'
+__version__ = '0.5.7c'
 
 
 from .memory import Memory
