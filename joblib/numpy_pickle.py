@@ -101,7 +101,10 @@ class NumpyUnpickler(Unpickler):
                 file_handle = open(file_handle, 'rb')
         self.file_handle = file_handle
         Unpickler.__init__(self, self.file_handle)
-        import numpy as np
+        try:
+            import numpy as np
+        except ImportError:
+            np = None
         self.np = np
 
     def _open_file(self, name):
@@ -118,6 +121,9 @@ class NumpyUnpickler(Unpickler):
         """
         Unpickler.load_build(self)
         if isinstance(self.stack[-1], NDArrayWrapper):
+            if self.np is None:
+                raise ImportError('Trying to unpickle an ndarray, '
+                        "but numpy didn't import correctly")
             nd_array_wrapper = self.stack.pop()
             if self.np.__version__ >= '1.3':
                 array = self.np.load(
