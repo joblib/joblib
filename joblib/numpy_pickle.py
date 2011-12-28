@@ -14,11 +14,11 @@ import gzip
 import warnings
 
 if sys.version_info[0] == 3:
-    from pickle import _Unpickler as Unpickler
-    from cStringIO import StringIO as BytesIO
-else:
     from io import BytesIO
+    from pickle import _Unpickler as Unpickler
+else:
     from pickle import Unpickler
+    from cStringIO import StringIO as BytesIO
 
 
 ###############################################################################
