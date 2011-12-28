@@ -5,6 +5,12 @@ Latest changes
 Release 0.5.7
 ---------------
 
+Gael varoquaux
+2011-12-26
+
+    ENH: Add a zipped option to Memory
+    API: Memory no longer accepts save_npy
+
 Kenneth C. Arnold and Gael varoquaux
 2011-12-22
 

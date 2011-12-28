@@ -96,8 +96,8 @@ class MemorizedFunc(Logger):
             The memmapping mode used when loading from cache
             numpy arrays. See numpy.load for the meaning of the
             arguments.
-        zipped: boolean
-            Whether to zip the stored data on disk. Note that zipped
+        compress: boolean
+            Whether to zip the stored data on disk. Note that compressed
             arrays cannot be read by memmapping.
         verbose: int, optional
             The verbosity flag, controls messages that are issued as
@@ -108,7 +108,7 @@ class MemorizedFunc(Logger):
     #-------------------------------------------------------------------------
 
     def __init__(self, func, cachedir, ignore=None, mmap_mode=None,
-                 zipped=False, verbose=1, timestamp=None):
+                 compress=False, verbose=1, timestamp=None):
         """
             Parameters
             ----------
@@ -134,9 +134,9 @@ class MemorizedFunc(Logger):
         self.cachedir = cachedir
         self.func = func
         self.mmap_mode = mmap_mode
-        self.zipped = zipped
-        if zipped and mmap_mode is not None:
-            warnings.warn('Zipped results cannot be memmapped',
+        self.compress = compress
+        if compress and mmap_mode is not None:
+            warnings.warn('Compressed results cannot be memmapped',
                           stacklevel=2)
         if timestamp is None:
             timestamp = time.time()
@@ -190,7 +190,7 @@ class MemorizedFunc(Logger):
             In addition, when unpickling, we run the __init__
         """
         return (self.__class__, (self.func, self.cachedir, self.ignore,
-                self.mmap_mode, self.zipped, self._verbose))
+                self.mmap_mode, self.compress, self._verbose))
 
     #-------------------------------------------------------------------------
     # Private interface
@@ -368,7 +368,7 @@ class MemorizedFunc(Logger):
         try:
             mkdirp(dir)
             filename = os.path.join(dir, 'output.pkl')
-            numpy_pickle.dump(output, filename, zipped=self.zipped)
+            numpy_pickle.dump(output, filename, compress=self.compress)
         except OSError:
             " Race condition in the creation of the directory "
 
@@ -437,7 +437,7 @@ class Memory(Logger):
     # Public interface
     #-------------------------------------------------------------------------
 
-    def __init__(self, cachedir, mmap_mode=None, zipped=False, verbose=1):
+    def __init__(self, cachedir, mmap_mode=None, compress=False, verbose=1):
         """
             Parameters
             ----------
@@ -449,9 +449,9 @@ class Memory(Logger):
                 The memmapping mode used when loading from cache
                 numpy arrays. See numpy.load for the meaning of the
                 arguments.
-            zipped: boolean
-                Whether to zip the stored data on disk. Note that zipped
-                arrays cannot be read by memmapping.
+            compress: boolean
+                Whether to zip the stored data on disk. Note that
+                compressed arrays cannot be read by memmapping.
             verbose: int, optional
                 Verbosity flag, controls the debug messages that are issued
                 as functions are revaluated.
@@ -461,9 +461,9 @@ class Memory(Logger):
         self._verbose = verbose
         self.mmap_mode = mmap_mode
         self.timestamp = time.time()
-        self.zipped = zipped
-        if zipped and mmap_mode is not None:
-            warnings.warn('Zipped results cannot be memmapped',
+        self.compress = compress
+        if compress and mmap_mode is not None:
+            warnings.warn('Compressed results cannot be memmapped',
                           stacklevel=2)
         if cachedir is None:
             self.cachedir = None
@@ -513,7 +513,7 @@ class Memory(Logger):
         return MemorizedFunc(func, cachedir=self.cachedir,
                                    mmap_mode=mmap_mode,
                                    ignore=ignore,
-                                   zipped=self.zipped,
+                                   compress=self.compress,
                                    verbose=verbose,
                                    timestamp=self.timestamp)
 
@@ -554,4 +554,4 @@ class Memory(Logger):
         """
         # We need to remove 'joblib' from the end of cachedir
         return (self.__class__, (self.cachedir[:-7],
-                self.mmap_mode, self.zipped, self._verbose))
+                self.mmap_mode, self.compress, self._verbose))

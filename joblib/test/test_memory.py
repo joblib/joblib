@@ -100,8 +100,8 @@ def test_memory_integration():
         yield test
 
     # Now test clearing
-    for zipped in (False, True):
-        memory = Memory(cachedir=env['dir'], verbose=0, zipped=zipped)
+    for compress in (False, True):
+        memory = Memory(cachedir=env['dir'], verbose=0, compress=compress)
         # First clear the cache directory, to check that our code can
         # handle that
         # NOTE: this line would raise an exception, as the database file is still
