@@ -10,9 +10,7 @@ import pickle
 import traceback
 import sys
 import os
-import shutil
-import tempfile
-import zipfile
+import gzip
 import warnings
 
 if sys.version_info[0] == 3:
@@ -46,10 +44,11 @@ class NumpyPickler(pickle.Pickler):
         files outside of the pickle.
     """
 
-    def __init__(self, filename):
+    def __init__(self, filename, compress=0):
         self._filename = filename
         self._filenames = [filename, ]
-        self.file = open(filename, 'wb')
+        self.compress = compress
+        self.file = self._open(filename)
         # Count the number of npy files that we have created:
         self._npy_counter = 0
         pickle.Pickler.__init__(self, self.file,
@@ -60,6 +59,13 @@ class NumpyPickler(pickle.Pickler):
         except ImportError:
             np = None
         self.np = np
+
+    def _open(self, filename):
+        if not self.compress:
+            return open(filename, 'wb')
+        else:
+            return gzip.open(filename, 'wb',
+                             compresslevel=self.compress)
 
     def save(self, obj):
         """ Subclass the save method, to save ndarray subclasses in npy
@@ -72,7 +78,11 @@ class NumpyPickler(pickle.Pickler):
             try:
                 filename = '%s_%02i.npy' % (self._filename,
                                             self._npy_counter)
-                self.np.save(filename, obj)
+                if self.compress:
+                    filename += '.gz'
+                file_handle = self._open(filename)
+                self.np.save(file_handle, obj)
+                file_handle.close()
                 self._filenames.append(filename)
                 obj = NDArrayWrapper(os.path.basename(filename),
                                      type(obj))
@@ -85,6 +95,10 @@ class NumpyPickler(pickle.Pickler):
         pickle.Pickler.save(self, obj)
 
 
+class ZipNumpyPickler(NumpyPickler):
+    """ A subclass of the Pickler, to zip as we go.
+    """
+
 class NumpyUnpickler(Unpickler):
     """ A subclass of the Unpickler to unpickle our numpy pickles.
     """
@@ -92,8 +106,8 @@ class NumpyUnpickler(Unpickler):
 
     def __init__(self, filename, file_handle=None, mmap_mode=None):
         self._filename = os.path.basename(filename)
-        self.mmap_mode = mmap_mode
         self._dirname = os.path.dirname(filename)
+        self.mmap_mode = mmap_mode
         if file_handle is None:
             file_handle = self._open_pickle()
         self.file_handle = file_handle
@@ -152,28 +166,21 @@ class ZipNumpyUnpickler(NumpyUnpickler):
     """ A subclass of our Unpickler to unpickle on the fly from zips.
     """
 
-    def __init__(self, file_handle):
-        kwargs = dict(compression=zipfile.ZIP_DEFLATED)
-        if sys.version_info >= (2, 5):
-            kwargs['allowZip64'] = True
-        self._zip_file = zipfile.ZipFile(file_handle, **kwargs)
-        NumpyUnpickler.__init__(self, 'joblib_dump.pkl',
+    def __init__(self, filename, file_handle=None):
+        NumpyUnpickler.__init__(self, filename,
                                 mmap_mode=None)
 
     def _open_pickle(self):
-        decompression_buffer = \
-            self._zip_file.read(os.path.join('dump_file', self._filename))
-        decompression_buffer = BytesIO(decompression_buffer)
-        return decompression_buffer
+        return gzip.open(os.path.join(self._dirname, self._filename), 'rb')
 
     def _open_npy(self, name):
-        return self._zip_file.open(os.path.join('dump_file', name), 'r')
+        return gzip.open(os.path.join(self._dirname, name), 'rb')
 
 
 ###############################################################################
 # Utility functions
 
-def dump(value, filename, compress=False):
+def dump(value, filename, compress=0):
     """ Persist an arbitrary Python object into a filename, with numpy arrays
         saved as separate .npy files.
 
@@ -201,47 +208,14 @@ def dump(value, filename, compress=False):
         compressed files take extra disk space during the dump, and extra
         memory during the loading.
     """
-    if compress:
-        return _dump_zipped(value, filename)
-    else:
-        return _dump(value, filename)
-
-
-def _dump(value, filename):
     try:
-        pickler = NumpyPickler(filename)
+        pickler = NumpyPickler(filename, compress=compress)
         pickler.dump(value)
     finally:
         if 'pickler' in locals() and hasattr(pickler, 'file'):
             pickler.file.flush()
             pickler.file.close()
     return pickler._filenames
-
-
-def _dump_zipped(value, filename):
-    """ Persist an arbitrary Python object into a compressed zip
-        filename.
-     """
-    kwargs = dict(compression=zipfile.ZIP_DEFLATED, mode='w')
-    if sys.version_info >= (2, 5):
-        kwargs['allowZip64'] = True
-    dump_file = zipfile.ZipFile(filename, **kwargs)
-
-    # Stage file in a temporary dir on disk, before writing to zip.
-    tmp_dir = tempfile.mkdtemp(prefix='joblib-',
-                                   dir=os.path.dirname(filename))
-    try:
-        _dump(value, os.path.join(tmp_dir, 'joblib_dump.pkl'))
-        for sub_file in os.listdir(tmp_dir):
-            # We use a different arcname (archive name) to avoid having
-            # the name of our tmp_dir in the archive
-            dump_file.write(os.path.join(tmp_dir, sub_file),
-                            arcname=os.path.join('dump_file', sub_file))
-    finally:
-        shutil.rmtree(tmp_dir)
-
-    dump_file.close()
-    return [filename]
 
 
 def load(filename, mmap_mode=None):
@@ -277,25 +251,25 @@ def load(filename, mmap_mode=None):
 
     """
     # Code to detect zip files
-    _ZIP_PREFIX = 'PK\x03\x04'
+    _GZIP_PREFIX = '\x1f\x8b'
     try:
         # Py3k compatibility
         from numpy.compat import asbytes
-        _ZIP_PREFIX = asbytes(_ZIP_PREFIX)
+        _GZIP_PREFIX = asbytes(_GZIP_PREFIX)
     except ImportError:
         pass
 
     file_handle = open(filename, 'rb')
-    if file_handle.read(len(_ZIP_PREFIX)) == _ZIP_PREFIX:
+    # Pickling needs file-handles at the beginning of the file
+    file_handle.seek(0)
+    if file_handle.read(len(_GZIP_PREFIX)) == _GZIP_PREFIX:
         if mmap_mode is not None:
             warnings.warn('file "%(filename)s" appears to be a zip, '
                     'ignoring mmap_mode "%(mmap_mode)s" flag passed'
                     % locals(),
                     Warning, stacklevel=2)
-        unpickler = ZipNumpyUnpickler(file_handle=file_handle)
+        unpickler = ZipNumpyUnpickler(filename)
     else:
-        # Pickling needs file-handles at the beginning of the file
-        file_handle.seek(0)
         unpickler = NumpyUnpickler(filename,
                                    file_handle=file_handle,
                                    mmap_mode=mmap_mode)

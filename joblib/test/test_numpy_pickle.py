@@ -113,7 +113,7 @@ def test_standard_types():
     #""" Test pickling and saving with standard types.
     #"""
     filename = env['filename']
-    for compress in [True, False]:
+    for compress in [0, 1]:
         for member in typelist:
             numpy_pickle.dump(member, filename, compress=compress)
             _member = numpy_pickle.load(filename)
@@ -127,18 +127,15 @@ def test_standard_types():
 def test_numpy_persistence():
     filename = env['filename']
     a = np.random.random(10)
-    for compress in [True, False]:
+    for compress in [0, 1]:
         for obj in (a,), (a, a), [a, a, a]:
             filenames = numpy_pickle.dump(obj, filename, compress=compress)
-            if not compress:
-                # Check that one file was created per array
-                yield nose.tools.assert_equal, len(filenames), len(obj) + 1
-                # Check that these files do exist
-                for file in filenames:
-                    yield nose.tools.assert_true, \
-                        os.path.exists(os.path.join(env['dir'], file))
-            else:
-                yield nose.tools.assert_equal, len(filenames), 1
+            # Check that one file was created per array
+            yield nose.tools.assert_equal, len(filenames), len(obj) + 1
+            # Check that these files do exist
+            for file in filenames:
+                yield nose.tools.assert_true, \
+                    os.path.exists(os.path.join(env['dir'], file))
 
             # Unpickle the object
             obj_ = numpy_pickle.load(filename)
