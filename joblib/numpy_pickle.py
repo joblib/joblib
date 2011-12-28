@@ -125,16 +125,19 @@ class NumpyUnpickler(Unpickler):
                 raise ImportError('Trying to unpickle an ndarray, '
                         "but numpy didn't import correctly")
             nd_array_wrapper = self.stack.pop()
-            if self.np.__version__ >= '1.3':
-                array = self.np.load(
-                                self._open_file(nd_array_wrapper.filename),
+            obj = self._open_file(nd_array_wrapper.filename)
+            if not isinstance(obj, basestring):
+                # Must be a file-like object
+                # read_array can handle them
+                array = self.np.lib.format.read_array(obj)
+            elif self.np.__version__ >= '1.3':
+                array = self.np.load(obj,
                                 mmap_mode=self.mmap_mode)
             else:
                 # Numpy does not have mmap_mode before 1.3
-                array = self.np.load(
-                                self._open_file(nd_array_wrapper.filename),
-                                mmap_mode=self.mmap_mode)
-            if not nd_array_wrapper.subclass is self.np.ndarray:
+                array = self.np.load(obj)
+            if (not nd_array_wrapper.subclass is self.np.ndarray 
+                    and not nd_array_wrapper.subclass is self.np.memmap):
                 # We need to reconstruct another subclass
                 new_array = self.np.core.multiarray._reconstruct(
                         nd_array_wrapper.subclass, (0,), 'b')
@@ -160,8 +163,14 @@ class ZipNumpyUnpickler(NumpyUnpickler):
 
     def _open_file(self, name):
         "Return the path of the given file in our store"
-        decompression_buffer = BytesIO(
-                self._zip_file.read(os.path.join('dump_file', name)))
+        if name.endswith('.npy'):
+            # Only numpy's reader can handle file-like objects
+            return self._zip_file.open(os.path.join('dump_file', name),
+                                       'r')
+        else:
+            decompression_buffer = \
+                    self._zip_file.read(os.path.join('dump_file', name))
+            decompression_buffer = BytesIO(decompression_buffer)
         return decompression_buffer
 
 
