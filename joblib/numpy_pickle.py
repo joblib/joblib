@@ -95,10 +95,7 @@ class NumpyUnpickler(Unpickler):
         self.mmap_mode = mmap_mode
         self._dirname = os.path.dirname(filename)
         if file_handle is None:
-            file_handle = self._open_file(self._filename)
-            if isinstance(file_handle, basestring):
-                # To handle memmap, we need to have file names
-                file_handle = open(file_handle, 'rb')
+            file_handle = self._open_pickle()
         self.file_handle = file_handle
         Unpickler.__init__(self, self.file_handle)
         try:
@@ -107,8 +104,10 @@ class NumpyUnpickler(Unpickler):
             np = None
         self.np = np
 
-    def _open_file(self, name):
-        "Return the path of the given file in our store"
+    def _open_pickle(self):
+        return open(os.path.join(self._dirname, self._filename), 'rb')
+
+    def _open_npy(self, name):
         return os.path.join(self._dirname, name)
 
     def load_build(self):
@@ -125,7 +124,7 @@ class NumpyUnpickler(Unpickler):
                 raise ImportError('Trying to unpickle an ndarray, '
                         "but numpy didn't import correctly")
             nd_array_wrapper = self.stack.pop()
-            obj = self._open_file(nd_array_wrapper.filename)
+            obj = self._open_npy(nd_array_wrapper.filename)
             if not isinstance(obj, basestring):
                 # Must be a file-like object
                 # read_array can handle them
@@ -136,7 +135,7 @@ class NumpyUnpickler(Unpickler):
             else:
                 # Numpy does not have mmap_mode before 1.3
                 array = self.np.load(obj)
-            if (not nd_array_wrapper.subclass is self.np.ndarray 
+            if (not nd_array_wrapper.subclass is self.np.ndarray
                     and not nd_array_wrapper.subclass is self.np.memmap):
                 # We need to reconstruct another subclass
                 new_array = self.np.core.multiarray._reconstruct(
@@ -161,17 +160,14 @@ class ZipNumpyUnpickler(NumpyUnpickler):
         NumpyUnpickler.__init__(self, 'joblib_dump.pkl',
                                 mmap_mode=None)
 
-    def _open_file(self, name):
-        "Return the path of the given file in our store"
-        if name.endswith('.npy'):
-            # Only numpy's reader can handle file-like objects
-            return self._zip_file.open(os.path.join('dump_file', name),
-                                       'r')
-        else:
-            decompression_buffer = \
-                    self._zip_file.read(os.path.join('dump_file', name))
-            decompression_buffer = BytesIO(decompression_buffer)
+    def _open_pickle(self):
+        decompression_buffer = \
+            self._zip_file.read(os.path.join('dump_file', self._filename))
+        decompression_buffer = BytesIO(decompression_buffer)
         return decompression_buffer
+
+    def _open_npy(self, name):
+        return self._zip_file.open(os.path.join('dump_file', name), 'r')
 
 
 ###############################################################################
