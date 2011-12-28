@@ -1,9 +1,13 @@
 Latest changes
 ===============
 
-
 Release 0.5.7
 ---------------
+
+2011-12-28
+Gael varoquaux
+
+    API: zipped -> compress
 
 Gael varoquaux
 2011-12-26
