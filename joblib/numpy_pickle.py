@@ -95,10 +95,6 @@ class NumpyPickler(pickle.Pickler):
         pickle.Pickler.save(self, obj)
 
 
-class ZipNumpyPickler(NumpyPickler):
-    """ A subclass of the Pickler, to zip as we go.
-    """
-
 class NumpyUnpickler(Unpickler):
     """ A subclass of the Unpickler to unpickle our numpy pickles.
     """
