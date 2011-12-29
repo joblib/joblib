@@ -131,7 +131,8 @@ def test_numpy_persistence():
         for obj in (a,), (a, a), [a, a, a]:
             filenames = numpy_pickle.dump(obj, filename, compress=compress)
             # Check that one file was created per array
-            yield nose.tools.assert_equal, len(filenames), len(obj) + 1
+            if not compress:
+                yield nose.tools.assert_equal, len(filenames), len(obj) + 1
             # Check that these files do exist
             for file in filenames:
                 yield nose.tools.assert_true, \

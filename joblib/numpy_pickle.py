@@ -10,20 +10,34 @@ import pickle
 import traceback
 import sys
 import os
-import gzip
+import zlib
 import warnings
 
-if sys.version_info[0] == 3:
+if sys.version_info[0] >= 3:
     from io import BytesIO
     from pickle import _Unpickler as Unpickler
+    def asbytes(s):
+        if isinstance(s, bytes):
+            return s
+        return s.encode('latin1')
 else:
+    try:
+        from io import BytesIO
+    except ImportError:
+        # BytesIO has been added in Python 2.5
+        from cStringIO import StringIO as BytesIO
+    # XXX: create a py3k_compat module and subclass all this in it
     from pickle import Unpickler
-    from cStringIO import StringIO as BytesIO
+    asbytes = str
 
+_MEGA = 2**20
+_MAX_LEN = len(hex(2**64))
+
+# To detect file types
+_ZFILE_PREFIX = asbytes('ZF')
 
 ###############################################################################
 # Utility objects for persistence.
-
 
 class NDArrayWrapper(object):
     """ An object to be persisted instead of numpy arrays.
@@ -34,6 +48,80 @@ class NDArrayWrapper(object):
     def __init__(self, filename, subclass=None):
         self.filename = filename
         self.subclass = subclass
+
+
+###############################################################################
+# Compressed file with Zlib
+
+def _read_magic(file_handle):
+    magic = file_handle.read(len(_ZFILE_PREFIX))
+    # Pickling needs file-handles at the beginning of the file
+    file_handle.seek(0)
+    return magic
+
+
+class ZFile(BytesIO):
+    """ A file-like object doing compression with Zlib, but only on
+        close.
+
+        This is faster than GZipFile, as GZipFile
+        compresses/decompresses on the fly, but it may use more memory.
+
+        Notes
+        =====
+
+        Do not forget to explicitely call close() on this object when
+        open in write mode.
+    """
+
+    def __init__(self, filename, mode='r', compress=1):
+        if 'r' in mode and 'w' in mode:
+            raise ValueError('Cannot open ZFile in read and write '
+                             'mode simultaneously')
+        self.mode = mode
+        self.compress = compress
+        if isinstance(filename, basestring):
+            file_handle = file(filename, mode)
+        else:
+            file_handle = filename
+        self.final_file = file_handle
+        if 'r' in mode:
+            # Uncompress the file in a buffer
+            file_handle.seek(0)
+            assert _read_magic(file_handle) == _ZFILE_PREFIX, \
+                "File does not have the right magic"
+            length = file_handle.read(len(_ZFILE_PREFIX) + _MAX_LEN)
+            length = length[len(_ZFILE_PREFIX):]
+            length = int(length, 16)
+            data = zlib.decompress(file_handle.read(), 15, length)
+            assert len(data) == length, (
+                "Incorrect data length while decompressing %s."
+                "The file could be corrupted." % filename)
+            BytesIO.__init__(self, data)
+        elif 'w' in mode:
+            # Write the header, the rest is delayed till the file is
+            # closed
+            file_handle.write(_ZFILE_PREFIX)
+            BytesIO.__init__(self)
+        else:
+            raise ValueError('Invalide mode "%s"' % mode)
+
+    def close(self):
+        if 'w' in self.mode:
+            # Compress and write the data
+            data = self.getvalue()
+            length = len(data)
+            if sys.version_info[0] < 3 and type(length) is long:
+                # We need to remove the trailing 'L'
+                length = hex(length)[:-1]
+            else:
+                length = hex(length)
+            # Store the length of the data
+            self.final_file.write(length.ljust(_MAX_LEN))
+            self.final_file.write(
+                zlib.compress(data, self.compress))
+        BytesIO.close(self)
+        self.final_file.close()
 
 
 ###############################################################################
@@ -64,8 +152,8 @@ class NumpyPickler(pickle.Pickler):
         if not self.compress:
             return open(filename, 'wb')
         else:
-            return gzip.open(filename, 'wb',
-                             compresslevel=self.compress)
+            return ZFile(filename, 'w',
+                         compress=self.compress)
 
     def save(self, obj):
         """ Subclass the save method, to save ndarray subclasses in npy
@@ -73,7 +161,15 @@ class NumpyPickler(pickle.Pickler):
             total abuse of the Pickler class.
         """
         if self.np is not None and type(obj) in (self.np.ndarray,
-                                                 self.np.matrix, self.np.memmap):
+                                            self.np.matrix, self.np.memmap):
+            size = obj.size * obj.itemsize
+            if self.compress and size < 100 * _MEGA:
+                # When compressing, as we are not writing directly to the
+                # disk, it is more efficient to use standard pickling
+                if type(obj) is self.np.memmap:
+                    # Pickling doesn't work with memmaped arrays
+                    obj = self.np.asarray(obj)
+                return pickle.Pickler.save(self, obj)
             self._npy_counter += 1
             try:
                 filename = '%s_%02i.npy' % (self._filename,
@@ -92,7 +188,7 @@ class NumpyPickler(pickle.Pickler):
                 print 'Failed to save %s to .npy file:\n%s' % (
                         type(obj),
                         traceback.format_exc())
-        pickle.Pickler.save(self, obj)
+        return pickle.Pickler.save(self, obj)
 
 
 class NumpyUnpickler(Unpickler):
@@ -145,8 +241,8 @@ class NumpyUnpickler(Unpickler):
             else:
                 # Numpy does not have mmap_mode before 1.3
                 array = self.np.load(obj)
-            if (not nd_array_wrapper.subclass is self.np.ndarray
-                    and not nd_array_wrapper.subclass is self.np.memmap):
+            if not nd_array_wrapper.subclass in (self.np.ndarray,
+                                                 self.np.memmap):
                 # We need to reconstruct another subclass
                 new_array = self.np.core.multiarray._reconstruct(
                         nd_array_wrapper.subclass, (0,), 'b')
@@ -162,15 +258,16 @@ class ZipNumpyUnpickler(NumpyUnpickler):
     """ A subclass of our Unpickler to unpickle on the fly from zips.
     """
 
-    def __init__(self, filename, file_handle=None):
+    def __init__(self, filename):
         NumpyUnpickler.__init__(self, filename,
                                 mmap_mode=None)
 
     def _open_pickle(self):
-        return gzip.open(os.path.join(self._dirname, self._filename), 'rb')
+        return self._open_npy(self._filename)
 
     def _open_npy(self, name):
-        return gzip.open(os.path.join(self._dirname, name), 'rb')
+        filename = os.path.join(self._dirname, name)
+        return ZFile(filename, 'r')
 
 
 ###############################################################################
@@ -246,24 +343,12 @@ def load(filename, mmap_mode=None):
         object might not match the original pickled object.
 
     """
-    # Code to detect zip files
-    _GZIP_PREFIX = '\x1f\x8b'
-    try:
-        # Py3k compatibility
-        from numpy.compat import asbytes
-        _GZIP_PREFIX = asbytes(_GZIP_PREFIX)
-    except ImportError:
-        pass
-
     file_handle = open(filename, 'rb')
-    # Pickling needs file-handles at the beginning of the file
-    file_handle.seek(0)
-    if file_handle.read(len(_GZIP_PREFIX)) == _GZIP_PREFIX:
+    if _read_magic(file_handle) == _ZFILE_PREFIX:
         if mmap_mode is not None:
             warnings.warn('file "%(filename)s" appears to be a zip, '
                     'ignoring mmap_mode "%(mmap_mode)s" flag passed'
-                    % locals(),
-                    Warning, stacklevel=2)
+                    % locals(), Warning, stacklevel=2)
         unpickler = ZipNumpyUnpickler(filename)
     else:
         unpickler = NumpyUnpickler(filename,
@@ -273,11 +358,8 @@ def load(filename, mmap_mode=None):
     try:
         obj = unpickler.load()
     finally:
-        if 'unpickler' in locals():
-            if hasattr(unpickler, 'file'):
-                unpickler.file.close()
-            if hasattr(unpickler, '_zip_file'):
-                unpickler._zip_file.close()
+        if hasattr(unpickler, 'file_handle'):
+            unpickler.file_handle.close()
     return obj
 
 
