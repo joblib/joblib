@@ -126,9 +126,10 @@ def test_standard_types():
 @with_numpy
 def test_numpy_persistence():
     filename = env['filename']
-    a = np.random.random(10)
+    a = np.random.random((10, 2))
     for compress in [0, 1]:
-        for obj in (a,), (a, a), [a, a, a]:
+        # We use 'a.T' to have a non C-contiguous array.
+        for obj in (a,), (a.T,), (a, a), [a, a, a]:
             filenames = numpy_pickle.dump(obj, filename, compress=compress)
             # Check that one file was created per array
             if not compress:
