@@ -46,68 +46,33 @@ def _read_magic(file_handle):
     return magic
 
 
-class ZFile(BytesIO):
-    """ A file-like object doing compression with Zlib, but only on
-        close.
+def read_zfile(file_handle):
+    "Read the z-file and return the content as a string"
+    # Uncompress the file in a buffer
+    file_handle.seek(0)
+    assert _read_magic(file_handle) == _ZFILE_PREFIX, \
+        "File does not have the right magic"
+    length = file_handle.read(len(_ZFILE_PREFIX) + _MAX_LEN)
+    length = length[len(_ZFILE_PREFIX):]
+    length = int(length, 16)
+    data = zlib.decompress(file_handle.read(), 15, length)
+    assert len(data) == length, (
+        "Incorrect data length while decompressing %s."
+        "The file could be corrupted." % file_handle)
+    return data
 
-        This is faster than GZipFile, as GZipFile
-        compresses/decompresses on the fly, but it may use more memory.
 
-        Notes
-        =====
-
-        Do not forget to explicitely call close() on this object when
-        open in write mode.
-    """
-
-    def __init__(self, filename, mode='r', compress=1):
-        if 'r' in mode and 'w' in mode:
-            raise ValueError('Cannot open ZFile in read and write '
-                             'mode simultaneously')
-        self.mode = mode
-        self.compress = compress
-        if isinstance(filename, basestring):
-            file_handle = file(filename, mode)
-        else:
-            file_handle = filename
-        self.final_file = file_handle
-        if 'r' in mode:
-            # Uncompress the file in a buffer
-            file_handle.seek(0)
-            assert _read_magic(file_handle) == _ZFILE_PREFIX, \
-                "File does not have the right magic"
-            length = file_handle.read(len(_ZFILE_PREFIX) + _MAX_LEN)
-            length = length[len(_ZFILE_PREFIX):]
-            length = int(length, 16)
-            data = zlib.decompress(file_handle.read(), 15, length)
-            assert len(data) == length, (
-                "Incorrect data length while decompressing %s."
-                "The file could be corrupted." % filename)
-            BytesIO.__init__(self, data)
-        elif 'w' in mode:
-            # Write the header, the rest is delayed till the file is
-            # closed
-            file_handle.write(_ZFILE_PREFIX)
-            BytesIO.__init__(self)
-        else:
-            raise ValueError('Invalide mode "%s"' % mode)
-
-    def close(self):
-        if 'w' in self.mode:
-            # Compress and write the data
-            data = self.getvalue()
-            length = len(data)
-            if sys.version_info[0] < 3 and type(length) is long:
-                # We need to remove the trailing 'L'
-                length = hex(length)[:-1]
-            else:
-                length = hex(length)
-            # Store the length of the data
-            self.final_file.write(length.ljust(_MAX_LEN))
-            self.final_file.write(
-                zlib.compress(data, self.compress))
-        BytesIO.close(self)
-        self.final_file.close()
+def write_zfile(file_handle, data, compress=1):
+    file_handle.write(_ZFILE_PREFIX)
+    length = len(data)
+    if sys.version_info[0] < 3 and type(length) is long:
+        # We need to remove the trailing 'L'
+        length = hex(length)[:-1]
+    else:
+        length = hex(length)
+    # Store the length of the data
+    file_handle.write(length.ljust(_MAX_LEN))
+    file_handle.write(zlib.compress(data, compress))
 
 
 ###############################################################################
@@ -165,10 +130,10 @@ class ZNDArrayWrapper(object):
         self.init_args = init_args
 
     def read(self, unpickler):
-        "Reconstruct the array from the meta-information and the ZFile"
+        "Reconstruct the array from the meta-information and the z-file"
         filename = os.path.join(unpickler._dirname, self.filename)
         array = unpickler.np.core.multiarray._reconstruct(*self.init_args)
-        data = ZFile(filename, 'r').read()
+        data = read_zfile(filename)
         state = self.state + (data,)
         array.__setstate__(*state)
         return array
@@ -186,7 +151,10 @@ class NumpyPickler(pickle.Pickler):
         self._filename = filename
         self._filenames = [filename, ]
         self.compress = compress
-        self.file = self._open(filename)
+        if not self.compress:
+            self.file = open(filename, 'wb')
+        else:
+            self.file = BytesIO()
         # Count the number of npy files that we have created:
         self._npy_counter = 0
         pickle.Pickler.__init__(self, self.file,
@@ -198,13 +166,6 @@ class NumpyPickler(pickle.Pickler):
             np = None
         self.np = np
 
-    def _open(self, filename):
-        if not self.compress:
-            return open(filename, 'wb')
-        else:
-            return ZFile(filename, 'w',
-                         compress=self.compress)
-
     def _write_array(self, array, filename):
         if not self.compress:
             self.np.save(filename, array)
@@ -214,14 +175,12 @@ class NumpyPickler(pickle.Pickler):
             filename += '.z'
             # Efficient compressed storage:
             # The meta data is stored in the container, and the core
-            # numerics in a ZFile
+            # numerics in a z-file
             _, init_args, state = array.__reduce__()
-            z_file = ZFile(filename, 'w', compress=self.compress)
             # the last entry of 'state' is the data itself
-            z_file.write(state[-1])
+            write_zfile(open(filename, 'w'), state[-1],
+                             compress=self.compress)
             state = state[:-1]
-            z_file.close()
-            del z_file # Clear memory
             container = ZNDArrayWrapper(os.path.basename(filename),
                                         init_args, state)
         return container
@@ -255,6 +214,12 @@ class NumpyPickler(pickle.Pickler):
                         type(obj),
                         traceback.format_exc())
         return pickle.Pickler.save(self, obj)
+
+    def close(self):
+        if self.compress:
+            write_zfile(open(self._filename, 'wb'),
+                        self.file.getvalue(), self.compress)
+        # The file handes are closed in the dump function
 
 
 class NumpyUnpickler(Unpickler):
@@ -309,11 +274,8 @@ class ZipNumpyUnpickler(NumpyUnpickler):
                                 mmap_mode=None)
 
     def _open_pickle(self):
-        return self._open_npy(self._filename)
-
-    def _open_npy(self, name):
-        filename = os.path.join(self._dirname, name)
-        return ZFile(filename, 'r')
+        filename = os.path.join(self._dirname, self._filename)
+        return BytesIO(read_zfile(open(filename, 'rb')))
 
 
 ###############################################################################
@@ -350,6 +312,7 @@ def dump(value, filename, compress=0):
     try:
         pickler = NumpyPickler(filename, compress=compress)
         pickler.dump(value)
+        pickler.close()
     finally:
         if 'pickler' in locals() and hasattr(pickler, 'file'):
             pickler.file.flush()
