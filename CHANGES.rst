@@ -9,14 +9,14 @@ Gael varoquaux
 
     API: zipped -> compress
 
-Gael varoquaux
 2011-12-26
+Gael varoquaux
 
     ENH: Add a zipped option to Memory
     API: Memory no longer accepts save_npy
 
-Kenneth C. Arnold and Gael varoquaux
 2011-12-22
+Kenneth C. Arnold and Gael varoquaux
 
     BUG: fix numpy_pickle for array subclasses
 
