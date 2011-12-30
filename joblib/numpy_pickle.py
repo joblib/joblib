@@ -26,7 +26,6 @@ else:
     except ImportError:
         # BytesIO has been added in Python 2.5
         from cStringIO import StringIO as BytesIO
-    # XXX: create a py3k_compat module and subclass all this in it
     from pickle import Unpickler
     asbytes = str
 
@@ -110,7 +109,7 @@ class NDArrayWrapper(object):
         return array
 
 
-class ZNDArrayWrapper(object):
+class ZNDArrayWrapper(NDArrayWrapper):
     """ An object to be persisted instead of numpy arrays.
 
         This object store the Zfile filename in wich
@@ -133,9 +132,9 @@ class ZNDArrayWrapper(object):
         "Reconstruct the array from the meta-information and the z-file"
         filename = os.path.join(unpickler._dirname, self.filename)
         array = unpickler.np.core.multiarray._reconstruct(*self.init_args)
-        data = read_zfile(filename)
+        data = read_zfile(open(filename, 'rb'))
         state = self.state + (data,)
-        array.__setstate__(*state)
+        array.__setstate__(state)
         return array
 
 
@@ -147,9 +146,10 @@ class NumpyPickler(pickle.Pickler):
         files outside of the pickle.
     """
 
-    def __init__(self, filename, compress=0):
+    def __init__(self, filename, compress=0, cache_size=200):
         self._filename = filename
         self._filenames = [filename, ]
+        self.cache_size = cache_size
         self.compress = compress
         if not self.compress:
             self.file = open(filename, 'wb')
@@ -183,7 +183,7 @@ class NumpyPickler(pickle.Pickler):
             state = state[:-1]
             container = ZNDArrayWrapper(os.path.basename(filename),
                                         init_args, state)
-        return container
+        return container, filename
 
     def save(self, obj):
         """ Subclass the save method, to save ndarray subclasses in npy
@@ -193,7 +193,7 @@ class NumpyPickler(pickle.Pickler):
         if self.np is not None and type(obj) in (self.np.ndarray,
                                             self.np.matrix, self.np.memmap):
             size = obj.size * obj.itemsize
-            if self.compress and size < 200 * _MEGA:
+            if self.compress and size < self.cache_size * _MEGA:
                 # When compressing, as we are not writing directly to the
                 # disk, it is more efficient to use standard pickling
                 if type(obj) is self.np.memmap:
@@ -205,7 +205,7 @@ class NumpyPickler(pickle.Pickler):
                 filename = '%s_%02i.npy' % (self._filename,
                                             self._npy_counter)
                 # This converts the array in a container
-                obj = self._write_array(obj, filename)
+                obj, filename = self._write_array(obj, filename)
                 self._filenames.append(filename)
             except:
                 self._npy_counter -= 1
@@ -281,7 +281,7 @@ class ZipNumpyUnpickler(NumpyUnpickler):
 ###############################################################################
 # Utility functions
 
-def dump(value, filename, compress=0):
+def dump(value, filename, compress=0, cache_size=200):
     """ Persist an arbitrary Python object into a filename, with numpy arrays
         saved as separate .npy files.
 
@@ -293,6 +293,11 @@ def dump(value, filename, compress=0):
             The name of the file in which it is to be stored
         compress: boolean, optional
             Whether to compress the data on the disk or not
+        cache_size: positive number
+            Fixes the order of magnitude of the cache used for
+            in-memory compression. Note that this is just an order of
+            magnitude estimate and that for big arrays, the code will go
+            over this value at dump and at load time.
 
         Returns
         -------
@@ -306,11 +311,11 @@ def dump(value, filename, compress=0):
 
         Notes
         -----
-        compressed files take extra disk space during the dump, and extra
-        memory during the loading.
+        compressed files take extra extra memory during dump and load.
     """
     try:
-        pickler = NumpyPickler(filename, compress=compress)
+        pickler = NumpyPickler(filename, compress=compress,
+                               cache_size=cache_size)
         pickler.dump(value)
         pickler.close()
     finally:
