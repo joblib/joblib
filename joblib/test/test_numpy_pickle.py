@@ -111,8 +111,7 @@ def teardown_module():
 # Tests
 
 def test_standard_types():
-    #""" Test pickling and saving with standard types.
-    #"""
+    # Test pickling and saving with standard types.
     filename = env['filename']
     for compress in [0, 1]:
         for member in typelist:
@@ -186,3 +185,10 @@ def test_masked_array_persistence():
     nose.tools.assert_true(isinstance(b, np.ma.masked_array))
 
 
+def test_z_file():
+    # Test saving and loading data with Zfiles
+    filename = env['filename'] + str(random.randint(0, 1000))
+    data = 'Foo, \n Bar, baz, \n\nfoobar'
+    numpy_pickle.write_zfile(file(filename, 'wb'), data)
+    data_read = numpy_pickle.read_zfile(file(filename, 'rb'))
+    nose.tools.assert_equal(data, data_read)
