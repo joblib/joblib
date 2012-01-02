@@ -146,7 +146,7 @@ class NumpyPickler(pickle.Pickler):
         files outside of the pickle.
     """
 
-    def __init__(self, filename, compress=0, cache_size=200):
+    def __init__(self, filename, compress=0, cache_size=100):
         self._filename = filename
         self._filenames = [filename, ]
         self.cache_size = cache_size
@@ -281,7 +281,7 @@ class ZipNumpyUnpickler(NumpyUnpickler):
 ###############################################################################
 # Utility functions
 
-def dump(value, filename, compress=0, cache_size=200):
+def dump(value, filename, compress=0, cache_size=100):
     """ Persist an arbitrary Python object into a filename, with numpy arrays
         saved as separate .npy files.
 
@@ -293,9 +293,9 @@ def dump(value, filename, compress=0, cache_size=200):
             The name of the file in which it is to be stored
         compress: boolean, optional
             Whether to compress the data on the disk or not
-        cache_size: positive number
-            Fixes the order of magnitude of the cache used for
-            in-memory compression. Note that this is just an order of
+        cache_size: positive number, optional
+            Fixes the order of magnitude (in megabytes) of the cache used
+            for in-memory compression. Note that this is just an order of
             magnitude estimate and that for big arrays, the code will go
             over this value at dump and at load time.
 
