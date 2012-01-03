@@ -1,5 +1,5 @@
 """
-A pickler to save numpy arrays in separate .npy files.
+Utilities for fast persistence of big data, with optional compression.
 """
 
 # Author: Gael Varoquaux <gael dot varoquaux at normalesup dot org>
@@ -39,6 +39,9 @@ _ZFILE_PREFIX = asbytes('ZF')
 # Compressed file with Zlib
 
 def _read_magic(file_handle):
+    """ Utility to check the magic signature of a file identifying it as a
+        Zfile
+    """
     magic = file_handle.read(len(_ZFILE_PREFIX))
     # Pickling needs file-handles at the beginning of the file
     file_handle.seek(0)
@@ -46,14 +49,20 @@ def _read_magic(file_handle):
 
 
 def read_zfile(file_handle):
-    "Read the z-file and return the content as a string"
-    # Uncompress the file in a buffer
+    """Read the z-file and return the content as a string
+
+    Z-files are raw data compressed with zlib used internally by joblib
+    for persistence. Backward compatibility is not garantied. Do not
+    use for external purposes.
+    """
     file_handle.seek(0)
     assert _read_magic(file_handle) == _ZFILE_PREFIX, \
         "File does not have the right magic"
     length = file_handle.read(len(_ZFILE_PREFIX) + _MAX_LEN)
     length = length[len(_ZFILE_PREFIX):]
     length = int(length, 16)
+    # We use the known length of the data to tell Zlib the size of the
+    # buffer to allocate.
     data = zlib.decompress(file_handle.read(), 15, length)
     assert len(data) == length, (
         "Incorrect data length while decompressing %s."
@@ -62,13 +71,17 @@ def read_zfile(file_handle):
 
 
 def write_zfile(file_handle, data, compress=1):
+    """Write the data in the given file as a Z-file.
+
+    Z-files are raw data compressed with zlib used internally by joblib
+    for persistence. Backward compatibility is not garantied. Do not
+    use for external purposes.
+    """
     file_handle.write(_ZFILE_PREFIX)
-    length = len(data)
+    length = hex(len(data))
     if sys.version_info[0] < 3 and type(length) is long:
-        # We need to remove the trailing 'L'
-        length = hex(length)[:-1]
-    else:
-        length = hex(length)
+        # We need to remove the trailing 'L' in the hex representation
+        length = length[:-1]
     # Store the length of the data
     file_handle.write(length.ljust(_MAX_LEN))
     file_handle.write(zlib.compress(data, compress))
@@ -80,8 +93,8 @@ def write_zfile(file_handle, data, compress=1):
 class NDArrayWrapper(object):
     """ An object to be persisted instead of numpy arrays.
 
-        The only thing this object does, is store the filename in wich
-        the array has been persisted.
+        The only thing this object does, is to carrus the filename in wich
+        the array has been persisted, and the array subclass.
     """
     def __init__(self, filename, subclass):
         "Store the useful information for later"
@@ -110,17 +123,19 @@ class NDArrayWrapper(object):
 
 
 class ZNDArrayWrapper(NDArrayWrapper):
-    """ An object to be persisted instead of numpy arrays.
+    """An object to be persisted instead of numpy arrays.
 
-        This object store the Zfile filename in wich
-        the data array has been persisted, and the meta information to
-        retrieve it.
+    This object store the Zfile filename in wich
+    the data array has been persisted, and the meta information to
+    retrieve it.
 
-        The reason that we use this, rather than standard writing or
-        representation routine (tostring) is that it is uses completely
-        the strided model to avoid memory copies (a and a.T store as
-        fast), and saves the heavy information separately. This may be
-        important when unpickling data with large arrays.
+    The reason that we store the raw buffer data of the array and
+    the meta information, rather than array representation routine
+    (tostring) is that it enables us to use completely the strided
+    model to avoid memory copies (a and a.T store as fast). In
+    addition saving the heavy information separately can avoid
+    creating large temporary buffers when unpickling data with
+    large arrays.
     """
     def __init__(self, filename, init_args, state):
         "Store the useful information for later"
@@ -130,6 +145,8 @@ class ZNDArrayWrapper(NDArrayWrapper):
 
     def read(self, unpickler):
         "Reconstruct the array from the meta-information and the z-file"
+        # Here we a simply reproducing the unpickling mechanism for numpy
+        # arrays
         filename = os.path.join(unpickler._dirname, self.filename)
         array = unpickler.np.core.multiarray._reconstruct(*self.init_args)
         data = read_zfile(open(filename, 'rb'))
@@ -142,8 +159,15 @@ class ZNDArrayWrapper(NDArrayWrapper):
 # Pickler classes
 
 class NumpyPickler(pickle.Pickler):
-    """ A pickler subclass that extracts ndarrays and saves them in .npy
-        files outside of the pickle.
+    """A pickler to persist of big data efficiently.
+
+        The main features of this object are:
+
+         * persistence of numpy arrays in separate .npy files, for which
+           I/O is fast.
+
+         * optional compression using Zlib, with a special care on avoid
+           temporaries.
     """
 
     def __init__(self, filename, compress=0, cache_size=100):
@@ -223,7 +247,7 @@ class NumpyPickler(pickle.Pickler):
 
 
 class NumpyUnpickler(Unpickler):
-    """ A subclass of the Unpickler to unpickle our numpy pickles.
+    """A subclass of the Unpickler to unpickle our numpy pickles.
     """
     dispatch = Unpickler.dispatch.copy()
 
@@ -250,7 +274,7 @@ class NumpyUnpickler(Unpickler):
 
             We capture it to replace our place-holder objects,
             NDArrayWrapper, by the array we are interested in. We
-            replace directly in the stack of pickler.
+            replace them directly in the stack of pickler.
         """
         Unpickler.load_build(self)
         if isinstance(self.stack[-1], NDArrayWrapper):
@@ -266,8 +290,8 @@ class NumpyUnpickler(Unpickler):
 
 
 class ZipNumpyUnpickler(NumpyUnpickler):
-    """ A subclass of our Unpickler to unpickle on the fly from zips.
-    """
+    """A subclass of our Unpickler to unpickle on the fly from
+    compressed storage."""
 
     def __init__(self, filename):
         NumpyUnpickler.__init__(self, filename,
@@ -282,36 +306,42 @@ class ZipNumpyUnpickler(NumpyUnpickler):
 # Utility functions
 
 def dump(value, filename, compress=0, cache_size=100):
-    """ Persist an arbitrary Python object into a filename, with numpy arrays
-        saved as separate .npy files.
+    """Fast persistence of an arbitrary Python object into a files, with 
+    dedicated storage for numpy arrays.
 
-        Parameters
-        -----------
-        value: any Python object
-            The object to store to disk
-        filename: string
-            The name of the file in which it is to be stored
-        compress: boolean, optional
-            Whether to compress the data on the disk or not
-        cache_size: positive number, optional
-            Fixes the order of magnitude (in megabytes) of the cache used
-            for in-memory compression. Note that this is just an order of
-            magnitude estimate and that for big arrays, the code will go
-            over this value at dump and at load time.
+    Parameters
+    -----------
+    value: any Python object
+        The object to store to disk
+    filename: string
+        The name of the file in which it is to be stored
+    compress: integer for 0 to 9, optional
+        Optional compression level for the data. 0 is no compression.
+        Higher means more compression, but also slower read and
+        write times. Using a value of 3 is often a good compromise.
+        See the notes for more details.
+    cache_size: positive number, optional
+        Fixes the order of magnitude (in megabytes) of the cache used
+        for in-memory compression. Note that this is just an order of
+        magnitude estimate and that for big arrays, the code will go
+        over this value at dump and at load time.
 
-        Returns
-        -------
-        filenames: list of strings
-            The list of file names in which the data is stored. If
-            compress is false, each array is stored in a different file.
+    Returns
+    -------
+    filenames: list of strings
+        The list of file names in which the data is stored. If
+        compress is false, each array is stored in a different file.
 
-        See Also
-        --------
-        joblib.load : corresponding loader
+    See Also
+    --------
+    joblib.load : corresponding loader
 
-        Notes
-        -----
-        compressed files take extra extra memory during dump and load.
+    Notes
+    -----
+    Memmapping on load cannot be used for compressed files. Thus
+    using compression can significantly slow down loading. In
+    addition, compressed files take extra extra memory during
+    dump and load.
     """
     try:
         pickler = NumpyPickler(filename, compress=compress,
@@ -326,36 +356,35 @@ def dump(value, filename, compress=0, cache_size=100):
 
 
 def load(filename, mmap_mode=None):
-    """ Reconstruct a Python object and the numpy arrays it contains from
-        a persisted file.
+    """Reconstruct a Python object from a file persisted with joblib.load.
 
-        Parameters
-        -----------
-        filename: string
-            The name of the file from which to load the object
-        mmap_mode: {None, 'r+', 'r', 'w+', 'c'}, optional
-            If not None, the arrays are memory-mapped from the disk. This
-            mode has not effect for compressed files. Note that in this
-            case the reconstructed object might not longer match exactly
-            the originally pickled object.
+    Parameters
+    -----------
+    filename: string
+        The name of the file from which to load the object
+    mmap_mode: {None, 'r+', 'r', 'w+', 'c'}, optional
+        If not None, the arrays are memory-mapped from the disk. This
+        mode has not effect for compressed files. Note that in this
+        case the reconstructed object might not longer match exactly
+        the originally pickled object.
 
-        Returns
-        -------
-        result: any Python object
-            The object stored in the file.
+    Returns
+    -------
+    result: any Python object
+        The object stored in the file.
 
-        See Also
-        --------
-        joblib.dump : function to save an object
+    See Also
+    --------
+    joblib.dump : function to save an object
 
-        Notes
-        -----
+    Notes
+    -----
 
-        This function loads the numpy array files saved separately. If
-        the mmap_mode argument is given, it is passed to np.save and
-        arrays are loaded as memmaps. As a consequence, the reconstructed
-        object might not match the original pickled object.
-
+    This function can load numpy array files saved separately during the
+    dump. If the mmap_mode argument is given, it is passed to np.load and
+    arrays are loaded as memmaps. As a consequence, the reconstructed
+    object might not match the original pickled object. Note that if the
+    file was saved with compression, the arrays cannot be memmaped.
     """
     file_handle = open(filename, 'rb')
     if _read_magic(file_handle) == _ZFILE_PREFIX:
