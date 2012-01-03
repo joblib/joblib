@@ -1,13 +1,16 @@
 Latest changes
 ===============
 
-Release 0.5.7
+Release 0.6.0
 ---------------
 
-2011-12-28
-Gael varoquaux
+2011-12-29..2012-01-03
+Gael Varoquaux
 
-    API: zipped -> compress
+    ENH: many speed optimization to compressed persistence
+
+Release 0.5.7
+---------------
 
 2011-12-26
 Gael varoquaux
