@@ -251,13 +251,11 @@ class NumpyUnpickler(Unpickler):
     """
     dispatch = Unpickler.dispatch.copy()
 
-    def __init__(self, filename, file_handle=None, mmap_mode=None):
+    def __init__(self, filename, file_handle, mmap_mode=None):
         self._filename = os.path.basename(filename)
         self._dirname = os.path.dirname(filename)
         self.mmap_mode = mmap_mode
-        if file_handle is None:
-            file_handle = self._open_pickle()
-        self.file_handle = file_handle
+        self.file_handle = self._open_pickle(file_handle)
         Unpickler.__init__(self, self.file_handle)
         try:
             import numpy as np
@@ -265,8 +263,8 @@ class NumpyUnpickler(Unpickler):
             np = None
         self.np = np
 
-    def _open_pickle(self):
-        return open(os.path.join(self._dirname, self._filename), 'rb')
+    def _open_pickle(self, file_handle):
+        return file_handle
 
     def load_build(self):
         """ This method is called to set the state of a newly created
@@ -293,13 +291,13 @@ class ZipNumpyUnpickler(NumpyUnpickler):
     """A subclass of our Unpickler to unpickle on the fly from
     compressed storage."""
 
-    def __init__(self, filename):
+    def __init__(self, filename, file_handle):
         NumpyUnpickler.__init__(self, filename,
+                                file_handle,
                                 mmap_mode=None)
 
-    def _open_pickle(self):
-        filename = os.path.join(self._dirname, self._filename)
-        return BytesIO(read_zfile(open(filename, 'rb')))
+    def _open_pickle(self, file_handle):
+        return BytesIO(read_zfile(file_handle))
 
 
 ###############################################################################
@@ -387,12 +385,16 @@ def load(filename, mmap_mode=None):
     file was saved with compression, the arrays cannot be memmaped.
     """
     file_handle = open(filename, 'rb')
+    # We are careful to open the file hanlde early and keep it open to 
+    # avoid race-conditions on renames. That said, if data are stored in 
+    # companion files, moving the directory will create a race when
+    # joblib tries to access the companion files.
     if _read_magic(file_handle) == _ZFILE_PREFIX:
         if mmap_mode is not None:
             warnings.warn('file "%(filename)s" appears to be a zip, '
                     'ignoring mmap_mode "%(mmap_mode)s" flag passed'
                     % locals(), Warning, stacklevel=2)
-        unpickler = ZipNumpyUnpickler(filename)
+        unpickler = ZipNumpyUnpickler(filename, file_handle=file_handle)
     else:
         unpickler = NumpyUnpickler(filename,
                                    file_handle=file_handle,
