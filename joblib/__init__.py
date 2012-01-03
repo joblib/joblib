@@ -77,7 +77,7 @@ Main features
       >>> # The above call did not trigger an evaluation
 
 2) **Embarrassingly parallel helper:** to make is easy to write readable
-   parallel code and debug it quickly:
+   parallel code and debug it quickly::
 
       >>> from joblib import Parallel, delayed
       >>> from math import sqrt
@@ -93,7 +93,9 @@ Main features
    We want to be able to quickly inspect what has been run.
 
 4) **Fast compressed Persistence**: a replacement for pickle to work
-   efficiently on Python objects containing large data.
+   efficiently on Python objects containing large data (
+   *joblib.dump* & *joblib.load* ).
+
 ..
     >>> import shutil ; shutil.rmtree('/tmp/joblib/')
 
