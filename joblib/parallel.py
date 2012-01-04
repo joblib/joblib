@@ -128,8 +128,10 @@ class CallBack(object):
             if not self.index % n_jobs == 0:
                 return
 
-        # Report only every `self.parallel.report_every` items.
-        if self.parallel.report_every and not self.index % self.parallel.report_every == 0:
+        # Reduce the verbosity when the verbose level < 10:
+        # Report every 2^(10-verbose level) jobs
+        if self.parallel.verbose < 10 and \
+            self.index % pow(2, 10 - self.parallel.verbose) != 0:
             return
 
         elapsed_time = time.time() - self.parallel._start_time
@@ -168,13 +170,13 @@ class Parallel(Logger):
             The verbosity level. If 1 is given, the elapsed time as well
             as the estimated remaining time are displayed. Above 100, the
             output is sent to stdout.
+            The frequency of the messages increases with the verbosity level.
+            If it is 10, all the messages are sent. When it is less than 10,
+            a message is displayed every 2^10-verbose level) jobs.
         pre_dispatch: {'all', integer, or expression, as in '3*n_jobs'}
             The amount of jobs to be pre-dispatched. Default is 'all',
             but it may be memory consuming, for instance if each job
             involves a lot of a data.
-        report_every: int, optional
-            Report the progress after processing this number of elements when
-            the verbosity is enabled (verbose >= 1).
 
         Notes
         -----
@@ -286,7 +288,7 @@ class Parallel(Logger):
          ...
 
     '''
-    def __init__(self, n_jobs=None, verbose=0, pre_dispatch='all', report_every=None):
+    def __init__(self, n_jobs=None, verbose=0, pre_dispatch='all'):
         self.verbose = verbose
         self.n_jobs = n_jobs
         self.pre_dispatch = pre_dispatch
@@ -295,10 +297,6 @@ class Parallel(Logger):
         # able to close it ASAP, and not burden the user with closing it.
         self._output = None
         self._jobs = list()
-        self.report_every = None
-        if report_every != None:
-            assert report_every > 0
-            self.report_every = report_every
 
     def dispatch(self, func, args, kwargs):
         """ Queue the function for computing, with or without multiprocessing
