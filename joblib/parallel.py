@@ -127,6 +127,13 @@ class CallBack(object):
             # Report less often
             if not self.index % n_jobs == 0:
                 return
+
+        # Reduce the verbosity when the verbose level < 10:
+        # Report every 2^(10-verbose level) jobs
+        if self.parallel.verbose < 10 and \
+            self.index % pow(2, 10 - self.parallel.verbose) != 0:
+            return
+
         elapsed_time = time.time() - self.parallel._start_time
         remaining_time = (elapsed_time / (self.index + 1) *
                     (self.parallel.n_dispatched - self.index - 1.))
@@ -163,6 +170,9 @@ class Parallel(Logger):
             The verbosity level. If 1 is given, the elapsed time as well
             as the estimated remaining time are displayed. Above 100, the
             output is sent to stdout.
+            The frequency of the messages increases with the verbosity level.
+            If it is 10, all the messages are sent. When it is less than 10,
+            a message is displayed every 2^10-verbose level) jobs.
         pre_dispatch: {'all', integer, or expression, as in '3*n_jobs'}
             The amount of jobs to be pre-dispatched. Default is 'all',
             but it may be memory consuming, for instance if each job
