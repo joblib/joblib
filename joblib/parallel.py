@@ -152,12 +152,10 @@ class Parallel(Logger):
             are used. If 1 is given, no parallel computing code is used
             at all, which is useful for debuging.
         verbose: int, optional
-            The verbosity level. If 1 is given, the elapsed time as well
-            as the estimated remaining time are displayed. Above 100, the
-            output is sent to stdout.
+            The verbosity level: if non zero, progress messages are
+            printed. Above 50, the output is sent to stdout.
             The frequency of the messages increases with the verbosity level.
-            If it is 10, all the messages are sent. When it is less than 10,
-            a message is displayed every 2^10-verbose level) jobs.
+            If it more than 10, all iterations are reported.
         pre_dispatch: {'all', integer, or expression, as in '3*n_jobs'}
             The amount of jobs to be pre-dispatched. Default is 'all',
             but it may be memory consuming, for instance if each job
@@ -207,16 +205,17 @@ class Parallel(Logger):
         >>> i
         (0.0, 0.0, 1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0)
 
-        The progress meter::
+        The progress meter: the higher the value of `verbose`, the more
+        messages::
 
             >>> from time import sleep
             >>> from joblib import Parallel, delayed
-            >>> r = Parallel(n_jobs=2, verbose=1)(delayed(sleep)(.1) for _ in range(10)) #doctest: +SKIP
-            [Parallel(n_jobs=2)]: Done   1 out of  10 |elapsed:    0.1s remaining:    0.9s
-            [Parallel(n_jobs=2)]: Done   3 out of  10 |elapsed:    0.2s remaining:    0.5s
-            [Parallel(n_jobs=2)]: Done   5 out of  10 |elapsed:    0.3s remaining:    0.3s
-            [Parallel(n_jobs=2)]: Done   7 out of  10 |elapsed:    0.4s remaining:    0.2s
-            [Parallel(n_jobs=2)]: Done   9 out of  10 |elapsed:    0.5s remaining:    0.1s
+            >>> r = Parallel(n_jobs=2, verbose=5)(delayed(sleep)(.1) for _ in range(10)) #doctest: +SKIP
+            [Parallel(n_jobs=2)]: Done   1 out of  10 | elapsed:    0.1s remaining:    0.9s
+            [Parallel(n_jobs=2)]: Done   3 out of  10 | elapsed:    0.2s remaining:    0.5s
+            [Parallel(n_jobs=2)]: Done   6 out of  10 | elapsed:    0.3s remaining:    0.2s
+            [Parallel(n_jobs=2)]: Done   9 out of  10 | elapsed:    0.5s remaining:    0.1s
+            [Parallel(n_jobs=2)]: Done  10 out of  10 | elapsed:    0.5s finished
 
         Traceback example, note how the line of the error is indicated
         as well as the values of the parameter passed to the function that
@@ -252,7 +251,7 @@ class Parallel(Logger):
         data is generated on the fly. Note how the producer is first
         called a 3 times before the parallel loop is initiated, and then
         called to generate new data on the fly. In this case the total
-        number of iterations reported is underestimated::
+        number of iterations cannot be reported in the progress messages::
 
          >>> from math import sqrt
          >>> from joblib import Parallel, delayed
@@ -264,14 +263,18 @@ class Parallel(Logger):
 
          >>> out = Parallel(n_jobs=2, verbose=100, pre_dispatch='1.5*n_jobs')(
          ...                         delayed(sqrt)(i) for i in producer()) #doctest: +SKIP
-         Produced 0
-         Produced 1
-         Produced 2
-         [Parallel(n_jobs=2)]: Done   1 out of   3+ |elapsed:   ...s remaining:   ...s
-         Produced 3
-         [Parallel(n_jobs=2)]: Done ... out of   4+ |elapsed:   ...s remaining:   ...s
-         ...
-
+        Produced 0
+        Produced 1
+        Produced 2
+        [Parallel(n_jobs=2)]: Done   1 jobs       | elapsed:    0.0s
+        Produced 3
+        [Parallel(n_jobs=2)]: Done   2 jobs       | elapsed:    0.0s
+        Produced 4
+        [Parallel(n_jobs=2)]: Done   3 jobs       | elapsed:    0.0s
+        Produced 5
+        [Parallel(n_jobs=2)]: Done   4 jobs       | elapsed:    0.0s
+        [Parallel(n_jobs=2)]: Done   5 out of   6 | elapsed:    0.0s remaining:    0.0s
+        [Parallel(n_jobs=2)]: Done   6 out of   6 | elapsed:    0.0s finished
     '''
     def __init__(self, n_jobs=None, verbose=0, pre_dispatch='all'):
         self.verbose = verbose
@@ -288,15 +291,12 @@ class Parallel(Logger):
         """
         if self._pool is None:
             job = ImmediateApply(func, args, kwargs)
-            if self.verbose:
-                # We don't know the number of job, we display
-                # messages at an exponentialy increasing distance
-                index = len(self._jobs)
-                if not _verbosity_filter(index, self.verbose):
-                    self._print('Done %3i jobs       | elapsed: %s',
-                            (index + 1,
-                             short_format_time(time.time() - self._start_time)
-                            ))
+            index = len(self._jobs)
+            if not _verbosity_filter(index, self.verbose):
+                self._print('Done %3i jobs       | elapsed: %s',
+                        (index + 1,
+                            short_format_time(time.time() - self._start_time)
+                        ))
             self._jobs.append(job)
             self.n_dispatched += 1
         else:
@@ -356,8 +356,6 @@ class Parallel(Logger):
         # This is heuristic code to print only 'verbose' times a messages
         # The challenge is that we may not know the queue length
         if self._iterable:
-            # The object is still building its job list, we display
-            # messages at an exponentialy increasing distance
             if _verbosity_filter(index, self.verbose):
                 return
             self._print('Done %3i jobs       | elapsed: %s',
@@ -370,15 +368,12 @@ class Parallel(Logger):
             # We always display the first loop
             if not index == 0:
                 # Display depending on the number of remaining items
-                # We are counting this way to display a message as soon
-                # as we finish dispatching: cursor is then 0
-                cursor =  (queue_length - index + 1
-                        - self._pre_dispatch_amount)
-                frequency = (queue_length
-                                // self.verbose) + 1
-                display = cursor % frequency == 0
+                # A message as soon as we finish dispatching, cursor is 0
+                cursor = (queue_length - index + 1
+                          - self._pre_dispatch_amount)
+                frequency = (queue_length // self.verbose) + 1
                 is_last_item = (index + 1 == queue_length)
-                if (is_last_item or not display):
+                if (is_last_item or cursor % frequency):
                     return
             remaining_time = (elapsed_time / (index + 1) *
                         (self.n_dispatched - index - 1.))
