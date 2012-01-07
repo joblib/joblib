@@ -125,6 +125,11 @@ def test_standard_types():
                 yield nose.tools.assert_equal, member, _member
 
 
+def test_value_error():
+    # Test inverting the input arguments to dump
+    nose.tools.assert_raises(ValueError, numpy_pickle.dump, 'foo',
+                             dict())
+
 @with_numpy
 def test_numpy_persistence():
     filename = env['filename']
