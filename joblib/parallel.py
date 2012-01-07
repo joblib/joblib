@@ -7,6 +7,7 @@ Helpers for embarrassingly parallel code.
 
 import os
 import sys
+from math import log
 import functools
 import time
 import threading
@@ -114,46 +115,9 @@ class CallBack(object):
         self.index = index
 
     def __call__(self, out):
-        if self.parallel.verbose:
-            self.print_progress()
+        self.parallel.print_progress(self.index)
         if self.parallel._iterable:
             self.parallel.dispatch_next()
-
-    def print_progress(self):
-        # XXX: Not using the logger framework: need to
-        # learn to use logger better.
-        n_jobs = len(self.parallel._pool._pool)
-        if self.parallel.n_dispatched > 2 * n_jobs:
-            # Report less often
-            if not self.index % n_jobs == 0:
-                return
-
-        # Reduce the verbosity when the verbose level < 10:
-        # Report every 2^(10-verbose level) jobs
-        if self.parallel.verbose < 10 and \
-            self.index % pow(2, 10 - self.parallel.verbose) != 0:
-            return
-
-        elapsed_time = time.time() - self.parallel._start_time
-        remaining_time = (elapsed_time / (self.index + 1) *
-                    (self.parallel.n_dispatched - self.index - 1.))
-        if self.parallel._iterable:
-            # The object is still building its job list
-            total = "%3i+" % self.parallel.n_dispatched
-        else:
-            total = "%3i " % self.parallel.n_dispatched
-
-        if self.parallel.verbose < 50:
-            writer = sys.stderr.write
-        else:
-            writer = sys.stdout.write
-        writer('[%s]: Done %3i out of %s |elapsed: %s remaining: %s\n'
-                % (self.parallel,
-                    self.index + 1,
-                    total,
-                    short_format_time(elapsed_time),
-                    short_format_time(remaining_time),
-                    ))
 
 
 ###############################################################################
@@ -342,6 +306,60 @@ class Parallel(Logger):
                 self._iterable = None
                 return
 
+    def print_progress(self, index, last_item_call=False):
+        """Display the process of the parallel execution only a fraction
+           of time, controled by self.verbose.
+
+           last_item_call is a parameter used to force the display of the
+           last item in the queue, to mark the end.
+        """
+        if not self.verbose:
+            return
+        # XXX: Not using the logger framework: need to
+        # learn to use logger better.
+        elapsed_time = time.time() - self._start_time
+        remaining_time = (elapsed_time / (index + 1) *
+                    (self.n_dispatched - index - 1.))
+
+        # This is heuristic code to print only 'verbose' times a messages
+        # The challenge is that we may not know the queue length
+        if self._iterable:
+            # The object is still building its job list, we display
+            # messages at an exponentialy increasing distance
+            if not (self.verbose < 10 and
+                        (log(index + 1) % (log(11 - self.verbose)) == 0)):
+                return
+            queue_length = (self.n_dispatched +
+                            self._dispatch_amount)
+            counting_msg = "%3i+" % queue_length
+        else:
+            # We are finished dispatching
+            queue_length = self.n_dispatched
+            if not last_item_call:
+                # Display depending on the number of remaining items
+                # We are counting this way to display a message as soon
+                # as we finish dispatching: cursor is then 0
+                cursor =  (queue_length - index + 1
+                        - self._pre_dispatch_amount)
+                frequency = (queue_length
+                                // self.verbose) + 1
+                display = cursor % frequency == 0
+                is_last_item = (index + 1 == queue_length)
+                if (is_last_item or not display):
+                    return
+            counting_msg = "%3i " % queue_length
+
+        if self.verbose < 50:
+            writer = sys.stderr.write
+        else:
+            writer = sys.stdout.write
+        writer('[%s]: Done %3i out of %s| elapsed: %s remaining: %s\n'
+                % (self, index + 1,
+                    counting_msg,
+                    short_format_time(elapsed_time),
+                    short_format_time(remaining_time),
+                  ))
+
     def retrieve(self):
         self._output = list()
         while self._jobs:
@@ -403,13 +421,14 @@ Sub-process traceback:
 
         if self.pre_dispatch == 'all' or n_jobs == 1:
             self._iterable = None
+            self._pre_dispatch_amount = 0
         else:
             self._iterable = iterable
             self._dispatch_amount = 0
             pre_dispatch = self.pre_dispatch
             if hasattr(pre_dispatch, 'endswith'):
                 pre_dispatch = eval(pre_dispatch)
-            pre_dispatch = int(pre_dispatch)
+            self._pre_dispatch_amount = pre_dispatch = int(pre_dispatch)
             iterable = itertools.islice(iterable, pre_dispatch)
 
         self._start_time = time.time()
@@ -419,6 +438,9 @@ Sub-process traceback:
                 self.dispatch(function, args, kwargs)
 
             self.retrieve()
+            # Make sure that we get a last message telling us we are done
+            self.print_progress(len(self._output) - 1,
+                                last_item_call=True)
         finally:
             if n_jobs > 1:
                 self._pool.close()
