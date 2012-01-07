@@ -7,6 +7,7 @@ Helpers for embarrassingly parallel code.
 
 import os
 import sys
+import warnings
 from math import sqrt
 import functools
 import time
@@ -437,11 +438,19 @@ Sub-process traceback:
             n_jobs = 1
             self._pool = None
         else:
-            self._pool = multiprocessing.Pool(n_jobs)
-            self._lock = threading.Lock()
-            # We are using multiprocessing, we also want to capture
-            # KeyboardInterrupts
-            self.exceptions.extend([KeyboardInterrupt, WorkerInterrupt])
+            if multiprocessing.current_process()._daemonic:
+                # Daemonic processes cannot have children
+                n_jobs = 1
+                self._pool = None
+                warnings.warn(
+                    'Parallel loops cannot be nested, setting n_jobs=1',
+                    stacklevel=2)
+            else:
+                self._pool = multiprocessing.Pool(n_jobs)
+                self._lock = threading.Lock()
+                # We are using multiprocessing, we also want to capture
+                # KeyboardInterrupts
+                self.exceptions.extend([KeyboardInterrupt, WorkerInterrupt])
 
         if self.pre_dispatch == 'all' or n_jobs == 1:
             self._iterable = None
