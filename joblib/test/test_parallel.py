@@ -66,6 +66,14 @@ def test_simple_parallel():
                         Parallel(n_jobs=-1)(delayed(square)(x) for x in X))
 
 
+def nested_loop():
+    Parallel(n_jobs=2)(delayed(square)(.01) for _ in range(2))
+
+
+def test_nested_loop():
+    Parallel(n_jobs=2)(delayed(nested_loop)() for _ in range(2))
+
+
 def test_parallel_kwargs():
     """ Check the keyword argument processing of pmap.
     """
