@@ -9,6 +9,13 @@ Juan Manuel Caicedo Carvajal and Gael Varoquaux
 
     ENH: add verbosity levels in Parallel
 
+2012-01-07
+Gael Varoquaux
+
+    ENH: Parallel: warn and not fail for nested loops
+
+    ENH: Parallel: n_jobs=-2 now uses all CPUs but one
+
 Release 0.5.7
 ---------------
 
@@ -21,6 +28,7 @@ Gael varoquaux
 Gael varoquaux
 
     ENH: Add a zipped option to Memory
+
     API: Memory no longer accepts save_npy
 
 2011-12-22

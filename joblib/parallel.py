@@ -151,7 +151,9 @@ class Parallel(Logger):
         n_jobs: int
             The number of jobs to use for the computation. If -1 all CPUs
             are used. If 1 is given, no parallel computing code is used
-            at all, which is useful for debuging.
+            at all, which is useful for debuging. For n_jobs below -1,
+            (n_cpus + 1 - n_jobs) are used. Thus for n_jobs = -2, all
+            CPUs but one are used.
         verbose: int, optional
             The verbosity level: if non zero, progress messages are
             printed. Above 50, the output is sent to stdout.
@@ -264,18 +266,18 @@ class Parallel(Logger):
 
          >>> out = Parallel(n_jobs=2, verbose=100, pre_dispatch='1.5*n_jobs')(
          ...                         delayed(sqrt)(i) for i in producer()) #doctest: +SKIP
-        Produced 0
-        Produced 1
-        Produced 2
-        [Parallel(n_jobs=2)]: Done   1 jobs       | elapsed:    0.0s
-        Produced 3
-        [Parallel(n_jobs=2)]: Done   2 jobs       | elapsed:    0.0s
-        Produced 4
-        [Parallel(n_jobs=2)]: Done   3 jobs       | elapsed:    0.0s
-        Produced 5
-        [Parallel(n_jobs=2)]: Done   4 jobs       | elapsed:    0.0s
-        [Parallel(n_jobs=2)]: Done   5 out of   6 | elapsed:    0.0s remaining:    0.0s
-        [Parallel(n_jobs=2)]: Done   6 out of   6 | elapsed:    0.0s finished
+         Produced 0
+         Produced 1
+         Produced 2
+         [Parallel(n_jobs=2)]: Done   1 jobs       | elapsed:    0.0s
+         Produced 3
+         [Parallel(n_jobs=2)]: Done   2 jobs       | elapsed:    0.0s
+         Produced 4
+         [Parallel(n_jobs=2)]: Done   3 jobs       | elapsed:    0.0s
+         Produced 5
+         [Parallel(n_jobs=2)]: Done   4 jobs       | elapsed:    0.0s
+         [Parallel(n_jobs=2)]: Done   5 out of   6 | elapsed:    0.0s remaining:    0.0s
+         [Parallel(n_jobs=2)]: Done   6 out of   6 | elapsed:    0.0s finished
     '''
     def __init__(self, n_jobs=None, verbose=0, pre_dispatch='all'):
         self.verbose = verbose
@@ -429,8 +431,8 @@ Sub-process traceback:
         if self._jobs:
             raise ValueError('This Parallel instance is already running')
         n_jobs = self.n_jobs
-        if n_jobs == -1 and multiprocessing is not None:
-            n_jobs = multiprocessing.cpu_count()
+        if n_jobs < 0 and multiprocessing is not None:
+            n_jobs = min(multiprocessing.cpu_count() + 1 + n_jobs, 1)
 
         # The list of exceptions that we will capture
         self.exceptions = [TransportableException]
