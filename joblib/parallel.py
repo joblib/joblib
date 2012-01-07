@@ -7,6 +7,7 @@ Helpers for embarrassingly parallel code.
 
 import os
 import sys
+from math import sqrt
 import functools
 import time
 import threading
@@ -39,6 +40,27 @@ def cpu_count():
     if multiprocessing is None:
         return 1
     return multiprocessing.cpu_count()
+
+
+###############################################################################
+# For verbosity
+
+def _verbosity_filter(index, verbose):
+    """ Returns False for indices increasingly appart, the distance
+        depending on the value of verbose.
+
+        We use a lag increasing as the square of index
+    """
+    if not verbose:
+        return True
+    elif verbose > 10:
+        return False
+    if index == 0:
+        return False
+    verbose = .5*(11 - verbose)**2
+    scale = sqrt(index/verbose)
+    next_scale = sqrt((index + 1)/verbose)
+    return (int(next_scale) == int(scale))
 
 
 ###############################################################################
@@ -114,39 +136,9 @@ class CallBack(object):
         self.index = index
 
     def __call__(self, out):
-        if self.parallel.verbose:
-            self.print_progress()
+        self.parallel.print_progress(self.index)
         if self.parallel._iterable:
             self.parallel.dispatch_next()
-
-    def print_progress(self):
-        # XXX: Not using the logger framework: need to
-        # learn to use logger better.
-        n_jobs = len(self.parallel._pool._pool)
-        if self.parallel.n_dispatched > 2 * n_jobs:
-            # Report less often
-            if not self.index % n_jobs == 0:
-                return
-        elapsed_time = time.time() - self.parallel._start_time
-        remaining_time = (elapsed_time / (self.index + 1) *
-                    (self.parallel.n_dispatched - self.index - 1.))
-        if self.parallel._iterable:
-            # The object is still building its job list
-            total = "%3i+" % self.parallel.n_dispatched
-        else:
-            total = "%3i " % self.parallel.n_dispatched
-
-        if self.parallel.verbose < 50:
-            writer = sys.stderr.write
-        else:
-            writer = sys.stdout.write
-        writer('[%s]: Done %3i out of %s |elapsed: %s remaining: %s\n'
-                % (self.parallel,
-                    self.index + 1,
-                    total,
-                    short_format_time(elapsed_time),
-                    short_format_time(remaining_time),
-                    ))
 
 
 ###############################################################################
@@ -160,9 +152,10 @@ class Parallel(Logger):
             are used. If 1 is given, no parallel computing code is used
             at all, which is useful for debuging.
         verbose: int, optional
-            The verbosity level. If 1 is given, the elapsed time as well
-            as the estimated remaining time are displayed. Above 100, the
-            output is sent to stdout.
+            The verbosity level: if non zero, progress messages are
+            printed. Above 50, the output is sent to stdout.
+            The frequency of the messages increases with the verbosity level.
+            If it more than 10, all iterations are reported.
         pre_dispatch: {'all', integer, or expression, as in '3*n_jobs'}
             The amount of jobs to be pre-dispatched. Default is 'all',
             but it may be memory consuming, for instance if each job
@@ -212,16 +205,17 @@ class Parallel(Logger):
         >>> i
         (0.0, 0.0, 1.0, 1.0, 2.0, 2.0, 3.0, 3.0, 4.0, 4.0)
 
-        The progress meter::
+        The progress meter: the higher the value of `verbose`, the more
+        messages::
 
             >>> from time import sleep
             >>> from joblib import Parallel, delayed
-            >>> r = Parallel(n_jobs=2, verbose=1)(delayed(sleep)(.1) for _ in range(10)) #doctest: +SKIP
-            [Parallel(n_jobs=2)]: Done   1 out of  10 |elapsed:    0.1s remaining:    0.9s
-            [Parallel(n_jobs=2)]: Done   3 out of  10 |elapsed:    0.2s remaining:    0.5s
-            [Parallel(n_jobs=2)]: Done   5 out of  10 |elapsed:    0.3s remaining:    0.3s
-            [Parallel(n_jobs=2)]: Done   7 out of  10 |elapsed:    0.4s remaining:    0.2s
-            [Parallel(n_jobs=2)]: Done   9 out of  10 |elapsed:    0.5s remaining:    0.1s
+            >>> r = Parallel(n_jobs=2, verbose=5)(delayed(sleep)(.1) for _ in range(10)) #doctest: +SKIP
+            [Parallel(n_jobs=2)]: Done   1 out of  10 | elapsed:    0.1s remaining:    0.9s
+            [Parallel(n_jobs=2)]: Done   3 out of  10 | elapsed:    0.2s remaining:    0.5s
+            [Parallel(n_jobs=2)]: Done   6 out of  10 | elapsed:    0.3s remaining:    0.2s
+            [Parallel(n_jobs=2)]: Done   9 out of  10 | elapsed:    0.5s remaining:    0.1s
+            [Parallel(n_jobs=2)]: Done  10 out of  10 | elapsed:    0.5s finished
 
         Traceback example, note how the line of the error is indicated
         as well as the values of the parameter passed to the function that
@@ -257,7 +251,7 @@ class Parallel(Logger):
         data is generated on the fly. Note how the producer is first
         called a 3 times before the parallel loop is initiated, and then
         called to generate new data on the fly. In this case the total
-        number of iterations reported is underestimated::
+        number of iterations cannot be reported in the progress messages::
 
          >>> from math import sqrt
          >>> from joblib import Parallel, delayed
@@ -269,14 +263,18 @@ class Parallel(Logger):
 
          >>> out = Parallel(n_jobs=2, verbose=100, pre_dispatch='1.5*n_jobs')(
          ...                         delayed(sqrt)(i) for i in producer()) #doctest: +SKIP
-         Produced 0
-         Produced 1
-         Produced 2
-         [Parallel(n_jobs=2)]: Done   1 out of   3+ |elapsed:   ...s remaining:   ...s
-         Produced 3
-         [Parallel(n_jobs=2)]: Done ... out of   4+ |elapsed:   ...s remaining:   ...s
-         ...
-
+        Produced 0
+        Produced 1
+        Produced 2
+        [Parallel(n_jobs=2)]: Done   1 jobs       | elapsed:    0.0s
+        Produced 3
+        [Parallel(n_jobs=2)]: Done   2 jobs       | elapsed:    0.0s
+        Produced 4
+        [Parallel(n_jobs=2)]: Done   3 jobs       | elapsed:    0.0s
+        Produced 5
+        [Parallel(n_jobs=2)]: Done   4 jobs       | elapsed:    0.0s
+        [Parallel(n_jobs=2)]: Done   5 out of   6 | elapsed:    0.0s remaining:    0.0s
+        [Parallel(n_jobs=2)]: Done   6 out of   6 | elapsed:    0.0s finished
     '''
     def __init__(self, n_jobs=None, verbose=0, pre_dispatch='all'):
         self.verbose = verbose
@@ -293,11 +291,12 @@ class Parallel(Logger):
         """
         if self._pool is None:
             job = ImmediateApply(func, args, kwargs)
-            if self.verbose:
-                print '[%s]: Done job %3i | elapsed: %s' % (
-                        self, len(self._jobs) + 1,
-                        short_format_time(time.time() - self._start_time)
-                    )
+            index = len(self._jobs)
+            if not _verbosity_filter(index, self.verbose):
+                self._print('Done %3i jobs       | elapsed: %s',
+                        (index + 1,
+                            short_format_time(time.time() - self._start_time)
+                        ))
             self._jobs.append(job)
             self.n_dispatched += 1
         else:
@@ -331,6 +330,59 @@ class Parallel(Logger):
             except StopIteration:
                 self._iterable = None
                 return
+
+    def _print(self, msg, msg_args):
+        """ Display the message on stout or stderr depending on verbosity
+        """
+        # XXX: Not using the logger framework: need to
+        # learn to use logger better.
+        if not self.verbose:
+            return
+        if self.verbose < 50:
+            writer = sys.stderr.write
+        else:
+            writer = sys.stdout.write
+        msg = msg % msg_args
+        writer('[%s]: %s\n' % (self, msg))
+
+    def print_progress(self, index):
+        """Display the process of the parallel execution only a fraction
+           of time, controled by self.verbose.
+        """
+        if not self.verbose:
+            return
+        elapsed_time = time.time() - self._start_time
+
+        # This is heuristic code to print only 'verbose' times a messages
+        # The challenge is that we may not know the queue length
+        if self._iterable:
+            if _verbosity_filter(index, self.verbose):
+                return
+            self._print('Done %3i jobs       | elapsed: %s',
+                        (index + 1,
+                         short_format_time(elapsed_time),
+                        ))
+        else:
+            # We are finished dispatching
+            queue_length = self.n_dispatched
+            # We always display the first loop
+            if not index == 0:
+                # Display depending on the number of remaining items
+                # A message as soon as we finish dispatching, cursor is 0
+                cursor = (queue_length - index + 1
+                          - self._pre_dispatch_amount)
+                frequency = (queue_length // self.verbose) + 1
+                is_last_item = (index + 1 == queue_length)
+                if (is_last_item or cursor % frequency):
+                    return
+            remaining_time = (elapsed_time / (index + 1) *
+                        (self.n_dispatched - index - 1.))
+            self._print('Done %3i out of %3i | elapsed: %s remaining: %s',
+                        (index + 1,
+                         queue_length,
+                         short_format_time(elapsed_time),
+                         short_format_time(remaining_time),
+                        ))
 
     def retrieve(self):
         self._output = list()
@@ -393,13 +445,14 @@ Sub-process traceback:
 
         if self.pre_dispatch == 'all' or n_jobs == 1:
             self._iterable = None
+            self._pre_dispatch_amount = 0
         else:
             self._iterable = iterable
             self._dispatch_amount = 0
             pre_dispatch = self.pre_dispatch
             if hasattr(pre_dispatch, 'endswith'):
                 pre_dispatch = eval(pre_dispatch)
-            pre_dispatch = int(pre_dispatch)
+            self._pre_dispatch_amount = pre_dispatch = int(pre_dispatch)
             iterable = itertools.islice(iterable, pre_dispatch)
 
         self._start_time = time.time()
@@ -409,6 +462,14 @@ Sub-process traceback:
                 self.dispatch(function, args, kwargs)
 
             self.retrieve()
+            # Make sure that we get a last message telling us we are done
+            elapsed_time = time.time() - self._start_time
+            self._print('Done %3i out of %3i | elapsed: %s finished',
+                        (len(self._output),
+                         len(self._output),
+                            short_format_time(elapsed_time)
+                        ))
+
         finally:
             if n_jobs > 1:
                 self._pool.close()

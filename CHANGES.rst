@@ -1,6 +1,14 @@
 Latest changes
 ===============
 
+Release 0.6.0
+---------------
+
+2012-01-01
+Juan Manuel Caicedo Carvajal and Gael Varoquaux
+
+    ENH: add verbosity levels in Parallel
+
 Release 0.5.7
 ---------------
 
