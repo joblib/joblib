@@ -7,7 +7,7 @@ Helpers for embarrassingly parallel code.
 
 import os
 import sys
-from math import log
+from math import sqrt
 import functools
 import time
 import threading
@@ -40,6 +40,27 @@ def cpu_count():
     if multiprocessing is None:
         return 1
     return multiprocessing.cpu_count()
+
+
+###############################################################################
+# For verbosity
+
+def _verbosity_filter(index, verbose):
+    """ Returns False for indices increasingly appart, the distance
+        depending on the value of verbose.
+
+        We use a lag increasing as the square of index
+    """
+    if not verbose:
+        return True
+    elif verbose > 10:
+        return False
+    if index == 0:
+        return False
+    verbose = .5*(11 - verbose)**2
+    scale = sqrt(index/verbose)
+    next_scale = sqrt((index + 1)/verbose)
+    return (int(next_scale) == int(scale))
 
 
 ###############################################################################
@@ -268,10 +289,14 @@ class Parallel(Logger):
         if self._pool is None:
             job = ImmediateApply(func, args, kwargs)
             if self.verbose:
-                print '[%s]: Done job %3i | elapsed: %s' % (
-                        self, len(self._jobs) + 1,
-                        short_format_time(time.time() - self._start_time)
-                    )
+                # We don't know the number of job, we display
+                # messages at an exponentialy increasing distance
+                index = len(self._jobs)
+                if not _verbosity_filter(index, self.verbose):
+                    self._print('Done %3i jobs       | elapsed: %s',
+                            (index + 1,
+                             short_format_time(time.time() - self._start_time)
+                            ))
             self._jobs.append(job)
             self.n_dispatched += 1
         else:
@@ -306,36 +331,44 @@ class Parallel(Logger):
                 self._iterable = None
                 return
 
-    def print_progress(self, index, last_item_call=False):
+    def _print(self, msg, msg_args):
+        """ Display the message on stout or stderr depending on verbosity
+        """
+        # XXX: Not using the logger framework: need to
+        # learn to use logger better.
+        if not self.verbose:
+            return
+        if self.verbose < 50:
+            writer = sys.stderr.write
+        else:
+            writer = sys.stdout.write
+        msg = msg % msg_args
+        writer('[%s]: %s\n' % (self, msg))
+
+    def print_progress(self, index):
         """Display the process of the parallel execution only a fraction
            of time, controled by self.verbose.
-
-           last_item_call is a parameter used to force the display of the
-           last item in the queue, to mark the end.
         """
         if not self.verbose:
             return
-        # XXX: Not using the logger framework: need to
-        # learn to use logger better.
         elapsed_time = time.time() - self._start_time
-        remaining_time = (elapsed_time / (index + 1) *
-                    (self.n_dispatched - index - 1.))
 
         # This is heuristic code to print only 'verbose' times a messages
         # The challenge is that we may not know the queue length
         if self._iterable:
             # The object is still building its job list, we display
             # messages at an exponentialy increasing distance
-            if not (self.verbose < 10 and
-                        (log(index + 1) % (log(11 - self.verbose)) == 0)):
+            if _verbosity_filter(index, self.verbose):
                 return
-            queue_length = (self.n_dispatched +
-                            self._dispatch_amount)
-            counting_msg = "%3i+" % queue_length
+            self._print('Done %3i jobs       | elapsed: %s',
+                        (index + 1,
+                         short_format_time(elapsed_time),
+                        ))
         else:
             # We are finished dispatching
             queue_length = self.n_dispatched
-            if not last_item_call and not index == 0:
+            # We always display the first loop
+            if not index == 0:
                 # Display depending on the number of remaining items
                 # We are counting this way to display a message as soon
                 # as we finish dispatching: cursor is then 0
@@ -347,18 +380,14 @@ class Parallel(Logger):
                 is_last_item = (index + 1 == queue_length)
                 if (is_last_item or not display):
                     return
-            counting_msg = "%3i " % queue_length
-
-        if self.verbose < 50:
-            writer = sys.stderr.write
-        else:
-            writer = sys.stdout.write
-        writer('[%s]: Done %3i out of %s| elapsed: %s remaining: %s\n'
-                % (self, index + 1,
-                    counting_msg,
-                    short_format_time(elapsed_time),
-                    short_format_time(remaining_time),
-                  ))
+            remaining_time = (elapsed_time / (index + 1) *
+                        (self.n_dispatched - index - 1.))
+            self._print('Done %3i out of %3i | elapsed: %s remaining: %s',
+                        (index + 1,
+                         queue_length,
+                         short_format_time(elapsed_time),
+                         short_format_time(remaining_time),
+                        ))
 
     def retrieve(self):
         self._output = list()
@@ -439,8 +468,13 @@ Sub-process traceback:
 
             self.retrieve()
             # Make sure that we get a last message telling us we are done
-            self.print_progress(len(self._output) - 1,
-                                last_item_call=True)
+            elapsed_time = time.time() - self._start_time
+            self._print('Done %3i out of %3i | elapsed: %s finished',
+                        (len(self._output),
+                         len(self._output),
+                            short_format_time(elapsed_time)
+                        ))
+
         finally:
             if n_jobs > 1:
                 self._pool.close()
