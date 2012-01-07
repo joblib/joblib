@@ -335,7 +335,7 @@ class Parallel(Logger):
         else:
             # We are finished dispatching
             queue_length = self.n_dispatched
-            if not last_item_call:
+            if not last_item_call and not index == 0:
                 # Display depending on the number of remaining items
                 # We are counting this way to display a message as soon
                 # as we finish dispatching: cursor is then 0
