@@ -4,10 +4,11 @@ Latest changes
 Release 0.6.0
 ---------------
 
-2012-01-01
-Juan Manuel Caicedo Carvajal and Gael Varoquaux
+2012-01-07
+Gael Varoquaux
 
-    ENH: add verbosity levels in Parallel
+    ENH: hash: bugware to be able to hash objects defined interactively
+    in IPython
 
 2012-01-07
 Gael Varoquaux
@@ -15,6 +16,11 @@ Gael Varoquaux
     ENH: Parallel: warn and not fail for nested loops
 
     ENH: Parallel: n_jobs=-2 now uses all CPUs but one
+
+2012-01-01
+Juan Manuel Caicedo Carvajal and Gael Varoquaux
+
+    ENH: add verbosity levels in Parallel
 
 Release 0.5.7
 ---------------
