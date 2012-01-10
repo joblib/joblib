@@ -9,6 +9,7 @@ is called with the same input arguments.
 # License: BSD Style, 3 clauses.
 
 
+from __future__ import with_statement
 import os
 import shutil
 import sys
@@ -37,7 +38,7 @@ from .hashing import hash
 from .func_inspect import get_func_code, get_func_name, filter_args
 from .logger import Logger, format_time
 from . import numpy_pickle
-from .disk import rm_subdirs
+from .disk import mkdirp, rm_subdirs
 
 FIRST_LINE_TEXT = "# first line:"
 
@@ -94,8 +95,10 @@ class MemorizedFunc(Logger):
         mmap_mode: {None, 'r+', 'r', 'w+', 'c'}
             The memmapping mode used when loading from cache
             numpy arrays. See numpy.load for the meaning of the
-            arguments. Only used if save_npy was true when the
-            cache was created.
+            arguments.
+        compress: boolean
+            Whether to zip the stored data on disk. Note that compressed
+            arrays cannot be read by memmapping.
         verbose: int, optional
             The verbosity flag, controls messages that are issued as
             the function is revaluated.
@@ -104,8 +107,8 @@ class MemorizedFunc(Logger):
     # Public interface
     #-------------------------------------------------------------------------
 
-    def __init__(self, func, cachedir, ignore=None, save_npy=True,
-                             mmap_mode=None, verbose=1, timestamp=None):
+    def __init__(self, func, cachedir, ignore=None, mmap_mode=None,
+                 compress=False, verbose=1, timestamp=None):
         """
             Parameters
             ----------
@@ -115,14 +118,10 @@ class MemorizedFunc(Logger):
                 The path of the base directory to use as a data store
             ignore: list or None
                 List of variable names to ignore.
-            save_npy: boolean, optional
-                If True, numpy arrays are saved outside of the pickle
-                files in the cache, as npy files.
             mmap_mode: {None, 'r+', 'r', 'w+', 'c'}, optional
                 The memmapping mode used when loading from cache
                 numpy arrays. See numpy.load for the meaning of the
-                arguments. Only used if save_npy was true when the
-                cache was created.
+                arguments.
             verbose: int, optional
                 Verbosity flag, controls the debug messages that are issued
                 as functions are revaluated. The higher, the more verbose
@@ -134,16 +133,18 @@ class MemorizedFunc(Logger):
         self._verbose = verbose
         self.cachedir = cachedir
         self.func = func
-        self.save_npy = save_npy
         self.mmap_mode = mmap_mode
+        self.compress = compress
+        if compress and mmap_mode is not None:
+            warnings.warn('Compressed results cannot be memmapped',
+                          stacklevel=2)
         if timestamp is None:
             timestamp = time.time()
         self.timestamp = timestamp
         if ignore is None:
             ignore = []
         self.ignore = ignore
-        if not os.path.exists(self.cachedir):
-            os.makedirs(self.cachedir)
+        mkdirp(self.cachedir)
         try:
             functools.update_wrapper(self, func)
         except:
@@ -189,7 +190,7 @@ class MemorizedFunc(Logger):
             In addition, when unpickling, we run the __init__
         """
         return (self.__class__, (self.func, self.cachedir, self.ignore,
-                self.save_npy, self.mmap_mode, self._verbose))
+                self.mmap_mode, self.compress, self._verbose))
 
     #-------------------------------------------------------------------------
     # Private interface
@@ -202,14 +203,8 @@ class MemorizedFunc(Logger):
         module, name = get_func_name(self.func)
         module.append(name)
         func_dir = os.path.join(self.cachedir, *module)
-        if mkdir and not os.path.exists(func_dir):
-            try:
-                os.makedirs(func_dir)
-            except OSError:
-                """ Dir exists: we have a race condition here, when using
-                    multiprocessing.
-                """
-                # XXX: Ugly
+        if mkdir:
+            mkdirp(func_dir)
         return func_dir
 
     def get_output_dir(self, *args, **kwargs):
@@ -230,7 +225,8 @@ class MemorizedFunc(Logger):
         """ Write the function code and the filename to a file.
         """
         func_code = '%s %i\n%s' % (FIRST_LINE_TEXT, first_line, func_code)
-        file(filename, 'w').write(func_code)
+        with open(filename, 'w') as out:
+            out.write(func_code)
 
     def _check_previous_func_code(self, stacklevel=2):
         """
@@ -245,10 +241,9 @@ class MemorizedFunc(Logger):
         func_code_file = os.path.join(func_dir, 'func_code.py')
 
         try:
-            if not os.path.exists(func_code_file):
-                raise IOError
-            old_func_code, old_first_line = \
-                            extract_first_line(file(func_code_file).read())
+            with open(func_code_file) as infile:
+                old_func_code, old_first_line = \
+                            extract_first_line(infile.read())
         except IOError:
                 self._write_func_code(func_code_file, func_code, first_line)
                 return False
@@ -304,11 +299,7 @@ class MemorizedFunc(Logger):
             self.warn("Clearing cache %s" % func_dir)
         if os.path.exists(func_dir):
             shutil.rmtree(func_dir, ignore_errors=True)
-        try:
-            os.makedirs(func_dir)
-        except OSError:
-            """ Directory exists: it has been created by another process
-            in the mean time. """
+        mkdirp(func_dir)
         func_code, _, first_line = get_func_code(self.func)
         func_code_file = os.path.join(func_dir, 'func_code.py')
         self._write_func_code(func_code_file, func_code, first_line)
@@ -375,16 +366,9 @@ class MemorizedFunc(Logger):
         """ Persist the given output tuple in the directory.
         """
         try:
-            if not os.path.exists(dir):
-                os.makedirs(dir)
+            mkdirp(dir)
             filename = os.path.join(dir, 'output.pkl')
-
-            if 'numpy' in sys.modules and self.save_npy:
-                numpy_pickle.dump(output, filename)
-            else:
-                output_file = file(filename, 'w')
-                pickle.dump(output, output_file, protocol=2)
-                output_file.close()
+            numpy_pickle.dump(output, filename, compress=self.compress)
         except OSError:
             " Race condition in the creation of the directory "
 
@@ -400,8 +384,7 @@ class MemorizedFunc(Logger):
             # This can fail do to race-conditions with multiple
             # concurrent joblibs removing the file or the directory
             try:
-                if not os.path.exists(output_dir):
-                    os.makedirs(output_dir)
+                mkdirp(output_dir)
                 json.dump(
                     input_repr,
                     file(os.path.join(output_dir, 'input_args.json'), 'w'),
@@ -421,12 +404,8 @@ class MemorizedFunc(Logger):
                                     self.format_signature(self.func)[0]
                                     )
         filename = os.path.join(output_dir, 'output.pkl')
-        if self.save_npy:
-            return numpy_pickle.load(filename,
-                                     mmap_mode=self.mmap_mode)
-        else:
-            output_file = file(filename, 'r')
-            return pickle.load(output_file)
+        return numpy_pickle.load(filename,
+                                 mmap_mode=self.mmap_mode)
 
     # XXX: Need a method to check if results are available.
 
@@ -458,8 +437,7 @@ class Memory(Logger):
     # Public interface
     #-------------------------------------------------------------------------
 
-    def __init__(self, cachedir, save_npy=True, mmap_mode=None,
-                       verbose=1):
+    def __init__(self, cachedir, mmap_mode=None, compress=False, verbose=1):
         """
             Parameters
             ----------
@@ -467,14 +445,13 @@ class Memory(Logger):
                 The path of the base directory to use as a data store
                 or None. If None is given, no caching is done and
                 the Memory object is completely transparent.
-            save_npy: boolean, optional
-                If True, numpy arrays are saved outside of the pickle
-                files in the cache, as npy files.
             mmap_mode: {None, 'r+', 'r', 'w+', 'c'}, optional
                 The memmapping mode used when loading from cache
                 numpy arrays. See numpy.load for the meaning of the
-                arguments. Only used if save_npy was true when the
-                cache was created.
+                arguments.
+            compress: boolean
+                Whether to zip the stored data on disk. Note that
+                compressed arrays cannot be read by memmapping.
             verbose: int, optional
                 Verbosity flag, controls the debug messages that are issued
                 as functions are revaluated.
@@ -482,15 +459,17 @@ class Memory(Logger):
         # XXX: Bad explaination of the None value of cachedir
         Logger.__init__(self)
         self._verbose = verbose
-        self.save_npy = save_npy
         self.mmap_mode = mmap_mode
         self.timestamp = time.time()
+        self.compress = compress
+        if compress and mmap_mode is not None:
+            warnings.warn('Compressed results cannot be memmapped',
+                          stacklevel=2)
         if cachedir is None:
             self.cachedir = None
         else:
             self.cachedir = os.path.join(cachedir, 'joblib')
-            if not os.path.exists(self.cachedir):
-                os.makedirs(self.cachedir)
+            mkdirp(self.cachedir)
 
     def cache(self, func=None, ignore=None, verbose=None,
                         mmap_mode=False):
@@ -532,9 +511,9 @@ class Memory(Logger):
         if isinstance(func, MemorizedFunc):
             func = func.func
         return MemorizedFunc(func, cachedir=self.cachedir,
-                                   save_npy=self.save_npy,
                                    mmap_mode=mmap_mode,
                                    ignore=ignore,
+                                   compress=self.compress,
                                    verbose=verbose,
                                    timestamp=self.timestamp)
 
@@ -575,4 +554,4 @@ class Memory(Logger):
         """
         # We need to remove 'joblib' from the end of cachedir
         return (self.__class__, (self.cachedir[:-7],
-                self.save_npy, self.mmap_mode, self._verbose))
+                self.mmap_mode, self.compress, self._verbose))

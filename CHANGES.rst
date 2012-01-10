@@ -1,6 +1,75 @@
 Latest changes
 ===============
 
+Release 0.6.0
+---------------
+
+2012-01-01
+Juan Manuel Caicedo Carvajal and Gael Varoquaux
+
+    ENH: add verbosity levels in Parallel
+
+2012-01-07
+Gael Varoquaux
+
+    ENH: Parallel: warn and not fail for nested loops
+
+    ENH: Parallel: n_jobs=-2 now uses all CPUs but one
+
+Release 0.5.7
+---------------
+
+2011-12-28
+Gael varoquaux
+
+    API: zipped -> compress
+
+2011-12-26
+Gael varoquaux
+
+    ENH: Add a zipped option to Memory
+
+    API: Memory no longer accepts save_npy
+
+2011-12-22
+Kenneth C. Arnold and Gael varoquaux
+
+    BUG: fix numpy_pickle for array subclasses
+
+2011-12-21
+Gael varoquaux
+
+    ENH: add zip-based pickling
+
+2011-12-19
+Fabian Pedregosa
+
+    Py3k: compatibility fixes.
+    This makes run fine the tests test_disk and test_parallel
+
+Release 0.5.6
+---------------
+
+2011-12-11
+Lars Buitinck
+
+    ENH: Replace os.path.exists before makedirs with exception check
+    New disk.mkdirp will fail with other errnos than EEXIST.
+
+2011-12-10
+Bala Subrahmanyam Varanasi
+
+    MISC: pep8 compliant
+
+
+Release 0.5.5
+---------------
+
+2011-19-10
+Fabian Pedregosa
+
+    ENH: Make joblib installable under Python 3.X
+
 Release 0.5.4
 ---------------
 

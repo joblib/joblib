@@ -14,13 +14,21 @@ Example Makefile rule::
             ./ext/autosummary_generate.py -o source/generated source/*.rst
 
 """
-import glob, re, inspect, os, optparse, pydoc
+import glob
+import re
+import inspect
+import os
+import optparse
+import pydoc
+
 from autosummary import import_by_name
+
 
 try:
     from phantom_import import import_phantom_module
 except ImportError:
     import_phantom_module = lambda x: x
+
 
 def main():
     p = optparse.OptionParser(__doc__.strip())
@@ -29,9 +37,9 @@ def main():
                  help="Phantom import modules from a file")
     p.add_option("-o", "--output-dir", action="store", type="string",
                  dest="output_dir", default=None,
-                 help=("Write all output files to the given directory (instead "
-                       "of writing them as specified in the autosummary:: "
-                       "directives)"))
+                 help=("Write all output files to the given "
+                            "directory (instead of writing them as specified "
+                            "in the autosummary::directives)"))
     options, args = p.parse_args()
 
     if len(args) == 0:
@@ -52,7 +60,7 @@ def main():
     for name, path in sorted(names.items()):
         if options.output_dir is not None:
             path = options.output_dir
-        
+
         if not os.path.isdir(path):
             os.makedirs(path)
 
@@ -71,7 +79,7 @@ def main():
         f = open(fn, 'w')
 
         try:
-            f.write('%s\n%s\n\n' % (name, '='*len(name)))
+            f.write('%s\n%s\n\n' % (name, '=' * len(name)))
 
             if inspect.isclass(obj):
                 if issubclass(obj, Exception):
@@ -91,15 +99,18 @@ def main():
         finally:
             f.close()
 
+
 def format_modulemember(name, directive):
     parts = name.split('.')
     mod, name = '.'.join(parts[:-1]), parts[-1]
     return ".. currentmodule:: %s\n\n.. %s:: %s\n" % (mod, directive, name)
 
+
 def format_classmember(name, directive):
     parts = name.split('.')
     mod, name = '.'.join(parts[:-2]), '.'.join(parts[-2:])
     return ".. currentmodule:: %s\n\n.. %s:: %s\n" % (mod, directive, name)
+
 
 def get_documented(filenames):
     """
@@ -115,11 +126,12 @@ def get_documented(filenames):
         f.close()
     return documented
 
+
 def get_documented_in_docstring(name, module=None, filename=None):
     """
     Find out what items are documented in the given object's docstring.
     See `get_documented_in_lines`.
-    
+
     """
     try:
         obj, real_name = import_by_name(name)
@@ -131,10 +143,11 @@ def get_documented_in_docstring(name, module=None, filename=None):
         print "Failed to import '%s': %s" % (name, e)
     return {}
 
+
 def get_documented_in_lines(lines, module=None, filename=None):
     """
     Find out what items are documented in the given lines
-    
+
     Returns
     -------
     documented : dict of list of (filename, title, keyword, toctree)
@@ -146,20 +159,22 @@ def get_documented_in_lines(lines, module=None, filename=None):
 
     """
     title_underline_re = re.compile("^[-=*_^#]{3,}\s*$")
-    autodoc_re = re.compile(".. auto(function|method|attribute|class|exception|module)::\s*([A-Za-z0-9_.]+)\s*$")
+    autodoc_re = re.compile(".. auto(function|method|attribute|class \
+                         |exception|module)::\s*([A-Za-z0-9_.]+)\s*$")
     autosummary_re = re.compile(r'^\.\.\s+autosummary::\s*')
-    module_re = re.compile(r'^\.\.\s+(current)?module::\s*([a-zA-Z0-9_.]+)\s*$')
+    module_re = re.compile(
+                        r'^\.\.\s+(current)?module::\s*([a-zA-Z0-9_.]+)\s*$')
     autosummary_item_re = re.compile(r'^\s+([_a-zA-Z][a-zA-Z0-9_.]*)\s*')
     toctree_arg_re = re.compile(r'^\s+:toctree:\s*(.*?)\s*$')
-    
+
     documented = {}
-   
+
     current_title = []
     last_line = None
     toctree = None
     current_module = module
     in_autosummary = False
-    
+
     for line in lines:
         try:
             if in_autosummary:
@@ -169,13 +184,15 @@ def get_documented_in_lines(lines, module=None, filename=None):
                     continue
 
                 if line.strip().startswith(':'):
-                    continue # skip options
+                    continue  # skip options
 
                 m = autosummary_item_re.match(line)
                 if m:
                     name = m.group(1).strip()
-                    if current_module and not name.startswith(current_module + '.'):
+                    if current_module and not name.startswith(
+                                                      current_module + '.'):
                         name = "%s.%s" % (current_module, name)
+
                     documented.setdefault(name, []).append(
                         (filename, current_title, 'autosummary', toctree))
                     continue
@@ -195,8 +212,10 @@ def get_documented_in_lines(lines, module=None, filename=None):
                     current_module = name
                     documented.update(get_documented_in_docstring(
                         name, filename=filename))
-                elif current_module and not name.startswith(current_module+'.'):
+                elif current_module and not name.startswith(
+                                                       current_module + '.'):
                     name = "%s.%s" % (current_module, name)
+
                 documented.setdefault(name, []).append(
                     (filename, current_title, "auto" + m.group(1), None))
                 continue
