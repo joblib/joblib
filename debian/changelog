@@ -1,3 +1,9 @@
+joblib (0.6.0~b2-1) unstable; urgency=low
+
+  * Fresh upstream beta release (used by sklearn)
+
+ -- Yaroslav Halchenko <debian@onerussian.com>  Tue, 10 Jan 2012 17:37:07 -0500
+
 joblib (0.5.4-1) unstable; urgency=low
 
   * Fresh upstream release
