@@ -2,6 +2,7 @@ joblib (0.6.0~b3-1) unstable; urgency=low
 
   * Fresh upstream beta releaase addressing compatibility issues with
     python 2.5 and older numpy's.
+  * Forwarded upstream patch up_python25_compatibility
 
  -- Yaroslav Halchenko <debian@onerussian.com>  Thu, 12 Jan 2012 10:19:06 -0500
 
