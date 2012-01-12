@@ -111,9 +111,11 @@ class NDArrayWrapper(object):
         else:
             # Numpy does not have mmap_mode before 1.3
             array = unpickler.np.load(filename)
-        # Reconstruct subclasses
-        if not self.subclass in (unpickler.np.ndarray,
-                                 unpickler.np.memmap):
+        # Reconstruct subclasses. This does not work with old
+        # versions of numpy
+        if (hasattr(array, '__array_prepare__')
+                and not self.subclass in (unpickler.np.ndarray,
+                                      unpickler.np.memmap)):
             # We need to reconstruct another subclass
             new_array = unpickler.np.core.multiarray._reconstruct(
                     self.subclass, (0,), 'b')
@@ -202,8 +204,10 @@ class NumpyPickler(pickle.Pickler):
             # numerics in a z-file
             _, init_args, state = array.__reduce__()
             # the last entry of 'state' is the data itself
-            write_zfile(open(filename, 'w'), state[-1],
+	    zfile = open(filename, 'wb')
+            write_zfile(zfile, state[-1],
                              compress=self.compress)
+	    zfile.close()
             state = state[:-1]
             container = ZNDArrayWrapper(os.path.basename(filename),
                                         init_args, state)
@@ -241,9 +245,10 @@ class NumpyPickler(pickle.Pickler):
 
     def close(self):
         if self.compress:
-            write_zfile(open(self._filename, 'wb'),
+            zfile = open(self._filename, 'wb')
+            write_zfile(zfile,
                         self.file.getvalue(), self.compress)
-        # The file handes are closed in the dump function
+	    zfile.close()
 
 
 class NumpyUnpickler(Unpickler):

@@ -4,10 +4,29 @@ Latest changes
 Release 0.6.0
 ---------------
 
-2012-01-01
-Juan Manuel Caicedo Carvajal and Gael Varoquaux
+**Beta 3**
 
-    ENH: add verbosity levels in Parallel
+2012-01-11
+Gael Varoquaux
+
+    BUG: ensure compatibility with old numpy
+
+    DOC: update installation instructions
+
+    BUG: file semantic to work under Windows
+
+2012-01-10
+Yaroslav Halchenko
+
+    BUG: a fix toward 2.5 compatibility
+
+**Beta 2**
+
+2012-01-07
+Gael Varoquaux
+
+    ENH: hash: bugware to be able to hash objects defined interactively
+    in IPython
 
 2012-01-07
 Gael Varoquaux
@@ -15,6 +34,11 @@ Gael Varoquaux
     ENH: Parallel: warn and not fail for nested loops
 
     ENH: Parallel: n_jobs=-2 now uses all CPUs but one
+
+2012-01-01
+Juan Manuel Caicedo Carvajal and Gael Varoquaux
+
+    ENH: add verbosity levels in Parallel
 
 Release 0.5.7
 ---------------
