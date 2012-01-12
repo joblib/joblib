@@ -120,7 +120,7 @@ class UploadDoc(upload):
             http.putheader('Authorization', auth)
             http.endheaders()
             http.send(body)
-        except socket.error as e:
+        except socket.error, e:
             self.announce(str(e), log.ERROR)
             return
 
