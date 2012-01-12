@@ -1,3 +1,10 @@
+joblib (0.6.0~b3-1) unstable; urgency=low
+
+  * Fresh upstream beta releaase addressing compatibility issues with
+    python 2.5 and older numpy's.
+
+ -- Yaroslav Halchenko <debian@onerussian.com>  Thu, 12 Jan 2012 10:19:06 -0500
+
 joblib (0.6.0~b2-1) unstable; urgency=low
 
   * Fresh upstream beta release (used by sklearn)
