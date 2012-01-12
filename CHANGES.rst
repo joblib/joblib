@@ -4,6 +4,24 @@ Latest changes
 Release 0.6.0
 ---------------
 
+**Beta 3**
+
+2012-01-11
+Gael Varoquaux
+
+    BUG: ensure compatibility with old numpy
+
+    DOC: update installation instructions
+
+    BUG: file semantic to work under Windows
+
+2012-01-10
+Yaroslav Halchenko
+
+    BUG: a fix toward 2.5 compatibility
+
+**Beta 2**
+
 2012-01-07
 Gael Varoquaux
 
