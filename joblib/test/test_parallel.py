@@ -150,7 +150,7 @@ def test_error_capture():
         ex = JoblibException
         Parallel(n_jobs=1)(
                     delayed(division)(x, y) for x, y in zip((0, 1), (1, 0)))
-    except Exception as e:
+    except Exception, e:
         ex = e
     nose.tools.assert_false(isinstance(ex, JoblibException))
 
