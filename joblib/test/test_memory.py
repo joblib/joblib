@@ -120,6 +120,12 @@ def test_memory_integration():
         yield nose.tools.assert_equal, len(accumulator), \
                     current_accumulator + 1
 
+    # Now do a smoke test with a function defined in __main__, as the name
+    # mangling rules are more complex
+    f.__module__ = '__main__'
+    memory = Memory(cachedir=env['dir'], verbose=0)
+    memory.cache(f)(1)
+
 
 def test_no_memory():
     """ Test memory with cachedir=None: no memoize """
