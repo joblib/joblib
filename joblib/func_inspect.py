@@ -93,7 +93,7 @@ def get_func_name(func, resolv_alias=True, win_characters=True):
         module = ''
     if module == '__main__':
         try:
-            filename = inspect.getsourcefile(func)
+            filename = os.path.abspath(inspect.getsourcefile(func))
         except:
             filename = None
         if filename is not None:
