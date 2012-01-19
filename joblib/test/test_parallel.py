@@ -82,7 +82,9 @@ def test_simple_parallel():
                         delayed(square)(x) for x in X)
                 Parallel(n_jobs=2, verbose=verbose, pre_dispatch=2)(
                         delayed(square)(x) for x in X)
-    except Exception, e:
+    except Exception:
+        # Cannot use 'except as' to maintain Python 2.5 compatibility
+        e = sys.exc_info()[1]
         print sys.stdout.getvalue()
         print sys.stderr.getvalue()
         raise e
@@ -150,8 +152,9 @@ def test_error_capture():
         ex = JoblibException
         Parallel(n_jobs=1)(
                     delayed(division)(x, y) for x, y in zip((0, 1), (1, 0)))
-    except Exception, e:
-        ex = e
+    except Exception:
+        # Cannot use 'except as' to maintain Python 2.5 compatibility
+        ex = sys.exc_info()[1]
     nose.tools.assert_false(isinstance(ex, JoblibException))
 
 

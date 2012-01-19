@@ -13,7 +13,7 @@
 Modified for joblib by Gael Varoquaux
 """
 
-
+import sys
 import os
 import socket
 try:
@@ -120,7 +120,9 @@ class UploadDoc(upload):
             http.putheader('Authorization', auth)
             http.endheaders()
             http.send(body)
-        except socket.error, e:
+        except socket.error:
+            # Cannot use 'except as' to maintain Python 2.5 compatibility
+            e = sys.exc_info()[1]
             self.announce(str(e), log.ERROR)
             return
 
