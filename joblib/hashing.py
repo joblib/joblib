@@ -22,6 +22,7 @@ else:
     import cStringIO
     StringIO = cStringIO.StringIO
 
+
 class Hasher(pickle.Pickler):
     """ A subclass of pickler, to do cryptographic hashing, rather than
         pickling.

@@ -104,9 +104,9 @@ def test_memory_integration():
         memory = Memory(cachedir=env['dir'], verbose=0, compress=compress)
         # First clear the cache directory, to check that our code can
         # handle that
-        # NOTE: this line would raise an exception, as the database file is still
-        # open; we ignore the error since we want to test what happens if the
-        # directory disappears
+        # NOTE: this line would raise an exception, as the database file is
+        # still open; we ignore the error since we want to test what happens if
+        # the directory disappears
         shutil.rmtree(env['dir'], ignore_errors=True)
         g = memory.cache(f)
         g(1)

@@ -119,7 +119,6 @@ def test_func_name():
     yield nose.tools.assert_equal, 'g', get_func_name(g)[1]
 
 
-
 def test_func_inspect_errors():
     """ Check that func_inspect is robust and will work on weird objects
     """

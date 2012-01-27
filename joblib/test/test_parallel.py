@@ -6,7 +6,8 @@ Test the parallel module.
 # Copyright (c) 2010-2011 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
-import time, sys
+import time
+import sys
 try:
     import cPickle as pickle
     PickleError = TypeError
