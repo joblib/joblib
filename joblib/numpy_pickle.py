@@ -16,6 +16,7 @@ import warnings
 if sys.version_info[0] >= 3:
     from io import BytesIO
     from pickle import _Unpickler as Unpickler
+
     def asbytes(s):
         if isinstance(s, bytes):
             return s
@@ -29,11 +30,12 @@ else:
     from pickle import Unpickler
     asbytes = str
 
-_MEGA = 2**20
-_MAX_LEN = len(hex(2**64))
+_MEGA = 2 ** 20
+_MAX_LEN = len(hex(2 ** 64))
 
 # To detect file types
 _ZFILE_PREFIX = asbytes('ZF')
+
 
 ###############################################################################
 # Compressed file with Zlib
@@ -204,12 +206,12 @@ class NumpyPickler(pickle.Pickler):
             # numerics in a z-file
             _, init_args, state = array.__reduce__()
             # the last entry of 'state' is the data itself
-	    zfile = open(filename, 'wb')
-            write_zfile(zfile, state[-1],
+        zfile = open(filename, 'wb')
+        write_zfile(zfile, state[-1],
                              compress=self.compress)
-	    zfile.close()
-            state = state[:-1]
-            container = ZNDArrayWrapper(os.path.basename(filename),
+        zfile.close()
+        state = state[:-1]
+        container = ZNDArrayWrapper(os.path.basename(filename),
                                         init_args, state)
         return container, filename
 
@@ -248,7 +250,7 @@ class NumpyPickler(pickle.Pickler):
             zfile = open(self._filename, 'wb')
             write_zfile(zfile,
                         self.file.getvalue(), self.compress)
-	    zfile.close()
+        zfile.close()
 
 
 class NumpyUnpickler(Unpickler):
@@ -397,8 +399,8 @@ def load(filename, mmap_mode=None):
     file was saved with compression, the arrays cannot be memmaped.
     """
     file_handle = open(filename, 'rb')
-    # We are careful to open the file hanlde early and keep it open to 
-    # avoid race-conditions on renames. That said, if data are stored in 
+    # We are careful to open the file hanlde early and keep it open to
+    # avoid race-conditions on renames. That said, if data are stored in
     # companion files, moving the directory will create a race when
     # joblib tries to access the companion files.
     if _read_magic(file_handle) == _ZFILE_PREFIX:
@@ -418,5 +420,3 @@ def load(filename, mmap_mode=None):
         if hasattr(unpickler, 'file_handle'):
             unpickler.file_handle.close()
     return obj
-
-
