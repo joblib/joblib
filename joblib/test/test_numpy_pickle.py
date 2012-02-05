@@ -130,6 +130,7 @@ def test_value_error():
     nose.tools.assert_raises(ValueError, numpy_pickle.dump, 'foo',
                              dict())
 
+
 @with_numpy
 def test_numpy_persistence():
     filename = env['filename']
