@@ -1,3 +1,10 @@
+joblib (0.6.0-1) unstable; urgency=low
+
+  * New upstream release
+  * Dropped patch up_python25_compatibility (adopted upstream)
+
+ -- Yaroslav Halchenko <debian@onerussian.com>  Sun, 05 Feb 2012 15:44:54 -0500
+
 joblib (0.6.0~b3-1) unstable; urgency=low
 
   * Fresh upstream beta releaase addressing compatibility issues with
