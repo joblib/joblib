@@ -5,6 +5,7 @@ Maintainer: Yaroslav Halchenko <debian@onerussian.com>
 Build-Depends: debhelper (>= 7.0.50~), python (>= 2.5), python-support (>= 0.6), python-setuptools(>= 0.6), python-nose, python-numpy
 Standards-Version: 3.9.2
 Homepage: http://packages.python.org/joblib/
+XS-Python-Version: >=2.5
 XS-Vcs-Git: git://github.com/yarikoptic/joblib.git
 XS-Vcs-Browser: http://github.com/yarikoptic/joblib
 

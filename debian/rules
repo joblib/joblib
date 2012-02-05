@@ -1,6 +1,9 @@
 #!/usr/bin/make -f
 # -*- makefile -*-
 
+PYVERS = $(shell pyversions -vr)
+PYVER = $(shell pyversions -vd)
+
 %:
 	dh $@ --buildsystem=python_distutils
 
@@ -8,12 +11,15 @@ override_dh_clean:
 	rm -rf *.egg-info
 	dh_clean
 
-override_dh_auto_test:
+override_dh_auto_test: ${PYVERS:%=python-test%}
+
+python-test%:
 ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
-	python setup.py nosetests
+	python$* setup.py nosetests;
 else
-	: # no tests
+	: # Skip unittests due to nocheck
 endif
+
 
 override_dh_installchangelogs:
 	dh_installchangelogs CHANGES.rst
