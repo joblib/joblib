@@ -76,7 +76,7 @@ def write_zfile(file_handle, data, compress=1):
     """Write the data in the given file as a Z-file.
 
     Z-files are raw data compressed with zlib used internally by joblib
-    for persistence. Backward compatibility is not garantied. Do not
+    for persistence. Backward compatibility is not guarantied. Do not
     use for external purposes.
     """
     file_handle.write(_ZFILE_PREFIX)
@@ -95,7 +95,7 @@ def write_zfile(file_handle, data, compress=1):
 class NDArrayWrapper(object):
     """ An object to be persisted instead of numpy arrays.
 
-        The only thing this object does, is to carrus the filename in wich
+        The only thing this object does, is to carry the filename in which
         the array has been persisted, and the array subclass.
     """
     def __init__(self, filename, subclass):
@@ -250,7 +250,7 @@ class NumpyPickler(pickle.Pickler):
             zfile = open(self._filename, 'wb')
             write_zfile(zfile,
                         self.file.getvalue(), self.compress)
-        zfile.close()
+            zfile.close()
 
 
 class NumpyUnpickler(Unpickler):
