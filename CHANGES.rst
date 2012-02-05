@@ -1,6 +1,11 @@
 Latest changes
 ===============
 
+Release 0.6.1
+---------------
+
+Bugfix release because of a merge error in release 0.6.0
+
 Release 0.6.0
 ---------------
 
