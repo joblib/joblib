@@ -1,4 +1,4 @@
-joblib (0.6.0-1) unstable; urgency=low
+joblib (0.6.1-1) unstable; urgency=low
 
   * New upstream release
   * Dropped patch up_python25_compatibility (adopted upstream)
