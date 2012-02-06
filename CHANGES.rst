@@ -1,6 +1,14 @@
 Latest changes
 ===============
 
+Release 0.6.2
+---------------
+
+2012-02-06
+Gael Varoquaux
+
+    BUG: make sure Memory pickles even if cachedir=None
+
 Release 0.6.1
 ---------------
 
