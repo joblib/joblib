@@ -2,7 +2,8 @@ joblib (0.6.1-1) unstable; urgency=low
 
   * New upstream release
   * Dropped patch up_python25_compatibility (adopted upstream)
-  * Run unittests against all requested versions of Python
+  * Run unittests against all requested versions of Python.
+    Changed to build-depend on python-all
   * Provided XS-Python-Version: >= 2.5
 
  -- Yaroslav Halchenko <debian@onerussian.com>  Sun, 05 Feb 2012 15:44:54 -0500
