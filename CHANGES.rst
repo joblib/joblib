@@ -1,6 +1,24 @@
 Latest changes
 ===============
 
+Release 0.6.3
+---------------
+
+2012-02-14
+GaelVaroquaux
+
+    BUG: fix joblib Memory pickling
+
+2012-02-11
+GaelVaroquaux
+
+    BUG: fix hasher with Python 3
+
+2012-02-09
+GaelVaroquaux
+
+    API: filter_args:  `*args, **kwargs -> args, kwargs`
+
 Release 0.6.2
 ---------------
 
