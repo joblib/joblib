@@ -408,9 +408,16 @@ class MemorizedFunc(Logger):
         """
         if self._verbose > 1:
             t = time.time() - self.timestamp
-            print '[Memory]% 16s: Loading %s...' % (
+            if self._verbose < 10:
+                print '[Memory]% 16s: Loading %s...' % (
                                     format_time(t),
                                     self.format_signature(self.func)[0]
+                                    )
+            else:
+                print '[Memory]% 16s: Loading %s from %s' % (
+                                    format_time(t),
+                                    self.format_signature(self.func)[0],
+                                    output_dir
                                     )
         filename = os.path.join(output_dir, 'output.pkl')
         return numpy_pickle.load(filename,
