@@ -210,3 +210,26 @@ def test_z_file():
     numpy_pickle.write_zfile(file(filename, 'wb'), data)
     data_read = numpy_pickle.read_zfile(file(filename, 'rb'))
     nose.tools.assert_equal(data, data_read)
+
+################################################################################
+# Test dumping array subclasses
+if np is not None:
+
+    class SubArray(np.ndarray):
+
+        def __reduce__(self):
+            return (_load_sub_array, (np.asarray(self), ))
+
+
+    def _load_sub_array(arr):
+        d = SubArray(arr.shape)
+        d[:] = arr
+        return d
+
+@with_numpy
+def test_numpy_subclass():
+    filename = env['filename']
+    a = SubArray((10,))
+    numpy_pickle.dump(a, filename)
+    c = numpy_pickle.load(filename)
+    nose.tools.assert_true(isinstance(c, SubArray))
