@@ -1,6 +1,27 @@
 Latest changes
 ===============
 
+Release 0.6.4
+---------------
+
+2012-05-07
+Vlad Niculae
+
+    ENH: controlled randomness in tests and doctest fix
+
+2012-02-21
+GaelVaroquaux
+
+    ENH: add verbosity in memory
+
+2012-02-21
+GaelVaroquaux
+
+    BUG: non-reproducible hashing: order of kwargs
+    
+    The ordering of a dictionnary is random. As a result the function hashing
+    was not reproducible. Pretty hard to test
+
 Release 0.6.3
 ---------------
 
