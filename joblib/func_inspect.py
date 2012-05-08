@@ -128,7 +128,7 @@ def get_func_name(func, resolv_alias=True, win_characters=True):
     return module, name
 
 
-def filter_args(func, ignore_lst, *args, **kwargs):
+def filter_args(func, ignore_lst, args=(), kwargs=dict()):
     """ Filters the given args and kwargs using a list of arguments to
         ignore, and a function specification.
 
@@ -207,7 +207,7 @@ def filter_args(func, ignore_lst, *args, **kwargs):
                         )
 
     varkwargs = dict()
-    for arg_name, arg_value in kwargs.iteritems():
+    for arg_name, arg_value in sorted(kwargs.items()):
         if arg_name in arg_dict:
             arg_dict[arg_name] = arg_value
         elif arg_keywords is not None:
