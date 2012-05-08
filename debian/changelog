@@ -1,3 +1,9 @@
+joblib (0.6.4-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- Yaroslav Halchenko <debian@onerussian.com>  Mon, 07 May 2012 22:32:10 -0400
+
 joblib (0.6.1-1) unstable; urgency=low
 
   * New upstream release
