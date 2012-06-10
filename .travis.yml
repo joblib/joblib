@@ -6,6 +6,7 @@ python:
 
 before_install:
     - pip --quiet install --use-mirrors numpy
+    - pip --quiet install coverage
 
 install:
     - python setup.py install
