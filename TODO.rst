@@ -9,11 +9,12 @@ Tasks at hand on joblib, in increasing order of difficulty.
 * Store a repr of the arguments for each call in the corresponding
   cachedir
 
-* Try to use Mike McBurns's Dillo pickling module in Parallel:
+* Try to use Mike McKerns's Dill pickling module in Parallel:
   Implementation idea: 
     * Create a new function that is wrapped and takes Dillo pickles as 
       inputs as output, feed this one to multiprocessing
-    * pickle everything using Dillo in the Parallel object.
+    * pickle everything using Dill in the Parallel object.
+      http://dev.danse.us/trac/pathos/browser/dill
 
 * Make a sensible error message when wrong keyword arguments are given,
   currently we have::
