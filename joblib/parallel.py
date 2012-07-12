@@ -279,7 +279,7 @@ class Parallel(Logger):
          [Parallel(n_jobs=2)]: Done   5 out of   6 | elapsed:    0.0s remaining:    0.0s
          [Parallel(n_jobs=2)]: Done   6 out of   6 | elapsed:    0.0s finished
     '''
-    def __init__(self, n_jobs=None, verbose=0, pre_dispatch='all'):
+    def __init__(self, n_jobs=1, verbose=0, pre_dispatch='all'):
         self.verbose = verbose
         self.n_jobs = n_jobs
         self.pre_dispatch = pre_dispatch
