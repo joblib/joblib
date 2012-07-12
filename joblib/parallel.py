@@ -28,6 +28,15 @@ if multiprocessing:
     except ImportError:
         multiprocessing = None
 
+# 2nd stage: validate that locking is available on the system and
+#            issue a warning if not
+if multiprocessing:
+    try:
+        import multiprocessing.synchronize
+    except ImportError, e:
+        multiprocessing = None
+        warnings.warn('%s.  joblib will operate in serial mode' % (e,))
+
 from .format_stack import format_exc, format_outer_frames
 from .logger import Logger, short_format_time
 from .my_exceptions import TransportableException, _mk_exception
