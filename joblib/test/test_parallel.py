@@ -8,6 +8,9 @@ Test the parallel module.
 
 import time
 import sys
+import shutil
+import tempfile
+import os
 try:
     import cPickle as pickle
     PickleError = TypeError
@@ -22,12 +25,25 @@ except:
 if sys.version_info[0] == 3:
     PickleError = pickle.PicklingError
 
+from .common import np, with_numpy
 from ..parallel import Parallel, delayed, SafeFunction, WorkerInterrupt, \
         multiprocessing, cpu_count
 from ..my_exceptions import JoblibException
 
 import nose
 
+
+TEST_FOLDER = None
+
+
+def setup_test_folder():
+    global TEST_FOLDER
+    TEST_FOLDER = tempfile.mkdtemp('joblib-test-parallel-')
+
+
+def teardown_test_folder():
+    if TEST_FOLDER is not None and os.path.exists(TEST_FOLDER):
+        shutil.rmtree(TEST_FOLDER)
 
 ###############################################################################
 
@@ -240,3 +256,90 @@ def test_joblib_exception():
 def test_safe_function():
     safe_division = SafeFunction(division)
     nose.tools.assert_raises(JoblibException, safe_division, 1, 0)
+
+
+###############################################################################
+# Test special support for unpicklable numpy.memmap arrays
+
+def check_mmap_array(a, basename, dtype, shape, mode, offset, order, data):
+    """Check that a is a memmap instance with expected attributes"""
+    nose.tools.assert_true(isinstance(a, np.memmap))
+    nose.tools.assert_equal(os.path.basename(a.filename), basename)
+    nose.tools.assert_equal(a.dtype, dtype)
+    nose.tools.assert_equal(a.shape, shape)
+    nose.tools.assert_equal(a.mode, mode)
+    nose.tools.assert_equal(a.offset, offset)
+    actual_order = 'F' if a.flags['F_CONTIGUOUS'] else 'C'
+    nose.tools.assert_equal(actual_order, order)
+    np.testing.assert_array_equal(a, data)
+
+
+def check_mmap_in_args(a, b, c, d=None, e=None):
+    """Function to be called in parallel in a multiprocessing setup"""
+    a_data = np.arange(100).reshape((10, 10)).astype(np.float32).T
+    b_data = np.arange(100).reshape((10, 10)).astype(np.int64)[1:, :] * 2
+
+    a_features = ['buffer_1.mmap', np.float32, (10, 10), 'r+', 0, 'F', a_data]
+    check_mmap_array(a, *a_features)
+    check_mmap_array(c.a, *a_features)
+    check_mmap_array(d, *a_features)
+
+    b_features = ['buffer_2.mmap', np.int64, (9, 10), 'c', 80, 'C', b_data]
+    check_mmap_array(b, *b_features)
+    check_mmap_array(c.b, *b_features)
+    check_mmap_array(e, *b_features)
+
+    # Regular numpy arrays are not memmaped
+    nose.tools.assert_false(isinstance(c.c, np.memmap))
+    np.testing.assert_array_equal(c.c, np.arange(10))
+
+    # Even if the original args are references to one another,
+    # the unwrapped variables are not
+    nose.tools.assert_false(a is c.a)
+    nose.tools.assert_false(a is d)
+    nose.tools.assert_false(b is c.b)
+    nose.tools.assert_false(b is e)
+    return 'ok'
+
+
+class SomeClass(object):
+    """Dummy class with some attributes"""
+
+    def __init__(self, a, b, c):
+        self.a = a
+        self.b = b
+        self.c = c
+
+
+@with_numpy
+@nose.with_setup(setup_test_folder, teardown_test_folder)
+def test_mmap_in_parallel_args():
+    # build a simple 2D memory mapped array
+    buffer_1 = os.path.join(TEST_FOLDER, 'buffer_1.mmap')
+    a = np.memmap(buffer_1, np.float32, shape=(100,), mode='w+')
+    a[:] = np.arange(100).astype(a.dtype)
+    a = np.memmap(buffer_1, np.float32, shape=(10, 10), mode='r+', order='F')
+
+    # build a memory mapped 2D array with offsetted values
+    buffer_2 = os.path.join(TEST_FOLDER, 'buffer_2.mmap')
+    b = np.memmap(buffer_2, np.int64, shape=(100,), mode='w+')
+    b[:] = (np.arange(100) * 2).astype(b.dtype)
+    b = np.memmap(buffer_2, np.int64, mode='c', shape=(9, 10),
+                  offset=10 * 64 / 8, order='C')
+
+    # build an object that has memory mapped arrays as direct
+    # attributes
+    c = SomeClass(a, b, np.arange(10))
+
+    args = [a, b, c]
+    kwargs = {'d': a, 'e': b}
+
+    # Check that memory mapped arrays are correctly handled when processed in
+    # a multiprocessing env
+    n_items = 5
+    data_sequence = [(args, kwargs)] * n_items
+
+    results = Parallel(n_jobs=2)(
+        delayed(check_mmap_in_args)(*args, **kwargs)
+        for args, kwargs in data_sequence)
+    nose.tools.assert_equals(results, ['ok'] * n_items)
