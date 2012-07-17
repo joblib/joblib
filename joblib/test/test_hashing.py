@@ -197,3 +197,15 @@ def test_bound_cached_methods_hash():
     b = KlassWithCachedMethod()
     nose.tools.assert_equal(hash(filter_args(a.f.func, [], (1, ))),
                             hash(filter_args(b.f.func, [], (1, ))))
+
+
+@with_numpy
+def test_hash_object_dtype():
+    """ Make sure that ndarrays with dtype `object' hash correctly."""
+
+    a = np.array([np.arange(i) for i in range(6)])
+    b = np.array([np.arange(i) for i in range(6)])
+
+    nose.tools.assert_equal(hash(a),
+                            hash(b))
+

@@ -106,7 +106,7 @@ class NumpyHasher(Hasher):
             than pickling them. Off course, this is a total abuse of
             the Pickler class.
         """
-        if isinstance(obj, self.np.ndarray):
+        if isinstance(obj, self.np.ndarray) and not obj.dtype.hasobject:
             # Compute a hash of the object:
             try:
                 self._hash.update(self.np.getbuffer(obj))
