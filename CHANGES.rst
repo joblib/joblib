@@ -1,6 +1,19 @@
 Latest changes
 ===============
 
+Release 0.6.5
+---------------
+
+2012-07-18
+Marek Rudnicki
+
+    BUG: make sure that object-dtype numpy array hash correctly
+
+2012-07-12
+GaelVaroquaux
+
+    BUG: Bad default n_jobs for Parallel
+
 Release 0.6.4
 ---------------
 
