@@ -394,10 +394,10 @@ class Parallel(Logger):
             self._jobs.append(job)
             self.n_dispatched += 1
         else:
+            args, kwargs = wrap_mmap_args(args, kwargs)
             self._lock.acquire()
             # If job.get() catches an exception, it closes the queue:
             try:
-                args, kwargs = wrap_mmap_args(args, kwargs)
                 job = self._pool.apply_async(SafeFunction(func), args,
                             kwargs, callback=CallBack(self.n_dispatched, self))
                 self._jobs.append(job)
