@@ -203,8 +203,8 @@ def test_bound_cached_methods_hash():
 def test_hash_object_dtype():
     """ Make sure that ndarrays with dtype `object' hash correctly."""
 
-    a = np.array([np.arange(i) for i in range(6)])
-    b = np.array([np.arange(i) for i in range(6)])
+    a = np.array([np.arange(i) for i in range(6)], dtype=object)
+    b = np.array([np.arange(i) for i in range(6)], dtype=object)
 
     nose.tools.assert_equal(hash(a),
                             hash(b))
