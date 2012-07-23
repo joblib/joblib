@@ -36,10 +36,91 @@ if multiprocessing:
     except ImportError, e:
         multiprocessing = None
         warnings.warn('%s.  joblib will operate in serial mode' % (e,))
+try:
+    import numpy as np
+except ImportError:
+    np = None
 
 from .format_stack import format_exc, format_outer_frames
 from .logger import Logger, short_format_time
 from .my_exceptions import TransportableException, _mk_exception
+
+
+class WrappedMemmapArray(object):
+    """Picklable datastructure to handle memmap arrays with multiprocessing"""
+
+    def __init__(self, mmap_array):
+        self.filename = mmap_array.filename
+        self.dtype = mmap_array.dtype
+        self.offset = mmap_array.offset
+        self.shape = mmap_array.shape
+        self.order = 'F' if mmap_array.flags['F_CONTIGUOUS'] else 'C'
+        self.mode = mmap_array.mode
+
+    def unwrap(self, mode=None):
+        """Create a new instance of numpy.memmap with the wrapped attributes"""
+        mode = mode if mode is not None else self.mode
+        return np.memmap(self.filename, self.dtype, mode=mode,
+                         offset=self.offset, shape=self.shape,
+                         order=self.order)
+
+
+def wrap_mmap(obj):
+    """Wrap instances of memmaped arrays for pickling with multiprocessing
+
+    Direct attributes are also introspected to be wrapped if instance
+    numpy.memmap arrays. This is useful to add support for memmaped
+    scipy.sparse datastructure.
+
+    Collections and deep attributes are not scanned to avoid potentially
+    expensive recursive traversals.
+    """
+    if np is None:
+        # Skip wrapping if numpy is not installed
+        return obj
+
+    if isinstance(obj, np.memmap):
+        return WrappedMemmapArray(obj)
+
+    if hasattr(obj, '__dict__'):
+        for k, v in obj.__dict__.iteritems():
+            if isinstance(v, np.memmap):
+                setattr(obj, k, WrappedMemmapArray(v))
+    return obj
+
+
+def wrap_mmap_args(args, kwargs):
+    """Helper function to wrap numpy memmap instances before dispatch"""
+    args = [wrap_mmap(a) for a in args]
+    kwargs = dict((k, wrap_mmap(v)) for k, v in kwargs.iteritems())
+    return args, kwargs
+
+
+def unwrap_mmap(obj):
+    """Unwrap instances of WrappedMemmapArray
+
+    Only direct attributes of obj are scanned to support memmaped
+    scipy.sparse datastructures.
+    """
+    if np is None:
+        # Skip unwrapping if numpy is not installed
+        return obj
+
+    if isinstance(obj, WrappedMemmapArray):
+        return obj.unwrap()
+
+    if hasattr(obj, '__dict__'):
+        for k, v in obj.__dict__.iteritems():
+            if isinstance(v, WrappedMemmapArray):
+                setattr(obj, k, v.unwrap())
+    return obj
+
+
+def unwrap_mmap_args(args, kwargs):
+    """Helper function to unwrap numpy memmap instances before function call"""
+    args = [unwrap_mmap(a) for a in args]
+    kwargs = dict((k, unwrap_mmap(v)) for k, v in kwargs.iteritems())
+    return args, kwargs
 
 
 ###############################################################################
@@ -93,6 +174,7 @@ class SafeFunction(object):
 
     def __call__(self, *args, **kwargs):
         try:
+            args, kwargs = unwrap_mmap_args(args, kwargs)
             return self.func(*args, **kwargs)
         except KeyboardInterrupt:
             # We capture the KeyboardInterrupt and reraise it as
@@ -312,6 +394,7 @@ class Parallel(Logger):
             self._jobs.append(job)
             self.n_dispatched += 1
         else:
+            args, kwargs = wrap_mmap_args(args, kwargs)
             self._lock.acquire()
             # If job.get() catches an exception, it closes the queue:
             try:
