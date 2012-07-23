@@ -42,8 +42,8 @@ Run the test suite using::
 
 from the root of the project.
 
-.. image:: https://secure.travis-ci.org/myint/joblib.png
-   :target: https://secure.travis-ci.org/myint/joblib
+.. image:: https://secure.travis-ci.org/joblib/joblib.png
+   :target: https://secure.travis-ci.org/joblib/joblib
    :alt: Build status
    :align: right
 

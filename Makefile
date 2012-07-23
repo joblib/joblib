@@ -1,6 +1,6 @@
 
 
-all: test-no-multiprocessing test 
+all: test 
 
 test:
 	nosetests
