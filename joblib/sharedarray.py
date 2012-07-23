@@ -188,7 +188,7 @@ def assharedarray(a, dtype=None, shape=None, order=None):
     elif isinstance(a, np.memmap):
         order = 'F' if a.flags['F_CONTIGUOUS'] else 'C'
         return SharedArray(filename=a.filename, dtype=a.dtype, shape=a.shape,
-                           offset=offset, mode=a.mode, order=order)
+                           offset=a.offset, mode=a.mode, order=order)
     else:
         a = np.asanyarray(a, dtype=dtype, order=order)
         if shape is not None and shape != a.shape:

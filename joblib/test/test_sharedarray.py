@@ -1,14 +1,34 @@
 from cPickle import loads
 from cPickle import dumps
+import tempfile
+import os.path
+import shutil
 
 from ..sharedarray import SharedArray
 from ..sharedarray import assharedarray
 from .common import with_numpy, np
 
+from nose.tools import with_setup
 from nose.tools import assert_equal
 from nose.tools import assert_true
 
 assert_array_equal = np.testing.assert_array_equal
+
+
+TEMP_FOLDER = None
+
+
+def setup_temp_folder():
+    global TEMP_FOLDER
+    TEMP_FOLDER = tempfile.mkdtemp("joblib_test_sharedarray_")
+
+
+def teardown_temp_folder():
+    if os.path.exists(TEMP_FOLDER):
+        shutil.rmtree(TEMP_FOLDER)
+
+
+with_temp_folder = with_setup(setup_temp_folder, teardown_temp_folder)
 
 
 @with_numpy
@@ -47,7 +67,7 @@ def test_anonymous_shared_array():
 
 
 @with_numpy
-def test_assharedarray():
+def test_assharedarray_anonymous():
     a = assharedarray(np.zeros((2, 4)))
     assert_equal(a.shape, (2, 4))
     assert_true(a.flags['C_CONTIGUOUS'])
@@ -63,3 +83,33 @@ def test_assharedarray():
     assert_equal(b.mode, 'w+')
     assert_equal(b.offset, 0)
     assert_equal(b.filename, None)
+
+
+@with_temp_folder
+@with_numpy
+def test_assharedarray_memmap():
+    filename = os.path.join(TEMP_FOLDER, 'array.mmap')
+    mmap = np.memmap(filename, np.int32, shape=(2, 3), mode='w+')
+    a = assharedarray(mmap)
+    assert_equal(a.shape, (2, 3))
+    assert_true(a.flags['C_CONTIGUOUS'])
+    assert_equal(a.dtype, np.int32)
+    assert_equal(a.mode, 'w+')
+    assert_equal(a.offset, 0)
+    assert_equal(a.filename, filename)
+
+    mmap2 = np.memmap(filename, np.int32, shape=(3,), mode='r+', offset=4 * 3)
+    b = assharedarray(mmap2)
+    assert_equal(b.shape, (3,))
+    assert_true(b.flags['C_CONTIGUOUS'])
+    assert_equal(b.dtype, np.int32)
+    assert_equal(b.mode, 'r+')
+    assert_equal(b.offset, 12)
+    assert_equal(b.filename, filename)
+
+    # change the content of the first array and check that the changes are
+    # visible in the others
+    mmap[1, 0] = 42
+    mmap.flush()
+    assert_equal(a[1, 0], 42)
+    assert_equal(b[0], 42)
