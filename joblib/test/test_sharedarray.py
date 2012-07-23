@@ -84,6 +84,10 @@ def test_file_based_sharedarray():
     assert_equal(a.filename, filename)
     assert_array_equal(a, np.zeros(12, dtype=np.float32))
 
+    # Check from filename with integer shape
+    a = SharedArray(filename=filename, dtype=np.float32, shape=12)
+    assert_equal(a.shape, (12,))
+
     # Check from readonly, open file descriptor
     with open(filename, 'rb') as f:
         b = SharedArray(filename=f, dtype=np.float32, shape=(3, 4))
@@ -98,6 +102,17 @@ def test_file_based_sharedarray():
     with open(filename, 'rb') as f:
         assert_raises(ValueError, SharedArray, filename=f, dtype=np.float32,
                       shape=(42,))
+
+    # Check inconsistent length, offset and dtype
+    assert_raises(ValueError, SharedArray, filename=filename,
+                  dtype=np.float64, offset=7)
+
+    # Check invalid mode
+    assert_raises(ValueError, SharedArray, filename=filename, mode='creative')
+
+    # Check mandatory shape in write mode
+    assert_raises(ValueError, SharedArray, filename=filename, mode='w+')
+
 
 
 @with_numpy
@@ -117,6 +132,9 @@ def test_assharedarray_anonymous():
     assert_equal(b.mode, 'w+')
     assert_equal(b.offset, 0)
     assert_equal(b.filename, None)
+
+    c = assharedarray(a)
+    assert_true(c is a)
 
 
 @with_temp_folder
