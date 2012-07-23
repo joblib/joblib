@@ -51,7 +51,12 @@ class SharedArray(np.ndarray):
     def __new__(subtype, filename=None, address=None, dtype=np.uint8,
                 mode=None, offset=0, shape=None, order='C'):
         if mode is None:
-            mode = 'r+' if filename is not None else 'w+'
+            if filename is None:
+                mode = 'w+'
+            elif getattr(filename, 'mode', '').startswith('r'):
+                mode = 'r'
+            else:
+                mode = 'r+'
 
         try:
             mode = mode_equivalents[mode]

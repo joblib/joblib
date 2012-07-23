@@ -11,6 +11,7 @@ from .common import with_numpy, np
 from nose.tools import with_setup
 from nose.tools import assert_equal
 from nose.tools import assert_true
+from nose.tools import assert_raises
 
 assert_array_equal = np.testing.assert_array_equal
 
@@ -64,6 +65,39 @@ def test_anonymous_shared_array():
 
     b[:] = 0.0
     assert_array_equal(a, np.zeros((3, 5), dtype=np.float32))
+
+
+@with_numpy
+@with_temp_folder
+def test_file_based_sharedarray():
+    filename = os.path.join(TEMP_FOLDER, 'some_file.bin')
+    with open(filename, 'wb') as f:
+        f.write('\0' * 4 * 3 * 4)
+
+    # Check from filename
+    a = SharedArray(filename=filename, dtype=np.float32)
+    assert_equal(a.shape, (12,))
+    assert_true(a.flags['C_CONTIGUOUS'])
+    assert_equal(a.dtype, np.float32)
+    assert_equal(a.mode, 'r+')
+    assert_equal(a.offset, 0)
+    assert_equal(a.filename, filename)
+    assert_array_equal(a, np.zeros(12, dtype=np.float32))
+
+    # Check from readonly, open file descriptor
+    with open(filename, 'rb') as f:
+        b = SharedArray(filename=f, dtype=np.float32, shape=(3, 4))
+        assert_equal(b.shape, (3, 4))
+        assert_true(b.flags['C_CONTIGUOUS'])
+        assert_equal(b.dtype, np.float32)
+        assert_equal(b.mode, 'r')
+        assert_equal(b.offset, 0)
+        assert_equal(b.filename, filename)
+
+    # Check inconsistent shape
+    with open(filename, 'rb') as f:
+        assert_raises(ValueError, SharedArray, filename=f, dtype=np.float32,
+                      shape=(42,))
 
 
 @with_numpy
