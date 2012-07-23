@@ -1,10 +1,26 @@
+import sys
 import numpy as np
 import mmap
+import ctypes
 import os.path
 
+from _multiprocessing import address_of_buffer
 
 
-class SharedArray(ndarray):
+# Constants taken from numpy.core.memmap module that is unfortunately
+# shadowed by the memmap class itself, hence the local copy here
+
+valid_filemodes = ["r", "c", "r+", "w+"]
+writeable_filemodes = ["r+", "w+"]
+mode_equivalents = {
+    "readonly": "r",
+    "copyonwrite": "c",
+    "readwrite": "r+",
+    "write": "w+",
+}
+
+
+class SharedArray(np.ndarray):
     """Array sharable by multiple processes using the mmap kernel features.
 
     This class aims to blend the good features from numpy.memmap (behave like
@@ -32,18 +48,18 @@ class SharedArray(ndarray):
 
     __array_priority__ = -100.0  # TODO: why? taken from np.memmap
 
-    def __new__(subtype, filename=None, address=None, dtype=uint8, mode=None,
-                offset=0, shape=None, order='C'):
+    def __new__(subtype, filename=None, address=None, dtype=np.uint8,
+                mode=None, offset=0, shape=None, order='C'):
         if mode is None:
             mode = 'r+' if filename is not None else 'w+'
 
         try:
-            mode = np.memmap.mode_equivalents[mode]
+            mode = mode_equivalents[mode]
         except KeyError:
             if mode not in valid_filemodes:
                 raise ValueError("mode must be one of %s" %
                                  (valid_filemodes
-                                  + np.memmap.mode_equivalents.keys()))
+                                  + mode_equivalents.keys()))
 
         if hasattr(filename, 'read'):
             fileobj = filename
@@ -101,17 +117,23 @@ class SharedArray(ndarray):
         else:
             acc = mmap.ACCESS_WRITE
 
-        if sys.version_info[:2] >= (2, 6):
-            # The offset keyword in mmap.mmap needs Python >= 2.6
-            start = offset - offset % mmap.ALLOCATIONGRANULARITY
-            bytes -= start
-            offset -= start
-            mm = mmap.mmap(fileno, bytes, access=acc, offset=start)
+        if address is None:
+            if sys.version_info[:2] >= (2, 6):
+                # The offset keyword in mmap.mmap needs Python >= 2.6
+                start = offset - offset % mmap.ALLOCATIONGRANULARITY
+                bytes -= start
+                offset -= start
+                mm = mmap.mmap(fileno, bytes, access=acc, offset=start)
+            else:
+                mm = mmap.mmap(fileno, bytes, access=acc)
+            buffer = mm
         else:
-            mm = mmap.mmap(fileno, bytes, access=acc)
+            # Reuse an existing memory address
+            buffer = (ctypes.c_byte * bytes).from_address(address)
+            mm = None
 
-        self = ndarray.__new__(subtype, shape, dtype=dtype, buffer=mm,
-                               offset=offset, order=order)
+        self = np.ndarray.__new__(subtype, shape, dtype=dtype, buffer=buffer,
+                                  offset=offset, order=order)
         self._mmap = mm
         self.offset = offset
         self.mode = mode
@@ -143,3 +165,12 @@ class SharedArray(ndarray):
     def flush(self):
         """Write any changes in the array to the file on disk."""
         self._mmap.flush()
+
+    def __reduce__(self):
+        """Support for pickling while still sharing the original buffer"""
+        order = 'F' if self.flags['F_CONTIGUOUS'] else 'C'
+        address = None
+        if self.filename is None:
+            address, _ = address_of_buffer(self._mmap)
+        return SharedArray, (self.filename, address, self.dtype, self.mode,
+                             self.offset, self.shape, order)
