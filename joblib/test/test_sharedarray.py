@@ -2,6 +2,7 @@ from cPickle import loads
 from cPickle import dumps
 
 from ..sharedarray import SharedArray
+from ..sharedarray import assharedarray
 from .common import with_numpy, np
 
 from nose.tools import assert_equal
@@ -34,6 +35,7 @@ def test_anonymous_shared_array():
     assert_equal(b.dtype, np.float32)
     assert_equal(b.mode, 'w+')
     assert_equal(b.offset, 0)
+    assert_equal(b.filename, None)
     assert_array_equal(a, b)
 
     # check memory sharing
@@ -46,4 +48,18 @@ def test_anonymous_shared_array():
 
 @with_numpy
 def test_assharedarray():
-    pass
+    a = assharedarray(np.zeros((2, 4)))
+    assert_equal(a.shape, (2, 4))
+    assert_true(a.flags['C_CONTIGUOUS'])
+    assert_equal(a.dtype, np.float64)
+    assert_equal(a.mode, 'w+')
+    assert_equal(a.offset, 0)
+    assert_equal(a.filename, None)
+
+    b = assharedarray([1, 2, 3, 4], shape=(2, 2))
+    assert_equal(b.shape, (2, 2))
+    assert_true(b.flags['C_CONTIGUOUS'])
+    assert_equal(b.dtype, np.int64)
+    assert_equal(b.mode, 'w+')
+    assert_equal(b.offset, 0)
+    assert_equal(b.filename, None)

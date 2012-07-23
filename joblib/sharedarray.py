@@ -128,7 +128,7 @@ class SharedArray(np.ndarray):
                 mm = mmap.mmap(fileno, bytes, access=acc)
             buffer = mm
         else:
-            # Reuse an existing memory address
+            # Reuse an existing memory address from an anonymous mmap
             buffer = (ctypes.c_byte * bytes).from_address(address)
             mm = None
 
@@ -174,3 +174,26 @@ class SharedArray(np.ndarray):
             address, _ = address_of_buffer(self._mmap)
         return SharedArray, (self.filename, address, self.dtype, self.mode,
                              self.offset, self.shape, order)
+
+
+def assharedarray(a, dtype=None, shape=None, order=None):
+    """Make an anonymous SharedArray instance out of a
+
+    If a is already a SharedArray instance, return it-self.
+    Otherwise a new shared buffer is allocated and the content of a is copied
+    into it.
+    """
+    if isinstance(a, SharedArray):
+        return a
+    elif isinstance(a, np.memmap):
+        order = 'F' if a.flags['F_CONTIGUOUS'] else 'C'
+        return SharedArray(filename=a.filename, dtype=a.dtype, shape=a.shape,
+                           offset=offset, mode=a.mode, order=order)
+    else:
+        a = np.asanyarray(a, dtype=dtype, order=order)
+        if shape is not None and shape != a.shape:
+            a = a.reshape(shape)
+        order = 'F' if a.flags['F_CONTIGUOUS'] else 'C'
+        sa = SharedArray(dtype=a.dtype, shape=a.shape, order=order)
+        sa[:] = a[:]
+        return sa
