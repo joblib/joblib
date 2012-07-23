@@ -185,8 +185,14 @@ def assharedarray(a, dtype=None, shape=None, order=None):
     """Make an anonymous SharedArray instance out of a
 
     If a is already a SharedArray instance, return it-self.
-    Otherwise a new shared buffer is allocated and the content of a is copied
-    into it.
+
+    If a is a numpy.memmap array, return a SharedArray pointing to
+    the same file with the same configuration so as to add better
+    multiprocessing support.
+
+    Otherwise a new shared buffer is allocated and the content of
+    a is copied into it.
+
     """
     if isinstance(a, SharedArray):
         return a
