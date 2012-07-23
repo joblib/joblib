@@ -159,9 +159,17 @@ def test_assharedarray_memmap():
     assert_equal(b.offset, 12)
     assert_equal(b.filename, filename)
 
-    # change the content of the first array and check that the changes are
+    # Change the content of the first array and check that the changes are
     # visible in the others
     mmap[1, 0] = 42
     mmap.flush()
     assert_equal(a[1, 0], 42)
+    assert_equal(mmap2[0], 42)
     assert_equal(b[0], 42)
+
+    # Converse change
+    a[1, 0] = 0
+    a.flush()
+    assert_equal(mmap[1, 0], 0)
+    assert_equal(mmap2[0], 0)
+    assert_equal(b[0], 0)
