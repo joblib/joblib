@@ -2,6 +2,10 @@ The homepage of joblib with user documentation is located on:
 
 http://packages.python.org/joblib/
 
+.. image:: https://secure.travis-ci.org/myint/joblib.png
+   :target: https://secure.travis-ci.org/myint/joblib
+   :alt: Build status
+
 Getting the latest code
 =========================
 
