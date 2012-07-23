@@ -32,8 +32,9 @@ if multiprocessing:
 #            issue a warning if not
 if multiprocessing:
     try:
-        import multiprocessing.synchronize
-    except ImportError, e:
+        _sem = multiprocessing.Semaphore()
+        del _sem # cleanup
+    except (ImportError, OSError), e:
         multiprocessing = None
         warnings.warn('%s.  joblib will operate in serial mode' % (e,))
 
