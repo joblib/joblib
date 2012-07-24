@@ -181,7 +181,7 @@ class SharedArray(np.ndarray):
                              self.offset, self.shape, order)
 
 
-def assharedarray(a, dtype=None, shape=None, order=None):
+def as_shared_array(a, dtype=None, shape=None, order=None):
     """Make an anonymous SharedArray instance out of a
 
     If a is already a SharedArray instance, return it-self.

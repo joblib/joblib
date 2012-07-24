@@ -4,8 +4,8 @@ import tempfile
 import os.path
 import shutil
 
-from ..sharedarray import SharedArray
-from ..sharedarray import assharedarray
+from ..shared_array import SharedArray
+from ..shared_array import as_shared_array
 from .common import with_numpy, np
 
 from nose.tools import with_setup
@@ -116,8 +116,8 @@ def test_file_based_sharedarray():
 
 
 @with_numpy
-def test_assharedarray_anonymous():
-    a = assharedarray(np.zeros((2, 4)))
+def test_as_shared_array_anonymous():
+    a = as_shared_array(np.zeros((2, 4)))
     assert_equal(a.shape, (2, 4))
     assert_true(a.flags['C_CONTIGUOUS'])
     assert_equal(a.dtype, np.float64)
@@ -125,7 +125,7 @@ def test_assharedarray_anonymous():
     assert_equal(a.offset, 0)
     assert_equal(a.filename, None)
 
-    b = assharedarray([1, 2, 3, 4], shape=(2, 2))
+    b = as_shared_array([1, 2, 3, 4], shape=(2, 2))
     assert_equal(b.shape, (2, 2))
     assert_true(b.flags['C_CONTIGUOUS'])
     assert_equal(b.dtype, np.int64)
@@ -133,16 +133,16 @@ def test_assharedarray_anonymous():
     assert_equal(b.offset, 0)
     assert_equal(b.filename, None)
 
-    c = assharedarray(a)
+    c = as_shared_array(a)
     assert_true(c is a)
 
 
 @with_temp_folder
 @with_numpy
-def test_assharedarray_memmap():
+def test_as_shared_array_memmap():
     filename = os.path.join(TEMP_FOLDER, 'array.mmap')
     mmap = np.memmap(filename, np.int32, shape=(2, 3), mode='w+')
-    a = assharedarray(mmap)
+    a = as_shared_array(mmap)
     assert_equal(a.shape, (2, 3))
     assert_true(a.flags['C_CONTIGUOUS'])
     assert_equal(a.dtype, np.int32)
@@ -151,7 +151,7 @@ def test_assharedarray_memmap():
     assert_equal(a.filename, filename)
 
     mmap2 = np.memmap(filename, np.int32, shape=(3,), mode='r+', offset=4 * 3)
-    b = assharedarray(mmap2)
+    b = as_shared_array(mmap2)
     assert_equal(b.shape, (3,))
     assert_true(b.flags['C_CONTIGUOUS'])
     assert_equal(b.dtype, np.int32)
