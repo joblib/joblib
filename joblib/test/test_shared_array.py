@@ -90,13 +90,35 @@ def test_file_based_sharedarray():
 
     # Check from readonly, open file descriptor
     with open(filename, 'rb') as f:
-        b = SharedArray(filename=f, dtype=np.float32, shape=(3, 4))
+        b = SharedArray(filename=f, dtype=np.float32, shape=(3, 4), order='F')
         assert_equal(b.shape, (3, 4))
-        assert_true(b.flags['C_CONTIGUOUS'])
+        assert_true(b.flags['F_CONTIGUOUS'])
         assert_equal(b.dtype, np.float32)
         assert_equal(b.mode, 'r')
         assert_equal(b.offset, 0)
         assert_equal(b.filename, filename)
+
+    # Changing the content of 'a' is reflected in 'b'
+    a[0] = 42.
+    assert_equal(b[0, 0], 42.)
+    a[0] = 0.
+    assert_equal(b[0, 0], 0.)
+
+    # Check from filename, no shape, copy on write and fortran aligned
+    c = SharedArray(filename=filename, dtype=np.float32, mode='copyonwrite',
+                    order='F')
+    assert_equal(c.shape, (12,))
+    assert_true(c.flags['F_CONTIGUOUS'])
+    assert_equal(c.dtype, np.float32)
+    assert_equal(c.mode, 'c')
+    assert_equal(c.offset, 0)
+    assert_equal(c.filename, filename)
+    assert_array_equal(a, np.zeros(12, dtype=np.float32))
+
+    # Changing the content of c is not reflected in a
+    c[0] = 42.
+    assert_equal(c[0], 42.)
+    assert_equal(a[0], 0.)
 
     # Check inconsistent shape
     with open(filename, 'rb') as f:
@@ -112,7 +134,6 @@ def test_file_based_sharedarray():
 
     # Check mandatory shape in write mode
     assert_raises(ValueError, SharedArray, filename=filename, mode='w+')
-
 
 
 @with_numpy
