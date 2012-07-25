@@ -5,6 +5,7 @@ import os.path
 import shutil
 
 from ..shared_array import SharedArray
+from ..shared_array import SharedMemmap
 from ..shared_array import as_shared_array
 from .common import with_numpy, np
 
@@ -69,13 +70,13 @@ def test_anonymous_shared_array():
 
 @with_numpy
 @with_temp_folder
-def test_file_based_sharedarray():
+def test_file_based_shared_memmap():
     filename = os.path.join(TEMP_FOLDER, 'some_file.bin')
     with open(filename, 'wb') as f:
         f.write('\0' * 4 * 3 * 4)
 
-    # Check from filename
-    a = SharedArray(filename=filename, dtype=np.float32)
+    # Check from existing file with default parameters
+    a = SharedMemmap(filename, dtype=np.float32)
     assert_equal(a.shape, (12,))
     assert_true(a.flags['C_CONTIGUOUS'])
     assert_equal(a.dtype, np.float32)
@@ -85,12 +86,12 @@ def test_file_based_sharedarray():
     assert_array_equal(a, np.zeros(12, dtype=np.float32))
 
     # Check from filename with integer shape
-    a = SharedArray(filename=filename, dtype=np.float32, shape=12)
+    a = SharedMemmap(filename, dtype=np.float32, shape=12)
     assert_equal(a.shape, (12,))
 
     # Check from readonly, open file descriptor
     with open(filename, 'rb') as f:
-        b = SharedArray(filename=f, dtype=np.float32, shape=(3, 4), order='F')
+        b = SharedMemmap(f, dtype=np.float32, mode='r', shape=(3, 4), order='F')
         assert_equal(b.shape, (3, 4))
         assert_true(b.flags['F_CONTIGUOUS'])
         assert_equal(b.dtype, np.float32)
@@ -105,7 +106,7 @@ def test_file_based_sharedarray():
     assert_equal(b[0, 0], 0.)
 
     # Check from filename, no shape, copy on write and fortran aligned
-    c = SharedArray(filename=filename, dtype=np.float32, mode='copyonwrite',
+    c = SharedMemmap(filename, dtype=np.float32, mode='copyonwrite',
                     order='F')
     assert_equal(c.shape, (12,))
     assert_true(c.flags['F_CONTIGUOUS'])
@@ -120,20 +121,47 @@ def test_file_based_sharedarray():
     assert_equal(c[0], 42.)
     assert_equal(a[0], 0.)
 
+    # check pickling
+    d = loads(dumps(a))
+    assert_true(d is not a)
+    assert_equal(d.shape, (12,))
+    assert_true(d.flags['C_CONTIGUOUS'])
+    assert_equal(d.dtype, np.float32)
+    assert_equal(d.mode, 'r+')
+    assert_equal(d.offset, 0)
+    assert_equal(d.filename, filename)
+    assert_array_equal(a, d)
+
+    # check memory sharing
+    a += 1.0
+    assert_array_equal(a, d)
+
+    d[:] = 0.0
+    assert_array_equal(a, np.zeros((12,), dtype=np.float32))
+
+
+@with_numpy
+@with_temp_folder
+def test_file_based_shared_memmap_errors():
+    filename = os.path.join(TEMP_FOLDER, 'some_file.bin')
+    with open(filename, 'wb') as f:
+        f.write('\0' * 4 * 3 * 4)
+
     # Check inconsistent shape
     with open(filename, 'rb') as f:
-        assert_raises(ValueError, SharedArray, filename=f, dtype=np.float32,
-                      shape=(42,))
+        assert_raises(ValueError, SharedMemmap, f, dtype=np.float32,
+                      mode='r', shape=(42,))
 
     # Check inconsistent length, offset and dtype
-    assert_raises(ValueError, SharedArray, filename=filename,
+    assert_raises(ValueError, SharedMemmap, filename,
                   dtype=np.float64, offset=7)
 
     # Check invalid mode
-    assert_raises(ValueError, SharedArray, filename=filename, mode='creative')
+    assert_raises(ValueError, SharedMemmap, filename, mode='creative')
 
-    # Check mandatory shape in write mode
-    assert_raises(ValueError, SharedArray, filename=filename, mode='w+')
+    # Check mandatory shape in write mode (this will delete the file content
+    # though)
+    assert_raises(ValueError, SharedMemmap, filename, mode='w+')
 
 
 @with_numpy

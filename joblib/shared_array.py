@@ -208,3 +208,35 @@ def as_shared_array(a, dtype=None, shape=None, order=None):
         sa = SharedArray(dtype=a.dtype, shape=a.shape, order=order)
         sa[:] = a[:]
         return sa
+
+
+class SharedMemmap(np.memmap):
+    """A np.memmap derivative with pickling support for multiprocessing
+
+    The default pickling behavior of numpy arrays is overriden as
+    we make the assumption that a pickled SharedMemmap instance
+    will be unpickled on the same machine in a multiprocessing or
+    joblib.Parallel context.
+
+    In this case for the original and the unpickled copied SharedMemmap
+    instances share a reference to the same memory mapped files
+    hence implementing filesystem-backed shared memory.
+
+    This is extremly useful to avoid useless memory copy of a
+    readonly datasets provided as input to several workers in a
+    multiprocessing Pool for instance.
+
+    TODO: add the multiprocessing shared lock feature
+
+    Parameters and attributes are inherited from the nump.memmap
+    class.  The only change is a dedicated __reduce__ implementation
+    used for pickling SharedMemmap without performing any kind of
+    additional in-memory allocation for the content of the array.
+
+    """
+
+    def __reduce__(self):
+        """Support for pickling while still sharing the original buffer"""
+        order = 'F' if self.flags['F_CONTIGUOUS'] else 'C'
+        return SharedMemmap, (self.filename, self.dtype, self.mode,
+                              self.offset, self.shape, order)
