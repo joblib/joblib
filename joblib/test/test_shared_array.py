@@ -7,6 +7,7 @@ import shutil
 from ..shared_array import SharedArray
 from ..shared_array import SharedMemmap
 from ..shared_array import as_shared_array
+from ..shared_array import as_shared_memmap
 from .common import with_numpy, np
 
 from nose.tools import with_setup
@@ -188,10 +189,10 @@ def test_as_shared_array_anonymous():
 
 @with_temp_folder
 @with_numpy
-def test_as_shared_array_memmap():
+def test_as_shared_memmap():
     filename = os.path.join(TEMP_FOLDER, 'array.mmap')
     mmap = np.memmap(filename, np.int32, shape=(2, 3), mode='w+')
-    a = as_shared_array(mmap)
+    a = as_shared_memmap(mmap)
     assert_equal(a.shape, (2, 3))
     assert_true(a.flags['C_CONTIGUOUS'])
     assert_equal(a.dtype, np.int32)
@@ -200,7 +201,7 @@ def test_as_shared_array_memmap():
     assert_equal(a.filename, filename)
 
     mmap2 = np.memmap(filename, np.int32, shape=(3,), mode='r+', offset=4 * 3)
-    b = as_shared_array(mmap2)
+    b = as_shared_memmap(mmap2)
     assert_equal(b.shape, (3,))
     assert_true(b.flags['C_CONTIGUOUS'])
     assert_equal(b.dtype, np.int32)

@@ -182,13 +182,9 @@ class SharedArray(np.ndarray):
 
 
 def as_shared_array(a, dtype=None, shape=None, order=None):
-    """Make an anonymous SharedArray instance out of a
+    """Make an anonymous SharedArray instance out of a array-like.
 
     If a is already a SharedArray instance, return it-self.
-
-    If a is a numpy.memmap array, return a SharedArray pointing to
-    the same file with the same configuration so as to add better
-    multiprocessing support.
 
     Otherwise a new shared buffer is allocated and the content of
     a is copied into it.
@@ -196,10 +192,6 @@ def as_shared_array(a, dtype=None, shape=None, order=None):
     """
     if isinstance(a, SharedArray):
         return a
-    elif isinstance(a, np.memmap):
-        order = 'F' if a.flags['F_CONTIGUOUS'] else 'C'
-        return SharedArray(filename=a.filename, dtype=a.dtype, shape=a.shape,
-                           offset=a.offset, mode=a.mode, order=order)
     else:
         a = np.asanyarray(a, dtype=dtype, order=order)
         if shape is not None and shape != a.shape:
@@ -240,3 +232,23 @@ class SharedMemmap(np.memmap):
         order = 'F' if self.flags['F_CONTIGUOUS'] else 'C'
         return SharedMemmap, (self.filename, self.dtype, self.mode,
                               self.offset, self.shape, order)
+
+
+def as_shared_memmap(a):
+    """Create a SharedMemmap instance pointing to the same file.
+
+    The original memmap array and its shared variant will have the
+    same behavior but the pickling of the later is overriden to
+    avoid inmemory copies so as to be used efficiently in a single mode,
+    multiple pooled workers multiprocessing context.
+
+    Parameters
+    ----------
+    a : numpy.memmap
+        The memmap array to share.
+    """
+    if isinstance(a, SharedMemmap):
+        return a
+    order = 'F' if a.flags['F_CONTIGUOUS'] else 'C'
+    return SharedMemmap(a.filename, dtype=a.dtype, shape=a.shape,
+                        offset=a.offset, mode=a.mode, order=order)
