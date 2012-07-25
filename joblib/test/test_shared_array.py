@@ -36,7 +36,7 @@ with_temp_folder = with_setup(setup_temp_folder, teardown_temp_folder)
 
 @with_numpy
 def test_shared_array():
-    a = SharedArray(dtype=np.float32, shape=(3, 5), order='F')
+    a = SharedArray((3, 5), dtype=np.float32, order='F')
 
     # check array metadata
     assert_equal(a.shape, (3, 5))
