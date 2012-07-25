@@ -23,11 +23,18 @@ mode_equivalents = {
 class SharedArray(np.ndarray):
     """Array sharable by multiple processes using the mmap kernel features.
 
-    This class aims to blend the good features from numpy.memmap (behave like
-    a regular numpy array with n-dimensional slicing and views), while adding
-    the good feature from multiprocessing.Array like picklability, anonymous
-    shared memory and shared locks for safe write concurrent to the array by
-    several processes).
+    This class is a subclass of numpy.ndarray that uses a shared
+    memory buffer allocated by the kernel using the mmap system API
+    so as to be shared by multiple workers in a multiprocessing
+    context without incuring memory copies of the array content.
+
+    The default pickling behavior of numpy arrays is thus overridden
+    (see the __reduce__ method) under the assumption that a SharedArray
+    instance will always be unpickled on the same machine as the
+    original instance and that the memory is still allocated (i.e.
+    in the same Python process or a subprocess).
+
+    TODO: implement shared multiprocessing locks.
 
     All of this is implemented in a cross-platform manner without
     any dependencies beyond numpy and the Python standard library
@@ -48,15 +55,8 @@ class SharedArray(np.ndarray):
 
     __array_priority__ = -100.0  # TODO: why? taken from np.memmap
 
-    def __new__(subtype, filename=None, address=None, dtype=np.uint8,
-                mode=None, offset=0, shape=None, order='C'):
-        if mode is None:
-            if filename is None:
-                mode = 'w+'
-            elif getattr(filename, 'mode', '').startswith('r'):
-                mode = 'r'
-            else:
-                mode = 'r+'
+    def __new__(subtype, shape, dtype=np.uint8, mode='w+', offset=0,
+                order='C', address=None):
 
         try:
             mode = mode_equivalents[mode]
@@ -66,54 +66,15 @@ class SharedArray(np.ndarray):
                                  (valid_filemodes
                                   + mode_equivalents.keys()))
 
-        if hasattr(filename, 'read'):
-            fileobj = filename
-            fileno = fileobj.fileno()
-            own_file = False
-        elif filename is None:
-            fileno = -1
-            fileobj = None
-            own_file = False
-        else:
-            fileobj = open(filename, (mode == 'c' and 'r' or mode) + 'b')
-            fileno = fileobj.fileno()
-            own_file = True
-
-        if (mode == 'w+' or fileobj is None) and shape is None:
-            raise ValueError("shape must be given")
-
-        if fileobj is not None:
-            fileobj.seek(0, 2)  # move 0 bytes relative to end of the file
-            file_length = fileobj.tell()
-        else:
-            file_length = None
-
         dtype = np.dtype(dtype)
         _dbytes = dtype.itemsize
 
-        if shape is None:
-            bytes = file_length - offset
-            if (bytes % _dbytes):
-                if own_file:
-                    fileobj.close()
-                raise ValueError("Size of available data is not a "
-                        "multiple of the data-type size.")
-            size = bytes // _dbytes
-            shape = (size,)
-        else:
-            if not isinstance(shape, tuple):
-                shape = (shape,)
-            size = 1
-            for k in shape:
-                size *= k
-
+        if not isinstance(shape, tuple):
+            shape = (shape,)
+        size = 1
+        for k in shape:
+            size *= k
         bytes = long(offset + size * _dbytes)
-
-        if (fileobj is not None
-            and (mode == 'w+' or (mode == 'r+' and file_length < bytes))):
-            fileobj.seek(bytes - 1, 0)
-            fileobj.write(np.compat.asbytes('\0'))
-            fileobj.flush()
 
         if mode == 'c':
             acc = mmap.ACCESS_COPY
@@ -128,9 +89,9 @@ class SharedArray(np.ndarray):
                 start = offset - offset % mmap.ALLOCATIONGRANULARITY
                 bytes -= start
                 offset -= start
-                mm = mmap.mmap(fileno, bytes, access=acc, offset=start)
+                mm = mmap.mmap(-1, bytes, access=acc, offset=start)
             else:
-                mm = mmap.mmap(fileno, bytes, access=acc)
+                mm = mmap.mmap(-1, bytes, access=acc)
             buffer = mm
         else:
             # Reuse an existing memory address from an anonymous mmap
@@ -142,43 +103,24 @@ class SharedArray(np.ndarray):
         self._mmap = mm
         self.offset = offset
         self.mode = mode
-
-        if isinstance(filename, basestring):
-            self.filename = os.path.abspath(filename)
-        elif hasattr(filename, "name"):
-            self.filename = os.path.abspath(filename.name)
-        else:
-            self.filename = None  # anonymouse mmap
-
-        if own_file:
-            fileobj.close()
-
         return self
 
     def __array_finalize__(self, obj):
         if hasattr(obj, '_mmap') and np.may_share_memory(self, obj):
             self._mmap = obj._mmap
-            self.filename = obj.filename
             self.offset = obj.offset
             self.mode = obj.mode
         else:
             self._mmap = None
-            self.filename = None
             self.offset = None
             self.mode = None
-
-    def flush(self):
-        """Write any changes in the array to the file on disk."""
-        self._mmap.flush()
 
     def __reduce__(self):
         """Support for pickling while still sharing the original buffer"""
         order = 'F' if self.flags['F_CONTIGUOUS'] else 'C'
-        address = None
-        if self.filename is None:
-            address, _ = address_of_buffer(self._mmap)
-        return SharedArray, (self.filename, address, self.dtype, self.mode,
-                             self.offset, self.shape, order)
+        address, _ = address_of_buffer(self._mmap)
+        return SharedArray, (self.shape, self.dtype, self.mode, self.offset,
+                             order, address)
 
 
 def as_shared_array(a, dtype=None, shape=None, order=None):

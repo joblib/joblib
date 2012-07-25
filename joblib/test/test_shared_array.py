@@ -35,7 +35,7 @@ with_temp_folder = with_setup(setup_temp_folder, teardown_temp_folder)
 
 
 @with_numpy
-def test_anonymous_shared_array():
+def test_shared_array():
     a = SharedArray(dtype=np.float32, shape=(3, 5), order='F')
 
     # check array metadata
@@ -58,7 +58,6 @@ def test_anonymous_shared_array():
     assert_equal(b.dtype, np.float32)
     assert_equal(b.mode, 'w+')
     assert_equal(b.offset, 0)
-    assert_equal(b.filename, None)
     assert_array_equal(a, b)
 
     # check memory sharing
@@ -166,14 +165,13 @@ def test_file_based_shared_memmap_errors():
 
 
 @with_numpy
-def test_as_shared_array_anonymous():
+def test_as_shared_array():
     a = as_shared_array(np.zeros((2, 4)))
     assert_equal(a.shape, (2, 4))
     assert_true(a.flags['C_CONTIGUOUS'])
     assert_equal(a.dtype, np.float64)
     assert_equal(a.mode, 'w+')
     assert_equal(a.offset, 0)
-    assert_equal(a.filename, None)
 
     b = as_shared_array([1, 2, 3, 4], shape=(2, 2))
     assert_equal(b.shape, (2, 2))
@@ -181,7 +179,6 @@ def test_as_shared_array_anonymous():
     assert_equal(b.dtype, np.int64)
     assert_equal(b.mode, 'w+')
     assert_equal(b.offset, 0)
-    assert_equal(b.filename, None)
 
     c = as_shared_array(a)
     assert_true(c is a)
@@ -223,3 +220,6 @@ def test_as_shared_memmap():
     assert_equal(mmap[1, 0], 0)
     assert_equal(mmap2[0], 0)
     assert_equal(b[0], 0)
+
+    c = as_shared_memmap(a)
+    assert_true(c is a)
