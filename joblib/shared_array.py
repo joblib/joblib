@@ -139,7 +139,7 @@ def as_shared_array(a, dtype=None, shape=None, order=None):
         if shape is not None and shape != a.shape:
             a = a.reshape(shape)
         order = 'F' if a.flags['F_CONTIGUOUS'] else 'C'
-        sa = SharedArray(dtype=a.dtype, shape=a.shape, order=order)
+        sa = SharedArray(a.shape, dtype=a.dtype, order=order)
         sa[:] = a[:]
         return sa
 
