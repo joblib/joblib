@@ -1,3 +1,4 @@
+import gc
 from cPickle import loads
 from cPickle import dumps
 import tempfile
@@ -99,6 +100,36 @@ def test_shared_array_parallel():
                        for i in range(a.shape[0]))
 
     assert_array_equal(a, [2 ** i for i in range(10)])
+
+
+@with_numpy
+def test_shared_array_parallel_on_pickled_shared_array():
+    a = SharedArray(10, dtype=np.int32)
+    a.fill(2)
+    assert_array_equal(a, np.ones(10) * 2)
+
+    # Make a clone of a but don't garbage collect the original
+    b = loads(dumps(a))
+
+    # Use b in a parallel setting instead of the initially allocated shared
+    # array
+    Parallel(n_jobs=2)(delayed(inplace_power)(b, i)
+                       for i in range(b.shape[0]))
+
+    assert_array_equal(b, [2 ** i for i in range(10)])
+
+
+    # Garbage collect a and continue using b
+    # XXX: should we try to handle this case?
+    #del a
+    #gc.collect()
+
+    ## Use b in a parallel setting instead of the initially allocated shared
+    ## array
+    #Parallel(n_jobs=2)(delayed(inplace_power)(b, i)
+    #                   for i in range(b.shape[0]))
+
+    #assert_array_equal(b, [2 ** i for i in range(10)])
 
 
 @with_numpy
