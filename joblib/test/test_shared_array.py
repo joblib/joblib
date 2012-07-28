@@ -46,7 +46,7 @@ def test_shared_array():
     assert_equal(a.shape, (3, 5))
     assert_true(a.flags['F_CONTIGUOUS'])
     assert_equal(a.dtype, np.float32)
-    assert_equal(a.mode, 'w+')
+    assert_equal(a.mode, 'r+')
     assert_equal(a.offset, 0)
 
     # check some basic numpy features
@@ -60,7 +60,7 @@ def test_shared_array():
     assert_equal(b.shape, (3, 5))
     assert_true(b.flags['F_CONTIGUOUS'])
     assert_equal(b.dtype, np.float32)
-    assert_equal(b.mode, 'w+')
+    assert_equal(b.mode, 'r+')
     assert_equal(b.offset, 0)
     assert_array_equal(a, b)
 
@@ -105,6 +105,10 @@ def test_shared_array_parallel_copyonwrite():
 def test_shared_array_errors():
     # Check invalid mode
     assert_raises(ValueError, SharedArray, 10, mode='creative')
+
+    # Only readwrite and copyonwrite are supported for anonymous shared arrays
+    assert_raises(ValueError, SharedArray, 10, mode='r')
+    assert_raises(ValueError, SharedArray, 10, mode='w+')
 
 
 @with_numpy
@@ -209,14 +213,14 @@ def test_as_shared_array():
     assert_equal(a.shape, (2, 4))
     assert_true(a.flags['C_CONTIGUOUS'])
     assert_equal(a.dtype, np.float64)
-    assert_equal(a.mode, 'w+')
+    assert_equal(a.mode, 'r+')
     assert_equal(a.offset, 0)
 
     b = as_shared_array([1, 2, 3, 4], shape=(2, 2))
     assert_equal(b.shape, (2, 2))
     assert_true(b.flags['C_CONTIGUOUS'])
     assert_equal(b.dtype, np.int64)
-    assert_equal(b.mode, 'w+')
+    assert_equal(b.mode, 'r+')
     assert_equal(b.offset, 0)
 
     c = as_shared_array(a)

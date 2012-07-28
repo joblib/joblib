@@ -7,16 +7,10 @@ import os.path
 from _multiprocessing import address_of_buffer
 
 
-# Constants taken from numpy.core.memmap module that is unfortunately
-# shadowed by the memmap class itself, hence the local copy here
-
-valid_filemodes = ["r", "c", "r+", "w+"]
-writeable_filemodes = ["r+", "w+"]
+valid_filemodes = ["c", "r+"]
 mode_equivalents = {
-    "readonly": "r",
     "copyonwrite": "c",
     "readwrite": "r+",
-    "write": "w+",
 }
 
 
@@ -55,7 +49,7 @@ class SharedArray(np.ndarray):
 
     __array_priority__ = -100.0  # TODO: why? taken from np.memmap
 
-    def __new__(subtype, shape, dtype=np.uint8, mode='w+', offset=0,
+    def __new__(subtype, shape, dtype=np.uint8, mode='r+', offset=0,
                 order='C', address=None):
 
         try:
@@ -78,8 +72,6 @@ class SharedArray(np.ndarray):
 
         if mode == 'c':
             acc = mmap.ACCESS_COPY
-        elif mode == 'r':
-            acc = mmap.ACCESS_READ
         else:
             acc = mmap.ACCESS_WRITE
 
