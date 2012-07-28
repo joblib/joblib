@@ -73,6 +73,7 @@ def test_shared_array():
 
 
 def inplace_power(a, i):
+    assert_equal(a[i], 2)
     a[i] **= i
 
 
@@ -86,6 +87,18 @@ def test_shared_array_parallel():
                        for i in range(a.shape[0]))
 
     assert_array_equal(a, [2 ** i for i in range(10)])
+
+
+@with_numpy
+def test_shared_array_parallel_copyonwrite():
+    a = SharedArray(10, dtype=np.int32, mode='c')
+    a.fill(2)
+    assert_array_equal(a, np.ones(10) * 2)
+
+    Parallel(n_jobs=2)(delayed(inplace_power)(a, i)
+                       for i in range(a.shape[0]))
+
+    assert_array_equal(a, np.ones(10) * 2)
 
 
 @with_numpy
