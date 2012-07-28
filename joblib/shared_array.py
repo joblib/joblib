@@ -76,32 +76,33 @@ class SharedArray(np.ndarray):
             acc = mmap.ACCESS_WRITE
 
         if address is None:
-            buffer = mm = mmap.mmap(-1, bytes, access=acc)
+            buffer = mmap.mmap(-1, bytes, access=acc)
+            address = address_of_buffer(buffer)[0]
         else:
             # Reuse an existing memory address from an anonymous mmap
             buffer = (ctypes.c_byte * bytes).from_address(address)
-            mm = None
 
         self = np.ndarray.__new__(subtype, shape, dtype=dtype, buffer=buffer,
                                   order=order)
-        self._mmap = mm
+        self._address = address
         self.mode = mode
         return self
 
     def __array_finalize__(self, obj):
-        if hasattr(obj, '_mmap') and np.may_share_memory(self, obj):
-            self._mmap = obj._mmap
+        # XXX: should we really do this? Check the numpy subclassing reference
+        # to guess what is the best behavior to follow here
+        if hasattr(obj, '_address') and np.may_share_memory(self, obj):
+            self._address = obj._address
             self.mode = obj.mode
         else:
-            self._mmap = None
+            self._address = None
             self.mode = None
 
     def __reduce__(self):
         """Support for pickling while still sharing the original buffer"""
         order = 'F' if self.flags['F_CONTIGUOUS'] else 'C'
-        address, _ = address_of_buffer(self._mmap)
         return SharedArray, (self.shape, self.dtype, self.mode, order,
-                             address)
+                             self._address)
 
 
 def as_shared_array(a, dtype=None, shape=None, order=None):

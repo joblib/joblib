@@ -17,6 +17,7 @@ from .common import with_numpy, np
 from nose.tools import with_setup
 from nose.tools import assert_equal
 from nose.tools import assert_true
+from nose.tools import assert_false
 from nose.tools import assert_raises
 
 assert_array_equal = np.testing.assert_array_equal
@@ -62,12 +63,25 @@ def test_shared_array():
     assert_equal(b.mode, 'r+')
     assert_array_equal(a, b)
 
+    # check recursive pickling
+    c = loads(dumps(b))
+    assert_true(c is not a)
+    assert_true(c is not b)
+    assert_equal(c.shape, (3, 5))
+    assert_true(c.flags['F_CONTIGUOUS'])
+    assert_equal(c.dtype, np.float32)
+    assert_equal(c.mode, 'r+')
+    assert_array_equal(a, c)
+    assert_array_equal(b, c)
+
     # check memory sharing
     a += 1.0
     assert_array_equal(a, b)
+    assert_array_equal(a, c)
 
     b[:] = 0.0
     assert_array_equal(a, np.zeros((3, 5), dtype=np.float32))
+    assert_array_equal(c, np.zeros((3, 5), dtype=np.float32))
 
 
 def inplace_power(a, i):
@@ -221,6 +235,16 @@ def test_as_shared_array():
 
     c = as_shared_array(a)
     assert_true(c is a)
+
+
+@with_numpy
+def test_shared_array_operators():
+    """Check that operators trigger regular array allocations"""
+    a = as_shared_array(np.ones((2, 5)))
+    b = a * 2
+    assert_array_equal(b, np.ones((2, 5)) * 2)
+    # XXX: fix me!
+    #assert_false(isinstance(b, SharedArray))
 
 
 @with_temp_folder
