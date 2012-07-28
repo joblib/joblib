@@ -3,11 +3,15 @@ from cPickle import dumps
 import tempfile
 import os.path
 import shutil
+from mmap import mmap
+from _multiprocessing import address_of_buffer
 
 from ..shared_array import SharedArray
 from ..shared_array import SharedMemmap
 from ..shared_array import as_shared_array
 from ..shared_array import as_shared_memmap
+from ..parallel import Parallel
+from ..parallel import delayed
 from .common import with_numpy, np
 
 from nose.tools import with_setup
@@ -66,6 +70,28 @@ def test_shared_array():
 
     b[:] = 0.0
     assert_array_equal(a, np.zeros((3, 5), dtype=np.float32))
+
+
+def inplace_power(a, i):
+    a[i] **= i
+
+
+@with_numpy
+def test_shared_array_parallel():
+    a = SharedArray(10, dtype=np.int32)
+    a.fill(2)
+    assert_array_equal(a, np.ones(10) * 2)
+
+    Parallel(n_jobs=2)(delayed(inplace_power)(a, i)
+                       for i in range(a.shape[0]))
+
+    assert_array_equal(a, [2 ** i for i in range(10)])
+
+
+@with_numpy
+def test_shared_array_errors():
+    # Check invalid mode
+    assert_raises(ValueError, SharedArray, 10, mode='creative')
 
 
 @with_numpy
@@ -188,8 +214,8 @@ def test_as_shared_array():
 @with_numpy
 def test_as_shared_memmap():
     filename = os.path.join(TEMP_FOLDER, 'array.mmap')
-    mmap = np.memmap(filename, np.int32, shape=(2, 3), mode='w+')
-    a = as_shared_memmap(mmap)
+    array_mmap = np.memmap(filename, np.int32, shape=(2, 3), mode='w+')
+    a = as_shared_memmap(array_mmap)
     assert_equal(a.shape, (2, 3))
     assert_true(a.flags['C_CONTIGUOUS'])
     assert_equal(a.dtype, np.int32)
@@ -208,8 +234,8 @@ def test_as_shared_memmap():
 
     # Change the content of the first array and check that the changes are
     # visible in the others
-    mmap[1, 0] = 42
-    mmap.flush()
+    array_mmap[1, 0] = 42
+    array_mmap.flush()
     assert_equal(a[1, 0], 42)
     assert_equal(mmap2[0], 42)
     assert_equal(b[0], 42)
@@ -217,7 +243,7 @@ def test_as_shared_memmap():
     # Converse change
     a[1, 0] = 0
     a.flush()
-    assert_equal(mmap[1, 0], 0)
+    assert_equal(array_mmap[1, 0], 0)
     assert_equal(mmap2[0], 0)
     assert_equal(b[0], 0)
 
