@@ -126,6 +126,7 @@ def test_shared_array_parallel_on_pickled_shared_array():
 
     ## Use b in a parallel setting instead of the initially allocated shared
     ## array
+    #b.fill(2)
     #Parallel(n_jobs=2)(delayed(inplace_power)(b, i)
     #                   for i in range(b.shape[0]))
 
