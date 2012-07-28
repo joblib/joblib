@@ -120,7 +120,8 @@ def test_shared_array_parallel_on_pickled_shared_array():
 
 
     # Garbage collect a and continue using b
-    # XXX: should we try to handle this case?
+    # XXX: should we try to handle this case? check multiprocessing.Array
+    # behavior and try to replicate it or document limitations in docstring
     #del a
     #gc.collect()
 
