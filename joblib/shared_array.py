@@ -49,8 +49,8 @@ class SharedArray(np.ndarray):
 
     __array_priority__ = -100.0  # TODO: why? taken from np.memmap
 
-    def __new__(subtype, shape, dtype=np.uint8, mode='r+', offset=0,
-                order='C', address=None):
+    def __new__(subtype, shape, dtype=np.uint8, mode='r+', order='C',
+                address=None):
 
         try:
             mode = mode_equivalents[mode]
@@ -68,7 +68,7 @@ class SharedArray(np.ndarray):
         size = 1
         for k in shape:
             size *= k
-        bytes = long(offset + size * _dbytes)
+        bytes = long(size * _dbytes)
 
         if mode == 'c':
             acc = mmap.ACCESS_COPY
@@ -76,43 +76,32 @@ class SharedArray(np.ndarray):
             acc = mmap.ACCESS_WRITE
 
         if address is None:
-            if sys.version_info[:2] >= (2, 6):
-                # The offset keyword in mmap.mmap needs Python >= 2.6
-                start = offset - offset % mmap.ALLOCATIONGRANULARITY
-                bytes -= start
-                offset -= start
-                mm = mmap.mmap(-1, bytes, access=acc, offset=start)
-            else:
-                mm = mmap.mmap(-1, bytes, access=acc)
-            buffer = mm
+            buffer = mm = mmap.mmap(-1, bytes, access=acc)
         else:
             # Reuse an existing memory address from an anonymous mmap
             buffer = (ctypes.c_byte * bytes).from_address(address)
             mm = None
 
         self = np.ndarray.__new__(subtype, shape, dtype=dtype, buffer=buffer,
-                                  offset=offset, order=order)
+                                  order=order)
         self._mmap = mm
-        self.offset = offset
         self.mode = mode
         return self
 
     def __array_finalize__(self, obj):
         if hasattr(obj, '_mmap') and np.may_share_memory(self, obj):
             self._mmap = obj._mmap
-            self.offset = obj.offset
             self.mode = obj.mode
         else:
             self._mmap = None
-            self.offset = None
             self.mode = None
 
     def __reduce__(self):
         """Support for pickling while still sharing the original buffer"""
         order = 'F' if self.flags['F_CONTIGUOUS'] else 'C'
         address, _ = address_of_buffer(self._mmap)
-        return SharedArray, (self.shape, self.dtype, self.mode, self.offset,
-                             order, address)
+        return SharedArray, (self.shape, self.dtype, self.mode, order,
+                             address)
 
 
 def as_shared_array(a, dtype=None, shape=None, order=None):
