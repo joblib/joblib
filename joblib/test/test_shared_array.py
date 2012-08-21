@@ -263,7 +263,7 @@ def test_as_shared_array():
     b = as_shared_array([1, 2, 3, 4], shape=(2, 2))
     assert_equal(b.shape, (2, 2))
     assert_true(b.flags['C_CONTIGUOUS'])
-    assert_equal(b.dtype, np.int64)
+    assert_equal(b.dtype, np.int_)
     assert_equal(b.mode, 'r+')
 
     c = as_shared_array(a)
