@@ -4,8 +4,6 @@ from cPickle import dumps
 import tempfile
 import os.path
 import shutil
-from mmap import mmap
-from _multiprocessing import address_of_buffer
 
 from ..shared_array import SharedArray
 from ..shared_array import SharedMemmap
@@ -160,8 +158,9 @@ def test_shared_array_errors():
 @with_temp_folder
 def test_file_based_shared_memmap():
     filename = os.path.join(TEMP_FOLDER, 'some_file.bin')
-    with open(filename, 'wb') as f:
-        f.write('\0' * 4 * 3 * 4)
+    f = open(filename, 'wb')
+    f.write('\0' * 4 * 3 * 4)
+    f.close()
 
     # Check from existing file with default parameters
     a = SharedMemmap(filename, dtype=np.float32)
@@ -178,14 +177,15 @@ def test_file_based_shared_memmap():
     assert_equal(a.shape, (12,))
 
     # Check from readonly, open file descriptor
-    with open(filename, 'rb') as f:
-        b = SharedMemmap(f, dtype=np.float32, mode='r', shape=(3, 4), order='F')
-        assert_equal(b.shape, (3, 4))
-        assert_true(b.flags['F_CONTIGUOUS'])
-        assert_equal(b.dtype, np.float32)
-        assert_equal(b.mode, 'r')
-        assert_equal(b.offset, 0)
-        assert_equal(b.filename, filename)
+    f = open(filename, 'rb')
+    b = SharedMemmap(f, dtype=np.float32, mode='r', shape=(3, 4), order='F')
+    assert_equal(b.shape, (3, 4))
+    assert_true(b.flags['F_CONTIGUOUS'])
+    assert_equal(b.dtype, np.float32)
+    assert_equal(b.mode, 'r')
+    assert_equal(b.offset, 0)
+    assert_equal(b.filename, filename)
+    f.close()
 
     # Changing the content of 'a' is reflected in 'b'
     a[0] = 42.
@@ -232,13 +232,15 @@ def test_file_based_shared_memmap():
 @with_temp_folder
 def test_file_based_shared_memmap_errors():
     filename = os.path.join(TEMP_FOLDER, 'some_file.bin')
-    with open(filename, 'wb') as f:
-        f.write('\0' * 4 * 3 * 4)
+    f = open(filename, 'wb')
+    f.write('\0' * 4 * 3 * 4)
+    f.close()
 
     # Check inconsistent shape
-    with open(filename, 'rb') as f:
-        assert_raises(ValueError, SharedMemmap, f, dtype=np.float32,
-                      mode='r', shape=(42,))
+    f = open(filename, 'rb')
+    assert_raises(ValueError, SharedMemmap, f, dtype=np.float32,
+                  mode='r', shape=(42,))
+    f.close()
 
     # Check inconsistent length, offset and dtype
     assert_raises(ValueError, SharedMemmap, filename,
