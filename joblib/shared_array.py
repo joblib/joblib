@@ -1,10 +1,10 @@
+import atexit
+import os
 import sys
 import numpy as np
 import mmap
 import ctypes
-import os.path
-
-from _multiprocessing import address_of_buffer
+from tempfile import mkstemp
 
 
 valid_filemodes = ["c", "r+"]
@@ -50,7 +50,7 @@ class SharedArray(np.ndarray):
     __array_priority__ = -100.0  # TODO: why? taken from np.memmap
 
     def __new__(subtype, shape, dtype=np.uint8, mode='r+', order='C',
-                address=None):
+                filename=None, lock=None, temp_folder=None):
 
         try:
             mode = mode_equivalents[mode]
@@ -70,39 +70,57 @@ class SharedArray(np.ndarray):
             size *= k
         bytes = long(size * _dbytes)
 
-        if mode == 'c':
-            acc = mmap.ACCESS_COPY
-        else:
-            acc = mmap.ACCESS_WRITE
+        acc = mmap.ACCESS_WRITE
 
-        if address is None:
-            buffer = mmap.mmap(-1, bytes, access=acc)
-            address = address_of_buffer(buffer)[0]
-        else:
-            # Reuse an existing memory address from an anonymous mmap
-            buffer = (ctypes.c_byte * bytes).from_address(address)
+        if filename is None:
+            # Anonymous array: create the shared buffer file in the temp folder
+            # and fill it with zeros
+            prefix = "joblib_shared_array_%d_" % os.getpid()
+            suffix = ".map"
+            fileno, filename = mkstemp(dir=temp_folder, prefix=prefix,
+                                    suffix=suffix)
+            os.close(fileno)
+            fid = open(filename, 'w+b')
+            fid.seek(bytes - 1, 0)
+            fid.write(np.compat.asbytes('\0'))
+            fid.flush()
 
+            # assume that upon the death of the current process all child
+            # procesess will be killed too and hence no other process will try
+            # to memmap this buffer anymore even if pickled shared arrays were
+            # enqueued in a multiprocessing pool
+            atexit.register(os.unlink, filename)
+        else:
+            # Unpickling of a shared array: reopen the shared memmaped file
+            if mode == 'c':
+                acc = mmap.ACCESS_COPY
+            fid = open(filename, 'rb' if mode == 'c' else 'r+b')
+
+        buffer = mmap.mmap(fid.fileno(), bytes, access=acc)
         self = np.ndarray.__new__(subtype, shape, dtype=dtype, buffer=buffer,
                                   order=order)
-        self._address = address
+        self._filename = filename
+        fid.close()
         self.mode = mode
         return self
 
     def __array_finalize__(self, obj):
         # XXX: should we really do this? Check the numpy subclassing reference
         # to guess what is the best behavior to follow here
-        if hasattr(obj, '_address') and np.may_share_memory(self, obj):
-            self._address = obj._address
+        if hasattr(obj, '_filename') and np.may_share_memory(self, obj):
+            self._filename = obj._filename
             self.mode = obj.mode
         else:
-            self._address = None
+            # XXX: bad code smell: this should never happen or it means that
+            # this array has it's own allocated buffer that is not a mmap buffer
+            self._filename = None
             self.mode = None
 
     def __reduce__(self):
         """Support for pickling while still sharing the original buffer"""
         order = 'F' if self.flags['F_CONTIGUOUS'] else 'C'
         return SharedArray, (self.shape, self.dtype, self.mode, order,
-                             self._address)
+                             self._filename)
 
 
 def as_shared_array(a, dtype=None, shape=None, order=None):
