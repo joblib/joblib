@@ -17,7 +17,11 @@ import sys
 from pickle import Pickler
 from pickle import Unpickler
 from pickle import HIGHEST_PROTOCOL
-from io import BytesIO
+try:
+    from io import BytesIO
+except ImportError:
+    # Python 2.5 compat
+    from StringIO import StringIO as BytesIO
 from multiprocessing import Pipe
 from multiprocessing.pool import Pool
 from multiprocessing.synchronize import Lock
@@ -29,7 +33,7 @@ except ImportError:
 
 
 class CustomPickler(Pickler):
-    """Pickler that accepts custom reducers and a callable as writer"""
+    """Pickler that accepts custom reducers."""
 
     def __init__(self, writer, reducers=()):
         Pickler.__init__(self, writer)
