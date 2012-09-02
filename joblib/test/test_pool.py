@@ -40,7 +40,16 @@ def double(input):
 @with_temp_folder
 def test_pool_with_memmap():
     # fork the subprocess before allocating the objects to be passed
-    p = PicklingPool(10)
+    def reduce_memmap(a):
+        mode = a.mode
+        if mode == 'w+':
+            # Do not make the subprocess erase the data from the parent memmap
+            # inadvertently
+            mode = 'r+'
+        order = 'F' if a.flags['F_CONTIGUOUS'] else 'C'
+        return (np.memmap, (a.filename, a.dtype, mode, a.offset, a.shape,
+                            order))
+    p = PicklingPool(10, reducers=[(np.memmap, reduce_memmap)])
 
     mmap1 = os.path.join(TEMPFOLDER, 'mmap1')
     a = np.memmap(mmap1, dtype=np.float32, shape=(3, 5), mode='w+')

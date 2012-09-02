@@ -32,14 +32,14 @@ class CustomPickler(Pickler):
     """Pickler that accepts custom reducers and a callable as writer"""
 
     def __init__(self, writer, reducers=()):
-        super(Pickler, self).__init__(writer)
+        Pickler.__init__(self, writer)
         for type, reduce_func in reducers:
             self.register(type, reduce_func)
 
     def register(self, type, reduce_func):
         def dispatcher(self, obj):
             reduced = reduce_func(obj)
-            self.save_reduce(obj=obj, *rv)
+            self.save_reduce(obj=obj, *reduced)
         self.dispatch[type] = dispatcher
 
 
@@ -95,7 +95,7 @@ class PicklingQueue(object):
             def send(obj):
                 buffer = BytesIO()
                 CustomPickler(buffer, self._reducers).dump(obj)
-                self._writer.send_bytes(buffer.value())
+                self._writer.send_bytes(buffer.getvalue())
             self._send = send
         else:
             self._send = send = self._writer.send
