@@ -4,18 +4,20 @@ This module provides efficient ways of working with data stored in
 shared memory with numpy.memmap arrays without inducing any memory
 copy between the parent and child processes.
 
-This module should not be imported if multiprocessing is not available.
-as it implements subclasses of multiprocessing Pool and SimpleQueue.
+This module should not be imported if multiprocessing is not
+available.  as it implements subclasses of multiprocessing Pool
+that uses a custom alternative to SimpleQueue
 
 """
 # Author: Olivier Grisel <olivier.grisel@ensta.org>
 # Copyright: 2012, Olivier Grisel
 # License: BSD 3 clause
 
+import sys
 from pickle import Pickler
+from pickle import Unpickler
 from pickle import HIGHEST_PROTOCOL
-from io import StringIO
-from multiprocessing.queues import SimpleQueue
+from io import BytesIO
 from multiprocessing import Pipe
 from multiprocessing.pool import Pool
 from multiprocessing.synchronize import Lock
@@ -26,8 +28,29 @@ except ImportError:
     memmap = None
 
 
-class PicklingQueue(SimpleQueue):
-    """SimpleQueue implementation that uses a custom pickler"""
+class CustomPickler(Pickler):
+    """Pickler that accepts custom reducers and a callable as writer"""
+
+    def __init__(self, writer, reducers=()):
+        super(Pickler, self).__init__(writer)
+        for type, reduce_func in reducers:
+            self.register(type, reduce_func)
+
+    def register(self, type, reduce_func):
+        def dispatcher(self, obj):
+            reduced = reduce_func(obj)
+            self.save_reduce(obj=obj, *rv)
+        self.dispatch[type] = dispatcher
+
+
+class PicklingQueue(object):
+    """Locked Pipe implementation that uses a custom pickler
+
+    This class is an alternative to the multiprocessing implementation
+    of SimpleQueue in order to make it possible to pass custom
+    pickling reducers.
+
+    """
 
     def __init__(self, reducers):
         self._reducers = reducers
@@ -52,18 +75,14 @@ class PicklingQueue(SimpleQueue):
     def empty(self):
         return not self._reader.poll()
 
-    def __getstate__(self):
-        assert_spawning(self)
-        return (self._reader, self._writer, self._rlock, self._wlock)
-
-    def __setstate__(self, state):
-        (self._reader, self._writer, self._rlock, self._wlock) = state
-        self._make_methods()
-
     def _make_methods(self):
-        recv = self._reader.recv
+        if self._reducers:
+            def recv():
+                return Unpickler(BytesIO(self._reader.recv_bytes())).load()
+            self._recv = recv
+        else:
+            self._recv = recv = self._reader.recv
         racquire, rrelease = self._rlock.acquire, self._rlock.release
-        self._pickle = Pickler()
         def get():
             racquire()
             try:
@@ -72,11 +91,18 @@ class PicklingQueue(SimpleQueue):
                 rrelease()
         self.get = get
 
+        if self._reducers:
+            def send(obj):
+                buffer = BytesIO()
+                CustomPickler(buffer, self._reducers).dump(obj)
+                self._writer.send_bytes(buffer.value())
+            self._send = send
+        else:
+            self._send = send = self._writer.send
         if self._wlock is None:
             # writes to a message oriented win32 pipe are atomic
-            self.put = self._writer.send
+            self.put = send
         else:
-            send = self._writer.send
             wacquire, wrelease = self._wlock.acquire, self._wlock.release
             def put(obj):
                 wacquire()
@@ -85,6 +111,7 @@ class PicklingQueue(SimpleQueue):
                 finally:
                     wrelease()
             self.put = put
+
 class PicklingPool(Pool):
     """Pool implementation with custom pickling reducers
 
@@ -102,5 +129,5 @@ class PicklingPool(Pool):
     def _setup_queues(self):
         self._inqueue = PicklingQueue(self.reducers)
         self._outqueue = PicklingQueue(self.reducers)
-        self._quick_put = self._inqueue._writer.send
-        self._quick_get = self._outqueue._reader.recv
+        self._quick_put = self._inqueue._send
+        self._quick_get = self._outqueue._recv
