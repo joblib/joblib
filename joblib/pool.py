@@ -128,9 +128,11 @@ class PicklingPool(Pool):
     """
 
     def __init__(self, processes=None, initializer=None, initargs=(),
-                 maxtasksperchild=None, reducers=()):
+                 reducers=()):
         self.reducers = reducers
-        super(PicklingPool, self).__init__()
+        super(PicklingPool, self).__init__(processes=None,
+                                           initializer=initializer,
+                                           initargs=initargs)
 
     def _setup_queues(self):
         self._inqueue = CustomizablePicklingQueue(self.reducers)
