@@ -88,12 +88,14 @@ class CustomizablePicklingQueue(object):
     def _make_methods(self):
         self._recv = recv = self._reader.recv
         racquire, rrelease = self._rlock.acquire, self._rlock.release
+
         def get():
             racquire()
             try:
                 return recv()
             finally:
                 rrelease()
+
         self.get = get
 
         if self._reducers:
@@ -109,13 +111,16 @@ class CustomizablePicklingQueue(object):
             self.put = send
         else:
             wacquire, wrelease = self._wlock.acquire, self._wlock.release
+
             def put(obj):
                 wacquire()
                 try:
                     return send(obj)
                 finally:
                     wrelease()
+
             self.put = put
+
 
 class PicklingPool(Pool):
     """Pool implementation with customizable pickling reducers.
