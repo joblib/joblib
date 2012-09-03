@@ -5,8 +5,8 @@ shared memory with numpy.memmap arrays without inducing any memory
 copy between the parent and child processes.
 
 This module should not be imported if multiprocessing is not
-available.  as it implements subclasses of multiprocessing Pool
-that uses a custom alternative to SimpleQueue
+available as it implements subclasses of multiprocessing Pool
+that uses a custom alternative to SimpleQueue.
 
 """
 # Author: Olivier Grisel <olivier.grisel@ensta.org>
@@ -15,7 +15,6 @@ that uses a custom alternative to SimpleQueue
 
 import sys
 from pickle import Pickler
-from pickle import Unpickler
 from pickle import HIGHEST_PROTOCOL
 try:
     from io import BytesIO
@@ -32,11 +31,17 @@ except ImportError:
     memmap = None
 
 
-class CustomPickler(Pickler):
-    """Pickler that accepts custom reducers."""
+class CustomizablePickler(Pickler):
+    """Pickler that accepts custom reducers.
 
-    def __init__(self, writer, reducers=()):
-        Pickler.__init__(self, writer)
+    HIGHEST_PROTOCOL is selected by default as this pickler is used
+    to pickle ephemeral datastructures for interprocess communication
+    hence no backward compatibility is required.
+
+    """
+
+    def __init__(self, writer, reducers=(), protocol=HIGHEST_PROTOCOL):
+        Pickler.__init__(self, writer, protocol=protocol)
         for type, reduce_func in reducers:
             self.register(type, reduce_func)
 
@@ -47,12 +52,13 @@ class CustomPickler(Pickler):
         self.dispatch[type] = dispatcher
 
 
-class PicklingQueue(object):
-    """Locked Pipe implementation that uses a custom pickler
+class CustomizablePicklingQueue(object):
+    """Locked Pipe implementation that uses a customizable pickler.
 
     This class is an alternative to the multiprocessing implementation
     of SimpleQueue in order to make it possible to pass custom
-    pickling reducers.
+    pickling reducers, for instance to avoid memory copy when passing
+    memmory mapped datastructures.
 
     """
 
@@ -80,12 +86,7 @@ class PicklingQueue(object):
         return not self._reader.poll()
 
     def _make_methods(self):
-        if self._reducers:
-            def recv():
-                return Unpickler(BytesIO(self._reader.recv_bytes())).load()
-            self._recv = recv
-        else:
-            self._recv = recv = self._reader.recv
+        self._recv = recv = self._reader.recv
         racquire, rrelease = self._rlock.acquire, self._rlock.release
         def get():
             racquire()
@@ -98,7 +99,7 @@ class PicklingQueue(object):
         if self._reducers:
             def send(obj):
                 buffer = BytesIO()
-                CustomPickler(buffer, self._reducers).dump(obj)
+                CustomizablePickler(buffer, self._reducers).dump(obj)
                 self._writer.send_bytes(buffer.getvalue())
             self._send = send
         else:
@@ -117,11 +118,12 @@ class PicklingQueue(object):
             self.put = put
 
 class PicklingPool(Pool):
-    """Pool implementation with custom pickling reducers
+    """Pool implementation with customizable pickling reducers.
 
-    This is useful to control how data is shipped between processes and makes it
-    possible to use shared memory without useless copies induces by the default
-    pickling methods of the original objects passed as arguments to dispatch.
+    This is useful to control how data is shipped between processes
+    and makes it possible to use shared memory without useless
+    copies induces by the default pickling methods of the original
+    objects passed as arguments to dispatch.
 
     """
 
@@ -131,7 +133,7 @@ class PicklingPool(Pool):
         super(PicklingPool, self).__init__()
 
     def _setup_queues(self):
-        self._inqueue = PicklingQueue(self.reducers)
-        self._outqueue = PicklingQueue(self.reducers)
+        self._inqueue = CustomizablePicklingQueue(self.reducers)
+        self._outqueue = CustomizablePicklingQueue(self.reducers)
         self._quick_put = self._inqueue._send
         self._quick_get = self._outqueue._recv
