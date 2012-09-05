@@ -13,7 +13,10 @@ that uses a custom alternative to SimpleQueue.
 # Copyright: 2012, Olivier Grisel
 # License: BSD 3 clause
 
+import os
 import sys
+from cPickle import loads
+from cPickle import dumps
 from pickle import Pickler
 from pickle import HIGHEST_PROTOCOL
 try:
@@ -26,9 +29,47 @@ from multiprocessing.pool import Pool
 from multiprocessing.synchronize import Lock
 from multiprocessing.forking import assert_spawning
 try:
-    from numpy import memmap
+    import numpy as np
 except ImportError:
-    memmap = None
+    np = None
+
+from .numpy_pickle import load
+from .numpy_pickle import dump
+from .hashing import hash
+
+
+def reduce_memmap(a):
+    """Pickle the descriptors of a memmap instance to reopen on same file"""
+    mode = a.mode
+    if mode == 'w+':
+        # Do not make the subprocess erase the data from the parent memmap
+        # inadvertently
+        mode = 'r+'
+    order = 'F' if a.flags['F_CONTIGUOUS'] else 'C'
+    return (np.memmap, (a.filename, a.dtype, mode, a.offset, a.shape, order))
+
+
+def make_array_to_memmap_reducer(max_nbytes, temp_folder, mmap_mode='c'):
+    if temp_folder is None or not os.path.isdir(temp_folder):
+        raise ValueError("temp_folder=%s is not a directory" % temp_folder)
+    def reduce_array(a):
+        if a.nbytes > max_nbytes:
+            filename = os.path.join(temp_folder, hash(a) + '.pkl')
+            # Let the memmap reducer handle it
+            if not os.path.exists(filename):
+                # XXX: check concurrent safety of this scheme
+                dump(a, filename)
+            return reduce_memmap(load(filename, mmap_mode=mmap_mode))
+        else:
+            # do not convert a into memmap, let pickler do its usual copy with
+            # a noop
+            return (loads, (dumps(a, protocol=HIGHEST_PROTOCOL),))
+    return reduce_array
+
+
+DEFAULT_REDUCERS = []
+if np is not None:
+    DEFAULT_REDUCERS.append((np.memmap, reduce_memmap))
 
 
 class CustomizablePickler(Pickler):
@@ -62,7 +103,7 @@ class CustomizablePicklingQueue(object):
 
     """
 
-    def __init__(self, reducers):
+    def __init__(self, reducers=()):
         self._reducers = reducers
         self._reader, self._writer = Pipe(duplex=False)
         self._rlock = Lock()
@@ -133,7 +174,7 @@ class PicklingPool(Pool):
     """
 
     def __init__(self, processes=None, initializer=None, initargs=(),
-                 reducers=()):
+                 reducers=DEFAULT_REDUCERS):
         self.reducers = reducers
         super(PicklingPool, self).__init__(processes=None,
                                            initializer=initializer,
