@@ -16,6 +16,9 @@ that uses a custom alternative to SimpleQueue.
 import os
 import sys
 import threading
+import atexit
+import tempfile
+import shutil
 from cPickle import loads
 from cPickle import dumps
 from pickle import Pickler
@@ -52,6 +55,7 @@ def reduce_memmap(a):
 def make_array_to_memmap_reducer(max_nbytes, temp_folder, mmap_mode='c'):
     if temp_folder is None or not os.path.isdir(temp_folder):
         raise ValueError("temp_folder=%s is not a directory" % temp_folder)
+
     def reduce_array(a):
         if a.nbytes > max_nbytes:
             # Find a cheap, unique, concurrent safe filename for writing the
@@ -71,11 +75,6 @@ def make_array_to_memmap_reducer(max_nbytes, temp_folder, mmap_mode='c'):
             # a noop
             return (loads, (dumps(a, protocol=HIGHEST_PROTOCOL),))
     return reduce_array
-
-
-DEFAULT_REDUCERS = []
-if np is not None:
-    DEFAULT_REDUCERS.append((np.memmap, reduce_memmap))
 
 
 class CustomizablePickler(Pickler):
@@ -180,7 +179,7 @@ class PicklingPool(Pool):
     """
 
     def __init__(self, processes=None, initializer=None, initargs=(),
-                 reducers=DEFAULT_REDUCERS):
+                 reducers=()):
         self.reducers = reducers
         super(PicklingPool, self).__init__(processes=None,
                                            initializer=initializer,
@@ -191,3 +190,51 @@ class PicklingPool(Pool):
         self._outqueue = CustomizablePicklingQueue(self.reducers)
         self._quick_put = self._inqueue._send
         self._quick_get = self._outqueue._recv
+
+
+class MemmapingPool(PicklingPool):
+    """Process pool that shares large arrays to avoid memory copy.
+
+    Automatically dump large arrays on the filesystem such as child
+    processes to access their content via memmaping (file system
+    backed shared memory).
+
+    Existing instances of numpy.memmap are preserved: the child
+    suprocesses will have access to the same shared memory in the
+    original mode except for the 'w+' mode that is automatically
+    transformed as 'r+' to avoid zeroing the original data upon
+    instanciation.
+
+    TODO: document parameters
+    """
+
+    def __init__(self, processes=None, initializer=None, initargs=(),
+                 temp_folder=None, max_nbytes=1e6, mmap_mode='c',
+                 reducers=()):
+        reducers = list(reducers)
+        reducers.append((np.memmap, reduce_memmap))
+
+        # create a subfolder for the serialization of this particular pool
+        # instance:
+        pid = os.getpid()
+        temp_folder = tempfile.mkdtemp(
+            prefix="joblib_memmaping_pool_%d_" % pid, dir=temp_folder)
+        self._temp_folder = temp_folder
+        atexit.register(self._collect_tempfile)
+
+        reduce_ndarray = make_array_to_memmap_reducer(max_nbytes, temp_folder,
+                                                      mmap_mode=mmap_mode)
+        reducers.append((np.ndarray, reduce_ndarray))
+
+        super(MemmapingPool, self).__init__(processes=None,
+                                            initializer=initializer,
+                                            initargs=initargs,
+                                            reducers=reducers)
+
+    def _collect_tempfile(self):
+        if os.path.exists(self._temp_folder):
+            shutil.rmtree(self._temp_folder, ignore_errors=True)
+
+    def terminate(self):
+        super(MemmapingPool, self).terminate()
+        self._collect_tempfile()

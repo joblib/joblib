@@ -12,16 +12,16 @@ except ImportError:
 
 try:
     import multiprocessing
-    from ..pool import PicklingPool
-    from ..pool import DEFAULT_REDUCERS
+    from ..pool import MemmapingPool
     from ..pool import make_array_to_memmap_reducer
-except:
+except ImportError:
     multiprocessing = None
 
 from nose import SkipTest
 from nose.tools import with_setup
 from nose.tools import assert_equal
 from nose.tools import assert_raises
+from nose.tools import assert_false
 
 
 TEMP_FOLDER = None
@@ -73,7 +73,7 @@ def double(input):
 def test_pool_with_memmap():
     """Check that subprocess can access and update shared memory"""
     # fork the subprocess before allocating the objects to be passed
-    p = PicklingPool(10)
+    p = MemmapingPool(10)
 
     filename = os.path.join(TEMP_FOLDER, 'test.mmap')
     a = np.memmap(filename, dtype=np.float32, shape=(3, 5), mode='w+')
@@ -96,7 +96,6 @@ def test_pool_with_memmap():
     assert_array_equal(a, 2 * np.ones(a.shape))
     assert_array_equal(b, 2 * np.ones(b.shape))
 
-
     # readonly maps can be read but not updated
     c = np.memmap(filename, dtype=np.float32, shape=(10,), mode='r',
                   offset=5 * 4)
@@ -111,27 +110,34 @@ def test_pool_with_memmap():
 @with_numpy
 @with_multiprocessing
 @with_temp_folder
-def test_pool_with_large_arrays():
+def test_memmaping_pool_for_large_arrays():
     """Check that large arrays are not copied in memory"""
     # Check that the tempfolder is empty
     assert_equal(os.listdir(TEMP_FOLDER), [])
 
     # Build an array reducers that automaticaly dump large array content
     # to filesystem backed memmap instances to avoid memory explosion
-    array_reducer = make_array_to_memmap_reducer(40, TEMP_FOLDER)
-    reducers = DEFAULT_REDUCERS + [(np.ndarray, array_reducer)]
-    p = PicklingPool(10, reducers=reducers)
+    p = MemmapingPool(10, max_nbytes=40, temp_folder=TEMP_FOLDER)
+
+    # The tempory folder for the pool is provisioned in advance
+    os.path.isdir(p._temp_folder)
+    subfolders = os.listdir(TEMP_FOLDER)
+    assert_equal(subfolders, [os.path.basename(p._temp_folder)])
 
     small = np.ones(5, dtype=np.float32)
     assert_equal(small.nbytes, 20)
     p.map(double, [(small, i, 1.0) for i in range(small.shape[0])])
 
-    # memory has been copied, the filesystem folder is unused
-    assert_equal(os.listdir(TEMP_FOLDER), [])
+    # memory has been copied, the pool filesystem folder is unused
+    assert_equal(os.listdir(p._temp_folder), [])
 
     # try with a file larger than the memmap threshold of 40 bytes
     large = np.ones(20, dtype=np.float64)
     assert_equal(large.nbytes, 160)
     p.map(double, [(large, i, 1.0) for i in range(large.shape[0])])
-    dumped_filenames = os.listdir(TEMP_FOLDER)
+    dumped_filenames = os.listdir(p._temp_folder)
     assert_equal(len(dumped_filenames), 2)
+
+    # check FS garbage upon pool termination
+    p.terminate()
+    assert_false(os.path.exists(p._temp_folder))
