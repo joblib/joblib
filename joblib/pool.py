@@ -15,6 +15,7 @@ that uses a custom alternative to SimpleQueue.
 
 import os
 import sys
+import threading
 from cPickle import loads
 from cPickle import dumps
 from pickle import Pickler
@@ -35,7 +36,6 @@ except ImportError:
 
 from .numpy_pickle import load
 from .numpy_pickle import dump
-from .hashing import hash
 
 
 def reduce_memmap(a):
@@ -54,11 +54,17 @@ def make_array_to_memmap_reducer(max_nbytes, temp_folder, mmap_mode='c'):
         raise ValueError("temp_folder=%s is not a directory" % temp_folder)
     def reduce_array(a):
         if a.nbytes > max_nbytes:
-            filename = os.path.join(temp_folder, hash(a) + '.pkl')
-            # Let the memmap reducer handle it
+            # Find a cheap, unique, concurrent safe filename for writing the
+            # content of this array only once.
+            pid = os.getpid()
+            thread_id = id(threading.current_thread())
+            array_id = id(a)
+            filename = os.path.join(
+                temp_folder, "%d-%d-%d.pkl" % (pid, thread_id, array_id))
             if not os.path.exists(filename):
-                # XXX: check concurrent safety of this scheme
                 dump(a, filename)
+
+            # Let's use the memmap reducer
             return reduce_memmap(load(filename, mmap_mode=mmap_mode))
         else:
             # do not convert a into memmap, let pickler do its usual copy with
