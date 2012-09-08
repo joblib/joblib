@@ -128,16 +128,19 @@ def test_memmaping_pool_for_large_arrays():
     assert_equal(small.nbytes, 20)
     p.map(double, [(small, i, 1.0) for i in range(small.shape[0])])
 
-    # memory has been copied, the pool filesystem folder is unused
+    # Memory has been copied, the pool filesystem folder is unused
     assert_equal(os.listdir(TEMP_FOLDER), [])
 
-    # try with a file larger than the memmap threshold of 40 bytes
+    # Try with a file larger than the memmap threshold of 40 bytes
     large = np.ones(100, dtype=np.float64)
     assert_equal(large.nbytes, 800)
     p.map(double, [(large, i, 1.0) for i in range(large.shape[0])])
+
+    # The data has been dump in a temp folder for subprocess to share it
+    # without per-child memory copies
+    assert_true(os.path.isdir(p._temp_folder))
     dumped_filenames = os.listdir(p._temp_folder)
     assert_equal(len(dumped_filenames), 2)
-    assert_true(os.path.isdir(p._temp_folder))
 
     # check FS garbage upon pool termination
     p.terminate()
