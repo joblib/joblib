@@ -121,8 +121,8 @@ def test_memmaping_pool_for_large_arrays():
     p = MemmapingPool(3, max_nbytes=40, temp_folder=TEMP_FOLDER)
 
     # The tempory folder for the pool is not provisioned in advance
-    os.path.isdir(p._temp_folder)
     assert_equal(os.listdir(TEMP_FOLDER), [])
+    assert_false(os.path.exists(p._temp_folder))
 
     small = np.ones(5, dtype=np.float32)
     assert_equal(small.nbytes, 20)
@@ -137,6 +137,7 @@ def test_memmaping_pool_for_large_arrays():
     p.map(double, [(large, i, 1.0) for i in range(large.shape[0])])
     dumped_filenames = os.listdir(p._temp_folder)
     assert_equal(len(dumped_filenames), 2)
+    assert_true(os.path.isdir(p._temp_folder))
 
     # check FS garbage upon pool termination
     p.terminate()
