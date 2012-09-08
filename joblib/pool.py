@@ -28,10 +28,15 @@ try:
 except ImportError:
     # Python 2.5 compat
     from StringIO import StringIO as BytesIO
-from multiprocessing import Pipe
-from multiprocessing.pool import Pool
-from multiprocessing.synchronize import Lock
-from multiprocessing.forking import assert_spawning
+try:
+    from multiprocessing.pool import Pool
+    from multiprocessing import Pipe
+    from multiprocessing.synchronize import Lock
+    from multiprocessing.forking import assert_spawning
+except ImportError:
+    class Pool(object):
+        """Dummy class for python 2.5 backward compat"""
+        pass
 try:
     import numpy as np
 except ImportError:
@@ -39,6 +44,7 @@ except ImportError:
 
 from .numpy_pickle import load
 from .numpy_pickle import dump
+from .hashing import hash
 
 
 def reduce_memmap(a):
@@ -52,29 +58,38 @@ def reduce_memmap(a):
     return (np.memmap, (a.filename, a.dtype, mode, a.offset, a.shape, order))
 
 
-def make_array_to_memmap_reducer(max_nbytes, temp_folder, mmap_mode='c'):
-    if temp_folder is None or not os.path.isdir(temp_folder):
-        raise ValueError("temp_folder=%s is not a directory" % temp_folder)
+class ArrayMemmapReducer(object):
+    """Reducer callable to dump large arrays to memmap files"""
 
-    def reduce_array(a):
-        if a.nbytes > max_nbytes:
-            # Find a cheap, unique, concurrent safe filename for writing the
+    def __init__(self, max_nbytes, temp_folder, mmap_mode):
+        self.max_nbytes = max_nbytes
+        self.temp_folder = temp_folder
+        self.mmap_mode = mmap_mode
+
+    def __call__(self, a):
+        if a.nbytes > self.max_nbytes:
+            # check that the folder exists (lazily create the pool temp folder
+            # if required)
+            if not os.path.exists(self.temp_folder):
+                os.makedirs(self.temp_folder)
+
+            # Find a unique, concurrent safe filename for writing the
             # content of this array only once.
-            pid = os.getpid()
-            thread_id = id(threading.current_thread())
-            array_id = id(a)
-            filename = os.path.join(
-                temp_folder, "%d-%d-%d.pkl" % (pid, thread_id, array_id))
+            basename = "%d-%d-%d-%s.pkl" % (
+                os.getpid(), id(threading.current_thread()), id(a), hash(a))
+            filename = os.path.join(self.temp_folder, basename)
+
+            # In case the same array with the same content is passed several
+            # times to the pool subprocess children, serialize it only once
             if not os.path.exists(filename):
                 dump(a, filename)
 
             # Let's use the memmap reducer
-            return reduce_memmap(load(filename, mmap_mode=mmap_mode))
+            return reduce_memmap(load(filename, mmap_mode=self.mmap_mode))
         else:
             # do not convert a into memmap, let pickler do its usual copy with
-            # a noop
+            # the default system pickler
             return (loads, (dumps(a, protocol=HIGHEST_PROTOCOL),))
-    return reduce_array
 
 
 class CustomizablePickler(Pickler):
@@ -88,6 +103,9 @@ class CustomizablePickler(Pickler):
 
     def __init__(self, writer, reducers=(), protocol=HIGHEST_PROTOCOL):
         Pickler.__init__(self, writer, protocol=protocol)
+        # Make the dispatch registry an instance level attribute instead of a
+        # reference to the class dictionary
+        self.dispatch = Pickler.dispatch.copy()
         for type, reduce_func in reducers:
             self.register(type, reduce_func)
 
@@ -179,15 +197,16 @@ class PicklingPool(Pool):
     """
 
     def __init__(self, processes=None, initializer=None, initargs=(),
-                 reducers=()):
-        self.reducers = reducers
+                 forward_reducers=(), backward_reducers=()):
+        self._forward_reducers = forward_reducers
+        self._backward_reducers = backward_reducers
         super(PicklingPool, self).__init__(processes=None,
                                            initializer=initializer,
                                            initargs=initargs)
 
     def _setup_queues(self):
-        self._inqueue = CustomizablePicklingQueue(self.reducers)
-        self._outqueue = CustomizablePicklingQueue(self.reducers)
+        self._inqueue = CustomizablePicklingQueue(self._forward_reducers)
+        self._outqueue = CustomizablePicklingQueue(self._backward_reducers)
         self._quick_put = self._inqueue._send
         self._quick_get = self._outqueue._recv
 
@@ -205,31 +224,44 @@ class MemmapingPool(PicklingPool):
     transformed as 'r+' to avoid zeroing the original data upon
     instanciation.
 
+    Note: it is important to call the terminate method to collect
+    the temporary folder used by the pool to dump the array data
+    as memory mapped files.
+
     TODO: document parameters
     """
 
     def __init__(self, processes=None, initializer=None, initargs=(),
                  temp_folder=None, max_nbytes=1e6, mmap_mode='c',
-                 reducers=()):
-        reducers = list(reducers)
-        reducers.append((np.memmap, reduce_memmap))
+                 forward_reducers=(), backward_reducers=()):
+        forward_reducers = list(forward_reducers)
+        forward_reducers.append((np.memmap, reduce_memmap))
+        backward_reducers = list(backward_reducers)
+        backward_reducers.append((np.memmap, reduce_memmap))
 
         # create a subfolder for the serialization of this particular pool
-        # instance:
-        pid = os.getpid()
-        temp_folder = tempfile.mkdtemp(
-            prefix="joblib_memmaping_pool_%d_" % pid, dir=temp_folder)
-        self._temp_folder = temp_folder
+        # instance (do not create in advance to spare FS write access if
+        # no array is to be dumped):
+        if temp_folder is None:
+            temp_folder = tempfile.gettempdir()
+        self._temp_folder = temp_folder = os.path.join(
+            temp_folder, "joblib_memmaping_pool_%d_%d" % (
+                os.getpid(), id(self)))
+
+        # Register the garbage collector at program exit in case caller forget's
+        # to call it earlier
         atexit.register(self._collect_tempfile)
 
-        reduce_ndarray = make_array_to_memmap_reducer(max_nbytes, temp_folder,
-                                                      mmap_mode=mmap_mode)
-        reducers.append((np.ndarray, reduce_ndarray))
+        reduce_ndarray = ArrayMemmapReducer(max_nbytes, temp_folder, mmap_mode)
+        # We only register the automatic array to memmap reducer in the forward
+        # (parent to child) direction
+        forward_reducers.append((np.ndarray, reduce_ndarray))
 
         super(MemmapingPool, self).__init__(processes=None,
                                             initializer=initializer,
                                             initargs=initargs,
-                                            reducers=reducers)
+                                            forward_reducers=forward_reducers,
+                                            backward_reducers=backward_reducers)
 
     def _collect_tempfile(self):
         if os.path.exists(self._temp_folder):

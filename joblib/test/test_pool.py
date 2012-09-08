@@ -13,7 +13,6 @@ except ImportError:
 try:
     import multiprocessing
     from ..pool import MemmapingPool
-    from ..pool import make_array_to_memmap_reducer
 except ImportError:
     multiprocessing = None
 
@@ -22,6 +21,7 @@ from nose.tools import with_setup
 from nose.tools import assert_equal
 from nose.tools import assert_raises
 from nose.tools import assert_false
+from nose.tools import assert_true
 
 
 TEMP_FOLDER = None
@@ -105,6 +105,7 @@ def test_pool_with_memmap():
 
     assert_raises(RuntimeError, p.map, double,
                   [(c, i, 2.0) for i in range(c.shape[0])])
+    p.terminate()
 
 
 @with_numpy
@@ -117,23 +118,22 @@ def test_memmaping_pool_for_large_arrays():
 
     # Build an array reducers that automaticaly dump large array content
     # to filesystem backed memmap instances to avoid memory explosion
-    p = MemmapingPool(10, max_nbytes=40, temp_folder=TEMP_FOLDER)
+    p = MemmapingPool(3, max_nbytes=40, temp_folder=TEMP_FOLDER)
 
-    # The tempory folder for the pool is provisioned in advance
+    # The tempory folder for the pool is not provisioned in advance
     os.path.isdir(p._temp_folder)
-    subfolders = os.listdir(TEMP_FOLDER)
-    assert_equal(subfolders, [os.path.basename(p._temp_folder)])
+    assert_equal(os.listdir(TEMP_FOLDER), [])
 
     small = np.ones(5, dtype=np.float32)
     assert_equal(small.nbytes, 20)
     p.map(double, [(small, i, 1.0) for i in range(small.shape[0])])
 
     # memory has been copied, the pool filesystem folder is unused
-    assert_equal(os.listdir(p._temp_folder), [])
+    assert_equal(os.listdir(TEMP_FOLDER), [])
 
     # try with a file larger than the memmap threshold of 40 bytes
-    large = np.ones(20, dtype=np.float64)
-    assert_equal(large.nbytes, 160)
+    large = np.ones(100, dtype=np.float64)
+    assert_equal(large.nbytes, 800)
     p.map(double, [(large, i, 1.0) for i in range(large.shape[0])])
     dumped_filenames = os.listdir(p._temp_folder)
     assert_equal(len(dumped_filenames), 2)
@@ -141,3 +141,24 @@ def test_memmaping_pool_for_large_arrays():
     # check FS garbage upon pool termination
     p.terminate()
     assert_false(os.path.exists(p._temp_folder))
+
+
+@with_numpy
+@with_multiprocessing
+@with_temp_folder
+def test_memmaping_pool_for_large_arrays_in_return():
+    """Check that large arrays are not copied in memory in return"""
+    # Build an array reducers that automaticaly dump large array content
+    # but check that the returned datastructure are regular arrays to avoid
+    # passing a memmap array pointing to a pool controlled temp folder that
+    # might be confusing to the user
+
+    # The MemmapingPool user can always return numpy.memmap object explicitly
+    # to avoid memory copy
+    p = MemmapingPool(3, max_nbytes=10, temp_folder=TEMP_FOLDER)
+
+    res = p.apply_async(np.ones, args=(1000,))
+    large = res.get()
+    assert_false(isinstance(large, np.memmap))
+    assert_array_equal(large, np.ones(1000))
+    p.terminate()
