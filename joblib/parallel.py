@@ -26,6 +26,7 @@ multiprocessing = int(os.environ.get('JOBLIB_MULTIPROCESSING', 1)) or None
 if multiprocessing:
     try:
         import multiprocessing
+        from .pool import MemmapingPool
     except ImportError:
         multiprocessing = None
 
@@ -292,11 +293,13 @@ class Parallel(Logger):
          [Parallel(n_jobs=2)]: Done   5 out of   6 | elapsed:    0.0s remaining:    0.0s
          [Parallel(n_jobs=2)]: Done   6 out of   6 | elapsed:    0.0s finished
     '''
-    def __init__(self, n_jobs=1, verbose=0, pre_dispatch='all'):
+    def __init__(self, n_jobs=1, verbose=0, pre_dispatch='all',
+                 max_nbytes=1e6):
         self.verbose = verbose
         self.n_jobs = n_jobs
         self.pre_dispatch = pre_dispatch
         self._pool = None
+        self._max_nbytes = max_nbytes
         # Not starting the pool in the __init__ is a design decision, to be
         # able to close it ASAP, and not burden the user with closing it.
         self._output = None
@@ -488,7 +491,8 @@ class Parallel(Logger):
 
                 # Set an environment variable to avoid infinite loops
                 os.environ['__JOBLIB_SPAWNED_PARALLEL__'] = '1'
-                self._pool = multiprocessing.Pool(n_jobs)
+                self._pool = MemmapingPool(
+                    n_jobs, max_nbytes=self._max_nbytes)
                 self._lock = threading.Lock()
                 # We are using multiprocessing, we also want to capture
                 # KeyboardInterrupts
