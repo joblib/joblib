@@ -252,10 +252,12 @@ class MemmapingPool(PicklingPool):
         # to call it earlier
         atexit.register(self._collect_tempfile)
 
-        reduce_ndarray = ArrayMemmapReducer(max_nbytes, temp_folder, mmap_mode)
-        # We only register the automatic array to memmap reducer in the forward
-        # (parent to child) direction
-        forward_reducers.append((np.ndarray, reduce_ndarray))
+        if max_nbytes is not None:
+            reduce_ndarray = ArrayMemmapReducer(
+                max_nbytes, temp_folder, mmap_mode)
+            # We only register the automatic array to memmap reducer in the
+            # forward direction
+            forward_reducers.append((np.ndarray, reduce_ndarray))
 
         super(MemmapingPool, self).__init__(processes=None,
                                             initializer=initializer,

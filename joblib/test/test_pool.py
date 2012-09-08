@@ -150,6 +150,26 @@ def test_memmaping_pool_for_large_arrays():
 @with_numpy
 @with_multiprocessing
 @with_temp_folder
+def test_memmaping_pool_for_large_arrays_disabled():
+    """Check that large arrays memmaping can be disabled"""
+    # Set max_nbytes to None to disable the auto memmaping feature
+    p = MemmapingPool(3, max_nbytes=None, temp_folder=TEMP_FOLDER)
+
+    # Check that the tempfolder is empty
+    assert_equal(os.listdir(TEMP_FOLDER), [])
+
+    # Try with a file largish than the memmap threshold of 40 bytes
+    large = np.ones(100, dtype=np.float64)
+    assert_equal(large.nbytes, 800)
+    p.map(double, [(large, i, 1.0) for i in range(large.shape[0])])
+
+    # Check that the tempfolder is still empty
+    assert_equal(os.listdir(TEMP_FOLDER), [])
+
+
+@with_numpy
+@with_multiprocessing
+@with_temp_folder
 def test_memmaping_pool_for_large_arrays_in_return():
     """Check that large arrays are not copied in memory in return"""
     # Build an array reducers that automaticaly dump large array content
