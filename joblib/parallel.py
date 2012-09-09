@@ -294,12 +294,13 @@ class Parallel(Logger):
          [Parallel(n_jobs=2)]: Done   6 out of   6 | elapsed:    0.0s finished
     '''
     def __init__(self, n_jobs=1, verbose=0, pre_dispatch='all',
-                 max_nbytes=1e6, mmap_mode='c', forward_reducers=(),
-                 backward_reducers=()):
+                 temp_folder=None, max_nbytes=1e6, mmap_mode='c',
+                 forward_reducers=(), backward_reducers=()):
         self.verbose = verbose
         self.n_jobs = n_jobs
         self.pre_dispatch = pre_dispatch
         self._pool = None
+        self._temp_folder = temp_folder
         self._max_nbytes = max_nbytes
         self._mmap_mode = mmap_mode
         self._forward_reducers = forward_reducers
@@ -498,6 +499,7 @@ class Parallel(Logger):
                 self._pool = MemmapingPool(
                     n_jobs, max_nbytes=self._max_nbytes,
                     mmap_mode=self._mmap_mode,
+                    temp_folder=self._temp_folder,
                     forward_reducers=self._forward_reducers,
                     backward_reducers=self._backward_reducers
                 )
