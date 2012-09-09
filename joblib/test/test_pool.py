@@ -136,6 +136,13 @@ def test_memmaping_pool_for_large_arrays():
     assert_equal(large.nbytes, 800)
     p.map(double, [(large, i, 1.0) for i in range(large.shape[0])])
 
+    # By defaul, the mmap_mode is copy-on-write to make the pool
+    # process able to modify their view individually as if they would have
+    # received their own copy of the original array. The original array
+    # (which is not a shared memmap instance is untouched)
+    assert_false(isinstance(large, np.memmap))
+    assert_array_equal(large, np.ones(100))
+
     # The data has been dump in a temp folder for subprocess to share it
     # without per-child memory copies
     assert_true(os.path.isdir(p._temp_folder))
