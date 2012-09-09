@@ -294,12 +294,16 @@ class Parallel(Logger):
          [Parallel(n_jobs=2)]: Done   6 out of   6 | elapsed:    0.0s finished
     '''
     def __init__(self, n_jobs=1, verbose=0, pre_dispatch='all',
-                 max_nbytes=1e6):
+                 max_nbytes=1e6, mmap_mode='c', forward_reducers=(),
+                 backward_reducers=()):
         self.verbose = verbose
         self.n_jobs = n_jobs
         self.pre_dispatch = pre_dispatch
         self._pool = None
         self._max_nbytes = max_nbytes
+        self._mmap_mode = mmap_mode
+        self._forward_reducers = forward_reducers
+        self._backward_reducers = backward_reducers
         # Not starting the pool in the __init__ is a design decision, to be
         # able to close it ASAP, and not burden the user with closing it.
         self._output = None
@@ -492,7 +496,11 @@ class Parallel(Logger):
                 # Set an environment variable to avoid infinite loops
                 os.environ['__JOBLIB_SPAWNED_PARALLEL__'] = '1'
                 self._pool = MemmapingPool(
-                    n_jobs, max_nbytes=self._max_nbytes)
+                    n_jobs, max_nbytes=self._max_nbytes,
+                    mmap_mode=self._mmap_mode,
+                    forward_reducers=self._forward_reducers,
+                    backward_reducers=self._backward_reducers
+                )
                 self._lock = threading.Lock()
                 # We are using multiprocessing, we also want to capture
                 # KeyboardInterrupts
