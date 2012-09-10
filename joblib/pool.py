@@ -238,6 +238,9 @@ class MemmapingPool(PicklingPool):
     def __init__(self, processes=None, initializer=None, initargs=(),
                  temp_folder=None, max_nbytes=1e6, mmap_mode='c',
                  forward_reducers=(), backward_reducers=()):
+        f_reducers = []
+        b_reducers = []
+
         # Prepare a subfolder name for the serialization of this particular
         # pool instance (do not create in advance to spare FS write access if
         # no array is to be dumped):
@@ -251,27 +254,28 @@ class MemmapingPool(PicklingPool):
         # forget's to call it earlier
         atexit.register(self._collect_tempfile)
 
-        forward_reducers = list(forward_reducers)
-        forward_reducers.append((np.memmap, reduce_memmap))
-        if max_nbytes is not None:
-            reduce_ndarray = ArrayMemmapReducer(
-                max_nbytes, temp_folder, mmap_mode)
-            # We only register the automatic array to memmap reducer in the
-            # forward direction (from parent to child processes)
-            forward_reducers.append((np.ndarray, reduce_ndarray))
+        if np is not None:
+            if max_nbytes is not None:
+                reduce_ndarray = ArrayMemmapReducer(
+                    max_nbytes, temp_folder, mmap_mode)
+                # We only register the automatic array to memmap reducer in
+                # the forward direction (from parent to child processes)
+                f_reducers.append((np.ndarray, reduce_ndarray))
+            f_reducers.append((np.memmap, reduce_memmap))
 
-        # Communication from child process to the parent process always
-        # pickles numpy.ndarray without dumping them as memmap to avoid
-        # confusing the caller and make it tricky to collect the temporary
-        # folder
-        backward_reducers = list(backward_reducers)
-        backward_reducers.append((np.memmap, reduce_memmap))
+            # Communication from child process to the parent process always
+            # pickles numpy.ndarray without dumping them as memmap to avoid
+            # confusing the caller and make it tricky to collect the temporary
+            # folder
+            b_reducers.append((np.memmap, reduce_memmap))
+        f_reducers.extend(forward_reducers)
+        b_reducers.extend(backward_reducers)
 
         super(MemmapingPool, self).__init__(processes=None,
                                             initializer=initializer,
                                             initargs=initargs,
-                                            forward_reducers=forward_reducers,
-                                            backward_reducers=backward_reducers)
+                                            forward_reducers=f_reducers,
+                                            backward_reducers=b_reducers)
 
     def _collect_tempfile(self):
         if os.path.exists(self._temp_folder):
