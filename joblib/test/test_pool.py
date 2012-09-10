@@ -73,7 +73,9 @@ def double(input):
 def test_pool_with_memmap():
     """Check that subprocess can access and update shared memory"""
     # fork the subprocess before allocating the objects to be passed
-    p = MemmapingPool(10)
+    pool_temp_folder = os.path.join(TEMP_FOLDER, 'pool')
+    os.makedirs(pool_temp_folder)
+    p = MemmapingPool(10, max_nbytes=2, temp_folder=pool_temp_folder)
 
     filename = os.path.join(TEMP_FOLDER, 'test.mmap')
     a = np.memmap(filename, dtype=np.float32, shape=(3, 5), mode='w+')
@@ -91,6 +93,10 @@ def test_pool_with_memmap():
     p.map(double, [(b, (i, j), 2.0)
                    for i in range(b.shape[0])
                    for j in range(b.shape[1])])
+
+    # passing memmap instances to the pool should not trigger the creation
+    # of new files on the FS
+    assert_equal(os.listdir(pool_temp_folder), [])
 
     # the original data is untouched
     assert_array_equal(a, 2 * np.ones(a.shape))
