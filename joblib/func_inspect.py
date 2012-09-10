@@ -5,8 +5,9 @@ My own variation on function-specific inspect-like features.
 # Author: Gael Varoquaux <gael dot varoquaux at normalesup dot org>
 # Copyright (c) 2009 Gael Varoquaux
 # License: BSD Style, 3 clauses.
+from __future__ import with_statement
 
-import itertools
+from itertools import islice
 import inspect
 import warnings
 import os
@@ -37,11 +38,10 @@ def get_func_code(func):
     try:
         # Try to retrieve the source code.
         source_file = func.func_code.co_filename
-        source_file_obj = file(source_file)
-        first_line = func.func_code.co_firstlineno
-        # All the lines after the function definition:
-        source_lines = list(itertools.islice(source_file_obj, first_line - 1,
-                                             None))
+        with open(source_file) as source_file_obj:
+            first_line = func.func_code.co_firstlineno
+            # All the lines after the function definition:
+            source_lines = list(islice(source_file_obj, first_line - 1, None))
         return ''.join(inspect.getblock(source_lines)), source_file, first_line
     except:
         # If the source code fails, we use the hash. This is fragile and
@@ -73,7 +73,7 @@ def get_func_name(func, resolv_alias=True, win_characters=True):
         func: callable
             The func to inspect
         resolv_alias: boolean, optional
-            If true, possible local alias are indicated.
+            If true, possible local aliases are indicated.
         win_characters: boolean, optional
             If true, substitute special characters using urllib.quote
             This is useful in Windows, as it cannot encode some filenames
@@ -87,7 +87,7 @@ def get_func_name(func, resolv_alias=True, win_characters=True):
             if hasattr(func, '__class__'):
                 module = func.__class__.__module__
             else:
-                module = 'unkown'
+                module = 'unknown'
     if module is None:
         # Happens in doctests, eg
         module = ''
@@ -128,7 +128,7 @@ def get_func_name(func, resolv_alias=True, win_characters=True):
     return module, name
 
 
-def filter_args(func, ignore_lst, *args, **kwargs):
+def filter_args(func, ignore_lst, args=(), kwargs=dict()):
     """ Filters the given args and kwargs using a list of arguments to
         ignore, and a function specification.
 
@@ -207,7 +207,7 @@ def filter_args(func, ignore_lst, *args, **kwargs):
                         )
 
     varkwargs = dict()
-    for arg_name, arg_value in kwargs.iteritems():
+    for arg_name, arg_value in sorted(kwargs.items()):
         if arg_name in arg_dict:
             arg_dict[arg_name] = arg_value
         elif arg_keywords is not None:
