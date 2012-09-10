@@ -246,6 +246,7 @@ class MemmapingPool(PicklingPool):
         # no array is to be dumped):
         if temp_folder is None:
             temp_folder = tempfile.gettempdir()
+        temp_folder = os.path.abspath(os.path.expanduser(temp_folder))
         self._temp_folder = temp_folder = os.path.join(
             temp_folder, "joblib_memmaping_pool_%d_%d" % (
                 os.getpid(), id(self)))
