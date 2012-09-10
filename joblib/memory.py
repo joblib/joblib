@@ -320,7 +320,8 @@ class MemorizedFunc(Logger):
             _, name = get_func_name(self.func)
             msg = '%s - %s' % (name, format_time(duration))
             print max(0, (80 - len(msg))) * '_' + msg
-        return output
+
+        return self.load_output(output_dir)
 
     def format_call(self, *args, **kwds):
         """ Returns a nicely formatted statement displaying the function
