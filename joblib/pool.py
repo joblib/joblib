@@ -59,40 +59,64 @@ def reduce_memmap(a):
 
 
 class ArrayMemmapReducer(object):
-    """Reducer callable to dump large arrays to memmap files"""
+    """Reducer callable to dump large arrays to memmap files.
 
-    def __init__(self, max_nbytes, temp_folder, mmap_mode):
-        self.max_nbytes = max_nbytes
-        self.temp_folder = temp_folder
-        self.mmap_mode = mmap_mode
+    Parameters
+    ----------
+    max_nbytes: int
+        Threshold to trigger memmaping of large arrays to files created
+        a folder.
+    temp_folder: str
+        Path of a folder where files for backing memmaped arrays are created.
+    mmap_mode: 'r', 'r+', 'w+' or 'c'
+        Mode for the created memmap datastructure. See the documentation of
+        numpy.memmap for more details.
+    verbse: int, optional, 0 by default
+        If verbose > 0, memmap creations are logged.
+        If verbose > 1, both memmap creations, reuse and array pickling are
+        logged.
+
+    """
+
+    def __init__(self, max_nbytes, temp_folder, mmap_mode, verbose=0):
+        self._max_nbytes = max_nbytes
+        self._temp_folder = temp_folder
+        self._mmap_mode = mmap_mode
+        self.verbose = int(verbose)
+
 
     def __call__(self, a):
-        if isinstance(a, np.memmap):
-            # np.memmap is a subclass of np.ndarray that does not need to be
-            # dumped on the filesystem
-            return reduce_memmap(a)
-        if a.nbytes > self.max_nbytes:
+        if a.nbytes > self._max_nbytes:
             # check that the folder exists (lazily create the pool temp folder
             # if required)
-            if not os.path.exists(self.temp_folder):
-                os.makedirs(self.temp_folder)
+            if not os.path.exists(self._temp_folder):
+                os.makedirs(self._temp_folder)
 
             # Find a unique, concurrent safe filename for writing the
             # content of this array only once.
             basename = "%d-%d-%d-%s.pkl" % (
                 os.getpid(), id(threading.current_thread()), id(a), hash(a))
-            filename = os.path.join(self.temp_folder, basename)
+            filename = os.path.join(self._temp_folder, basename)
 
             # In case the same array with the same content is passed several
             # times to the pool subprocess children, serialize it only once
             if not os.path.exists(filename):
+                if self.verbose > 0:
+                    print "Memmaping (shape=%r, dtype=%s) to new file %s" % (
+                        a.shape, a.dtype, filename)
                 dump(a, filename)
+            elif self.verbose > 1:
+                print "Memmaping (shape=%s, dtype=%s) to old file %s" % (
+                        a.shape, a.dtype, filename)
 
             # Let's use the memmap reducer
-            return reduce_memmap(load(filename, mmap_mode=self.mmap_mode))
+            return reduce_memmap(load(filename, mmap_mode=self._mmap_mode))
         else:
             # do not convert a into memmap, let pickler do its usual copy with
             # the default system pickler
+            if self.verbose > 1:
+                print "Pickling array (shape=%r, dtype=%s)." % (
+                    a.shape, a.dtype)
             return (loads, (dumps(a, protocol=HIGHEST_PROTOCOL),))
 
 
@@ -102,6 +126,13 @@ class CustomizablePickler(Pickler):
     HIGHEST_PROTOCOL is selected by default as this pickler is used
     to pickle ephemeral datastructures for interprocess communication
     hence no backward compatibility is required.
+
+    `reducers` is expected to be a sequence of `(type, callable)`
+    pairs where `callable` is a function that give an instance of
+    `type` will return a tuple `(constructor, tuple_of_objects)`
+    to rebuild an instance out of the pickled `tuple_of_objects`
+    as would return a `__reduce__` method. See the standard library
+    documentation on pickling for more details.
 
     """
 
@@ -127,6 +158,13 @@ class CustomizablePicklingQueue(object):
     of SimpleQueue in order to make it possible to pass custom
     pickling reducers, for instance to avoid memory copy when passing
     memmory mapped datastructures.
+
+    `reducers` is expected to be a sequence of `(type, callable)`
+    pairs where `callable` is a function that give an instance of
+    `type` will return a tuple `(constructor, tuple_of_objects)`
+    to rebuild an instance out of the pickled `tuple_of_objects`
+    as would return a `__reduce__` method. See the standard library
+    documentation on pickling for more details.
 
     """
 
@@ -198,6 +236,14 @@ class PicklingPool(Pool):
     copies induces by the default pickling methods of the original
     objects passed as arguments to dispatch.
 
+    `forward_reducers` and `backward_reducers` are expected to be
+    sequences of `(type, callable)` pairs where `callable` is a
+    function that give an instance of `type` will return a tuple
+    `(constructor, tuple_of_objects)` to rebuild an instance out
+    of the pickled `tuple_of_objects` as would return a `__reduce__`
+    method. See the standard library documentation on pickling for
+    more details.
+
     """
 
     def __init__(self, processes=None, initializer=None, initargs=(),
@@ -218,9 +264,9 @@ class PicklingPool(Pool):
 class MemmapingPool(PicklingPool):
     """Process pool that shares large arrays to avoid memory copy.
 
-    Automatically dump large arrays on the filesystem such as child
-    processes to access their content via memmaping (file system
-    backed shared memory).
+    This drop-in replacement for `multiprocessing.pool.Pool` makes
+    it possible to work efficiently with shared memory in a numpy
+    context.
 
     Existing instances of numpy.memmap are preserved: the child
     suprocesses will have access to the same shared memory in the
@@ -228,16 +274,55 @@ class MemmapingPool(PicklingPool):
     transformed as 'r+' to avoid zeroing the original data upon
     instanciation.
 
-    Note: it is important to call the terminate method to collect
-    the temporary folder used by the pool to dump the array data
-    as memory mapped files.
+    Furthermore large arrays from the parent process are automatically
+    dumped to a temporary folder on the filesystem such as child
+    processes to access their content via memmaping (file system
+    backed shared memory).
 
-    TODO: document parameters
+    Note: it is important to call the terminate method to collect
+    the temporary folder used by the pool.
+
+    Parameters
+    ----------
+    processes: int, optional
+        Number of worker processes running concurrently in the pool.
+    initializer: callable, optional
+        Callable executed on worker process creation.
+    initargs: tuple, optional
+        Arguments passed to the initializer callable.
+    temp_folder: str, optional
+        Folder to be used by the pool for memmaping large arrays
+        for sharing memory with worker processes. If None, this
+        will use the system temporary folder or can be overridden
+        with TMP, TMPDIR or TEMP environment variables.
+    max_nbytes int or None, optional, 1e6 by default
+        Threshold on the size of arrays passed to the workers that
+        triggers automated memmory mapping in temp_folder.
+        Use None to disable memmaping of large arrays.
+    forward_reducers: sequence of tuples (see bellow), optional
+        Reducers used to pickle objects passed from master to worker
+        processes.
+    backward_reducers: sequence of tuples (see bellow), optional
+        Reducers used to pickle return values from workers back to the
+        master process.
+    verbose: int, optional
+        Make it possible to monitor how the communication of numpy arrays
+        with the subprocess is handled (pickling or memmaping)
+
+    `forward_reducers` and `backward_reducers` are expected to be
+    sequences of `(type, callable)` pairs where `callable` is a
+    function that give an instance of `type` will return a tuple
+    `(constructor, tuple_of_objects)` to rebuild an instance out
+    of the pickled `tuple_of_objects` as would return a `__reduce__`
+    method. See the standard library documentation on pickling for
+    more details.
+
     """
 
     def __init__(self, processes=None, initializer=None, initargs=(),
                  temp_folder=None, max_nbytes=1e6, mmap_mode='c',
-                 forward_reducers=(), backward_reducers=()):
+                 forward_reducers=(), backward_reducers=(),
+                 verbose=0):
         f_reducers = []
         b_reducers = []
 
@@ -258,7 +343,7 @@ class MemmapingPool(PicklingPool):
         if np is not None:
             if max_nbytes is not None:
                 reduce_ndarray = ArrayMemmapReducer(
-                    max_nbytes, temp_folder, mmap_mode)
+                    max_nbytes, temp_folder, mmap_mode, verbose)
                 # We only register the automatic array to memmap reducer in
                 # the forward direction (from parent to child processes)
                 f_reducers.append((np.ndarray, reduce_ndarray))
