@@ -176,6 +176,33 @@ class Parallel(Logger):
             The amount of jobs to be pre-dispatched. Default is 'all',
             but it may be memory consuming, for instance if each job
             involves a lot of a data.
+        temp_folder: str, optional
+            Folder to be used by the pool for memmaping large numpy
+            arrays for sharing memory with worker processes. If
+            None, this will use the system temporary folder or can
+            be overridden with TMP, TMPDIR or TEMP environment
+            variables.
+        max_nbytes int or None, optional, 1e6 (1MB) by default
+            Threshold on the size of arrays passed to the workers that
+            triggers automated memmory mapping in temp_folder.
+            Use None to disable memmaping of large arrays.
+        forward_reducers: sequence of tuples (see bellow), optional
+            Reducers used to pickle objects passed from master to worker
+            processes.
+        backward_reducers: sequence of tuples (see bellow), optional
+            Reducers used to pickle return values from workers back to the
+            master process.
+        verbose: int, optional
+            Make it possible to monitor how the communication of numpy arrays
+            with the subprocess is handled (pickling or memmaping)
+
+        `forward_reducers` and `backward_reducers` are expected to be
+        sequences of `(type, callable)` pairs where `callable` is a
+        function that give an instance of `type` will return a tuple
+        `(constructor, tuple_of_objects)` to rebuild an instance out
+        of the pickled `tuple_of_objects` as would return a `__reduce__`
+        method. See the standard library documentation on pickling for
+        more details.
 
         Notes
         -----
@@ -198,6 +225,12 @@ class Parallel(Logger):
             * An optional progress meter.
 
             * Interruption of multiprocesses jobs with 'Ctrl-C'
+
+            * Flexible pickling control for the communication to and from
+              the worker processes.
+
+            * Ability to use shared memory efficiently with worker
+              processes for large numpy-based datastructures.
 
         Examples
         --------
