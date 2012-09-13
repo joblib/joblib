@@ -84,7 +84,6 @@ class ArrayMemmapReducer(object):
         self._mmap_mode = mmap_mode
         self.verbose = int(verbose)
 
-
     def __call__(self, a):
         if a.nbytes > self._max_nbytes:
             # check that the folder exists (lazily create the pool temp folder
@@ -357,7 +356,7 @@ class MemmapingPool(PicklingPool):
         f_reducers.extend(forward_reducers)
         b_reducers.extend(backward_reducers)
 
-        super(MemmapingPool, self).__init__(processes=None,
+        super(MemmapingPool, self).__init__(processes=processes,
                                             initializer=initializer,
                                             initargs=initargs,
                                             forward_reducers=f_reducers,
