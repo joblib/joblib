@@ -338,6 +338,7 @@ class Parallel(Logger):
         self._temp_folder = temp_folder
         self._max_nbytes = max_nbytes
         self._mmap_mode = mmap_mode
+        # XXX: Remove for and backward_reducers from public API
         self._forward_reducers = forward_reducers
         self._backward_reducers = backward_reducers
         # Not starting the pool in the __init__ is a design decision, to be
@@ -537,7 +538,7 @@ class Parallel(Logger):
                     temp_folder=self._temp_folder,
                     forward_reducers=self._forward_reducers,
                     backward_reducers=self._backward_reducers,
-                    verbose=self.verbose
+                    verbose=max(0, self.verbose - 50),
                 )
                 self._lock = threading.Lock()
                 # We are using multiprocessing, we also want to capture

@@ -46,6 +46,8 @@ from .numpy_pickle import load
 from .numpy_pickle import dump
 from .hashing import hash
 
+###############################################################################
+# Support for efficient transient pickling of numpy data structures
 
 def reduce_memmap(a):
     """Pickle the descriptors of a memmap instance to reopen on same file"""
@@ -56,6 +58,7 @@ def reduce_memmap(a):
         mode = 'r+'
     order = 'F' if a.flags['F_CONTIGUOUS'] else 'C'
     return (np.memmap, (a.filename, a.dtype, mode, a.offset, a.shape, order))
+    # TODO: fail gracefully if neither fortran
 
 
 class ArrayMemmapReducer(object):
@@ -68,10 +71,11 @@ class ArrayMemmapReducer(object):
         a folder.
     temp_folder: str
         Path of a folder where files for backing memmaped arrays are created.
-    mmap_mode: 'r', 'r+', 'w+' or 'c'
+    mmap_mode: 'r', 'r+' or 'c'
         Mode for the created memmap datastructure. See the documentation of
-        numpy.memmap for more details.
-    verbse: int, optional, 0 by default
+        numpy.memmap for more details. Note: 'w+' is coerced to 'r+'
+        automatically to avoid zeroing the data on unpickling.
+    verbose: int, optional, 0 by default
         If verbose > 0, memmap creations are logged.
         If verbose > 1, both memmap creations, reuse and array pickling are
         logged.
@@ -88,8 +92,12 @@ class ArrayMemmapReducer(object):
         if a.nbytes > self._max_nbytes:
             # check that the folder exists (lazily create the pool temp folder
             # if required)
-            if not os.path.exists(self._temp_folder):
+            try:
                 os.makedirs(self._temp_folder)
+            except OSError, e:
+                if e.errno != 17:
+                    # Errno 17 corresponds to 'Directory exists'
+                    raise e
 
             # Find a unique, concurrent safe filename for writing the
             # content of this array only once.
@@ -118,6 +126,9 @@ class ArrayMemmapReducer(object):
                     a.shape, a.dtype)
             return (loads, (dumps(a, protocol=HIGHEST_PROTOCOL),))
 
+
+###############################################################################
+# Enable custom pickling in Pool queues
 
 class CustomizablePickler(Pickler):
     """Pickler that accepts custom reducers.
@@ -323,6 +334,7 @@ class MemmapingPool(PicklingPool):
                  temp_folder=None, max_nbytes=1e6, mmap_mode='c',
                  forward_reducers=(), backward_reducers=(),
                  verbose=0):
+        # TODO: use dicts instead of sequences of pairs
         f_reducers = []
         b_reducers = []
 
