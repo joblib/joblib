@@ -23,6 +23,14 @@ else:
     StringIO = cStringIO.StringIO
 
 
+class _ConsistentSet(object):
+    """ Class used to ensure the hash of Sets is preserved
+        whatever the order of its items.
+    """
+    def __init__(self, set_sequence):
+        self._sequence = sorted(set_sequence)
+
+
 class Hasher(pickle.Pickler):
     """ A subclass of pickler, to do cryptographic hashing, rather than
         pickling.
@@ -79,6 +87,17 @@ class Hasher(pickle.Pickler):
         dispatch[type(pickle.Pickler)] = save_global
         # function
         dispatch[type(pickle.dump)] = save_global
+
+    def _batch_setitems(self, items):
+        # forces order of keys in dict to ensure consistent hash
+        pickle.Pickler._batch_setitems(self, iter(sorted(items)))
+
+    def save_set(self, set_items):
+        # forces order of items in Set to ensure consistent hash
+        pickle.Pickler.save_inst(self, _ConsistentSet(set_items))
+
+    # set
+    dispatch[type(set())] = save_set
 
 
 class NumpyHasher(Hasher):
