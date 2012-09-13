@@ -215,14 +215,15 @@ class CustomizablePicklingQueue(object):
             # writes to a message oriented win32 pipe are atomic
             self.put = send
         else:
-            wacquire, wrelease = self._wlock.acquire, self._wlock.release
+            wlock_acquire, wlock_release = self._wlock.acquire, \
+                                                self._wlock.release
 
             def put(obj):
-                wacquire()
+                wlock_acquire()
                 try:
                     return send(obj)
                 finally:
-                    wrelease()
+                    wlock_release()
 
             self.put = put
 
