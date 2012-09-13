@@ -231,3 +231,26 @@ def test_dict_hash():
 
     nose.tools.assert_equal(hash(a),
                             hash(b))
+
+def test_set_hash():    
+    k = KlassWithCachedMethod()
+
+    s = set(['#s12069__c_maps.nii.gz',
+             '#s12158__c_maps.nii.gz',
+             '#s12258__c_maps.nii.gz',
+             '#s12277__c_maps.nii.gz',
+             '#s12300__c_maps.nii.gz',
+             '#s12401__c_maps.nii.gz',
+             '#s12430__c_maps.nii.gz',
+             '#s13817__c_maps.nii.gz',
+             '#s13903__c_maps.nii.gz',
+             '#s13916__c_maps.nii.gz',
+             '#s13981__c_maps.nii.gz',
+             '#s13982__c_maps.nii.gz',
+             '#s13983__c_maps.nii.gz'])
+
+    a = k.f(s)
+    b = k.f(a)
+
+    nose.tools.assert_equal(hash(a),
+                            hash(b))
