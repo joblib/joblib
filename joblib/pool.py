@@ -56,9 +56,18 @@ def reduce_memmap(a):
         # Do not make the subprocess erase the data from the parent memmap
         # inadvertently
         mode = 'r+'
-    order = 'F' if a.flags['F_CONTIGUOUS'] else 'C'
+    if a.flags['F_CONTIGUOUS']:
+        order ='F'
+    elif a.flags['C_CONTIGUOUS']:
+        order = 'C'
+    else:
+        # This should never happen as I don't believe that a memmaped
+        # array can be other than F or C contiguous
+        raise NotImplementedError(
+            'Arrays that are neither C nor F contiguous cannot be '
+            'memmaped to disk.'
+            )
     return (np.memmap, (a.filename, a.dtype, mode, a.offset, a.shape, order))
-    # TODO: fail gracefully if neither fortran
 
 
 class ArrayMemmapReducer(object):
