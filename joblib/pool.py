@@ -249,7 +249,7 @@ class PicklingPool(Pool):
                  forward_reducers=(), backward_reducers=()):
         self._forward_reducers = forward_reducers
         self._backward_reducers = backward_reducers
-        super(PicklingPool, self).__init__(processes=None,
+        super(PicklingPool, self).__init__(processes=processes,
                                            initializer=initializer,
                                            initargs=initargs)
 
