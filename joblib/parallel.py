@@ -23,7 +23,11 @@ except:
 # by default, upon 0 set to None. Should instructively fail if some non
 # 0/1 value is set.
 multiprocessing = int(os.environ.get('JOBLIB_MULTIPROCESSING', 1)) or None
-
+if multiprocessing:
+    try:
+        import multiprocessing
+    except ImportError:
+        multiprocessing = None
 
 # 2nd stage: validate that locking is available on the system and
 #            issue a warning if not
@@ -31,17 +35,10 @@ if multiprocessing:
     try:
         _sem = multiprocessing.Semaphore()
         del _sem # cleanup
+        from .pool import MemmapingPool
     except (ImportError, OSError) as e:
         multiprocessing = None
         warnings.warn('%s.  joblib will operate in serial mode' % (e,))
-
-if multiprocessing:
-    try:
-        import multiprocessing
-        from .pool import MemmapingPool
-    except ImportError:
-        multiprocessing = None
-
 
 from .format_stack import format_exc, format_outer_frames
 from .logger import Logger, short_format_time
@@ -188,23 +185,9 @@ class Parallel(Logger):
             Threshold on the size of arrays passed to the workers that
             triggers automated memmory mapping in temp_folder.
             Use None to disable memmaping of large arrays.
-        forward_reducers: sequence of tuples (see bellow), optional
-            Reducers used to pickle objects passed from master to worker
-            processes.
-        backward_reducers: sequence of tuples (see bellow), optional
-            Reducers used to pickle return values from workers back to the
-            master process.
         verbose: int, optional
             Make it possible to monitor how the communication of numpy arrays
             with the subprocess is handled (pickling or memmaping)
-
-        `forward_reducers` and `backward_reducers` are expected to be
-        sequences of `(type, callable)` pairs where `callable` is a
-        function that give an instance of `type` will return a tuple
-        `(constructor, tuple_of_objects)` to rebuild an instance out
-        of the pickled `tuple_of_objects` as would return a `__reduce__`
-        method. See the standard library documentation on pickling for
-        more details.
 
         Notes
         -----
@@ -329,8 +312,7 @@ class Parallel(Logger):
          [Parallel(n_jobs=2)]: Done   6 out of   6 | elapsed:    0.0s finished
     '''
     def __init__(self, n_jobs=1, verbose=0, pre_dispatch='all',
-                 temp_folder=None, max_nbytes=1e6, mmap_mode='c',
-                 forward_reducers=(), backward_reducers=()):
+                 temp_folder=None, max_nbytes=1e6, mmap_mode='c'):
         self.verbose = verbose
         self.n_jobs = n_jobs
         self.pre_dispatch = pre_dispatch
@@ -338,9 +320,6 @@ class Parallel(Logger):
         self._temp_folder = temp_folder
         self._max_nbytes = max_nbytes
         self._mmap_mode = mmap_mode
-        # XXX: Remove for and backward_reducers from public API
-        self._forward_reducers = forward_reducers
-        self._backward_reducers = backward_reducers
         # Not starting the pool in the __init__ is a design decision, to be
         # able to close it ASAP, and not burden the user with closing it.
         self._output = None
@@ -536,8 +515,6 @@ class Parallel(Logger):
                     n_jobs, max_nbytes=self._max_nbytes,
                     mmap_mode=self._mmap_mode,
                     temp_folder=self._temp_folder,
-                    forward_reducers=self._forward_reducers,
-                    backward_reducers=self._backward_reducers,
                     verbose=max(0, self.verbose - 50),
                 )
                 self._lock = threading.Lock()
