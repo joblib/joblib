@@ -80,6 +80,10 @@ class Hasher(pickle.Pickler):
         # function
         dispatch[type(pickle.dump)] = save_global
 
+    def _batch_setitems(self, items):
+        # forces order of keys in dict to ensure consistent hash
+        pickle.Pickler._batch_setitems(self, iter(sorted(items)))
+
 
 class NumpyHasher(Hasher):
     """ Special case the hasher for when numpy is loaded.
