@@ -23,12 +23,6 @@ except:
 # by default, upon 0 set to None. Should instructively fail if some non
 # 0/1 value is set.
 multiprocessing = int(os.environ.get('JOBLIB_MULTIPROCESSING', 1)) or None
-if multiprocessing:
-    try:
-        import multiprocessing
-        from .pool import MemmapingPool
-    except ImportError:
-        multiprocessing = None
 
 
 # 2nd stage: validate that locking is available on the system and
@@ -40,6 +34,14 @@ if multiprocessing:
     except (ImportError, OSError) as e:
         multiprocessing = None
         warnings.warn('%s.  joblib will operate in serial mode' % (e,))
+
+if multiprocessing:
+    try:
+        import multiprocessing
+        from .pool import MemmapingPool
+    except ImportError:
+        multiprocessing = None
+
 
 from .format_stack import format_exc, format_outer_frames
 from .logger import Logger, short_format_time
