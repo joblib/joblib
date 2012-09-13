@@ -146,21 +146,20 @@ class CustomizablePickler(Pickler):
     to pickle ephemeral datastructures for interprocess communication
     hence no backward compatibility is required.
 
-    `reducers` is expected to be a sequence of `(type, callable)`
-    pairs where `callable` is a function that give an instance of
-    `type` will return a tuple `(constructor, tuple_of_objects)`
-    to rebuild an instance out of the pickled `tuple_of_objects`
-    as would return a `__reduce__` method. See the standard library
-    documentation on pickling for more details.
-
+    `reducers` is expected expected to be a dictionary with key/values
+    being `(type, callable)` pairs where `callable` is a function that
+    give an instance of `type` will return a tuple `(constructor,
+    tuple_of_objects)` to rebuild an instance out of the pickled
+    `tuple_of_objects` as would return a `__reduce__` method. See the
+    standard library documentation on pickling for more details.
     """
 
-    def __init__(self, writer, reducers=(), protocol=HIGHEST_PROTOCOL):
+    def __init__(self, writer, reducers=None, protocol=HIGHEST_PROTOCOL):
         Pickler.__init__(self, writer, protocol=protocol)
         # Make the dispatch registry an instance level attribute instead of a
         # reference to the class dictionary
         self.dispatch = Pickler.dispatch.copy()
-        for type, reduce_func in reducers:
+        for type, reduce_func in reducers.iteritems():
             self.register(type, reduce_func)
 
     def register(self, type, reduce_func):
@@ -178,16 +177,15 @@ class CustomizablePicklingQueue(object):
     pickling reducers, for instance to avoid memory copy when passing
     memmory mapped datastructures.
 
-    `reducers` is expected to be a sequence of `(type, callable)`
-    pairs where `callable` is a function that give an instance of
-    `type` will return a tuple `(constructor, tuple_of_objects)`
-    to rebuild an instance out of the pickled `tuple_of_objects`
-    as would return a `__reduce__` method. See the standard library
-    documentation on pickling for more details.
-
+    `reducers` is expected expected to be a dictionary with key/values
+    being `(type, callable)` pairs where `callable` is a function that
+    give an instance of `type` will return a tuple `(constructor,
+    tuple_of_objects)` to rebuild an instance out of the pickled
+    `tuple_of_objects` as would return a `__reduce__` method. See the
+    standard library documentation on pickling for more details.
     """
 
-    def __init__(self, reducers=()):
+    def __init__(self, reducers=None):
         self._reducers = reducers
         self._reader, self._writer = Pipe(duplex=False)
         self._rlock = Lock()
@@ -257,17 +255,21 @@ class PicklingPool(Pool):
     objects passed as arguments to dispatch.
 
     `forward_reducers` and `backward_reducers` are expected to be
-    sequences of `(type, callable)` pairs where `callable` is a
-    function that give an instance of `type` will return a tuple
-    `(constructor, tuple_of_objects)` to rebuild an instance out
+    dictionaries with key/values being `(type, callable)` pairs where
+    `callable` is a function that give an instance of `type` will return
+    a tuple `(constructor, tuple_of_objects)` to rebuild an instance out
     of the pickled `tuple_of_objects` as would return a `__reduce__`
-    method. See the standard library documentation on pickling for
-    more details.
+    method. See the standard library documentation on pickling for more
+    details.
 
     """
 
     def __init__(self, processes=None, initializer=None, initargs=(),
-                 forward_reducers=(), backward_reducers=()):
+                 forward_reducers=None, backward_reducers=None):
+        if forward_reducers is None:
+            forward_reducers = dict()
+        if backward_reducers is None:
+            backward_reducers = dict()
         self._forward_reducers = forward_reducers
         self._backward_reducers = backward_reducers
         super(PicklingPool, self).__init__(processes=processes,
@@ -319,10 +321,10 @@ class MemmapingPool(PicklingPool):
         Threshold on the size of arrays passed to the workers that
         triggers automated memmory mapping in temp_folder.
         Use None to disable memmaping of large arrays.
-    forward_reducers: sequence of tuples (see bellow), optional
+    forward_reducers: dictionary, optional
         Reducers used to pickle objects passed from master to worker
-        processes.
-    backward_reducers: sequence of tuples (see bellow), optional
+        processes: see below.
+    backward_reducers: dictionary, optional
         Reducers used to pickle return values from workers back to the
         master process.
     verbose: int, optional
@@ -330,22 +332,23 @@ class MemmapingPool(PicklingPool):
         with the subprocess is handled (pickling or memmaping)
 
     `forward_reducers` and `backward_reducers` are expected to be
-    sequences of `(type, callable)` pairs where `callable` is a
-    function that give an instance of `type` will return a tuple
-    `(constructor, tuple_of_objects)` to rebuild an instance out
+    dictionaries with key/values being `(type, callable)` pairs where
+    `callable` is a function that give an instance of `type` will return
+    a tuple `(constructor, tuple_of_objects)` to rebuild an instance out
     of the pickled `tuple_of_objects` as would return a `__reduce__`
-    method. See the standard library documentation on pickling for
-    more details.
+    method. See the standard library documentation on pickling for more
+    details.
 
     """
 
     def __init__(self, processes=None, initializer=None, initargs=(),
                  temp_folder=None, max_nbytes=1e6, mmap_mode='c',
-                 forward_reducers=(), backward_reducers=(),
+                 forward_reducers=None, backward_reducers=None,
                  verbose=0):
-        # TODO: use dicts instead of sequences of pairs
-        f_reducers = []
-        b_reducers = []
+        if forward_reducers is None:
+            forward_reducers = dict()
+        if backward_reducers is None:
+            backward_reducers = dict()
 
         # Prepare a subfolder name for the serialization of this particular
         # pool instance (do not create in advance to spare FS write access if
@@ -367,22 +370,20 @@ class MemmapingPool(PicklingPool):
                     max_nbytes, temp_folder, mmap_mode, verbose)
                 # We only register the automatic array to memmap reducer in
                 # the forward direction (from parent to child processes)
-                f_reducers.append((np.ndarray, reduce_ndarray))
-            f_reducers.append((np.memmap, reduce_memmap))
+                forward_reducers[np.ndarray] = reduce_ndarray
+            forward_reducers[np.memmap] = reduce_memmap
 
             # Communication from child process to the parent process always
             # pickles numpy.ndarray without dumping them as memmap to avoid
             # confusing the caller and make it tricky to collect the temporary
             # folder
-            b_reducers.append((np.memmap, reduce_memmap))
-        f_reducers.extend(forward_reducers)
-        b_reducers.extend(backward_reducers)
+            backward_reducers[np.memmap] = reduce_memmap
 
         super(MemmapingPool, self).__init__(processes=processes,
-                                            initializer=initializer,
-                                            initargs=initargs,
-                                            forward_reducers=f_reducers,
-                                            backward_reducers=b_reducers)
+                                        initializer=initializer,
+                                        initargs=initargs,
+                                        forward_reducers=forward_reducers,
+                                        backward_reducers=backward_reducers)
 
     def _collect_tempfile(self):
         if os.path.exists(self._temp_folder):
