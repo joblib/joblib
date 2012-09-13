@@ -24,6 +24,9 @@ else:
 
 
 class _ConsistentSet(object):
+    """ Class used to ensure the hash of Sets is preserved
+        whatever the order of its items.
+    """
     def __init__(self, set_sequence):
         self._sequence = sorted(set_sequence)
 
