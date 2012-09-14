@@ -556,7 +556,7 @@ class Parallel(Logger):
         finally:
             if n_jobs > 1:
                 self._pool.close()
-                self._pool.join()
+                self._pool.terminate()  # terminate does a join()
                 os.environ.pop('__JOBLIB_SPAWNED_PARALLEL__', 0)
             self._jobs = list()
         output = self._output
