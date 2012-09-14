@@ -199,3 +199,32 @@ def test_memmaping_pool_for_large_arrays_in_return():
     assert_false(isinstance(large, np.memmap))
     assert_array_equal(large, np.ones(1000))
     p.terminate()
+
+
+def _worker_multiply(a, n_times):
+    """Multiplication function to be executed by subprocess"""
+    assert_true(isinstance(a, np.memmap))
+    return a * n_times
+
+
+@with_numpy
+@with_multiprocessing
+@with_temp_folder
+def test_workaround_against_bad_memmap_with_copied_buffers():
+    """Check that memmaps with a bad buffer are returned as regular arrays
+
+    Unary operations and ufuncs on memmap instances return a new memmap
+    instance with an in-memory buffer (probably a numpy bug).
+    """
+    p = MemmapingPool(3, max_nbytes=10, temp_folder=TEMP_FOLDER)
+
+    # Send a complex, large-ish view on a array that will be converted to a
+    # memmap in the worker process
+    a = np.asarray(np.arange(6000).reshape((1000, 2, 3)), order='F')[:, :1, :]
+
+    # Call a non-inplace multiply operation on the worker and memmap and send
+    # it back to the parent.
+    b = p.apply_async(_worker_multiply, args=(a, 3)).get()
+    assert_false(isinstance(b, np.memmap))
+    assert_array_equal(b, 3 * a)
+    p.terminate()

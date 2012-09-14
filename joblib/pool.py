@@ -33,6 +33,7 @@ try:
     from multiprocessing import Pipe
     from multiprocessing.synchronize import Lock
     from multiprocessing.forking import assert_spawning
+    from _multiprocessing import address_of_buffer
 except ImportError:
     class Pool(object):
         """Dummy class for python 2.5 backward compat"""
@@ -49,8 +50,25 @@ from .hashing import hash
 ###############################################################################
 # Support for efficient transient pickling of numpy data structures
 
+
 def reduce_memmap(a):
     """Pickle the descriptors of a memmap instance to reopen on same file"""
+
+    # Some instances of numpy.memmap actually holds a buffer that is no
+    # longer
+    buffer = np.getbuffer(a)
+    try:
+        if (address_of_buffer(a._mmap)[0] + a.offset
+            != address_of_buffer(buffer)[0]):
+            # Detected bad memmap arrays with an in-memory buffer (numpy bug)
+            # Unpickle it as an in-memory array from a copy of the data
+            # buffer.
+            return (loads, (dumps(np.asarray(a), protocol=HIGHEST_PROTOCOL),))
+    except TypeError:
+        # XXX: investigate why and when address_of_buffer can trigger
+        # a TypeError and what to do about it
+        pass
+
     mode = a.mode
     if mode == 'w+':
         # Do not make the subprocess erase the data from the parent memmap
@@ -66,7 +84,7 @@ def reduce_memmap(a):
         raise NotImplementedError(
             'Arrays that are neither C nor F contiguous cannot be '
             'memmaped to disk.'
-            )
+        )
     return (np.memmap, (a.filename, a.dtype, mode, a.offset, a.shape, order))
 
 
@@ -98,6 +116,11 @@ class ArrayMemmapReducer(object):
         self.verbose = int(verbose)
 
     def __call__(self, a):
+        # TODO: check recursively the `base` attribute of and look for
+        # for potential instances of np.memmap: in that case we could optimize
+        # thinks by building a custom reducers that reconstruct the same
+        # strided view onto the the same memmory mapped buffer
+
         if a.nbytes > self._max_nbytes:
             # check that the folder exists (lazily create the pool temp folder
             # if required)
