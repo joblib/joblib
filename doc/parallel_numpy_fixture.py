@@ -5,5 +5,6 @@ from nose import SkipTest
 def setup_module(module):
     try:
         import numpy as np
+        import multiprocessing
     except ImportError:
-        raise SkipTest('Skipped as numpy is not installed')
+        raise SkipTest('Skipped as numpy or multiprocessing is not installed')
