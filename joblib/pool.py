@@ -41,6 +41,7 @@ except ImportError:
         pass
 try:
     import numpy as np
+    from numpy.lib.stride_tricks import as_strided
 except ImportError:
     np = None
 
@@ -100,16 +101,9 @@ def _memmap_base(a):
         # a is already a real memmap instance.
         return a
 
-    elif isinstance(b, np.memmap):
-        if isinstance(b.base, mmap):
-            return b
-        else:
-            # Some memmap instances are actually not deriving from real
-            # memmaped files but in-memory buffers: ignore those.
-            return None
-
-    # Recursive exploration of the base ancestry
-    return _memmap_base(b)
+    else:
+        # Recursive exploration of the base ancestry
+        return _memmap_base(b)
 
 
 def has_shared_memory(a):
@@ -124,7 +118,7 @@ def strided_from_memmap(filename, dtype, mode, offset, shape, strides,
         # Do not zero the original data when unpickling
         mode = 'r+'
     m = np.memmap(filename, dtype=dtype, mode=mode, offset=offset)
-    return asstrided(m, shape=shape, strides=strides).view(type)
+    return as_strided(m, shape=shape, strides=strides).view(type)
 
 
 
@@ -164,7 +158,7 @@ class ArrayMemmapReducer(object):
                     (m.filename, a.dtype, m.mode, offset, a.shape, a.strides,
                      a.__class__))
 
-        if a.nbytes > self._max_nbytes:
+        if self._max_nbytes is not None and a.nbytes > self._max_nbytes:
             # check that the folder exists (lazily create the pool temp folder
             # if required)
             try:

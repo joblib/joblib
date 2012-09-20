@@ -106,6 +106,18 @@ def test_memmap_based_array_reducing():
 
     # TODO: test graceful degradation on fake memmap instances
     a3 = a * 3
+    assert_false(has_shared_memory(a3))
+
+    # Test graceful degradation on arrays derived from fake memmap instances
+    b3 = np.asarray(a3)
+    assert_false(has_shared_memory(b3))
+
+    cons, args = reducer(b3)
+    b3_reconstructed = cons(*args)
+    assert_true(isinstance(b3_reconstructed, np.ndarray))
+    assert_false(has_shared_memory(b3_reconstructed))
+    assert_array_equal(b3_reconstructed, b3)
+
 
 
 @with_numpy
