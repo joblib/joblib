@@ -13,6 +13,7 @@ that uses a custom alternative to SimpleQueue.
 # Copyright: 2012, Olivier Grisel
 # License: BSD 3 clause
 
+from mmap import mmap
 import os
 import sys
 import threading
@@ -88,6 +89,45 @@ def reduce_memmap(a):
     return (np.memmap, (a.filename, a.dtype, mode, a.offset, a.shape, order))
 
 
+def _memmap_base(a):
+    """Recursively look up the original np.memmap instance base if any"""
+    b = getattr(a, 'base', None)
+    if b is None:
+        # a nor its descendants doe not have a memmap base
+        return None
+
+    elif isinstance(b, mmap):
+        # a is already a real memmap instance.
+        return a
+
+    elif isinstance(b, np.memmap):
+        if isinstance(b.base, mmap):
+            return b
+        else:
+            # Some memmap instances are actually not deriving from real
+            # memmaped files but in-memory buffers: ignore those.
+            return None
+
+    # Recursive exploration of the base ancestry
+    return _memmap_base(b)
+
+
+def has_shared_memory(a):
+    """Return True if a is backed by some mmap buffer directly or not"""
+    return _memmap_base(a) is not None
+
+
+def strided_from_memmap(filename, dtype, mode, offset, shape, strides,
+                        type=np.ndarray):
+    """Reconstruct an array view on a memmory mapped file"""
+    if mode == 'w+':
+        # Do not zero the original data when unpickling
+        mode = 'r+'
+    m = np.memmap(filename, dtype=dtype, mode=mode, offset=offset)
+    return asstrided(m, shape=shape, strides=strides).view(type)
+
+
+
 class ArrayMemmapReducer(object):
     """Reducer callable to dump large arrays to memmap files.
 
@@ -116,10 +156,13 @@ class ArrayMemmapReducer(object):
         self.verbose = int(verbose)
 
     def __call__(self, a):
-        # TODO: check recursively the `base` attribute of and look for
-        # for potential instances of np.memmap: in that case we could optimize
-        # thinks by building a custom reducers that reconstruct the same
-        # strided view onto the the same memmory mapped buffer
+        m = _memmap_base(a)
+        if m is not None:
+            # a is already backed by a memmap file, let's reuse it directly
+            offset = np.byte_bounds(a)[0] - np.byte_bounds(m)[0]
+            return (strided_from_memmap,
+                    (m.filename, a.dtype, m.mode, offset, a.shape, a.strides,
+                     a.__class__))
 
         if a.nbytes > self._max_nbytes:
             # check that the folder exists (lazily create the pool temp folder

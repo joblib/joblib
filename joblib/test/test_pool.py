@@ -10,6 +10,8 @@ except ImportError:
 try:
     import multiprocessing
     from ..pool import MemmapingPool
+    from ..pool import has_shared_memory
+    from ..pool import ArrayMemmapReducer
 except ImportError:
     multiprocessing = None
 
@@ -62,6 +64,48 @@ def double(input):
     data[position] *= 2
     if expected is not None:
         assert_array_equal(data[position], 2 * expected)
+
+
+
+@with_numpy
+@with_temp_folder
+def test_memmap_based_array_reducing():
+    """Check that it is possible to reduce a memmap backed array"""
+
+    filename = os.path.join(TEMP_FOLDER, 'test.mmap')
+    a = np.memmap(filename, dtype=np.float32, shape=(3, 5),
+                  mode='w+', order='F')
+    a[:] = np.arange(15).reshape(a.shape)
+
+    # Build various views that share the buffer with the original memmap
+
+    # b is an memmap
+    b = a[0:2, 3]
+
+    # c and d are array views
+    c = np.asarray(b)
+    d = c.T
+
+    # Array reducer with auto dumping disabled
+    reducer = ArrayMemmapReducer(None, TEMP_FOLDER, 'c')
+
+    # TODO: reconstruct memmap view b
+
+    # Reconstruct arrays
+    cons, args = reducer(c)
+    c_reconstructed = cons(*args)
+    assert_true(isinstance(c_reconstructed, np.ndarray))
+    assert_true(has_shared_memory(c_reconstructed))
+    assert_array_equal(c_reconstructed, c)
+
+    cons, args = reducer(d)
+    d_reconstructed = cons(*args)
+    assert_true(isinstance(d_reconstructed, np.ndarray))
+    assert_true(has_shared_memory(d_reconstructed))
+    assert_array_equal(d_reconstructed, d)
+
+    # TODO: test graceful degradation on fake memmap instances
+    a3 = a * 3
 
 
 @with_numpy
