@@ -187,7 +187,7 @@ def test_memmaping_pool_for_large_arrays():
     # process able to modify their view individually as if they would have
     # received their own copy of the original array. The original array
     # (which is not a shared memmap instance is untouched)
-    assert_false(isinstance(large, np.memmap))
+    assert_false(has_shared_memory(large))
     assert_array_equal(large, np.ones(100))
 
     # The data has been dump in a temp folder for subprocess to share it
@@ -237,14 +237,14 @@ def test_memmaping_pool_for_large_arrays_in_return():
 
     res = p.apply_async(np.ones, args=(1000,))
     large = res.get()
-    assert_false(isinstance(large, np.memmap))
+    assert_false(has_shared_memory(large))
     assert_array_equal(large, np.ones(1000))
     p.terminate()
 
 
 def _worker_multiply(a, n_times):
     """Multiplication function to be executed by subprocess"""
-    assert_true(isinstance(a, np.memmap))
+    assert_true(has_shared_memory(a))
     return a * n_times
 
 
@@ -266,6 +266,6 @@ def test_workaround_against_bad_memmap_with_copied_buffers():
     # Call a non-inplace multiply operation on the worker and memmap and send
     # it back to the parent.
     b = p.apply_async(_worker_multiply, args=(a, 3)).get()
-    assert_false(isinstance(b, np.memmap))
+    assert_false(has_shared_memory(b))
     assert_array_equal(b, 3 * a)
     p.terminate()

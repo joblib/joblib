@@ -26,10 +26,11 @@ threshold on the size of the array::
 
   >>> import numpy as np
   >>> from joblib import Parallel, delayed
+  >>> from joblib.pool import has_shared_memory
 
   >>> Parallel(n_jobs=2, max_nbytes=1e6)(
-  ...     delayed(type)(np.ones(i)) for i in [1e3, 1e6])
-  [<type 'numpy.ndarray'>, <class 'numpy.core.memmap.memmap'>]
+  ...     delayed(has_shared_memory)(np.ones(i)) for i in [1e2, 1e4, 1e6])
+  [False, False, True]
 
 For even finer tuning of the memory usage it is also possible to
 dump the array as an memmap directly from the parent process to
@@ -52,8 +53,8 @@ Dump it to a local file for memmaping::
 Launch the parallel computation directly on the memapped data::
 
   >>> Parallel(n_jobs=2, max_nbytes=1e6)(
-  ...     delayed(type)(large_array) for i in [1, 2])
-  [<class 'numpy.core.memmap.memmap'>, <class 'numpy.core.memmap.memmap'>]
+  ...     delayed(has_shared_memory)(large_array) for i in [1, 2, 3])
+  [True, True, True]
 
   >>> os.unlink(filename)
 
