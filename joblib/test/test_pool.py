@@ -1,6 +1,3 @@
-# TODO: make it possible to skip the tests if multiprocessing is not there
-# TODO: make it possible to skip the tests if numpy is not there
-
 import os
 import shutil
 import tempfile
