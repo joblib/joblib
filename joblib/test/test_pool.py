@@ -125,8 +125,8 @@ def test_memmap_based_array_reducing():
 @with_multiprocessing
 @with_temp_folder
 def test_pool_with_memmap():
-    """Check that subprocess can access and update shared memory"""
-    # fork the subprocess before allocating the objects to be passed
+    """Check that subprocess can access and update shared memory memmap"""
+    # Fork the subprocess before allocating the objects to be passed
     pool_temp_folder = os.path.join(TEMP_FOLDER, 'pool')
     os.makedirs(pool_temp_folder)
     p = MemmapingPool(10, max_nbytes=2, temp_folder=pool_temp_folder)
@@ -141,14 +141,14 @@ def test_pool_with_memmap():
 
     assert_array_equal(a, 2 * np.ones(a.shape))
 
-    # open a copy-on-write view on the previous data
+    # Open a copy-on-write view on the previous data
     b = np.memmap(filename, dtype=np.float32, shape=(5, 3), mode='c')
 
     p.map(double, [(b, (i, j), 2.0)
                    for i in range(b.shape[0])
                    for j in range(b.shape[1])])
 
-    # passing memmap instances to the pool should not trigger the creation
+    # Passing memmap instances to the pool should not trigger the creation
     # of new files on the FS
     assert_equal(os.listdir(pool_temp_folder), [])
 
@@ -165,6 +165,39 @@ def test_pool_with_memmap():
 
     assert_raises(RuntimeError, p.map, double,
                   [(c, i, 2.0) for i in range(c.shape[0])])
+    p.terminate()
+
+
+@with_numpy
+@with_multiprocessing
+@with_temp_folder
+def test_pool_with_memmap_array_view():
+    """Check that subprocess can access and update shared memory array"""
+    # Fork the subprocess before allocating the objects to be passed
+    pool_temp_folder = os.path.join(TEMP_FOLDER, 'pool')
+    os.makedirs(pool_temp_folder)
+    p = MemmapingPool(10, max_nbytes=2, temp_folder=pool_temp_folder)
+
+    filename = os.path.join(TEMP_FOLDER, 'test.mmap')
+    a = np.memmap(filename, dtype=np.float32, shape=(3, 5), mode='w+')
+    a.fill(1.0)
+
+    # Create an ndarray view on the memmap instance
+    a_view = np.asarray(a)
+    assert_false(isinstance(a_view, np.memmap))
+    assert_true(has_shared_memory(a_view))
+
+    p.map(double, [(a_view, (i, j), 1.0)
+                   for i in range(a.shape[0])
+                   for j in range(a.shape[1])])
+
+    # Both a and the a_view have been updated
+    assert_array_equal(a, 2 * np.ones(a.shape))
+    assert_array_equal(a_view, 2 * np.ones(a.shape))
+
+    # Passing memmap instances to the pool should not trigger the creation
+    # of new files on the FS
+    assert_equal(os.listdir(pool_temp_folder), [])
     p.terminate()
 
 
