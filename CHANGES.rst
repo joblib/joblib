@@ -4,6 +4,12 @@ Latest changes
 Release 0.6.5
 ---------------
 
+2012-09-15
+Yannick Schwartz
+
+    BUG: make sure that sets and dictionnaries give reproducible hashes
+
+
 2012-07-18
 Marek Rudnicki
 
