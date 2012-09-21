@@ -94,6 +94,7 @@ def _memmap_base(a):
     """Recursively look up the original np.memmap instance base if any"""
     b = getattr(a, 'base', None)
     if b is None:
+        # TODO: check scipy sparse datastructure if scipy is installed
         # a nor its descendants do not have a memmap base
         return None
 

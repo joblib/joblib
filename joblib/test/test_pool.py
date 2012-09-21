@@ -68,6 +68,7 @@ def double(input):
 
 
 @with_numpy
+@with_multiprocessing
 @with_temp_folder
 def test_memmap_based_array_reducing():
     """Check that it is possible to reduce a memmap backed array"""
