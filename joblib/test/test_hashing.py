@@ -209,7 +209,10 @@ def test_hash_object_dtype():
     nose.tools.assert_equal(hash(a),
                             hash(b))
 
-def test_dict_hash():    
+
+def test_dict_hash():
+    # Check that dictionaries hash consistently, eventhough the ordering
+    # of the keys is not garanteed
     k = KlassWithCachedMethod()
 
     d = {'#s12069__c_maps.nii.gz': [33],
@@ -232,7 +235,10 @@ def test_dict_hash():
     nose.tools.assert_equal(hash(a),
                             hash(b))
 
-def test_set_hash():    
+
+def test_set_hash():
+    # Check that sets hash consistently, eventhough their ordering
+    # is not garanteed
     k = KlassWithCachedMethod()
 
     s = set(['#s12069__c_maps.nii.gz',
@@ -252,5 +258,4 @@ def test_set_hash():
     a = k.f(s)
     b = k.f(a)
 
-    nose.tools.assert_equal(hash(a),
-                            hash(b))
+    nose.tools.assert_equal(hash(a), hash(b))
