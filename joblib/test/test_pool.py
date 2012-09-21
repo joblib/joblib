@@ -89,18 +89,19 @@ def test_memmap_based_array_reducing():
 
     # Array reducer with auto dumping disabled
     reducer = ArrayMemmapReducer(None, TEMP_FOLDER, 'c')
+    def reconstruct(x):
+        cons, args = reducer(x)
+        return cons(*args)
 
     # TODO: reconstruct memmap view b
 
     # Reconstruct arrays
-    cons, args = reducer(c)
-    c_reconstructed = cons(*args)
+    c_reconstructed = reconstruct(c)
     assert_true(isinstance(c_reconstructed, np.ndarray))
     assert_true(has_shared_memory(c_reconstructed))
     assert_array_equal(c_reconstructed, c)
 
-    cons, args = reducer(d)
-    d_reconstructed = cons(*args)
+    d_reconstructed = reconstruct(d)
     assert_true(isinstance(d_reconstructed, np.ndarray))
     assert_true(has_shared_memory(d_reconstructed))
     assert_array_equal(d_reconstructed, d)
@@ -113,8 +114,7 @@ def test_memmap_based_array_reducing():
     b3 = np.asarray(a3)
     assert_false(has_shared_memory(b3))
 
-    cons, args = reducer(b3)
-    b3_reconstructed = cons(*args)
+    b3_reconstructed = reconstruct(b3)
     assert_true(isinstance(b3_reconstructed, np.ndarray))
     assert_false(has_shared_memory(b3_reconstructed))
     assert_array_equal(b3_reconstructed, b3)

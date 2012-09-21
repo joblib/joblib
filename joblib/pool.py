@@ -90,7 +90,7 @@ def reduce_memmap(a):
     return (np.memmap, (a.filename, a.dtype, mode, a.offset, a.shape, order))
 
 
-def _memmap_base(a):
+def _get_memmap_base(a):
     """Recursively look up the original np.memmap instance base if any"""
     b = getattr(a, 'base', None)
     if b is None:
@@ -104,12 +104,12 @@ def _memmap_base(a):
 
     else:
         # Recursive exploration of the base ancestry
-        return _memmap_base(b)
+        return _get_memmap_base(b)
 
 
 def has_shared_memory(a):
     """Return True if a is backed by some mmap buffer directly or not"""
-    return _memmap_base(a) is not None
+    return _get_memmap_base(a) is not None
 
 
 def strided_from_memmap(filename, dtype, mode, offset, shape, strides,
@@ -151,7 +151,7 @@ class ArrayMemmapReducer(object):
         self.verbose = int(verbose)
 
     def __call__(self, a):
-        m = _memmap_base(a)
+        m = _get_memmap_base(a)
         if m is not None:
             # a is already backed by a memmap file, let's reuse it directly
             offset = np.byte_bounds(a)[0] - np.byte_bounds(m)[0]
