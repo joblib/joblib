@@ -72,7 +72,6 @@ It it possible to slice ``large_memmap`` into a smaller memmap::
   >>> small_memmap.__class__.__name__, small_memmap.nbytes, small_memmap.shape
   ('memmap', 24, (3,))
 
-
 Finally we can also take a ``np.ndarray`` view backed on that same
 memory mapped file::
 
@@ -91,7 +90,7 @@ of a ``Parallel`` call::
 
 Note that here we used ``max_nbytes=None`` to disable the auto-dumping
 feature of ``Parallel``. The fact that ``small_array`` is still in
-shared memory in the worker proceses is a consequence of the fact
+shared memory in the worker processes is a consequence of the fact
 that it was already backed by shared memory in the parent process.
 The pickling machinery of ``Parallel`` multiprocessing queues are
 able to detect this situation and optimize it on the fly to limit
