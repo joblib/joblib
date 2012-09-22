@@ -48,7 +48,7 @@ if __name__ == "__main__":
         # Generate some data and an allocate an output buffer
         samples = rng.normal(size=(10, int(1e6)))
         sums = np.memmap(sums_name, dtype=samples.dtype,
-                         shape=sums.shape[0], mode='w+')
+                         shape=samples.shape[0], mode='w+')
 
         # Dump the input data to disk to free the memory
         dump(samples, samples_name)
