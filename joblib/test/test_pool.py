@@ -12,6 +12,7 @@ try:
     from ..pool import MemmapingPool
     from ..pool import has_shared_memory
     from ..pool import ArrayMemmapReducer
+    from ..pool import reduce_memmap
 except ImportError:
     multiprocessing = None
 
@@ -72,15 +73,25 @@ def double(input):
 @with_temp_folder
 def test_memmap_based_array_reducing():
     """Check that it is possible to reduce a memmap backed array"""
-
     filename = os.path.join(TEMP_FOLDER, 'test.mmap')
-    a = np.memmap(filename, dtype=np.float32, shape=(3, 5),
-                  mode='w+', order='F')
+
+    # Create a file larger than what will be used by a
+    buffer = np.memmap(filename, dtype=np.float64, shape=500, mode='w+')
+
+    # Fill the original buffer with negative markers to detect over of
+    # underflow in case of test failures
+    buffer[:] = - 1.0 * np.arange(buffer.shape[0], dtype=buffer.dtype)
+    buffer.flush()
+
+    # Memmap a 2D fortran array on a offseted subsection of the previous
+    # buffer
+    a = np.memmap(filename, dtype=np.float64, shape=(3, 5),
+                  mode='r+', order='F', offset=4)
     a[:] = np.arange(15).reshape(a.shape)
 
     # Build various views that share the buffer with the original memmap
 
-    # b is an memmap
+    # b is an memmap sliced view on an memmap instance
     b = a[0:2, 3]
 
     # c and d are array views
@@ -89,36 +100,53 @@ def test_memmap_based_array_reducing():
 
     # Array reducer with auto dumping disabled
     reducer = ArrayMemmapReducer(None, TEMP_FOLDER, 'c')
-    def reconstruct(x):
+    def reconstruct_array(x):
         cons, args = reducer(x)
         return cons(*args)
 
-    # TODO: reconstruct memmap view b
+    def reconstruct_memmap(x):
+        cons, args = reduce_memmap(x)
+        return cons(*args)
 
-    # Reconstruct arrays
-    c_reconstructed = reconstruct(c)
-    assert_true(isinstance(c_reconstructed, np.ndarray))
+    # Reconstruct original memmap
+    a_reconstructed = reconstruct_memmap(a)
+    assert_true(has_shared_memory(a_reconstructed))
+    assert_true(isinstance(a_reconstructed, np.memmap))
+    assert_array_equal(a_reconstructed, a)
+
+    # Reconstruct strided memmap view
+    b_reconstructed = reconstruct_memmap(b)
+    assert_true(has_shared_memory(b_reconstructed))
+    assert_array_equal(b_reconstructed, b)
+
+    # Reconstruct arrays views on memmap base
+    c_reconstructed = reconstruct_array(c)
+    assert_false(isinstance(c_reconstructed, np.memmap))
     assert_true(has_shared_memory(c_reconstructed))
     assert_array_equal(c_reconstructed, c)
 
-    d_reconstructed = reconstruct(d)
-    assert_true(isinstance(d_reconstructed, np.ndarray))
+    d_reconstructed = reconstruct_array(d)
+    assert_false(isinstance(d_reconstructed, np.memmap))
     assert_true(has_shared_memory(d_reconstructed))
     assert_array_equal(d_reconstructed, d)
 
-    # TODO: test graceful degradation on fake memmap instances
+    # Test graceful degradation on fake memmap instances with in-memory
+    # buffers
     a3 = a * 3
     assert_false(has_shared_memory(a3))
+    a3_reconstructed = reconstruct_memmap(a3)
+    assert_false(has_shared_memory(a3_reconstructed))
+    assert_false(isinstance(a3_reconstructed, np.memmap))
+    assert_array_equal(a3_reconstructed, a * 3)
 
     # Test graceful degradation on arrays derived from fake memmap instances
     b3 = np.asarray(a3)
     assert_false(has_shared_memory(b3))
 
-    b3_reconstructed = reconstruct(b3)
+    b3_reconstructed = reconstruct_array(b3)
     assert_true(isinstance(b3_reconstructed, np.ndarray))
     assert_false(has_shared_memory(b3_reconstructed))
     assert_array_equal(b3_reconstructed, b3)
-
 
 
 @with_numpy
@@ -195,7 +223,7 @@ def test_pool_with_memmap_array_view():
     assert_array_equal(a, 2 * np.ones(a.shape))
     assert_array_equal(a_view, 2 * np.ones(a.shape))
 
-    # Passing memmap instances to the pool should not trigger the creation
+    # Passing memmap array view to the pool should not trigger the creation
     # of new files on the FS
     assert_equal(os.listdir(pool_temp_folder), [])
     p.terminate()

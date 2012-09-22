@@ -34,7 +34,6 @@ try:
     from multiprocessing import Pipe
     from multiprocessing.synchronize import Lock
     from multiprocessing.forking import assert_spawning
-    from _multiprocessing import address_of_buffer
 except ImportError:
     class Pool(object):
         """Dummy class for python 2.5 backward compat"""
@@ -51,43 +50,6 @@ from .hashing import hash
 
 ###############################################################################
 # Support for efficient transient pickling of numpy data structures
-
-
-def reduce_memmap(a):
-    """Pickle the descriptors of a memmap instance to reopen on same file"""
-
-    # Some instances of numpy.memmap actually holds a buffer that is no
-    # longer
-    buffer = np.getbuffer(a)
-    try:
-        if (address_of_buffer(a._mmap)[0] + a.offset
-            != address_of_buffer(buffer)[0]):
-            # Detected bad memmap arrays with an in-memory buffer (numpy bug)
-            # Unpickle it as an in-memory array from a copy of the data
-            # buffer.
-            return (loads, (dumps(np.asarray(a), protocol=HIGHEST_PROTOCOL),))
-    except TypeError:
-        # XXX: investigate why and when address_of_buffer can trigger
-        # a TypeError and what to do about it
-        pass
-
-    mode = a.mode
-    if mode == 'w+':
-        # Do not make the subprocess erase the data from the parent memmap
-        # inadvertently
-        mode = 'r+'
-    if a.flags['F_CONTIGUOUS']:
-        order ='F'
-    elif a.flags['C_CONTIGUOUS']:
-        order = 'C'
-    else:
-        # This should never happen as I don't believe that a memmaped
-        # array can be other than F or C contiguous
-        raise NotImplementedError(
-            'Arrays that are neither C nor F contiguous cannot be '
-            'memmaped to disk.'
-        )
-    return (np.memmap, (a.filename, a.dtype, mode, a.offset, a.shape, order))
 
 
 def _get_memmap_base(a):
@@ -112,15 +74,62 @@ def has_shared_memory(a):
     return _get_memmap_base(a) is not None
 
 
-def strided_from_memmap(filename, dtype, mode, offset, shape, strides,
+def strided_from_memmap(filename, dtype, mode, offset, order, shape, strides,
                         type=np.ndarray):
     """Reconstruct an array view on a memmory mapped file"""
     if mode == 'w+':
         # Do not zero the original data when unpickling
         mode = 'r+'
-    m = np.memmap(filename, dtype=dtype, mode=mode, offset=offset)
-    return as_strided(m, shape=shape, strides=strides).view(type)
+    m = np.memmap(filename, dtype=dtype, shape=shape, mode=mode, offset=offset,
+                  order=order)
+    if type == np.memmap and strides is None:
+        return m
+    a = as_strided(m, strides=strides)
+    if a.__class__ != type:
+        return a.view(type=type)
+    else:
+        return a
 
+
+def _reduce_memmap_backed(a, m):
+    """Pickling reduction for memmap backed arrays"""
+    # offset that comes from the striding differences between a and m
+    a_start = np.byte_bounds(a)[0]
+    m_start = np.byte_bounds(m)[0]
+    offset = a_start - m_start
+
+    # offset from the backing memmap
+    offset += m.offset
+
+    if m.flags['F_CONTIGUOUS']:
+        order ='F'
+    else:
+        # The backing memmap buffer is necessarily contiguous hence C if not
+        # Fortran
+        order = 'C'
+
+    # If array is a contiguous view, no need to pass the strides
+    if a.flags['F_CONTIGUOUS'] or a.flags['C_CONTIGUOUS']:
+        strides = None
+    else:
+        strides = a.strides
+    return (strided_from_memmap,
+            (m.filename, a.dtype, m.mode, offset, order, a.shape, strides,
+             a.__class__))
+
+
+def reduce_memmap(a):
+    """Pickle the descriptors of a memmap instance to reopen on same file"""
+    m = _get_memmap_base(a)
+    if m is not None:
+        # m is a real mmap backed memmap instance, reduce a preserving striding
+        # information
+        return _reduce_memmap_backed(a, m)
+    else:
+        # This memmap instance is actually backed by a regular in-memory
+        # buffer: this can happen when using binary operators on numpy.memmap
+        # instances
+        return (loads, (dumps(np.asarray(a), protocol=HIGHEST_PROTOCOL),))
 
 
 class ArrayMemmapReducer(object):
@@ -154,10 +163,7 @@ class ArrayMemmapReducer(object):
         m = _get_memmap_base(a)
         if m is not None:
             # a is already backed by a memmap file, let's reuse it directly
-            offset = np.byte_bounds(a)[0] - np.byte_bounds(m)[0]
-            return (strided_from_memmap,
-                    (m.filename, a.dtype, m.mode, offset, a.shape, a.strides,
-                     a.__class__))
+            return _reduce_memmap_backed(a, m)
 
         if self._max_nbytes is not None and a.nbytes > self._max_nbytes:
             # check that the folder exists (lazily create the pool temp folder
