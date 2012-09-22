@@ -45,18 +45,57 @@ Dump it to a local file for memmaping::
   >>> import os
   >>> from joblib import load, dump
 
-  >>> filename = os.path.join(tempfile.gettempdir(), 'joblib_test.mmap')
+  >>> temp_folder = tempfile.mkdtemp()
+  >>> filename = os.path.join(temp_folder, 'joblib_test.mmap')
   >>> if os.path.exists(filename): os.unlink(filename)
   >>> _ = dump(large_array, filename)
-  >>> large_array = load(filename, mmap_mode='r+')
+  >>> large_memmap = load(filename, mmap_mode='r+')
 
-Launch the parallel computation directly on the memapped data::
+The ``large_memmap`` variable is pointing to a ``numpy.memmap``
+instance::
 
-  >>> Parallel(n_jobs=2, max_nbytes=1e6)(
-  ...     delayed(has_shared_memory)(large_array) for i in [1, 2, 3])
+  >>> large_memmap.__class__.__name__, large_array.nbytes, large_array.shape
+  ('memmap', 8000000, (1000000,))
+
+  >>> np.allclose(large_array, large_memmap)
+  True
+
+We can free the original array from the main process memory::
+
+  >>> del large_array
+  >>> import gc
+  >>> _ = gc.collect()
+
+It it possible to slice ``large_memmap`` into a smaller memmap::
+
+  >>> small_memmap = large_memmap[2:5]
+  >>> small_memmap.__class__.__name__, small_memmap.nbytes, small_memmap.shape
+  ('memmap', 24, (3,))
+
+
+Finally we can also take a ``np.ndarray`` view backed on that same
+memory mapped file::
+
+  >>> small_array = np.asarray(small_memmap)
+  >>> small_array.__class__.__name__, small_array.nbytes, small_array.shape
+  ('ndarray', 24, (3,))
+
+All those three datastructures point to the same memory buffer and
+this same buffer will also be reused directly by the worker processes
+of a ``Parallel`` call::
+
+  >>> Parallel(n_jobs=2, max_nbytes=None)(
+  ...     delayed(has_shared_memory)(a)
+  ...     for a in [large_memmap, small_memmap, small_array])
   [True, True, True]
 
-  >>> os.unlink(filename)
+Note that here we used ``max_nbytes=None`` to disable the auto-dumping
+feature of ``Parallel``. The fact that ``small_array`` is still in
+shared memory in the worker proceses is a consequence of the fact
+that it was already backed by shared memory in the parent process.
+The pickling machinery of ``Parallel`` multiprocessing queues are
+able to detect this situation and optimize it on the fly to limit
+the number of memory copies.
 
 Also note that when you open your data using the ``w+`` or ``r+``
 mode in the main program, the worker will have ``r+`` mode access
@@ -72,3 +111,9 @@ It also makes it possible to do interprocess communication without
 the cost of serializing datastructures. However the current
 implementation does not yet provide locking tools for protecting
 concurrent read/write access to shared memory chunks.
+
+By the way, this is the end of this section, let's cleanup the temp
+folder::
+
+  >>> import shutil
+  >>> shutil.rmtree(temp_folder)

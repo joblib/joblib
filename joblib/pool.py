@@ -52,7 +52,7 @@ from .hashing import hash
 # Support for efficient transient pickling of numpy data structures
 
 
-def _get_memmap_base(a):
+def _get_backing_memmap(a):
     """Recursively look up the original np.memmap instance base if any"""
     b = getattr(a, 'base', None)
     if b is None:
@@ -66,12 +66,12 @@ def _get_memmap_base(a):
 
     else:
         # Recursive exploration of the base ancestry
-        return _get_memmap_base(b)
+        return _get_backing_memmap(b)
 
 
 def has_shared_memory(a):
     """Return True if a is backed by some mmap buffer directly or not"""
-    return _get_memmap_base(a) is not None
+    return _get_backing_memmap(a) is not None
 
 
 def strided_from_memmap(filename, dtype, mode, offset, order, shape, strides,
@@ -91,8 +91,13 @@ def strided_from_memmap(filename, dtype, mode, offset, order, shape, strides,
         return a
 
 
-def _reduce_memmap_backed(a, m):
-    """Pickling reduction for memmap backed arrays"""
+def _reduce_memmap_backed(a, m, type=None):
+    """Pickling reduction for memmap backed arrays
+
+    a is expected to be an instance of np.ndarray (or np.memmap)
+    m is expected to be an instance of np.memmap on the top of the ``base``
+    attribute ancestry of a. ``m.base`` should be the real python mmap object.
+    """
     # offset that comes from the striding differences between a and m
     a_start = np.byte_bounds(a)[0]
     m_start = np.byte_bounds(m)[0]
@@ -108,6 +113,10 @@ def _reduce_memmap_backed(a, m):
         # Fortran
         order = 'C'
 
+    if type is None:
+        # Preserve the original array type information
+        type = a.__class__
+
     # If array is a contiguous view, no need to pass the strides
     if a.flags['F_CONTIGUOUS'] or a.flags['C_CONTIGUOUS']:
         strides = None
@@ -115,12 +124,12 @@ def _reduce_memmap_backed(a, m):
         strides = a.strides
     return (strided_from_memmap,
             (m.filename, a.dtype, m.mode, offset, order, a.shape, strides,
-             a.__class__))
+             type))
 
 
 def reduce_memmap(a):
     """Pickle the descriptors of a memmap instance to reopen on same file"""
-    m = _get_memmap_base(a)
+    m = _get_backing_memmap(a)
     if m is not None:
         # m is a real mmap backed memmap instance, reduce a preserving striding
         # information
@@ -160,7 +169,7 @@ class ArrayMemmapReducer(object):
         self.verbose = int(verbose)
 
     def __call__(self, a):
-        m = _get_memmap_base(a)
+        m = _get_backing_memmap(a)
         if m is not None:
             # a is already backed by a memmap file, let's reuse it directly
             return _reduce_memmap_backed(a, m)
@@ -432,18 +441,21 @@ class MemmapingPool(PicklingPool):
         atexit.register(self._collect_tempfile)
 
         if np is not None:
-            if max_nbytes is not None:
-                reduce_ndarray = ArrayMemmapReducer(
-                    max_nbytes, temp_folder, mmap_mode, verbose)
-                # We only register the automatic array to memmap reducer in
-                # the forward direction (from parent to child processes)
-                forward_reducers[np.ndarray] = reduce_ndarray
+            # Register smart numpy.ndarray reducers that detects memmap
+            # backed arrays and is able to dump to memmap large in-memory
+            # arrays over the max_nbytes threshold
+            forward_reduce_ndarray = ArrayMemmapReducer(
+                max_nbytes, temp_folder, mmap_mode, verbose)
+            forward_reducers[np.ndarray] = forward_reduce_ndarray
             forward_reducers[np.memmap] = reduce_memmap
 
             # Communication from child process to the parent process always
-            # pickles numpy.ndarray without dumping them as memmap to avoid
-            # confusing the caller and make it tricky to collect the temporary
-            # folder
+            # pickles in-memory numpy.ndarray without dumping them as memmap
+            # to avoid confusing the caller and make it tricky to collect the
+            # temporary folder
+            backward_reduce_ndarray = ArrayMemmapReducer(
+                None, temp_folder, mmap_mode, verbose)
+            backward_reducers[np.ndarray] = backward_reduce_ndarray
             backward_reducers[np.memmap] = reduce_memmap
 
         super(MemmapingPool, self).__init__(processes=processes,
