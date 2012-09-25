@@ -2,12 +2,6 @@ import os
 import shutil
 import tempfile
 try:
-    import numpy as np
-    from numpy.testing import assert_array_equal
-except ImportError:
-    np = None
-
-try:
     import multiprocessing
     from ..pool import MemmapingPool
     from ..pool import has_shared_memory
@@ -22,9 +16,20 @@ from nose.tools import assert_equal
 from nose.tools import assert_raises
 from nose.tools import assert_false
 from nose.tools import assert_true
+from .common import with_numpy, np
+from .common import setup_autokill
+from .common import teardown_autokill
 
 
 TEMP_FOLDER = None
+
+
+def setup_module():
+    setup_autokill(__name__, timeout=5)
+
+
+def teardown_module():
+    teardown_autokill(__name__)
 
 
 def check_multiprocessing():
@@ -32,14 +37,6 @@ def check_multiprocessing():
         raise SkipTest('Need multiprocessing to run')
 
 with_multiprocessing = with_setup(check_multiprocessing)
-
-
-def check_numpy():
-    if np is None:
-        raise SkipTests('Need numpy to run')
-
-
-with_numpy = with_setup(check_numpy)
 
 
 def setup_temp_folder():
@@ -59,6 +56,8 @@ with_temp_folder = with_setup(setup_temp_folder, teardown_temp_folder)
 
 def double(input):
     """Dummy helper function to be executed in subprocesses"""
+    assert_array_equal = np.testing.assert_array_equal
+
     data, position, expected = input
     if expected is not None:
         assert_equal(data[position], expected)
@@ -73,6 +72,7 @@ def double(input):
 @with_temp_folder
 def test_memmap_based_array_reducing():
     """Check that it is possible to reduce a memmap backed array"""
+    assert_array_equal = np.testing.assert_array_equal
     filename = os.path.join(TEMP_FOLDER, 'test.mmap')
 
     # Create a file larger than what will be used by a
@@ -154,6 +154,8 @@ def test_memmap_based_array_reducing():
 @with_temp_folder
 def test_pool_with_memmap():
     """Check that subprocess can access and update shared memory memmap"""
+    assert_array_equal = np.testing.assert_array_equal
+
     # Fork the subprocess before allocating the objects to be passed
     pool_temp_folder = os.path.join(TEMP_FOLDER, 'pool')
     os.makedirs(pool_temp_folder)
@@ -201,6 +203,8 @@ def test_pool_with_memmap():
 @with_temp_folder
 def test_pool_with_memmap_array_view():
     """Check that subprocess can access and update shared memory array"""
+    assert_array_equal = np.testing.assert_array_equal
+
     # Fork the subprocess before allocating the objects to be passed
     pool_temp_folder = os.path.join(TEMP_FOLDER, 'pool')
     os.makedirs(pool_temp_folder)
@@ -234,6 +238,8 @@ def test_pool_with_memmap_array_view():
 @with_temp_folder
 def test_memmaping_pool_for_large_arrays():
     """Check that large arrays are not copied in memory"""
+    assert_array_equal = np.testing.assert_array_equal
+
     # Check that the tempfolder is empty
     assert_equal(os.listdir(TEMP_FOLDER), [])
 
@@ -300,6 +306,8 @@ def test_memmaping_pool_for_large_arrays_disabled():
 @with_temp_folder
 def test_memmaping_pool_for_large_arrays_in_return():
     """Check that large arrays are not copied in memory in return"""
+    assert_array_equal = np.testing.assert_array_equal
+
     # Build an array reducers that automaticaly dump large array content
     # but check that the returned datastructure are regular arrays to avoid
     # passing a memmap array pointing to a pool controlled temp folder that
@@ -331,6 +339,8 @@ def test_workaround_against_bad_memmap_with_copied_buffers():
     Unary operations and ufuncs on memmap instances return a new memmap
     instance with an in-memory buffer (probably a numpy bug).
     """
+    assert_array_equal = np.testing.assert_array_equal
+
     p = MemmapingPool(3, max_nbytes=10, temp_folder=TEMP_FOLDER)
 
     # Send a complex, large-ish view on a array that will be converted to a
