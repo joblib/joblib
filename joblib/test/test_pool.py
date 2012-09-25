@@ -92,7 +92,7 @@ def test_memmap_based_array_reducing():
     # Build various views that share the buffer with the original memmap
 
     # b is an memmap sliced view on an memmap instance
-    b = a[0:2, 3]
+    b = a[0:2, 2:4]
 
     # c and d are array views
     c = np.asarray(b)

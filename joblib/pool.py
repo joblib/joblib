@@ -74,24 +74,19 @@ def has_shared_memory(a):
     return _get_backing_memmap(a) is not None
 
 
-def strided_from_memmap(filename, dtype, mode, offset, order, shape, strides,
-                        type=np.ndarray):
+def strided_from_memmap(filename, dtype, mode, offset, order, shape, strides):
     """Reconstruct an array view on a memmory mapped file"""
     if mode == 'w+':
         # Do not zero the original data when unpickling
         mode = 'r+'
     m = np.memmap(filename, dtype=dtype, shape=shape, mode=mode, offset=offset,
                   order=order)
-    if type == np.memmap and strides is None:
+    if strides is None:
         return m
-    a = as_strided(m, strides=strides)
-    if a.__class__ != type:
-        return a.view(type=type)
-    else:
-        return a
+    return as_strided(m, strides=strides)
 
 
-def _reduce_memmap_backed(a, m, type=None):
+def _reduce_memmap_backed(a, m):
     """Pickling reduction for memmap backed arrays
 
     a is expected to be an instance of np.ndarray (or np.memmap)
@@ -113,18 +108,13 @@ def _reduce_memmap_backed(a, m, type=None):
         # Fortran
         order = 'C'
 
-    if type is None:
-        # Preserve the original array type information
-        type = a.__class__
-
     # If array is a contiguous view, no need to pass the strides
     if a.flags['F_CONTIGUOUS'] or a.flags['C_CONTIGUOUS']:
         strides = None
     else:
         strides = a.strides
     return (strided_from_memmap,
-            (m.filename, a.dtype, m.mode, offset, order, a.shape, strides,
-             type))
+            (m.filename, a.dtype, m.mode, offset, order, a.shape, strides))
 
 
 def reduce_memmap(a):
