@@ -85,14 +85,14 @@ def test_memmap_based_array_reducing():
 
     # Memmap a 2D fortran array on a offseted subsection of the previous
     # buffer
-    a = np.memmap(filename, dtype=np.float64, shape=(3, 5),
+    a = np.memmap(filename, dtype=np.float64, shape=(3, 5, 4),
                   mode='r+', order='F', offset=4)
-    a[:] = np.arange(15).reshape(a.shape)
+    a[:] = np.arange(60).reshape(a.shape)
 
     # Build various views that share the buffer with the original memmap
 
     # b is an memmap sliced view on an memmap instance
-    b = a[0:2, 2:4]
+    b = a[1:-1, 2:-1, 2:4]
 
     # c and d are array views
     c = np.asarray(b)
