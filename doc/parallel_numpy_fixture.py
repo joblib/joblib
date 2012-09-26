@@ -15,5 +15,5 @@ def setup_module(module):
     setup_autokill(module.__name__)
 
 
-def teardown_autokill(module):
+def teardown_module(module):
     teardown_autokill(module.__name__)
