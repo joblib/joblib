@@ -78,6 +78,10 @@ class Hasher(pickle.Pickler):
                     setattr(mod, my_name, obj)
             pickle.Pickler.save_global(self, obj, name=name, pack=struct.pack)
 
+        def save_set(self, set_items):
+            # forces order of items in Set to ensure consistent hash
+            pickle.Pickler.save_inst(self, _ConsistentSet(set_items))
+
         dispatch = pickle.Pickler.dispatch.copy()
         # builtin
         dispatch[type(len)] = save_global
@@ -87,17 +91,13 @@ class Hasher(pickle.Pickler):
         dispatch[type(pickle.Pickler)] = save_global
         # function
         dispatch[type(pickle.dump)] = save_global
-
+        # set
+        dispatch[type(set())] = save_set
+    
     def _batch_setitems(self, items):
         # forces order of keys in dict to ensure consistent hash
         pickle.Pickler._batch_setitems(self, iter(sorted(items)))
 
-    def save_set(self, set_items):
-        # forces order of items in Set to ensure consistent hash
-        pickle.Pickler.save_inst(self, _ConsistentSet(set_items))
-
-    # set
-    dispatch[type(set())] = save_set
 
 
 class NumpyHasher(Hasher):
