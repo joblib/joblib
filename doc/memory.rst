@@ -144,17 +144,17 @@ using memmapping (memory mapping)::
     >>> cachedir2 = mkdtemp()
     >>> memory2 = Memory(cachedir=cachedir2, mmap_mode='r')
     >>> square = memory2.cache(np.square)
-    >>> a = np.vander(np.arange(3))
+    >>> a = np.vander(np.arange(3)).astype(np.float)
     >>> square(a)
     ________________________________________________________________________________
     [Memory] Calling square...
-    square(array([[0, 0, 1],
-           [1, 1, 1],
-           [4, 2, 1]]))
+    square(array([[ 0.,  0.,  1.],
+           [ 1.,  1.,  1.],
+           [ 4.,  2.,  1.]]))
     ___________________________________________________________square - 0.0s, 0.0min
-    array([[ 0,  0,  1],
-           [ 1,  1,  1],
-           [16,  4,  1]])
+    array([[  0.,   0.,   1.],
+           [  1.,   1.,   1.],
+           [ 16.,   4.,   1.]])
 
 .. note::
 
@@ -166,9 +166,9 @@ return value is loaded from the disk using memmapping::
 
     >>> res = square(a)
     >>> print(repr(res))
-    memmap([[ 0,  0,  1],
-           [ 1,  1,  1],
-           [16,  4,  1]])
+    memmap([[  0.,   0.,   1.],
+           [  1.,   1.,   1.],
+           [ 16.,   4.,   1.]])
 
 ..
 
