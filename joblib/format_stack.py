@@ -375,23 +375,6 @@ def format_exc(etype, evalue, etb, context=5, tb_offset=0):
         etype_str, evalue_str = map(str, (etype, evalue))
     # ... and format it
     exception = ['%s: %s' % (etype_str, evalue_str)]
-    if (not PY3) and type(evalue) is types.InstanceType:
-        try:
-            names = [w for w in dir(evalue) if isinstance(w, _basestring)]
-        except:
-            # Every now and then, an object with funny inernals blows up
-            # when dir() is called on it.  We do the best we can to report
-            # the problem and continue
-            exception.append(
-                    'Exception reporting error (object with broken dir()):'
-                    )
-            etype_str, evalue_str = map(str, sys.exc_info()[:2])
-            exception.append('%s: %s' % (etype_str, evalue_str))
-            names = []
-        for name in names:
-            value = safe_repr(getattr(evalue, name))
-            exception.append('\n%s%s = %s' % (INDENT, name, value))
-
     frames = format_records(records)
     return '%s\n%s\n%s' % (head, '\n'.join(frames), ''.join(exception[0]))
 
