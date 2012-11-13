@@ -315,6 +315,7 @@ class MemorizedFunc(Logger):
             print(self.format_call(*args, **kwargs))
         output = self.func(*args, **kwargs)
         self._persist_output(output, output_dir)
+        self._persist_input(output_dir, *args, **kwargs)
         duration = time.time() - start_time
         if self._verbose:
             _, name = get_func_name(self.func)

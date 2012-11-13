@@ -11,7 +11,6 @@ import os
 from tempfile import mkdtemp
 import pickle
 import warnings
-import sys
 
 import nose
 
