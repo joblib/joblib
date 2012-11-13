@@ -383,7 +383,7 @@ class MemorizedFunc(Logger):
         argument_dict = filter_args(self.func, self.ignore,
                                     args, kwargs)
 
-        input_repr = dict((k, repr(v)) for k, v in argument_dict.iteritems())
+        input_repr = dict((k, repr(v)) for k, v in argument_dict.items())
         # This can fail do to race-conditions with multiple
         # concurrent joblibs removing the file or the directory
         try:
