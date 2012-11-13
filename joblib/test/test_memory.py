@@ -11,6 +11,8 @@ import os
 from tempfile import mkdtemp
 import pickle
 import warnings
+import io
+import sys
 
 import nose
 
@@ -99,18 +101,35 @@ def test_memory_integration():
 
     # Now test clearing
     for compress in (False, True):
-        memory = Memory(cachedir=env['dir'], verbose=0, compress=compress)
-        # First clear the cache directory, to check that our code can
-        # handle that
-        # NOTE: this line would raise an exception, as the database file is
-        # still open; we ignore the error since we want to test what happens if
-        # the directory disappears
-        shutil.rmtree(env['dir'], ignore_errors=True)
-        g = memory.cache(f)
-        g(1)
-        g.clear(warn=False)
-        current_accumulator = len(accumulator)
-        out = g(1)
+        # We turn verbosity on to smoke test the verbosity code, however,
+        # we capture it, as it is ugly
+        try:
+            # To smoke-test verbosity, we capture stdout
+            orig_stdout = sys.stdout
+            orig_stderr = sys.stdout
+            if sys.version_info[0] == 3:
+                sys.stderr = io.StringIO()
+                sys.stderr = io.StringIO()
+            else:
+                sys.stdout = io.BytesIO()
+                sys.stderr = io.BytesIO()
+
+            memory = Memory(cachedir=env['dir'], verbose=10, compress=compress)
+            # First clear the cache directory, to check that our code can
+            # handle that
+            # NOTE: this line would raise an exception, as the database file is
+            # still open; we ignore the error since we want to test what
+            # happens if the directory disappears
+            shutil.rmtree(env['dir'], ignore_errors=True)
+            g = memory.cache(f)
+            g(1)
+            g.clear(warn=False)
+            current_accumulator = len(accumulator)
+            out = g(1)
+        finally:
+            sys.stdout = orig_stdout
+            sys.stderr = orig_stderr
+
         yield nose.tools.assert_equal, len(accumulator), \
                     current_accumulator + 1
         # Also, check that Memory.eval works similarly
