@@ -1,43 +1,7 @@
 #!/usr/bin/env python
 
 from distutils.core import setup
-import os
 import sys
-import shutil
-
-# Python 3 compatibility
-local_path = os.path.dirname(os.path.abspath(sys.argv[0]))
-# python 3 compatibility stuff.
-# Simplified version of scipy strategy: copy files into
-# build/py3k, and patch them using lib2to3.
-if sys.version_info[0] == 3:
-    try:
-        import lib2to3cache
-    except ImportError:
-        pass
-    py3k_path = os.path.join(local_path, 'build', 'py3k')
-    if os.path.exists(py3k_path):
-        shutil.rmtree(py3k_path)
-    print("Copying source tree into build/py3k for 2to3 transformation"
-          "...")
-    shutil.copytree(os.path.join(local_path, 'joblib'),
-                    os.path.join(py3k_path, 'joblib'))
-    import lib2to3.main
-    from io import StringIO
-    print("Converting to Python3 via 2to3...")
-    try:
-        sys.stdout = StringIO()  # supress noisy output
-        res = lib2to3.main.main("lib2to3.fixes",
-                                                 ['-x', 'import',
-                                                  '-w', py3k_path])
-    finally:
-        sys.stdout = sys.__stdout__
-
-    if res != 0:
-        raise Exception('2to3 failed, exiting ...')
-
-    os.chdir(py3k_path)
-    sys.path.insert(0, py3k_path)
 
 import joblib
 
