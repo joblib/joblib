@@ -8,16 +8,14 @@ Test the parallel module.
 
 import time
 import sys
+import io
 try:
     import cPickle as pickle
     PickleError = TypeError
 except:
     import pickle
     PickleError = pickle.PicklingError
-try:
-    from io import BytesIO
-except:
-    from cStringIO import StringIO as BytesIO
+
 
 if sys.version_info[0] == 3:
     PickleError = pickle.PicklingError
@@ -28,6 +26,8 @@ from ..my_exceptions import JoblibException
 
 import nose
 
+if sys.version_info[0] == 3:
+    raise nose.SkipTest
 
 ###############################################################################
 
@@ -73,9 +73,9 @@ def test_simple_parallel():
     try:
         # To smoke-test verbosity, we capture stdout
         orig_stdout = sys.stdout
-        sys.stdout = BytesIO()
+        sys.stdout = io.BytesIO()
         orig_stderr = sys.stdout
-        sys.stderr = BytesIO()
+        sys.stderr = io.BytesIO()
         for verbose in (2, 11, 100):
                 Parallel(n_jobs=-1, verbose=verbose)(
                         delayed(square)(x) for x in X)
@@ -86,8 +86,8 @@ def test_simple_parallel():
     except Exception:
         # Cannot use 'except as' to maintain Python 2.5 compatibility
         e = sys.exc_info()[1]
-        print sys.stdout.getvalue()
-        print sys.stderr.getvalue()
+        print(sys.stdout.getvalue())
+        print(sys.stderr.getvalue())
         raise e
     finally:
         sys.stdout = orig_stdout

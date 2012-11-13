@@ -22,15 +22,7 @@ import functools
 import traceback
 import warnings
 import inspect
-try:
-    # json is in the standard library for Python >= 2.6
-    import json
-except ImportError:
-    try:
-        import simplejson as json
-    except ImportError:
-        # Not the end of the world: we'll do without this functionality
-        json = None
+import json
 
 # Local imports
 from .hashing import hash
@@ -177,7 +169,7 @@ class MemorizedFunc(Logger):
                     t = time.time() - t0
                     _, name = get_func_name(self.func)
                     msg = '%s cache loaded - %s' % (name, format_time(t))
-                    print max(0, (80 - len(msg))) * '_' + msg
+                    print(max(0, (80 - len(msg))) * '_' + msg)
                 return out
             except Exception:
                 # XXX: Should use an exception logger
@@ -319,14 +311,14 @@ class MemorizedFunc(Logger):
         start_time = time.time()
         output_dir, argument_hash = self.get_output_dir(*args, **kwargs)
         if self._verbose:
-            print self.format_call(*args, **kwargs)
+            print(self.format_call(*args, **kwargs))
         output = self.func(*args, **kwargs)
         self._persist_output(output, output_dir)
         duration = time.time() - start_time
         if self._verbose:
             _, name = get_func_name(self.func)
             msg = '%s - %s' % (name, format_time(duration))
-            print max(0, (80 - len(msg))) * '_' + msg
+            print(max(0, (80 - len(msg))) * '_' + msg)
 
         return output
 
@@ -362,7 +354,7 @@ class MemorizedFunc(Logger):
             previous_length = len(arg)
             arg_str.append(arg)
         arg_str.extend(['%s=%s' % (v, self.format(i)) for v, i in
-                                    kwds.iteritems()])
+                                    kwds.items()])
         arg_str = ', '.join(arg_str)
 
         signature = '%s(%s)' % (name, arg_str)
@@ -378,7 +370,7 @@ class MemorizedFunc(Logger):
             filename = os.path.join(dir, 'output.pkl')
             numpy_pickle.dump(output, filename, compress=self.compress)
             if self._verbose > 10:
-                print 'Persisting in %s' % dir
+                print('Persisting in %s' % dir)
         except OSError:
             " Race condition in the creation of the directory "
 
@@ -390,17 +382,16 @@ class MemorizedFunc(Logger):
                                     args, kwargs)
 
         input_repr = dict((k, repr(v)) for k, v in argument_dict.iteritems())
-        if json is not None:
-            # This can fail do to race-conditions with multiple
-            # concurrent joblibs removing the file or the directory
-            try:
-                mkdirp(output_dir)
-                json.dump(
-                    input_repr,
-                    file(os.path.join(output_dir, 'input_args.json'), 'w'),
-                    )
-            except:
-                pass
+        # This can fail do to race-conditions with multiple
+        # concurrent joblibs removing the file or the directory
+        try:
+            mkdirp(output_dir)
+            json.dump(
+                input_repr,
+                file(os.path.join(output_dir, 'input_args.json'), 'w'),
+                )
+        except:
+            pass
         return input_repr
 
     def load_output(self, output_dir):
@@ -410,16 +401,16 @@ class MemorizedFunc(Logger):
         if self._verbose > 1:
             t = time.time() - self.timestamp
             if self._verbose < 10:
-                print '[Memory]% 16s: Loading %s...' % (
+                print('[Memory]% 16s: Loading %s...' % (
                                     format_time(t),
                                     self.format_signature(self.func)[0]
-                                    )
+                                    ))
             else:
-                print '[Memory]% 16s: Loading %s from %s' % (
+                print('[Memory]% 16s: Loading %s from %s' % (
                                     format_time(t),
                                     self.format_signature(self.func)[0],
                                     output_dir
-                                    )
+                                    ))
         filename = os.path.join(output_dir, 'output.pkl')
         return numpy_pickle.load(filename,
                                  mmap_mode=self.mmap_mode)

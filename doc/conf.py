@@ -49,8 +49,8 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'joblib'
-copyright = u'2008-2009, Gaël Varoquaux'
+project = 'joblib'
+copyright = '2008-2009, Gael Varoquaux'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -180,8 +180,8 @@ htmlhelp_basename = 'joblibdoc'
 # (source start file, target name, title, author,
 # document class [howto/manual]).
 latex_documents = [
-  ('index', 'joblib.tex', ur'joblib Documentation',
-   ur'Gaël Varoquaux', 'manual'),
+  ('index', 'joblib.tex', 'joblib Documentation',
+   'Gael Varoquaux', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of

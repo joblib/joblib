@@ -5,12 +5,13 @@ My own variation on function-specific inspect-like features.
 # Author: Gael Varoquaux <gael dot varoquaux at normalesup dot org>
 # Copyright (c) 2009 Gael Varoquaux
 # License: BSD Style, 3 clauses.
-from __future__ import with_statement
 
 from itertools import islice
 import inspect
 import warnings
 import os
+
+from ._compat import _basestring
 
 
 def get_func_code(func):
@@ -59,8 +60,13 @@ def get_func_code(func):
 def _clean_win_chars(string):
     "Windows cannot encode some characters in filenames"
     import urllib
+    if hasattr(urllib, 'quote'):
+        quote = urllib.quote
+    else:
+        # In Python 3, quote is elsewhere
+        quote = urllib.parse.quote
     for char in ('<', '>', '!', ':', '\\'):
-        string = string.replace(char, urllib.quote(char))
+        string = string.replace(char, quote(char))
     return string
 
 
@@ -152,7 +158,7 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
             List of filtered Keyword arguments.
     """
     args = list(args)
-    if isinstance(ignore_lst, basestring):
+    if isinstance(ignore_lst, _basestring):
         # Catch a common mistake
         raise ValueError('ignore_lst must be a list of parameters to ignore '
             '%s (type %s) was given' % (ignore_lst, type(ignore_lst)))
@@ -175,7 +181,7 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
     if inspect.ismethod(func):
         # First argument is 'self', it has been removed by Python
         # we need to add it back:
-        args = [func.im_self, ] + args
+        args = [func.__self__, ] + args
     # XXX: Maybe I need an inspect.isbuiltin to detect C-level methods, such
     # as on ndarrays.
 
@@ -202,7 +208,7 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
                            name,
                            repr(args)[1:-1],
                            ', '.join('%s=%s' % (k, v)
-                                    for k, v in kwargs.iteritems())
+                                    for k, v in kwargs.items())
                            )
                         )
 

@@ -63,7 +63,7 @@ except ImportError:
         comment = object
 
 
-from docscrape_sphinx import get_doc_object
+from .docscrape_sphinx import get_doc_object
 
 
 def setup(app):
@@ -331,7 +331,7 @@ def _import_by_name(name):
             return obj
         else:
             return sys.modules[modname]
-    except (ValueError, ImportError, AttributeError, KeyError), e:
+    except (ValueError, ImportError, AttributeError, KeyError) as e:
         raise ImportError(e)
 
 #------------------------------------------------------------------------------

@@ -12,7 +12,8 @@ import hashlib
 import tempfile
 import os
 import gc
-import StringIO
+import io
+import collections
 
 from ..hashing import hash
 from ..func_inspect import filter_args
@@ -22,6 +23,12 @@ from .common import np, with_numpy
 from .test_memory import env as test_memory_env
 from .test_memory import setup_module as test_memory_setup_func
 from .test_memory import teardown_module as test_memory_teardown_func
+
+try:
+    # Python 2/Python 3 compat
+    unicode('str')
+except NameError:
+    unicode = lambda s: s
 
 
 ###############################################################################
@@ -82,11 +89,12 @@ def test_trival_hash():
 
 
 def test_hash_methods():
-    """ Check that hashing instance methods works """
-    a = StringIO.StringIO('a')
-    b = StringIO.StringIO('b')
+    # Check that hashing instance methods works
+    a = io.StringIO(unicode('a'))
     nose.tools.assert_equal(hash(a.flush), hash(a.flush))
-    nose.tools.assert_not_equal(hash(a.flush), hash(b.flush))
+    a1 = collections.deque(range(10))
+    a2 = collections.deque(range(9))
+    nose.tools.assert_not_equal(hash(a1.extend), hash(a2.extend))
 
 
 @with_numpy
@@ -137,7 +145,7 @@ def test_hash_memmap():
             gc.collect()
             try:
                 os.unlink(filename)
-            except OSError, e:
+            except OSError as e:
                 # Under windows, some files don't get erased.
                 if not os.name == 'nt':
                     raise e
@@ -163,7 +171,12 @@ def test_hash_numpy_performance():
     """
     rnd = np.random.RandomState(0)
     a = rnd.random_sample(1000000)
-    md5_hash = lambda x: hashlib.md5(np.getbuffer(x)).hexdigest()
+    if hasattr(np, 'getbuffer'):
+        # Under python 3, there is no getbuffer
+        getbuffer = np.getbuffer
+    else:
+        getbuffer = memoryview
+    md5_hash = lambda x: hashlib.md5(getbuffer(x)).hexdigest()
 
     relative_diff = relative_time(md5_hash, hash, a)
     yield nose.tools.assert_true, relative_diff < 0.1

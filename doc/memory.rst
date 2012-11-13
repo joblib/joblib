@@ -51,23 +51,23 @@ A simple example:
 
     >>> @memory.cache
     ... def f(x):
-    ...     print 'Running f(%s)' % x
+    ...     print('Running f(%s)' % x)
     ...     return x
 
   When we call this function twice with the same argument, it does not
   get executed the second time, and the output gets loaded from the pickle
   file::
 
-    >>> print f(1)
+    >>> print(f(1))
     Running f(1)
     1
-    >>> print f(1)
+    >>> print(f(1))
     1
 
   However, when we call it a third time, with a different argument, the
   output gets recomputed::
 
-    >>> print f(2)
+    >>> print(f(2))
     Running f(2)
     2
 
@@ -108,12 +108,12 @@ An example
 
     >>> @memory.cache
     ... def g(x):
-    ...     print 'A long-running calculation, with parameter', x
+    ...     print('A long-running calculation, with parameter %s' % x)
     ...     return np.hamming(x)
 
     >>> @memory.cache
     ... def h(x):
-    ...     print 'A second long-running calculation, using g(x)'
+    ...     print('A second long-running calculation, using g(x)')
     ...     return np.vander(x)
 
   If we call the function h with the array created by the same call to g,
@@ -165,7 +165,7 @@ If the `square` function is called with the same input argument, its
 return value is loaded from the disk using memmapping::
 
     >>> res = square(a)
-    >>> print repr(res)
+    >>> print(repr(res))
     memmap([[ 0,  0,  1],
            [ 1,  1,  1],
            [16,  4,  1]])
@@ -205,13 +205,13 @@ Gotchas
 
     >>> @memory.cache
     ... def func(x):
-    ...     print 'Running func(%s)' % x
+    ...     print('Running func(%s)' % x)
 
     >>> func2 = func
 
     >>> @memory.cache
     ... def func(x):
-    ...     print 'Running a different func(%s)' % x
+    ...     print('Running a different func(%s)' % x)
 
     >>> func(1)
     Running a different func(1)
@@ -226,7 +226,7 @@ Gotchas
   Beware that all lambda functions have the same name::
 
     >>> def my_print(x):
-    ...     print x
+    ...     print(x)
 
     >>> f = memory.cache(lambda : my_print(1))
     >>> g = memory.cache(lambda : my_print(2))
@@ -262,7 +262,7 @@ Gotchas
   However, it works on numpy ufuncs::
 
     >>> sin = memory.cache(np.sin)
-    >>> print sin(0)
+    >>> print(sin(0))
     0.0
 
 * **caching methods**: you cannot decorate a method at class definition,
@@ -294,7 +294,7 @@ change, for instance a debug flag. `Memory` provides the `ignore` list::
 
     >>> @memory.cache(ignore=['debug'])
     ... def my_func(x, debug=True):
-    ...	    print 'Called with x =', x
+    ...	    print('Called with x = %s' % x)
     >>> my_func(0)
     Called with x = 0
     >>> my_func(0, debug=False)

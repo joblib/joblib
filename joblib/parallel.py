@@ -34,7 +34,7 @@ if multiprocessing:
     try:
         _sem = multiprocessing.Semaphore()
         del _sem # cleanup
-    except (ImportError, OSError), e:
+    except (ImportError, OSError) as e:
         multiprocessing = None
         warnings.warn('%s.  joblib will operate in serial mode' % (e,))
 
@@ -235,30 +235,31 @@ class Parallel(Logger):
         triggered the exception, even though the traceback happens in the
         child process::
 
-         >>> from string import atoi
+         >>> from heapq import nlargest
          >>> from joblib import Parallel, delayed
-         >>> Parallel(n_jobs=2)(delayed(atoi)(n) for n in ('1', '300', 30)) #doctest: +SKIP
+         >>> Parallel(n_jobs=2)(delayed(nlargest)(2, n) for n in (range(4), 'abcde', 3)) #doctest: +SKIP
          #...
          ---------------------------------------------------------------------------
          Sub-process traceback:
          ---------------------------------------------------------------------------
-         TypeError                                          Fri Jul  2 20:32:05 2010
-         PID: 4151                                     Python 2.6.5: /usr/bin/python
+         TypeError                                          Mon Nov 12 11:37:46 2012
+         PID: 12934                                    Python 2.7.3: /usr/bin/python
          ...........................................................................
-         /usr/lib/python2.6/string.pyc in atoi(s=30, base=10)
-             398     is chosen from the leading characters of s, 0 for octal, 0x or
-             399     0X for hexadecimal.  If base is 16, a preceding 0x or 0X is
-             400     accepted.
-             401
-             402     """
-         --> 403     return _int(s, base)
-             404
-             405
-             406 # Convert string to long integer
-             407 def atol(s, base=10):
+         /usr/lib/python2.7/heapq.pyc in nlargest(n=2, iterable=3, key=None)
+             419         if n >= size:
+             420             return sorted(iterable, key=key, reverse=True)[:n]
+             421 
+             422     # When key is none, use simpler decoration
+             423     if key is None:
+         --> 424         it = izip(iterable, count(0,-1))                    # decorate
+             425         result = _nlargest(n, it)
+             426         return map(itemgetter(0), result)                   # undecorate
+             427 
+             428     # General case, slowest method
 
-         TypeError: int() can't convert non-string with explicit base
+         TypeError: izip argument #1 must support iteration
          ___________________________________________________________________________
+
 
         Using pre_dispatch in a producer/consumer situation, where the
         data is generated on the fly. Note how the producer is first
@@ -271,7 +272,7 @@ class Parallel(Logger):
 
          >>> def producer():
          ...     for i in range(6):
-         ...         print 'Produced %s' % i
+         ...         print('Produced %s' % i)
          ...         yield i
 
          >>> out = Parallel(n_jobs=2, verbose=100, pre_dispatch='1.5*n_jobs')(
@@ -321,7 +322,7 @@ class Parallel(Logger):
                 self._jobs.append(job)
                 self.n_dispatched += 1
             except AssertionError:
-                print '[Parallel] Pool seems closed'
+                print('[Parallel] Pool seems closed')
             finally:
                 self._lock.release()
 
@@ -409,7 +410,7 @@ class Parallel(Logger):
                 self._lock.release()
             try:
                 self._output.append(job.get())
-            except tuple(self.exceptions), exception:
+            except tuple(self.exceptions) as exception:
                 if isinstance(exception,
                         (KeyboardInterrupt, WorkerInterrupt)):
                     # We have captured a user interruption, clean up

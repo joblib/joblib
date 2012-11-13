@@ -14,14 +14,13 @@ Example Makefile rule::
             ./ext/autosummary_generate.py -o source/generated source/*.rst
 
 """
-import glob
 import re
 import inspect
 import os
 import optparse
 import pydoc
 
-from autosummary import import_by_name
+from .autosummary import import_by_name
 
 
 try:
