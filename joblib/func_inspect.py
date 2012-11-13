@@ -37,10 +37,20 @@ def get_func_code(func):
     """
     source_file = None
     try:
+        if hasattr(func, '__code__') and func.__name__ == '<lambda>':
+            # On Python 3, inspect is reliable with lambda
+            source_file = func.__code__.co_filename
+            return ''.join(inspect.getsourcelines(func)[0]), source_file, 1
         # Try to retrieve the source code.
-        source_file = func.func_code.co_filename
+        if hasattr(func, 'func_code'):
+            # Python 2.X
+            code = func.func_code
+        else:
+            # Python 3.X
+            code = func.__code__
+        source_file = code.co_filename
         with open(source_file) as source_file_obj:
-            first_line = func.func_code.co_firstlineno
+            first_line = code.co_firstlineno
             # All the lines after the function definition:
             source_lines = list(islice(source_file_obj, first_line - 1, None))
         return ''.join(inspect.getblock(source_lines)), source_file, first_line
@@ -48,7 +58,11 @@ def get_func_code(func):
         # If the source code fails, we use the hash. This is fragile and
         # might change from one session to another.
         if hasattr(func, 'func_code'):
+            # Python 2.X
             return str(func.func_code.__hash__()), source_file, -1
+        elif hasattr(func, '__code__'):
+            # Python 3.X
+            return str(func.__code__.__hash__()), source_file, -1
         else:
             # Weird objects like numpy ufunc don't have func_code
             # This is fragile, as quite often the id of the object is

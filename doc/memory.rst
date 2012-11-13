@@ -223,7 +223,7 @@ Gotchas
     >>> func2(1)
     Running func(1)
 
-  Beware that all lambda functions have the same name::
+  Beware that with Python 2.6 lambda functions cannot be separated out::
 
     >>> def my_print(x):
     ...     print(x)
@@ -234,27 +234,12 @@ Gotchas
     >>> f()
     1
     >>> f()
-    >>> g()
+    >>> g() # doctest: +SKIP
     memory.rst:0: JobLibCollisionWarning: Cannot detect name collisions for function '<lambda>'
     2
-    >>> g()
-    >>> f()
+    >>> g() # doctest: +SKIP
+    >>> f() # doctest: +SKIP
     1
-
-..
-  Thus to use lambda functions reliably, you have to specify the name
-  used for caching::
-
-  FIXME
-
- #   >>> f = make(func=lambda : my_print(1), cachedir=cachedir, name='f')
- #   >>> g = make(func=lambda : my_print(2), cachedir=cachedir, name='g')
- #
- #   >>> f()
- #   1
- #   >>> g()
- #   2
- #   >>> f()
 
 * **memory cannot be used on some complex objects**, e.g. a callable
   object with a `__call__` method.

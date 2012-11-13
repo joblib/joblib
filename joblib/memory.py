@@ -271,8 +271,9 @@ class MemorizedFunc(Logger):
                                     and os.path.exists(source_file)):
             _, func_name = get_func_name(self.func, resolv_alias=False)
             num_lines = len(func_code.split('\n'))
-            on_disk_func_code = file(source_file).readlines()[
-                    old_first_line - 1:old_first_line - 1 + num_lines - 1]
+            with open(source_file) as f:
+                on_disk_func_code = f.readlines()[
+                        old_first_line - 1:old_first_line - 1 + num_lines - 1]
             on_disk_func_code = ''.join(on_disk_func_code)
             if on_disk_func_code.rstrip() == old_func_code.rstrip():
                 warnings.warn(JobLibCollisionWarning(

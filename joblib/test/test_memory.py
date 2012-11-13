@@ -6,13 +6,12 @@ Test the memory module.
 # Copyright (c) 2009 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
-from __future__ import with_statement
-
 import shutil
 import os
 from tempfile import mkdtemp
 import pickle
 import warnings
+import sys
 
 import nose
 
@@ -228,6 +227,12 @@ def test_memory_warning_lambda_collisions():
         b(1)
         a(1)
 
+    if (sys.version_info[0] == 3
+            or (sys.version_info[0] == 2 and sys.version_info[1] > 6)):
+        # In Recent Python versions, we can retrieve the code of lambdas,
+        # thus nothing is raised
+        yield nose.tools.assert_equal, len(w), 0
+    else:
         yield nose.tools.assert_equal, len(w), 2
         yield nose.tools.assert_true, "collision" in str(w[-1].message)
         yield nose.tools.assert_true, "collision" in str(w[-2].message)
