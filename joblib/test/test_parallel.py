@@ -20,14 +20,19 @@ except:
 if sys.version_info[0] == 3:
     PickleError = pickle.PicklingError
 
+try:
+    # Python 2/Python 3 compat
+    unicode('str')
+except NameError:
+    unicode = lambda s: s
+
+
 from ..parallel import Parallel, delayed, SafeFunction, WorkerInterrupt, \
         multiprocessing, cpu_count
 from ..my_exceptions import JoblibException
 
 import nose
 
-if sys.version_info[0] == 3:
-    raise nose.SkipTest
 
 ###############################################################################
 
@@ -73,9 +78,13 @@ def test_simple_parallel():
     try:
         # To smoke-test verbosity, we capture stdout
         orig_stdout = sys.stdout
-        sys.stdout = io.BytesIO()
         orig_stderr = sys.stdout
-        sys.stderr = io.BytesIO()
+        if sys.version_info[0] == 3:
+            sys.stderr = io.StringIO()
+            sys.stderr = io.StringIO()
+        else:
+            sys.stdout = io.BytesIO()
+            sys.stderr = io.BytesIO()
         for verbose in (2, 11, 100):
                 Parallel(n_jobs=-1, verbose=verbose)(
                         delayed(square)(x) for x in X)
@@ -83,11 +92,13 @@ def test_simple_parallel():
                         delayed(square)(x) for x in X)
                 Parallel(n_jobs=2, verbose=verbose, pre_dispatch=2)(
                         delayed(square)(x) for x in X)
-    except Exception:
-        # Cannot use 'except as' to maintain Python 2.5 compatibility
-        e = sys.exc_info()[1]
-        print(sys.stdout.getvalue())
-        print(sys.stderr.getvalue())
+    except Exception as e:
+        my_stdout = sys.stdout
+        my_stderr = sys.stderr
+        sys.stdout = orig_stdout
+        sys.stderr = orig_stderr
+        print(unicode(my_stdout.getvalue()))
+        print(unicode(my_stderr.getvalue()))
         raise e
     finally:
         sys.stdout = orig_stdout
@@ -126,9 +137,8 @@ def test_parallel_pickling():
 
 
 def test_error_capture():
-    """ Check that error are captured, and that correct exceptions
-        are raised.
-    """
+    # Check that error are captured, and that correct exceptions
+    # are raised.
     if multiprocessing is not None:
         # A JoblibException will be raised only if there is indeed
         # multiprocessing

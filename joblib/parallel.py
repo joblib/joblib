@@ -299,6 +299,9 @@ class Parallel(Logger):
         # able to close it ASAP, and not burden the user with closing it.
         self._output = None
         self._jobs = list()
+        # A flag used to abort the dispatching of jobs in case an
+        # exception is found
+        self._aborting = False
 
     def dispatch(self, func, args, kwargs):
         """ Queue the function for computing, with or without multiprocessing
@@ -314,9 +317,11 @@ class Parallel(Logger):
             self._jobs.append(job)
             self.n_dispatched += 1
         else:
-            self._lock.acquire()
             # If job.get() catches an exception, it closes the queue:
+            if self._aborting:
+                return
             try:
+                self._lock.acquire()
                 job = self._pool.apply_async(SafeFunction(func), args,
                             kwargs, callback=CallBack(self.n_dispatched, self))
                 self._jobs.append(job)
@@ -334,7 +339,7 @@ class Parallel(Logger):
             try:
                 # XXX: possible race condition shuffling the order of
                 # dispatchs in the next two lines.
-                func, args, kwargs = self._iterable.next()
+                func, args, kwargs = next(self._iterable)
                 self.dispatch(func, args, kwargs)
                 self._dispatch_amount -= 1
             except ValueError:
@@ -411,32 +416,37 @@ class Parallel(Logger):
             try:
                 self._output.append(job.get())
             except tuple(self.exceptions) as exception:
-                if isinstance(exception,
-                        (KeyboardInterrupt, WorkerInterrupt)):
-                    # We have captured a user interruption, clean up
-                    # everything
-                    if hasattr(self, '_pool'):
-                        self._pool.close()
-                        self._pool.terminate()
+                try:
+                    self._aborting = True
+                    self._lock.acquire()
+                    if isinstance(exception,
+                            (KeyboardInterrupt, WorkerInterrupt)):
+                        # We have captured a user interruption, clean up
+                        # everything
+                        if hasattr(self, '_pool'):
+                            self._pool.close()
+                            self._pool.terminate()
+                        raise exception
+                    elif isinstance(exception, TransportableException):
+                        # Capture exception to add information on the local stack
+                        # in addition to the distant stack
+                        this_report = format_outer_frames(context=10,
+                                                        stack_start=1)
+                        report = """Multiprocessing exception:
+    %s
+    ---------------------------------------------------------------------------
+    Sub-process traceback:
+    ---------------------------------------------------------------------------
+    %s""" % (
+                                this_report,
+                                exception.message,
+                            )
+                        # Convert this to a JoblibException
+                        exception_type = _mk_exception(exception.etype)[0]
+                        raise exception_type(report)
                     raise exception
-                elif isinstance(exception, TransportableException):
-                    # Capture exception to add information on the local stack
-                    # in addition to the distant stack
-                    this_report = format_outer_frames(context=10,
-                                                      stack_start=1)
-                    report = """Multiprocessing exception:
-%s
----------------------------------------------------------------------------
-Sub-process traceback:
----------------------------------------------------------------------------
-%s""" % (
-                            this_report,
-                            exception.message,
-                        )
-                    # Convert this to a JoblibException
-                    exception_type = _mk_exception(exception.etype)[0]
-                    raise exception_type(report)
-                raise exception
+                finally:
+                    self._lock.release()
 
     def __call__(self, iterable):
         if self._jobs:
