@@ -205,7 +205,7 @@ def test_memmap_persistence():
     numpy_pickle.dump(a, filename)
     b = numpy_pickle.load(filename, mmap_mode='r')
     if np.__version__ >= '1.3':
-        yield nose.tools.assert_true, isinstance(b, np.memmap)
+        nose.tools.assert_true(isinstance(b, np.memmap))
 
 
 @with_numpy

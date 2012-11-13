@@ -229,7 +229,7 @@ def test_memory_warning_lambda_collisions():
 
     if (sys.version_info[0] == 3
             or (sys.version_info[0] == 2 and sys.version_info[1] > 6)):
-        # In Recent Python versions, we can retrieve the code of lambdas,
+        # In recent Python versions, we can retrieve the code of lambdas,
         # thus nothing is raised
         yield nose.tools.assert_equal, len(w), 0
     else:
