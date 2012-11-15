@@ -20,9 +20,15 @@ import threading
 import atexit
 import tempfile
 import shutil
-from cPickle import loads
-from cPickle import dumps
-from pickle import Pickler
+try:
+    from cPickle import loads
+    from cPickle import dumps
+    from pickle import Pickler as _Pickler  # pure Python pickler in 2
+except ImportError:
+    from pickle import loads
+    from pickle import dumps
+    from pickle import _Pickler  # pure Python pickler in 3
+
 from pickle import HIGHEST_PROTOCOL
 try:
     from io import BytesIO
@@ -169,7 +175,7 @@ class ArrayMemmapReducer(object):
             # if required)
             try:
                 os.makedirs(self._temp_folder)
-            except OSError, e:
+            except OSError as e:
                 if e.errno != 17:
                     # Errno 17 corresponds to 'Directory exists'
                     raise e
@@ -184,12 +190,12 @@ class ArrayMemmapReducer(object):
             # times to the pool subprocess children, serialize it only once
             if not os.path.exists(filename):
                 if self.verbose > 0:
-                    print "Memmaping (shape=%r, dtype=%s) to new file %s" % (
-                        a.shape, a.dtype, filename)
+                    print("Memmaping (shape=%r, dtype=%s) to new file %s" % (
+                        a.shape, a.dtype, filename))
                 dump(a, filename)
             elif self.verbose > 1:
-                print "Memmaping (shape=%s, dtype=%s) to old file %s" % (
-                        a.shape, a.dtype, filename)
+                print("Memmaping (shape=%s, dtype=%s) to old file %s" % (
+                    a.shape, a.dtype, filename))
 
             # Let's use the memmap reducer
             return reduce_memmap(load(filename, mmap_mode=self._mmap_mode))
@@ -197,15 +203,15 @@ class ArrayMemmapReducer(object):
             # do not convert a into memmap, let pickler do its usual copy with
             # the default system pickler
             if self.verbose > 1:
-                print "Pickling array (shape=%r, dtype=%s)." % (
-                    a.shape, a.dtype)
+                print("Pickling array (shape=%r, dtype=%s)." % (
+                    a.shape, a.dtype))
             return (loads, (dumps(a, protocol=HIGHEST_PROTOCOL),))
 
 
 ###############################################################################
 # Enable custom pickling in Pool queues
 
-class CustomizablePickler(Pickler):
+class CustomizablePickler(_Pickler):
     """Pickler that accepts custom reducers.
 
     HIGHEST_PROTOCOL is selected by default as this pickler is used
@@ -218,14 +224,21 @@ class CustomizablePickler(Pickler):
     tuple_of_objects)` to rebuild an instance out of the pickled
     `tuple_of_objects` as would return a `__reduce__` method. See the
     standard library documentation on pickling for more details.
+
     """
 
+    # We override the pure Python pickler as its the only way to be able to
+    # customize the dispatch table without side effects in Python 2.6
+    # to 3.2. For Python 3.3+ we could leverage the new dispatch_table
+    # feature from http://bugs.python.org/issue14166 but that would render
+    # the code more complex.
+
     def __init__(self, writer, reducers=None, protocol=HIGHEST_PROTOCOL):
-        Pickler.__init__(self, writer, protocol=protocol)
+        _Pickler.__init__(self, writer, protocol=protocol)
         # Make the dispatch registry an instance level attribute instead of a
         # reference to the class dictionary
-        self.dispatch = Pickler.dispatch.copy()
-        for type, reduce_func in reducers.iteritems():
+        self.dispatch = _Pickler.dispatch.copy()
+        for type, reduce_func in reducers.items():
             self.register(type, reduce_func)
 
     def register(self, type, reduce_func):

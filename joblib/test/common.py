@@ -46,12 +46,12 @@ def setup_autokill(module_name, timeout=5):
 
     def autokill():
         pid = os.getpid()
-        print "Timeout exceeded: terminating stalled process: %d" % pid
+        print("Timeout exceeded: terminating stalled process: %d" % pid)
         os.kill(pid, signal.SIGTERM)
 
         # If were are still there ask the OS to kill ourself for real
         time.sleep(0.5)
-        print "Timeout exceeded: killing stalled process: %d" % pid
+        print("Timeout exceeded: killing stalled process: %d" % pid)
         os.kill(pid, signal.SIGKILL)
 
     _KILLER_THREADS[module_name] = t = threading.Timer(timeout, autokill)
