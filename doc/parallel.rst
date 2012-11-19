@@ -1,4 +1,5 @@
 
+=====================================================
 Embarrassingly parallel for loops
 =====================================================
 
@@ -27,7 +28,9 @@ function-call syntax.
 
    Under Windows, it is important to protect the main loop of code to
    avoid recursive spawning of subprocesses when using joblib.Parallel.
-   In other words, you should be writing code like this::
+   In other words, you should be writing code like this:
+
+   .. code-block:: python
 
       import ....
 
@@ -42,11 +45,12 @@ function-call syntax.
           # do stuff with imports and functions defined about
           ...
 
-    **No** code should *run* outside of the "if __name__ == '__main__'"
-    blocks, only imports and definitions.
+   **No** code should *run* outside of the "if __name__ == '__main__'"
+   blocks, only imports and definitions.
 
-_____
 
+`Parallel` reference documentation
+===================================
 
 .. autoclass:: joblib.Parallel
    :members: auto
