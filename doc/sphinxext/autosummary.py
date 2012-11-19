@@ -62,8 +62,10 @@ except ImportError:
     class nodes(object):
         comment = object
 
-
-from .docscrape_sphinx import get_doc_object
+if sys.version_info[0] == 2:
+    from docscrape_sphinx import get_doc_object
+else:
+    from .docscrape_sphinx import get_doc_object
 
 
 def setup(app):

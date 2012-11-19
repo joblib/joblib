@@ -20,9 +20,14 @@ It will:
 import re
 import pydoc
 import inspect
+import sys
 
-from .docscrape_sphinx import get_doc_object
-from .docscrape_sphinx import SphinxDocString
+if sys.version_info[0] == 2:
+    from docscrape_sphinx import get_doc_object
+    from docscrape_sphinx import SphinxDocString
+else:
+    from .docscrape_sphinx import get_doc_object
+    from .docscrape_sphinx import SphinxDocString
 
 
 def mangle_docstrings(app, what, name, obj, options, lines,

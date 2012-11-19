@@ -19,8 +19,12 @@ import inspect
 import os
 import optparse
 import pydoc
+import sys
 
-from .autosummary import import_by_name
+if sys.version_info[0] == 2:
+    from autosummary import import_by_name
+else:
+    from .autosummary import import_by_name
 
 
 try:

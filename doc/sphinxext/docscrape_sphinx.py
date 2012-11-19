@@ -1,10 +1,16 @@
 import inspect
 import textwrap
 import pydoc
+import sys
 
-from .docscrape import NumpyDocString
-from .docscrape import FunctionDoc
-from .docscrape import ClassDoc
+if sys.version_info[0] == 2:
+    from docscrape import NumpyDocString
+    from docscrape import FunctionDoc
+    from docscrape import ClassDoc
+else:
+    from .docscrape import NumpyDocString
+    from .docscrape import FunctionDoc
+    from .docscrape import ClassDoc
 
 
 class SphinxDocString(NumpyDocString):
