@@ -28,6 +28,15 @@ if multiprocessing:
     except ImportError:
         multiprocessing = None
 
+already_forked = int(os.environ.get('__JOBLIB_SPAWNED_PARALLEL__', 0))
+if already_forked:
+    raise ImportError('[joblib] Attempting to do parallel computing'
+            'without protecting your import on a system that does '
+            'not support forking. To use parallel-computing in a '
+            'script, you must protect you main loop using "if '
+            "__name__ == '__main__'" '".'
+        )
+
 # 2nd stage: validate that locking is available on the system and
 #            issue a warning if not
 if multiprocessing:
@@ -426,10 +435,12 @@ class Parallel(Logger):
                         if hasattr(self, '_pool'):
                             self._pool.close()
                             self._pool.terminate()
+                            # We can now allow subprocesses again
+                            os.environ.pop('__JOBLIB_SPAWNED_PARALLEL__', 0)
                         raise exception
                     elif isinstance(exception, TransportableException):
-                        # Capture exception to add information on the local stack
-                        # in addition to the distant stack
+                        # Capture exception to add information on the local
+                        # stack in addition to the distant stack
                         this_report = format_outer_frames(context=10,
                                                         stack_start=1)
                         report = """Multiprocessing exception:
@@ -469,6 +480,8 @@ class Parallel(Logger):
                     'Parallel loops cannot be nested, setting n_jobs=1',
                     stacklevel=2)
             else:
+                # Set an environment variable to avoid infinite loops
+                os.environ['__JOBLIB_SPAWNED_PARALLEL__'] = '1'
                 self._pool = multiprocessing.Pool(n_jobs)
                 self._lock = threading.Lock()
                 # We are using multiprocessing, we also want to capture
@@ -506,6 +519,7 @@ class Parallel(Logger):
             if n_jobs > 1:
                 self._pool.close()
                 self._pool.join()
+                os.environ.pop('__JOBLIB_SPAWNED_PARALLEL__', 0)
             self._jobs = list()
         output = self._output
         self._output = None
