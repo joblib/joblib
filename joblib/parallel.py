@@ -490,13 +490,17 @@ class Parallel(Logger):
                 # KeyboardInterrupts
                 self.exceptions.extend([KeyboardInterrupt, WorkerInterrupt])
 
-        if self.pre_dispatch == 'all' or n_jobs == 1:
+        pre_dispatch = self.pre_dispatch
+        if isinstance(iterable, list):
+            # We are given a list. No need to be lazy
+            pre_dispatch = 'all'
+
+        if pre_dispatch == 'all' or n_jobs == 1:
             self._iterable = None
             self._pre_dispatch_amount = 0
         else:
             self._iterable = iterable
             self._dispatch_amount = 0
-            pre_dispatch = self.pre_dispatch
             if hasattr(pre_dispatch, 'endswith'):
                 pre_dispatch = eval(pre_dispatch)
             self._pre_dispatch_amount = pre_dispatch = int(pre_dispatch)

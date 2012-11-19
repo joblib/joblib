@@ -255,7 +255,7 @@ def test_multiple_spawning():
     if not int(os.environ.get('JOBLIB_MULTIPROCESSING', 1)):
         raise nose.SkipTest()
     nose.tools.assert_raises(ImportError, Parallel(n_jobs=2),
-                    (delayed(_reload_joblib)() for i in range(10)))
+                    [delayed(_reload_joblib)() for i in range(10)])
 
 
 ###############################################################################
