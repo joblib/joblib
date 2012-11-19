@@ -1,6 +1,31 @@
 Latest changes
 ===============
 
+Release 0.7.0
+---------------
+
+**This release drops support for Python 2.5 in favor of support for
+Python 3.0**
+
+2012-11-19
+Gael Varoquaux
+    
+    ENH: Parallel: Turn of pre-dispatch for already expanded lists
+
+
+Gael Varoquaux
+2012-11-19
+
+    ENH: detect recursive sub-process spawning, as when people do not
+    protect the __main__ in scripts under Windows, and raise a useful
+    error.
+
+
+Gael Varoquaux
+2012-11-16
+
+    ENH: Full python 3 support
+
 Release 0.6.5
 ---------------
 
