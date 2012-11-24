@@ -36,7 +36,7 @@ from joblib import load, dump
 def sum_row(input, output, i):
     """Compute the sum of a row in input and store it in output"""
     sum_ = input[i, :].sum()
-    print "[Worker %d] Sum for row %d is %f" % (os.getpid(), i, sum_)
+    print("[Worker %d] Sum for row %d is %f" % (os.getpid(), i, sum_))
     output[i] = sum_
 
 if __name__ == "__main__":
@@ -60,15 +60,15 @@ if __name__ == "__main__":
 
         # Fork the worker processes to perform computation concurrently
         Parallel(n_jobs=4)(delayed(sum_row)(samples, sums, i)
-                           for i in xrange(samples.shape[0]))
+                           for i in range(samples.shape[0]))
 
         # Compare the results from the output buffer with the ground truth
-        print "Expected sums computed in the parent process:"
+        print("Expected sums computed in the parent process:")
         expected_result = samples.sum(axis=1)
-        print expected_result
+        print(expected_result)
 
-        print "Actual sums computed by the worker processes:"
-        print sums
+        print("Actual sums computed by the worker processes:")
+        print(sums)
 
         assert np.allclose(expected_result, sums)
     finally:
