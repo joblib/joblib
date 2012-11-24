@@ -6,6 +6,7 @@ import signal
 import nose
 import time
 import os
+import sys
 
 
 # A decorator to run tests only when numpy is available
@@ -40,6 +41,10 @@ def setup_autokill(module_name, timeout=5):
     If some subprocess dies in an unexpected way we don't want the
     parent process to block indefinitely.
     """
+    if "--no-autokill" in sys.argv or "--pdb" in sys.argv:
+        # Do not install the autokiller
+        return
+
     # Renew any previous contract under that name by first cancelling the
     # previous version (that should normally not happen in practice)
     teardown_autokill(module_name)
