@@ -98,7 +98,7 @@ the number of memory copies.
 
 Also note that when you open your data using the ``w+`` or ``r+``
 mode in the main program, the worker will have ``r+`` mode access
-hence will be able to write results directly to it aleviating the
+hence will be able to write results directly to it alleviating the
 need to serialization to communicate back the results to the parent
 process.
 
@@ -106,10 +106,10 @@ For instance see the `example script
 <https://github.com/joblib/joblib/blob/master/examples/parallel_memmap.py>`_
 on parallel processing with preallocated numpy.memmap datastructures.
 
-It also makes it possible to do interprocess communication without
-the cost of serializing datastructures. However the current
-implementation does not yet provide locking tools for protecting
-concurrent read/write access to shared memory chunks.
+It also makes it possible to do interprocess communication without the cost of
+serializing datastructures. However the current implementation does not provide
+locking tools for protecting concurrent read/write access to shared memory
+chunks.
 
 By the way, this is the end of this section, let's cleanup the temp
 folder::
