@@ -41,7 +41,7 @@ def setup_autokill(module_name, timeout=5):
     If some subprocess dies in an unexpected way we don't want the
     parent process to block indefinitely.
     """
-    if "--no-autokill" in sys.argv or "--pdb" in sys.argv:
+    if "NO_AUTOKILL" in os.environ or "--pdb" in sys.argv:
         # Do not install the autokiller
         return
 
