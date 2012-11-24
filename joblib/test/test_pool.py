@@ -193,7 +193,9 @@ def test_pool_with_memmap():
     assert_raises(AssertionError, p.map, double,
                   [(c, i, 3.0) for i in range(c.shape[0])])
 
-    assert_raises(RuntimeError, p.map, double,
+    # depending on the version of numpy one can either get a RuntimeError or a
+    # ValueError
+    assert_raises((RuntimeError, ValueError), p.map, double,
                   [(c, i, 2.0) for i in range(c.shape[0])])
     p.terminate()
 
