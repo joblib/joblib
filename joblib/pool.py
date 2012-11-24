@@ -362,6 +362,12 @@ class PicklingPool(Pool):
         self._quick_get = self._outqueue._recv
 
 
+def delete_folder(folder_path):
+    """Utility function to cleanup a temporary folder if still existing"""
+    if os.path.exists(folder_path):
+        shutil.rmtree(folder_path)
+
+
 class MemmapingPool(PicklingPool):
     """Process pool that shares large arrays to avoid memory copy.
 
@@ -429,7 +435,7 @@ class MemmapingPool(PicklingPool):
         if backward_reducers is None:
             backward_reducers = dict()
 
-        # Prepare a subfolder name for the serialization of this particular
+        # Prepare a sub-folder name for the serialization of this particular
         # pool instance (do not create in advance to spare FS write access if
         # no array is to be dumped):
         if temp_folder is None:
@@ -440,8 +446,11 @@ class MemmapingPool(PicklingPool):
                 os.getpid(), id(self)))
 
         # Register the garbage collector at program exit in case caller
-        # forget's to call it earlier
-        atexit.register(self._collect_tempfile)
+        # forgets to call terminate explicitly: note we do not pass any reference
+        # to self to ensure that this callback won't prevent garbage collection
+        # of the pool instance and related file handler resources such as
+        # POSIX semaphores and pipes
+        atexit.register(lambda: delete_folder(temp_folder))
 
         if np is not None:
             # Register smart numpy.ndarray reducers that detects memmap
@@ -467,10 +476,6 @@ class MemmapingPool(PicklingPool):
                                         forward_reducers=forward_reducers,
                                         backward_reducers=backward_reducers)
 
-    def _collect_tempfile(self):
-        if os.path.exists(self._temp_folder):
-            shutil.rmtree(self._temp_folder, ignore_errors=True)
-
     def terminate(self):
         super(MemmapingPool, self).terminate()
-        self._collect_tempfile()
+        delete_folder(self._temp_folder)

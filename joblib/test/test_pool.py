@@ -1,6 +1,7 @@
 import os
 import shutil
 import tempfile
+multiprocessing = None
 try:
     import multiprocessing
     from ..pool import MemmapingPool
@@ -8,7 +9,7 @@ try:
     from ..pool import ArrayMemmapReducer
     from ..pool import reduce_memmap
 except ImportError:
-    multiprocessing = None
+    pass
 
 from nose import SkipTest
 from nose.tools import with_setup
@@ -35,6 +36,7 @@ def teardown_module():
 def check_multiprocessing():
     if multiprocessing is None:
         raise SkipTest('Need multiprocessing to run')
+
 
 with_multiprocessing = with_setup(check_multiprocessing)
 
@@ -160,44 +162,47 @@ def test_pool_with_memmap():
     pool_temp_folder = os.path.join(TEMP_FOLDER, 'pool')
     os.makedirs(pool_temp_folder)
     p = MemmapingPool(10, max_nbytes=2, temp_folder=pool_temp_folder)
+    try:
+        filename = os.path.join(TEMP_FOLDER, 'test.mmap')
+        a = np.memmap(filename, dtype=np.float32, shape=(3, 5), mode='w+')
+        a.fill(1.0)
 
-    filename = os.path.join(TEMP_FOLDER, 'test.mmap')
-    a = np.memmap(filename, dtype=np.float32, shape=(3, 5), mode='w+')
-    a.fill(1.0)
+        p.map(double, [(a, (i, j), 1.0)
+                       for i in range(a.shape[0])
+                       for j in range(a.shape[1])])
 
-    p.map(double, [(a, (i, j), 1.0)
-                   for i in range(a.shape[0])
-                   for j in range(a.shape[1])])
+        assert_array_equal(a, 2 * np.ones(a.shape))
 
-    assert_array_equal(a, 2 * np.ones(a.shape))
+        # Open a copy-on-write view on the previous data
+        b = np.memmap(filename, dtype=np.float32, shape=(5, 3), mode='c')
 
-    # Open a copy-on-write view on the previous data
-    b = np.memmap(filename, dtype=np.float32, shape=(5, 3), mode='c')
+        p.map(double, [(b, (i, j), 2.0)
+                       for i in range(b.shape[0])
+                       for j in range(b.shape[1])])
 
-    p.map(double, [(b, (i, j), 2.0)
-                   for i in range(b.shape[0])
-                   for j in range(b.shape[1])])
+        # Passing memmap instances to the pool should not trigger the creation
+        # of new files on the FS
+        assert_equal(os.listdir(pool_temp_folder), [])
 
-    # Passing memmap instances to the pool should not trigger the creation
-    # of new files on the FS
-    assert_equal(os.listdir(pool_temp_folder), [])
+        # the original data is untouched
+        assert_array_equal(a, 2 * np.ones(a.shape))
+        assert_array_equal(b, 2 * np.ones(b.shape))
 
-    # the original data is untouched
-    assert_array_equal(a, 2 * np.ones(a.shape))
-    assert_array_equal(b, 2 * np.ones(b.shape))
+        # readonly maps can be read but not updated
+        c = np.memmap(filename, dtype=np.float32, shape=(10,), mode='r',
+                      offset=5 * 4)
 
-    # readonly maps can be read but not updated
-    c = np.memmap(filename, dtype=np.float32, shape=(10,), mode='r',
-                  offset=5 * 4)
+        assert_raises(AssertionError, p.map, double,
+                      [(c, i, 3.0) for i in range(c.shape[0])])
 
-    assert_raises(AssertionError, p.map, double,
-                  [(c, i, 3.0) for i in range(c.shape[0])])
-
-    # depending on the version of numpy one can either get a RuntimeError or a
-    # ValueError
-    assert_raises((RuntimeError, ValueError), p.map, double,
-                  [(c, i, 2.0) for i in range(c.shape[0])])
-    p.terminate()
+        # depending on the version of numpy one can either get a RuntimeError
+        # or a ValueError
+        assert_raises((RuntimeError, ValueError), p.map, double,
+                      [(c, i, 2.0) for i in range(c.shape[0])])
+    finally:
+        # Clean all filehandlers held by the pool
+        p.terminate()
+        del p
 
 
 @with_numpy
@@ -211,28 +216,32 @@ def test_pool_with_memmap_array_view():
     pool_temp_folder = os.path.join(TEMP_FOLDER, 'pool')
     os.makedirs(pool_temp_folder)
     p = MemmapingPool(10, max_nbytes=2, temp_folder=pool_temp_folder)
+    try:
 
-    filename = os.path.join(TEMP_FOLDER, 'test.mmap')
-    a = np.memmap(filename, dtype=np.float32, shape=(3, 5), mode='w+')
-    a.fill(1.0)
+        filename = os.path.join(TEMP_FOLDER, 'test.mmap')
+        a = np.memmap(filename, dtype=np.float32, shape=(3, 5), mode='w+')
+        a.fill(1.0)
 
-    # Create an ndarray view on the memmap instance
-    a_view = np.asarray(a)
-    assert_false(isinstance(a_view, np.memmap))
-    assert_true(has_shared_memory(a_view))
+        # Create an ndarray view on the memmap instance
+        a_view = np.asarray(a)
+        assert_false(isinstance(a_view, np.memmap))
+        assert_true(has_shared_memory(a_view))
 
-    p.map(double, [(a_view, (i, j), 1.0)
-                   for i in range(a.shape[0])
-                   for j in range(a.shape[1])])
+        p.map(double, [(a_view, (i, j), 1.0)
+                       for i in range(a.shape[0])
+                       for j in range(a.shape[1])])
 
-    # Both a and the a_view have been updated
-    assert_array_equal(a, 2 * np.ones(a.shape))
-    assert_array_equal(a_view, 2 * np.ones(a.shape))
+        # Both a and the a_view have been updated
+        assert_array_equal(a, 2 * np.ones(a.shape))
+        assert_array_equal(a_view, 2 * np.ones(a.shape))
 
-    # Passing memmap array view to the pool should not trigger the creation
-    # of new files on the FS
-    assert_equal(os.listdir(pool_temp_folder), [])
-    p.terminate()
+        # Passing memmap array view to the pool should not trigger the
+        # creation of new files on the FS
+        assert_equal(os.listdir(pool_temp_folder), [])
+
+    finally:
+        p.terminate()
+        del p
 
 
 @with_numpy
@@ -248,39 +257,41 @@ def test_memmaping_pool_for_large_arrays():
     # Build an array reducers that automaticaly dump large array content
     # to filesystem backed memmap instances to avoid memory explosion
     p = MemmapingPool(3, max_nbytes=40, temp_folder=TEMP_FOLDER)
+    try:
+        # The tempory folder for the pool is not provisioned in advance
+        assert_equal(os.listdir(TEMP_FOLDER), [])
+        assert_false(os.path.exists(p._temp_folder))
 
-    # The tempory folder for the pool is not provisioned in advance
-    assert_equal(os.listdir(TEMP_FOLDER), [])
-    assert_false(os.path.exists(p._temp_folder))
+        small = np.ones(5, dtype=np.float32)
+        assert_equal(small.nbytes, 20)
+        p.map(double, [(small, i, 1.0) for i in range(small.shape[0])])
 
-    small = np.ones(5, dtype=np.float32)
-    assert_equal(small.nbytes, 20)
-    p.map(double, [(small, i, 1.0) for i in range(small.shape[0])])
+        # Memory has been copied, the pool filesystem folder is unused
+        assert_equal(os.listdir(TEMP_FOLDER), [])
 
-    # Memory has been copied, the pool filesystem folder is unused
-    assert_equal(os.listdir(TEMP_FOLDER), [])
+        # Try with a file larger than the memmap threshold of 40 bytes
+        large = np.ones(100, dtype=np.float64)
+        assert_equal(large.nbytes, 800)
+        p.map(double, [(large, i, 1.0) for i in range(large.shape[0])])
 
-    # Try with a file larger than the memmap threshold of 40 bytes
-    large = np.ones(100, dtype=np.float64)
-    assert_equal(large.nbytes, 800)
-    p.map(double, [(large, i, 1.0) for i in range(large.shape[0])])
+        # By defaul, the mmap_mode is copy-on-write to make the pool
+        # process able to modify their view individually as if they would have
+        # received their own copy of the original array. The original array
+        # (which is not a shared memmap instance is untouched)
+        assert_false(has_shared_memory(large))
+        assert_array_equal(large, np.ones(100))
 
-    # By defaul, the mmap_mode is copy-on-write to make the pool
-    # process able to modify their view individually as if they would have
-    # received their own copy of the original array. The original array
-    # (which is not a shared memmap instance is untouched)
-    assert_false(has_shared_memory(large))
-    assert_array_equal(large, np.ones(100))
+        # The data has been dump in a temp folder for subprocess to share it
+        # without per-child memory copies
+        assert_true(os.path.isdir(p._temp_folder))
+        dumped_filenames = os.listdir(p._temp_folder)
+        assert_equal(len(dumped_filenames), 2)
 
-    # The data has been dump in a temp folder for subprocess to share it
-    # without per-child memory copies
-    assert_true(os.path.isdir(p._temp_folder))
-    dumped_filenames = os.listdir(p._temp_folder)
-    assert_equal(len(dumped_filenames), 2)
-
-    # check FS garbage upon pool termination
-    p.terminate()
-    assert_false(os.path.exists(p._temp_folder))
+    finally:
+        # check FS garbage upon pool termination
+        p.terminate()
+        assert_false(os.path.exists(p._temp_folder))
+        del p
 
 
 @with_numpy
@@ -290,17 +301,23 @@ def test_memmaping_pool_for_large_arrays_disabled():
     """Check that large arrays memmaping can be disabled"""
     # Set max_nbytes to None to disable the auto memmaping feature
     p = MemmapingPool(3, max_nbytes=None, temp_folder=TEMP_FOLDER)
+    try:
 
-    # Check that the tempfolder is empty
-    assert_equal(os.listdir(TEMP_FOLDER), [])
+        # Check that the tempfolder is empty
+        assert_equal(os.listdir(TEMP_FOLDER), [])
 
-    # Try with a file largish than the memmap threshold of 40 bytes
-    large = np.ones(100, dtype=np.float64)
-    assert_equal(large.nbytes, 800)
-    p.map(double, [(large, i, 1.0) for i in range(large.shape[0])])
+        # Try with a file largish than the memmap threshold of 40 bytes
+        large = np.ones(100, dtype=np.float64)
+        assert_equal(large.nbytes, 800)
+        p.map(double, [(large, i, 1.0) for i in range(large.shape[0])])
 
-    # Check that the tempfolder is still empty
-    assert_equal(os.listdir(TEMP_FOLDER), [])
+        # Check that the tempfolder is still empty
+        assert_equal(os.listdir(TEMP_FOLDER), [])
+
+    finally:
+        # Cleanup open file descriptors
+        p.terminate()
+        del p
 
 
 @with_numpy
@@ -318,18 +335,21 @@ def test_memmaping_pool_for_large_arrays_in_return():
     # The MemmapingPool user can always return numpy.memmap object explicitly
     # to avoid memory copy
     p = MemmapingPool(3, max_nbytes=10, temp_folder=TEMP_FOLDER)
-
-    res = p.apply_async(np.ones, args=(1000,))
-    large = res.get()
-    assert_false(has_shared_memory(large))
-    assert_array_equal(large, np.ones(1000))
-    p.terminate()
+    try:
+        res = p.apply_async(np.ones, args=(1000,))
+        large = res.get()
+        assert_false(has_shared_memory(large))
+        assert_array_equal(large, np.ones(1000))
+    finally:
+        p.terminate()
+        del p
 
 
 def _worker_multiply(a, n_times):
     """Multiplication function to be executed by subprocess"""
     assert_true(has_shared_memory(a))
     return a * n_times
+
 
 
 @with_numpy
@@ -344,14 +364,17 @@ def test_workaround_against_bad_memmap_with_copied_buffers():
     assert_array_equal = np.testing.assert_array_equal
 
     p = MemmapingPool(3, max_nbytes=10, temp_folder=TEMP_FOLDER)
+    try:
+        # Send a complex, large-ish view on a array that will be converted to
+        # a memmap in the worker process
+        a = np.asarray(np.arange(6000).reshape((1000, 2, 3)),
+                       order='F')[:, :1, :]
 
-    # Send a complex, large-ish view on a array that will be converted to a
-    # memmap in the worker process
-    a = np.asarray(np.arange(6000).reshape((1000, 2, 3)), order='F')[:, :1, :]
-
-    # Call a non-inplace multiply operation on the worker and memmap and send
-    # it back to the parent.
-    b = p.apply_async(_worker_multiply, args=(a, 3)).get()
-    assert_false(has_shared_memory(b))
-    assert_array_equal(b, 3 * a)
-    p.terminate()
+        # Call a non-inplace multiply operation on the worker and memmap and
+        # send it back to the parent.
+        b = p.apply_async(_worker_multiply, args=(a, 3)).get()
+        assert_false(has_shared_memory(b))
+        assert_array_equal(b, 3 * a)
+    finally:
+        p.terminate()
+        del p
