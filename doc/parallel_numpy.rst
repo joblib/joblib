@@ -26,10 +26,10 @@ threshold on the size of the array::
 
   >>> import numpy as np
   >>> from joblib import Parallel, delayed
-  >>> from joblib.pool import has_shared_memory
+  >>> from joblib.pool import has_shareable_memory
 
   >>> Parallel(n_jobs=2, max_nbytes=1e6)(
-  ...     delayed(has_shared_memory)(np.ones(i)) for i in [1e2, 1e4, 1e6])
+  ...     delayed(has_shareable_memory)(np.ones(i)) for i in [1e2, 1e4, 1e6])
   [False, False, True]
 
 For even finer tuning of the memory usage it is also possible to
@@ -84,7 +84,7 @@ this same buffer will also be reused directly by the worker processes
 of a ``Parallel`` call::
 
   >>> Parallel(n_jobs=2, max_nbytes=None)(
-  ...     delayed(has_shared_memory)(a)
+  ...     delayed(has_shareable_memory)(a)
   ...     for a in [large_memmap, small_memmap, small_array])
   [True, True, True]
 

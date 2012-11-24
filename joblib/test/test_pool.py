@@ -5,7 +5,7 @@ multiprocessing = None
 try:
     import multiprocessing
     from ..pool import MemmapingPool
-    from ..pool import has_shared_memory
+    from ..pool import has_shareable_memory
     from ..pool import ArrayMemmapReducer
     from ..pool import reduce_memmap
 except ImportError:
@@ -112,42 +112,42 @@ def test_memmap_based_array_reducing():
 
     # Reconstruct original memmap
     a_reconstructed = reconstruct_memmap(a)
-    assert_true(has_shared_memory(a_reconstructed))
+    assert_true(has_shareable_memory(a_reconstructed))
     assert_true(isinstance(a_reconstructed, np.memmap))
     assert_array_equal(a_reconstructed, a)
 
     # Reconstruct strided memmap view
     b_reconstructed = reconstruct_memmap(b)
-    assert_true(has_shared_memory(b_reconstructed))
+    assert_true(has_shareable_memory(b_reconstructed))
     assert_array_equal(b_reconstructed, b)
 
     # Reconstruct arrays views on memmap base
     c_reconstructed = reconstruct_array(c)
     assert_false(isinstance(c_reconstructed, np.memmap))
-    assert_true(has_shared_memory(c_reconstructed))
+    assert_true(has_shareable_memory(c_reconstructed))
     assert_array_equal(c_reconstructed, c)
 
     d_reconstructed = reconstruct_array(d)
     assert_false(isinstance(d_reconstructed, np.memmap))
-    assert_true(has_shared_memory(d_reconstructed))
+    assert_true(has_shareable_memory(d_reconstructed))
     assert_array_equal(d_reconstructed, d)
 
     # Test graceful degradation on fake memmap instances with in-memory
     # buffers
     a3 = a * 3
-    assert_false(has_shared_memory(a3))
+    assert_false(has_shareable_memory(a3))
     a3_reconstructed = reconstruct_memmap(a3)
-    assert_false(has_shared_memory(a3_reconstructed))
+    assert_false(has_shareable_memory(a3_reconstructed))
     assert_false(isinstance(a3_reconstructed, np.memmap))
     assert_array_equal(a3_reconstructed, a * 3)
 
     # Test graceful degradation on arrays derived from fake memmap instances
     b3 = np.asarray(a3)
-    assert_false(has_shared_memory(b3))
+    assert_false(has_shareable_memory(b3))
 
     b3_reconstructed = reconstruct_array(b3)
     assert_true(isinstance(b3_reconstructed, np.ndarray))
-    assert_false(has_shared_memory(b3_reconstructed))
+    assert_false(has_shareable_memory(b3_reconstructed))
     assert_array_equal(b3_reconstructed, b3)
 
 
@@ -225,7 +225,7 @@ def test_pool_with_memmap_array_view():
         # Create an ndarray view on the memmap instance
         a_view = np.asarray(a)
         assert_false(isinstance(a_view, np.memmap))
-        assert_true(has_shared_memory(a_view))
+        assert_true(has_shareable_memory(a_view))
 
         p.map(double, [(a_view, (i, j), 1.0)
                        for i in range(a.shape[0])
@@ -278,7 +278,7 @@ def test_memmaping_pool_for_large_arrays():
         # process able to modify their view individually as if they would have
         # received their own copy of the original array. The original array
         # (which is not a shared memmap instance is untouched)
-        assert_false(has_shared_memory(large))
+        assert_false(has_shareable_memory(large))
         assert_array_equal(large, np.ones(100))
 
         # The data has been dump in a temp folder for subprocess to share it
@@ -338,7 +338,7 @@ def test_memmaping_pool_for_large_arrays_in_return():
     try:
         res = p.apply_async(np.ones, args=(1000,))
         large = res.get()
-        assert_false(has_shared_memory(large))
+        assert_false(has_shareable_memory(large))
         assert_array_equal(large, np.ones(1000))
     finally:
         p.terminate()
@@ -347,7 +347,7 @@ def test_memmaping_pool_for_large_arrays_in_return():
 
 def _worker_multiply(a, n_times):
     """Multiplication function to be executed by subprocess"""
-    assert_true(has_shared_memory(a))
+    assert_true(has_shareable_memory(a))
     return a * n_times
 
 
@@ -373,7 +373,7 @@ def test_workaround_against_bad_memmap_with_copied_buffers():
         # Call a non-inplace multiply operation on the worker and memmap and
         # send it back to the parent.
         b = p.apply_async(_worker_multiply, args=(a, 3)).get()
-        assert_false(has_shared_memory(b))
+        assert_false(has_shareable_memory(b))
         assert_array_equal(b, 3 * a)
     finally:
         p.terminate()

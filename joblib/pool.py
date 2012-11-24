@@ -75,7 +75,7 @@ def _get_backing_memmap(a):
         return _get_backing_memmap(b)
 
 
-def has_shared_memory(a):
+def has_shareable_memory(a):
     """Return True if a is backed by some mmap buffer directly or not"""
     return _get_backing_memmap(a) is not None
 
