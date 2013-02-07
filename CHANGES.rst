@@ -7,6 +7,11 @@ Release 0.7.0
 **This release drops support for Python 2.5 in favor of support for
 Python 3.0**
 
+2013-02-13
+Gael Varoquaux
+
+    BUG: fix nasty hash collisions
+
 2012-11-19
 Gael Varoquaux
     
