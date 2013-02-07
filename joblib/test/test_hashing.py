@@ -77,13 +77,18 @@ class KlassWithCachedMethod(object):
 def test_trival_hash():
     """ Smoke test hash on various types.
     """
-    obj_list = [1, 1., 1 + 1j,
-                'a',
-                (1, ), [1, ], {1:1},
+    obj_list = [1, 2, 1., 2., 1 + 1j, 2. + 1j,
+                'a', 'b',
+                (1, ), (1, 1, ), [1, ], [1, 1, ],
+                {1: 1}, {1: 2}, {2: 1},
                 None,
+                gc.collect,
+                [1, ].append,
                ]
     for obj1 in obj_list:
         for obj2 in obj_list:
+            # Check that 2 objects have the same hash only if they are
+            # the same.
             yield nose.tools.assert_equal, hash(obj1) == hash(obj2), \
                 obj1 is obj2
 
