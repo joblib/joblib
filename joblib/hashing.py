@@ -7,6 +7,7 @@ hashing of numpy arrays.
 # Copyright (c) 2009 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
+import warnings
 import pickle
 import hashlib
 import sys
@@ -43,9 +44,8 @@ class Hasher(Pickler):
     def hash(self, obj, return_digest=True):
         try:
             self.dump(obj)
-        except pickle.PicklingError:
-            pass
-            #self.dump(
+        except pickle.PicklingError as e:
+            warnings.warn('PicklingError while hashing %r: %r' % (obj, e))
         dumps = self.stream.getvalue()
         self._hash.update(dumps)
         if return_digest:
@@ -60,8 +60,12 @@ class Hasher(Pickler):
             else:
                 func_name = obj.__name__
             inst = obj.__self__
-            cls = obj.__self__.__class__
-            obj = (func_name, inst, cls)
+            if inst is not None:
+                cls = obj.__self__.__class__
+                obj = (func_name, inst, cls)
+            else:
+                # type(None) does not pickle
+                obj = (func_name, inst)
         Pickler.save(self, obj)
 
     # The dispatch table of the pickler is not accessible in Python
@@ -70,17 +74,20 @@ class Hasher(Pickler):
         # We have to override this method in order to deal with objects
         # defined interactively in IPython that are not injected in
         # __main__
-        module = getattr(obj, "__module__", None)
-        if module == '__main__':
-            my_name = name
-            if my_name is None:
-                my_name = obj.__name__
-            mod = sys.modules[module]
-            if not hasattr(mod, my_name):
-                # IPython doesn't inject the variables define
-                # interactively in __main__
-                setattr(mod, my_name, obj)
-        Pickler.save_global(self, obj, name=name, pack=struct.pack)
+        try:
+            Pickler.save_global(self, obj, name=name, pack=pack)
+        except pickle.PicklingError:
+            Pickler.save_global(self, obj, name=name, pack=pack)
+            module = getattr(obj, "__module__", None)
+            if module == '__main__':
+                my_name = name
+                if my_name is None:
+                    my_name = obj.__name__
+                mod = sys.modules[module]
+                if not hasattr(mod, my_name):
+                    # IPython doesn't inject the variables define
+                    # interactively in __main__
+                    setattr(mod, my_name, obj)
 
     dispatch = Pickler.dispatch.copy()
     # builtin

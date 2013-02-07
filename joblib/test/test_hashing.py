@@ -223,6 +223,15 @@ def test_hash_object_dtype():
                             hash(b))
 
 
+@with_numpy
+def test_numpy_scalar():
+    # Numpy scalars are built from compiled functions, and lead to
+    # strange pickling paths explored, that can give hash collisions
+    a = np.float64(2.0)
+    b = np.float64(3.0)
+    nose.tools.assert_not_equal(hash(a), hash(b))
+
+
 def test_dict_hash():
     # Check that dictionaries hash consistently, eventhough the ordering
     # of the keys is not garanteed
