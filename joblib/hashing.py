@@ -30,6 +30,13 @@ class _ConsistentSet(object):
         self._sequence = sorted(set_sequence)
 
 
+class _MyHash(object):
+    """ Class used to hash objects that won't normaly pickle """
+
+    def __init__(self, *args):
+        self.args = args
+
+
 class Hasher(Pickler):
     """ A subclass of pickler, to do cryptographic hashing, rather than
         pickling.
@@ -60,12 +67,14 @@ class Hasher(Pickler):
             else:
                 func_name = obj.__name__
             inst = obj.__self__
-            if inst is not None:
-                cls = obj.__self__.__class__
-                obj = (func_name, inst, cls)
+            if type(inst) == type(pickle):
+                obj = _MyHash(func_name, inst.__name__)
+            elif inst is None:
+                # type(None) or type(module) do not pickle
+                obj = _MyHash(func_name, inst)
             else:
-                # type(None) does not pickle
-                obj = (func_name, inst)
+                cls = obj.__self__.__class__
+                obj = _MyHash(func_name, inst, cls)
         Pickler.save(self, obj)
 
     # The dispatch table of the pickler is not accessible in Python
