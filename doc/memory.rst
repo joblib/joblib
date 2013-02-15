@@ -297,8 +297,9 @@ function. In such case, it is necessary to invalidate the cache if the
 function which build the object has been modified.
 `Memory` provides the `depends` list::
 
-   >>> @memory.cache(ignore=['bigobject'], depends=['produceobject'])
+   >>> @memory.cache(ignore=['bigobject'], depends=[produceobject])
    ... def my_func(bigobject, otherarg):
+   ...      """Cache is invalidated if the function produceobject` has been modified"""
    ...	    print('Called with bigobject = %s, otherarg = %s' % (str(x), str(otherarg))
 
 
