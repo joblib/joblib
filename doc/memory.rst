@@ -287,6 +287,21 @@ change, for instance a debug flag. `Memory` provides the `ignore` list::
     >>> # my_func was not reevaluated
 
 
+Watching other functions
+------------------------
+
+It may be useful to recalculate a function when another function
+has changed. For example another function produces a big and complex 
+object and you ignore the argument passing this object in your cached
+function. In such case, it is necessary to invalidate the cache if the
+function which build the object has been modified.
+`Memory` provides the `depends` list::
+
+   >>> @memory.cache(ignore=['bigobject'], depends=['produceobject'])
+   ... def my_func(bigobject, otherarg):
+   ...	    print('Called with bigobject = %s, otherarg = %s' % (str(x), str(otherarg))
+
+
 .. _memory_reference:
 
 Reference documentation of the `Memory` class

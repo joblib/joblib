@@ -64,6 +64,15 @@ class JobLibCollisionWarning(UserWarning):
     """
 
 
+# Dependency managment. TODO find a way to remove this ugly hack
+DEPENDENCIES = {}
+def add_dependency(func):
+    """Add a function which can be a dependency of memorized functions."""
+    if func in DEPENDENCIES:
+        raise JobLibCollisionWarning()
+    DEPENDENCIES[func.__name__] = func
+
+
 ###############################################################################
 # class `MemorizedFunc`
 ###############################################################################
@@ -93,13 +102,17 @@ class MemorizedFunc(Logger):
         verbose: int, optional
             The verbosity flag, controls messages that are issued as
             the function is revaluated.
+        depends: list of strings
+            A list of functions name it is necessary to observe in order
+            to invalidate the cache (if they changed, cache is invalidated)
+
     """
     #-------------------------------------------------------------------------
     # Public interface
     #-------------------------------------------------------------------------
 
     def __init__(self, func, cachedir, ignore=None, mmap_mode=None,
-                 compress=False, verbose=1, timestamp=None):
+                 compress=False, verbose=1, timestamp=None, depends=None):
         """
             Parameters
             ----------
@@ -119,6 +132,11 @@ class MemorizedFunc(Logger):
             timestamp: float, optional
                 The reference time from which times in tracing messages
                 are reported.
+            depends: list of strings
+                A list of functions name it is necessary to observe in order
+                to invalidate the cache (if they changed, cache is invalidated)
+
+
         """
         Logger.__init__(self)
         self._verbose = verbose
@@ -135,6 +153,9 @@ class MemorizedFunc(Logger):
         if ignore is None:
             ignore = []
         self.ignore = ignore
+        if depends is None:
+            depends = []
+        self.depends = depends
         mkdirp(self.cachedir)
         try:
             functools.update_wrapper(self, func)
@@ -192,13 +213,16 @@ class MemorizedFunc(Logger):
     # Private interface
     #-------------------------------------------------------------------------
 
-    def _get_func_dir(self, mkdir=True):
+    def _get_func_dir(self, mkdir=True, func=None):
         """ Get the directory corresponding to the cache for the
             function.
+            If func is not not, it consists to a dependency of our function
         """
         module, name = get_func_name(self.func)
-        module.append(name)
         func_dir = os.path.join(self.cachedir, *module)
+        if func is not None:
+            module2, name2 = get_func_name(func)
+            func_dir = os.path.join(func_dir, name2)
         if mkdir:
             mkdirp(func_dir)
         return func_dir
@@ -229,11 +253,46 @@ class MemorizedFunc(Logger):
             stacklevel is the depth a which this function is called, to
             issue useful warnings to the user.
         """
+
+        check_inner = self._check_previous_func_code_inner_function(self.func, stacklevel)
+        check_depends = self._check_previous_func_code_depends_functions(stacklevel)
+
+        print 'inner', check_inner
+        print 'depends', check_depends
+        return check_inner and check_depends
+
+    def _check_previous_func_code_depends_functions(self, stacklevel):
+        """
+            stacklevel is the depth a which this function is called, to
+            issue useful warnings to the user.
+        """
+        # Here, we verify if the dependencies have been modified since last
+        # time. 
+
+        no_modifications = True
+
+        #loop over the dependencies and check for each of them
+        for dependency in self.depends:
+            no_modifications = no_modifications and \
+                    self._check_previous_func_code_inner_function(DEPENDENCIES[dependency], stacklevel, prefix=dependency)
+            print dependency, no_modifications
+
+        return no_modifications
+
+
+
+    def _check_previous_func_code_inner_function(self, func, stacklevel, prefix=''):
+        """
+            func is the function to check. If it is self.func, it represent the function 
+            we cache. Otherwhise it is one of the dependencies
+            stacklevel is the depth a which this function is called, to
+            issue useful warnings to the user.
+        """
         # Here, we go through some effort to be robust to dynamically
         # changing code and collision. We cannot inspect.getsource
         # because it is not reliable when using IPython's magic "%run".
-        func_code, source_file, first_line = get_func_code(self.func)
-        func_dir = self._get_func_dir()
+        func_code, source_file, first_line = get_func_code(func)
+        func_dir = self._get_func_dir(func=func)
         func_code_file = os.path.join(func_dir, 'func_code.py')
 
         try:
@@ -269,7 +328,7 @@ class MemorizedFunc(Logger):
         if (not old_first_line == first_line
                                     and source_file is not None
                                     and os.path.exists(source_file)):
-            _, func_name = get_func_name(self.func, resolv_alias=False)
+            _, func_name = get_func_name(func, resolv_alias=False)
             num_lines = len(func_code.split('\n'))
             with open(source_file) as f:
                 on_disk_func_code = f.readlines()[
@@ -286,7 +345,7 @@ class MemorizedFunc(Logger):
         # The function has changed, wipe the cache directory.
         # XXX: Should be using warnings, and giving stacklevel
         if self._verbose > 10:
-            _, func_name = get_func_name(self.func, resolv_alias=False)
+            _, func_name = get_func_name(func, resolv_alias=False)
             self.warn("Function %s (stored in %s) has changed." %
                         (func_name, func_dir))
         self.clear(warn=True)
@@ -481,8 +540,9 @@ class Memory(Logger):
             self.cachedir = os.path.join(cachedir, 'joblib')
             mkdirp(self.cachedir)
 
+
     def cache(self, func=None, ignore=None, verbose=None,
-                        mmap_mode=False):
+                        mmap_mode=False, depends=None):
         """ Decorates the given function func to only compute its return
             value for input arguments not cached on disk.
 
@@ -499,6 +559,9 @@ class Memory(Logger):
                 The memmapping mode used when loading from cache
                 numpy arrays. See numpy.load for the meaning of the
                 arguments. By default that of the memory object is used.
+            depends: list of strings
+                A list of functions name it is necessary to observe in order
+                to invalidate the cache (if they changed, cache is invalidated)
 
             Returns
             -------
@@ -511,7 +574,7 @@ class Memory(Logger):
         if func is None:
             # Partial application, to be able to specify extra keyword
             # arguments in decorators
-            return functools.partial(self.cache, ignore=ignore)
+            return functools.partial(self.cache, ignore=ignore, depends=depends)
         if self.cachedir is None:
             return func
         if verbose is None:
@@ -525,7 +588,8 @@ class Memory(Logger):
                                    ignore=ignore,
                                    compress=self.compress,
                                    verbose=verbose,
-                                   timestamp=self.timestamp)
+                                   timestamp=self.timestamp,
+                                   depends=depends)
 
     def clear(self, warn=True):
         """ Erase the complete cache directory.
