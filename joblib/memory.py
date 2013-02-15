@@ -64,15 +64,6 @@ class JobLibCollisionWarning(UserWarning):
     """
 
 
-# Dependency managment. TODO find a way to remove this ugly hack
-DEPENDENCIES = {}
-def add_dependency(func):
-    """Add a function which can be a dependency of memorized functions."""
-    if func in DEPENDENCIES:
-        raise JobLibCollisionWarning()
-    DEPENDENCIES[func.__name__] = func
-
-
 ###############################################################################
 # class `MemorizedFunc`
 ###############################################################################
@@ -274,7 +265,7 @@ class MemorizedFunc(Logger):
         #loop over the dependencies and check for each of them
         for dependency in self.depends:
             no_modifications = no_modifications and \
-                    self._check_previous_func_code_inner_function(DEPENDENCIES[dependency], stacklevel, prefix=dependency)
+                    self._check_previous_func_code_inner_function(dependency, stacklevel, prefix=dependency)
             print dependency, no_modifications
 
         return no_modifications

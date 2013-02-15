@@ -11,10 +11,9 @@ memory=joblib.memory.Memory(verbose=4, cachedir='testdepends')
 def producer(X):
     """produce the big object"""
     print 'Call of producer', X
-    return 10+X+1
+    return 10+X
 
-joblib.memory.add_dependency(producer)
-@memory.cache(ignore=['producee'], depends=['producer'])
+@memory.cache(ignore=['producee'], depends=[producer])
 def cached(producee, label):
     print 'Call cached', label
     return -producee1 
