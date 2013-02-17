@@ -248,8 +248,6 @@ class MemorizedFunc(Logger):
         check_inner = self._check_previous_func_code_inner_function(self.func, stacklevel)
         check_depends = self._check_previous_func_code_depends_functions(stacklevel)
 
-        print 'inner', check_inner
-        print 'depends', check_depends
         return check_inner and check_depends
 
     def _check_previous_func_code_depends_functions(self, stacklevel):
@@ -266,7 +264,6 @@ class MemorizedFunc(Logger):
         for dependency in self.depends:
             no_modifications = no_modifications and \
                     self._check_previous_func_code_inner_function(dependency, stacklevel, prefix=dependency)
-            print dependency, no_modifications
 
         return no_modifications
 
