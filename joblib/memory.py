@@ -93,8 +93,8 @@ class MemorizedFunc(Logger):
         verbose: int, optional
             The verbosity flag, controls messages that are issued as
             the function is revaluated.
-        depends: list of strings
-            A list of functions name it is necessary to observe in order
+        depends: list of functions
+            A list of functions it is necessary to observe in order
             to invalidate the cache (if they changed, cache is invalidated)
 
     """
@@ -123,8 +123,8 @@ class MemorizedFunc(Logger):
             timestamp: float, optional
                 The reference time from which times in tracing messages
                 are reported.
-            depends: list of strings
-                A list of functions name it is necessary to observe in order
+            depends: list of functions
+                A list of functions it is necessary to observe in order
                 to invalidate the cache (if they changed, cache is invalidated)
 
 
@@ -547,8 +547,8 @@ class Memory(Logger):
                 The memmapping mode used when loading from cache
                 numpy arrays. See numpy.load for the meaning of the
                 arguments. By default that of the memory object is used.
-            depends: list of strings
-                A list of functions name it is necessary to observe in order
+            depends: list of functions
+                A list of functions it is necessary to observe in order
                 to invalidate the cache (if they changed, cache is invalidated)
 
             Returns
