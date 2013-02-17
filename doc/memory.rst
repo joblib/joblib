@@ -296,11 +296,29 @@ object and you ignore the argument passing this object in your cached
 function. In such case, it is necessary to invalidate the cache if the
 function which build the object has been modified.
 `Memory` provides the `depends` list::
-
-   >>> @memory.cache(ignore=['bigobject'], depends=[produceobject])
-   ... def my_func(bigobject, otherarg):
+   >>> def produce_object(param):
+   ...     """A function which builds a big object. 
+   ...        It can be memorized or not, but can be hardly used
+   ...        as a parameter of another memorized function because of 
+   ...        performance issues."""
+   ...     print('Produce the bigobject')
+   ...     return 'bigobject' + str(param)
+   >>> @memory.cache(ignore=['big_object'], depends=[produce_object])
+   ... def my_func_with_dependency(big_object, other_arg):
    ...      """Cache is invalidated if the function produceobject` has been modified"""
-   ...	    print('Called with bigobject = %s, otherarg = %s' % (str(x), str(otherarg))
+   ...	    print('Called with bigobject = %s, otherarg = %s' % (str(big_object), str(other_arg)))
+   >>> big_object1 = produce_object(1)
+   Produce the bigobject
+   >>> big_object2 = produce_object(2)
+   Produce the bigobject
+   >>> my_func_with_dependency(big_object1, 1) # Call the function with one particular parameter
+   Called with bigobject = bigobject1, otherarg = 1
+   >>> my_func_with_dependency(big_object2, 2) # Call with another parameter
+   Called with bigobject = bigobject2, otherarg = 2
+   >>> my_func_with_dependency(big_object1, 1) # Use results from cache
+   >>> # Now we assume the function 'produce_object' has been modified
+   >>> my_func_with_dependency(big_object1, 1) # Call function, cache has been invalidated
+
 
 
 .. _memory_reference:
