@@ -46,7 +46,6 @@ Lightweight pipelining: using Python functions as pipeline jobs.
           'Intended Audience :: Education',
           'License :: OSI Approved :: BSD License',
           'Operating System :: OS Independent',
-          'Programming Language :: Python :: 2.5',
           'Programming Language :: Python :: 2.6',
           'Programming Language :: Python :: 2.7',
           'Programming Language :: Python :: 3',
