@@ -98,8 +98,8 @@ class MemorizedFunc(Logger):
     # Public interface
     #-------------------------------------------------------------------------
 
-    def __init__(self, func, cachedir, ignore=None, hashfun={}, mmap_mode=None,
-                 compress=False, verbose=1, timestamp=None):
+    def __init__(self, func, cachedir, ignore=None, mmap_mode=None,
+                 compress=False, verbose=1, timestamp=None, hashfun={}):
         """
             Parameters
             ----------
@@ -119,6 +119,10 @@ class MemorizedFunc(Logger):
             timestamp: float, optional
                 The reference time from which times in tracing messages
                 are reported.
+            hashfun: dict
+                Custom hash functions. Each entry has the argument name as key
+                and a callable as value. The specified callable is used to hash
+                the value of the argument before the arguments are matched.
         """
         Logger.__init__(self)
         self._verbose = verbose
