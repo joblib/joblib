@@ -490,8 +490,8 @@ class Memory(Logger):
             self.cachedir = os.path.join(cachedir, 'joblib')
             mkdirp(self.cachedir)
 
-    def cache(self, func=None, ignore=None, hashfun={}, verbose=None,
-                        mmap_mode=False):
+    def cache(self, func=None, ignore=None, verbose=None,
+                        mmap_mode=False, hashfun={}):
         """ Decorates the given function func to only compute its return
             value for input arguments not cached on disk.
 
@@ -508,6 +508,10 @@ class Memory(Logger):
                 The memmapping mode used when loading from cache
                 numpy arrays. See numpy.load for the meaning of the
                 arguments. By default that of the memory object is used.
+            hashfun: dict
+                Custom hash functions. Each entry has the argument name as key
+                and a callable as value. The specified callable is used to hash
+                the value of the argument before the arguments are matched.
 
             Returns
             -------
