@@ -110,6 +110,9 @@ class NDArrayWrapper(object):
         if unpickler.np.__version__ >= '1.3':
             array = unpickler.np.load(filename,
                             mmap_mode=unpickler.mmap_mode)
+            if unpickler.np.__version__ < '1.5':
+                # Compensate the lack of information
+                array.filename = self.filename
         else:
             # Numpy does not have mmap_mode before 1.3
             array = unpickler.np.load(filename)
