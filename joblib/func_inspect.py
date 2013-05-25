@@ -42,7 +42,6 @@ def get_func_code(func):
         if not os.path.exists(source_file):
             # Use inspect for lambda functions and functions defined in an
             # interactive shell
-            source_file = code.co_filename
             return ''.join(inspect.getsourcelines(func)[0]), source_file, 1
         # Try to retrieve the source code.
         with open(source_file) as source_file_obj:
