@@ -250,9 +250,9 @@ class MemorizedFunc(Logger):
         # differing functions, or because the function we are referring as
         # changed?
 
-        if old_first_line == first_line == -1:
-            _, func_name = get_func_name(self.func, resolv_alias=False,
-                                         win_characters=False)
+        _, func_name = get_func_name(self.func, resolv_alias=False,
+                                     win_characters=False)
+        if old_first_line == first_line == -1 or func_name == '<lambda>':
             if not first_line == -1:
                 func_description = '%s (%s:%i)' % (func_name,
                                                 source_file, first_line)
@@ -266,22 +266,27 @@ class MemorizedFunc(Logger):
         # same than the code store, we have a collision: the code in the
         # file has not changed, but the name we have is pointing to a new
         # code block.
-        if (not old_first_line == first_line
-                                    and source_file is not None
-                                    and os.path.exists(source_file)):
-            _, func_name = get_func_name(self.func, resolv_alias=False)
-            num_lines = len(func_code.split('\n'))
-            with open(source_file) as f:
-                on_disk_func_code = f.readlines()[
-                        old_first_line - 1:old_first_line - 1 + num_lines - 1]
-            on_disk_func_code = ''.join(on_disk_func_code)
-            if on_disk_func_code.rstrip() == old_func_code.rstrip():
+        if not old_first_line == first_line and source_file is not None:
+            possible_collision = False
+            if os.path.exists(source_file):
+                _, func_name = get_func_name(self.func, resolv_alias=False)
+                num_lines = len(func_code.split('\n'))
+                with open(source_file) as f:
+                    on_disk_func_code = f.readlines()[
+                            old_first_line - 1
+                            :old_first_line - 1 + num_lines - 1]
+                on_disk_func_code = ''.join(on_disk_func_code)
+                possible_collision = (on_disk_func_code.rstrip()
+                                      == old_func_code.rstrip())
+            else:
+                possible_collision = source_file.startswith('<doctest ')
+            if possible_collision:
                 warnings.warn(JobLibCollisionWarning(
-                'Possible name collisions between functions '
-                "'%s' (%s:%i) and '%s' (%s:%i)" %
-                (func_name, source_file, old_first_line,
-                 func_name, source_file, first_line)),
-                 stacklevel=stacklevel)
+                        'Possible name collisions between functions '
+                        "'%s' (%s:%i) and '%s' (%s:%i)" %
+                        (func_name, source_file, old_first_line,
+                        func_name, source_file, first_line)),
+                    stacklevel=stacklevel)
 
         # The function has changed, wipe the cache directory.
         # XXX: Should be using warnings, and giving stacklevel

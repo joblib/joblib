@@ -208,7 +208,7 @@ Gotchas
     ...     print('Running func(%s)' % x)
 
     >>> func2 = func
-
+    
     >>> @memory.cache
     ... def func(x):
     ...     print('Running a different func(%s)' % x)
@@ -216,9 +216,10 @@ Gotchas
     >>> func(1)
     Running a different func(1)
     >>> func2(1)
-    memory.rst:0: JobLibCollisionWarning: Cannot detect name collisions for function 'func'
+    memory.rst:0: JobLibCollisionWarning: Possible name collisions between functions 'func' (<doctest memory.rst>:30) and 'func' (<doctest memory.rst>:28)
     Running func(1)
     >>> func(1)
+    memory.rst:0: JobLibCollisionWarning: Possible name collisions between functions 'func' (<doctest memory.rst>:28) and 'func' (<doctest memory.rst>:30)
     Running a different func(1)
     >>> func2(1)
     Running func(1)

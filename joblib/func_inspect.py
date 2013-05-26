@@ -9,6 +9,7 @@ My own variation on function-specific inspect-like features.
 from itertools import islice
 import inspect
 import warnings
+import re
 import os
 
 from ._compat import _basestring
@@ -41,8 +42,16 @@ def get_func_code(func):
         source_file = code.co_filename
         if not os.path.exists(source_file):
             # Use inspect for lambda functions and functions defined in an
-            # interactive shell
-            return ''.join(inspect.getsourcelines(func)[0]), source_file, 1
+            # interactive shell, or in doctests
+            source_code = ''.join(inspect.getsourcelines(func)[0])
+            line_no = 1
+            if source_file.startswith('<doctest '):
+                source_file, line_no = re.match(
+                            '\<doctest (.*\.rst)\[(.*)\]\>',
+                            source_file).groups()
+                line_no = int(line_no)
+                source_file = '<doctest %s>' % source_file
+            return source_code, source_file, line_no
         # Try to retrieve the source code.
         with open(source_file) as source_file_obj:
             first_line = code.co_firstlineno
