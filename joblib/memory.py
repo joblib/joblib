@@ -27,6 +27,7 @@ import json
 # Local imports
 from .hashing import hash
 from .func_inspect import get_func_code, get_func_name, filter_args
+from .func_inspect import format_signature
 from .logger import Logger, format_time
 from . import numpy_pickle
 from .disk import mkdirp, rm_subdirs
@@ -442,42 +443,14 @@ class MemorizedFunc(Logger):
         """ Returns a nicely formatted statement displaying the function
             call with the given arguments.
         """
-        path, signature = self.format_signature(self.func, *args,
+        path, signature = format_signature(self.func, *args,
                             **kwds)
         msg = '%s\n[Memory] Calling %s...\n%s' % (80 * '_', path, signature)
         return msg
         # XXX: Not using logging framework
         #self.debug(msg)
 
-    def format_signature(self, func, *args, **kwds):
-        # XXX: This should be moved out to a function
-        # XXX: Should this use inspect.formatargvalues/formatargspec?
-        module, name = get_func_name(func)
-        module = [m for m in module if m]
-        if module:
-            module.append(name)
-            module_path = '.'.join(module)
-        else:
-            module_path = name
-        arg_str = list()
-        previous_length = 0
-        for arg in args:
-            arg = self.format(arg, indent=2)
-            if len(arg) > 1500:
-                arg = '%s...' % arg[:700]
-            if previous_length > 80:
-                arg = '\n%s' % arg
-            previous_length = len(arg)
-            arg_str.append(arg)
-        arg_str.extend(['%s=%s' % (v, self.format(i)) for v, i in
-                                    kwds.items()])
-        arg_str = ', '.join(arg_str)
-
-        signature = '%s(%s)' % (name, arg_str)
-        return module_path, signature
-
     # Make public
-
     def _persist_output(self, output, dir):
         """ Persist the given output tuple in the directory.
         """
@@ -519,12 +492,12 @@ class MemorizedFunc(Logger):
             if self._verbose < 10:
                 print('[Memory]% 16s: Loading %s...' % (
                                     format_time(t),
-                                    self.format_signature(self.func)[0]
+                                    format_signature(self.func)[0]
                                     ))
             else:
                 print('[Memory]% 16s: Loading %s from %s' % (
                                     format_time(t),
-                                    self.format_signature(self.func)[0],
+                                    format_signature(self.func)[0],
                                     output_dir
                                     ))
         filename = os.path.join(output_dir, 'output.pkl')

@@ -13,6 +13,7 @@ import re
 import os
 
 from ._compat import _basestring
+from logger import pformat
 
 
 def get_func_code(func):
@@ -263,3 +264,30 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
                                                    )))
     # XXX: Return a sorted list of pairs?
     return arg_dict
+
+
+def format_signature(func, *args, **kwds):
+    # XXX: Should this use inspect.formatargvalues/formatargspec?
+    module, name = get_func_name(func)
+    module = [m for m in module if m]
+    if module:
+        module.append(name)
+        module_path = '.'.join(module)
+    else:
+        module_path = name
+    arg_str = list()
+    previous_length = 0
+    for arg in args:
+        arg = pformat(arg, indent=2)
+        if len(arg) > 1500:
+            arg = '%s...' % arg[:700]
+        if previous_length > 80:
+            arg = '\n%s' % arg
+        previous_length = len(arg)
+        arg_str.append(arg)
+    arg_str.extend(['%s=%s' % (v, pformat(i)) for v, i in
+                                kwds.items()])
+    arg_str = ', '.join(arg_str)
+
+    signature = '%s(%s)' % (name, arg_str)
+    return module_path, signature

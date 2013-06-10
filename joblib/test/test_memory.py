@@ -443,26 +443,6 @@ def test_persistence():
     gp(1)
 
 
-def test_format_signature():
-    # Test the signature formatting.
-    func = MemorizedFunc(f, cachedir=env['dir'])
-    path, sgn = func.format_signature(f, list(range(10)))
-    yield nose.tools.assert_equal, \
-                sgn, \
-                'f([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])'
-    path, sgn = func.format_signature(f, list(range(10)),
-                                      y=list(range(10)))
-    yield nose.tools.assert_equal, \
-                sgn, \
-        'f([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], y=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9])'
-
-
-@with_numpy
-def test_format_signature_numpy():
-    """ Test the format signature formatting with numpy.
-    """
-
-
 def test_call_and_shelve():
     """Test MemorizedFunc outputting a reference to cache.
     """
@@ -491,8 +471,3 @@ def test_call_and_shelve():
     result.clear()
     nose.tools.assert_raises(KeyError, result.get)
     result.clear()  # Do nothing if there is no cache.
-
-#    result.cache_path()
-#    nose.tools.assert_is_instance(result.computation_time(), float)
-#    nose.tools.assert_is_instance(result.format_call, basestring)
-
