@@ -106,8 +106,9 @@ class MemorizedResult(Logger):
         """Clear value from cache"""
         shutil.rmtree(self._output_dir, ignore_errors=True)
 
-#    def __repr__(self):
-#        pass
+    def __repr__(self):
+        return (self.__class__.__name__
+                + '(output_dir="' + self._output_dir + '")')
 
 
 class NotMemorizedResult(object):
@@ -124,16 +125,21 @@ class NotMemorizedResult(object):
         if hasattr(self, "value"):
             del self.value
 
-#    def __repr__(self):
-#        pass
+    def __repr__(self):
+        if hasattr(self, "value"):
+            return self.__class__.__name__ + '(' + repr(self.value)[:50] + ')'
+        else:
+            return self.__class__.__name__ + ' with no value'
 
 
 ###############################################################################
 # class `MemorizedFunc`
 ###############################################################################
 class NotMemorizedFunc(object):
+    # Should be a light as possible (for speed)
     def __init__(self, func):
         self.func = func
+        self.duration = -1
 
     def __call__(self, *args, **kwargs):
         return self.func(*args, **kwargs)
@@ -143,6 +149,16 @@ class NotMemorizedFunc(object):
 
     def __reduce__(self):
         return (self.__class__, (self.func,))
+
+    def __repr__(self):
+        return '%s(func=%s)' % (
+                    self.__class__.__name__,
+                    self.func
+            )
+
+    def clear(self, warn=True):
+        # Argument "warn" is for compatibility with MemorizedFunc.clear
+        pass
 
 
 ###############################################################################
@@ -209,20 +225,21 @@ class MemorizedFunc(Logger):
                 are reported.
         """
         Logger.__init__(self)
+        self.mmap_mode = mmap_mode
+        self.func = func
+        if ignore is None:
+            ignore = []
+        self.ignore = ignore
+
         self._verbose = verbose
         self.cachedir = cachedir
-        self.func = func
-        self.mmap_mode = mmap_mode
         self.compress = compress
-        if compress and mmap_mode is not None:
+        if compress and self.mmap_mode is not None:
             warnings.warn('Compressed results cannot be memmapped',
                           stacklevel=2)
         if timestamp is None:
             timestamp = time.time()
         self.timestamp = timestamp
-        if ignore is None:
-            ignore = []
-        self.ignore = ignore
         mkdirp(self.cachedir)
         try:
             functools.update_wrapper(self, func)
@@ -243,13 +260,13 @@ class MemorizedFunc(Logger):
         """
         # FIXME: add signature (format_signature)
         self.__call__(*args, **kwargs)
-        output_dir, argument_hash = self.get_output_dir(*args, **kwargs)
+        output_dir, argument_hash = self._get_output_dir(*args, **kwargs)
         return MemorizedResult(output_dir)
 
     def __call__(self, *args, **kwargs):
         # Compare the function code with the previous to see if the
         # function code has changed
-        output_dir, argument_hash = self.get_output_dir(*args, **kwargs)
+        output_dir, argument_hash = self._get_output_dir(*args, **kwargs)
         # FIXME: The statements below should be try/excepted
         if not (self._check_previous_func_code(stacklevel=3) and
                                  os.path.exists(output_dir)):
@@ -299,18 +316,7 @@ class MemorizedFunc(Logger):
     # Private interface
     #-------------------------------------------------------------------------
 
-    def _get_func_dir(self, mkdir=True):
-        """ Get the directory corresponding to the cache for the
-            function.
-        """
-        module, name = get_func_name(self.func)
-        module.append(name)
-        func_dir = os.path.join(self.cachedir, *module)
-        if mkdir:
-            mkdirp(func_dir)
-        return func_dir
-
-    def get_output_dir(self, *args, **kwargs):
+    def _get_output_dir(self, *args, **kwargs):
         """ Returns the directory in which are persisted the results
             of the function corresponding to the given arguments.
 
@@ -323,6 +329,19 @@ class MemorizedFunc(Logger):
         output_dir = os.path.join(self._get_func_dir(self.func),
                                   argument_hash)
         return output_dir, argument_hash
+
+    get_output_dir = _get_output_dir  # backward compatibility
+
+    def _get_func_dir(self, mkdir=True):
+        """ Get the directory corresponding to the cache for the
+            function.
+        """
+        module, name = get_func_name(self.func)
+        module.append(name)
+        func_dir = os.path.join(self.cachedir, *module)
+        if mkdir:
+            mkdirp(func_dir)
+        return func_dir
 
     def _write_func_code(self, filename, func_code, first_line):
         """ Write the function code and the filename to a file.
@@ -422,7 +441,7 @@ class MemorizedFunc(Logger):
             persist the output values.
         """
         start_time = time.time()
-        output_dir, argument_hash = self.get_output_dir(*args, **kwargs)
+        output_dir, argument_hash = self._get_output_dir(*args, **kwargs)
         if self._verbose:
             print(self.format_call(*args, **kwargs))
         output = self.func(*args, **kwargs)
