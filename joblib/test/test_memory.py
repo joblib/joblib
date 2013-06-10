@@ -70,7 +70,7 @@ def teardown_module():
 # Helper function for the tests
 def check_identity_lazy(func, accumulator):
     """ Given a function and an accumulator (a list that grows every
-        time the function is called, check that the function can be
+        time the function is called), check that the function can be
         decorated by memory to be a lazy identity.
     """
     # Call each function with several arguments, and check that it is
@@ -156,7 +156,7 @@ def test_no_memory():
 
     mem = Memory(cachedir=None, verbose=0)
     gg = mem.cache(ff)
-    for _ in range(4):
+    for _ in xrange(4):
         current_accumulator = len(accumulator)
         gg(1)
         yield nose.tools.assert_equal, len(accumulator), \
@@ -479,6 +479,9 @@ def test_persistence():
     # Smoke test that pickling a memory with cachedir=None works
     memory = Memory(cachedir=None, verbose=0)
     pickle.loads(pickle.dumps(memory))
+    g = memory.cache(f)
+    gp = pickle.loads(pickle.dumps(g))
+    gp(1)
 
 
 def test_format_signature():
@@ -517,7 +520,7 @@ def test_persist_with_output_dir_keyword_arg():
 def test_call_and_shelve():
     """Test MemorizedFunc outputting a reference to cache.
     """
-    # FIXME: test when no cache dir defined.
+
     # Create cache value
     func = MemorizedFunc(f, cachedir=env['dir'])
     nose.tools.assert_equal(func(2), 5)
@@ -542,6 +545,8 @@ def test_call_and_shelve():
     result.clear()
     nose.tools.assert_raises(KeyError, result.get)
     result.clear()  # Do nothing if there is no cache.
+
+
 
 #    result.cache_path()
 #    nose.tools.assert_is_instance(result.computation_time(), float)
