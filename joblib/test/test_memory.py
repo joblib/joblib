@@ -16,7 +16,8 @@ import sys
 
 import nose
 
-from ..memory import Memory, MemorizedFunc, CachedValue
+from ..memory import Memory, MemorizedFunc, NotMemorizedFunc, CachedValue
+from ..memory import NotCachedValue
 from .common import with_numpy, np
 
 
@@ -500,7 +501,6 @@ def test_format_signature_numpy():
     """
 
 
-<<<<<<< HEAD
 def test_persist_with_output_dir_keyword_arg():
     """Test that "output_dir" keyword argument can be persisted (issue #72)"""
 
@@ -512,8 +512,9 @@ def test_persist_with_output_dir_keyword_arg():
     cached_result = mem.cache(f)(output_dir="other/thing")
     nose.tools.assert_equal(first_result, "other/thing")
     nose.tools.assert_equal(cached_result, "other/thing")
-=======
-def test_cache_reference():
+
+
+def test_call_and_shelve():
     """Test MemorizedFunc outputting a reference to cache.
     """
     # FIXME: test when no cache dir defined.
@@ -531,12 +532,17 @@ def test_cache_reference():
     nose.tools.assert_raises(KeyError, result.get)
     result.clear()  # Do nothing if there is no cache.
 
+    # NotMemorizedFunc
+    func = NotMemorizedFunc(f)
 
+    result = func.call_and_shelve(2)
+    nose.tools.assert_is_instance(result, NotCachedValue)
+    nose.tools.assert_equal(result.get(), 5)  # Cache must exist
+
+    result.clear()
+    nose.tools.assert_raises(KeyError, result.get)
+    result.clear()  # Do nothing if there is no cache.
 
 #    result.cache_path()
 #    nose.tools.assert_is_instance(result.computation_time(), float)
 #    nose.tools.assert_is_instance(result.format_call, basestring)
-
-
-
->>>>>>> Preliminary implementation of cache references

@@ -108,6 +108,35 @@ class CachedValue(Logger):
         pass
 
 
+class NotCachedValue(object):
+    def __init__(self, value):
+        self.value = value
+
+    def get(self):
+        if hasattr(self, "value"):
+            return self.value
+        else:
+            raise KeyError("Value not in cache.")
+
+    def clear(self):
+        if hasattr(self, "value"):
+            del self.value
+
+
+###############################################################################
+# class `MemorizedFunc`
+###############################################################################
+class NotMemorizedFunc(object):
+    def __init__(self, func):
+        self.func = func
+
+    def __call__(self, *args, **kwargs):
+        return self.func(*args, **kwargs)
+
+    def call_and_shelve(self, *args, **kwargs):
+        return NotCachedValue(self.func(*args, **kwargs))
+
+
 ###############################################################################
 # class `MemorizedFunc`
 ###############################################################################
@@ -436,7 +465,7 @@ class MemorizedFunc(Logger):
         signature = '%s(%s)' % (name, arg_str)
         return module_path, signature
 
-    # Make make public
+    # Make public
 
     def _persist_output(self, output, dir):
         """ Persist the given output tuple in the directory.
