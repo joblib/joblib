@@ -36,7 +36,8 @@ env = dict()
 def setup_module():
     """ Test setup.
     """
-    cachedir = "/tmp/test_joblib"  #mkdtemp()
+#    cachedir = "/tmp/test_joblib"
+    cachedir = mkdtemp()
     #cachedir = 'foobar'
     env['dir'] = cachedir
     if os.path.exists(cachedir):
@@ -515,18 +516,23 @@ def test_persist_with_output_dir_keyword_arg():
 def test_cache_reference():
     """Test MemorizedFunc outputting a reference to cache.
     """
+    # FIXME: test when no cache dir defined.
     # Create cache value
     func = MemorizedFunc(f, cachedir=env['dir'])
     nose.tools.assert_equal(func(2), 5)
 
-    func = MemorizedFunc(f, cachedir=env['dir'], reference=True)
-    result = func(2)
+    func = MemorizedFunc(f, cachedir=env['dir'])
+
+    result = func.call_and_shelve(2)
     nose.tools.assert_is_instance(result, CachedValue)
-    nose.tools.assert_equal(result.get(), 5)  # Cache should exist
+    nose.tools.assert_equal(result.get(), 5)  # Cache must exist
 
     result.clear()
     nose.tools.assert_raises(KeyError, result.get)
     result.clear()  # Do nothing if there is no cache.
+
+
+
 #    result.cache_path()
 #    nose.tools.assert_is_instance(result.computation_time(), float)
 #    nose.tools.assert_is_instance(result.format_call, basestring)

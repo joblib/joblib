@@ -145,7 +145,7 @@ class MemorizedFunc(Logger):
     #-------------------------------------------------------------------------
 
     def __init__(self, func, cachedir, ignore=None, mmap_mode=None,
-                 compress=False, verbose=1, timestamp=None, reference=False):
+                 compress=False, verbose=1, timestamp=None):
         """
             Parameters
             ----------
@@ -170,10 +170,6 @@ class MemorizedFunc(Logger):
             timestamp: float, optional
                 The reference time from which times in tracing messages
                 are reported.
-            reference: bool, optional
-                If True, calling the wrapped function returns a reference to
-                the cached value instead of the value itself. Useful for large
-                output and/or multiprocessing.
         """
         Logger.__init__(self)
         self._verbose = verbose
@@ -187,7 +183,6 @@ class MemorizedFunc(Logger):
         if timestamp is None:
             timestamp = time.time()
         self.timestamp = timestamp
-        self.reference = reference
         if ignore is None:
             ignore = []
         self.ignore = ignore
@@ -203,6 +198,16 @@ class MemorizedFunc(Logger):
             # Pydoc does a poor job on other objects
             doc = func.__doc__
         self.__doc__ = 'Memoized version of %s' % doc
+
+    def call_and_shelve(self, *args, **kwargs):
+        """Call wrapped function and return a reference to cached result.
+
+        Call .get() on returned value to get result.
+        """
+        # FIXME: add signature (format_signature)
+        self.__call__(*args, **kwargs)
+        output_dir, argument_hash = self.get_output_dir(*args, **kwargs)
+        return CachedValue(output_dir)
 
     def __call__(self, *args, **kwargs):
         # Compare the function code with the previous to see if the
@@ -227,8 +232,6 @@ class MemorizedFunc(Logger):
                 # later calls
                 return self.load_output(output_dir)
         else:
-            if self.reference:
-                return CachedValue(output_dir)
             try:
                 t0 = time.time()
                 out = self.load_output(output_dir)
