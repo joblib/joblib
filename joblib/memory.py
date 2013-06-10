@@ -70,8 +70,10 @@ class JobLibCollisionWarning(UserWarning):
 class CachedValue(Logger):
     """Object representing a cached value.
     """
-    def __init__(self, output_dir, signature='', verbose=0, timestamp=None):
+    def __init__(self, output_dir, signature='', mmap_mode=None,
+                 verbose=0, timestamp=None):
         Logger.__init__(self)
+        self.mmap_mode = mmap_mode
         self._output_dir = output_dir
         self._signature = signature
         self._verbose = verbose
@@ -79,7 +81,7 @@ class CachedValue(Logger):
             timestamp = time.time()
         self.timestamp = timestamp
 
-    def get(self, mmap_mode=None):
+    def get(self):
         """Read value from cache and return it."""
         # See also MemorizedFunc.load_output()
         if self._verbose > 1:
@@ -98,14 +100,14 @@ class CachedValue(Logger):
         filename = os.path.join(self._output_dir, 'output.pkl')
         if not os.path.isfile(filename):
             raise KeyError("Non-existing cache value (may have been cleared).")
-        return numpy_pickle.load(filename, mmap_mode=mmap_mode)
+        return numpy_pickle.load(filename, mmap_mode=self.mmap_mode)
 
     def clear(self):
         """Clear value from cache"""
         shutil.rmtree(self._output_dir, ignore_errors=True)
 
-    def __repr__(self):
-        pass
+#    def __repr__(self):
+#        pass
 
 
 class NotCachedValue(object):
@@ -122,6 +124,9 @@ class NotCachedValue(object):
         if hasattr(self, "value"):
             del self.value
 
+#    def __repr__(self):
+#        pass
+
 
 ###############################################################################
 # class `MemorizedFunc`
@@ -136,6 +141,8 @@ class NotMemorizedFunc(object):
     def call_and_shelve(self, *args, **kwargs):
         return NotCachedValue(self.func(*args, **kwargs))
 
+    def __reduce__(self):
+        return (self.__class__, (self.func,))
 
 ###############################################################################
 # class `MemorizedFunc`
@@ -600,7 +607,7 @@ class Memory(Logger):
             # arguments in decorators
             return functools.partial(self.cache, ignore=ignore)
         if self.cachedir is None:
-            return func
+            return NotMemorizedFunc(func)
         if verbose is None:
             verbose = self._verbose
         if mmap_mode is False:
