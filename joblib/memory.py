@@ -65,9 +65,9 @@ class JobLibCollisionWarning(UserWarning):
 
 
 ###############################################################################
-# class `CachedValue`
+# class `MemorizedResult`
 ###############################################################################
-class CachedValue(Logger):
+class MemorizedResult(Logger):
     """Object representing a cached value.
     """
     def __init__(self, output_dir, signature='', mmap_mode=None,
@@ -110,7 +110,7 @@ class CachedValue(Logger):
 #        pass
 
 
-class NotCachedValue(object):
+class NotMemorizedResult(object):
     def __init__(self, value):
         self.value = value
 
@@ -139,10 +139,11 @@ class NotMemorizedFunc(object):
         return self.func(*args, **kwargs)
 
     def call_and_shelve(self, *args, **kwargs):
-        return NotCachedValue(self.func(*args, **kwargs))
+        return NotMemorizedResult(self.func(*args, **kwargs))
 
     def __reduce__(self):
         return (self.__class__, (self.func,))
+
 
 ###############################################################################
 # class `MemorizedFunc`
@@ -243,7 +244,7 @@ class MemorizedFunc(Logger):
         # FIXME: add signature (format_signature)
         self.__call__(*args, **kwargs)
         output_dir, argument_hash = self.get_output_dir(*args, **kwargs)
-        return CachedValue(output_dir)
+        return MemorizedResult(output_dir)
 
     def __call__(self, *args, **kwargs):
         # Compare the function code with the previous to see if the
