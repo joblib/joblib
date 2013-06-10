@@ -65,6 +65,50 @@ class JobLibCollisionWarning(UserWarning):
 
 
 ###############################################################################
+# class `CachedValue`
+###############################################################################
+class CachedValue(Logger):
+    """Object representing a cached value.
+    """
+    def __init__(self, output_dir, signature='', verbose=0, timestamp=None):
+        Logger.__init__(self)
+        self._output_dir = output_dir
+        self._signature = signature
+        self._verbose = verbose
+        if timestamp is None:
+            timestamp = time.time()
+        self.timestamp = timestamp
+
+    def get(self, mmap_mode=None):
+        """Read value from cache and return it."""
+        # See also MemorizedFunc.load_output()
+        if self._verbose > 1:
+            t = time.time() - self.timestamp
+            if self._verbose < 10:
+                print('[Memory]% 16s: Loading %s...' % (
+                                    format_time(t),
+                                    str(self._signature)
+                                    ))
+            else:
+                print('[Memory]% 16s: Loading %s from %s' % (
+                                    format_time(t),
+                                    str(self._signature),
+                                    self.output_dir
+                                    ))
+        filename = os.path.join(self._output_dir, 'output.pkl')
+        if not os.path.isfile(filename):
+            raise KeyError("Non-existing cache value (may have been cleared).")
+        return numpy_pickle.load(filename, mmap_mode=mmap_mode)
+
+    def clear(self):
+        """Clear value from cache"""
+        shutil.rmtree(self._output_dir, ignore_errors=True)
+
+    def __repr__(self):
+        pass
+
+
+###############################################################################
 # class `MemorizedFunc`
 ###############################################################################
 class MemorizedFunc(Logger):
@@ -99,7 +143,7 @@ class MemorizedFunc(Logger):
     #-------------------------------------------------------------------------
 
     def __init__(self, func, cachedir, ignore=None, mmap_mode=None,
-                 compress=False, verbose=1, timestamp=None):
+                 compress=False, verbose=1, timestamp=None, reference=False):
         """
             Parameters
             ----------
@@ -119,6 +163,10 @@ class MemorizedFunc(Logger):
             timestamp: float, optional
                 The reference time from which times in tracing messages
                 are reported.
+            reference: bool, optional
+                If True, calling the wrapped function returns a reference to
+                the cached value instead of the value itself. Useful for large
+                output and/or multiprocessing.
         """
         Logger.__init__(self)
         self._verbose = verbose
@@ -132,6 +180,7 @@ class MemorizedFunc(Logger):
         if timestamp is None:
             timestamp = time.time()
         self.timestamp = timestamp
+        self.reference = reference
         if ignore is None:
             ignore = []
         self.ignore = ignore
@@ -160,8 +209,14 @@ class MemorizedFunc(Logger):
                 self.warn('Computing func %s, argument hash %s in '
                           'directory %s'
                         % (name, argument_hash, output_dir))
-            return self.call(*args, **kwargs)
+            out = self.call(*args, **kwargs)
+            if self.reference:
+                # FIXME: add signature (format_signature)
+                return CachedValue(output_dir)
+            return out
         else:
+            if self.reference:
+                return CachedValue(output_dir)
             try:
                 t0 = time.time()
                 out = self.load_output(output_dir)
@@ -326,7 +381,6 @@ class MemorizedFunc(Logger):
             _, name = get_func_name(self.func)
             msg = '%s - %s' % (name, format_time(duration))
             print(max(0, (80 - len(msg))) * '_' + msg)
-
         return output
 
     def format_call(self, *args, **kwds):

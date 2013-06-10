@@ -16,7 +16,7 @@ import sys
 
 import nose
 
-from ..memory import Memory, MemorizedFunc
+from ..memory import Memory, MemorizedFunc, CachedValue
 from .common import with_numpy, np
 
 
@@ -36,7 +36,7 @@ env = dict()
 def setup_module():
     """ Test setup.
     """
-    cachedir = mkdtemp()
+    cachedir = "/tmp/test_joblib"  #mkdtemp()
     #cachedir = 'foobar'
     env['dir'] = cachedir
     if os.path.exists(cachedir):
@@ -58,7 +58,7 @@ def _rmtree_onerror(func, path, excinfo):
 def teardown_module():
     """ Test teardown.
     """
-    shutil.rmtree(env['dir'], False, _rmtree_onerror)
+#    shutil.rmtree(env['dir'], False, _rmtree_onerror)
     print(80 * '_')
     print('test_memory teardown')
     print(80 * '_')
@@ -456,3 +456,26 @@ def test_format_signature():
 def test_format_signature_numpy():
     """ Test the format signature formatting with numpy.
     """
+
+
+def test_cache_reference():
+    """Test MemorizedFunc outputting a reference to cache.
+    """
+    # Create cache value
+    func = MemorizedFunc(f, cachedir=env['dir'])
+    nose.tools.assert_equal(func(2), 5)
+
+    func = MemorizedFunc(f, cachedir=env['dir'], reference=True)
+    result = func(2)
+    nose.tools.assert_is_instance(result, CachedValue)
+    nose.tools.assert_equal(result.get(), 5)  # Cache should exist
+
+    result.clear()
+    nose.tools.assert_raises(KeyError, result.get)
+    result.clear()  # Do nothing if there is no cache.
+#    result.cache_path()
+#    nose.tools.assert_is_instance(result.computation_time(), float)
+#    nose.tools.assert_is_instance(result.format_call, basestring)
+
+
+
