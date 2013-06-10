@@ -178,20 +178,15 @@ def test_clean_win_chars():
 
 
 def test_format_signature():
-    # Test the signature formatting.
-#    func = MemorizedFunc(f, cachedir=env['dir'])
+    # Test signature formatting.
     path, sgn = format_signature(g, list(range(10)))
-    yield nose.tools.assert_equal, \
-                sgn, \
-                'g([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])'
-    path, sgn = format_signature(g, list(range(10)),
-                                      y=list(range(10)))
-    yield nose.tools.assert_equal, \
-                sgn, \
-        'g([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], y=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9])'
-
+    nose.tools.assert_equal(sgn, 'g([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])')
+    path, sgn = format_signature(g, list(range(10)), y=list(range(10)))
+    nose.tools.assert_equal(sgn, 'g([0, 1, 2, 3, 4, 5, 6, 7, 8, 9],'
+                            ' y=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9])')
 
 @with_numpy
 def test_format_signature_numpy():
     """ Test the format signature formatting with numpy.
     """
+
