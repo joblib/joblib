@@ -484,6 +484,19 @@ def test_persistence():
     gp(1)
 
 
+def test_persist_with_output_dir_keyword_arg():
+    """Test that "output_dir" keyword argument can be persisted (issue #72)"""
+
+    def f(output_dir="thing"):
+        return output_dir
+
+    mem = Memory(cachedir=env['dir'])
+    first_result = mem.cache(f)(output_dir="other/thing")
+    cached_result = mem.cache(f)(output_dir="other/thing")
+    nose.tools.assert_equal(first_result, "other/thing")
+    nose.tools.assert_equal(cached_result, "other/thing")
+
+
 def test_format_signature():
     # Test the signature formatting.
     func = MemorizedFunc(f, cachedir=env['dir'])
@@ -502,19 +515,6 @@ def test_format_signature():
 def test_format_signature_numpy():
     """ Test the format signature formatting with numpy.
     """
-
-
-def test_persist_with_output_dir_keyword_arg():
-    """Test that "output_dir" keyword argument can be persisted (issue #72)"""
-
-    def f(output_dir="thing"):
-        return output_dir
-
-    mem = Memory(cachedir=env['dir'])
-    first_result = mem.cache(f)(output_dir="other/thing")
-    cached_result = mem.cache(f)(output_dir="other/thing")
-    nose.tools.assert_equal(first_result, "other/thing")
-    nose.tools.assert_equal(cached_result, "other/thing")
 
 
 def test_call_and_shelve():
@@ -545,8 +545,3 @@ def test_call_and_shelve():
     result.clear()
     nose.tools.assert_raises(KeyError, result.get)
     result.clear()  # Do nothing if there is no cache.
-
-#    result.cache_path()
-#    nose.tools.assert_is_instance(result.computation_time(), float)
-#    nose.tools.assert_is_instance(result.format_call, basestring)
-
