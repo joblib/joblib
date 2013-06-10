@@ -27,7 +27,7 @@ import json
 # Local imports
 from .hashing import hash
 from .func_inspect import get_func_code, get_func_name, filter_args
-from .func_inspect import format_signature
+from .func_inspect import format_signature, format_call
 from .logger import Logger, format_time
 from . import numpy_pickle
 from .disk import mkdirp, rm_subdirs
@@ -313,6 +313,13 @@ class MemorizedFunc(Logger):
         return (self.__class__, (self.func, self.cachedir, self.ignore,
                 self.mmap_mode, self.compress, self._verbose))
 
+    # Compatibility methods: deprecate.
+    def format_signature(self, *args, **kwargs):
+        return format_signature(self.func, *args, **kwargs)
+
+    def format_call(self, *args, **kwargs):
+        return format_call(self.func, *args, **kwargs)
+
     #-------------------------------------------------------------------------
     # Private interface
     #-------------------------------------------------------------------------
@@ -444,7 +451,7 @@ class MemorizedFunc(Logger):
         start_time = time.time()
         output_dir, argument_hash = self._get_output_dir(*args, **kwargs)
         if self._verbose:
-            print(self.format_call(*args, **kwargs))
+            print(format_call(self.func, *args, **kwargs))
         output = self.func(*args, **kwargs)
         self._persist_output(output, output_dir)
         self._persist_input(output_dir, args, kwargs)
@@ -454,17 +461,6 @@ class MemorizedFunc(Logger):
             msg = '%s - %s' % (name, format_time(duration))
             print(max(0, (80 - len(msg))) * '_' + msg)
         return output
-
-    def format_call(self, *args, **kwds):
-        """ Returns a nicely formatted statement displaying the function
-            call with the given arguments.
-        """
-        path, signature = format_signature(self.func, *args,
-                            **kwds)
-        msg = '%s\n[Memory] Calling %s...\n%s' % (80 * '_', path, signature)
-        return msg
-        # XXX: Not using logging framework
-        #self.debug(msg)
 
     # Make public
     def _persist_output(self, output, dir):

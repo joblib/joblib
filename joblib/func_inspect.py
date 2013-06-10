@@ -266,7 +266,7 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
     return arg_dict
 
 
-def format_signature(func, *args, **kwds):
+def format_signature(func, *args, **kwargs):
     # XXX: Should this use inspect.formatargvalues/formatargspec?
     module, name = get_func_name(func)
     module = [m for m in module if m]
@@ -285,9 +285,19 @@ def format_signature(func, *args, **kwds):
             arg = '\n%s' % arg
         previous_length = len(arg)
         arg_str.append(arg)
-    arg_str.extend(['%s=%s' % (v, pformat(i)) for v, i in
-                                kwds.items()])
+    arg_str.extend(['%s=%s' % (v, pformat(i)) for v, i in kwargs.items()])
     arg_str = ', '.join(arg_str)
 
     signature = '%s(%s)' % (name, arg_str)
     return module_path, signature
+
+
+def format_call(func, *args, **kwargs):
+    """ Returns a nicely formatted statement displaying the function
+        call with the given arguments.
+    """
+    path, signature = format_signature(func, *args, **kwargs)
+    msg = '%s\n[Memory] Calling %s...\n%s' % (80 * '_', path, signature)
+    return msg
+    # XXX: Not using logging framework
+    #self.debug(msg)
