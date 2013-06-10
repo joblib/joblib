@@ -143,7 +143,7 @@ class MemorizedFunc(Logger):
     #-------------------------------------------------------------------------
 
     def __init__(self, func, cachedir, ignore=None, mmap_mode=None,
-                 compress=False, verbose=1, timestamp=None, reference=False):
+                 compress=False, verbose=1, timestamp=None):
         """
             Parameters
             ----------
@@ -163,10 +163,6 @@ class MemorizedFunc(Logger):
             timestamp: float, optional
                 The reference time from which times in tracing messages
                 are reported.
-            reference: bool, optional
-                If True, calling the wrapped function returns a reference to
-                the cached value instead of the value itself. Useful for large
-                output and/or multiprocessing.
         """
         Logger.__init__(self)
         self._verbose = verbose
@@ -180,7 +176,6 @@ class MemorizedFunc(Logger):
         if timestamp is None:
             timestamp = time.time()
         self.timestamp = timestamp
-        self.reference = reference
         if ignore is None:
             ignore = []
         self.ignore = ignore
@@ -197,6 +192,16 @@ class MemorizedFunc(Logger):
             doc = func.__doc__
         self.__doc__ = 'Memoized version of %s' % doc
 
+    def call_and_shelve(self, *args, **kwargs):
+        """Call wrapped function and return a reference to cached result.
+
+        Call .get() on returned value to get result.
+        """
+        # FIXME: add signature (format_signature)
+        self.__call__(*args, **kwargs)
+        output_dir, argument_hash = self.get_output_dir(*args, **kwargs)
+        return CachedValue(output_dir)
+
     def __call__(self, *args, **kwargs):
         # Compare the function code with the previous to see if the
         # function code has changed
@@ -209,14 +214,8 @@ class MemorizedFunc(Logger):
                 self.warn('Computing func %s, argument hash %s in '
                           'directory %s'
                         % (name, argument_hash, output_dir))
-            out = self.call(*args, **kwargs)
-            if self.reference:
-                # FIXME: add signature (format_signature)
-                return CachedValue(output_dir)
-            return out
+            return self.call(*args, **kwargs)
         else:
-            if self.reference:
-                return CachedValue(output_dir)
             try:
                 t0 = time.time()
                 out = self.load_output(output_dir)
