@@ -16,8 +16,8 @@ import sys
 
 import nose
 
-from ..memory import Memory, MemorizedFunc, NotMemorizedFunc, CachedValue
-from ..memory import NotCachedValue
+from ..memory import Memory, MemorizedFunc, NotMemorizedFunc, MemorizedResult
+from ..memory import NotMemorizedResult
 from .common import with_numpy, np
 
 
@@ -474,7 +474,7 @@ def test_call_and_shelve():
     func = MemorizedFunc(f, cachedir=env['dir'])
 
     result = func.call_and_shelve(2)
-    nose.tools.assert_is_instance(result, CachedValue)
+    nose.tools.assert_is_instance(result, MemorizedResult)
     nose.tools.assert_equal(result.get(), 5)  # Cache must exist
 
     result.clear()
@@ -485,35 +485,14 @@ def test_call_and_shelve():
     func = NotMemorizedFunc(f)
 
     result = func.call_and_shelve(2)
-    nose.tools.assert_is_instance(result, NotCachedValue)
+    nose.tools.assert_is_instance(result, NotMemorizedResult)
     nose.tools.assert_equal(result.get(), 5)  # Cache must exist
 
     result.clear()
     nose.tools.assert_raises(KeyError, result.get)
     result.clear()  # Do nothing if there is no cache.
 
-
-
 #    result.cache_path()
 #    nose.tools.assert_is_instance(result.computation_time(), float)
 #    nose.tools.assert_is_instance(result.format_call, basestring)
 
-## class NotMemorizedFunc
-# call_and_shelve
-# __call__
-
-## class MemorizedFunc
-# call_and_shelve
-# __call__
-# __reduce__
-# clear
-# call
-# format_call
-# format_signature
-# get_output_dir
-# load_output
-
-## class CachedValue
-# get
-# clear
-# __repr__
