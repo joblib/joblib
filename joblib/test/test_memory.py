@@ -39,9 +39,7 @@ env = dict()
 def setup_module():
     """ Test setup.
     """
-#    cachedir = "/tmp/test_joblib"
     cachedir = mkdtemp()
-    #cachedir = 'foobar'
     env['dir'] = cachedir
     if os.path.exists(cachedir):
         shutil.rmtree(cachedir)
@@ -62,7 +60,7 @@ def _rmtree_onerror(func, path, excinfo):
 def teardown_module():
     """ Test teardown.
     """
-#    shutil.rmtree(env['dir'], False, _rmtree_onerror)
+    shutil.rmtree(env['dir'], False, _rmtree_onerror)
     print(80 * '_')
     print('test_memory teardown')
     print(80 * '_')
@@ -158,7 +156,7 @@ def test_no_memory():
 
     mem = Memory(cachedir=None, verbose=0)
     gg = mem.cache(ff)
-    for _ in xrange(4):
+    for _ in range(4):
         current_accumulator = len(accumulator)
         gg(1)
         yield nose.tools.assert_equal, len(accumulator), \
@@ -532,7 +530,7 @@ def test_call_and_shelve():
                              MemorizedResult, NotMemorizedResult)):
         nose.tools.assert_equal(func(2), 5)
         result = func.call_and_shelve(2)
-        nose.tools.assert_is_instance(result, Result)
+        nose.tools.assert_true(isinstance(result, Result))
         nose.tools.assert_equal(result.get(), 5)
 
         result.clear()
@@ -544,8 +542,8 @@ def test_memorized_pickling():
     for func in (MemorizedFunc(f, env['dir']), NotMemorizedFunc(f)):
         filename = os.path.join(env['dir'], 'pickling_test.dat')
         result = func.call_and_shelve(2)
-        pickle.dump(result, open(filename, 'w'))
-        result2 = pickle.load(open(filename, 'r'))
+        pickle.dump(result, open(filename, 'wb'))
+        result2 = pickle.load(open(filename, 'rb'))
         nose.tools.assert_equal(result2.get(), result.get())
         os.remove(filename)
 
