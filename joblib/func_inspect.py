@@ -13,7 +13,7 @@ import re
 import os
 
 from ._compat import _basestring
-from logger import pformat
+from .logger import pformat
 
 
 def get_func_code(func):

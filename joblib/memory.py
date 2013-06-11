@@ -75,9 +75,9 @@ class MemorizedResult(Logger):
                  verbose=0, timestamp=None):
         Logger.__init__(self)
         self.mmap_mode = mmap_mode
-        self._output_dir = output_dir
-        self._signature = signature
-        self._verbose = verbose
+        self.output_dir = output_dir
+        self.signature = signature
+        self.verbose = verbose
         if timestamp is None:
             timestamp = time.time()
         self.timestamp = timestamp
@@ -85,31 +85,35 @@ class MemorizedResult(Logger):
     def get(self):
         """Read value from cache and return it."""
         # See also MemorizedFunc.load_output()
-        if self._verbose > 1:
+        if self.verbose > 1:
             t = time.time() - self.timestamp
-            if self._verbose < 10:
+            if self.verbose < 10:
                 print('[Memory]% 16s: Loading %s...' % (
                                     format_time(t),
-                                    str(self._signature)
+                                    str(self.signature)
                                     ))
             else:
                 print('[Memory]% 16s: Loading %s from %s' % (
                                     format_time(t),
-                                    str(self._signature),
+                                    str(self.signature),
                                     self.output_dir
                                     ))
-        filename = os.path.join(self._output_dir, 'output.pkl')
+        filename = os.path.join(self.output_dir, 'output.pkl')
         if not os.path.isfile(filename):
             raise KeyError("Non-existing cache value (may have been cleared).")
         return numpy_pickle.load(filename, mmap_mode=self.mmap_mode)
 
     def clear(self):
         """Clear value from cache"""
-        shutil.rmtree(self._output_dir, ignore_errors=True)
+        shutil.rmtree(self.output_dir, ignore_errors=True)
 
     def __repr__(self):
         return (self.__class__.__name__
-                + '(output_dir="' + self._output_dir + '")')
+                + '(output_dir="' + self.output_dir + '")')
+
+    def __reduce__(self):
+        return (self.__class__, (self.output_dir, ),
+                {'mmap_mode': self.mmap_mode})
 
 
 class NotMemorizedResult(object):
