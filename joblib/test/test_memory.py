@@ -8,11 +8,13 @@ Test the memory module.
 
 import shutil
 import os
+import os.path
 from tempfile import mkdtemp
 import pickle
 import warnings
 import io
 import sys
+import pickle
 
 import nose
 
@@ -462,3 +464,14 @@ def test_call_and_shelve():
         result.clear()
         nose.tools.assert_raises(KeyError, result.get)
         result.clear()  # Do nothing if there is no cache.
+
+
+def test_memorized_pickling():
+    for func in (MemorizedFunc(f, env['dir']), NotMemorizedFunc(f)):
+        filename = os.path.join(env['dir'], 'pickling_test.dat')
+        result = func.call_and_shelve(2)
+        pickle.dump(result, open(filename, 'w'))
+        result2 = pickle.load(open(filename, 'r'))
+        nose.tools.assert_equal(result2.get(), result.get())
+        os.remove(filename)
+
