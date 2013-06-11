@@ -123,7 +123,7 @@ class NotMemorizedResult(object):
         if self.valid:
             return self.value
         else:
-            raise KeyError("Value not in cache.")
+            raise KeyError("No value stored.")
 
     def clear(self):
         self.valid = False
@@ -131,9 +131,17 @@ class NotMemorizedResult(object):
 
     def __repr__(self):
         if self.valid:
-            return self.__class__.__name__ + '(' + repr(self.value)[:50] + ')'
+            return (self.__class__.__name__
+                    + '(<' + self.value.__class__.__name__ + '>)')
         else:
             return self.__class__.__name__ + ' with no value'
+
+    def __getstate__(self):
+        return {"valid": self.valid, "value": self.value}
+
+    def __setstate__(self, state):
+        self.valid = state["valid"]
+        self.value = state["value"]
 
 
 ###############################################################################
