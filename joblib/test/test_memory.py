@@ -521,27 +521,18 @@ def test_call_and_shelve():
     """Test MemorizedFunc outputting a reference to cache.
     """
 
-    # Create cache value
-    func = MemorizedFunc(f, cachedir=env['dir'])
-    nose.tools.assert_equal(func(2), 5)
+    for func, Result in zip((MemorizedFunc(f, env['dir']),
+                             NotMemorizedFunc(f),
+                             Memory(cachedir=env['dir']).cache(f),
+                             Memory(cachedir=None).cache(f),
+                             ),
+                            (MemorizedResult, NotMemorizedResult,
+                             MemorizedResult, NotMemorizedResult)):
+        nose.tools.assert_equal(func(2), 5)
+        result = func.call_and_shelve(2)
+        nose.tools.assert_is_instance(result, Result)
+        nose.tools.assert_equal(result.get(), 5)
 
-    func = MemorizedFunc(f, cachedir=env['dir'])
-
-    result = func.call_and_shelve(2)
-    nose.tools.assert_is_instance(result, MemorizedResult)
-    nose.tools.assert_equal(result.get(), 5)  # Cache must exist
-
-    result.clear()
-    nose.tools.assert_raises(KeyError, result.get)
-    result.clear()  # Do nothing if there is no cache.
-
-    # NotMemorizedFunc
-    func = NotMemorizedFunc(f)
-
-    result = func.call_and_shelve(2)
-    nose.tools.assert_is_instance(result, NotMemorizedResult)
-    nose.tools.assert_equal(result.get(), 5)  # Cache must exist
-
-    result.clear()
-    nose.tools.assert_raises(KeyError, result.get)
-    result.clear()  # Do nothing if there is no cache.
+        result.clear()
+        nose.tools.assert_raises(KeyError, result.get)
+        result.clear()  # Do nothing if there is no cache.

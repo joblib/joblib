@@ -113,21 +113,24 @@ class MemorizedResult(Logger):
 
 
 class NotMemorizedResult(object):
+    __slots__ = ('value', 'valid')
+
     def __init__(self, value):
         self.value = value
+        self.valid = True
 
     def get(self):
-        if hasattr(self, "value"):
+        if self.valid:
             return self.value
         else:
             raise KeyError("Value not in cache.")
 
     def clear(self):
-        if hasattr(self, "value"):
-            del self.value
+        self.valid = False
+        self.value = None
 
     def __repr__(self):
-        if hasattr(self, "value"):
+        if self.valid:
             return self.__class__.__name__ + '(' + repr(self.value)[:50] + ')'
         else:
             return self.__class__.__name__ + ' with no value'
@@ -137,10 +140,19 @@ class NotMemorizedResult(object):
 # class `MemorizedFunc`
 ###############################################################################
 class NotMemorizedFunc(object):
+    """No-op object decorating a function.
+
+    This class replaces MemorizedFunc when there is no cache. It provides an
+    identical API but does not write anything on disk.
+
+    Attributes
+    ----------
+    func: callable
+        Original undecorated function.
+    """
     # Should be a light as possible (for speed)
     def __init__(self, func):
         self.func = func
-        self.duration = -1
 
     def __call__(self, *args, **kwargs):
         return self.func(*args, **kwargs)
@@ -174,23 +186,28 @@ class MemorizedFunc(Logger):
 
         Attributes
         ----------
-        func : callable
+        func: callable
             The original, undecorated, function.
-        cachedir : string
+
+        cachedir: string
             Path to the base cache directory of the memory context.
-        ignore : list or None
+
+        ignore: list or None
             List of variable names to ignore when choosing whether to
             recompute.
-        mmap_mode : {None, 'r+', 'r', 'w+', 'c'}
+
+        mmap_mode: {None, 'r+', 'r', 'w+', 'c'}
             The memmapping mode used when loading from cache
             numpy arrays. See numpy.load for the meaning of the
             arguments.
-        compress : boolean, or integer
+
+        compress: boolean, or integer
             Whether to zip the stored data on disk. If an integer is
             given, it should be between 1 and 9, and sets the amount
             of compression. Note that compressed arrays cannot be
             read by memmapping.
-        verbose : int, optional
+
+        verbose: int, optional
             The verbosity flag, controls messages that are issued as
             the function is evaluated.
     """
@@ -255,9 +272,19 @@ class MemorizedFunc(Logger):
         self.__doc__ = 'Memoized version of %s' % doc
 
     def call_and_shelve(self, *args, **kwargs):
-        """Call wrapped function and return a reference to cached result.
+        """Call wrapped function, cache result and return a reference.
 
-        Call .get() on returned value to get result.
+        This method returns a reference to the cached result instead of the
+        result itself. The reference object is small and pickeable, allowing
+        to send or store it easily. Call .get() on reference object to get
+        result.
+
+        Returns
+        -------
+        cached_result: MemorizedResult or NotMemorizedResult
+            reference to the value returned by the wrapped function. The
+            class "NotMemorizedResult" is used when there is no cache
+            activated (e.g. cachedir=None in Memory).
         """
         # FIXME: add signature (format_signature)
         self.__call__(*args, **kwargs)
