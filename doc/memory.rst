@@ -214,7 +214,7 @@ Getting a reference to the cache can be done using the
     >>> result = g.call_and_shelve(4)
     A long-running calculation, with parameter 4
     >>> result  #doctest: +ELLIPSIS 
-    MemorizedResult(cachedir="...", func="g-alias", argument_hash="...")
+    MemorizedResult(cachedir="...", func="g...", argument_hash="...")
 
 Once computed, the output of `g` is stored on disk, and deleted from
 memory. Reading the associated value can then be performed with the
