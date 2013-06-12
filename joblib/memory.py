@@ -28,7 +28,7 @@ import json
 from .hashing import hash
 from .func_inspect import get_func_code, get_func_name, filter_args
 from .func_inspect import format_signature, format_call
-from .logger import Logger, format_time
+from .logger import Logger, format_time, pformat
 from . import numpy_pickle
 from .disk import mkdirp, rm_subdirs
 
@@ -113,8 +113,6 @@ class MemorizedResult(Logger):
 
         self.signature = signature
         self.verbose = verbose
-        if timestamp is None:  # FIXME: remove
-            timestamp = time.time()
         self.timestamp = timestamp
 
     def get(self):
@@ -122,18 +120,15 @@ class MemorizedResult(Logger):
         # See also MemorizedFunc.load_output()
         # Read signature from cache
         if self.verbose > 1:
-            t = time.time() - self.timestamp
-            if self.verbose < 10:
-                print('[Memory]% 16s: Loading %s...' % (
-                                    format_time(t),
-                                    str(self.signature)
-                                    ))
+            if self.timestamp is not None:
+                t = "% 16s" % format_time(time.time() - self.timestamp)
             else:
-                print('[Memory]% 16s: Loading %s from %s' % (
-                                    format_time(t),
-                                    str(self.signature),
-                                    self._output_dir
-                                    ))
+                t = ""
+            if self.verbose < 10:
+                print('[Memory]%s: Loading %s...' % (t, str(self.signature)))
+            else:
+                print('[Memory]s: Loading %s from %s' % (
+                                    t, str(self.signature), self._output_dir))
         filename = os.path.join(self._output_dir, 'output.pkl')
         if not os.path.isfile(filename):
             raise KeyError(
@@ -157,6 +152,10 @@ class MemorizedResult(Logger):
 
 
 class NotMemorizedResult(object):
+    """Class representing an arbitrary value.
+
+    This class is a replacement for MemorizedResult when there is no cache.
+    """
     __slots__ = ('value', 'valid')
 
     def __init__(self, value):
@@ -176,7 +175,7 @@ class NotMemorizedResult(object):
     def __repr__(self):
         if self.valid:
             return (self.__class__.__name__
-                    + '(<' + self.value.__class__.__name__ + '>)')
+                    + '(' + pformat(self.value) + ')')
         else:
             return self.__class__.__name__ + ' with no value'
 
@@ -190,7 +189,7 @@ class NotMemorizedResult(object):
 
 
 ###############################################################################
-# class `MemorizedFunc`
+# class `NotMemorizedFunc`
 ###############################################################################
 class NotMemorizedFunc(object):
     """No-op object decorating a function.
