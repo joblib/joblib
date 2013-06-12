@@ -66,9 +66,6 @@ class JobLibCollisionWarning(UserWarning):
     """
 
 
-###############################################################################
-# class `MemorizedResult`
-###############################################################################
 def _get_func_fullname(func):
     """Compute the part of part associated with a function.
 
@@ -95,8 +92,34 @@ def _cache_key_to_dir(cachedir, func, argument_hash):
     return os.path.join(*parts)
 
 
+###############################################################################
+# class `MemorizedResult`
+###############################################################################
 class MemorizedResult(Logger):
     """Object representing a cached value.
+
+    Attributes
+    ----------
+    cachedir: string
+        path to root of joblib cache
+
+    func: function or string
+        function whose output is cached. The string case is intended only for
+        instanciation based on the output of repr() on another instance.
+        (namely eval(repr(memorized_instance)) works).
+
+    argument_hash: string
+        hash of the function arguments
+
+    mmap_mode: {None, 'r+', 'r', 'w+', 'c'}
+        The memmapping mode used when loading from cache numpy arrays. See
+        numpy.load for the meaning of the different values.
+
+    verbose: int
+        verbosity level (0 means no message)
+
+    signature, timestamp: string
+        for internal use only
     """
     def __init__(self, cachedir, func, argument_hash,
                  mmap_mode=None, signature='', verbose=0, timestamp=None):
@@ -251,8 +274,8 @@ class MemorizedFunc(Logger):
 
         mmap_mode: {None, 'r+', 'r', 'w+', 'c'}
             The memmapping mode used when loading from cache
-            numpy arrays. See numpy.load for the meaning of the
-            arguments.
+            numpy arrays. See numpy.load for the meaning of the different
+            values.
 
         compress: boolean, or integer
             Whether to zip the stored data on disk. If an integer is
