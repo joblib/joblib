@@ -135,56 +135,6 @@ An example
     >>> np.allclose(b, b2)
     True
 
-Using references to cached values
----------------------------------
-
-In some cases, it can be useful to get a reference to the cached
-result, instead of having the result itself. A typical example of this
-is when a lot of large numpy arrays must be dispatched accross several
-workers: instead of sending the data themselves over the network, send
-a reference to the joblib cache, and let the workers read the data
-from a network filesystem, potentially taking advantage of some
-system-level caching too.
-
-Getting a reference to the cache can be done using the
-`call_and_shelve` method on the wrapped function::
-
-    >>> result = g.call_and_shelve(4)
-    A long-running calculation, with parameter 4
-    >>> result  #doctest: +ELLIPSIS 
-    MemorizedResult(cachedir="...", func="g-alias", argument_hash="...")
-
-Once computed, the output of `g` is stored on disk, and deleted from
-memory. Reading the associated value can then be performed with the
-`get` method::
-
-    >>> result.get()
-    array([ 0.08,  0.77,  0.77,  0.08])
-
-The cache for this particular value can be cleared using the `clear`
-method. Its invocation causes the stored value to be erased from disk.
-Any subsequent call to `get` will cause a `KeyError` exception to be
-raised::
-
-    >>> result.clear()
-    >>> result.get()  #doctest: +ELLIPSIS
-    Traceback (most recent call last):
-        ...
-    KeyError: 'Non-existing cache value (may have been cleared).\nFile ... does not exist'
-
-A `MemorizedResult` instance contains all that is necessary to read
-the cached value. It can be pickled for transmission or storage, and
-the printed representation can even be copy-pasted to a different
-python interpreter.
-
-.. topic:: Shelving when cache is disabled
-
-    In the case where caching is disabled (e.g.
-    `Memory(cachedir=None)`), the `call_and_shelve` method returns a
-    `NotMemorizedResult` instance, that stores the full function
-    output, instead of just a reference (since there is nothing to
-    point to). All the above remains valid though, except for the
-    copy-pasting feature.
 
 Using memmapping
 ~~~~~~~~~~~~~~~~
@@ -245,6 +195,59 @@ return value is loaded from the disk using memmapping::
    second run the array is a memmap, you can have side effects of using
    the `Memory`, especially when using `mmap_mode='r'` as the array is
    writable in the first run, and not the second.
+
+
+Shelving: using references to cached values
+-------------------------------------------
+
+In some cases, it can be useful to get a reference to the cached
+result, instead of having the result itself. A typical example of this
+is when a lot of large numpy arrays must be dispatched accross several
+workers: instead of sending the data themselves over the network, send
+a reference to the joblib cache, and let the workers read the data
+from a network filesystem, potentially taking advantage of some
+system-level caching too.
+
+Getting a reference to the cache can be done using the
+`call_and_shelve` method on the wrapped function::
+
+    >>> result = g.call_and_shelve(4)
+    A long-running calculation, with parameter 4
+    >>> result  #doctest: +ELLIPSIS 
+    MemorizedResult(cachedir="...", func="g-alias", argument_hash="...")
+
+Once computed, the output of `g` is stored on disk, and deleted from
+memory. Reading the associated value can then be performed with the
+`get` method::
+
+    >>> result.get()
+    array([ 0.08,  0.77,  0.77,  0.08])
+
+The cache for this particular value can be cleared using the `clear`
+method. Its invocation causes the stored value to be erased from disk.
+Any subsequent call to `get` will cause a `KeyError` exception to be
+raised::
+
+    >>> result.clear()
+    >>> result.get()  #doctest: +ELLIPSIS
+    Traceback (most recent call last):
+        ...
+    KeyError: 'Non-existing cache value (may have been cleared).\nFile ... does not exist'
+
+A `MemorizedResult` instance contains all that is necessary to read
+the cached value. It can be pickled for transmission or storage, and
+the printed representation can even be copy-pasted to a different
+python interpreter.
+
+.. topic:: Shelving when cache is disabled
+
+    In the case where caching is disabled (e.g.
+    `Memory(cachedir=None)`), the `call_and_shelve` method returns a
+    `NotMemorizedResult` instance, that stores the full function
+    output, instead of just a reference (since there is nothing to
+    point to). All the above remains valid though, except for the
+    copy-pasting feature.
+
 
 Gotchas
 --------

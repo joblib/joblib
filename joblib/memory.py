@@ -399,7 +399,7 @@ class MemorizedFunc(Logger):
         return format_signature(self.func, *args, **kwargs)
 
     def format_call(self, *args, **kwargs):
-        return format_call(self.func, *args, **kwargs)
+        return format_call(self.func, args, kwargs)
 
     #-------------------------------------------------------------------------
     # Private interface
@@ -532,7 +532,7 @@ class MemorizedFunc(Logger):
         start_time = time.time()
         output_dir, _ = self._get_output_dir(*args, **kwargs)
         if self._verbose:
-            print(format_call(self.func, *args, **kwargs))
+            print(format_call(self.func, args, kwargs))
         output = self.func(*args, **kwargs)
         self._persist_output(output, output_dir)
         self._persist_input(output_dir, args, kwargs)
