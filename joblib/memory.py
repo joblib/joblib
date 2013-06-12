@@ -345,6 +345,51 @@ class MemorizedFunc(Logger):
             doc = func.__doc__
         self.__doc__ = 'Memoized version of %s' % doc
 
+    def _cached_call(self, args, kwargs):
+        """Call wrapped function and cache result, or read cache if available.
+
+        This function returns the wrapped function output and some metadata.
+
+        Returns
+        -------
+        output: value or tuple
+            what is returned by wrapped function
+
+        argument_hash:
+            hash of function arguments
+        """
+        # Compare the function code with the previous to see if the
+        # function code has changed
+        output_dir, argument_hash = self._get_output_dir(*args, **kwargs)
+        # FIXME: The statements below should be try/excepted
+        if not (self._check_previous_func_code(stacklevel=4) and
+                                 os.path.exists(output_dir)):
+            if self._verbose > 10:
+                _, name = get_func_name(self.func)
+                self.warn('Computing func %s, argument hash %s in '
+                          'directory %s'
+                        % (name, argument_hash, output_dir))
+            out = self.call(*args, **kwargs)
+        else:
+            try:
+                t0 = time.time()
+                out = self.load_output(output_dir)
+                if self._verbose > 4:
+                    t = time.time() - t0
+                    _, name = get_func_name(self.func)
+                    msg = '%s cache loaded - %s' % (name, format_time(t))
+                    print(max(0, (80 - len(msg))) * '_' + msg)
+            except Exception:
+                # XXX: Should use an exception logger
+                self.warn('Exception while loading results for '
+                          '(args=%s, kwargs=%s)\n %s' %
+                          (args, kwargs, traceback.format_exc()))
+
+                shutil.rmtree(output_dir, ignore_errors=True)
+                out = self.call(*args, **kwargs)
+                argument_hash = None
+        return (out, argument_hash)
+
     def call_and_shelve(self, *args, **kwargs):
         """Call wrapped function, cache result and return a reference.
 
@@ -360,45 +405,13 @@ class MemorizedFunc(Logger):
             class "NotMemorizedResult" is used when there is no cache
             activated (e.g. cachedir=None in Memory).
         """
-        # TODO: add signature (format_signature)
-        self.__call__(*args, **kwargs)
+        _, argument_hash = self._cached_call(args, kwargs)
 
-        # FIXME: argument_hash is already computed in self.__call__
-        argument_hash = self._get_argument_hash(*args, **kwargs)
         return MemorizedResult(self.cachedir, self.func, argument_hash,
             verbose=self._verbose - 1, timestamp=self.timestamp)
 
     def __call__(self, *args, **kwargs):
-        # Compare the function code with the previous to see if the
-        # function code has changed
-        output_dir, argument_hash = self._get_output_dir(*args, **kwargs)
-        # FIXME: The statements below should be try/excepted
-        if not (self._check_previous_func_code(stacklevel=3) and
-                                 os.path.exists(output_dir)):
-            if self._verbose > 10:
-                _, name = get_func_name(self.func)
-                self.warn('Computing func %s, argument hash %s in '
-                          'directory %s'
-                        % (name, argument_hash, output_dir))
-            return self.call(*args, **kwargs)
-        else:
-            try:
-                t0 = time.time()
-                out = self.load_output(output_dir)
-                if self._verbose > 4:
-                    t = time.time() - t0
-                    _, name = get_func_name(self.func)
-                    msg = '%s cache loaded - %s' % (name, format_time(t))
-                    print(max(0, (80 - len(msg))) * '_' + msg)
-                return out
-            except Exception:
-                # XXX: Should use an exception logger
-                self.warn('Exception while loading results for '
-                          '(args=%s, kwargs=%s)\n %s' %
-                          (args, kwargs, traceback.format_exc()))
-
-                shutil.rmtree(output_dir, ignore_errors=True)
-                return self.call(*args, **kwargs)
+        return self._cached_call(args, kwargs)[0]
 
     def __reduce__(self):
         """ We don't store the timestamp when pickling, to avoid the hash
@@ -407,6 +420,7 @@ class MemorizedFunc(Logger):
         """
         return (self.__class__, (self.func, self.cachedir, self.ignore,
                 self.mmap_mode, self.compress, self._verbose))
+
     # Compatibility methods: deprecate.
     def format_signature(self, *args, **kwargs):
         return format_signature(self.func, *args, **kwargs)
@@ -514,7 +528,7 @@ class MemorizedFunc(Logger):
                         "'%s' (%s:%i) and '%s' (%s:%i)" %
                         (func_name, source_file, old_first_line,
                         func_name, source_file, first_line)),
-                    stacklevel=stacklevel)
+                              stacklevel=stacklevel)
 
         # The function has changed, wipe the cache directory.
         # XXX: Should be using warnings, and giving stacklevel
