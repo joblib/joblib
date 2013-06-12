@@ -473,3 +473,9 @@ def test_memorized_pickling():
         nose.tools.assert_equal(result2.get(), result.get())
         os.remove(filename)
 
+
+def test_memorized_copy_pasting():
+    func = MemorizedFunc(f, env['dir'])
+    result = func.call_and_shelve(2)
+    result2 = eval(repr(result))
+    nose.tools.assert_equal(result.get(), result2.get())

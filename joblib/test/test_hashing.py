@@ -206,6 +206,7 @@ def test_bound_methods_hash():
                             hash(filter_args(b.f, [], (1, ))))
 
 
+# FIXME: Output directory is not removed by teardown function (BUG).
 @nose.tools.with_setup(test_memory_setup_func, test_memory_teardown_func)
 def test_bound_cached_methods_hash():
     """ Make sure that calling the same _cached_ method on two different

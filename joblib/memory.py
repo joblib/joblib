@@ -68,23 +68,59 @@ class JobLibCollisionWarning(UserWarning):
 ###############################################################################
 # class `MemorizedResult`
 ###############################################################################
+def _get_func_fullname(func):
+    """Compute the part of part associated with a function.
+
+    See code of_cache_key_to_dir() for details
+    """
+    modules, funcname = get_func_name(func)
+    modules.append(funcname)
+    return os.path.join(*modules)
+
+
+def _cache_key_to_dir(cachedir, func, argument_hash):
+    """Compute directory associated with a given cache key.
+
+    func can be a function or a string as returned by _get_func_fullname().
+    """
+    parts = [cachedir]
+    if isinstance(func, basestring):
+        parts.append(func)
+    else:
+        parts.append(_get_func_fullname(func))
+
+    if argument_hash is not None:
+        parts.append(argument_hash)
+    return os.path.join(*parts)
+
+
 class MemorizedResult(Logger):
     """Object representing a cached value.
     """
-    def __init__(self, output_dir, signature='', mmap_mode=None,
-                 verbose=0, timestamp=None):
+    def __init__(self, cachedir, func, argument_hash,
+                 mmap_mode=None, signature='', verbose=0, timestamp=None):
         Logger.__init__(self)
+        if isinstance(func, basestring):
+            self.func = func
+        else:
+            self.func = _get_func_fullname(func)
+        self.argument_hash = argument_hash
+        self.cachedir = cachedir
         self.mmap_mode = mmap_mode
-        self.output_dir = output_dir
+
+        self._output_dir = _cache_key_to_dir(cachedir, self.func,
+                                             argument_hash)
+
         self.signature = signature
         self.verbose = verbose
-        if timestamp is None:
+        if timestamp is None:  # FIXME: remove
             timestamp = time.time()
         self.timestamp = timestamp
 
     def get(self):
         """Read value from cache and return it."""
         # See also MemorizedFunc.load_output()
+        # Read signature from cache
         if self.verbose > 1:
             t = time.time() - self.timestamp
             if self.verbose < 10:
@@ -96,25 +132,27 @@ class MemorizedResult(Logger):
                 print('[Memory]% 16s: Loading %s from %s' % (
                                     format_time(t),
                                     str(self.signature),
-                                    self.output_dir
+                                    self._output_dir
                                     ))
-        filename = os.path.join(self.output_dir, 'output.pkl')
+        filename = os.path.join(self._output_dir, 'output.pkl')
         if not os.path.isfile(filename):
             raise KeyError(
                 "Non-existing cache value (may have been cleared).\n"
-                "file %s does not exist" % filename)
+                "File %s does not exist" % filename)
         return numpy_pickle.load(filename, mmap_mode=self.mmap_mode)
 
     def clear(self):
         """Clear value from cache"""
-        shutil.rmtree(self.output_dir, ignore_errors=True)
+        shutil.rmtree(self._output_dir, ignore_errors=True)
 
     def __repr__(self):
         return (self.__class__.__name__
-                + '(output_dir="' + self.output_dir + '")')
+                + '(cachedir="' + self.cachedir + '", '
+                + 'func="' + self.func + '", argument_hash="'
+                + self.argument_hash + '")')
 
     def __reduce__(self):
-        return (self.__class__, (self.output_dir, ),
+        return (self.__class__, (self.cachedir, self.func, self.argument_hash),
                 {'mmap_mode': self.mmap_mode})
 
 
@@ -142,6 +180,7 @@ class NotMemorizedResult(object):
         else:
             return self.__class__.__name__ + ' with no value'
 
+    # __getstate__ and __setstate__ are required because of __slots__
     def __getstate__(self):
         return {"valid": self.valid, "value": self.value}
 
@@ -293,10 +332,12 @@ class MemorizedFunc(Logger):
             class "NotMemorizedResult" is used when there is no cache
             activated (e.g. cachedir=None in Memory).
         """
-        # FIXME: add signature (format_signature)
+        # TODO: add signature (format_signature)
         self.__call__(*args, **kwargs)
-        output_dir, argument_hash = self._get_output_dir(*args, **kwargs)
-        return MemorizedResult(output_dir)
+
+        # FIXME: argument_hash is already computed in self.__call__
+        argument_hash = self._get_argument_hash(*args, **kwargs)
+        return MemorizedResult(self.cachedir, self.func, argument_hash)
 
     def __call__(self, *args, **kwargs):
         # Compare the function code with the previous to see if the
@@ -349,16 +390,18 @@ class MemorizedFunc(Logger):
     # Private interface
     #-------------------------------------------------------------------------
 
+    def _get_argument_hash(self, *args, **kwargs):
+        return hash(filter_args(self.func, self.ignore,
+                                         args, kwargs),
+                             coerce_mmap=(self.mmap_mode is not None))
+
     def _get_output_dir(self, *args, **kwargs):
-        """ Returns the directory in which are persisted the results
+        """ Returns the directory in which are persisted the result
             of the function corresponding to the given arguments.
 
-            The results can be loaded using the .load_output method.
+            The result can be loaded using the .load_output method.
         """
-        coerce_mmap = (self.mmap_mode is not None)
-        argument_hash = hash(filter_args(self.func, self.ignore,
-                             args, kwargs),
-                             coerce_mmap=coerce_mmap)
+        argument_hash = self._get_argument_hash(*args, **kwargs)
         output_dir = os.path.join(self._get_func_dir(self.func),
                                   argument_hash)
         return output_dir, argument_hash
@@ -369,9 +412,7 @@ class MemorizedFunc(Logger):
         """ Get the directory corresponding to the cache for the
             function.
         """
-        module, name = get_func_name(self.func)
-        module.append(name)
-        func_dir = os.path.join(self.cachedir, *module)
+        func_dir = _cache_key_to_dir(self.cachedir, self.func, None)
         if mkdir:
             mkdirp(func_dir)
         return func_dir
@@ -474,7 +515,7 @@ class MemorizedFunc(Logger):
             persist the output values.
         """
         start_time = time.time()
-        output_dir, argument_hash = self._get_output_dir(*args, **kwargs)
+        output_dir, _ = self._get_output_dir(*args, **kwargs)
         if self._verbose:
             print(format_call(self.func, *args, **kwargs))
         output = self.func(*args, **kwargs)
