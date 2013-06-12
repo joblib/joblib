@@ -152,7 +152,7 @@ Getting a reference to the cache can be done using the
     >>> result = g.call_and_shelve(4)
     A long-running calculation, with parameter 4
     >>> result  #doctest: +ELLIPSIS 
-    MemorizedResult(output_dir="...")
+    MemorizedResult(cachedir="...", func="g-alias", argument_hash="...")
 
 Once computed, the output of `g` is stored on disk, and deleted from
 memory. Reading the associated value can then be performed with the
@@ -170,7 +170,7 @@ raised::
     >>> result.get()  #doctest: +ELLIPSIS
     Traceback (most recent call last):
         ...
-    KeyError: 'Non-existing cache value (may have been cleared).\nfile ... does not exist'
+    KeyError: 'Non-existing cache value (may have been cleared).\nFile ... does not exist'
 
 A `MemorizedResult` instance contains all that is necessary to read
 the cached value. It can be pickled for transmission or storage, and
