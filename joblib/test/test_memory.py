@@ -14,7 +14,7 @@ import pickle
 import warnings
 import io
 import sys
-import pickle
+import time
 
 import nose
 
@@ -548,8 +548,30 @@ def test_memorized_pickling():
         os.remove(filename)
 
 
-def test_memorized_copy_pasting():
+def test_memorized_repr():
     func = MemorizedFunc(f, env['dir'])
     result = func.call_and_shelve(2)
     result2 = eval(repr(result))
     nose.tools.assert_equal(result.get(), result2.get())
+
+    # Smoke test with NotMemorizedFunc
+    func = NotMemorizedFunc(f)
+    repr(func)
+    repr(func.call_and_shelve(2))
+
+    # Smoke test for message output (increase code coverage)
+    func = MemorizedFunc(f, env['dir'], verbose=11, timestamp=time.time())
+    result = func.call_and_shelve(11)
+    result.get()
+
+    func = MemorizedFunc(f, env['dir'], verbose=11)
+    result = func.call_and_shelve(11)
+    result.get()
+
+    func = MemorizedFunc(f, env['dir'], verbose=5, timestamp=time.time())
+    result = func.call_and_shelve(11)
+    result.get()
+
+    func = MemorizedFunc(f, env['dir'], verbose=5)
+    result = func.call_and_shelve(11)
+    result.get()

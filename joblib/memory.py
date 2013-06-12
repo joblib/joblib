@@ -151,7 +151,7 @@ class MemorizedResult(Logger):
             if self.verbose < 10:
                 print('[Memory]%s: Loading %s...' % (t, str(self.signature)))
             else:
-                print('[Memory]s: Loading %s from %s' % (
+                print('[Memory]%s: Loading %s from %s' % (
                                     t, str(self.signature), self._output_dir))
         filename = os.path.join(self._output_dir, 'output.pkl')
         if not os.path.isfile(filename):
@@ -165,10 +165,13 @@ class MemorizedResult(Logger):
         shutil.rmtree(self._output_dir, ignore_errors=True)
 
     def __repr__(self):
-        return (self.__class__.__name__
-                + '(cachedir="' + self.cachedir + '", '
-                + 'func="' + self.func + '", argument_hash="'
-                + self.argument_hash + '")')
+        return ('{class_name}(cachedir="{cachedir}", func="{func}", '
+                'argument_hash="{argument_hash}")'.format(
+                    class_name=self.__class__.__name__,
+                    cachedir=self.cachedir,
+                    func=self.func,
+                    argument_hash=self.argument_hash
+                    ))
 
     def __reduce__(self):
         return (self.__class__, (self.cachedir, self.func, self.argument_hash),
@@ -198,8 +201,10 @@ class NotMemorizedResult(object):
 
     def __repr__(self):
         if self.valid:
-            return (self.__class__.__name__
-                    + '(' + pformat(self.value) + ')')
+            return '{class_name}({value})'.format(
+                class_name=self.__class__.__name__,
+                value=pformat(self.value)
+                )
         else:
             return self.__class__.__name__ + ' with no value'
 
@@ -367,7 +372,8 @@ class MemorizedFunc(Logger):
 
         # FIXME: argument_hash is already computed in self.__call__
         argument_hash = self._get_argument_hash(*args, **kwargs)
-        return MemorizedResult(self.cachedir, self.func, argument_hash)
+        return MemorizedResult(self.cachedir, self.func, argument_hash,
+            verbose=self._verbose - 1, timestamp=self.timestamp)
 
     def __call__(self, *args, **kwargs):
         # Compare the function code with the previous to see if the
@@ -417,7 +423,6 @@ class MemorizedFunc(Logger):
         """
         return (self.__class__, (self.func, self.cachedir, self.ignore,
                 self.mmap_mode, self.compress, self._verbose))
-
     # Compatibility methods: deprecate.
     def format_signature(self, *args, **kwargs):
         return format_signature(self.func, *args, **kwargs)
@@ -540,7 +545,7 @@ class MemorizedFunc(Logger):
         """ Empty the function's cache.
         """
         func_dir = self._get_func_dir(mkdir=False)
-        if self._verbose and warn:
+        if self._verbose > 0 and warn:
             self.warn("Clearing cache %s" % func_dir)
         if os.path.exists(func_dir):
             shutil.rmtree(func_dir, ignore_errors=True)
@@ -555,13 +560,13 @@ class MemorizedFunc(Logger):
         """
         start_time = time.time()
         output_dir, _ = self._get_output_dir(*args, **kwargs)
-        if self._verbose:
+        if self._verbose > 0:
             print(format_call(self.func, args, kwargs))
         output = self.func(*args, **kwargs)
         self._persist_output(output, output_dir)
         self._persist_input(output_dir, args, kwargs)
         duration = time.time() - start_time
-        if self._verbose:
+        if self._verbose > 0:
             _, name = get_func_name(self.func)
             msg = '%s - %s' % (name, format_time(duration))
             print(max(0, (80 - len(msg))) * '_' + msg)
