@@ -45,7 +45,7 @@ def setup_module():
         shutil.rmtree(cachedir)
     # Don't make the cachedir, Memory should be able to do that on the fly
     print(80 * '_')
-    print('test_memory setup')
+    print('test_memory setup (%s)' % env['dir'])
     print(80 * '_')
 
 
@@ -62,7 +62,7 @@ def teardown_module():
     """
     shutil.rmtree(env['dir'], False, _rmtree_onerror)
     print(80 * '_')
-    print('test_memory teardown')
+    print('test_memory teardown (%s)' % env['dir'])
     print(80 * '_')
 
 
