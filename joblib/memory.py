@@ -100,7 +100,9 @@ class MemorizedResult(Logger):
                                     ))
         filename = os.path.join(self.output_dir, 'output.pkl')
         if not os.path.isfile(filename):
-            raise KeyError("Non-existing cache value (may have been cleared).")
+            raise KeyError(
+                "Non-existing cache value (may have been cleared).\n"
+                "file %s does not exist" % filename)
         return numpy_pickle.load(filename, mmap_mode=self.mmap_mode)
 
     def clear(self):
