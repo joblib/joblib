@@ -206,7 +206,6 @@ def test_bound_methods_hash():
                             hash(filter_args(b.f, [], (1, ))))
 
 
-# FIXME: Output directory is not removed by teardown function (BUG).
 @nose.tools.with_setup(test_memory_setup_func, test_memory_teardown_func)
 def test_bound_cached_methods_hash():
     """ Make sure that calling the same _cached_ method on two different
@@ -238,6 +237,7 @@ def test_numpy_scalar():
     nose.tools.assert_not_equal(hash(a), hash(b))
 
 
+@nose.tools.with_setup(test_memory_setup_func, test_memory_teardown_func)
 def test_dict_hash():
     # Check that dictionaries hash consistently, eventhough the ordering
     # of the keys is not garanteed
@@ -264,6 +264,7 @@ def test_dict_hash():
                             hash(b))
 
 
+@nose.tools.with_setup(test_memory_setup_func, test_memory_teardown_func)
 def test_set_hash():
     # Check that sets hash consistently, eventhough their ordering
     # is not garanteed
