@@ -136,7 +136,7 @@ An example
     True
 
 Using references to cached values
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+---------------------------------
 
 In some cases, it can be useful to get a reference to the cached
 result, instead of having the result itself. A typical example of this
@@ -154,7 +154,7 @@ Getting a reference to the cache can be done using the
     >>> result  #doctest: +ELLIPSIS 
     MemorizedResult(output_dir="...")
 
-Once computed, the output of is stored on disk, and deleted from
+Once computed, the output of `g` is stored on disk, and deleted from
 memory. Reading the associated value can then be performed with the
 `get` method::
 
@@ -167,17 +167,17 @@ Any subsequent call to `get` will cause a `KeyError` exception to be
 raised::
 
     >>> result.clear()
-    >>> result.get()
+    >>> result.get()  #doctest: +ELLIPSIS
     Traceback (most recent call last):
         ...
-    KeyError: 'Non-existing cache value (may have been cleared).'
+    KeyError: 'Non-existing cache value (may have been cleared).\nfile ... does not exist'
 
 A `MemorizedResult` instance contains all that is necessary to read
 the cached value. It can be pickled for transmission or storage, and
 the printed representation can even be copy-pasted to a different
 python interpreter.
 
-.. topic:: Remark
+.. topic:: Shelving when cache is disabled
 
     In the case where caching is disabled (e.g.
     `Memory(cachedir=None)`), the `call_and_shelve` method returns a
@@ -267,10 +267,10 @@ Gotchas
     >>> func(1)
     Running a different func(1)
     >>> func2(1)  #doctest: +ELLIPSIS
-    memory.rst:0: JobLibCollisionWarning: Possible name collisions between functions 'func' (...) and 'func' (...)
+    memory.rst:0: JobLibCollisionWarning: Possible name collisions between functions 'func' (<doctest memory.rst>:...) and 'func' (<doctest memory.rst>:...)
     Running func(1)
     >>> func(1)  #doctest: +ELLIPSIS
-    memory.rst:0: JobLibCollisionWarning: Possible name collisions between functions 'func' (...) and 'func' (...)
+    memory.rst:0: JobLibCollisionWarning: Possible name collisions between functions 'func' (<doctest memory.rst>:...) and 'func' (<doctest memory.rst>:...)
     Running a different func(1)
     >>> func2(1)
     Running func(1)
