@@ -31,6 +31,7 @@ from .func_inspect import format_signature, format_call
 from .logger import Logger, format_time, pformat
 from . import numpy_pickle
 from .disk import mkdirp, rm_subdirs
+from ._compat import _basestring
 
 FIRST_LINE_TEXT = "# first line:"
 
@@ -84,7 +85,7 @@ def _cache_key_to_dir(cachedir, func, argument_hash):
     func can be a function or a string as returned by _get_func_fullname().
     """
     parts = [cachedir]
-    if isinstance(func, basestring):
+    if isinstance(func, _basestring):
         parts.append(func)
     else:
         parts.append(_get_func_fullname(func))
@@ -100,7 +101,7 @@ class MemorizedResult(Logger):
     def __init__(self, cachedir, func, argument_hash,
                  mmap_mode=None, signature='', verbose=0, timestamp=None):
         Logger.__init__(self)
-        if isinstance(func, basestring):
+        if isinstance(func, _basestring):
             self.func = func
         else:
             self.func = _get_func_fullname(func)
