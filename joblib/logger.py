@@ -44,9 +44,6 @@ def short_format_time(t):
         return " %5.1fs" % (t)
 
 
-###############################################################################
-# class `Logger`
-###############################################################################
 def pformat(obj, indent=0, depth=3):
     if 'numpy' in sys.modules:
         import numpy as np
@@ -60,6 +57,9 @@ def pformat(obj, indent=0, depth=3):
     return out
 
 
+###############################################################################
+# class `Logger`
+###############################################################################
 class Logger(object):
     """ Base class for logging messages.
     """

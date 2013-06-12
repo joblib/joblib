@@ -292,12 +292,13 @@ def format_signature(func, *args, **kwargs):
     return module_path, signature
 
 
-def format_call(func, *args, **kwargs):
+def format_call(func, args, kwargs, object_name="Memory"):
     """ Returns a nicely formatted statement displaying the function
         call with the given arguments.
     """
     path, signature = format_signature(func, *args, **kwargs)
-    msg = '%s\n[Memory] Calling %s...\n%s' % (80 * '_', path, signature)
+    msg = '%s\n[%s] Calling %s...\n%s' % (80 * '_', object_name,
+                                          path, signature)
     return msg
     # XXX: Not using logging framework
     #self.debug(msg)
