@@ -352,35 +352,24 @@ class MemorizedFunc(Logger):
             doc = func.__doc__
         self.__doc__ = 'Memoized version of %s' % doc
 
-    def call_and_shelve(self, *args, **kwargs):
-        """Call wrapped function, cache result and return a reference.
+    def _cached_call(self, args, kwargs):
+        """Call wrapped function and cache result, or read cache if available.
 
-        This method returns a reference to the cached result instead of the
-        result itself. The reference object is small and pickeable, allowing
-        to send or store it easily. Call .get() on reference object to get
-        result.
+        This function returns the wrapped function output and some metadata.
 
         Returns
         -------
-        cached_result: MemorizedResult or NotMemorizedResult
-            reference to the value returned by the wrapped function. The
-            class "NotMemorizedResult" is used when there is no cache
-            activated (e.g. cachedir=None in Memory).
+        output: value or tuple
+            what is returned by wrapped function
+
+        argument_hash:
+            hash of function arguments
         """
-        # TODO: add signature (format_signature)
-        self.__call__(*args, **kwargs)
-
-        # FIXME: argument_hash is already computed in self.__call__
-        argument_hash = self._get_argument_hash(*args, **kwargs)
-        return MemorizedResult(self.cachedir, self.func, argument_hash,
-            verbose=self._verbose - 1, timestamp=self.timestamp)
-
-    def __call__(self, *args, **kwargs):
         # Compare the function code with the previous to see if the
         # function code has changed
         output_dir, argument_hash = self._get_output_dir(*args, **kwargs)
         # FIXME: The statements below should be try/excepted
-        if not (self._check_previous_func_code(stacklevel=3) and
+        if not (self._check_previous_func_code(stacklevel=4) and
                                  os.path.exists(output_dir)):
             if self._verbose > 10:
                 _, name = get_func_name(self.func)
@@ -388,9 +377,6 @@ class MemorizedFunc(Logger):
                           'directory %s'
                         % (name, argument_hash, output_dir))
             out = self.call(*args, **kwargs)
-            if self.reference:
-                # FIXME: add signature (format_signature)
-                return CachedValue(output_dir)
             if self.mmap_mode is None:
                 return out
             else:
@@ -406,7 +392,6 @@ class MemorizedFunc(Logger):
                     _, name = get_func_name(self.func)
                     msg = '%s cache loaded - %s' % (name, format_time(t))
                     print(max(0, (80 - len(msg))) * '_' + msg)
-                return out
             except Exception:
                 # XXX: Should use an exception logger
                 self.warn('Exception while loading results for '
@@ -414,7 +399,32 @@ class MemorizedFunc(Logger):
                           (args, kwargs, traceback.format_exc()))
 
                 shutil.rmtree(output_dir, ignore_errors=True)
-                return self.call(*args, **kwargs)
+                out = self.call(*args, **kwargs)
+                argument_hash = None
+        return (out, argument_hash)
+
+    def call_and_shelve(self, *args, **kwargs):
+        """Call wrapped function, cache result and return a reference.
+
+        This method returns a reference to the cached result instead of the
+        result itself. The reference object is small and pickeable, allowing
+        to send or store it easily. Call .get() on reference object to get
+        result.
+
+        Returns
+        -------
+        cached_result: MemorizedResult or NotMemorizedResult
+            reference to the value returned by the wrapped function. The
+            class "NotMemorizedResult" is used when there is no cache
+            activated (e.g. cachedir=None in Memory).
+        """
+        _, argument_hash = self._cached_call(args, kwargs)
+
+        return MemorizedResult(self.cachedir, self.func, argument_hash,
+            verbose=self._verbose - 1, timestamp=self.timestamp)
+
+    def __call__(self, *args, **kwargs):
+        return self._cached_call(args, kwargs)[0]
 
     def __reduce__(self):
         """ We don't store the timestamp when pickling, to avoid the hash
@@ -423,6 +433,7 @@ class MemorizedFunc(Logger):
         """
         return (self.__class__, (self.func, self.cachedir, self.ignore,
                 self.mmap_mode, self.compress, self._verbose))
+
     # Compatibility methods: deprecate.
     def format_signature(self, *args, **kwargs):
         return format_signature(self.func, *args, **kwargs)
@@ -530,7 +541,7 @@ class MemorizedFunc(Logger):
                         "'%s' (%s:%i) and '%s' (%s:%i)" %
                         (func_name, source_file, old_first_line,
                         func_name, source_file, first_line)),
-                    stacklevel=stacklevel)
+                              stacklevel=stacklevel)
 
         # The function has changed, wipe the cache directory.
         # XXX: Should be using warnings, and giving stacklevel
