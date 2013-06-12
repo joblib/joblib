@@ -174,9 +174,7 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
         Returns
         -------
         filtered_args: list
-            List of filtered positional arguments.
-        filtered_kwdargs: dict
-            List of filtered Keyword arguments.
+            List of filtered positional and keyword arguments.
     """
     args = list(args)
     if isinstance(ignore_lst, _basestring):

@@ -118,11 +118,11 @@ class MemorizedResult(Logger):
     verbose: int
         verbosity level (0 means no message)
 
-    signature, timestamp: string
+    timestamp, metadata: string
         for internal use only
     """
     def __init__(self, cachedir, func, argument_hash,
-                 mmap_mode=None, signature='', verbose=0, timestamp=None):
+                 mmap_mode=None, verbose=0, timestamp=None, metadata=None):
         Logger.__init__(self)
         if isinstance(func, _basestring):
             self.func = func
@@ -135,15 +135,36 @@ class MemorizedResult(Logger):
         self._output_dir = _cache_key_to_dir(cachedir, self.func,
                                              argument_hash)
 
-        self.signature = signature
+        if metadata is not None:
+            self.metadata = metadata
+        else:
+            self.metadata = {}
+            # No error is relevant here.
+            try:
+                self.metadata = json.load(
+                    open(os.path.join(self._output_dir, 'metadata.json'), 'rb')
+                    )
+            except:
+                pass
+
+        self.duration = self.metadata.get('duration', None)
         self.verbose = verbose
         self.timestamp = timestamp
 
     def get(self):
         """Read value from cache and return it."""
         # See also MemorizedFunc.load_output()
-        # Read signature from cache
         if self.verbose > 1:
+            self.signature = ""
+            if self.metadata is not None:
+                try:
+                    args = ", ".join(['%s=%s' % (name, value)
+                                      for name, value
+                                      in self.metadata['input_args'].items()])
+                    self.signature = "%s(%s)" % (os.path.basename(self.func),
+                                                 args)
+                except KeyError:
+                    pass
             if self.timestamp is not None:
                 t = "% 16s" % format_time(time.time() - self.timestamp)
             else:
@@ -355,12 +376,16 @@ class MemorizedFunc(Logger):
         output: value or tuple
             what is returned by wrapped function
 
-        argument_hash:
+        argument_hash: string
             hash of function arguments
+
+        metadata: dict
+            some metadata about wrapped function call (see _persist_input())
         """
         # Compare the function code with the previous to see if the
         # function code has changed
         output_dir, argument_hash = self._get_output_dir(*args, **kwargs)
+        metadata = None
         # FIXME: The statements below should be try/excepted
         if not (self._check_previous_func_code(stacklevel=4) and
                                  os.path.exists(output_dir)):
@@ -369,7 +394,7 @@ class MemorizedFunc(Logger):
                 self.warn('Computing func %s, argument hash %s in '
                           'directory %s'
                         % (name, argument_hash, output_dir))
-            out = self.call(*args, **kwargs)
+            out, metadata = self.call(*args, **kwargs)
         else:
             try:
                 t0 = time.time()
@@ -386,9 +411,9 @@ class MemorizedFunc(Logger):
                           (args, kwargs, traceback.format_exc()))
 
                 shutil.rmtree(output_dir, ignore_errors=True)
-                out = self.call(*args, **kwargs)
+                out, metadata = self.call(*args, **kwargs)
                 argument_hash = None
-        return (out, argument_hash)
+        return (out, argument_hash, metadata)
 
     def call_and_shelve(self, *args, **kwargs):
         """Call wrapped function, cache result and return a reference.
@@ -405,10 +430,11 @@ class MemorizedFunc(Logger):
             class "NotMemorizedResult" is used when there is no cache
             activated (e.g. cachedir=None in Memory).
         """
-        _, argument_hash = self._cached_call(args, kwargs)
+        _, argument_hash, metadata = self._cached_call(args, kwargs)
 
         return MemorizedResult(self.cachedir, self.func, argument_hash,
-            verbose=self._verbose - 1, timestamp=self.timestamp)
+            metadata=metadata, verbose=self._verbose - 1,
+            timestamp=self.timestamp)
 
     def __call__(self, *args, **kwargs):
         return self._cached_call(args, kwargs)[0]
@@ -562,13 +588,14 @@ class MemorizedFunc(Logger):
             print(format_call(self.func, args, kwargs))
         output = self.func(*args, **kwargs)
         self._persist_output(output, output_dir)
-        self._persist_input(output_dir, *args, **kwargs)
         duration = time.time() - start_time
+        metadata = self._persist_input(output_dir, duration, args, kwargs)
+
         if self._verbose > 0:
             _, name = get_func_name(self.func)
             msg = '%s - %s' % (name, format_time(duration))
             print(max(0, (80 - len(msg))) * '_' + msg)
-        return output
+        return output, metadata
 
     # Make public
     def _persist_output(self, output, dir):
@@ -583,25 +610,60 @@ class MemorizedFunc(Logger):
         except OSError:
             " Race condition in the creation of the directory "
 
-    def _persist_input(self, output_dir, *args, **kwargs):
+    def _persist_input(self, output_dir, duration, args, kwargs,
+                       this_duration_limit=0.5):
         """ Save a small summary of the call using json format in the
             output directory.
+
+            output_dir: string
+                directory where to write metadata.
+
+            duration: float
+                time taken by hashing input arguments, calling the wrapped
+                function and persisting its output.
+
+            args, kwargs: list and dict
+                input arguments for wrapped function
+
+            this_duration_limit: float
+                Max execution time for this function before issuing a warning.
         """
+        start_time = time.time()
         argument_dict = filter_args(self.func, self.ignore,
                                     args, kwargs)
 
         input_repr = dict((k, repr(v)) for k, v in argument_dict.items())
-        # This can fail do to race-conditions with multiple
+        # This can fail due to race-conditions with multiple
         # concurrent joblibs removing the file or the directory
+        metadata = {"duration": duration, "input_args": input_repr}
         try:
             mkdirp(output_dir)
-            json.dump(
-                input_repr,
-                file(os.path.join(output_dir, 'input_args.json'), 'w'),
-                )
+            json.dump(metadata,
+                      file(os.path.join(output_dir, 'metadata.json'), 'w'),
+                      )
         except:
             pass
-        return input_repr
+
+        this_duration = time.time() - start_time
+        if this_duration > this_duration_limit:
+            # This persistence should be fast. It will not be if repr() takes
+            # time and its output is large, because json.dump will have to
+            # write a large file. This should not be an issue with numpy arrays
+            # for which repr() always output a short representation, but can
+            # be with complex dictionaries. Fixing the problem should be a
+            # matter of replacing repr() above by something smarter.
+            warnings.warn("Persisting input arguments took %.2fs to run.\n"
+                          "If this happens often in your code, it can cause "
+                          "performance problems \n"
+                          "(results will be correct in all cases). \n"
+                          "The reason for this is probably some large input "
+                          "arguments for a wrapped\n"
+                          " function (e.g. large strings).\n"
+                          "THIS IS A JOBLIB ISSUE. If you can, kindly provide "
+                          "the joblib's team with an\n"
+                          " example so that they can fix the problem."
+                          % this_duration, stacklevel=5)
+        return metadata
 
     def load_output(self, output_dir):
         """ Read the results of a previous calculation from the directory
