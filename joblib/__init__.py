@@ -105,7 +105,7 @@ Main features
 __version__ = '0.7.0'
 
 
-from .memory import Memory
+from .memory import Memory, MemorizedResult
 from .logger import PrintTime
 from .logger import Logger
 from .hashing import hash
