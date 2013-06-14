@@ -554,6 +554,10 @@ def test_memorized_repr():
     result2 = eval(repr(result))
     nose.tools.assert_equal(result.get(), result2.get())
 
+    # Smoke test on deprecated methods
+    func.format_signature(2)
+    func.format_call(2)
+
     # Smoke test with NotMemorizedFunc
     func = NotMemorizedFunc(f)
     repr(func)

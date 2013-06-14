@@ -92,6 +92,42 @@ def _cache_key_to_dir(cachedir, func, argument_hash):
     return os.path.join(*parts)
 
 
+def _load_output(output_dir, func, timestamp=None, metadata=None,
+                 mmap_mode=None, verbose=0):
+    """Load output of a computation."""
+    if verbose > 1:
+        signature = ""
+        try:
+            if metadata is not None:
+                args = ", ".join(['%s=%s' % (name, value)
+                                  for name, value
+                                  in metadata['input_args'].items()])
+                signature = "%s(%s)" % (os.path.basename(func),
+                                             args)
+            else:
+                signature = os.path.basename(func)
+        except KeyError:
+            pass
+
+        if timestamp is not None:
+            t = "% 16s" % format_time(time.time() - timestamp)
+        else:
+            t = ""
+
+        if verbose < 10:
+            print('[Memory]%s: Loading %s...' % (t, str(signature)))
+        else:
+            print('[Memory]%s: Loading %s from %s' % (
+                    t, str(signature), output_dir))
+
+    filename = os.path.join(output_dir, 'output.pkl')
+    if not os.path.isfile(filename):
+        raise KeyError(
+            "Non-existing cache value (may have been cleared).\n"
+            "File %s does not exist" % filename)
+    return numpy_pickle.load(filename, mmap_mode=mmap_mode)
+
+
 ###############################################################################
 # class `MemorizedResult`
 ###############################################################################
@@ -153,33 +189,10 @@ class MemorizedResult(Logger):
 
     def get(self):
         """Read value from cache and return it."""
-        # See also MemorizedFunc.load_output()
-        if self.verbose > 1:
-            self.signature = ""
-            if self.metadata is not None:
-                try:
-                    args = ", ".join(['%s=%s' % (name, value)
-                                      for name, value
-                                      in self.metadata['input_args'].items()])
-                    self.signature = "%s(%s)" % (os.path.basename(self.func),
-                                                 args)
-                except KeyError:
-                    pass
-            if self.timestamp is not None:
-                t = "% 16s" % format_time(time.time() - self.timestamp)
-            else:
-                t = ""
-            if self.verbose < 10:
-                print('[Memory]%s: Loading %s...' % (t, str(self.signature)))
-            else:
-                print('[Memory]%s: Loading %s from %s' % (
-                                    t, str(self.signature), self._output_dir))
-        filename = os.path.join(self._output_dir, 'output.pkl')
-        if not os.path.isfile(filename):
-            raise KeyError(
-                "Non-existing cache value (may have been cleared).\n"
-                "File %s does not exist" % filename)
-        return numpy_pickle.load(filename, mmap_mode=self.mmap_mode)
+        return _load_output(self._output_dir, self.func,
+                            timestamp=self.timestamp,
+                            metadata=self.metadata, mmap_mode=self.mmap_mode,
+                            verbose=self.verbose)
 
     def clear(self):
         """Clear value from cache"""
@@ -367,7 +380,7 @@ class MemorizedFunc(Logger):
             " Objects like ufunc don't like that "
         if inspect.isfunction(func):
             doc = pydoc.TextDoc().document(func
-                                    ).replace('\n', '\n\n', 1)
+                                           ).replace('\n', '\n\n', 1)
         else:
             # Pydoc does a poor job on other objects
             doc = func.__doc__
@@ -409,7 +422,10 @@ class MemorizedFunc(Logger):
         else:
             try:
                 t0 = time.time()
-                out = self.load_output(output_dir)
+                out = _load_output(output_dir, _get_func_fullname(self.func),
+                                   timestamp=self.timestamp,
+                                   metadata=metadata, mmap_mode=self.mmap_mode,
+                                   verbose=self._verbose)
                 if self._verbose > 4:
                     t = time.time() - t0
                     _, name = get_func_name(self.func)
@@ -458,11 +474,14 @@ class MemorizedFunc(Logger):
         return (self.__class__, (self.func, self.cachedir, self.ignore,
                 self.mmap_mode, self.compress, self._verbose))
 
-    # Compatibility methods: deprecate.
     def format_signature(self, *args, **kwargs):
+        warnings.warn("MemorizedFunc.format_signature will be removed in a "
+                      "future version of joblib.", DeprecationWarning)
         return format_signature(self.func, *args, **kwargs)
 
     def format_call(self, *args, **kwargs):
+        warnings.warn("MemorizedFunc.format_call will be removed in a "
+                      "future version of joblib.", DeprecationWarning)
         return format_call(self.func, args, kwargs)
 
     #-------------------------------------------------------------------------
@@ -475,10 +494,8 @@ class MemorizedFunc(Logger):
                              coerce_mmap=(self.mmap_mode is not None))
 
     def _get_output_dir(self, *args, **kwargs):
-        """ Returns the directory in which are persisted the result
-            of the function corresponding to the given arguments.
-
-            The result can be loaded using the .load_output method.
+        """ Return the directory in which are persisted the result
+            of the function called with the given arguments.
         """
         argument_hash = self._get_argument_hash(*args, **kwargs)
         output_dir = os.path.join(self._get_func_dir(self.func),
@@ -526,7 +543,7 @@ class MemorizedFunc(Logger):
             return True
 
         # We have differing code, is this because we are referring to
-        # differing functions, or because the function we are referring as
+        # different functions, or because the function we are referring to has
         # changed?
 
         _, func_name = get_func_name(self.func, resolv_alias=False,
@@ -552,8 +569,7 @@ class MemorizedFunc(Logger):
                 num_lines = len(func_code.split('\n'))
                 with open(source_file) as f:
                     on_disk_func_code = f.readlines()[
-                            old_first_line - 1
-                            :old_first_line - 1 + num_lines - 1]
+                        old_first_line - 1:old_first_line - 1 + num_lines - 1]
                 on_disk_func_code = ''.join(on_disk_func_code)
                 possible_collision = (on_disk_func_code.rstrip()
                                       == old_func_code.rstrip())
@@ -565,7 +581,7 @@ class MemorizedFunc(Logger):
                         "'%s' (%s:%i) and '%s' (%s:%i)" %
                         (func_name, source_file, old_first_line,
                         func_name, source_file, first_line)),
-                              stacklevel=stacklevel)
+                                stacklevel=stacklevel)
 
         # The function has changed, wipe the cache directory.
         # XXX: Should be using warnings, and giving stacklevel
@@ -688,22 +704,13 @@ class MemorizedFunc(Logger):
         """ Read the results of a previous calculation from the directory
             it was cached in.
         """
-        if self._verbose > 1:
-            t = time.time() - self.timestamp
-            if self._verbose < 10:
-                print('[Memory]% 16s: Loading %s...' % (
-                                    format_time(t),
-                                    format_signature(self.func)[0]
-                                    ))
-            else:
-                print('[Memory]% 16s: Loading %s from %s' % (
-                                    format_time(t),
-                                    format_signature(self.func)[0],
-                                    output_dir
-                                    ))
-        filename = os.path.join(output_dir, 'output.pkl')
-        return numpy_pickle.load(filename,
-                                 mmap_mode=self.mmap_mode)
+        warnings.warn("MemorizedFunc.load_output is deprecated and will be "
+                      "removed in a future version\n"
+                      "of joblib. A MemorizedResult provides similar features",
+                      DeprecationWarning)
+        # No metadata available here.
+        return _load_output(output_dir, self.func, timestamp=self.timestamp,
+                            mmap_mode=self.mmap_mode, verbose=self._verbose)
 
     # XXX: Need a method to check if results are available.
 
