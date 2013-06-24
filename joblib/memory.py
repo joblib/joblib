@@ -87,6 +87,10 @@ class MemorizedFunc(Logger):
             The memmapping mode used when loading from cache
             numpy arrays. See numpy.load for the meaning of the
             arguments.
+        get_key: callable, optional
+            By default, the caching key consists of all arguments to
+            `func` (minus those in `ignore`) as a dict. Where `get_key` is
+            provided, the caching key will instead be `get_key(**default_key)`.
         compress: boolean
             Whether to zip the stored data on disk. Note that compressed
             arrays cannot be read by memmapping.
@@ -99,7 +103,7 @@ class MemorizedFunc(Logger):
     #-------------------------------------------------------------------------
 
     def __init__(self, func, cachedir, ignore=None, mmap_mode=None,
-                 compress=False, verbose=1, timestamp=None):
+                 get_key=None, compress=False, verbose=1, timestamp=None):
         """
             Parameters
             ----------
@@ -113,6 +117,10 @@ class MemorizedFunc(Logger):
                 The memmapping mode used when loading from cache
                 numpy arrays. See numpy.load for the meaning of the
                 arguments.
+            get_key: callable, optional
+                By default, the caching key consists of all arguments to
+                `func` (minus those in `ignore`) as a dict. Where `get_key` is
+                provided, the caching key will instead be `get_key(default_key)`.
             verbose: int, optional
                 Verbosity flag, controls the debug messages that are issued
                 as functions are evaluated. The higher, the more verbose
@@ -125,6 +133,9 @@ class MemorizedFunc(Logger):
         self.cachedir = cachedir
         self.func = func
         self.mmap_mode = mmap_mode
+        if get_key is None:
+            get_key = lambda args: args
+        self.get_key = get_key
         self.compress = compress
         if compress and mmap_mode is not None:
             warnings.warn('Compressed results cannot be memmapped',
@@ -210,8 +221,8 @@ class MemorizedFunc(Logger):
             The results can be loaded using the .load_output method.
         """
         coerce_mmap = (self.mmap_mode is not None)
-        argument_hash = hash(filter_args(self.func, self.ignore,
-                             args, kwargs),
+        argument_hash = hash(self.get_key(filter_args(self.func, self.ignore,
+                             args, kwargs)),
                              coerce_mmap=coerce_mmap)
         output_dir = os.path.join(self._get_func_dir(self.func),
                                   argument_hash)
@@ -385,8 +396,8 @@ class MemorizedFunc(Logger):
         """ Save a small summary of the call using json format in the
             output directory.
         """
-        argument_dict = filter_args(self.func, self.ignore,
-                                    args, kwargs)
+        argument_dict = self.get_key(filter_args(self.func, self.ignore,
+                                                 args, kwargs))
 
         input_repr = dict((k, repr(v)) for k, v in argument_dict.items())
         # This can fail do to race-conditions with multiple
@@ -487,7 +498,7 @@ class Memory(Logger):
             mkdirp(self.cachedir)
 
     def cache(self, func=None, ignore=None, verbose=None,
-                        mmap_mode=False):
+              mmap_mode=False, get_key=None):
         """ Decorates the given function func to only compute its return
             value for input arguments not cached on disk.
 
@@ -504,6 +515,10 @@ class Memory(Logger):
                 The memmapping mode used when loading from cache
                 numpy arrays. See numpy.load for the meaning of the
                 arguments. By default that of the memory object is used.
+            get_key: callable, optional
+                By default, the caching key consists of all arguments to
+                `func` (minus those in `ignore`) as a dict. Where `get_key` is
+                provided, the caching key will instead be `get_key(**default_key)`.
 
             Returns
             -------
@@ -516,7 +531,7 @@ class Memory(Logger):
         if func is None:
             # Partial application, to be able to specify extra keyword
             # arguments in decorators
-            return functools.partial(self.cache, ignore=ignore)
+            return functools.partial(self.cache, ignore=ignore, get_key=get_key)
         if self.cachedir is None:
             return func
         if verbose is None:
@@ -528,6 +543,7 @@ class Memory(Logger):
         return MemorizedFunc(func, cachedir=self.cachedir,
                                    mmap_mode=mmap_mode,
                                    ignore=ignore,
+                                   get_key=get_key,
                                    compress=self.compress,
                                    verbose=verbose,
                                    timestamp=self.timestamp)
