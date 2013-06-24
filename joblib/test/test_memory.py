@@ -392,6 +392,30 @@ def test_memory_ignore():
     yield nose.tools.assert_equal, len(accumulator), 1
 
 
+def test_memory_get_key():
+    " Test the get_key feature of memory "
+    memory = Memory(cachedir=env['dir'], verbose=0)
+    accumulator = list()
+
+    def get_key(key):
+        """Store x's sign rather than its value"""
+        key['x'] = key['x'] > 0
+        return key
+
+    @memory.cache(get_key=get_key)
+    def z(x):
+        accumulator.append(1)
+
+    nose.tools.assert_equal(z.get_key, get_key)
+
+    z(1)
+    nose.tools.assert_equal(len(accumulator), 1)
+    z(2)
+    nose.tools.assert_equal(len(accumulator), 1)
+    z(-1)
+    nose.tools.assert_equal(len(accumulator), 2)
+
+
 def test_func_dir():
     # Test the creation of the memory cache directory for the function.
     memory = Memory(cachedir=env['dir'], verbose=0)
