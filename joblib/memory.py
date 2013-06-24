@@ -516,7 +516,8 @@ class Memory(Logger):
         if func is None:
             # Partial application, to be able to specify extra keyword
             # arguments in decorators
-            return functools.partial(self.cache, ignore=ignore)
+            return functools.partial(self.cache, ignore=ignore,
+                                     verbose=verbose, mmap_mode=mmap_mode)
         if self.cachedir is None:
             return func
         if verbose is None:
