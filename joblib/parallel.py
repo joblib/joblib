@@ -8,6 +8,7 @@ Helpers for embarrassingly parallel code.
 import os
 import sys
 import warnings
+from collections import Sized
 from math import sqrt
 import functools
 import time
@@ -492,8 +493,8 @@ class Parallel(Logger):
                 self.exceptions.extend([KeyboardInterrupt, WorkerInterrupt])
 
         pre_dispatch = self.pre_dispatch
-        if isinstance(iterable, list):
-            # We are given a list. No need to be lazy
+        if isinstance(iterable, Sized):
+            # We are given a sized (an object with len). No need to be lazy.
             pre_dispatch = 'all'
 
         if pre_dispatch == 'all' or n_jobs == 1:
