@@ -176,11 +176,15 @@ class Parallel(Logger):
             but it may be memory consuming, for instance if each job
             involves a lot of a data.
         temp_folder: str, optional
-            Folder to be used by the pool for memmaping large numpy
-            arrays for sharing memory with worker processes. If
-            None, this will use the system temporary folder or can
-            be overridden with TMP, TMPDIR or TEMP environment
-            variables.
+            Folder to be used by the pool for memmaping large arrays
+            for sharing memory with worker processes. If None, this will try in
+            order:
+            - a folder pointed by the JOBLIB_TEMP_FOLDER environment variable,
+            - /dev/shm if the folder exists and is writable: this is a RAMdisk
+              filesystem available by default on modern Linux distributions,
+            - the default system temporary folder that can be overridden
+              with TMP, TMPDIR or TEMP environment variables, typically /tmp
+              under Unix operating systems.
         max_nbytes int or None, optional, 1e6 (1MB) by default
             Threshold on the size of arrays passed to the workers that
             triggers automated memmory mapping in temp_folder.

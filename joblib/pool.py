@@ -54,6 +54,11 @@ from .numpy_pickle import load
 from .numpy_pickle import dump
 from .hashing import hash
 
+# Some system have a ramdisk mounted by default, we can use it instead of /tmp
+# as the default folder to dump big arrays to share with subprocesses
+SYSTEM_SHARED_MEM_FS = '/dev/shm'
+
+
 ###############################################################################
 # Support for efficient transient pickling of numpy data structures
 
@@ -108,7 +113,7 @@ def _reduce_memmap_backed(a, m):
     offset += m.offset
 
     if m.flags['F_CONTIGUOUS']:
-        order ='F'
+        order = 'F'
     else:
         # The backing memmap buffer is necessarily contiguous hence C if not
         # Fortran
@@ -312,8 +317,8 @@ class CustomizablePicklingQueue(object):
             # writes to a message oriented win32 pipe are atomic
             self.put = send
         else:
-            wlock_acquire, wlock_release = self._wlock.acquire, \
-                                                self._wlock.release
+            wlock_acquire, wlock_release = (
+                self._wlock.acquire, self._wlock.release)
 
             def put(obj):
                 wlock_acquire()
@@ -399,9 +404,14 @@ class MemmapingPool(PicklingPool):
         Arguments passed to the initializer callable.
     temp_folder: str, optional
         Folder to be used by the pool for memmaping large arrays
-        for sharing memory with worker processes. If None, this
-        will use the system temporary folder or can be overridden
-        with TMP, TMPDIR or TEMP environment variables.
+        for sharing memory with worker processes. If None, this will try in
+        order:
+        - a folder pointed by the JOBLIB_TEMP_FOLDER environment variable,
+        - /dev/shm if the folder exists and is writable: this is a RAMdisk
+          filesystem available by default on modern Linux distributions,
+        - the default system temporary folder that can be overridden
+          with TMP, TMPDIR or TEMP environment variables, typically /tmp
+          under Unix operating systems.
     max_nbytes int or None, optional, 1e6 by default
         Threshold on the size of arrays passed to the workers that
         triggers automated memmory mapping in temp_folder.
@@ -439,17 +449,30 @@ class MemmapingPool(PicklingPool):
         # pool instance (do not create in advance to spare FS write access if
         # no array is to be dumped):
         if temp_folder is None:
+            temp_folder = os.environ.get('JOBLIB_TEMP_FOLDER', None)
+        if temp_folder is None:
+            if os.path.exists(SYSTEM_SHARED_MEM_FS):
+                try:
+                    joblib_folder = os.path.join(
+                        SYSTEM_SHARED_MEM_FS, 'joblib')
+                    if not os.path.exists(joblib_folder):
+                        os.makedirs(joblib_folder)
+                except IOError:
+                    # Missing rights in the the /dev/shm partition, ignore
+                    pass
+        if temp_folder is None:
+            # Fallback to the default tmp folder, typically /tmp
             temp_folder = tempfile.gettempdir()
         temp_folder = os.path.abspath(os.path.expanduser(temp_folder))
         self._temp_folder = temp_folder = os.path.join(
             temp_folder, "joblib_memmaping_pool_%d_%d" % (
                 os.getpid(), id(self)))
 
-        # Register the garbage collector at program exit in case caller
-        # forgets to call terminate explicitly: note we do not pass any reference
-        # to self to ensure that this callback won't prevent garbage collection
-        # of the pool instance and related file handler resources such as
-        # POSIX semaphores and pipes
+        # Register the garbage collector at program exit in case caller forgets
+        # to call terminate explicitly: note we do not pass any reference to
+        # self to ensure that this callback won't prevent garbage collection of
+        # the pool instance and related file handler resources such as POSIX
+        # semaphores and pipes
         atexit.register(lambda: delete_folder(temp_folder))
 
         if np is not None:
@@ -470,11 +493,12 @@ class MemmapingPool(PicklingPool):
             backward_reducers[np.ndarray] = backward_reduce_ndarray
             backward_reducers[np.memmap] = reduce_memmap
 
-        super(MemmapingPool, self).__init__(processes=processes,
-                                        initializer=initializer,
-                                        initargs=initargs,
-                                        forward_reducers=forward_reducers,
-                                        backward_reducers=backward_reducers)
+        super(MemmapingPool, self).__init__(
+            processes=processes,
+            initializer=initializer,
+            initargs=initargs,
+            forward_reducers=forward_reducers,
+            backward_reducers=backward_reducers)
 
     def terminate(self):
         super(MemmapingPool, self).terminate()
