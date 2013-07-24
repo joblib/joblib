@@ -1,15 +1,28 @@
 import os
 import shutil
 import tempfile
-multiprocessing = None
-try:
-    import multiprocessing
-    from ..pool import MemmapingPool
-    from ..pool import has_shareable_memory
-    from ..pool import ArrayMemmapReducer
-    from ..pool import reduce_memmap
-except ImportError:
-    pass
+import warnings
+
+multiprocessing = int(os.environ.get('JOBLIB_MULTIPROCESSING', 1)) or None
+if multiprocessing:
+    try:
+        import multiprocessing
+    except ImportError:
+        multiprocessing = None
+
+# 2nd stage: validate that locking is available on the system and
+#            issue a warning if not
+if multiprocessing:
+    try:
+        _sem = multiprocessing.Semaphore()
+        del _sem  # cleanup
+        from ..pool import MemmapingPool
+        from ..pool import has_shareable_memory
+        from ..pool import ArrayMemmapReducer
+        from ..pool import reduce_memmap
+    except (ImportError, OSError) as e:
+        multiprocessing = None
+        warnings.warn('%s.  joblib will operate in serial mode' % (e,))
 
 from nose import SkipTest
 from nose.tools import with_setup
@@ -68,7 +81,6 @@ def double(input):
         assert_array_equal(data[position], 2 * expected)
 
 
-
 @with_numpy
 @with_multiprocessing
 @with_temp_folder
@@ -102,6 +114,7 @@ def test_memmap_based_array_reducing():
 
     # Array reducer with auto dumping disabled
     reducer = ArrayMemmapReducer(None, TEMP_FOLDER, 'c')
+
     def reconstruct_array(x):
         cons, args = reducer(x)
         return cons(*args)
@@ -349,7 +362,6 @@ def _worker_multiply(a, n_times):
     """Multiplication function to be executed by subprocess"""
     assert_true(has_shareable_memory(a))
     return a * n_times
-
 
 
 @with_numpy
