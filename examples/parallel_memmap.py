@@ -47,6 +47,9 @@ if __name__ == "__main__":
     try:
         # Generate some data and an allocate an output buffer
         samples = rng.normal(size=(10, int(1e6)))
+
+        # Pre-allocate a writeable shared memory map as a container for the
+        # results of the parallel computation
         sums = np.memmap(sums_name, dtype=samples.dtype,
                          shape=samples.shape[0], mode='w+')
 
