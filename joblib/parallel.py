@@ -456,6 +456,8 @@ class Parallel(Logger):
         if self._jobs:
             raise ValueError('This Parallel instance is already running')
         n_jobs = self.n_jobs
+        if n_jobs == 0:
+            raise ValueError('n_jobs == 0 in Parallel has no meaning')
         if n_jobs < 0 and multiprocessing is not None:
             n_jobs = max(multiprocessing.cpu_count() + 1 + n_jobs, 1)
 
