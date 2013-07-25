@@ -7,6 +7,7 @@ Helpers for embarrassingly parallel code.
 
 import os
 import sys
+import gc
 import warnings
 from collections import Sized
 from math import sqrt
@@ -512,6 +513,9 @@ class Parallel(Logger):
                             '". Please see the joblib documentation on Parallel '
                             'for more information'
                         )
+
+                # Make sure to free as much memory as possible before forking
+                gc.collect()
 
                 # Set an environment variable to avoid infinite loops
                 os.environ['__JOBLIB_SPAWNED_PARALLEL__'] = '1'

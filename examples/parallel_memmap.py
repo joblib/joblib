@@ -24,7 +24,6 @@ Sample output for this program::
 
 """
 import tempfile
-import gc
 import shutil
 import os
 import numpy as np
@@ -55,11 +54,12 @@ if __name__ == "__main__":
 
         # Dump the input data to disk to free the memory
         dump(samples, samples_name)
-        samples = load(samples_name, mmap_mode='r')
 
-        # Make sure that the original arrays are no longer in memory before
-        # forking
-        gc.collect()
+        # Release the reference on the original in memory array and replace it
+        # by a reference to the memmap array so that the garbage collector can
+        # release the memory before forking. gc.collect() is internally called
+        # in Parallel just before forking.
+        samples = load(samples_name, mmap_mode='r')
 
         # Fork the worker processes to perform computation concurrently
         Parallel(n_jobs=4)(delayed(sum_row)(samples, sums, i)
