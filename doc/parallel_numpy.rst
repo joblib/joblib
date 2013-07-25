@@ -9,10 +9,6 @@ reallocated in the memory of each worker process.
 This can be problematic for large arguments as they will be reallocated
 ``n_jobs`` times by the workers.
 
-This is both wasteful for the global memory usage but also for the
-runtime because the allocation time can slow down the processing
-significatively.
-
 As this problem can often occur in scientific computing with ``numpy``
 based datastructures, :class:`joblib.Parallel` provides a special
 handling for large arrays to automatically dump them on the filesystem
@@ -20,6 +16,10 @@ and pass a reference to the worker to open them as memory map
 on that file using the ``numpy.memmap`` subclass of ``numpy.ndarray``.
 This makes it possible to share a segment of data between all the
 worker processes.
+
+
+Automated array to memmap conversion
+------------------------------------
 
 The automated array to memmap conversion is triggered by a configurable
 threshold on the size of the array::
@@ -31,6 +31,10 @@ threshold on the size of the array::
   >>> Parallel(n_jobs=2, max_nbytes=1e6)(
   ...     delayed(has_shareable_memory)(np.ones(i)) for i in [1e2, 1e4, 1e6])
   [False, False, True]
+
+
+Manual management of memmaped input data
+----------------------------------------
 
 For even finer tuning of the memory usage it is also possible to
 dump the array as an memmap directly from the parent process to
@@ -96,23 +100,24 @@ The pickling machinery of ``Parallel`` multiprocessing queues are
 able to detect this situation and optimize it on the fly to limit
 the number of memory copies.
 
-Also note that when you open your data using the ``w+`` or ``r+``
-mode in the main program, the worker will have ``r+`` mode access
-hence will be able to write results directly to it alleviating the
-need to serialization to communicate back the results to the parent
-process.
 
-For instance see the `example script
-<https://github.com/joblib/joblib/blob/master/examples/parallel_memmap.py>`_
-on parallel processing with preallocated numpy.memmap datastructures.
+Writing parallel computation results in shared memory
+-----------------------------------------------------
 
-It also makes it possible to do interprocess communication without the cost of
-serializing datastructures. However the current implementation does not provide
-locking tools for protecting concurrent read/write access to shared memory
-chunks.
+If you open your data using the ``w+`` or ``r+`` mode in the main program, the
+worker will have ``r+`` mode access hence will be able to write results
+directly to it alleviating the need to serialization to communicate back the
+results to the parent process.
 
-By the way, this is the end of this section, let's cleanup the temp
-folder::
+Here is an example script on parallel processing with preallocated
+``numpy.memmap`` datastructures:
+
+.. literalinclude:: ../examples/parallel_memmap.py
+   :language: python
+   :linenos:
+
+A final note: don't forget to clean up any temporary folder when you are done
+with the computation::
 
   >>> import shutil
   >>> shutil.rmtree(temp_folder)
