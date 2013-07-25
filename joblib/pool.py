@@ -30,20 +30,13 @@ except ImportError:
     from pickle import _Pickler  # pure Python pickler in 3
 
 from pickle import HIGHEST_PROTOCOL
-try:
-    from io import BytesIO
-except ImportError:
-    # Python 2.5 compat
-    from StringIO import StringIO as BytesIO
-try:
-    from multiprocessing.pool import Pool
-    from multiprocessing import Pipe
-    from multiprocessing.synchronize import Lock
-    from multiprocessing.forking import assert_spawning
-except ImportError:
-    class Pool(object):
-        """Dummy class for python 2.5 backward compat"""
-        pass
+from io import BytesIO
+
+from multiprocessing.pool import Pool
+from multiprocessing import Pipe
+from multiprocessing.synchronize import Lock
+from multiprocessing.forking import assert_spawning
+
 try:
     import numpy as np
     from numpy.lib.stride_tricks import as_strided
