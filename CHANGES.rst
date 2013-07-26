@@ -1,6 +1,25 @@
 Latest changes
 ===============
 
+Release 0.7.1
+---------------
+
+2013-07-25
+Gael Varoquaux
+
+    MISC: capture meaningless argument (n_jobs=0) in Parallel
+
+2013-07-09
+Lars Buitinck
+
+    ENH Handles tuples, sets and Python 3's dict_keys type the same as
+    lists. in pre_dispatch 
+
+2013-05-23
+Martin Luessi
+
+    ENH: fix function caching for IPython
+
 Release 0.7.0
 ---------------
 
