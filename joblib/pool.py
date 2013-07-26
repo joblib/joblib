@@ -469,12 +469,7 @@ class MemmapingPool(PicklingPool):
         # semaphores and pipes
         atexit.register(lambda: delete_folder(temp_folder))
 
-        bad_numpy = np is not None and np.__version__.startswith('1.7.0')
-        if bad_numpy:
-            warnings.warn("Numpy 1.7.0 detected: memmaping disabled. "
-                          "Upgrade to 1.7.1+ if you want memmaping in joblib.")
-
-        if np is not None and not bad_numpy:
+        if np is not None:
             # Register smart numpy.ndarray reducers that detects memmap
             # backed arrays and is able to dump to memmap large in-memory
             # arrays over the max_nbytes threshold
