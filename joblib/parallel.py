@@ -7,6 +7,7 @@ Helpers for embarrassingly parallel code.
 
 import os
 import sys
+import gc
 import warnings
 from collections import Sized
 from math import sqrt
@@ -29,13 +30,13 @@ if multiprocessing:
     except ImportError:
         multiprocessing = None
 
-
 # 2nd stage: validate that locking is available on the system and
 #            issue a warning if not
 if multiprocessing:
     try:
         _sem = multiprocessing.Semaphore()
         del _sem # cleanup
+        from .pool import MemmapingPool
     except (ImportError, OSError) as e:
         multiprocessing = None
         warnings.warn('%s.  joblib will operate in serial mode' % (e,))
@@ -175,6 +176,23 @@ class Parallel(Logger):
             The amount of jobs to be pre-dispatched. Default is 'all',
             but it may be memory consuming, for instance if each job
             involves a lot of a data.
+        temp_folder: str, optional
+            Folder to be used by the pool for memmaping large arrays
+            for sharing memory with worker processes. If None, this will try in
+            order:
+            - a folder pointed by the JOBLIB_TEMP_FOLDER environment variable,
+            - /dev/shm if the folder exists and is writable: this is a RAMdisk
+              filesystem available by default on modern Linux distributions,
+            - the default system temporary folder that can be overridden
+              with TMP, TMPDIR or TEMP environment variables, typically /tmp
+              under Unix operating systems.
+        max_nbytes int or None, optional, 1e6 (1MB) by default
+            Threshold on the size of arrays passed to the workers that
+            triggers automated memmory mapping in temp_folder.
+            Use None to disable memmaping of large arrays.
+        verbose: int, optional
+            Make it possible to monitor how the communication of numpy arrays
+            with the subprocess is handled (pickling or memmaping)
 
         Notes
         -----
@@ -197,6 +215,12 @@ class Parallel(Logger):
             * An optional progress meter.
 
             * Interruption of multiprocesses jobs with 'Ctrl-C'
+
+            * Flexible pickling control for the communication to and from
+              the worker processes.
+
+            * Ability to use shared memory efficiently with worker
+              processes for large numpy-based datastructures.
 
         Examples
         --------
@@ -292,11 +316,15 @@ class Parallel(Logger):
          [Parallel(n_jobs=2)]: Done   5 out of   6 | elapsed:    0.0s remaining:    0.0s
          [Parallel(n_jobs=2)]: Done   6 out of   6 | elapsed:    0.0s finished
     '''
-    def __init__(self, n_jobs=1, verbose=0, pre_dispatch='all'):
+    def __init__(self, n_jobs=1, verbose=0, pre_dispatch='all',
+                 temp_folder=None, max_nbytes=1e6, mmap_mode='c'):
         self.verbose = verbose
         self.n_jobs = n_jobs
         self.pre_dispatch = pre_dispatch
         self._pool = None
+        self._temp_folder = temp_folder
+        self._max_nbytes = max_nbytes
+        self._mmap_mode = mmap_mode
         # Not starting the pool in the __init__ is a design decision, to be
         # able to close it ASAP, and not burden the user with closing it.
         self._output = None
@@ -486,9 +514,17 @@ class Parallel(Logger):
                             'for more information'
                         )
 
+                # Make sure to free as much memory as possible before forking
+                gc.collect()
+
                 # Set an environment variable to avoid infinite loops
                 os.environ['__JOBLIB_SPAWNED_PARALLEL__'] = '1'
-                self._pool = multiprocessing.Pool(n_jobs)
+                self._pool = MemmapingPool(
+                    n_jobs, max_nbytes=self._max_nbytes,
+                    mmap_mode=self._mmap_mode,
+                    temp_folder=self._temp_folder,
+                    verbose=max(0, self.verbose - 50),
+                )
                 self._lock = threading.Lock()
                 # We are using multiprocessing, we also want to capture
                 # KeyboardInterrupts
@@ -528,7 +564,7 @@ class Parallel(Logger):
         finally:
             if n_jobs > 1:
                 self._pool.close()
-                self._pool.join()
+                self._pool.terminate()  # terminate does a join()
                 os.environ.pop('__JOBLIB_SPAWNED_PARALLEL__', 0)
             self._jobs = list()
         output = self._output
