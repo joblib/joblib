@@ -44,7 +44,7 @@ if multiprocessing:
 from .format_stack import format_exc, format_outer_frames
 from .logger import Logger, short_format_time
 from .my_exceptions import TransportableException, _mk_exception
-
+from .disk import memstr_to_kbytes
 
 ###############################################################################
 # CPU that works also when multiprocessing is not installed (python2.5)
@@ -186,9 +186,10 @@ class Parallel(Logger):
             - the default system temporary folder that can be overridden
               with TMP, TMPDIR or TEMP environment variables, typically /tmp
               under Unix operating systems.
-        max_nbytes int or None, optional, 1e6 (1MB) by default
+        max_nbytes int, str, or None, optional, 1e6 (1MB) by default
             Threshold on the size of arrays passed to the workers that
-            triggers automated memmory mapping in temp_folder.
+            triggers automated memmory mapping in temp_folder. Can be an int
+            in Bytes, or a human-readable string, e.g., '1M' for 1 megabyte.
             Use None to disable memmaping of large arrays.
         verbose: int, optional
             Make it possible to monitor how the communication of numpy arrays
@@ -274,13 +275,13 @@ class Parallel(Logger):
          /usr/lib/python2.7/heapq.pyc in nlargest(n=2, iterable=3, key=None)
              419         if n >= size:
              420             return sorted(iterable, key=key, reverse=True)[:n]
-             421 
+             421
              422     # When key is none, use simpler decoration
              423     if key is None:
          --> 424         it = izip(iterable, count(0,-1))                    # decorate
              425         result = _nlargest(n, it)
              426         return map(itemgetter(0), result)                   # undecorate
-             427 
+             427
              428     # General case, slowest method
 
          TypeError: izip argument #1 must support iteration
@@ -323,7 +324,10 @@ class Parallel(Logger):
         self.pre_dispatch = pre_dispatch
         self._pool = None
         self._temp_folder = temp_folder
-        self._max_nbytes = max_nbytes
+        if isinstance(max_nbytes, basestring):
+            self._max_nbytes = 1024 * memstr_to_kbytes(max_nbytes)
+        else:
+            self._max_nbytes = max_nbytes
         self._mmap_mode = mmap_mode
         # Not starting the pool in the __init__ is a design decision, to be
         # able to close it ASAP, and not burden the user with closing it.
