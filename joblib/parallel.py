@@ -45,6 +45,7 @@ from .format_stack import format_exc, format_outer_frames
 from .logger import Logger, short_format_time
 from .my_exceptions import TransportableException, _mk_exception
 from .disk import memstr_to_kbytes
+from ._compat import _basestring
 
 ###############################################################################
 # CPU that works also when multiprocessing is not installed (python2.5)
@@ -324,7 +325,7 @@ class Parallel(Logger):
         self.pre_dispatch = pre_dispatch
         self._pool = None
         self._temp_folder = temp_folder
-        if isinstance(max_nbytes, basestring):
+        if isinstance(max_nbytes, _basestring):
             self._max_nbytes = 1024 * memstr_to_kbytes(max_nbytes)
         else:
             self._max_nbytes = max_nbytes
