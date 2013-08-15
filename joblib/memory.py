@@ -87,9 +87,9 @@ class MemorizedFunc(Logger):
             The memmapping mode used when loading from cache
             numpy arrays. See numpy.load for the meaning of the
             arguments.
-        compress: boolean
-            Whether to zip the stored data on disk. Note that compressed
-            arrays cannot be read by memmapping.
+        compress: int, optional
+            Compression level in the range 0-9, 0 indicates no compression.
+            Note that compressed arrays cannot be read by memmapping.
         verbose: int, optional
             The verbosity flag, controls messages that are issued as
             the function is evaluated.
@@ -99,7 +99,7 @@ class MemorizedFunc(Logger):
     #-------------------------------------------------------------------------
 
     def __init__(self, func, cachedir, ignore=None, mmap_mode=None,
-                 compress=False, verbose=1, timestamp=None):
+                 compress=0, verbose=1, timestamp=None):
         """
             Parameters
             ----------
@@ -113,6 +113,9 @@ class MemorizedFunc(Logger):
                 The memmapping mode used when loading from cache
                 numpy arrays. See numpy.load for the meaning of the
                 arguments.
+            compress: int, optional
+                Compression level in the range 0-9, 0 indicates no compression.
+                Note that compressed arrays cannot be read by memmapping.
             verbose: int, optional
                 Verbosity flag, controls the debug messages that are issued
                 as functions are evaluated. The higher, the more verbose
@@ -452,7 +455,7 @@ class Memory(Logger):
     # Public interface
     #-------------------------------------------------------------------------
 
-    def __init__(self, cachedir, mmap_mode=None, compress=False, verbose=1):
+    def __init__(self, cachedir, mmap_mode=None, compress=0, verbose=1):
         """
             Parameters
             ----------
@@ -464,9 +467,9 @@ class Memory(Logger):
                 The memmapping mode used when loading from cache
                 numpy arrays. See numpy.load for the meaning of the
                 arguments.
-            compress: boolean
-                Whether to zip the stored data on disk. Note that
-                compressed arrays cannot be read by memmapping.
+            compress: int, optional
+                Compression level in the range 0-9, 0 indicates no compression.
+                Note that compressed arrays cannot be read by memmapping.
             verbose: int, optional
                 Verbosity flag, controls the debug messages that are issued
                 as functions are evaluated.
