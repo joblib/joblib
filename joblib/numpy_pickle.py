@@ -326,11 +326,9 @@ def dump(value, filename, compress=0, cache_size=100):
         The object to store to disk
     filename: string
         The name of the file in which it is to be stored
-    compress: integer for 0 to 9, optional
-        Optional compression level for the data. 0 is no compression.
-        Higher means more compression, but also slower read and
-        write times. Using a value of 3 is often a good compromise.
-        See the notes for more details.
+    compress: int, optional
+        Compression level in the range 0-9, 0 indicates no compression.
+        Note that compressed arrays cannot be read by memmapping.
     cache_size: positive number, optional
         Fixes the order of magnitude (in megabytes) of the cache used
         for in-memory compression. Note that this is just an order of
@@ -353,6 +351,10 @@ def dump(value, filename, compress=0, cache_size=100):
     using compression can significantly slow down loading. In
     addition, compressed files take extra extra memory during
     dump and load.
+
+    Higher values mean more compression, but also slower read and
+    write times. Using a value of 3 is often a good compromise.
+
     """
     if not isinstance(filename, _basestring):
         # People keep inverting arguments, and the resulting error is
