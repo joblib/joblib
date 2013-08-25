@@ -177,7 +177,7 @@ class NumpyPickler(Pickler):
            temporaries.
     """
 
-    def __init__(self, filename, compress=0, cache_size=100):
+    def __init__(self, filename, compress=0, cache_size=10):
         self._filename = filename
         self._filenames = [filename, ]
         self.cache_size = cache_size
