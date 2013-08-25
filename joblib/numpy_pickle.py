@@ -354,6 +354,10 @@ def dump(value, filename, compress=0, cache_size=100):
     addition, compressed files take extra extra memory during
     dump and load.
     """
+    if compress is True:
+        # By default, if compress is enabled, we want to be using 3 by
+        # default
+        compress = 3
     if not isinstance(filename, _basestring):
         # People keep inverting arguments, and the resulting error is
         # incomprehensible

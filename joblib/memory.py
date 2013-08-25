@@ -76,21 +76,23 @@ class MemorizedFunc(Logger):
 
         Attributes
         ----------
-        func: callable
+        func : callable
             The original, undecorated, function.
-        cachedir: string
+        cachedir : string
             Path to the base cache directory of the memory context.
-        ignore: list or None
+        ignore : list or None
             List of variable names to ignore when choosing whether to
             recompute.
-        mmap_mode: {None, 'r+', 'r', 'w+', 'c'}
+        mmap_mode : {None, 'r+', 'r', 'w+', 'c'}
             The memmapping mode used when loading from cache
             numpy arrays. See numpy.load for the meaning of the
             arguments.
-        compress: boolean
-            Whether to zip the stored data on disk. Note that compressed
-            arrays cannot be read by memmapping.
-        verbose: int, optional
+        compress : boolean, or integer
+            Whether to zip the stored data on disk. If an integer is
+            given, it should be between 1 and 9, and sets the amount
+            of compression. Note that compressed arrays cannot be
+            read by memmapping.
+        verbose : int, optional
             The verbosity flag, controls messages that are issued as
             the function is evaluated.
     """
@@ -464,9 +466,11 @@ class Memory(Logger):
                 The memmapping mode used when loading from cache
                 numpy arrays. See numpy.load for the meaning of the
                 arguments.
-            compress: boolean
-                Whether to zip the stored data on disk. Note that
-                compressed arrays cannot be read by memmapping.
+            compress: boolean, or integer
+                Whether to zip the stored data on disk. If an integer is
+                given, it should be between 1 and 9, and sets the amount
+                of compression. Note that compressed arrays cannot be
+                read by memmapping.
             verbose: int, optional
                 Verbosity flag, controls the debug messages that are issued
                 as functions are evaluated.
