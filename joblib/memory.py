@@ -115,6 +115,11 @@ class MemorizedFunc(Logger):
                 The memmapping mode used when loading from cache
                 numpy arrays. See numpy.load for the meaning of the
                 arguments.
+            compress : boolean, or integer
+                Whether to zip the stored data on disk. If an integer is
+                given, it should be between 1 and 9, and sets the amount
+                of compression. Note that compressed arrays cannot be
+                read by memmapping.
             verbose: int, optional
                 Verbosity flag, controls the debug messages that are issued
                 as functions are evaluated. The higher, the more verbose
