@@ -212,7 +212,7 @@ class ArrayMemmapReducer(object):
 
                 if self._prewarm:
                     # Warm up the data to avoid concurrent disk access in
-                    # multiple children
+                    # multiple children processes
                     load(filename, mmap_mode=self._mmap_mode).max()
             elif self.verbose > 1:
                 print("Memmaping (shape=%s, dtype=%s) to old file %s" % (
