@@ -75,4 +75,7 @@ if __name__ == "__main__":
 
         assert np.allclose(expected_result, sums)
     finally:
-        shutil.rmtree(folder)
+        try:
+            shutil.rmtree(folder)
+        except:
+            print("Failed to delete: " + folder)
