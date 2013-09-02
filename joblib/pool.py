@@ -194,7 +194,10 @@ class ArrayMemmapReducer(object):
 
             # Find a unique, concurrent safe filename for writing the
             # content of this array only once.
-            marker = self._context_id if self._context_id is None else hash(a)
+            if self._context_id is not None:
+                marker = self._context_id
+            else:
+                marker = hash(a)
             basename = "%d-%d-%d-%s.pkl" % (
                 os.getpid(), id(threading.current_thread()), id(a), marker)
             filename = os.path.join(self._temp_folder, basename)
