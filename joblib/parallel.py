@@ -7,7 +7,9 @@ Helpers for embarrassingly parallel code.
 
 import os
 import sys
+import gc
 import warnings
+from collections import Sized
 from math import sqrt
 import functools
 import time
@@ -28,13 +30,13 @@ if multiprocessing:
     except ImportError:
         multiprocessing = None
 
-
 # 2nd stage: validate that locking is available on the system and
 #            issue a warning if not
 if multiprocessing:
     try:
         _sem = multiprocessing.Semaphore()
         del _sem # cleanup
+        from .pool import MemmapingPool
     except (ImportError, OSError) as e:
         multiprocessing = None
         warnings.warn('%s.  joblib will operate in serial mode' % (e,))
@@ -42,7 +44,8 @@ if multiprocessing:
 from .format_stack import format_exc, format_outer_frames
 from .logger import Logger, short_format_time
 from .my_exceptions import TransportableException, _mk_exception
-
+from .disk import memstr_to_kbytes
+from ._compat import _basestring
 
 ###############################################################################
 # CPU that works also when multiprocessing is not installed (python2.5)
@@ -174,6 +177,24 @@ class Parallel(Logger):
             The amount of jobs to be pre-dispatched. Default is 'all',
             but it may be memory consuming, for instance if each job
             involves a lot of a data.
+        temp_folder: str, optional
+            Folder to be used by the pool for memmaping large arrays
+            for sharing memory with worker processes. If None, this will try in
+            order:
+            - a folder pointed by the JOBLIB_TEMP_FOLDER environment variable,
+            - /dev/shm if the folder exists and is writable: this is a RAMdisk
+              filesystem available by default on modern Linux distributions,
+            - the default system temporary folder that can be overridden
+              with TMP, TMPDIR or TEMP environment variables, typically /tmp
+              under Unix operating systems.
+        max_nbytes int, str, or None, optional, 1e6 (1MB) by default
+            Threshold on the size of arrays passed to the workers that
+            triggers automated memmory mapping in temp_folder. Can be an int
+            in Bytes, or a human-readable string, e.g., '1M' for 1 megabyte.
+            Use None to disable memmaping of large arrays.
+        verbose: int, optional
+            Make it possible to monitor how the communication of numpy arrays
+            with the subprocess is handled (pickling or memmaping)
 
         Notes
         -----
@@ -196,6 +217,12 @@ class Parallel(Logger):
             * An optional progress meter.
 
             * Interruption of multiprocesses jobs with 'Ctrl-C'
+
+            * Flexible pickling control for the communication to and from
+              the worker processes.
+
+            * Ability to use shared memory efficiently with worker
+              processes for large numpy-based datastructures.
 
         Examples
         --------
@@ -249,13 +276,13 @@ class Parallel(Logger):
          /usr/lib/python2.7/heapq.pyc in nlargest(n=2, iterable=3, key=None)
              419         if n >= size:
              420             return sorted(iterable, key=key, reverse=True)[:n]
-             421 
+             421
              422     # When key is none, use simpler decoration
              423     if key is None:
          --> 424         it = izip(iterable, count(0,-1))                    # decorate
              425         result = _nlargest(n, it)
              426         return map(itemgetter(0), result)                   # undecorate
-             427 
+             427
              428     # General case, slowest method
 
          TypeError: izip argument #1 must support iteration
@@ -291,11 +318,18 @@ class Parallel(Logger):
          [Parallel(n_jobs=2)]: Done   5 out of   6 | elapsed:    0.0s remaining:    0.0s
          [Parallel(n_jobs=2)]: Done   6 out of   6 | elapsed:    0.0s finished
     '''
-    def __init__(self, n_jobs=1, verbose=0, pre_dispatch='all'):
+    def __init__(self, n_jobs=1, verbose=0, pre_dispatch='all',
+                 temp_folder=None, max_nbytes=1e6, mmap_mode='c'):
         self.verbose = verbose
         self.n_jobs = n_jobs
         self.pre_dispatch = pre_dispatch
         self._pool = None
+        self._temp_folder = temp_folder
+        if isinstance(max_nbytes, _basestring):
+            self._max_nbytes = 1024 * memstr_to_kbytes(max_nbytes)
+        else:
+            self._max_nbytes = max_nbytes
+        self._mmap_mode = mmap_mode
         # Not starting the pool in the __init__ is a design decision, to be
         # able to close it ASAP, and not burden the user with closing it.
         self._output = None
@@ -455,6 +489,8 @@ class Parallel(Logger):
         if self._jobs:
             raise ValueError('This Parallel instance is already running')
         n_jobs = self.n_jobs
+        if n_jobs == 0:
+            raise ValueError('n_jobs == 0 in Parallel has no meaning')
         if n_jobs < 0 and multiprocessing is not None:
             n_jobs = max(multiprocessing.cpu_count() + 1 + n_jobs, 1)
 
@@ -483,17 +519,26 @@ class Parallel(Logger):
                             'for more information'
                         )
 
+                # Make sure to free as much memory as possible before forking
+                gc.collect()
+
                 # Set an environment variable to avoid infinite loops
                 os.environ['__JOBLIB_SPAWNED_PARALLEL__'] = '1'
-                self._pool = multiprocessing.Pool(n_jobs)
+                self._pool = MemmapingPool(
+                    n_jobs, max_nbytes=self._max_nbytes,
+                    mmap_mode=self._mmap_mode,
+                    temp_folder=self._temp_folder,
+                    verbose=max(0, self.verbose - 50),
+                    context_id=0,  # the pool is used only for one call
+                )
                 self._lock = threading.Lock()
                 # We are using multiprocessing, we also want to capture
                 # KeyboardInterrupts
                 self.exceptions.extend([KeyboardInterrupt, WorkerInterrupt])
 
         pre_dispatch = self.pre_dispatch
-        if isinstance(iterable, list):
-            # We are given a list. No need to be lazy
+        if isinstance(iterable, Sized):
+            # We are given a sized (an object with len). No need to be lazy.
             pre_dispatch = 'all'
 
         if pre_dispatch == 'all' or n_jobs == 1:
@@ -525,7 +570,7 @@ class Parallel(Logger):
         finally:
             if n_jobs > 1:
                 self._pool.close()
-                self._pool.join()
+                self._pool.terminate()  # terminate does a join()
                 os.environ.pop('__JOBLIB_SPAWNED_PARALLEL__', 0)
             self._jobs = list()
         output = self._output

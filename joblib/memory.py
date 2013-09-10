@@ -76,21 +76,23 @@ class MemorizedFunc(Logger):
 
         Attributes
         ----------
-        func: callable
+        func : callable
             The original, undecorated, function.
-        cachedir: string
+        cachedir : string
             Path to the base cache directory of the memory context.
-        ignore: list or None
+        ignore : list or None
             List of variable names to ignore when choosing whether to
             recompute.
-        mmap_mode: {None, 'r+', 'r', 'w+', 'c'}
+        mmap_mode : {None, 'r+', 'r', 'w+', 'c'}
             The memmapping mode used when loading from cache
             numpy arrays. See numpy.load for the meaning of the
             arguments.
-        compress: boolean
-            Whether to zip the stored data on disk. Note that compressed
-            arrays cannot be read by memmapping.
-        verbose: int, optional
+        compress : boolean, or integer
+            Whether to zip the stored data on disk. If an integer is
+            given, it should be between 1 and 9, and sets the amount
+            of compression. Note that compressed arrays cannot be
+            read by memmapping.
+        verbose : int, optional
             The verbosity flag, controls messages that are issued as
             the function is evaluated.
     """
@@ -113,6 +115,11 @@ class MemorizedFunc(Logger):
                 The memmapping mode used when loading from cache
                 numpy arrays. See numpy.load for the meaning of the
                 arguments.
+            compress : boolean, or integer
+                Whether to zip the stored data on disk. If an integer is
+                given, it should be between 1 and 9, and sets the amount
+                of compression. Note that compressed arrays cannot be
+                read by memmapping.
             verbose: int, optional
                 Verbosity flag, controls the debug messages that are issued
                 as functions are evaluated. The higher, the more verbose
@@ -211,7 +218,8 @@ class MemorizedFunc(Logger):
         """
         coerce_mmap = (self.mmap_mode is not None)
         argument_hash = hash(filter_args(self.func, self.ignore,
-                             args, kwargs),
+                             _filter_constant(args),
+                             _filter_constant(kwargs)),
                              coerce_mmap=coerce_mmap)
         output_dir = os.path.join(self._get_func_dir(self.func),
                                   argument_hash)
@@ -250,9 +258,9 @@ class MemorizedFunc(Logger):
         # differing functions, or because the function we are referring as
         # changed?
 
-        if old_first_line == first_line == -1:
-            _, func_name = get_func_name(self.func, resolv_alias=False,
-                                         win_characters=False)
+        _, func_name = get_func_name(self.func, resolv_alias=False,
+                                     win_characters=False)
+        if old_first_line == first_line == -1 or func_name == '<lambda>':
             if not first_line == -1:
                 func_description = '%s (%s:%i)' % (func_name,
                                                 source_file, first_line)
@@ -266,22 +274,27 @@ class MemorizedFunc(Logger):
         # same than the code store, we have a collision: the code in the
         # file has not changed, but the name we have is pointing to a new
         # code block.
-        if (not old_first_line == first_line
-                                    and source_file is not None
-                                    and os.path.exists(source_file)):
-            _, func_name = get_func_name(self.func, resolv_alias=False)
-            num_lines = len(func_code.split('\n'))
-            with open(source_file) as f:
-                on_disk_func_code = f.readlines()[
-                        old_first_line - 1:old_first_line - 1 + num_lines - 1]
-            on_disk_func_code = ''.join(on_disk_func_code)
-            if on_disk_func_code.rstrip() == old_func_code.rstrip():
+        if not old_first_line == first_line and source_file is not None:
+            possible_collision = False
+            if os.path.exists(source_file):
+                _, func_name = get_func_name(self.func, resolv_alias=False)
+                num_lines = len(func_code.split('\n'))
+                with open(source_file) as f:
+                    on_disk_func_code = f.readlines()[
+                            old_first_line - 1
+                            :old_first_line - 1 + num_lines - 1]
+                on_disk_func_code = ''.join(on_disk_func_code)
+                possible_collision = (on_disk_func_code.rstrip()
+                                      == old_func_code.rstrip())
+            else:
+                possible_collision = source_file.startswith('<doctest ')
+            if possible_collision:
                 warnings.warn(JobLibCollisionWarning(
-                'Possible name collisions between functions '
-                "'%s' (%s:%i) and '%s' (%s:%i)" %
-                (func_name, source_file, old_first_line,
-                 func_name, source_file, first_line)),
-                 stacklevel=stacklevel)
+                        'Possible name collisions between functions '
+                        "'%s' (%s:%i) and '%s' (%s:%i)" %
+                        (func_name, source_file, old_first_line,
+                        func_name, source_file, first_line)),
+                    stacklevel=stacklevel)
 
         # The function has changed, wipe the cache directory.
         # XXX: Should be using warnings, and giving stacklevel
@@ -313,7 +326,9 @@ class MemorizedFunc(Logger):
         output_dir, argument_hash = self.get_output_dir(*args, **kwargs)
         if self._verbose:
             print(self.format_call(*args, **kwargs))
-        output = self.func(*args, **kwargs)
+        output = self.func(*_filter_constant(args), **_filter_constant(kwargs))
+        # Check that constant args haven't changed
+        _check_constant(*args, **kwargs)
         self._persist_output(output, output_dir)
         self._persist_input(output_dir, *args, **kwargs)
         duration = time.time() - start_time
@@ -459,9 +474,11 @@ class Memory(Logger):
                 The memmapping mode used when loading from cache
                 numpy arrays. See numpy.load for the meaning of the
                 arguments.
-            compress: boolean
-                Whether to zip the stored data on disk. Note that
-                compressed arrays cannot be read by memmapping.
+            compress: boolean, or integer
+                Whether to zip the stored data on disk. If an integer is
+                given, it should be between 1 and 9, and sets the amount
+                of compression. Note that compressed arrays cannot be
+                read by memmapping.
             verbose: int, optional
                 Verbosity flag, controls the debug messages that are issued
                 as functions are evaluated.
@@ -566,3 +583,89 @@ class Memory(Logger):
         cachedir = self.cachedir[:-7] if self.cachedir is not None else None
         return (self.__class__, (cachedir,
                 self.mmap_mode, self.compress, self._verbose))
+
+
+###############################################################################
+# class `ConstantValue`
+###############################################################################
+
+class ConstantValue(object):
+    """ A wrapper around an argument to ensure that its hash value is the same
+        before and after function call
+    """
+    def __init__(self, value):
+        """
+            Parameters
+            ----------
+            value: object
+                Value to be watched after function call
+        """
+        self.value = value
+        self.initial_hash = hash(value)
+
+    def get(self):
+        """ Return the stored value
+        """
+        return self.value
+
+    def set_name(self, name):
+        """ Define the name of the value for debug purpose.
+            
+            Parameters
+            ----------
+            name: string
+                Name of the stored argument
+        """
+        self.name = name
+
+
+    def check(self):
+        """ Check if the actual hash of the value is unchanged.
+            Called internally in MemorizedFunc.call.
+        """
+        final_hash = hash(self.value)
+        if self.initial_hash != final_hash:
+            raise ValueError('Constant argument %s '
+                'has changed after function call.' % self.name)
+
+def constant(arg):
+    """ Mark an argument as constant and raise an error if changed after
+        function call
+
+        Parameters
+        ----------
+        arg: object
+            Argument which state is checked after function call
+    """
+    return ConstantValue(arg)
+
+
+def _filter_constant(list_or_dict):
+    if isinstance(list_or_dict, tuple):
+        filtered = []
+        for i, arg in enumerate(list_or_dict):
+            if isinstance(arg, ConstantValue):
+                arg.set_name('#%d' % i)
+                arg = arg.get()
+            filtered.append(arg)
+        return tuple(filtered)
+    elif isinstance(list_or_dict, dict):
+        filtered = {}
+        for i, key in enumerate(list_or_dict):
+            arg = list_or_dict[key]
+            if isinstance(arg, ConstantValue):
+                arg.set_name('#%d (%s)' % (i, key))
+                arg = arg.get()
+            filtered[key] = arg
+        return filtered
+    return list_or_dict
+
+
+def _check_constant(*args, **kwargs):
+    for arg in args:
+        if isinstance(arg, ConstantValue):
+            arg.check()
+    for key in kwargs:
+        kwarg = kwargs[key]
+        if isinstance(kwarg, ConstantValue):
+            kwarg.check()
