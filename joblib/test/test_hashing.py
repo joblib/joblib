@@ -237,6 +237,7 @@ def test_numpy_scalar():
     nose.tools.assert_not_equal(hash(a), hash(b))
 
 
+@nose.tools.with_setup(test_memory_setup_func, test_memory_teardown_func)
 def test_dict_hash():
     # Check that dictionaries hash consistently, eventhough the ordering
     # of the keys is not garanteed
@@ -263,6 +264,7 @@ def test_dict_hash():
                             hash(b))
 
 
+@nose.tools.with_setup(test_memory_setup_func, test_memory_teardown_func)
 def test_set_hash():
     # Check that sets hash consistently, eventhough their ordering
     # is not garanteed
