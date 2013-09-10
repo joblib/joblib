@@ -218,7 +218,8 @@ class MemorizedFunc(Logger):
         """
         coerce_mmap = (self.mmap_mode is not None)
         argument_hash = hash(filter_args(self.func, self.ignore,
-                             args, kwargs),
+                             _filter_constant(args),
+                             _filter_constant(kwargs)),
                              coerce_mmap=coerce_mmap)
         output_dir = os.path.join(self._get_func_dir(self.func),
                                   argument_hash)
@@ -325,7 +326,9 @@ class MemorizedFunc(Logger):
         output_dir, argument_hash = self.get_output_dir(*args, **kwargs)
         if self._verbose:
             print(self.format_call(*args, **kwargs))
-        output = self.func(*args, **kwargs)
+        output = self.func(*_filter_constant(args), **_filter_constant(kwargs))
+        # Check that constant args haven't changed
+        _check_constant(*args, **kwargs)
         self._persist_output(output, output_dir)
         self._persist_input(output_dir, *args, **kwargs)
         duration = time.time() - start_time
@@ -580,3 +583,89 @@ class Memory(Logger):
         cachedir = self.cachedir[:-7] if self.cachedir is not None else None
         return (self.__class__, (cachedir,
                 self.mmap_mode, self.compress, self._verbose))
+
+
+###############################################################################
+# class `ConstantValue`
+###############################################################################
+
+class ConstantValue(object):
+    """ A wrapper around an argument to ensure that its hash value is the same
+        before and after function call
+    """
+    def __init__(self, value):
+        """
+            Parameters
+            ----------
+            value: object
+                Value to be watched after function call
+        """
+        self.value = value
+        self.initial_hash = hash(value)
+
+    def get(self):
+        """ Return the stored value
+        """
+        return self.value
+
+    def set_name(self, name):
+        """ Define the name of the value for debug purpose.
+            
+            Parameters
+            ----------
+            name: string
+                Name of the stored argument
+        """
+        self.name = name
+
+
+    def check(self):
+        """ Check if the actual hash of the value is unchanged.
+            Called internally in MemorizedFunc.call.
+        """
+        final_hash = hash(self.value)
+        if self.initial_hash != final_hash:
+            raise ValueError('Constant argument %s '
+                'has changed after function call.' % self.name)
+
+def constant(arg):
+    """ Mark an argument as constant and raise an error if changed after
+        function call
+
+        Parameters
+        ----------
+        arg: object
+            Argument which state is checked after function call
+    """
+    return ConstantValue(arg)
+
+
+def _filter_constant(list_or_dict):
+    if isinstance(list_or_dict, tuple):
+        filtered = []
+        for i, arg in enumerate(list_or_dict):
+            if isinstance(arg, ConstantValue):
+                arg.set_name('#%d' % i)
+                arg = arg.get()
+            filtered.append(arg)
+        return tuple(filtered)
+    elif isinstance(list_or_dict, dict):
+        filtered = {}
+        for i, key in enumerate(list_or_dict):
+            arg = list_or_dict[key]
+            if isinstance(arg, ConstantValue):
+                arg.set_name('#%d (%s)' % (i, key))
+                arg = arg.get()
+            filtered[key] = arg
+        return filtered
+    return list_or_dict
+
+
+def _check_constant(*args, **kwargs):
+    for arg in args:
+        if isinstance(arg, ConstantValue):
+            arg.check()
+    for key in kwargs:
+        kwarg = kwargs[key]
+        if isinstance(kwarg, ConstantValue):
+            kwarg.check()

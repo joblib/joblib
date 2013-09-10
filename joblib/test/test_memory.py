@@ -16,7 +16,7 @@ import sys
 
 import nose
 
-from ..memory import Memory, MemorizedFunc
+from ..memory import Memory, MemorizedFunc, constant
 from .common import with_numpy, np
 
 
@@ -450,6 +450,27 @@ def test_format_signature():
     yield nose.tools.assert_equal, \
                 sgn, \
         'f([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], y=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9])'
+
+
+def test_constant():
+    # Test error raise when constant value is changed
+    memory = Memory(cachedir=env['dir'], verbose=0)
+
+    @memory.cache
+    def f(a, b=None):
+        a['value'] = a['value'] + 1
+        if b is not None:
+            b['value'] = b['value'] + 1
+
+    g = memory.cache(f)
+
+    a = {'value': 1}
+    b = {'value': 1}
+    # Smoke test, should not complain
+    g(a)
+    g(a, b=b)
+    yield nose.tools.assert_raises, ValueError, g, constant(a)
+    yield nose.tools.assert_raises, ValueError, g, a, constant(b)
 
 
 @with_numpy
