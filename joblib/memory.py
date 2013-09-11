@@ -407,16 +407,16 @@ class MemorizedFunc(Logger):
             func_dir = self._get_func_dir(self.func)
             for f in os.listdir(func_dir):
                 dirs = []
-                if os.path.isdir(f):
+                if os.path.isdir(os.path.join(func_dir, f)):
                     dirs.append(f)
-                if len(dirs) == 1:
-                    argument_hash = os.path.basename(f)
-                    output_dir = f
-                elif len(dirs) == 0:
-                    output_dir, argument_hash = self._get_output_dir(*args, **kwargs)
-                else:
-                    raise ValueError('Cannot override: several cached calls '
-                                     'exists')
+            if len(dirs) == 1:
+                argument_hash = f
+                output_dir = os.path.join(func_dir, f)
+            elif len(dirs) == 0:
+                output_dir, argument_hash = self._get_output_dir(*args, **kwargs)
+            else:
+                raise ValueError('Cannot override: several cached calls '
+                                 'exists')
         else:
             # Compare the function code with the previous to see if the
             # function code has changed
@@ -797,7 +797,7 @@ class Memory(Logger):
             self.cachedir = os.path.join(cachedir, 'joblib')
             mkdirp(self.cachedir)
 
-    def cache(self, func=None, ignore=None, verbose=None,
+    def cache(self, func=None, ignore=None, verbose=None, override=False,
                         mmap_mode=False):
         """ Decorates the given function func to only compute its return
             value for input arguments not cached on disk.
@@ -840,6 +840,7 @@ class Memory(Logger):
                                    mmap_mode=mmap_mode,
                                    ignore=ignore,
                                    compress=self.compress,
+                                   override=override,
                                    verbose=verbose,
                                    timestamp=self.timestamp)
 
