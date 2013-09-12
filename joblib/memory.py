@@ -405,18 +405,25 @@ class MemorizedFunc(Logger):
         # function output dir
         if self.override:
             func_dir = self._get_func_dir(self.func)
+            newest_dir = None
+            m_time = None
             for f in os.listdir(func_dir):
-                dirs = []
+                print '1 ' + str(f)
                 if os.path.isdir(os.path.join(func_dir, f)):
-                    dirs.append(f)
-            if len(dirs) == 1:
-                argument_hash = f
-                output_dir = os.path.join(func_dir, f)
-            elif len(dirs) == 0:
-                output_dir, argument_hash = self._get_output_dir(*args, **kwargs)
+                    print '2 ' + str(f)
+                    m_time_ = os.path.getmtime(os.path.join(func_dir, f))
+                    if newest_dir is None:
+                        newest_dir = f
+                        m_time = m_time_
+                    elif m_time_ < m_time:
+                        newest_dir = f
+                        m_time = m_time_
+            print newest_dir
+            if newest_dir is not None:
+                argument_hash = newest_dir
+                output_dir = os.path.join(func_dir, newest_dir)
             else:
-                raise ValueError('Cannot override: several cached calls '
-                                 'exists')
+                output_dir, argument_hash = self._get_output_dir(*args, **kwargs)
         else:
             # Compare the function code with the previous to see if the
             # function code has changed
