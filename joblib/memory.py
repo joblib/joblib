@@ -101,7 +101,7 @@ class MemorizedFunc(Logger):
     #-------------------------------------------------------------------------
 
     def __init__(self, func, cachedir, ignore=None, mmap_mode=None,
-                 compress=False, verbose=1, timestamp=None):
+                 compress=False, verbose=1, timestamp=None, hashfun={}):
         """
             Parameters
             ----------
@@ -126,6 +126,10 @@ class MemorizedFunc(Logger):
             timestamp: float, optional
                 The reference time from which times in tracing messages
                 are reported.
+            hashfun: dict
+                Custom hash functions. Each entry has the argument name as key
+                and a callable as value. The specified callable is used to hash
+                the value of the argument before the arguments are matched.
         """
         Logger.__init__(self)
         self._verbose = verbose
@@ -142,6 +146,7 @@ class MemorizedFunc(Logger):
         if ignore is None:
             ignore = []
         self.ignore = ignore
+        self.hashfun = hashfun
         mkdirp(self.cachedir)
         try:
             functools.update_wrapper(self, func)
@@ -217,8 +222,12 @@ class MemorizedFunc(Logger):
             The results can be loaded using the .load_output method.
         """
         coerce_mmap = (self.mmap_mode is not None)
-        argument_hash = hash(filter_args(self.func, self.ignore,
-                             args, kwargs),
+        argdict = filter_args(self.func, self.ignore,
+                             args, kwargs)
+        for k,v in self.hashfun.iteritems():
+            if k in argdict:
+                argdict[k] = v(argdict[k])
+        argument_hash = hash(argdict,
                              coerce_mmap=coerce_mmap)
         output_dir = os.path.join(self._get_func_dir(self.func),
                                   argument_hash)
@@ -496,7 +505,7 @@ class Memory(Logger):
             mkdirp(self.cachedir)
 
     def cache(self, func=None, ignore=None, verbose=None,
-                        mmap_mode=False):
+                        mmap_mode=False, hashfun={}):
         """ Decorates the given function func to only compute its return
             value for input arguments not cached on disk.
 
@@ -513,6 +522,10 @@ class Memory(Logger):
                 The memmapping mode used when loading from cache
                 numpy arrays. See numpy.load for the meaning of the
                 arguments. By default that of the memory object is used.
+            hashfun: dict
+                Custom hash functions. Each entry has the argument name as key
+                and a callable as value. The specified callable is used to hash
+                the value of the argument before the arguments are matched.
 
             Returns
             -------
@@ -525,7 +538,7 @@ class Memory(Logger):
         if func is None:
             # Partial application, to be able to specify extra keyword
             # arguments in decorators
-            return functools.partial(self.cache, ignore=ignore)
+            return functools.partial(self.cache, ignore=ignore, hashfun=hashfun)
         if self.cachedir is None:
             return func
         if verbose is None:
@@ -539,6 +552,7 @@ class Memory(Logger):
                                    ignore=ignore,
                                    compress=self.compress,
                                    verbose=verbose,
+                                   hashfun=hashfun,
                                    timestamp=self.timestamp)
 
     def clear(self, warn=True):
