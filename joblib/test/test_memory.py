@@ -392,6 +392,24 @@ def test_memory_ignore():
     yield nose.tools.assert_equal, len(accumulator), 1
 
 
+def test_partial_decoration():
+    "Check cache may be called with kwargs before decorating"
+    memory = Memory(cachedir=env['dir'], verbose=0)
+
+    test_values = [
+        (['x'], 100, 'r'),
+        ([], 10, None),
+    ]
+    for ignore, verbose, mmap_mode in test_values:
+        @memory.cache(ignore=ignore, verbose=verbose, mmap_mode=mmap_mode)
+        def z(x):
+            pass
+
+        yield nose.tools.assert_equal, z.ignore, ignore
+        yield nose.tools.assert_equal, z._verbose, verbose
+        yield nose.tools.assert_equal, z.mmap_mode, mmap_mode
+
+
 def test_func_dir():
     # Test the creation of the memory cache directory for the function.
     memory = Memory(cachedir=env['dir'], verbose=0)
