@@ -32,6 +32,15 @@ threshold on the size of the array::
   ...     delayed(has_shareable_memory)(np.ones(i)) for i in [1e2, 1e4, 1e6])
   [False, False, True]
 
+By default the data is dumped to the ``/dev/shm`` shared-memory partition if it
+exists and writeable (typically the case under Linux). Otherwise the operating
+system's temporary folder is used. The location of the temporary data files can
+be customized by passing a ``temp_folder`` argument to the ``Parallel``
+constructor.
+
+Passing ``max_nbytes=None`` makes it possible to disable the automated array to
+memmap conversion.
+
 
 Manual management of memmaped input data
 ----------------------------------------

@@ -210,6 +210,10 @@ class ArrayMemmapReducer(object):
 
             # In case the same array with the same content is passed several
             # times to the pool subprocess children, serialize it only once
+
+            # XXX: implement an explicit reference counting scheme to make it
+            # possible to delete temporary files as soon as the workers are
+            # done processing this data.
             if not os.path.exists(filename):
                 if self.verbose > 0:
                     print("Memmaping (shape=%r, dtype=%s) to new file %s" % (
