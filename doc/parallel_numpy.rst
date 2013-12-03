@@ -17,6 +17,12 @@ on that file using the ``numpy.memmap`` subclass of ``numpy.ndarray``.
 This makes it possible to share a segment of data between all the
 worker processes.
 
+.. note::
+
+  The following only applies with the default ``"multiprocessing"`` backend. If
+  your code can release the GIL, then using ``backend="threading"`` is even
+  more efficient.
+
 
 Automated array to memmap conversion
 ------------------------------------
