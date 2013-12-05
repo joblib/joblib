@@ -7,6 +7,8 @@ Release 0.8.0-dev
 2013-12-05
 Olivier Grisel
 
+    ENH: make Memory respect mmap_mode at first call too
+
     ENH: add a threading based backend to Parallel
 
     This is low overhead alternative backend to the default multiprocessing
