@@ -352,6 +352,29 @@ def test_memory_numpy():
                 yield nose.tools.assert_equal, len(accumulator), i + 1
 
 
+@with_numpy
+def test_memory_numpy_check_mmap_mode():
+    """Check that mmap_mode is respected even at the first call"""
+
+    memory = Memory(cachedir=env['dir'], mmap_mode='r', verbose=0)
+    memory.clear(warn=False)
+
+    @memory.cache()
+    def twice(a):
+        return a * 2
+
+    a = np.ones(3)
+
+    b = twice(a)
+    c = twice(a)
+
+    nose.tools.assert_true(isinstance(c, np.memmap))
+    nose.tools.assert_equal(c.mode, 'r')
+
+    nose.tools.assert_true(isinstance(b, np.memmap))
+    nose.tools.assert_equal(b.mode, 'r')
+
+
 def test_memory_exception():
     """ Smoketest the exception handling of Memory.
     """

@@ -167,7 +167,13 @@ class MemorizedFunc(Logger):
                 self.warn('Computing func %s, argument hash %s in '
                           'directory %s'
                         % (name, argument_hash, output_dir))
-            return self.call(*args, **kwargs)
+            out = self.call(*args, **kwargs)
+            if self.mmap_mode is None:
+                return out
+            else:
+                # Memmap the output at the first call to be consistent with
+                # later calls
+                return self.load_output(output_dir)
         else:
             try:
                 t0 = time.time()
