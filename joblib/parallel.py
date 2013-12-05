@@ -20,6 +20,12 @@ try:
 except:
     import pickle
 
+
+VALID_BACKENDS = ['multiprocessing', 'threading']
+
+# Environment variables to protect against bad situations when nesting
+JOBLIB_SPAWNED_PROCESS = "__JOBLIB_SPAWNED_PARALLEL__"
+
 # Obtain possible configuration from the environment, assuming 1 (on)
 # by default, upon 0 set to None. Should instructively fail if some non
 # 0/1 value is set.
@@ -27,6 +33,7 @@ multiprocessing = int(os.environ.get('JOBLIB_MULTIPROCESSING', 1)) or None
 if multiprocessing:
     try:
         import multiprocessing
+        import multiprocessing.pool
     except ImportError:
         multiprocessing = None
 
@@ -168,6 +175,19 @@ class Parallel(Logger):
             at all, which is useful for debugging. For n_jobs below -1,
             (n_cpus + 1 + n_jobs) are used. Thus for n_jobs = -2, all
             CPUs but one are used.
+        backend: str or None
+            Specify the parallelization backend implementation.
+            Supported backends are:
+              - "multiprocessing" used by default, can induce some
+                communication and memory overhead when exchanging input and
+                output data with the with the worker Python processes.
+              - "threading" is a very low-overhead backend but it suffers
+                from the Python Global Interpreter Lock if the called function
+                relies a lot on Python objects. "threading" is mostly useful
+                when the execution bottleneck is a compiled extension that
+                explicitly releases the GIL (for instance a Cython loop wrapped
+                in a "with nogil" block or an expensive call to a library such
+                as NumPy).
         verbose: int, optional
             The verbosity level: if non zero, progress messages are
             printed. Above 50, the output is sent to stdout.
@@ -187,11 +207,13 @@ class Parallel(Logger):
             - the default system temporary folder that can be overridden
               with TMP, TMPDIR or TEMP environment variables, typically /tmp
               under Unix operating systems.
+            Only active when backend="multiprocessing".
         max_nbytes int, str, or None, optional, 1e6 (1MB) by default
             Threshold on the size of arrays passed to the workers that
             triggers automated memmory mapping in temp_folder. Can be an int
             in Bytes, or a human-readable string, e.g., '1M' for 1 megabyte.
             Use None to disable memmaping of large arrays.
+            Only active when backend="multiprocessing".
         verbose: int, optional
             Make it possible to monitor how the communication of numpy arrays
             with the subprocess is handled (pickling or memmaping)
@@ -318,9 +340,15 @@ class Parallel(Logger):
          [Parallel(n_jobs=2)]: Done   5 out of   6 | elapsed:    0.0s remaining:    0.0s
          [Parallel(n_jobs=2)]: Done   6 out of   6 | elapsed:    0.0s finished
     '''
-    def __init__(self, n_jobs=1, verbose=0, pre_dispatch='all',
+    def __init__(self, n_jobs=1, backend=None, verbose=0, pre_dispatch='all',
                  temp_folder=None, max_nbytes=1e6, mmap_mode='c'):
         self.verbose = verbose
+        if backend is None:
+            backend = "multiprocessing"
+        if backend not in VALID_BACKENDS:
+            raise ValueError("Invalid backend: %s, expected one of %r"
+                             % (backend, VALID_BACKENDS))
+        self.backend = backend
         self.n_jobs = n_jobs
         self.pre_dispatch = pre_dispatch
         self._pool = None
@@ -496,16 +524,28 @@ class Parallel(Logger):
 
         # The list of exceptions that we will capture
         self.exceptions = [TransportableException]
-        if n_jobs is None or multiprocessing is None or n_jobs == 1:
+        self._lock = threading.Lock()
+        if (n_jobs is None or multiprocessing is None or n_jobs == 1):
             n_jobs = 1
             self._pool = None
-        else:
+        elif self.backend == 'threading':
+            self._pool = multiprocessing.pool.ThreadPool(n_jobs)
+        elif self.backend == 'multiprocessing':
             if multiprocessing.current_process()._daemonic:
                 # Daemonic processes cannot have children
                 n_jobs = 1
                 self._pool = None
                 warnings.warn(
-                    'Parallel loops cannot be nested, setting n_jobs=1',
+                    'Multiprocessing-backed parallel loops cannot be nested,'
+                    ' setting n_jobs=1',
+                    stacklevel=2)
+            elif threading.current_thread().name != 'MainThread':
+                # Prevent posix fork inside in non-main posix threads
+                n_jobs = 1
+                self._pool = None
+                warnings.warn(
+                    'Multiprocessing backed parallel loops cannot be nested'
+                    ' below threads, setting n_jobs=1',
                     stacklevel=2)
             else:
                 already_forked = int(os.environ.get('__JOBLIB_SPAWNED_PARALLEL__', 0))
@@ -523,7 +563,7 @@ class Parallel(Logger):
                 gc.collect()
 
                 # Set an environment variable to avoid infinite loops
-                os.environ['__JOBLIB_SPAWNED_PARALLEL__'] = '1'
+                os.environ[JOBLIB_SPAWNED_PROCESS] = '1'
                 self._pool = MemmapingPool(
                     n_jobs, max_nbytes=self._max_nbytes,
                     mmap_mode=self._mmap_mode,
@@ -531,10 +571,11 @@ class Parallel(Logger):
                     verbose=max(0, self.verbose - 50),
                     context_id=0,  # the pool is used only for one call
                 )
-                self._lock = threading.Lock()
                 # We are using multiprocessing, we also want to capture
                 # KeyboardInterrupts
                 self.exceptions.extend([KeyboardInterrupt, WorkerInterrupt])
+        else:
+            raise ValueError("Unsupported backend: %s" % self.backend)
 
         pre_dispatch = self.pre_dispatch
         if isinstance(iterable, Sized):
@@ -571,7 +612,8 @@ class Parallel(Logger):
             if n_jobs > 1:
                 self._pool.close()
                 self._pool.terminate()  # terminate does a join()
-                os.environ.pop('__JOBLIB_SPAWNED_PARALLEL__', 0)
+                if self.backend == 'multiprocessing':
+                    os.environ.pop(JOBLIB_SPAWNED_PROCESS, 0)
             self._jobs = list()
         output = self._output
         self._output = None

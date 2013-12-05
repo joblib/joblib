@@ -1,6 +1,35 @@
 Latest changes
 ===============
 
+Release 0.8.0-dev
+-----------------
+
+2013-12-05
+Olivier Grisel
+
+    ENH: add a threading based backend to Parallel
+
+    This is low overhead alternative backend to the default multiprocessing
+    backend that is suitable when calling compiled extensions that release
+    the GIL.
+
+
+Author: Dan Stahlke <dan@stahlke.org>
+Date:   2013-11-08
+
+    FIX: use safe_repr to print arg vals in trace
+
+    This fixes a problem in which extremely long (and slow) stack traces would
+    be produced when function parameters are large numpy arrays.
+
+
+2013-09-10
+Olivier Grisel
+
+    ENH: limit memory copy with Parallel by leveraging numpy.memmap when
+    possible
+
+
 Release 0.7.1
 ---------------
 

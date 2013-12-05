@@ -29,10 +29,13 @@ except NameError:
 
 
 from ..parallel import Parallel, delayed, SafeFunction, WorkerInterrupt, \
-        multiprocessing, cpu_count
+        multiprocessing, cpu_count, VALID_BACKENDS
 from ..my_exceptions import JoblibException
 
 import nose
+
+
+ALL_VALID_BACKENDS = [None] + VALID_BACKENDS
 
 
 ###############################################################################
@@ -70,7 +73,7 @@ def test_cpu_count():
 
 ###############################################################################
 # Test parallel
-def test_simple_parallel():
+def check_simple_parallel(backend):
     X = range(5)
     for n_jobs in (1, 2, -1, -2):
         yield (nose.tools.assert_equal, [square(x) for x in X],
@@ -87,11 +90,12 @@ def test_simple_parallel():
             sys.stdout = io.BytesIO()
             sys.stderr = io.BytesIO()
         for verbose in (2, 11, 100):
-                Parallel(n_jobs=-1, verbose=verbose)(
+                Parallel(n_jobs=-1, verbose=verbose, backend=backend)(
                         delayed(square)(x) for x in X)
-                Parallel(n_jobs=1, verbose=verbose)(
+                Parallel(n_jobs=1, verbose=verbose, backend=backend)(
                         delayed(square)(x) for x in X)
-                Parallel(n_jobs=2, verbose=verbose, pre_dispatch=2)(
+                Parallel(n_jobs=2, verbose=verbose, pre_dispatch=2,
+                         backend=backend)(
                         delayed(square)(x) for x in X)
     except Exception as e:
         my_stdout = sys.stdout
@@ -106,12 +110,37 @@ def test_simple_parallel():
         sys.stderr = orig_stderr
 
 
-def nested_loop():
-    Parallel(n_jobs=2)(delayed(square)(.01) for _ in range(2))
+def test_simple_parallel():
+    for backend in ALL_VALID_BACKENDS:
+        yield check_simple_parallel, backend
+
+
+def nested_loop(backend):
+    Parallel(n_jobs=2, backend=backend)(
+        delayed(square)(.01) for _ in range(2))
+
+
+def check_nested_loop(parent_backend, child_backend):
+    Parallel(n_jobs=2, backend=parent_backend)(
+        delayed(nested_loop)(child_backend) for _ in range(2))
 
 
 def test_nested_loop():
-    Parallel(n_jobs=2)(delayed(nested_loop)() for _ in range(2))
+    for parent_backend in VALID_BACKENDS:
+        for child_backend in VALID_BACKENDS:
+            yield check_nested_loop, parent_backend, child_backend
+
+
+def increment_input(a):
+    a[0] += 1
+
+
+def test_increment_input_with_threads():
+    """Input is mutable when using the threading backend"""
+    a = [0]
+    Parallel(n_jobs=2, backend="threading")(
+        delayed(increment_input)(a) for _ in range(5))
+    nose.tools.assert_equal(a, [5])
 
 
 def test_parallel_kwargs():
@@ -184,7 +213,7 @@ def consumer(queue, item):
     queue.append('Consumed %s' % item)
 
 
-def test_dispatch_one_job():
+def check_dispatch_one_job(backend):
     """ Test that with only one job, Parallel does act as a iterator.
     """
     queue = list()
@@ -194,7 +223,8 @@ def test_dispatch_one_job():
             queue.append('Produced %i' % i)
             yield i
 
-    Parallel(n_jobs=1)(delayed(consumer)(queue, x) for x in producer())
+    Parallel(n_jobs=1, backend=backend)(
+        delayed(consumer)(queue, x) for x in producer())
     nose.tools.assert_equal(queue,
                               ['Produced 0', 'Consumed 0',
                                'Produced 1', 'Consumed 1',
@@ -206,7 +236,12 @@ def test_dispatch_one_job():
     nose.tools.assert_equal(len(queue), 12)
 
 
-def test_dispatch_multiprocessing():
+def test_dispatch_one_job():
+    for backend in VALID_BACKENDS:
+        yield check_dispatch_one_job, backend
+
+
+def check_dispatch_multiprocessing(backend):
     """ Check that using pre_dispatch Parallel does indeed dispatch items
         lazily.
     """
@@ -220,12 +255,18 @@ def test_dispatch_multiprocessing():
             queue.append('Produced %i' % i)
             yield i
 
-    Parallel(n_jobs=2, pre_dispatch=3)(delayed(consumer)(queue, i)
-                                       for i in producer())
+    Parallel(n_jobs=2, pre_dispatch=3, backend=backend)(
+        delayed(consumer)(queue, i) for i in producer())
+
     nose.tools.assert_equal(list(queue)[:4],
             ['Produced 0', 'Produced 1', 'Produced 2',
              'Consumed 0', ])
     nose.tools.assert_equal(len(queue), 12)
+
+
+def test_dispatch_multiprocessing():
+    for backend in VALID_BACKENDS:
+        yield check_dispatch_multiprocessing, backend
 
 
 def test_exception_dispatch():
