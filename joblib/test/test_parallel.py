@@ -256,11 +256,13 @@ def check_dispatch_multiprocessing(backend):
             yield i
 
     Parallel(n_jobs=2, pre_dispatch=3, backend=backend)(
-        delayed(consumer)(queue, i) for i in producer())
+        delayed(consumer)(queue, 'any') for _ in producer())
 
+    # Only 3 tasks are dispatched out of 6. The 4th task is dispatched only
+    # after any of the first 3 jobs have completed.
     nose.tools.assert_equal(list(queue)[:4],
             ['Produced 0', 'Produced 1', 'Produced 2',
-             'Consumed 0', ])
+             'Consumed any', ])
     nose.tools.assert_equal(len(queue), 12)
 
 
