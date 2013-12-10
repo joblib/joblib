@@ -35,7 +35,8 @@ threshold on the size of the array::
   >>> from joblib.pool import has_shareable_memory
 
   >>> Parallel(n_jobs=2, max_nbytes=1e6)(
-  ...     delayed(has_shareable_memory)(np.ones(i)) for i in [1e2, 1e4, 1e6])
+  ...     delayed(has_shareable_memory)(np.ones(int(i)))
+  ...     for i in [1e2, 1e4, 1e6])
   [False, False, True]
 
 By default the data is dumped to the ``/dev/shm`` shared-memory partition if it
