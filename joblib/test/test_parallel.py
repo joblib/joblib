@@ -76,9 +76,9 @@ def test_cpu_count():
 def check_simple_parallel(backend):
     X = range(5)
     for n_jobs in (1, 2, -1, -2):
-        yield (nose.tools.assert_equal, [square(x) for x in X],
-                Parallel(n_jobs=-1)(
-                        delayed(square)(x) for x in X))
+        nose.tools.assert_equal(
+            [square(x) for x in X],
+            Parallel(n_jobs=n_jobs)(delayed(square)(x) for x in X))
     try:
         # To smoke-test verbosity, we capture stdout
         orig_stdout = sys.stdout
