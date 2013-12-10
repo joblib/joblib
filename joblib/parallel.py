@@ -20,33 +20,10 @@ try:
 except:
     import pickle
 
-
-VALID_BACKENDS = ['multiprocessing', 'threading']
-
-# Environment variables to protect against bad situations when nesting
-JOBLIB_SPAWNED_PROCESS = "__JOBLIB_SPAWNED_PARALLEL__"
-
-# Obtain possible configuration from the environment, assuming 1 (on)
-# by default, upon 0 set to None. Should instructively fail if some non
-# 0/1 value is set.
-multiprocessing = int(os.environ.get('JOBLIB_MULTIPROCESSING', 1)) or None
-if multiprocessing:
-    try:
-        import multiprocessing
-        import multiprocessing.pool
-    except ImportError:
-        multiprocessing = None
-
-# 2nd stage: validate that locking is available on the system and
-#            issue a warning if not
-if multiprocessing:
-    try:
-        _sem = multiprocessing.Semaphore()
-        del _sem # cleanup
-        from .pool import MemmapingPool
-    except (ImportError, OSError) as e:
-        multiprocessing = None
-        warnings.warn('%s.  joblib will operate in serial mode' % (e,))
+from ._multiprocessing import mp
+if mp is not None:
+    from .pool import MemmapingPool
+    from multiprocessing.pool import ThreadPool
 
 from .format_stack import format_exc, format_outer_frames
 from .logger import Logger, short_format_time
@@ -54,14 +31,21 @@ from .my_exceptions import TransportableException, _mk_exception
 from .disk import memstr_to_kbytes
 from ._compat import _basestring
 
+
+VALID_BACKENDS = ['multiprocessing', 'threading']
+
+# Environment variables to protect against bad situations when nesting
+JOBLIB_SPAWNED_PROCESS = "__JOBLIB_SPAWNED_PARALLEL__"
+
+
 ###############################################################################
 # CPU that works also when multiprocessing is not installed (python2.5)
 def cpu_count():
     """ Return the number of CPUs.
     """
-    if multiprocessing is None:
+    if mp is None:
         return 1
-    return multiprocessing.cpu_count()
+    return mp.cpu_count()
 
 
 ###############################################################################
@@ -343,7 +327,14 @@ class Parallel(Logger):
     def __init__(self, n_jobs=1, backend=None, verbose=0, pre_dispatch='all',
                  temp_folder=None, max_nbytes=1e6, mmap_mode='c'):
         self.verbose = verbose
+        self._mp_context = None
         if backend is None:
+            backend = "multiprocessing"
+        elif hasattr(backend, 'Pool') and hasattr(backend, 'Lock'):
+            # Make it possible to pass a custom multiprocessing context as
+            # backend to change the start method to forkserver or spawn or
+            # preload modules on the forkserver helper process.
+            self._mp_context = backend
             backend = "multiprocessing"
         if backend not in VALID_BACKENDS:
             raise ValueError("Invalid backend: %s, expected one of %r"
@@ -519,19 +510,19 @@ class Parallel(Logger):
         n_jobs = self.n_jobs
         if n_jobs == 0:
             raise ValueError('n_jobs == 0 in Parallel has no meaning')
-        if n_jobs < 0 and multiprocessing is not None:
-            n_jobs = max(multiprocessing.cpu_count() + 1 + n_jobs, 1)
+        if n_jobs < 0 and mp is not None:
+            n_jobs = max(mp.cpu_count() + 1 + n_jobs, 1)
 
         # The list of exceptions that we will capture
         self.exceptions = [TransportableException]
         self._lock = threading.Lock()
-        if (n_jobs is None or multiprocessing is None or n_jobs == 1):
+        if (n_jobs is None or mp is None or n_jobs == 1):
             n_jobs = 1
             self._pool = None
         elif self.backend == 'threading':
-            self._pool = multiprocessing.pool.ThreadPool(n_jobs)
+            self._pool = ThreadPool(n_jobs)
         elif self.backend == 'multiprocessing':
-            if multiprocessing.current_process().daemon:
+            if mp.current_process().daemon:
                 # Daemonic processes cannot have children
                 n_jobs = 1
                 self._pool = None
@@ -564,13 +555,17 @@ class Parallel(Logger):
 
                 # Set an environment variable to avoid infinite loops
                 os.environ[JOBLIB_SPAWNED_PROCESS] = '1'
-                self._pool = MemmapingPool(
-                    n_jobs, max_nbytes=self._max_nbytes,
+                poolargs = dict(
+                    max_nbytes=self._max_nbytes,
                     mmap_mode=self._mmap_mode,
                     temp_folder=self._temp_folder,
                     verbose=max(0, self.verbose - 50),
                     context_id=0,  # the pool is used only for one call
                 )
+                if self._mp_context is not None:
+                    # Use Python 3.4+ multiprocessing context isolation
+                    poolargs['context'] = self._mp_context
+                self._pool = MemmapingPool(n_jobs, **poolargs)
                 # We are using multiprocessing, we also want to capture
                 # KeyboardInterrupts
                 self.exceptions.extend([KeyboardInterrupt, WorkerInterrupt])

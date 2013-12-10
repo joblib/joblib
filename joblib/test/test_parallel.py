@@ -29,7 +29,7 @@ except NameError:
 
 
 from ..parallel import Parallel, delayed, SafeFunction, WorkerInterrupt, \
-        multiprocessing, cpu_count, VALID_BACKENDS
+        mp, cpu_count, VALID_BACKENDS
 from ..my_exceptions import JoblibException
 
 import nose
@@ -37,6 +37,9 @@ import nose
 
 ALL_VALID_BACKENDS = [None] + VALID_BACKENDS
 
+if hasattr(mp, 'get_context'):
+    # Custom multiprocessing context in Python 3.4+
+    ALL_VALID_BACKENDS.append(mp.get_context('spawn'))
 
 ###############################################################################
 
@@ -90,13 +93,15 @@ def check_simple_parallel(backend):
             sys.stdout = io.BytesIO()
             sys.stderr = io.BytesIO()
         for verbose in (2, 11, 100):
-                Parallel(n_jobs=-1, verbose=verbose, backend=backend)(
-                        delayed(square)(x) for x in X)
-                Parallel(n_jobs=1, verbose=verbose, backend=backend)(
-                        delayed(square)(x) for x in X)
-                Parallel(n_jobs=2, verbose=verbose, pre_dispatch=2,
-                         backend=backend)(
-                        delayed(square)(x) for x in X)
+            Parallel(n_jobs=-1, verbose=verbose, backend=backend)(
+                delayed(square)(x) for x in X)
+            Parallel(n_jobs=1, verbose=verbose, backend=backend)(
+                delayed(square)(x) for x in X)
+            Parallel(n_jobs=2, verbose=verbose, pre_dispatch=2,
+                     backend=backend)(
+                delayed(square)(x) for x in X)
+            Parallel(n_jobs=2, verbose=verbose, backend=backend)(
+                delayed(square)(x) for x in X)
     except Exception as e:
         my_stdout = sys.stdout
         my_stderr = sys.stderr
@@ -169,7 +174,7 @@ def test_parallel_pickling():
 def test_error_capture():
     # Check that error are captured, and that correct exceptions
     # are raised.
-    if multiprocessing is not None:
+    if mp is not None:
         # A JoblibException will be raised only if there is indeed
         # multiprocessing
         nose.tools.assert_raises(JoblibException,
@@ -245,9 +250,9 @@ def check_dispatch_multiprocessing(backend):
     """ Check that using pre_dispatch Parallel does indeed dispatch items
         lazily.
     """
-    if multiprocessing is None:
+    if mp is None:
         raise nose.SkipTest()
-    manager = multiprocessing.Manager()
+    manager = mp.Manager()
     queue = manager.list()
 
     def producer():
