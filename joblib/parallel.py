@@ -531,7 +531,7 @@ class Parallel(Logger):
         elif self.backend == 'threading':
             self._pool = multiprocessing.pool.ThreadPool(n_jobs)
         elif self.backend == 'multiprocessing':
-            if multiprocessing.current_process()._daemonic:
+            if multiprocessing.current_process().daemon:
                 # Daemonic processes cannot have children
                 n_jobs = 1
                 self._pool = None
