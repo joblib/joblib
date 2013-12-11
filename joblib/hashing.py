@@ -155,10 +155,12 @@ class NumpyHasher(Hasher):
             # Compute a hash of the object:
             try:
                 self._hash.update(self._getbuffer(obj))
-            except (TypeError, BufferError):
+            except (TypeError, BufferError, ValueError):
                 # Cater for non-single-segment arrays: this creates a
                 # copy, and thus aleviates this issue.
                 # XXX: There might be a more efficient way of doing this
+                # Python 3.2's memoryview raise a ValueError instead of a
+                # TypeError or a BufferError
                 self._hash.update(self._getbuffer(obj.flatten()))
 
             # We store the class, to be able to distinguish between

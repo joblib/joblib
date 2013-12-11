@@ -128,6 +128,17 @@ def test_hash_numpy():
 
 
 @with_numpy
+def test_hash_numpy_noncontiguous():
+    a = np.asarray(np.arange(6000).reshape((1000, 2, 3)),
+                   order='F')[:, :1, :]
+    b = np.ascontiguousarray(a)
+    nose.tools.assert_not_equal(hash(a), hash(b))
+
+    c = np.asfortranarray(a)
+    nose.tools.assert_not_equal(hash(a), hash(c))
+
+
+@with_numpy
 def test_hash_memmap():
     """ Check that memmap and arrays hash identically if coerce_mmap is
         True.
