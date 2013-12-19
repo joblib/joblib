@@ -4,6 +4,12 @@ Latest changes
 Release 0.8.0-dev
 -----------------
 
+2013-12-19
+Olivier Grisel
+
+    FIX: support the new Python 3.4 multiprocessing API
+
+
 2013-12-05
 Olivier Grisel
 
