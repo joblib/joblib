@@ -19,7 +19,8 @@ import stat
 import sys
 import threading
 import atexit
-import tempfile
+import errno
+from tempfile import mkdtemp
 import shutil
 try:
     from cPickle import loads
@@ -399,8 +400,11 @@ class PicklingPool(Pool):
 
 def delete_folder(folder_path):
     """Utility function to cleanup a temporary folder if still existing"""
-    if os.path.exists(folder_path):
+    try:
         shutil.rmtree(folder_path)
+    except OSError as e:
+        if e.errno != errno.ENOENT:
+            raise
 
 
 class MemmapingPool(PicklingPool):
@@ -493,23 +497,17 @@ class MemmapingPool(PicklingPool):
         if temp_folder is None:
             temp_folder = os.environ.get('JOBLIB_TEMP_FOLDER', None)
         if temp_folder is None:
-            if os.path.exists(SYSTEM_SHARED_MEM_FS):
-                try:
-                    joblib_folder = os.path.join(
-                        SYSTEM_SHARED_MEM_FS, 'joblib')
-                    if not os.path.exists(joblib_folder):
-                        os.makedirs(joblib_folder)
-                    use_shared_mem = True
-                except IOError:
-                    # Missing rights in the the /dev/shm partition, ignore
-                    pass
-        if temp_folder is None:
-            # Fallback to the default tmp folder, typically /tmp
-            temp_folder = tempfile.gettempdir()
-        temp_folder = os.path.abspath(os.path.expanduser(temp_folder))
-        self._temp_folder = temp_folder = os.path.join(
-            temp_folder, "joblib_memmaping_pool_%d_%d" % (
-                os.getpid(), id(self)))
+            try:
+                temp_folder = mkdtemp(prefix='joblib',
+                                      dir=SYSTEM_SHARED_MEM_FS)
+                use_shared_mem = True
+            except IOError:
+                # We probably can't write to /dev/shm, ignore
+                temp_folder = mkdtemp(prefix='joblib')
+        else:
+            temp_folder = mkdtemp(prefix='joblib', dir=temp_folder)
+
+        self._temp_folder = temp_folder
 
         # Register the garbage collector at program exit in case caller forgets
         # to call terminate explicitly: note we do not pass any reference to
