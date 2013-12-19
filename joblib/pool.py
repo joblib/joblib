@@ -33,10 +33,10 @@ except ImportError:
 from pickle import HIGHEST_PROTOCOL
 from io import BytesIO
 
+from ._multiprocessing import mp, assert_spawning
+# We need the class definition to derive from it not the multiprocessing.Pool
+# factory function
 from multiprocessing.pool import Pool
-from multiprocessing import Pipe
-from multiprocessing.synchronize import Lock
-from multiprocessing.forking import assert_spawning
 
 try:
     import numpy as np
@@ -296,14 +296,14 @@ class CustomizablePicklingQueue(object):
     standard library documentation on pickling for more details.
     """
 
-    def __init__(self, reducers=None):
+    def __init__(self, context, reducers=None):
         self._reducers = reducers
-        self._reader, self._writer = Pipe(duplex=False)
-        self._rlock = Lock()
+        self._reader, self._writer = context.Pipe(duplex=False)
+        self._rlock = context.Lock()
         if sys.platform == 'win32':
             self._wlock = None
         else:
-            self._wlock = Lock()
+            self._wlock = context.Lock()
         self._make_methods()
 
     def __getstate__(self):
@@ -375,21 +375,24 @@ class PicklingPool(Pool):
 
     """
 
-    def __init__(self, processes=None, initializer=None, initargs=(),
-                 forward_reducers=None, backward_reducers=None):
+    def __init__(self, processes=None, forward_reducers=None,
+                 backward_reducers=None, **kwargs):
         if forward_reducers is None:
             forward_reducers = dict()
         if backward_reducers is None:
             backward_reducers = dict()
         self._forward_reducers = forward_reducers
         self._backward_reducers = backward_reducers
-        super(PicklingPool, self).__init__(processes=processes,
-                                           initializer=initializer,
-                                           initargs=initargs)
+        poolargs = dict(processes=processes)
+        poolargs.update(kwargs)
+        super(PicklingPool, self).__init__(**poolargs)
 
     def _setup_queues(self):
-        self._inqueue = CustomizablePicklingQueue(self._forward_reducers)
-        self._outqueue = CustomizablePicklingQueue(self._backward_reducers)
+        context = getattr(self, '_ctx', mp)
+        self._inqueue = CustomizablePicklingQueue(context,
+                                                  self._forward_reducers)
+        self._outqueue = CustomizablePicklingQueue(context,
+                                                   self._backward_reducers)
         self._quick_put = self._inqueue._send
         self._quick_get = self._outqueue._recv
 
@@ -475,10 +478,9 @@ class MemmapingPool(PicklingPool):
 
     """
 
-    def __init__(self, processes=None, initializer=None, initargs=(),
-                 temp_folder=None, max_nbytes=1e6, mmap_mode='c',
-                 forward_reducers=None, backward_reducers=None,
-                 verbose=0, context_id=None, prewarm=False):
+    def __init__(self, processes=None, temp_folder=None, max_nbytes=1e6,
+                 mmap_mode='c', forward_reducers=None, backward_reducers=None,
+                 verbose=0, context_id=None, prewarm=False, **kwargs):
         if forward_reducers is None:
             forward_reducers = dict()
         if backward_reducers is None:
@@ -537,12 +539,12 @@ class MemmapingPool(PicklingPool):
             backward_reducers[np.ndarray] = backward_reduce_ndarray
             backward_reducers[np.memmap] = reduce_memmap
 
-        super(MemmapingPool, self).__init__(
+        poolargs = dict(
             processes=processes,
-            initializer=initializer,
-            initargs=initargs,
             forward_reducers=forward_reducers,
             backward_reducers=backward_reducers)
+        poolargs.update(kwargs)
+        super(MemmapingPool, self).__init__(**poolargs)
 
     def terminate(self):
         super(MemmapingPool, self).terminate()
