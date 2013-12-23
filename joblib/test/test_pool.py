@@ -39,7 +39,7 @@ TEMP_FOLDER = None
 
 
 def setup_module():
-    setup_autokill(__name__, timeout=15)
+    setup_autokill(__name__, timeout=30)
 
 
 def teardown_module():
