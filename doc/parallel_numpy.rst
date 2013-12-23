@@ -136,4 +136,7 @@ A final note: don't forget to clean up any temporary folder when you are done
 with the computation::
 
   >>> import shutil
-  >>> shutil.rmtree(temp_folder)
+  >>> try:
+  ...     shutil.rmtree(temp_folder)
+  ... except OSError:
+  ...     pass  # this can sometimes fail under Windows

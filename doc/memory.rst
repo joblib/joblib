@@ -312,15 +312,8 @@ methods useful for cache exploration and management.
  Let us not forget to clean our cache dir once we are finished::
 
     >>> import shutil
-    >>> shutil.rmtree(cachedir)
-    >>> import shutil
-    >>> shutil.rmtree(cachedir2)
-
- And we check that it has indeed been remove::
-
-    >>> import os ; os.path.exists(cachedir)
-    False
-    >>> os.path.exists(cachedir2)
-    False
-
-
+    >>> try:
+    ...     shutil.rmtree(cachedir)
+    ...     shutil.rmtree(cachedir2)
+    ... except OSError:
+    ...     pass  # this can sometimes fail under Windows
