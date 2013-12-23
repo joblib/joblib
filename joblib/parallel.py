@@ -192,7 +192,7 @@ class Parallel(Logger):
               with TMP, TMPDIR or TEMP environment variables, typically /tmp
               under Unix operating systems.
             Only active when backend="multiprocessing".
-        max_nbytes int, str, or None, optional, 1e6 (1MB) by default
+        max_nbytes int, str, or None, optional, 100e6 (100MB) by default
             Threshold on the size of arrays passed to the workers that
             triggers automated memmory mapping in temp_folder. Can be an int
             in Bytes, or a human-readable string, e.g., '1M' for 1 megabyte.
@@ -325,7 +325,7 @@ class Parallel(Logger):
          [Parallel(n_jobs=2)]: Done   6 out of   6 | elapsed:    0.0s finished
     '''
     def __init__(self, n_jobs=1, backend=None, verbose=0, pre_dispatch='all',
-                 temp_folder=None, max_nbytes=1e6, mmap_mode='c'):
+                 temp_folder=None, max_nbytes=100e6, mmap_mode='c'):
         self.verbose = verbose
         self._mp_context = None
         if backend is None:
