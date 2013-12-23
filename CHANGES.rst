@@ -1,8 +1,24 @@
 Latest changes
 ===============
 
-Release 0.8.0-dev
------------------
+Release 0.8.0a2
+---------------
+
+2013-12-23
+Olivier Grisel
+
+    ENH: set default value of Parallel's max_nbytes to 100MB
+
+    Motivation: avoid introducing disk latency on medium sized
+    parallel workload where memory usage is not an issue.
+
+    FIX: properly handle the JOBLIB_MULTIPROCESSING env variable
+
+    FIX: timeout test failures under windows
+
+
+Release 0.8.0a
+--------------
 
 2013-12-19
 Olivier Grisel
