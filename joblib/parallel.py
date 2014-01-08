@@ -516,6 +516,10 @@ class Parallel(Logger):
         # The list of exceptions that we will capture
         self.exceptions = [TransportableException]
         self._lock = threading.Lock()
+
+        # Whether or not to set an environment flag to track
+        # multiple process spawning
+        set_environ_flag = False
         if (n_jobs is None or mp is None or n_jobs == 1):
             n_jobs = 1
             self._pool = None
@@ -554,7 +558,7 @@ class Parallel(Logger):
                 gc.collect()
 
                 # Set an environment variable to avoid infinite loops
-                os.environ[JOBLIB_SPAWNED_PROCESS] = '1'
+                set_environ_flag = True
                 poolargs = dict(
                     max_nbytes=self._max_nbytes,
                     mmap_mode=self._mmap_mode,
@@ -591,6 +595,9 @@ class Parallel(Logger):
         self._start_time = time.time()
         self.n_dispatched = 0
         try:
+            if set_environ_flag:
+                # Set an environment variable to avoid infinite loops
+                os.environ[JOBLIB_SPAWNED_PROCESS] = '1'
             for function, args, kwargs in iterable:
                 self.dispatch(function, args, kwargs)
 
