@@ -198,9 +198,6 @@ class Parallel(Logger):
             in Bytes, or a human-readable string, e.g., '1M' for 1 megabyte.
             Use None to disable memmaping of large arrays.
             Only active when backend="multiprocessing".
-        verbose: int, optional
-            Make it possible to monitor how the communication of numpy arrays
-            with the subprocess is handled (pickling or memmaping)
 
         Notes
         -----
