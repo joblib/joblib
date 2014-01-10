@@ -1,6 +1,17 @@
 Latest changes
 ===============
 
+Dev branch leading to 0.8.0
+---------------------------
+
+2014-01-10
+Olivier Grisel & Gael Varoquaux
+
+   FIX #105: Race condition in task iterable consumption when
+   pre_dispatch != 'all' that could cause crash with error messages "Pools
+   seems closed" and "ValueError: generator already executing".
+
+
 Release 0.8.0a2
 ---------------
 
