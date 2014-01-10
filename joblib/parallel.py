@@ -170,7 +170,11 @@ class LockedIterator(object):
 
     def next(self):
         with self._lock:
-            return self._it.next()
+            return next(self._it)
+
+    # For Python 3 compat
+    __next__ = next
+
 
 
 ###############################################################################
