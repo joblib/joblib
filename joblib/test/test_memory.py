@@ -500,13 +500,13 @@ def test_format_signature_numpy():
 
 
 def test_persist_with_output_dir_keyword_arg():
-    """
-    Test that "output" keyword argument can be persisted (see issue #72)
-
-    """
+    """Test that "output_dir" keyword argument can be persisted (issue #72)"""
 
     def f(output_dir="thing"):
-        return None
+        return output_dir
 
-    mem = Memory(cachedir="out")
-    mem.cache(f)(output_dir="other/thing")
+    mem = Memory(cachedir=env['dir'])
+    first_result = mem.cache(f)(output_dir="other/thing")
+    cached_result = mem.cache(f)(output_dir="other/thing")
+    nose.tools.assert_equal(first_result, "other/thing")
+    nose.tools.assert_equal(cached_result, "other/thing")
