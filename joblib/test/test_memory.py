@@ -497,3 +497,16 @@ def test_format_signature():
 def test_format_signature_numpy():
     """ Test the format signature formatting with numpy.
     """
+
+
+def test_persist_with_output_dir_keyword_arg():
+    """
+    Test that "output" keyword argument can be persisted (see issue #72)
+
+    """
+
+    def f(output_dir="thing"):
+        return None
+
+    mem = Memory(cachedir="out")
+    mem.cache(f)(output_dir="other/thing")
