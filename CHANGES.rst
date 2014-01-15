@@ -1,8 +1,8 @@
 Latest changes
 ===============
 
-Dev branch leading to 0.8.0
----------------------------
+Release 0.8.0a3
+---------------
 
 2014-01-10
 Olivier Grisel & Gael Varoquaux
@@ -10,6 +10,11 @@ Olivier Grisel & Gael Varoquaux
    FIX #105: Race condition in task iterable consumption when
    pre_dispatch != 'all' that could cause crash with error messages "Pools
    seems closed" and "ValueError: generator already executing".
+
+2014-01-12
+Olivier Grisel
+
+   FIX #72: joblib cannot persist "output_dir" keyword argument.
 
 
 Release 0.8.0a2
