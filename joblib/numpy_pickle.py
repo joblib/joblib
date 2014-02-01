@@ -24,6 +24,7 @@ PY3 = sys.version_info[0] >= 3
 if PY3:
     Unpickler = pickle._Unpickler
     Pickler = pickle._Pickler
+    xrange = range
 
     def asbytes(s):
         if isinstance(s, bytes):
@@ -48,6 +49,7 @@ _MEGA = 2 ** 20
 # hexadecimal string. For example: 'ZF0x139              '
 _ZFILE_PREFIX = asbytes('ZF')
 _MAX_LEN = len(hex_str(2 ** 64))
+_CHUNK_SIZE = 64 * 1024
 
 
 ###############################################################################
@@ -78,20 +80,14 @@ def read_zfile(file_handle):
     length = length[len(_ZFILE_PREFIX):]
     length = int(length, 16)
 
-    # With python2 and joblib version <= 0.8.4 compressed pickle header is one
-    # character wider so we need to ignore an additional space if present.
-    # Note: the first byte of the zlib data is guaranteed not to be a
-    # space according to
-    # https://tools.ietf.org/html/rfc6713#section-2.1
-    next_byte = file_handle.read(1)
-    if next_byte != b' ':
-        # The zlib compressed data has started and we need to go back
-        # one byte
-        file_handle.seek(header_length)
-
-    # We use the known length of the data to tell Zlib the size of the
-    # buffer to allocate.
-    data = zlib.decompress(file_handle.read(), 15, length)
+    decompresser= zlib.decompressobj()
+    data = b''
+    while True:
+        chunk = file_handle.read(_CHUNK_SIZE)
+        if not chunk:
+            break
+        data += decompresser.decompress(chunk)
+    data += decompresser.flush() # Read the remainder
     assert len(data) == length, (
         "Incorrect data length while decompressing %s."
         "The file could be corrupted." % file_handle)
@@ -102,14 +98,26 @@ def write_zfile(file_handle, data, compress=1):
     """Write the data in the given file as a Z-file.
 
     Z-files are raw data compressed with zlib used internally by joblib
-    for persistence. Backward compatibility is not guarantied. Do not
+    for persistence. Backward compatibility is not guaranteed. Do not
     use for external purposes.
     """
+    compresser = zlib.compressobj(compress)
     file_handle.write(_ZFILE_PREFIX)
     length = hex_str(len(data))
+    # If python 2.x, we need to remove the trailing 'L' in the hex representation
+    if not PY3:
+        length = length.rstrip(b'L')
     # Store the length of the data
-    file_handle.write(asbytes(length.ljust(_MAX_LEN)))
-    file_handle.write(zlib.compress(asbytes(data), compress))
+    file_handle.write(length.ljust(_MAX_LEN))
+
+    # Write the data out in chunks
+    for i in xrange(len(data)//_CHUNK_SIZE+1):
+        chunk = data[i*_CHUNK_SIZE:(i+1)*_CHUNK_SIZE]
+        file_handle.write(compresser.compress(chunk))
+
+    tail = compresser.flush()
+    if tail: # Write the remainder
+        file_handle.write(tail)
 
 
 ###############################################################################
@@ -158,7 +166,7 @@ class NDArrayWrapper(object):
 class ZNDArrayWrapper(NDArrayWrapper):
     """An object to be persisted instead of numpy arrays.
 
-    This object store the Zfile filename in which
+    This object stores the Zfile filename in which
     the data array has been persisted, and the meta information to
     retrieve it.
 
