@@ -60,7 +60,7 @@ def read_zfile(file_handle):
     length = length[len(_ZFILE_PREFIX):]
     length = int(length, 16)
     decompresser= zlib.decompressobj()
-    data = b''
+    data = bytearray()
     while True:
         chunk = file_handle.read(_CHUNK_SIZE)
         if not chunk:
@@ -82,7 +82,7 @@ def write_zfile(file_handle, data, compress=1):
     """
     compresser = zlib.compressobj(compress)
     file_handle.write(_ZFILE_PREFIX)
-    length = bytes(hex(len(data)))
+    length = hex(len(data)).encode('latin-1')
     # If python 2.x, we need to remove the trailing 'L' in the hex representation
     length = length.rstrip(b'L')
     # Store the length of the data
