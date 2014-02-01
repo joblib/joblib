@@ -20,22 +20,18 @@ from io import BytesIO
 if sys.version_info[0] >= 3:
     Unpickler = pickle._Unpickler
     Pickler = pickle._Pickler
+    xrange = range
 
-    def asbytes(s):
-        if isinstance(s, bytes):
-            return s
-        return s.encode('latin1')
 else:
     Unpickler = pickle.Unpickler
     Pickler = pickle.Pickler
-    asbytes = str
 
 _MEGA = 2 ** 20
 _MAX_LEN = len(hex(2 ** 64))
 
 # To detect file types
-_ZFILE_PREFIX = asbytes('ZF')
-
+_ZFILE_PREFIX = b'ZF'
+_CHUNK_SIZE = 64 * 1024
 
 ###############################################################################
 # Compressed file with Zlib
@@ -63,9 +59,14 @@ def read_zfile(file_handle):
     length = file_handle.read(len(_ZFILE_PREFIX) + _MAX_LEN)
     length = length[len(_ZFILE_PREFIX):]
     length = int(length, 16)
-    # We use the known length of the data to tell Zlib the size of the
-    # buffer to allocate.
-    data = zlib.decompress(file_handle.read(), 15, length)
+    decompresser= zlib.decompressobj()
+    data = b''
+    while True:
+        chunk = file_handle.read(_CHUNK_SIZE)
+        if not chunk:
+            break
+        data += decompresser.decompress(chunk)
+    data += decompresser.flush() # Read the remainder
     assert len(data) == length, (
         "Incorrect data length while decompressing %s."
         "The file could be corrupted." % file_handle)
@@ -76,17 +77,25 @@ def write_zfile(file_handle, data, compress=1):
     """Write the data in the given file as a Z-file.
 
     Z-files are raw data compressed with zlib used internally by joblib
-    for persistence. Backward compatibility is not guarantied. Do not
+    for persistence. Backward compatibility is not guaranteed. Do not
     use for external purposes.
     """
+    compresser = zlib.compressobj(compress)
     file_handle.write(_ZFILE_PREFIX)
-    length = hex(len(data))
-    if sys.version_info[0] < 3 and type(length) is long:
-        # We need to remove the trailing 'L' in the hex representation
-        length = length[:-1]
+    length = bytes(hex(len(data)))
+    # If python 2.x, we need to remove the trailing 'L' in the hex representation
+    length = length.rstrip(b'L')
     # Store the length of the data
-    file_handle.write(asbytes(length.ljust(_MAX_LEN)))
-    file_handle.write(zlib.compress(asbytes(data), compress))
+    file_handle.write(length.ljust(_MAX_LEN))
+
+    # Write the data out in chunks
+    for i in xrange(len(data)//_CHUNK_SIZE+1):
+        chunk = data[i*_CHUNK_SIZE:(i+1)*_CHUNK_SIZE]
+        file_handle.write(compresser.compress(chunk))
+
+    tail = compresser.flush()
+    if tail: # Write the remainder
+        file_handle.write(tail)
 
 
 ###############################################################################
@@ -132,7 +141,7 @@ class NDArrayWrapper(object):
 class ZNDArrayWrapper(NDArrayWrapper):
     """An object to be persisted instead of numpy arrays.
 
-    This object store the Zfile filename in which
+    This object stores the Zfile filename in which
     the data array has been persisted, and the meta information to
     retrieve it.
 
@@ -386,7 +395,7 @@ def load(filename, mmap_mode=None):
         The name of the file from which to load the object
     mmap_mode: {None, 'r+', 'r', 'w+', 'c'}, optional
         If not None, the arrays are memory-mapped from the disk. This
-        mode has not effect for compressed files. Note that in this
+        mode has no effect for compressed files. Note that in this
         case the reconstructed object might not longer match exactly
         the originally pickled object.
 
