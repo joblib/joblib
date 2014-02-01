@@ -81,7 +81,7 @@ def read_zfile(file_handle):
     length = int(length, 16)
 
     decompresser= zlib.decompressobj()
-    data = b''
+    data = bytearray()
     while True:
         chunk = file_handle.read(_CHUNK_SIZE)
         if not chunk:
