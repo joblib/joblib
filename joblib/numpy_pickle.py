@@ -55,6 +55,7 @@ _CHUNK_SIZE = 64 * 1024
 ###############################################################################
 # Compressed file with Zlib
 
+
 def _read_magic(file_handle):
     """ Utility to check the magic signature of a file identifying it as a
         Zfile
@@ -80,14 +81,14 @@ def read_zfile(file_handle):
     length = length[len(_ZFILE_PREFIX):]
     length = int(length, 16)
 
-    decompresser= zlib.decompressobj()
+    decompresser = zlib.decompressobj()
     data = bytearray()
     while True:
         chunk = file_handle.read(_CHUNK_SIZE)
         if not chunk:
             break
         data += decompresser.decompress(chunk)
-    data += decompresser.flush() # Read the remainder
+    data += decompresser.flush()  # Read the remainder
     assert len(data) == length, (
         "Incorrect data length while decompressing %s."
         "The file could be corrupted." % file_handle)
@@ -104,7 +105,8 @@ def write_zfile(file_handle, data, compress=1):
     compresser = zlib.compressobj(compress)
     file_handle.write(_ZFILE_PREFIX)
     length = hex_str(len(data))
-    # If python 2.x, we need to remove the trailing 'L' in the hex representation
+    # If python 2.x, we need to remove the trailing 'L'
+    # in the hex representation
     if not PY3:
         length = length.rstrip(b'L')
     # Store the length of the data
@@ -116,7 +118,7 @@ def write_zfile(file_handle, data, compress=1):
         file_handle.write(compresser.compress(chunk))
 
     tail = compresser.flush()
-    if tail: # Write the remainder
+    if tail:  # Write the remainder
         file_handle.write(tail)
 
 
@@ -151,10 +153,10 @@ class NDArrayWrapper(object):
         # versions of numpy
         if (hasattr(array, '__array_prepare__')
                 and not self.subclass in (unpickler.np.ndarray,
-                                      unpickler.np.memmap)):
+                                          unpickler.np.memmap)):
             # We need to reconstruct another subclass
             new_array = unpickler.np.core.multiarray._reconstruct(
-                    self.subclass, (0,), 'b')
+                self.subclass, (0,), 'b')
             new_array.__array_prepare__(array)
             array = new_array
         return array
@@ -257,7 +259,7 @@ class NumpyPickler(Pickler):
                 write_zfile(zfile, state[-1], compress=self.compress)
             state = state[:-1]
             container = ZNDArrayWrapper(os.path.basename(filename),
-                                            init_args, state)
+                                        init_args, state)
         return container, filename
 
     def save(self, obj):
@@ -266,7 +268,8 @@ class NumpyPickler(Pickler):
             total abuse of the Pickler class.
         """
         if self.np is not None and type(obj) in (self.np.ndarray,
-                                            self.np.matrix, self.np.memmap):
+                                                 self.np.matrix,
+                                                 self.np.memmap):
             size = obj.size * obj.itemsize
             if self.compress and size < self.cache_size * _MEGA:
                 # When compressing, as we are not writing directly to the
@@ -286,8 +289,8 @@ class NumpyPickler(Pickler):
                 self._npy_counter -= 1
                 # XXX: We should have a logging mechanism
                 print('Failed to save %s to .npy file:\n%s' % (
-                        type(obj),
-                        traceback.format_exc()))
+                    type(obj),
+                    traceback.format_exc()))
         return Pickler.save(self, obj)
 
     def close(self):
@@ -327,8 +330,8 @@ class NumpyUnpickler(Unpickler):
         Unpickler.load_build(self)
         if isinstance(self.stack[-1], NDArrayWrapper):
             if self.np is None:
-                raise ImportError('Trying to unpickle an ndarray, '
-                        "but numpy didn't import correctly")
+                raise ImportError("Trying to unpickle an ndarray, "
+                                  "but numpy didn't import correctly")
             nd_array_wrapper = self.stack.pop()
             array = nd_array_wrapper.read(self)
             self.stack.append(array)
@@ -404,9 +407,9 @@ def dump(value, filename, compress=0, cache_size=100, protocol=None):
         # People keep inverting arguments, and the resulting error is
         # incomprehensible
         raise ValueError(
-              'Second argument should be a filename, %s (type %s) was given'
-              % (filename, type(filename))
-            )
+            'Second argument should be a filename, %s (type %s) was given'
+            % (filename, type(filename))
+        )
 
     try:
         pickler = NumpyPickler(filename, compress=compress,
