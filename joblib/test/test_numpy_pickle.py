@@ -224,7 +224,11 @@ def test_masked_array_persistence():
 def test_z_file():
     # Test saving and loading data with Zfiles
     filename = env['filename'] + str(random.randint(0, 1000))
-    data = numpy_pickle.asbytes('Foo, \n Bar, baz, \n\nfoobar')
+    # asbytes() was removed as unnecessary since all internal code paths
+    # to write_zfile() pass in a bytes object already.
+    # Ian Beaver - 2/3/2014
+    #data = numpy_pickle.asbytes('Foo, \n Bar, baz, \n\nfoobar')
+    data = b'Foo, \n Bar, baz, \n\nfoobar'
     numpy_pickle.write_zfile(open(filename, 'wb'), data)
     data_read = numpy_pickle.read_zfile(open(filename, 'rb'))
     nose.tools.assert_equal(data, data_read)
