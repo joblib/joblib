@@ -48,7 +48,7 @@ _MEGA = 2 ** 20
 # bytes which contains the length of the zlib compressed data as an
 # hexadecimal string. For example: 'ZF0x139              '
 _ZFILE_PREFIX = asbytes('ZF')
-_MAX_LEN = len(hex_str(2 ** 64))
+_MAX_LEN = len(hex_str(2 ** 64)).rstrip('L')
 _CHUNK_SIZE = 64 * 1024
 
 
@@ -66,7 +66,7 @@ def _read_magic(file_handle):
     return magic
 
 
-def read_zfile(file_handle):
+def read_zfile(file_handle, write_buf=None):
     """Read the z-file and return the content as a string
 
     Z-files are raw data compressed with zlib used internally by joblib
@@ -82,17 +82,23 @@ def read_zfile(file_handle):
     length = int(length, 16)
 
     decompresser = zlib.decompressobj()
-    data = bytearray()
+    idx = 0
+    if write_buf is None:
+        write_buf = bytearray()
     while True:
-        chunk = file_handle.read(_CHUNK_SIZE)
-        if not chunk:
+        zchunk = file_handle.read(_CHUNK_SIZE)
+        if not zchunk:
             break
-        data += decompresser.decompress(chunk)
-    data += decompresser.flush()  # Read the remainder
-    assert len(data) == length, (
+        chunk = decompresser.decompress(zchunk)
+        # Write chunks at a time into the buffer
+        write_buf[idx:idx+len(chunk)] = chunk
+        idx += len(chunk)
+    write_buf[idx:] = decompresser.flush()  # Read the remainder
+
+    assert len(write_buf) == length, (
         "Incorrect data length while decompressing %s."
         "The file could be corrupted." % file_handle)
-    return data
+    return write_buf
 
 
 def write_zfile(file_handle, data, compress=1):
@@ -104,6 +110,10 @@ def write_zfile(file_handle, data, compress=1):
     """
     compresser = zlib.compressobj(compress)
     file_handle.write(_ZFILE_PREFIX)
+    if hasattr(data, 'nbytes'):
+        data_length = data.nbytes
+    else:
+        data_length = len(data)
     length = hex_str(len(data))
     # If python 2.x, we need to remove the trailing 'L'
     # in the hex representation
@@ -112,8 +122,11 @@ def write_zfile(file_handle, data, compress=1):
     # Store the length of the data
     file_handle.write(length.ljust(_MAX_LEN))
 
-    # Write the data out in chunks
-    for i in xrange(len(data)//_CHUNK_SIZE+1):
+    if hasattr(data, 'flat'):
+        # Numpy ndarray, flatten it out
+        data = data.flat
+
+    for i in xrange(data_length//_CHUNK_SIZE+1):
         chunk = data[i*_CHUNK_SIZE:(i+1)*_CHUNK_SIZE]
         file_handle.write(compresser.compress(chunk))
 
@@ -188,14 +201,31 @@ class ZNDArrayWrapper(NDArrayWrapper):
 
     def read(self, unpickler):
         "Reconstruct the array from the meta-information and the z-file"
+        # We do not support Numpy < 1.7 with Python 3
+        if sys.version_info[0] == 3 and unpickler.np.__version__ < '1.7':
+            raise NotImplementedError('Loading compressed files with Numpy'
+                                      ' < 1.7 not supported in Python3')
         # Here we a simply reproducing the unpickling mechanism for numpy
         # arrays
         filename = os.path.join(unpickler._dirname, self.filename)
         array = unpickler.np.core.multiarray._reconstruct(*self.init_args)
-        with open(filename, 'rb') as f:
-            data = read_zfile(f)
-        state = self.state + (data,)
-        array.__setstate__(state)
+        # First we construct an empty array with the original properties
+        # This requires Numpy >= 1.7 on Python3 since before that arrays
+        # initialized by __setstate__ with an empty string do not own their
+        # data??
+        array.__setstate__(self.state)
+        # Then we resize it back to its original size
+        array.resize(self.init_args[1])
+
+        if sys.version_info[0] == 2:
+            # Python2 buffer objects can be written directly into
+            read_zfile(open(filename, 'rb'), array.data)
+        else:
+            # Memoryview objects do not support assignments to ndim > 1
+            # (as of Python 3.3), so write into a bytearray instead
+            # and eat the cost of a memory copy back into a memoryview
+            array.data = memoryview(read_zfile(open(filename, 'rb')))
+
         return array
 
 
@@ -253,11 +283,23 @@ class NumpyPickler(Pickler):
             # Efficient compressed storage:
             # The meta data is stored in the container, and the core
             # numerics in a z-file
-            _, init_args, state = array.__reduce__()
-            # the last entry of 'state' is the data itself
-            with open(filename, 'wb') as zfile:
-                write_zfile(zfile, state[-1], compress=self.compress)
-            state = state[:-1]
+            init_args = (type(array), array.shape, 'b')
+            if PY3:
+                # This requires numpy >= 1.7 on Python3:
+                # Use the state to create an empty array object and resize
+                # it after the data is read from the file
+                state = (1, (0,), array.dtype,
+                         array.flags.f_contiguous and not array.flags.c_contiguous,
+                         '')
+                zfile = open(filename, 'wb')
+                write_zfile(zfile, array,
+                            compress=self.compress)
+                zfile.close()
+            else:
+                # the last entry of 'state' is the data itself
+                with open(filename, 'wb') as zfile:
+                    write_zfile(zfile, state[-1], compress=self.compress)
+                    state = state[:-1]
             container = ZNDArrayWrapper(os.path.basename(filename),
                                         init_args, state)
         return container, filename
@@ -322,7 +364,6 @@ class NumpyUnpickler(Unpickler):
     def load_build(self):
         """ This method is called to set the state of a newly created
             object.
-
             We capture it to replace our place-holder objects,
             NDArrayWrapper, by the array we are interested in. We
             replace them directly in the stack of pickler.
