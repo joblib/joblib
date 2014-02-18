@@ -152,6 +152,46 @@ def test_memmap_based_array_reducing():
 @with_numpy
 @with_multiprocessing
 @with_temp_folder
+def test_high_dimension_memmap_array_reducing():
+    assert_array_equal = np.testing.assert_array_equal
+
+    filename = os.path.join(TEMP_FOLDER, 'test.mmap')
+
+    # Create a high dimensional memmap
+    a = np.memmap(filename, dtype=np.float64, shape=(100, 15, 15, 3), mode='w+')
+    a[:] = np.arange(100 * 15 * 15 * 3).reshape(a.shape)
+
+    # Create some slices/indices at various dimensions
+    b = a[0:10]
+    c = a[:, 5:10]
+    d = a[:, :, :, 0]
+
+    def reconstruct_memmap(x):
+        cons, args = reduce_memmap(x)
+        res = cons(*args)
+        return res
+
+    a_reconstructed = reconstruct_memmap(a)
+    assert_true(has_shareable_memory(a_reconstructed))
+    assert_true(isinstance(a_reconstructed, np.memmap))
+    assert_array_equal(a_reconstructed, a)
+
+    b_reconstructed = reconstruct_memmap(b)
+    assert_true(has_shareable_memory(b_reconstructed))
+    assert_array_equal(b_reconstructed, b)
+
+    c_reconstructed = reconstruct_memmap(c)
+    assert_true(has_shareable_memory(c_reconstructed))
+    assert_array_equal(c_reconstructed, c)
+
+    d_reconstructed = reconstruct_memmap(d)
+    assert_true(has_shareable_memory(d_reconstructed))
+    assert_array_equal(d_reconstructed, d)
+
+
+@with_numpy
+@with_multiprocessing
+@with_temp_folder
 def test_pool_with_memmap():
     """Check that subprocess can access and update shared memory memmap"""
     assert_array_equal = np.testing.assert_array_equal
