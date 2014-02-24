@@ -418,7 +418,10 @@ class MemorizedFunc(Logger):
             if self.mmap_mode is not None:
                 # Memmap the output at the first call to be consistent with
                 # later calls
-                out = self.load_output(output_dir)
+                out = _load_output(output_dir, self.func,
+                                   timestamp=self.timestamp,
+                                   mmap_mode=self.mmap_mode,
+                                   verbose=self._verbose)
         else:
             try:
                 t0 = time.time()
