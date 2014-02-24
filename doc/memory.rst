@@ -76,18 +76,18 @@ Comparison with `memoize`
 
 The `memoize` decorator (http://code.activestate.com/recipes/52201/)
 caches in memory all the inputs and outputs of a function call. It can
-thus avoid running twice the same function, but with a very small
+thus avoid running twice the same function, with a very small
 overhead. However, it compares input objects with those in cache on each
-call. As a result, for big objects there is a huge overhead. More over
+call. As a result, for big objects there is a huge overhead. Moreover
 this approach does not work with numpy arrays, or other objects subject
 to non-significant fluctuations. Finally, using `memoize` with large
-object will consume all the memory, where with `Memory`, objects are
-persisted to the disk, using a persister optimized for speed and memory
+objects will consume all the memory, where with `Memory`, objects are
+persisted to disk, using a persister optimized for speed and memory
 usage (:func:`joblib.dump`).
 
 In short, `memoize` is best suited for functions with "small" input and
 output objects, whereas `Memory` is best suited for functions with complex
-input and output objects, and aggressive persistence to the disk.
+input and output objects, and aggressive persistence to disk.
 
 
 Using with `numpy`
@@ -134,6 +134,7 @@ An example
            [ 0.0064,  0.08  ,  1.    ]])
     >>> np.allclose(b, b2)
     True
+
 
 Using memmapping
 ~~~~~~~~~~~~~~~~
@@ -195,6 +196,59 @@ return value is loaded from the disk using memmapping::
    the `Memory`, especially when using `mmap_mode='r'` as the array is
    writable in the first run, and not the second.
 
+
+Shelving: using references to cached values
+-------------------------------------------
+
+In some cases, it can be useful to get a reference to the cached
+result, instead of having the result itself. A typical example of this
+is when a lot of large numpy arrays must be dispatched accross several
+workers: instead of sending the data themselves over the network, send
+a reference to the joblib cache, and let the workers read the data
+from a network filesystem, potentially taking advantage of some
+system-level caching too.
+
+Getting a reference to the cache can be done using the
+`call_and_shelve` method on the wrapped function::
+
+    >>> result = g.call_and_shelve(4)
+    A long-running calculation, with parameter 4
+    >>> result  #doctest: +ELLIPSIS 
+    MemorizedResult(cachedir="...", func="g...", argument_hash="...")
+
+Once computed, the output of `g` is stored on disk, and deleted from
+memory. Reading the associated value can then be performed with the
+`get` method::
+
+    >>> result.get()
+    array([ 0.08,  0.77,  0.77,  0.08])
+
+The cache for this particular value can be cleared using the `clear`
+method. Its invocation causes the stored value to be erased from disk.
+Any subsequent call to `get` will cause a `KeyError` exception to be
+raised::
+
+    >>> result.clear()
+    >>> result.get()  #doctest: +ELLIPSIS
+    Traceback (most recent call last):
+        ...
+    KeyError: 'Non-existing cache value (may have been cleared).\nFile ... does not exist'
+
+A `MemorizedResult` instance contains all that is necessary to read
+the cached value. It can be pickled for transmission or storage, and
+the printed representation can even be copy-pasted to a different
+python interpreter.
+
+.. topic:: Shelving when cache is disabled
+
+    In the case where caching is disabled (e.g.
+    `Memory(cachedir=None)`), the `call_and_shelve` method returns a
+    `NotMemorizedResult` instance, that stores the full function
+    output, instead of just a reference (since there is nothing to
+    point to). All the above remains valid though, except for the
+    copy-pasting feature.
+
+
 Gotchas
 --------
 
@@ -215,11 +269,11 @@ Gotchas
 
     >>> func(1)
     Running a different func(1)
-    >>> func2(1)
-    memory.rst:0: JobLibCollisionWarning: Possible name collisions between functions 'func' (<doctest memory.rst>:30) and 'func' (<doctest memory.rst>:28)
+    >>> func2(1)  #doctest: +ELLIPSIS
+    memory.rst:0: JobLibCollisionWarning: Possible name collisions between functions 'func' (<doctest memory.rst>:...) and 'func' (<doctest memory.rst>:...)
     Running func(1)
-    >>> func(1)
-    memory.rst:0: JobLibCollisionWarning: Possible name collisions between functions 'func' (<doctest memory.rst>:28) and 'func' (<doctest memory.rst>:30)
+    >>> func(1)  #doctest: +ELLIPSIS
+    memory.rst:0: JobLibCollisionWarning: Possible name collisions between functions 'func' (<doctest memory.rst>:...) and 'func' (<doctest memory.rst>:...)
     Running a different func(1)
     >>> func2(1)
     Running func(1)

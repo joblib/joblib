@@ -1,6 +1,17 @@
 Latest changes
 ===============
 
+
+In development
+--------------
+
+20140-02-24
+Philippe Gervais
+
+   New ``Memory.call_and_shelve`` API to handle memoized results by
+   reference instead of by value.
+
+
 Release 0.8.0a3
 ---------------
 

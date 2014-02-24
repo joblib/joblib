@@ -44,6 +44,19 @@ def short_format_time(t):
         return " %5.1fs" % (t)
 
 
+def pformat(obj, indent=0, depth=3):
+    if 'numpy' in sys.modules:
+        import numpy as np
+        print_options = np.get_printoptions()
+        np.set_printoptions(precision=6, threshold=64, edgeitems=1)
+    else:
+        print_options = None
+    out = pprint.pformat(obj, depth=depth, indent=indent)
+    if print_options:
+        np.set_printoptions(**print_options)
+    return out
+
+
 ###############################################################################
 # class `Logger`
 ###############################################################################
@@ -70,16 +83,7 @@ class Logger(object):
     def format(self, obj, indent=0):
         """ Return the formated representation of the object.
         """
-        if 'numpy' in sys.modules:
-            import numpy as np
-            print_options = np.get_printoptions()
-            np.set_printoptions(precision=6, threshold=64, edgeitems=1)
-        else:
-            print_options = None
-        out = pprint.pformat(obj, depth=self.depth, indent=indent)
-        if print_options:
-            np.set_printoptions(**print_options)
-        return out
+        return pformat(obj, indent=indent, depth=self.depth)
 
 
 ###############################################################################

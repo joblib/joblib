@@ -105,7 +105,7 @@ Main features
 __version__ = '0.8.0a3'
 
 
-from .memory import Memory
+from .memory import Memory, MemorizedResult
 from .logger import PrintTime
 from .logger import Logger
 from .hashing import hash
