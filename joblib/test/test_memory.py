@@ -484,39 +484,6 @@ def test_persistence():
     gp(1)
 
 
-def test_persist_with_output_dir_keyword_arg():
-    """Test that "output_dir" keyword argument can be persisted (issue #72)"""
-
-    def f(output_dir="thing"):
-        return output_dir
-
-    mem = Memory(cachedir=env['dir'])
-    first_result = mem.cache(f)(output_dir="other/thing")
-    cached_result = mem.cache(f)(output_dir="other/thing")
-    nose.tools.assert_equal(first_result, "other/thing")
-    nose.tools.assert_equal(cached_result, "other/thing")
-
-
-def test_format_signature():
-    # Test the signature formatting.
-    func = MemorizedFunc(f, cachedir=env['dir'])
-    path, sgn = func.format_signature(f, list(range(10)))
-    yield nose.tools.assert_equal, \
-                sgn, \
-                'f([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])'
-    path, sgn = func.format_signature(f, list(range(10)),
-                                      y=list(range(10)))
-    yield nose.tools.assert_equal, \
-                sgn, \
-        'f([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], y=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9])'
-
-
-@with_numpy
-def test_format_signature_numpy():
-    """ Test the format signature formatting with numpy.
-    """
-
-
 def test_call_and_shelve():
     """Test MemorizedFunc outputting a reference to cache.
     """
