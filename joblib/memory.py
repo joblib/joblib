@@ -177,9 +177,9 @@ class MemorizedResult(Logger):
             self.metadata = {}
             # No error is relevant here.
             try:
-                self.metadata = json.load(
-                    open(os.path.join(self._output_dir, 'metadata.json'), 'rb')
-                    )
+                with open(os.path.join(self._output_dir, 'metadata.json'),
+                          'rb') as f:
+                    self.metadata = json.load(f)
             except:
                 pass
 
