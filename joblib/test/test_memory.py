@@ -509,8 +509,10 @@ def test_memorized_pickling():
     for func in (MemorizedFunc(f, env['dir']), NotMemorizedFunc(f)):
         filename = os.path.join(env['dir'], 'pickling_test.dat')
         result = func.call_and_shelve(2)
-        pickle.dump(result, open(filename, 'wb'))
-        result2 = pickle.load(open(filename, 'rb'))
+        with open(filename, 'wb') as fp:
+            pickle.dump(result, fp)
+        with open(filename, 'rb') as fp:
+            result2 = pickle.load(fp)
         nose.tools.assert_equal(result2.get(), result.get())
         os.remove(filename)
 

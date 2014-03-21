@@ -177,9 +177,9 @@ class MemorizedResult(Logger):
             self.metadata = {}
             # No error is relevant here.
             try:
-                self.metadata = json.load(
-                    open(os.path.join(self._output_dir, 'metadata.json'), 'rb')
-                    )
+                with open(os.path.join(self._output_dir, 'metadata.json'),
+                          'rb') as f:
+                    self.metadata = json.load(f)
             except:
                 pass
 
@@ -668,9 +668,8 @@ class MemorizedFunc(Logger):
         metadata = {"duration": duration, "input_args": input_repr}
         try:
             mkdirp(output_dir)
-            json.dump(metadata,
-                      file(os.path.join(output_dir, 'metadata.json'), 'w'),
-                      )
+            with open(os.path.join(output_dir, 'metadata.json'), 'w') as f:
+                json.dump(metadata, f)
         except:
             pass
 
