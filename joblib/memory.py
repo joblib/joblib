@@ -668,9 +668,8 @@ class MemorizedFunc(Logger):
         metadata = {"duration": duration, "input_args": input_repr}
         try:
             mkdirp(output_dir)
-            json.dump(metadata,
-                      file(os.path.join(output_dir, 'metadata.json'), 'w'),
-                      )
+            with open(os.path.join(output_dir, 'metadata.json'), 'w') as f:
+                json.dump(metadata, f)
         except:
             pass
 
