@@ -33,7 +33,7 @@ except ImportError:
 from pickle import HIGHEST_PROTOCOL
 from io import BytesIO
 
-from ._multiprocessing import mp, assert_spawning
+from ._jlmultiprocessing import mp, assert_spawning
 # We need the class definition to derive from it not the multiprocessing.Pool
 # factory function
 from multiprocessing.pool import Pool
