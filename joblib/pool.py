@@ -14,6 +14,7 @@ that uses a custom alternative to SimpleQueue.
 # License: BSD 3 clause
 
 from mmap import mmap
+import errno
 import os
 import stat
 import sys
@@ -194,8 +195,7 @@ class ArrayMemmapReducer(object):
                 os.makedirs(self._temp_folder)
                 os.chmod(self._temp_folder, FOLDER_PERMISSIONS)
             except OSError as e:
-                if e.errno != 17:
-                    # Errno 17 corresponds to 'Directory exists'
+                if e.errno != errno.EEXIST:
                     raise e
 
             # Find a unique, concurrent safe filename for writing the
