@@ -161,8 +161,16 @@ class MemorizedResult(Logger):
     verbose: int
         verbosity level (0 means no message)
 
+    func_key_mode: string, either 'filename' or 'code'
+        How the function key is calculated. If this is 'code', the
+        function is keyed by a hash of its source code, meaning that
+        if the function changes, it no longer invalidates all of the
+        earlier results, and that the same function can live within
+        different modules/folder names on different machines
+
     timestamp, metadata: string
         for internal use only
+
     """
     def __init__(self, cachedir, func, argument_hash,
                  mmap_mode=None, verbose=0, timestamp=None, metadata=None,
@@ -366,6 +374,12 @@ class MemorizedFunc(Logger):
             timestamp: float, optional
                 The reference time from which times in tracing messages
                 are reported.
+            func_key_mode: string, either 'filename' or 'code'
+                How the function key is calculated. If this is 'code', the
+                function is keyed by a hash of its source code, meaning that
+                if the function changes, it no longer invalidates all of the
+                earlier results, and that the same function can live within
+                different modules/folder names on different machines
         """
         Logger.__init__(self)
         self.mmap_mode = mmap_mode
@@ -768,6 +782,12 @@ class Memory(Logger):
             verbose: int, optional
                 Verbosity flag, controls the debug messages that are issued
                 as functions are evaluated.
+            func_key_mode: string, either 'filename' or 'code'
+                How the function key is calculated. If this is 'code', the
+                function is keyed by a hash of its source code, meaning that
+                if the function changes, it no longer invalidates all of the
+                earlier results, and that the same function can live within
+                different modules/folder names on different machines
         """
         # XXX: Bad explanation of the None value of cachedir
         Logger.__init__(self)
@@ -803,6 +823,12 @@ class Memory(Logger):
                 The memmapping mode used when loading from cache
                 numpy arrays. See numpy.load for the meaning of the
                 arguments. By default that of the memory object is used.
+            func_key_mode: string, either 'filename' or 'code'
+                How the function key is calculated. If this is 'code', the
+                function is keyed by a hash of its source code, meaning that
+                if the function changes, it no longer invalidates all of the
+                earlier results, and that the same function can live within
+                different modules/folder names on different machines
 
             Returns
             -------
