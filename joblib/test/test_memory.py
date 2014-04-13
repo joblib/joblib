@@ -20,6 +20,9 @@ import nose
 
 from ..memory import Memory, MemorizedFunc, NotMemorizedFunc, MemorizedResult
 from ..memory import NotMemorizedResult
+from ..func_inspect import get_func_code
+from ..hashing import hash
+
 from .common import with_numpy, np
 
 
@@ -435,7 +438,7 @@ def test_partial_decoration():
         yield nose.tools.assert_equal, z.mmap_mode, mmap_mode
 
 
-def test_func_dir():
+def test_ordinary_func_dir():
     # Test the creation of the memory cache directory for the function.
     memory = Memory(cachedir=env['dir'], verbose=0)
     path = __name__.split('.')
@@ -461,6 +464,32 @@ def test_func_dir():
     yield nose.tools.assert_true, os.path.exists(dir)
     os.remove(os.path.join(dir, 'output.pkl'))
     yield nose.tools.assert_equal, a, g(1)
+
+def test_codehashed_func_dir():
+    # Test the creation of the memory cache directory for the function.
+    memory = Memory(cachedir=env['dir'], func_key_mode='code', verbose=0)
+    path = os.path.join(env['dir'], 'joblib', 'f-'+hash(get_func_code(f)[0]))
+
+    g = memory.cache(f)
+    # Test that the function directory is created on demand
+    yield nose.tools.assert_equal, g._get_func_dir(), path
+    yield nose.tools.assert_true, os.path.exists(path)
+
+    # Test that the code is stored.
+    yield nose.tools.assert_false, \
+        g._check_previous_func_code()
+    yield nose.tools.assert_true, \
+            os.path.exists(os.path.join(path, 'func_code.py'))
+    yield nose.tools.assert_true, \
+        g._check_previous_func_code()
+
+    # Test the robustness to failure of loading previous results.
+    dir, _ = g.get_output_dir(1)
+    a = g(1)
+    yield nose.tools.assert_true, os.path.exists(dir)
+    os.remove(os.path.join(dir, 'output.pkl'))
+    yield nose.tools.assert_equal, a, g(1)
+
 
 
 def test_persistence():
