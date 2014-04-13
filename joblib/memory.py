@@ -76,7 +76,7 @@ def _get_func_fullname(func):
     return os.path.join(*modules)
 
 
-def _cache_key_to_dir(cachedir, func, argument_hash):
+def _cache_key_to_dir(cachedir, func, argument_hash, key_mode='code'):
     """Compute directory associated with a given cache key.
 
     func can be a function or a string as returned by _get_func_fullname().
@@ -85,7 +85,14 @@ def _cache_key_to_dir(cachedir, func, argument_hash):
     if isinstance(func, _basestring):
         parts.append(func)
     else:
-        parts.append(_get_func_fullname(func))
+        if key_mode=='code':
+            modules,funcname = get_func_name(func)
+            code,filename,line = get_func_code(func)
+            parts.append(funcname+"-"+hash(code))
+        elif key_mode=='filename':
+            parts.append(_get_func_fullname(func))
+        else:
+            raise ValueError("The function key must be either 'code' or 'filename'")
 
     if argument_hash is not None:
         parts.append(argument_hash)
