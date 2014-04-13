@@ -76,7 +76,7 @@ def _get_func_fullname(func):
     return os.path.join(*modules)
 
 
-def _cache_key_to_dir(cachedir, func, argument_hash, key_mode='code'):
+def _cache_key_to_dir(cachedir, func, argument_hash, key_mode):
     """Compute directory associated with a given cache key.
 
     func can be a function or a string as returned by _get_func_fullname().
