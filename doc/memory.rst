@@ -213,7 +213,7 @@ Getting a reference to the cache can be done using the
 
     >>> result = g.call_and_shelve(4)
     A long-running calculation, with parameter 4
-    >>> result  #doctest: +ELLIPSIS 
+    >>> result  #doctest: +ELLIPSIS
     MemorizedResult(cachedir="...", func="g...", argument_hash="...")
 
 Once computed, the output of `g` is stored on disk, and deleted from
@@ -262,7 +262,7 @@ Gotchas
     ...     print('Running func(%s)' % x)
 
     >>> func2 = func
-    
+
     >>> @memory.cache
     ... def func(x):
     ...     print('Running a different func(%s)' % x)
@@ -340,6 +340,41 @@ change, for instance a debug flag. `Memory` provides the `ignore` list::
     >>> my_func(0, debug=False)
     >>> my_func(0, debug=True)
     >>> # my_func was not reevaluated
+
+Managing result invalidation
+----------------------------
+
+When actively developing a project that uses `joblib`, be careful with
+cached functions. Consider: What should happen when you modify a
+function's source code? Since the function's definition changed,
+joblib should not simply return the old meaningless cached results. To
+protect against returning invalidated results, joblib's default
+behavior is to delete all of the cached results of a function when its
+source code or line number changes. Further, two identical functions
+that appear in different source files are considered to be different.
+These behaviors are *pessimistic* in the sense that joblib stays on
+the safe side, deleting results because something about the function's
+environment changed, such as its line number or the filename it
+appears in, even when these changes are inconsequential.
+
+Sometimes, this behavior isn't what's desired. For some applications,
+it makes more sense to just key function results based on a hash of
+the function's source code. That way, if a function's source code
+changes, it will simply save its results to a different bucket than
+the old function used to.
+
+To enable this behavior, call the `Memory` constructor with the
+(optional) `func_key_mode` parameter set to `"code"`::
+
+    >>> from joblib import Memory
+    >>> mem = Memory("cachedir",func_key_mode='code')
+    >>>
+    >>> @mem.cache
+    >>> def test(x):
+    >>>     return x*2
+
+Now, if the definition of `test()` changes, its results will be stored
+in another place rather than deleted.
 
 
 .. _memory_reference:
