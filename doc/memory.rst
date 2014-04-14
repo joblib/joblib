@@ -366,12 +366,13 @@ the old function used to.
 To enable this behavior, call the `Memory` constructor with the
 (optional) `func_key_mode` parameter set to `"code"`::
 
-    >>> from joblib import Memory
     >>> mem = Memory("cachedir",func_key_mode='code')
     >>>
     >>> @mem.cache
-    >>> def test(x):
-    >>>     return x*2
+    ... def test(x):
+    ...     return x*2
+    ...
+    >>>
 
 Now, if the definition of `test()` changes, its results will be stored
 in another place rather than deleted.
