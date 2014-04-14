@@ -218,11 +218,12 @@ class MemorizedResult(Logger):
 
     def __repr__(self):
         return ('{class_name}(cachedir="{cachedir}", func="{func}", '
-                'argument_hash="{argument_hash}")'.format(
+                'argument_hash="{argument_hash}",func_key_mode="{func_key_mode}")'.format(
                     class_name=self.__class__.__name__,
                     cachedir=self.cachedir,
                     func=self.func,
-                    argument_hash=self.argument_hash
+                    argument_hash=self.argument_hash,
+                    func_key_mode=self.func_key_mode
                     ))
 
     def __reduce__(self):
