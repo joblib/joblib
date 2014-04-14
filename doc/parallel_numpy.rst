@@ -132,6 +132,23 @@ Here is an example script on parallel processing with preallocated
    :language: python
    :linenos:
 
+.. warning::
+
+  Having concurrent workers write on overlapping shared memory data segments
+  for instance by using inplace operators and assignments on a `numpy.memmap`
+  instance can lead to data corruption as numpy does not offer atomic
+  operations. The previous example does not risk that issue as each task is
+  updating an exclusive segment of the shared result array.
+
+  Some C/C++ compilers offer lock-free atomic primitives such as add-and-fetch
+  or compare-and-swap that could be exposed to Python via CFFI_ for instance.
+  However providing numpy-aware atomic constructs is outside of the scope
+  of the joblib project.
+
+
+.. _CFFI: https://cffi.readthedocs.org
+
+
 A final note: don't forget to clean up any temporary folder when you are done
 with the computation::
 
