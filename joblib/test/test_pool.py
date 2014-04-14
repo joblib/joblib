@@ -12,7 +12,7 @@ from .common import with_numpy, np
 from .common import setup_autokill
 from .common import teardown_autokill
 
-from .._multiprocessing import mp
+from .._multiprocessing_helpers import mp
 if mp is not None:
     from ..pool import MemmapingPool
     from ..pool import has_shareable_memory
