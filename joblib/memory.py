@@ -519,6 +519,11 @@ class MemorizedFunc(Logger):
     def _write_func_code(self, filename, func_code, first_line):
         """ Write the function code and the filename to a file.
         """
+        # We store the first line because the filename and the function
+        # name is not always enough to identify a function: people
+        # sometimes have several functions named the same way in a
+        # file. This is bad practice, but joblib should be robust to bad
+        # practice.
         func_code = '%s %i\n%s' % (FIRST_LINE_TEXT, first_line, func_code)
         with open(filename, 'w') as out:
             out.write(func_code)
