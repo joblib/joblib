@@ -5,6 +5,14 @@ Latest changes
 In development
 --------------
 
+2014-04-22
+Gael Varoquaux
+
+    ENH: Make memory robust to modification of source files while the
+    interpreter is running. Should lead to less spurious cache flushes
+    and recomputations.
+
+
 20140-02-24
 Philippe Gervais
 
