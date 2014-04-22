@@ -554,13 +554,17 @@ def test_memorized_repr():
 def test_memory_file_modification():
     # Test that modifying a Python file after loading it does not lead to
     # Recomputation
-    filename = os.path.join(env['dir'], 'tmp.py')
+    dir_name = os.path.join(env['dir'], 'tmp_import')
+    if not os.path.exists(dir_name):
+        os.mkdir(dir_name)
+    filename = os.path.join(dir_name, 'tmp_joblib_.py')
     content = 'def f(x):\n    print(x)\n    return x\n'
     with open(filename, 'w') as module_file:
         module_file.write(content)
 
     # Load the module:
-    tmp = imp.load_source('tmp', filename)
+    sys.path.append(dir_name)
+    import tmp_joblib_ as tmp
 
     mem = Memory(cachedir=env['dir'], verbose=0)
     f = mem.cache(tmp.f)
@@ -579,7 +583,7 @@ def test_memory_file_modification():
         f(2)
         f(1)
 
-        # Now modify the module where f is stored
+        # Now modify the module where f is stored without modifying f
         with open(filename, 'w') as module_file:
             module_file.write('\n\n' + content)
 
@@ -587,6 +591,28 @@ def test_memory_file_modification():
         f(1)
         f(1)
 
+        # Flush the .pyc files
+        shutil.rmtree(dir_name)
+        os.mkdir(dir_name)
+        # Now modify the module where f is stored, modifying f
+        content = 'def f(x):\n    print("x=%s" % x)\n    return x\n'
+        with open(filename, 'w') as module_file:
+            module_file.write(content)
+
+        # And call f more times
+        f(1)
+        f(1)
+
+        # Now reload
+        my_stdout.write('Reloading\n')
+        sys.modules.pop('tmp_joblib_')
+        import tmp_joblib_ as tmp
+        f = mem.cache(tmp.f)
+
+        # And call f more times
+        f(1)
+        f(1)
+
     finally:
         sys.stdout = orig_stdout
-    nose.tools.assert_equal(my_stdout.getvalue(), '1\n2\n')
+    nose.tools.assert_equal(my_stdout.getvalue(), '1\n2\nReloading\nx=1\n')
