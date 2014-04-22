@@ -15,6 +15,7 @@ import shutil
 import time
 import pydoc
 import re
+import sys
 try:
     import cPickle as pickle
 except ImportError:
@@ -538,8 +539,14 @@ class MemorizedFunc(Logger):
         with open(filename, 'w') as out:
             out.write(func_code)
         # Also store in the in-memory store of function hashes
-        if (hasattr(self.func, 'func_name')
-            and self.func.func_name != '<lambda>'):
+        is_named_callable = False
+        if sys.version_info[0] == 3:
+            is_named_callable = (hasattr(self.func, '__name__')
+                                 and self.func.__name__ != '<lambda>')
+        else:
+            is_named_callable = (hasattr(self.func, 'func_name')
+                                 and self.func.func_name != '<lambda>')
+        if is_named_callable:
             # Don't do this for lambda functions or strange callable
             # objects, as it ends up being too fragil
             func_hash = (id(self.func), hash(self.func))
