@@ -15,6 +15,7 @@ import warnings
 import io
 import sys
 import time
+import imp
 
 import nose
 
@@ -548,3 +549,44 @@ def test_memorized_repr():
     func = MemorizedFunc(f, env['dir'], verbose=5)
     result = func.call_and_shelve(11)
     result.get()
+
+
+def test_memory_file_modification():
+    # Test that modifying a Python file after loading it does not lead to
+    # Recomputation
+    filename = os.path.join(env['dir'], 'tmp.py')
+    content = 'def f(x):\n    print(x)\n    return x\n'
+    with open(filename, 'w') as module_file:
+        module_file.write(content)
+
+    # Load the module:
+    tmp = imp.load_source('tmp', filename)
+
+    mem = Memory(cachedir=env['dir'], verbose=0)
+    f = mem.cache(tmp.f)
+    # Capture sys.stdout to count how many time f is called
+    orig_stdout = sys.stdout
+    if sys.version_info[0] == 3:
+        my_stdout = io.StringIO()
+    else:
+        my_stdout = io.BytesIO()
+
+    try:
+        sys.stdout = my_stdout
+
+        # First call f a few times
+        f(1)
+        f(2)
+        f(1)
+
+        # Now modify the module where f is stored
+        with open(filename, 'w') as module_file:
+            module_file.write('\n\n' + content)
+
+        # And call f a couple more times
+        f(1)
+        f(1)
+
+    finally:
+        sys.stdout = orig_stdout
+    nose.tools.assert_equal(my_stdout.getvalue(), '1\n2\n')
