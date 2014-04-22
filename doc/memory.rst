@@ -252,10 +252,10 @@ python interpreter.
 Gotchas
 --------
 
-* **Function cache is identified by the function's name**. Thus if you have
-  the same name to different functions, their cache will override
-  each-others (you have 'name collisions'), and you will get unwanted
-  re-run::
+* **Across sessions, function cache is identified by the function's name**.
+  Thus if you have the same name to different functions, their cache will
+  override each-others (you have 'name collisions'), and you will get
+  unwanted re-run::
 
     >>> @memory.cache
     ... def func(x):
@@ -267,16 +267,43 @@ Gotchas
     ... def func(x):
     ...     print('Running a different func(%s)' % x)
 
+  As long as you stay in the same session, there are no collisions (in joblib
+  0.8 and above), altough joblib does warn you that you are doing something
+  dangerous::
+
     >>> func(1)
     Running a different func(1)
+
     >>> func2(1)  #doctest: +ELLIPSIS
     memory.rst:0: JobLibCollisionWarning: Possible name collisions between functions 'func' (<doctest memory.rst>:...) and 'func' (<doctest memory.rst>:...)
     Running func(1)
-    >>> func(1)  #doctest: +ELLIPSIS
+
+    >>> func(1) # No recomputation so far
+    >>> func2(1) # No recomputation so far
+
+  ..  
+     Empty the in-memory cache to simulate exiting and reloading the
+     interpreter
+
+     >>> import joblib.memory
+     >>> joblib.memory._FUNCTION_HASHES.clear()
+
+  But suppose you exit the interpreter and restart it, the cache will not
+  be identified properly, and the functions will be rerun::
+
+    >>> func(1) #doctest: +ELLIPSIS
     memory.rst:0: JobLibCollisionWarning: Possible name collisions between functions 'func' (<doctest memory.rst>:...) and 'func' (<doctest memory.rst>:...)
     Running a different func(1)
-    >>> func2(1)
+    >>> func2(1)  #doctest: +ELLIPSIS
     Running func(1)
+
+  As long as you stay in the same session, you are not getting needless
+  recomputation::
+
+    >>> func(1) # No recomputation now
+    >>> func2(1) # No recomputation now
+
+* **lambda functions**
 
   Beware that with Python 2.6 lambda functions cannot be separated out::
 
