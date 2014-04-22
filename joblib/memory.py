@@ -544,7 +544,7 @@ class MemorizedFunc(Logger):
                                  and self.func.func_name != '<lambda>')
         if is_named_callable:
             # Don't do this for lambda functions or strange callable
-            # objects, as it ends up being too fragil
+            # objects, as it ends up being too fragile
             func_hash = (id(self.func), hash(self.func))
             try:
                 _FUNCTION_HASHES[self.func] = func_hash
