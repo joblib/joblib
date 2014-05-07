@@ -90,7 +90,7 @@ class MemorizedFunc(Logger):
         get_key: callable, optional
             By default, the caching key consists of all arguments to
             `func` (minus those in `ignore`) as a dict. Where `get_key` is
-            provided, the caching key will instead be `get_key(**default_key)`.
+            provided, the caching key will instead be `get_key(default_key)`.
         compress: boolean
             Whether to zip the stored data on disk. Note that compressed
             arrays cannot be read by memmapping.
@@ -518,7 +518,7 @@ class Memory(Logger):
             get_key: callable, optional
                 By default, the caching key consists of all arguments to
                 `func` (minus those in `ignore`) as a dict. Where `get_key` is
-                provided, the caching key will instead be `get_key(**default_key)`.
+                provided, the caching key will instead be `get_key(default_key)`.
 
             Returns
             -------
