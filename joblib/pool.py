@@ -85,16 +85,23 @@ def has_shareable_memory(a):
     return _get_backing_memmap(a) is not None
 
 
-def strided_from_memmap(filename, dtype, mode, offset, order, shape, strides):
+def strided_from_memmap(filename, dtype, mode, offset, order, shape, strides,
+                        total_buffer_len):
     """Reconstruct an array view on a memmory mapped file"""
     if mode == 'w+':
         # Do not zero the original data when unpickling
         mode = 'r+'
-    m = np.memmap(filename, dtype=dtype, shape=shape, mode=mode, offset=offset,
-                  order=order)
+
     if strides is None:
-        return m
-    return as_strided(m, strides=strides)
+        # Simple, contiguous memmap
+        return np.memmap(filename, dtype=dtype, shape=shape, mode=mode,
+                         offset=offset, order=order)
+    else:
+        # For non-contiguous data, memmap the total enclosing buffer and then
+        # extract the non-contiguous view with the stride-tricks API
+        base = np.memmap(filename, dtype=dtype, shape=total_buffer_len,
+                         mode=mode, offset=offset, order=order)
+        return as_strided(base, shape=shape, strides=strides)
 
 
 def _reduce_memmap_backed(a, m):
@@ -105,7 +112,7 @@ def _reduce_memmap_backed(a, m):
     attribute ancestry of a. ``m.base`` should be the real python mmap object.
     """
     # offset that comes from the striding differences between a and m
-    a_start = np.byte_bounds(a)[0]
+    a_start, a_end = np.byte_bounds(a)
     m_start = np.byte_bounds(m)[0]
     offset = a_start - m_start
 
@@ -122,10 +129,14 @@ def _reduce_memmap_backed(a, m):
     # If array is a contiguous view, no need to pass the strides
     if a.flags['F_CONTIGUOUS'] or a.flags['C_CONTIGUOUS']:
         strides = None
+        total_buffer_len = None
     else:
+        #
         strides = a.strides
+        total_buffer_len = (a_end - a_start) // a.itemsize
     return (strided_from_memmap,
-            (m.filename, a.dtype, m.mode, offset, order, a.shape, strides))
+            (m.filename, a.dtype, m.mode, offset, order, a.shape, strides,
+             total_buffer_len))
 
 
 def reduce_memmap(a):
