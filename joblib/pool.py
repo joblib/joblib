@@ -131,7 +131,7 @@ def _reduce_memmap_backed(a, m):
         strides = None
         total_buffer_len = None
     else:
-        # Compute the total number of items to map onto which the strided
+        # Compute the total number of items to map from which the strided
         # view will be extracted.
         strides = a.strides
         total_buffer_len = (a_end - a_start) // a.itemsize
