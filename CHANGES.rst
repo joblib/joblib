@@ -5,7 +5,13 @@ Latest changes
 In development
 --------------
 
-20140-02-24
+2014-05-10
+Olivier Grisel
+
+   Fixed a potential segfault when passing non-contiguous memmap
+   instances.
+
+2014-02-24
 Philippe Gervais
 
    New ``Memory.call_and_shelve`` API to handle memoized results by
@@ -93,7 +99,7 @@ Gael Varoquaux
 Lars Buitinck
 
     ENH Handles tuples, sets and Python 3's dict_keys type the same as
-    lists. in pre_dispatch 
+    lists. in pre_dispatch
 
 2013-05-23
 Martin Luessi
@@ -113,7 +119,7 @@ Gael Varoquaux
 
 2012-11-19
 Gael Varoquaux
-    
+
     ENH: Parallel: Turn of pre-dispatch for already expanded lists
 
 
@@ -166,7 +172,7 @@ GaelVaroquaux
 GaelVaroquaux
 
     BUG: non-reproducible hashing: order of kwargs
-    
+
     The ordering of a dictionnary is random. As a result the function hashing
     was not reproducible. Pretty hard to test
 
@@ -311,7 +317,7 @@ Olivier Grisel
 Ralf Gommers
 
     STY: PEP8 cleanup.
-    
+
 
 Release 0.5.3
 ---------------
@@ -352,13 +358,13 @@ Yaroslav Halchenko
 Yaroslav Halchenko
 2011-04-11
 
-    ENH: JOBLIB_MULTIPROCESSING env var to disable multiprocessing from the 
+    ENH: JOBLIB_MULTIPROCESSING env var to disable multiprocessing from the
     environment
-    
+
 Alexandre Gramfort
 2011-04-08
 
-    ENH : adding log message to know how long it takes to load from disk the 
+    ENH : adding log message to know how long it takes to load from disk the
     cache
 
 
@@ -377,7 +383,7 @@ Nicolas Pinto
 
 2011-03-26...2011-03-27
 Pietro Berkes
-    
+
     BUG: fix error management in rm_subdirs
     BUG: fix for race condition during tests in mem.clear()
 
@@ -464,7 +470,7 @@ Fabian Pedregosa
 Release 0.4.4
 ----------------
 
-Gael varoquaux 
+Gael varoquaux
 2010-08-23
 
     BUG: Fix Parallel on computers with only one CPU, for n_jobs=-1.
@@ -499,4 +505,3 @@ Gael Varoquaux
 
 Release 0.4.1
 ----------------
-
