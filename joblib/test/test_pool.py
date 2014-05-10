@@ -165,6 +165,7 @@ def test_high_dimension_memmap_array_reducing():
     b = a[0:10]
     c = a[:, 5:10]
     d = a[:, :, :, 0]
+    e = a[1:3:4]
 
     def reconstruct_memmap(x):
         cons, args = reduce_memmap(x)
@@ -187,6 +188,10 @@ def test_high_dimension_memmap_array_reducing():
     d_reconstructed = reconstruct_memmap(d)
     assert_true(has_shareable_memory(d_reconstructed))
     assert_array_equal(d_reconstructed, d)
+
+    e_reconstructed = reconstruct_memmap(e)
+    assert_true(has_shareable_memory(e_reconstructed))
+    assert_array_equal(e_reconstructed, e)
 
 
 @with_numpy
