@@ -85,8 +85,8 @@ def has_shareable_memory(a):
     return _get_backing_memmap(a) is not None
 
 
-def strided_from_memmap(filename, dtype, mode, offset, order, shape, strides,
-                        total_buffer_len):
+def _strided_from_memmap(filename, dtype, mode, offset, order, shape, strides,
+                         total_buffer_len):
     """Reconstruct an array view on a memmory mapped file"""
     if mode == 'w+':
         # Do not zero the original data when unpickling
@@ -126,15 +126,16 @@ def _reduce_memmap_backed(a, m):
         # Fortran
         order = 'C'
 
-    # If array is a contiguous view, no need to pass the strides
     if a.flags['F_CONTIGUOUS'] or a.flags['C_CONTIGUOUS']:
+        # If the array is a contiguous view, no need to pass the strides
         strides = None
         total_buffer_len = None
     else:
-        #
+        # Compute the total number of items to map onto which the strided
+        # view will be extracted.
         strides = a.strides
         total_buffer_len = (a_end - a_start) // a.itemsize
-    return (strided_from_memmap,
+    return (_strided_from_memmap,
             (m.filename, a.dtype, m.mode, offset, order, a.shape, strides,
              total_buffer_len))
 
