@@ -5,6 +5,11 @@ Latest changes
 In development
 --------------
 
+2014-05-14
+Olivier Grisel
+
+   Fix a bug in exception reporting under Python 3
+
 2014-05-10
 Olivier Grisel
 
