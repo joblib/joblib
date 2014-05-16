@@ -14,6 +14,7 @@ import os
 import shutil
 import time
 import pydoc
+import re
 try:
     import cPickle as pickle
 except ImportError:
@@ -379,8 +380,9 @@ class MemorizedFunc(Logger):
         except:
             " Objects like ufunc don't like that "
         if inspect.isfunction(func):
-            doc = pydoc.TextDoc().document(func
-                                           ).replace('\n', '\n\n', 1)
+            doc = re.sub('\x08.', '',
+                         pydoc.TextDoc().document(func
+                                                  ).replace('\n', '\n\n', 1))
         else:
             # Pydoc does a poor job on other objects
             doc = func.__doc__
