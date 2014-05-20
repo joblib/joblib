@@ -380,9 +380,10 @@ class MemorizedFunc(Logger):
         except:
             " Objects like ufunc don't like that "
         if inspect.isfunction(func):
-            doc = re.sub('\x08.', '',
-                         pydoc.TextDoc().document(func
-                                                  ).replace('\n', '\n\n', 1))
+            doc = pydoc.TextDoc().document(func
+                                           ).replace('\n', '\n\n', 1)
+            # Strip backspace-overprints for compatibility with autodoc
+            doc = re.sub('\x08.', '', doc)
         else:
             # Pydoc does a poor job on other objects
             doc = func.__doc__
