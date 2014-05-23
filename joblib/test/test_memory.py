@@ -621,3 +621,36 @@ def test_memory_file_modification():
     finally:
         sys.stdout = orig_stdout
     nose.tools.assert_equal(my_stdout.getvalue(), '1\n2\nReloading\nx=1\n')
+
+
+def _function_to_cache(a, b):
+    # Just a place holder function to be mutated by tests
+    pass
+
+
+def _sum(a, b):
+    return a + b
+
+
+def _product(a, b):
+    return a * b
+
+
+def test_memory_in_memory_function_code_change():
+    _function_to_cache.__code__ = _sum.__code__
+
+    mem = Memory(cachedir=env['dir'], verbose=0)
+    f = mem.cache(_function_to_cache)
+
+    nose.tools.assert_equal(f(1, 2), 3)
+    nose.tools.assert_equal(f(1, 2), 3)
+
+    with warnings.catch_warnings(record=True):
+        # ignore name collistion warnings
+        warnings.simplefilter("always")
+
+        # Check that inline function modification triggers a cache invalidation
+
+        _function_to_cache.__code__ = _product.__code__
+        nose.tools.assert_equal(f(1, 2), 2)
+        nose.tools.assert_equal(f(1, 2), 2)

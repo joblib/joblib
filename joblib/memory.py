@@ -527,6 +527,11 @@ class MemorizedFunc(Logger):
             mkdirp(func_dir)
         return func_dir
 
+    def _hash_func(self):
+        """Hash a function to key the online cache"""
+        func_code_h = hash(getattr(self.func, '__code__', None))
+        return id(self.func), hash(self.func), func_code_h
+
     def _write_func_code(self, filename, func_code, first_line):
         """ Write the function code and the filename to a file.
         """
@@ -549,7 +554,7 @@ class MemorizedFunc(Logger):
         if is_named_callable:
             # Don't do this for lambda functions or strange callable
             # objects, as it ends up being too fragile
-            func_hash = (id(self.func), hash(self.func))
+            func_hash = self._hash_func()
             try:
                 _FUNCTION_HASHES[self.func] = func_hash
             except TypeError:
@@ -570,7 +575,7 @@ class MemorizedFunc(Logger):
                 # We use as an identifier the id of the function and it's
                 # hash. This is more likely to falsely change than have hash
                 # collisions, thus we are on the safe side.
-                func_hash = (id(self.func), hash(self.func))
+                func_hash = self._hash_func()
                 if func_hash == _FUNCTION_HASHES[self.func]:
                     return True
         except TypeError:
