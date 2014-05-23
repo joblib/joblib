@@ -552,7 +552,7 @@ class MemorizedFunc(Logger):
             func_hash = (id(self.func), hash(self.func))
             try:
                 _FUNCTION_HASHES[self.func] = func_hash
-            except:
+            except TypeError:
                 # Some callable are not hashable
                 pass
 
@@ -573,7 +573,7 @@ class MemorizedFunc(Logger):
                 func_hash = (id(self.func), hash(self.func))
                 if func_hash == _FUNCTION_HASHES[self.func]:
                     return True
-        except:
+        except TypeError:
             # Some callables are not hashable
             pass
 
