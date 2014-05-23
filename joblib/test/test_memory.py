@@ -602,7 +602,9 @@ def test_memory_file_modification():
         with open(filename, 'w') as module_file:
             module_file.write(content)
 
-        # And call f more times
+        # And call f more times prior to reloading: the cache should not be
+        # invalidated at this point as the active function definition has not
+        # changed in memory yet.
         f(1)
         f(1)
 
