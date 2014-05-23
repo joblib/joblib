@@ -540,7 +540,7 @@ class MemorizedFunc(Logger):
             out.write(func_code)
         # Also store in the in-memory store of function hashes
         is_named_callable = False
-        if sys.version_info[0] == 3:
+        if sys.version_info[0] > 2:
             is_named_callable = (hasattr(self.func, '__name__')
                                  and self.func.__name__ != '<lambda>')
         else:
