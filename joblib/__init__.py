@@ -28,9 +28,7 @@ Vision
 --------
 
 The vision is to provide tools to easily achieve better performance and
-reproducibility when working with long running jobs. In addition, Joblib
-can also be used to provide a light-weight make replacement or caching
-solution.
+reproducibility when working with long running jobs.
 
  *  **Avoid computing twice the same thing**: code is rerun over an
     over, for instance when prototyping computational-heavy jobs (as in
