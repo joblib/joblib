@@ -77,7 +77,7 @@ def _get_func_fullname(func):
     return os.path.join(*modules)
 
 
-def _cache_key_to_dir(cachedir, func, argument_hash):
+def _cache_key_to_dir(cachedir, func, argument_hash, key_mode):
     """Compute directory associated with a given cache key.
 
     func can be a function or a string as returned by _get_func_fullname().
@@ -86,7 +86,14 @@ def _cache_key_to_dir(cachedir, func, argument_hash):
     if isinstance(func, _basestring):
         parts.append(func)
     else:
-        parts.append(_get_func_fullname(func))
+        if key_mode=='code':
+            modules,funcname = get_func_name(func)
+            code,filename,line = get_func_code(func)
+            parts.append(funcname+"-"+hash(code))
+        elif key_mode=='filename':
+            parts.append(_get_func_fullname(func))
+        else:
+            raise ValueError("The function key must be either 'code' or 'filename'")
 
     if argument_hash is not None:
         parts.append(argument_hash)
@@ -155,11 +162,20 @@ class MemorizedResult(Logger):
     verbose: int
         verbosity level (0 means no message)
 
+    func_key_mode: string, either 'filename' or 'code'
+        How the function key is calculated. If this is 'code', the
+        function is keyed by a hash of its source code, meaning that
+        if the function changes, it no longer invalidates all of the
+        earlier results, and that the same function can live within
+        different modules/folder names on different machines
+
     timestamp, metadata: string
         for internal use only
+
     """
     def __init__(self, cachedir, func, argument_hash,
-                 mmap_mode=None, verbose=0, timestamp=None, metadata=None):
+                 mmap_mode=None, verbose=0, timestamp=None, metadata=None,
+                 func_key_mode='filename'):
         Logger.__init__(self)
         if isinstance(func, _basestring):
             self.func = func
@@ -168,9 +184,11 @@ class MemorizedResult(Logger):
         self.argument_hash = argument_hash
         self.cachedir = cachedir
         self.mmap_mode = mmap_mode
+        self.func_key_mode = func_key_mode
 
         self._output_dir = _cache_key_to_dir(cachedir, self.func,
-                                             argument_hash)
+                                             argument_hash,
+                                             self.func_key_mode)
 
         if metadata is not None:
             self.metadata = metadata
@@ -201,11 +219,12 @@ class MemorizedResult(Logger):
 
     def __repr__(self):
         return ('{class_name}(cachedir="{cachedir}", func="{func}", '
-                'argument_hash="{argument_hash}")'.format(
+                'argument_hash="{argument_hash}",func_key_mode="{func_key_mode}")'.format(
                     class_name=self.__class__.__name__,
                     cachedir=self.cachedir,
                     func=self.func,
-                    argument_hash=self.argument_hash
+                    argument_hash=self.argument_hash,
+                    func_key_mode=self.func_key_mode
                     ))
 
     def __reduce__(self):
@@ -332,7 +351,7 @@ class MemorizedFunc(Logger):
     #-------------------------------------------------------------------------
 
     def __init__(self, func, cachedir, ignore=None, mmap_mode=None,
-                 compress=False, verbose=1, timestamp=None):
+                 compress=False, verbose=1, timestamp=None,func_key_mode='filename'):
         """
             Parameters
             ----------
@@ -357,6 +376,12 @@ class MemorizedFunc(Logger):
             timestamp: float, optional
                 The reference time from which times in tracing messages
                 are reported.
+            func_key_mode: string, either 'filename' or 'code'
+                How the function key is calculated. If this is 'code', the
+                function is keyed by a hash of its source code, meaning that
+                if the function changes, it no longer invalidates all of the
+                earlier results, and that the same function can live within
+                different modules/folder names on different machines
         """
         Logger.__init__(self)
         self.mmap_mode = mmap_mode
@@ -389,6 +414,7 @@ class MemorizedFunc(Logger):
             # Pydoc does a poor job on other objects
             doc = func.__doc__
         self.__doc__ = 'Memoized version of %s' % doc
+        self.func_key_mode=func_key_mode
 
     def _cached_call(self, args, kwargs):
         """Call wrapped function and cache result, or read cache if available.
@@ -468,7 +494,8 @@ class MemorizedFunc(Logger):
 
         return MemorizedResult(self.cachedir, self.func, argument_hash,
             metadata=metadata, verbose=self._verbose - 1,
-            timestamp=self.timestamp)
+                               timestamp=self.timestamp,
+                               func_key_mode=self.func_key_mode)
 
     def __call__(self, *args, **kwargs):
         return self._cached_call(args, kwargs)[0]
@@ -515,7 +542,7 @@ class MemorizedFunc(Logger):
         """ Get the directory corresponding to the cache for the
             function.
         """
-        func_dir = _cache_key_to_dir(self.cachedir, self.func, None)
+        func_dir = _cache_key_to_dir(self.cachedir, self.func, None, self.func_key_mode)
         if mkdir:
             mkdirp(func_dir)
         return func_dir
@@ -745,7 +772,7 @@ class Memory(Logger):
     # Public interface
     #-------------------------------------------------------------------------
 
-    def __init__(self, cachedir, mmap_mode=None, compress=False, verbose=1):
+    def __init__(self, cachedir, mmap_mode=None, compress=False, verbose=1, func_key_mode='filename'):
         """
             Parameters
             ----------
@@ -765,6 +792,12 @@ class Memory(Logger):
             verbose: int, optional
                 Verbosity flag, controls the debug messages that are issued
                 as functions are evaluated.
+            func_key_mode: string, either 'filename' or 'code'
+                How the function key is calculated. If this is 'code', the
+                function is keyed by a hash of its source code, meaning that
+                if the function changes, it no longer invalidates all of the
+                earlier results, and that the same function can live within
+                different modules/folder names on different machines
         """
         # XXX: Bad explanation of the None value of cachedir
         Logger.__init__(self)
@@ -780,9 +813,10 @@ class Memory(Logger):
         else:
             self.cachedir = os.path.join(cachedir, 'joblib')
             mkdirp(self.cachedir)
+        self.func_key_mode = func_key_mode
 
     def cache(self, func=None, ignore=None, verbose=None,
-                        mmap_mode=False):
+                        mmap_mode=False, func_key_mode=None):
         """ Decorates the given function func to only compute its return
             value for input arguments not cached on disk.
 
@@ -799,6 +833,12 @@ class Memory(Logger):
                 The memmapping mode used when loading from cache
                 numpy arrays. See numpy.load for the meaning of the
                 arguments. By default that of the memory object is used.
+            func_key_mode: string, either 'filename' or 'code'
+                How the function key is calculated. If this is 'code', the
+                function is keyed by a hash of its source code, meaning that
+                if the function changes, it no longer invalidates all of the
+                earlier results, and that the same function can live within
+                different modules/folder names on different machines
 
             Returns
             -------
@@ -812,7 +852,8 @@ class Memory(Logger):
             # Partial application, to be able to specify extra keyword
             # arguments in decorators
             return functools.partial(self.cache, ignore=ignore,
-                                     verbose=verbose, mmap_mode=mmap_mode)
+                                     verbose=verbose, mmap_mode=mmap_mode,
+                                     func_key_mode=func_key_mode)
         if self.cachedir is None:
             return NotMemorizedFunc(func)
         if verbose is None:
@@ -821,12 +862,15 @@ class Memory(Logger):
             mmap_mode = self.mmap_mode
         if isinstance(func, MemorizedFunc):
             func = func.func
+        if func_key_mode is None:
+            func_key_mode = self.func_key_mode
         return MemorizedFunc(func, cachedir=self.cachedir,
                                    mmap_mode=mmap_mode,
                                    ignore=ignore,
                                    compress=self.compress,
                                    verbose=verbose,
-                                   timestamp=self.timestamp)
+                                   timestamp=self.timestamp,
+                                   func_key_mode=self.func_key_mode)
 
     def clear(self, warn=True):
         """ Erase the complete cache directory.
