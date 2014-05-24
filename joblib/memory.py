@@ -15,6 +15,7 @@ import shutil
 import time
 import pydoc
 import re
+import sys
 try:
     import cPickle as pickle
 except ImportError:
@@ -24,9 +25,10 @@ import traceback
 import warnings
 import inspect
 import json
+import weakref
 
 # Local imports
-from .hashing import hash
+from . import hashing
 from .func_inspect import get_func_code, get_func_name, filter_args
 from .func_inspect import format_signature, format_call
 from .logger import Logger, format_time, pformat
@@ -127,6 +129,11 @@ def _load_output(output_dir, func, timestamp=None, metadata=None,
             "Non-existing cache value (may have been cleared).\n"
             "File %s does not exist" % filename)
     return numpy_pickle.load(filename, mmap_mode=mmap_mode)
+
+
+# An in-memory store to avoid looking at the disk-based function
+# source code to check if a function definition has changed
+_FUNCTION_HASHES = weakref.WeakKeyDictionary()
 
 
 ###############################################################################
@@ -496,7 +503,7 @@ class MemorizedFunc(Logger):
     #-------------------------------------------------------------------------
 
     def _get_argument_hash(self, *args, **kwargs):
-        return hash(filter_args(self.func, self.ignore,
+        return hashing.hash(filter_args(self.func, self.ignore,
                                          args, kwargs),
                              coerce_mmap=(self.mmap_mode is not None))
 
@@ -520,6 +527,11 @@ class MemorizedFunc(Logger):
             mkdirp(func_dir)
         return func_dir
 
+    def _hash_func(self):
+        """Hash a function to key the online cache"""
+        func_code_h = hash(getattr(self.func, '__code__', None))
+        return id(self.func), hash(self.func), func_code_h
+
     def _write_func_code(self, filename, func_code, first_line):
         """ Write the function code and the filename to a file.
         """
@@ -531,12 +543,45 @@ class MemorizedFunc(Logger):
         func_code = '%s %i\n%s' % (FIRST_LINE_TEXT, first_line, func_code)
         with open(filename, 'w') as out:
             out.write(func_code)
+        # Also store in the in-memory store of function hashes
+        is_named_callable = False
+        if sys.version_info[0] > 2:
+            is_named_callable = (hasattr(self.func, '__name__')
+                                 and self.func.__name__ != '<lambda>')
+        else:
+            is_named_callable = (hasattr(self.func, 'func_name')
+                                 and self.func.func_name != '<lambda>')
+        if is_named_callable:
+            # Don't do this for lambda functions or strange callable
+            # objects, as it ends up being too fragile
+            func_hash = self._hash_func()
+            try:
+                _FUNCTION_HASHES[self.func] = func_hash
+            except TypeError:
+                # Some callable are not hashable
+                pass
 
     def _check_previous_func_code(self, stacklevel=2):
         """
             stacklevel is the depth a which this function is called, to
             issue useful warnings to the user.
         """
+        # First check if our function is in the in-memory store.
+        # Using the in-memory store not only makes things faster, but it
+        # also renders us robust to variations of the files when the
+        # in-memory version of the code does not vary
+        try:
+            if self.func in _FUNCTION_HASHES:
+                # We use as an identifier the id of the function and its
+                # hash. This is more likely to falsely change than have hash
+                # collisions, thus we are on the safe side.
+                func_hash = self._hash_func()
+                if func_hash == _FUNCTION_HASHES[self.func]:
+                    return True
+        except TypeError:
+            # Some callables are not hashable
+            pass
+
         # Here, we go through some effort to be robust to dynamically
         # changing code and collision. We cannot inspect.getsource
         # because it is not reliable when using IPython's magic "%run".

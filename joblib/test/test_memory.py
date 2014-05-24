@@ -15,6 +15,7 @@ import warnings
 import io
 import sys
 import time
+import imp
 
 import nose
 
@@ -551,3 +552,105 @@ def test_memorized_repr():
     func = MemorizedFunc(f, env['dir'], verbose=5)
     result = func.call_and_shelve(11)
     result.get()
+
+
+def test_memory_file_modification():
+    # Test that modifying a Python file after loading it does not lead to
+    # Recomputation
+    dir_name = os.path.join(env['dir'], 'tmp_import')
+    if not os.path.exists(dir_name):
+        os.mkdir(dir_name)
+    filename = os.path.join(dir_name, 'tmp_joblib_.py')
+    content = 'def f(x):\n    print(x)\n    return x\n'
+    with open(filename, 'w') as module_file:
+        module_file.write(content)
+
+    # Load the module:
+    sys.path.append(dir_name)
+    import tmp_joblib_ as tmp
+
+    mem = Memory(cachedir=env['dir'], verbose=0)
+    f = mem.cache(tmp.f)
+    # Capture sys.stdout to count how many time f is called
+    orig_stdout = sys.stdout
+    if sys.version_info[0] == 3:
+        my_stdout = io.StringIO()
+    else:
+        my_stdout = io.BytesIO()
+
+    try:
+        sys.stdout = my_stdout
+
+        # First call f a few times
+        f(1)
+        f(2)
+        f(1)
+
+        # Now modify the module where f is stored without modifying f
+        with open(filename, 'w') as module_file:
+            module_file.write('\n\n' + content)
+
+        # And call f a couple more times
+        f(1)
+        f(1)
+
+        # Flush the .pyc files
+        shutil.rmtree(dir_name)
+        os.mkdir(dir_name)
+        # Now modify the module where f is stored, modifying f
+        content = 'def f(x):\n    print("x=%s" % x)\n    return x\n'
+        with open(filename, 'w') as module_file:
+            module_file.write(content)
+
+        # And call f more times prior to reloading: the cache should not be
+        # invalidated at this point as the active function definition has not
+        # changed in memory yet.
+        f(1)
+        f(1)
+
+        # Now reload
+        my_stdout.write('Reloading\n')
+        sys.modules.pop('tmp_joblib_')
+        import tmp_joblib_ as tmp
+        f = mem.cache(tmp.f)
+
+        # And call f more times
+        f(1)
+        f(1)
+
+    finally:
+        sys.stdout = orig_stdout
+    nose.tools.assert_equal(my_stdout.getvalue(), '1\n2\nReloading\nx=1\n')
+
+
+def _function_to_cache(a, b):
+    # Just a place holder function to be mutated by tests
+    pass
+
+
+def _sum(a, b):
+    return a + b
+
+
+def _product(a, b):
+    return a * b
+
+
+def test_memory_in_memory_function_code_change():
+    _function_to_cache.__code__ = _sum.__code__
+
+    mem = Memory(cachedir=env['dir'], verbose=0)
+    f = mem.cache(_function_to_cache)
+
+    nose.tools.assert_equal(f(1, 2), 3)
+    nose.tools.assert_equal(f(1, 2), 3)
+
+    with warnings.catch_warnings(record=True):
+        # ignore name collistion warnings
+        warnings.simplefilter("always")
+
+        # Check that inline function modification triggers a cache invalidation
+
+        _function_to_cache.__code__ = _product.__code__
+        nose.tools.assert_equal(f(1, 2), 2)
+        nose.tools.assert_equal(f(1, 2), 2)
