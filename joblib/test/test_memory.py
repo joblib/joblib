@@ -646,7 +646,7 @@ def test_memory_in_memory_function_code_change():
     nose.tools.assert_equal(f(1, 2), 3)
 
     with warnings.catch_warnings(record=True):
-        # ignore name collistion warnings
+        # ignore name collision warnings
         warnings.simplefilter("always")
 
         # Check that inline function modification triggers a cache invalidation
