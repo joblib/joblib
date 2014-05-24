@@ -520,8 +520,11 @@ def test_memorized_pickling():
 def test_memorized_repr():
     func = MemorizedFunc(f, env['dir'])
     result = func.call_and_shelve(2)
-    result2 = eval(repr(result))
+
+    func2 = MemorizedFunc(f, env['dir'])
+    result2 = func2.call_and_shelve(2)
     nose.tools.assert_equal(result.get(), result2.get())
+    nose.tools.assert_equal(repr(func), repr(func2))
 
     # Smoke test on deprecated methods
     func.format_signature(2)
