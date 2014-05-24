@@ -572,7 +572,7 @@ class MemorizedFunc(Logger):
         # in-memory version of the code does not vary
         try:
             if self.func in _FUNCTION_HASHES:
-                # We use as an identifier the id of the function and it's
+                # We use as an identifier the id of the function and its
                 # hash. This is more likely to falsely change than have hash
                 # collisions, thus we are on the safe side.
                 func_hash = self._hash_func()
