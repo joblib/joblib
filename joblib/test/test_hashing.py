@@ -200,7 +200,7 @@ def test_hash_numpy_performance():
     md5_hash = lambda x: hashlib.md5(getbuffer(x)).hexdigest()
 
     relative_diff = relative_time(md5_hash, hash, a)
-    nose.tools.assert_less(relative_diff, 0.1)
+    nose.tools.assert_true(relative_diff < 0.1)
 
     # Check that hashing an tuple of 3 arrays takes approximately
     # 3 times as much as hashing one array
@@ -208,7 +208,7 @@ def test_hash_numpy_performance():
     time_hash = time_func(hash, (a, a, a))
     relative_diff = 0.5 * (abs(time_hash - time_hashlib)
                            / (time_hash + time_hashlib))
-    nose.tools.assert_less(relative_diff, 0.2)
+    nose.tools.assert_true(relative_diff < 0.2)
 
 
 def test_bound_methods_hash():
