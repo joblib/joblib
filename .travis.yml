@@ -7,7 +7,7 @@ python:
     - "3.3"
 
 before_install:
-    - pip --quiet install --use-mirrors numpy
+    - pip --quiet install --use-mirrors -U numpy nose
 
 install:
     - python setup.py install
