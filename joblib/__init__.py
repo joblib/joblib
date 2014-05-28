@@ -100,7 +100,7 @@ Main features
 
 """
 
-__version__ = '0.8.0a3'
+__version__ = '0.8.0'
 
 
 from .memory import Memory, MemorizedResult

@@ -2,8 +2,8 @@ Latest changes
 ===============
 
 
-In development
---------------
+Release 0.8.0
+-------------
 
 2014-05-14
 Olivier Grisel
