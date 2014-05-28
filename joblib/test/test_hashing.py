@@ -188,7 +188,7 @@ def test_hash_numpy_performance():
     """
     # This test is not stable under windows for some reason, skip it.
     if sys.platform == 'win32':
-        raise SkipTest()
+        raise nose.SkipTest()
 
     rnd = np.random.RandomState(0)
     a = rnd.random_sample(1000000)
