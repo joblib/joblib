@@ -6,7 +6,17 @@ Exceptions
 # License: BSD 3 clause
 
 import sys
-import cPickle as pickle
+
+try:
+    import cPickle as pickle
+    PickleError = TypeError
+except:
+    import pickle
+    PickleError = pickle.PicklingError
+
+
+if sys.version_info[0] == 3:
+    PickleError = pickle.PicklingError
 
 
 class JoblibException(Exception):
@@ -45,7 +55,7 @@ class TransportableException(JoblibException):
         if isinstance(cause, Exception):
             try:
                 cause = pickle.dumps(cause)
-            except:
+            except PickleError:
                 # cause cannot be pickled
                 cause = None
         self.cause = cause
@@ -59,7 +69,7 @@ class TransportableException(JoblibException):
         if self.cause is not None:
             try:
                 cause = pickle.loads(self.cause)
-            except TypeError:
+            except PickleError:
                 # cause is not pickle-able
                 cause = None
         return cause
