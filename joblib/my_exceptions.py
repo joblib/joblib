@@ -9,14 +9,12 @@ import sys
 
 try:
     import cPickle as pickle
-    PickleError = TypeError
 except:
     import pickle
-    PickleError = pickle.PicklingError
 
-
-if sys.version_info[0] == 3:
-    PickleError = pickle.PicklingError
+PickleError = TypeError
+#if sys.version_info[0] == 3:
+#    PickleError = pickle.PicklingError
 
 
 class JoblibException(Exception):
@@ -55,7 +53,7 @@ class TransportableException(JoblibException):
         if isinstance(cause, Exception):
             try:
                 cause = pickle.dumps(cause)
-            except PickleError:
+            except:
                 # cause cannot be pickled
                 cause = None
         self.cause = cause
