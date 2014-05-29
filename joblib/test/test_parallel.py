@@ -346,10 +346,9 @@ def check_exception_cause(backend):
     """Checks if ``cause`` is properly passed. """
     n_tasks = 20
     n_jobs = 2
-    func = partial(_parallel_func, exception_clz=MyPickleableError)
     try:
         Parallel(n_jobs=n_jobs, pre_dispatch="2 * n_jobs", backend=backend)(
-            delayed(func)(i) for i in range(n_tasks))
+            delayed(_parallel_func_picklable)(i) for i in range(n_tasks))
         assert False
     except JoblibException as e:
         cause = e.cause
@@ -361,10 +360,9 @@ def check_exception_unpickleable_cause(backend):
     """Checks if ``cause`` is None if cause is not pickleable. """
     n_tasks = 20
     n_jobs = 2
-    func = partial(_parallel_func, exception_clz=MyUnPickleableError)
     try:
         Parallel(n_jobs=n_jobs, pre_dispatch="2 * n_jobs", backend=backend)(
-            delayed(func)(i) for i in range(n_tasks))
+            delayed(_parallel_func_unpicklable)(i) for i in range(n_tasks))
         assert False
     except JoblibException as e:
         cause = e.cause
@@ -390,9 +388,17 @@ class MyUnPickleableError(Exception):
         super(MyUnPickleableError, self).__init__()
 
 
-def _parallel_func(i, exception_clz=None):
+def _parallel_func_picklable(i):
     """Dummy parall function that raises an ``exception_clz`` if ``i==0``. """
     if i == 0:
-        raise exception_clz(0)
+        raise MyPickleableError(0)
+    else:
+        return i
+
+
+def _parallel_func_unpicklable(i):
+    """Dummy parall function that raises an ``exception_clz`` if ``i==0``. """
+    if i == 0:
+        raise MyUnPickleableError(0)
     else:
         return i
