@@ -103,6 +103,7 @@ def test_memory_integration():
 
     # Now test clearing
     for compress in (False, True):
+     for mmap_mode in ('r', None):
         # We turn verbosity on to smoke test the verbosity code, however,
         # we capture it, as it is ugly
         try:
@@ -116,7 +117,8 @@ def test_memory_integration():
                 sys.stdout = io.BytesIO()
                 sys.stderr = io.BytesIO()
 
-            memory = Memory(cachedir=env['dir'], verbose=10, compress=compress)
+            memory = Memory(cachedir=env['dir'], verbose=10,
+                            mmap_mode=mmap_mode, compress=compress)
             # First clear the cache directory, to check that our code can
             # handle that
             # NOTE: this line would raise an exception, as the database file is
