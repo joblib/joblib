@@ -15,12 +15,11 @@ import warnings
 import io
 import sys
 import time
-import imp
 
 import nose
 
 from ..memory import Memory, MemorizedFunc, NotMemorizedFunc, MemorizedResult
-from ..memory import NotMemorizedResult
+from ..memory import NotMemorizedResult, _FUNCTION_HASHES
 from .common import with_numpy, np
 
 
@@ -439,6 +438,7 @@ def test_partial_decoration():
 def test_func_dir():
     # Test the creation of the memory cache directory for the function.
     memory = Memory(cachedir=env['dir'], verbose=0)
+    memory.clear()
     path = __name__.split('.')
     path.append('f')
     path = os.path.join(env['dir'], 'joblib', *path)
@@ -449,6 +449,9 @@ def test_func_dir():
     yield nose.tools.assert_true, os.path.exists(path)
 
     # Test that the code is stored.
+    # For the following test to be robust to previous execution, we clear
+    # the in-memory store
+    _FUNCTION_HASHES.clear()
     yield nose.tools.assert_false, \
         g._check_previous_func_code()
     yield nose.tools.assert_true, \
