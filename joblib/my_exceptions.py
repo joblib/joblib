@@ -12,10 +12,6 @@ try:
 except:
     import pickle
 
-PickleError = TypeError
-#if sys.version_info[0] == 3:
-#    PickleError = pickle.PicklingError
-
 
 class JoblibException(Exception):
     """A simple exception with an error message that you can get to."""
@@ -67,7 +63,7 @@ class TransportableException(JoblibException):
         if self.cause is not None:
             try:
                 cause = pickle.loads(self.cause)
-            except PickleError:
+            except TypeError:
                 # cause is not pickle-able
                 cause = None
         return cause
