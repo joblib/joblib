@@ -27,7 +27,6 @@ try:
 except NameError:
     unicode = lambda s: s
 
-from functools import partial
 
 from ..parallel import Parallel, delayed, SafeFunction, WorkerInterrupt, \
         mp, cpu_count, VALID_BACKENDS
