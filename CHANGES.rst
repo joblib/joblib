@@ -2,6 +2,15 @@ Latest changes
 ===============
 
 
+Release 0.8.1
+-------------
+
+2014-05-29
+Gael Varoquaux
+
+    BUG: fix crash with high verbosity
+
+
 Release 0.8.0
 -------------
 
