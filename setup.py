@@ -27,36 +27,42 @@ try:
 except ImportError:
     pass
 
-setup(name='joblib',
-      version=joblib.__version__,
-      summary='Tools to use Python functions as pipeline jobs.',
-      author='Gael Varoquaux',
-      author_email='gael.varoquaux@normalesup.org',
-      url='http://packages.python.org/joblib/',
-      description="""
+
+if __name__ == '__main__':
+    # Protect the call to the setup function to prevent a fork-bomb
+    # when running the tests with:
+    # python setup.py nosetests
+
+    setup(name='joblib',
+          version=joblib.__version__,
+          summary='Tools to use Python functions as pipeline jobs.',
+          author='Gael Varoquaux',
+          author_email='gael.varoquaux@normalesup.org',
+          url='http://packages.python.org/joblib/',
+          description="""
 Lightweight pipelining: using Python functions as pipeline jobs.
 """,
-      long_description=joblib.__doc__,
-      license='BSD',
-      classifiers=[
-          'Development Status :: 5 - Production/Stable',
-          'Environment :: Console',
-          'Intended Audience :: Developers',
-          'Intended Audience :: Science/Research',
-          'Intended Audience :: Education',
-          'License :: OSI Approved :: BSD License',
-          'Operating System :: OS Independent',
-          'Programming Language :: Python :: 2.6',
-          'Programming Language :: Python :: 2.7',
-          'Programming Language :: Python :: 3',
-          'Programming Language :: Python :: 3.0',
-          'Programming Language :: Python :: 3.1',
-          'Programming Language :: Python :: 3.2',
-          'Topic :: Scientific/Engineering',
-          'Topic :: Utilities',
-          'Topic :: Software Development :: Libraries',
-      ],
-      platforms='any',
-      #package_data={'joblib': ['joblib/*.rst'],},
-      packages=['joblib', 'joblib.test'],
-      **extra_setuptools_args)
+          long_description=joblib.__doc__,
+          license='BSD',
+          classifiers=[
+              'Development Status :: 5 - Production/Stable',
+              'Environment :: Console',
+              'Intended Audience :: Developers',
+              'Intended Audience :: Science/Research',
+              'Intended Audience :: Education',
+              'License :: OSI Approved :: BSD License',
+              'Operating System :: OS Independent',
+              'Programming Language :: Python :: 2.6',
+              'Programming Language :: Python :: 2.7',
+              'Programming Language :: Python :: 3',
+              'Programming Language :: Python :: 3.2',
+              'Programming Language :: Python :: 3.3',
+              'Programming Language :: Python :: 3.4',
+              'Topic :: Scientific/Engineering',
+              'Topic :: Utilities',
+              'Topic :: Software Development :: Libraries',
+          ],
+          platforms='any',
+          #package_data={'joblib': ['joblib/*.rst'],},
+          packages=['joblib', 'joblib.test'],
+          **extra_setuptools_args)
