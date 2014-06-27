@@ -2,6 +2,15 @@ Latest changes
 ===============
 
 
+Release 0.8.2
+-------------
+
+2014-06-27
+Olivier Grisel
+
+    BUG: fix usage of the /dev/shm folder under Linux
+
+
 Release 0.8.1
 -------------
 
