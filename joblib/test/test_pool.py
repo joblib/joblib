@@ -54,6 +54,14 @@ def teardown_temp_folder():
 with_temp_folder = with_setup(setup_temp_folder, teardown_temp_folder)
 
 
+def setup_if_has_dev_shm():
+    if not os.path.exists('/dev/shm'):
+        raise SkipTest("This test requires the /dev/shm shared memory fs.")
+
+
+with_dev_shm = with_setup(setup_if_has_dev_shm)
+
+
 def double(input):
     """Dummy helper function to be executed in subprocesses"""
     assert_array_equal = np.testing.assert_array_equal
@@ -361,6 +369,43 @@ def test_memmaping_pool_for_large_arrays_disabled():
         # Cleanup open file descriptors
         p.terminate()
         del p
+
+
+@with_numpy
+@with_multiprocessing
+@with_dev_shm
+def test_memmaping_on_dev_shm():
+    """Check that large arrays memmaping can be disabled"""
+    p = MemmapingPool(3, max_nbytes=10)
+    try:
+        # Check that the pool has correctly detected the presence of the
+        # shared memory filesystem.
+        pool_temp_folder = p._temp_folder
+        folder_prefix = '/dev/shm/joblib_memmaping_pool_'
+        assert_true(pool_temp_folder.startswith(folder_prefix))
+        assert_true(os.path.exists(pool_temp_folder))
+
+        # Try with a file larger than the memmap threshold of 10 bytes
+        a = np.ones(100, dtype=np.float64)
+        assert_equal(a.nbytes, 800)
+        p.map(id, [a] * 10)
+        # a should have been memmaped to the pool temp folder: the joblib
+        # pickling procedure generate a .pkl and a .npy file:
+        assert_equal(len(os.listdir(pool_temp_folder)), 2)
+   
+        b = np.ones(100, dtype=np.float64)
+        assert_equal(b.nbytes, 800)
+        p.map(id, [b] * 10)
+        # A copy of both a and b are not stored in the shared memory folder
+        assert_equal(len(os.listdir(pool_temp_folder)), 4)
+
+    finally:
+        # Cleanup open file descriptors
+        p.terminate()
+        del p
+
+    # The temp folder is cleaned up upon pool termination
+    assert_false(os.path.exists(pool_temp_folder))
 
 
 @with_numpy
