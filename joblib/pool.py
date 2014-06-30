@@ -491,7 +491,7 @@ class MemmapingPool(PicklingPool):
     """
 
     def __init__(self, processes=None, temp_folder=None, max_nbytes=1e6,
-                 mmap_mode='c', forward_reducers=None, backward_reducers=None,
+                 mmap_mode='r', forward_reducers=None, backward_reducers=None,
                  verbose=0, context_id=None, prewarm=False, **kwargs):
         if forward_reducers is None:
             forward_reducers = dict()
