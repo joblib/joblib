@@ -34,7 +34,7 @@ Using distributions
 --------------------
 
 Joblib is packaged for several linux distribution: archlinux, debian,
-ubuntu, and altlinux. For minimum administration overhead, using the
+ubuntu, altlinux, and fedora. For minimum administration overhead, using the
 package manager is the recommended installation strategy on these
 systems.
 
