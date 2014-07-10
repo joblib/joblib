@@ -384,7 +384,7 @@ def test_memmaping_pool_for_large_arrays_disabled():
 @with_multiprocessing
 @with_dev_shm
 def test_memmaping_on_dev_shm():
-    """Check that large arrays memmaping can be disabled"""
+    """Check that MemmapingPool uses /dev/shm when possible"""
     p = MemmapingPool(3, max_nbytes=10)
     try:
         # Check that the pool has correctly detected the presence of the
