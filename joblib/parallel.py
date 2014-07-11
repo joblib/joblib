@@ -106,7 +106,7 @@ class SafeFunction(object):
 def delayed(function, check_picklability=True):
     """Decorator used to capture the arguments of a function.
 
-    Pass `check_pickle=False` when:
+    Pass `check_picklability=False` when:
 
     - performing a possibly repeated check is too costly and has been done
       already once outside of the call to delayed.
