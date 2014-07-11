@@ -103,10 +103,10 @@ class SafeFunction(object):
 
 
 ###############################################################################
-def delayed(function, check_picklability=True):
+def delayed(function, check_pickle=True):
     """Decorator used to capture the arguments of a function.
 
-    Pass `check_picklability=False` when:
+    Pass `check_pickle=False` when:
 
     - performing a possibly repeated check is too costly and has been done
       already once outside of the call to delayed.
@@ -116,7 +116,7 @@ def delayed(function, check_picklability=True):
     """
     # Try to pickle the input function, to catch the problems early when
     # using with multiprocessing:
-    if check_picklability:
+    if check_pickle:
         pickle.dumps(function)
 
     def delayed_function(*args, **kwargs):

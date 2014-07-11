@@ -146,7 +146,7 @@ def test_mutate_input_with_threads():
     """Input is mutable when using the threading backend"""
     q = Queue(maxsize=5)
     Parallel(n_jobs=2, backend="threading")(
-        delayed(q.put, check_picklability=False)(1) for _ in range(5))
+        delayed(q.put, check_pickle=False)(1) for _ in range(5))
     nose.tools.assert_true(q.full())
 
 
