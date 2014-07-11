@@ -16,7 +16,7 @@ def setup_module(module):
     if numpy is None or mp is None:
         raise SkipTest('Skipped as numpy or multiprocessing is not available')
 
-    setup_autokill(module.__name__)
+    setup_autokill(module.__name__, timeout=300)
 
 
 def teardown_module(module):
