@@ -283,7 +283,7 @@ def test_exception_dispatch():
     "Make sure that exception raised during dispatch are indeed captured"
     nose.tools.assert_raises(
             ValueError,
-            Parallel(n_jobs=6, pre_dispatch=16, verbose=0),
+            Parallel(n_jobs=2, pre_dispatch=16, verbose=0),
                     (delayed(exception_raiser)(i) for i in range(30)),
             )
 
@@ -330,6 +330,6 @@ def test_pre_dispatch_race_condition():
     # iterable generator that is not thread-safe natively.
     # this is a non-regression test for the "Pool seems closed" class of error
     for n_tasks in [2, 10, 20]:
-        for n_jobs in [2, 4, 8, 16]:
+        for n_jobs in [2, 4]:
             Parallel(n_jobs=n_jobs, pre_dispatch="2 * n_jobs")(
                 delayed(square)(i) for i in range(n_tasks))
