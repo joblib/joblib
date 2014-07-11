@@ -27,6 +27,12 @@ try:
 except NameError:
     unicode = lambda s: s
 
+try:
+    from queue import Queue
+except ImportError:
+    # Backward compat
+    from Queue import Queue
+
 
 from ..parallel import Parallel, delayed, SafeFunction, WorkerInterrupt, \
         mp, cpu_count, VALID_BACKENDS
@@ -136,16 +142,12 @@ def test_nested_loop():
             yield check_nested_loop, parent_backend, child_backend
 
 
-def increment_input(a):
-    a[0] += 1
-
-
-def test_increment_input_with_threads():
+def test_mutate_input_with_threads():
     """Input is mutable when using the threading backend"""
-    a = [0]
+    q = Queue(maxsize=5)
     Parallel(n_jobs=2, backend="threading")(
-        delayed(increment_input)(a) for _ in range(5))
-    nose.tools.assert_equal(a, [5])
+        delayed(q.put, check_picklability=False)(1) for _ in range(5))
+    nose.tools.assert_true(q.full())
 
 
 def test_parallel_kwargs():
