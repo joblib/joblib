@@ -1,6 +1,6 @@
 # Sample script to install Python and pip under Windows
 # Authors: Olivier Grisel and Kyle Kastner
-# License: CC0 1.0 Universal: http://creativecommons.org/publicdomain/zero/1.0/
+# License: BSD 3 clause
 
 $BASE_URL = "https://www.python.org/ftp/python/"
 $GET_PIP_URL = "https://bootstrap.pypa.io/get-pip.py"
@@ -19,9 +19,9 @@ function DownloadPython ($python_version, $platform_suffix) {
         return $filepath
     }
 
-    # Download and retry up to 5 times in case of network transient errors.
+    # Download and retry up to 3 times in case of network transient errors.
     Write-Host "Downloading" $filename "from" $url
-    $retry_attempts = 3
+    $retry_attempts = 2
     for($i=0; $i -lt $retry_attempts; $i++){
         try {
             $webclient.DownloadFile($url, $filepath)
@@ -31,7 +31,12 @@ function DownloadPython ($python_version, $platform_suffix) {
             Start-Sleep 1
         }
    }
-   Write-Host "File saved at" $filepath
+   if (Test-Path $filepath) {
+       Write-Host "File saved at" $filepath
+   } else {
+       # Retry once to get the error message if any at the last try
+       $webclient.DownloadFile($url, $filepath)
+   }
    return $filepath
 }
 
@@ -49,17 +54,23 @@ function InstallPython ($python_version, $architecture, $python_home) {
     }
     $filepath = DownloadPython $python_version $platform_suffix
     Write-Host "Installing" $filepath "to" $python_home
-    $args = "/qn /i $filepath TARGETDIR=$python_home"
+    $install_log = $python_home + ".log"
+    $args = "/qn  /log $install_log /i $filepath TARGETDIR=$python_home"
     Write-Host "msiexec.exe" $args
     Start-Process -FilePath "msiexec.exe" -ArgumentList $args -Wait -Passthru
-    Write-Host "Python $python_version ($architecture) installation complete"
-    return $true
+    if (Test-Path $python_home) {
+        Write-Host "Python $python_version ($architecture) installation complete"
+    } else {
+        Write-Host "Failed to install Python in $python_home"
+        Get-Content -Path $install_log
+        Exit 1
+    }
 }
 
 
 function InstallPip ($python_home) {
-    $pip_path = $python_home + "/Scripts/pip.exe"
-    $python_path = $python_home + "/python.exe"
+    $pip_path = $python_home + "\Scripts\pip.exe"
+    $python_path = $python_home + "\python.exe"
     if (-not(Test-Path $pip_path)) {
         Write-Host "Installing pip..."
         $webclient = New-Object System.Net.WebClient
