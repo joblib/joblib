@@ -40,41 +40,20 @@ VALID_BACKENDS = ['multiprocessing', 'threading']
 JOBLIB_SPAWNED_PROCESS = "__JOBLIB_SPAWNED_PARALLEL__"
 
 
-class CallSequenceResults(list):
-    pass
 
-
-class DelayedCallSequence(object):
+class BatchedCalls(object):
     """Wrap a sequence of (func, args, kwargs) tuples as a single callable"""
 
     def __init__(self, iterable):
-        self.iterable = iterable
+        self.items = list(iterable)
+        self._size = len(self.items)
 
     def __call__(self, *_args, **_kwargs):
-        return CallSequenceResults(
-            func(*args, **kwargs) for func, args, kwargs in self.iterable)
-            
+        return [func(*args, **kwargs) for func, args, kwargs in self.items]
 
-def _partition_all(n, seq):
-    """ Partition all elements of sequence into tuples of length at most n
-
-    The final tuple may be shorter to accommodate extra elements.
-
-    >>> list(_partition_all(2, [1, 2, 3, 4]))
-    [(1, 2), (3, 4)]
-
-    >>> list(_partition_all(2, [1, 2, 3, 4, 5]))
-    [(1, 2), (3, 4), (5,)]
-
-    """
-    iterator = iter(seq)
-    while True:
-        next_tuple = tuple(itertools.islice(iterator, n))
-        if next_tuple:
-            yield next_tuple
-        else:
-            raise StopIteration()
-
+    def __len__(self):
+        return self._size
+        
 
 ###############################################################################
 # CPU that works also when multiprocessing is not installed (python2.5)
@@ -170,10 +149,10 @@ def delayed(function, check_pickle=True):
 class ImmediateApply(object):
     """ A non-delayed apply function.
     """
-    def __init__(self, func, args, kwargs):
+    def __init__(self, batch):
         # Don't delay the application, to avoid keeping the input
         # arguments in memory
-        self.results = func(*args, **kwargs)
+        self.results = batch()
 
     def get(self):
         return self.results
@@ -184,11 +163,26 @@ class CallBack(object):
     """ Callback used by parallel: it is used for progress reporting, and
         to add data to be processed
     """
-    def __init__(self, index, parallel):
-        self.parallel = parallel
+    def __init__(self, index, dispatch_timestamp, batch_size, parallel):
         self.index = index
+        self.dispatch_timestamp = dispatch_timestamp
+        self.batch_size = batch_size
+        self.parallel = parallel
 
     def __call__(self, out):
+        # Update the online mean duration of dispatch to completion time
+        # for individual tasks 
+        completion_timestamp = time.time()
+        duration = completion_timestamp - self.dispatch_timestamp
+        old_completed_tasks = self.parallel.n_completed_tasks
+        mean = self.parallel._mean_task_duration
+        new_mean = ((duration * self.batch_size + mean * old_completed_tasks)
+                    / (self.batch_size + old_completed_tasks))
+
+        # Only the callback thread is updating those two attributes
+        self.parallel._mean_task_duration = new_mean
+        self.parallel.n_completed_tasks += self.batch_size
+
         self.parallel.print_progress(self.index)
         if self.parallel._original_iterable:
             self.parallel.dispatch_next()
@@ -438,37 +432,31 @@ class Parallel(Logger):
         # exception is found
         self._aborting = False
 
-    def _batch(self, iterable):
-        return ((DelayedCallSequence(k), [], {})
-                for k in _partition_all(self.batch_size, iterable))
-
-    def dispatch(self, func, args, kwargs):
+    def dispatch(self, batch): 
         """ Queue the function for computing, with or without multiprocessing
         """
+        index = len(self._jobs)
         if self._pool is None:
-            job = ImmediateApply(func, args, kwargs)
-            index = len(self._jobs)
+            job = ImmediateApply(batch)
+            self._jobs.append(job)
+            self.n_dispatched_tasks += len(batch)
+            self.n_completed_tasks += len(batch)
             if not _verbosity_filter(index, self.verbose):
                 self._print('Done %3i jobs       | elapsed: %s',
-                        (index + 1,
+                        (self.n_completed_tasks,
                             short_format_time(time.time() - self._start_time)
                         ))
-            self._jobs.append(job)
-            self.n_dispatched += 1
         else:
             # If job.get() catches an exception, it closes the queue:
             if self._aborting:
                 return
-            try:
-                self._lock.acquire()
-                job = self._pool.apply_async(SafeFunction(func), args,
-                            kwargs, callback=CallBack(self.n_dispatched, self))
+            with self._lock:
+                dispatch_timestamp = time.time()
+                batch_size = len(batch)
+                cb = CallBack(index, dispatch_timestamp, batch_size, self)
+                job = self._pool.apply_async(SafeFunction(batch), callback=cb)
                 self._jobs.append(job)
-                self.n_dispatched += 1
-            except AssertionError:
-                print('[Parallel] Pool seems closed')
-            finally:
-                self._lock.release()
+                self.n_dispatched_tasks += len(batch)
 
     def dispatch_next(self):
         """ Dispatch more data for parallel processing
@@ -478,17 +466,20 @@ class Parallel(Logger):
             try:
                 # XXX: possible race condition shuffling the order of
                 # dispatches in the next two lines.
-                func, args, kwargs = next(self._original_iterable)
-                self.dispatch(func, args, kwargs)
+                tasks = list(itertools.islice(
+                    self._original_iterable, self.batch_size))
+                if not tasks:
+                    self._iterating = False
+                    self._original_iterable = None
+                    self._dispatch_amount = 0
+                    break
+
+                self.dispatch(BatchedCalls(tasks))
                 self._dispatch_amount -= 1
             except ValueError:
                 """ Race condition in accessing a generator, we skip,
                     the dispatch will be done later.
                 """
-            except StopIteration:
-                self._iterating = False
-                self._original_iterable = None
-                return
 
     def _print(self, msg, msg_args):
         """ Display the message on stout or stderr depending on verbosity
@@ -523,7 +514,7 @@ class Parallel(Logger):
                         ))
         else:
             # We are finished dispatching
-            queue_length = self.n_dispatched
+            queue_length = self.n_dispatched_tasks
             # We always display the first loop
             if not index == 0:
                 # Display depending on the number of remaining items
@@ -535,7 +526,7 @@ class Parallel(Logger):
                 if (is_last_item or cursor % frequency):
                     return
             remaining_time = (elapsed_time / (index + 1) *
-                        (self.n_dispatched - index - 1.))
+                        (self.n_dispatched_tasks - index - 1.))
             self._print('Done %3i out of %3i | elapsed: %s remaining: %s',
                         (index + 1,
                          queue_length,
@@ -671,9 +662,6 @@ class Parallel(Logger):
             # We are given a sized (an object with len). No need to be lazy.
             pre_dispatch = 'all'
 
-        # Lazily group the iterator into batches
-        iterable = self._batch(iterable) 
-
         if pre_dispatch == 'all' or n_jobs == 1:
             self._original_iterable = None
             self._pre_dispatch_amount = 0
@@ -693,17 +681,25 @@ class Parallel(Logger):
             # The main thread will consume the first pre_dispatch items and
             # the remaining items will later be lazily dispatched by async
             # callbacks upon task completions
-            iterable = itertools.islice(iterable, pre_dispatch)
+            iterable = list(itertools.islice(iterable, pre_dispatch))
 
         self._start_time = time.time()
-        self.n_dispatched = 0
+        self.n_batches_dispatched = 0
+        self.n_dispatched_tasks = 0
+        self.n_completed_tasks = 0
+        self._mean_task_duration = 0.0
         try:
             if set_environ_flag:
                 # Set an environment variable to avoid infinite loops
                 os.environ[JOBLIB_SPAWNED_PROCESS] = '1'
             self._iterating = True
-            for function, args, kwargs in iterable:
-                self.dispatch(function, args, kwargs)
+
+            iterator = iter(iterable)
+            while True:
+                tasks = list(itertools.islice(iterator, self.batch_size))
+                if not tasks:
+                    break
+                self.dispatch(BatchedCalls(tasks))
 
             if pre_dispatch == "all" or n_jobs == 1:
                 # The iterable was consumed all at once by the above for loop.
