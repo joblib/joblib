@@ -33,12 +33,15 @@ except ImportError:
     # Backward compat
     from Queue import Queue
 
+from itertools import chain
 
-from ..parallel import Parallel, delayed, SafeFunction, WorkerInterrupt, \
-        mp, cpu_count, VALID_BACKENDS
+from ..parallel import Parallel, delayed, SafeFunction, WorkerInterrupt
+from ..parallel import mp, cpu_count, VALID_BACKENDS, CallSequenceResults 
+
 from ..my_exceptions import JoblibException
 
 import nose
+from nose.tools import assert_true, assert_equal
 
 
 ALL_VALID_BACKENDS = [None] + VALID_BACKENDS
@@ -230,16 +233,33 @@ def check_dispatch_one_job(backend):
             queue.append('Produced %i' % i)
             yield i
 
-    Parallel(n_jobs=1, backend=backend)(
+    # disable batching
+    Parallel(n_jobs=1, batch_size=1, backend=backend)(
         delayed(consumer)(queue, x) for x in producer())
-    nose.tools.assert_equal(queue,
-                              ['Produced 0', 'Consumed 0',
-                               'Produced 1', 'Consumed 1',
-                               'Produced 2', 'Consumed 2',
-                               'Produced 3', 'Consumed 3',
-                               'Produced 4', 'Consumed 4',
-                               'Produced 5', 'Consumed 5']
-                               )
+    nose.tools.assert_equal(queue, [
+        'Produced 0', 'Consumed 0',
+        'Produced 1', 'Consumed 1',
+        'Produced 2', 'Consumed 2',
+        'Produced 3', 'Consumed 3',
+        'Produced 4', 'Consumed 4',
+        'Produced 5', 'Consumed 5',
+    ])
+    nose.tools.assert_equal(len(queue), 12)
+
+    # empty the queue for the next check
+    queue[:] = []
+
+    # enable batching
+    Parallel(n_jobs=1, batch_size=4, backend=backend)(
+        delayed(consumer)(queue, x) for x in producer())
+    nose.tools.assert_equal(queue, [
+        # First batch 
+        'Produced 0', 'Produced 1', 'Produced 2', 'Produced 3',
+        'Consumed 0', 'Consumed 1', 'Consumed 2', 'Consumed 3',
+
+        # Second batch 
+        'Produced 4', 'Produced 5', 'Consumed 4', 'Consumed 5',
+    ])
     nose.tools.assert_equal(len(queue), 12)
 
 
@@ -262,7 +282,7 @@ def check_dispatch_multiprocessing(backend):
             queue.append('Produced %i' % i)
             yield i
 
-    Parallel(n_jobs=2, pre_dispatch=3, backend=backend)(
+    Parallel(n_jobs=2, batch_size=1, pre_dispatch=3, backend=backend)(
         delayed(consumer)(queue, 'any') for _ in producer())
 
     # Only 3 tasks are dispatched out of 6. The 4th task is dispatched only

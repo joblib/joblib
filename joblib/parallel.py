@@ -5,6 +5,8 @@ Helpers for embarrassingly parallel code.
 # Copyright: 2010, Gael Varoquaux
 # License: BSD 3 clause
 
+from __future__ import division
+
 import os
 import sys
 import gc
@@ -36,6 +38,42 @@ VALID_BACKENDS = ['multiprocessing', 'threading']
 
 # Environment variables to protect against bad situations when nesting
 JOBLIB_SPAWNED_PROCESS = "__JOBLIB_SPAWNED_PARALLEL__"
+
+
+class CallSequenceResults(list):
+    pass
+
+
+class DelayedCallSequence(object):
+    """Wrap a sequence of (func, args, kwargs) tuples as a single callable"""
+
+    def __init__(self, iterable):
+        self.iterable = iterable
+
+    def __call__(self, *_args, **_kwargs):
+        return CallSequenceResults(
+            func(*args, **kwargs) for func, args, kwargs in self.iterable)
+            
+
+def _partition_all(n, seq):
+    """ Partition all elements of sequence into tuples of length at most n
+
+    The final tuple may be shorter to accommodate extra elements.
+
+    >>> list(_partition_all(2, [1, 2, 3, 4]))
+    [(1, 2), (3, 4)]
+
+    >>> list(_partition_all(2, [1, 2, 3, 4, 5]))
+    [(1, 2), (3, 4), (5,)]
+
+    """
+    iterator = iter(seq)
+    while True:
+        next_tuple = tuple(itertools.islice(iterator, n))
+        if next_tuple:
+            yield next_tuple
+        else:
+            raise StopIteration()
 
 
 ###############################################################################
@@ -198,6 +236,11 @@ class Parallel(Logger):
             at all, which is useful for debugging. For n_jobs below -1,
             (n_cpus + 1 + n_jobs) are used. Thus for n_jobs = -2, all
             CPUs but one are used.
+        batch_size: int, default: 1
+            The number of atomic tasks to dispatch at once to a specific
+            worker. When individual evaluations are very fast, multiprocessing
+            will generally be slower than sequential computation because of the
+            overhead. Batching fast computations together can mitigate this.
         backend: str or None
             Specify the parallelization backend implementation.
             Supported backends are:
@@ -360,8 +403,9 @@ class Parallel(Logger):
          [Parallel(n_jobs=2)]: Done   5 out of   6 | elapsed:    0.0s remaining:    0.0s
          [Parallel(n_jobs=2)]: Done   6 out of   6 | elapsed:    0.0s finished
     '''
-    def __init__(self, n_jobs=1, backend=None, verbose=0, pre_dispatch='all',
-                 temp_folder=None, max_nbytes=100e6, mmap_mode='r'):
+    def __init__(self, n_jobs=1, batch_size=1, backend=None, verbose=0,
+            pre_dispatch='all', temp_folder=None, max_nbytes=100e6,
+            mmap_mode='r'):
         self.verbose = verbose
         self._mp_context = None
         if backend is None:
@@ -377,6 +421,7 @@ class Parallel(Logger):
                              % (backend, VALID_BACKENDS))
         self.backend = backend
         self.n_jobs = n_jobs
+        self.batch_size = batch_size
         self.pre_dispatch = pre_dispatch
         self._pool = None
         self._temp_folder = temp_folder
@@ -392,6 +437,10 @@ class Parallel(Logger):
         # A flag used to abort the dispatching of jobs in case an
         # exception is found
         self._aborting = False
+
+    def _batch(self, iterable):
+        return ((DelayedCallSequence(k), [], {})
+                for k in _partition_all(self.batch_size, iterable))
 
     def dispatch(self, func, args, kwargs):
         """ Queue the function for computing, with or without multiprocessing
@@ -509,7 +558,7 @@ class Parallel(Logger):
             if hasattr(self, '_lock'):
                 self._lock.release()
             try:
-                self._output.append(job.get())
+                self._output.extend(job.get())
             except tuple(self.exceptions) as exception:
                 try:
                     self._aborting = True
@@ -622,6 +671,9 @@ class Parallel(Logger):
             # We are given a sized (an object with len). No need to be lazy.
             pre_dispatch = 'all'
 
+        # Lazily group the iterator into batches
+        iterable = self._batch(iterable) 
+
         if pre_dispatch == 'all' or n_jobs == 1:
             self._original_iterable = None
             self._pre_dispatch_amount = 0
@@ -631,6 +683,7 @@ class Parallel(Logger):
             # job completions. As Python generators are not thread-safe we
             # need to wrap it with a lock
             iterable = LockedIterator(iterable)
+ 
             self._original_iterable = iterable
             self._dispatch_amount = 0
             if hasattr(pre_dispatch, 'endswith'):
