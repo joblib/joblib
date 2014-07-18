@@ -528,7 +528,7 @@ class Parallel(Logger):
                         # Capture exception to add information on the local
                         # stack in addition to the distant stack
                         this_report = format_outer_frames(context=10,
-                                                        stack_start=1)
+                                                          stack_start=1)
                         report = """Multiprocessing exception:
     %s
     ---------------------------------------------------------------------------
