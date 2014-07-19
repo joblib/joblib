@@ -53,7 +53,7 @@ class BatchedCalls(object):
 
     def __len__(self):
         return self._size
-        
+
 
 ###############################################################################
 # CPU that works also when multiprocessing is not installed (python2.5)
@@ -171,7 +171,7 @@ class CallBack(object):
 
     def __call__(self, out):
         # Update the online mean duration of dispatch to completion time
-        # for individual tasks 
+        # for individual tasks
         completion_timestamp = time.time()
         duration = completion_timestamp - self.dispatch_timestamp
         old_completed_tasks = self.parallel.n_completed_tasks
@@ -215,7 +215,6 @@ class LockedIterator(object):
 
     # For Python 3 compat
     __next__ = next
-
 
 
 ###############################################################################
@@ -432,7 +431,7 @@ class Parallel(Logger):
         # exception is found
         self._aborting = False
 
-    def dispatch(self, batch): 
+    def dispatch(self, batch):
         """ Queue the function for computing, with or without multiprocessing
         """
         index = len(self._jobs)
@@ -484,7 +483,6 @@ class Parallel(Logger):
         else:
             self.dispatch(tasks)
             return True
-
 
     def _print(self, msg, msg_args):
         """ Display the message on stout or stderr depending on verbosity
@@ -676,7 +674,7 @@ class Parallel(Logger):
             # job completions. As Python generators are not thread-safe we
             # need to wrap it with a lock
             iterable = LockedIterator(iterable)
- 
+
             self._original_iterable = iterable
             self._dispatch_amount = 0
             if hasattr(pre_dispatch, 'endswith'):
