@@ -178,7 +178,6 @@ class CallBack(object):
         mean = self.parallel._mean_task_duration
         new_mean = ((duration * self.batch_size + mean * old_completed_tasks)
                     / (self.batch_size + old_completed_tasks))
-
         # Only the callback thread is updating those two attributes
         self.parallel._mean_task_duration = new_mean
         self.parallel.n_completed_tasks += self.batch_size
@@ -229,11 +228,14 @@ class Parallel(Logger):
             at all, which is useful for debugging. For n_jobs below -1,
             (n_cpus + 1 + n_jobs) are used. Thus for n_jobs = -2, all
             CPUs but one are used.
-        batch_size: int, default: 1
+        batch_size: int or 'auto', default: 'auto'
             The number of atomic tasks to dispatch at once to a specific
             worker. When individual evaluations are very fast, multiprocessing
             will generally be slower than sequential computation because of the
             overhead. Batching fast computations together can mitigate this.
+            The ``'auto'`` strategy starts off with a batch size of one, and
+            doubles it at every dispatch if the estimated average dispatch
+            completion time is under 1s.
         backend: str or None
             Specify the parallelization backend implementation.
             Supported backends are:
@@ -396,7 +398,7 @@ class Parallel(Logger):
          [Parallel(n_jobs=2)]: Done   5 out of   6 | elapsed:    0.0s remaining:    0.0s
          [Parallel(n_jobs=2)]: Done   6 out of   6 | elapsed:    0.0s finished
     '''
-    def __init__(self, n_jobs=1, batch_size=1, backend=None, verbose=0,
+    def __init__(self, n_jobs=1, batch_size='auto', backend=None, verbose=0,
             pre_dispatch='all', temp_folder=None, max_nbytes=100e6,
             mmap_mode='r'):
         self.verbose = verbose
@@ -477,7 +479,14 @@ class Parallel(Logger):
                 pass
 
     def dispatch_one_batch(self, iterator):
-        tasks = BatchedCalls(itertools.islice(iterator, self.batch_size))
+        if self.batch_size == 'auto':
+            if self._mean_task_duration * self._effective_batch_size < 1.0:
+                self._effective_batch_size *= 2
+            batch_size = self._effective_batch_size
+        else:
+            batch_size = self.batch_size
+
+        tasks = BatchedCalls(itertools.islice(iterator, batch_size))
         if not tasks:
             return False
         else:
@@ -659,6 +668,9 @@ class Parallel(Logger):
                 self.exceptions.extend([KeyboardInterrupt, WorkerInterrupt])
         else:
             raise ValueError("Unsupported backend: %s" % self.backend)
+
+        if self.batch_size == 'auto':
+            self._effective_batch_size = 1
 
         pre_dispatch = self.pre_dispatch
         if isinstance(iterable, Sized):
