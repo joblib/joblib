@@ -464,22 +464,27 @@ class Parallel(Logger):
         self._dispatch_amount += 1
         while self._dispatch_amount:
             try:
-                # XXX: possible race condition shuffling the order of
-                # dispatches in the next two lines.
-                tasks = BatchedCalls(itertools.islice(
-                    self._original_iterable, self.batch_size))
-                if not tasks:
+                if self.dispatch_one_batch(self._original_iterable):
+                    self._dispatch_amount -= 1
+                else:
                     self._iterating = False
                     self._original_iterable = None
                     self._dispatch_amount = 0
                     break
 
-                self.dispatch(tasks)
-                self._dispatch_amount -= 1
             except ValueError:
-                """ Race condition in accessing a generator, we skip,
-                    the dispatch will be done later.
-                """
+                # Race condition in accessing a generator, we skip,
+                # the dispatch will be done later.
+                pass
+
+    def dispatch_one_batch(self, iterator):
+        tasks = BatchedCalls(itertools.islice(iterator, self.batch_size))
+        if not tasks:
+            return False
+        else:
+            self.dispatch(tasks)
+            return True
+
 
     def _print(self, msg, msg_args):
         """ Display the message on stout or stderr depending on verbosity
@@ -695,12 +700,9 @@ class Parallel(Logger):
             self._iterating = True
 
             iterator = iter(iterable)
-            while True:
-                tasks = BatchedCalls(itertools.islice(
-                    iterator, self.batch_size))
-                if not tasks:
-                    break
-                self.dispatch(tasks)
+
+            while self.dispatch_one_batch(iterator):
+                pass
 
             if pre_dispatch == "all" or n_jobs == 1:
                 # The iterable was consumed all at once by the above for loop.
