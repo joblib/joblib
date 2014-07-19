@@ -479,13 +479,29 @@ class Parallel(Logger):
                 pass
 
     def dispatch_one_batch(self, iterator):
+        """Prefetch the tasks for the next batch and dispatch them.
+
+        The effective size of the batch is computed here.
+        If there are no more jobs to dispatch, return False, else return True.
+        """
         if self.batch_size == 'auto':
-            if self._mean_task_duration * self._effective_batch_size < 1.0:
+            batch_duration = (self._mean_task_duration *
+                              self._effective_batch_size)
+            if self._mean_task_duration != 0 and batch_duration < 1.0:
                 self._effective_batch_size *= 2
+                if self.verbose:
+                    self._print("Expected batch duration %.2f < 1.0. "
+                                "Setting batch_size=%d.", (
+                                    batch_duration, self._effective_batch_size))
+            elif batch_duration > 10.0 and self._effective_batch_size >= 2:
+                self._effective_batch_size /= 2
+                if self.verbose:
+                    self._print("Expected batch duration %.2f > 10.0. "
+                                "Setting batch_size=%d.", (
+                                    batch_duration, self._effective_batch_size))
             batch_size = self._effective_batch_size
         else:
             batch_size = self.batch_size
-
         tasks = BatchedCalls(itertools.islice(iterator, batch_size))
         if not tasks:
             return False
