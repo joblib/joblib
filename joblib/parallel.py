@@ -466,7 +466,7 @@ class Parallel(Logger):
             try:
                 # XXX: possible race condition shuffling the order of
                 # dispatches in the next two lines.
-                tasks = list(itertools.islice(
+                tasks = BatchedCalls(itertools.islice(
                     self._original_iterable, self.batch_size))
                 if not tasks:
                     self._iterating = False
@@ -474,7 +474,7 @@ class Parallel(Logger):
                     self._dispatch_amount = 0
                     break
 
-                self.dispatch(BatchedCalls(tasks))
+                self.dispatch(tasks)
                 self._dispatch_amount -= 1
             except ValueError:
                 """ Race condition in accessing a generator, we skip,
@@ -696,10 +696,11 @@ class Parallel(Logger):
 
             iterator = iter(iterable)
             while True:
-                tasks = list(itertools.islice(iterator, self.batch_size))
+                tasks = BatchedCalls(itertools.islice(
+                    iterator, self.batch_size))
                 if not tasks:
                     break
-                self.dispatch(BatchedCalls(tasks))
+                self.dispatch(tasks)
 
             if pre_dispatch == "all" or n_jobs == 1:
                 # The iterable was consumed all at once by the above for loop.
