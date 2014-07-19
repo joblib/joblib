@@ -39,6 +39,8 @@ VALID_BACKENDS = ['multiprocessing', 'threading']
 # Environment variables to protect against bad situations when nesting
 JOBLIB_SPAWNED_PROCESS = "__JOBLIB_SPAWNED_PARALLEL__"
 
+MIN_IDEAL_BATCH_DURATION = 1.0  # seconds
+MAX_IDEAL_BATCH_DURATION = 10.0
 
 
 class BatchedCalls(object):
@@ -487,13 +489,15 @@ class Parallel(Logger):
         if self.batch_size == 'auto':
             batch_duration = (self._mean_task_duration *
                               self._effective_batch_size)
-            if self._mean_task_duration != 0 and batch_duration < 1.0:
+            if (self._mean_task_duration != 0 and
+                batch_duration < MIN_IDEAL_BATCH_DURATION):
                 self._effective_batch_size *= 2
                 if self.verbose:
                     self._print("Expected batch duration %.2f < 1.0. "
                                 "Setting batch_size=%d.", (
                                     batch_duration, self._effective_batch_size))
-            elif batch_duration > 10.0 and self._effective_batch_size >= 2:
+            elif (batch_duration > MAX_IDEAL_BATCH_DURATION and
+                  self._effective_batch_size >= 2):
                 self._effective_batch_size /= 2
                 if self.verbose:
                     self._print("Expected batch duration %.2f > 10.0. "
