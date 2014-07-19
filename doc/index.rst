@@ -27,7 +27,7 @@
 .. raw:: html
 
     <h1 style='text-align: center; font-size: 270%;'>
-    Joblib: running Python function as pipeline jobs
+    Joblib: running Python functions as pipeline jobs
     </h1>
 
 Introduction
