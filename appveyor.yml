@@ -12,10 +12,6 @@ environment:
       PYTHON_VERSION: "3.4.1"
       PYTHON_ARCH: "64"
 
-branches:
-  only:
-    - master
-
 install:
   # Install Python (from the official .msi of http://python.org) and pip when
   # not already installed.
