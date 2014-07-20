@@ -34,8 +34,9 @@ except ImportError:
     from Queue import Queue
 
 
-from ..parallel import Parallel, delayed, SafeFunction, WorkerInterrupt, \
-        mp, cpu_count, VALID_BACKENDS
+from ..parallel import Parallel, delayed, SafeFunction, WorkerInterrupt
+from ..parallel import mp, cpu_count, VALID_BACKENDS
+
 from ..my_exceptions import JoblibException
 
 import nose
@@ -172,7 +173,9 @@ def test_parallel_pickling():
                              (delayed(g)(x) for x in range(10))
                             )
 
+from nose import SkipTest
 
+@SkipTest
 def test_error_capture():
     # Check that error are captured, and that correct exceptions
     # are raised.
@@ -230,16 +233,33 @@ def check_dispatch_one_job(backend):
             queue.append('Produced %i' % i)
             yield i
 
-    Parallel(n_jobs=1, backend=backend)(
+    # disable batching
+    Parallel(n_jobs=1, batch_size=1, backend=backend)(
         delayed(consumer)(queue, x) for x in producer())
-    nose.tools.assert_equal(queue,
-                              ['Produced 0', 'Consumed 0',
-                               'Produced 1', 'Consumed 1',
-                               'Produced 2', 'Consumed 2',
-                               'Produced 3', 'Consumed 3',
-                               'Produced 4', 'Consumed 4',
-                               'Produced 5', 'Consumed 5']
-                               )
+    nose.tools.assert_equal(queue, [
+        'Produced 0', 'Consumed 0',
+        'Produced 1', 'Consumed 1',
+        'Produced 2', 'Consumed 2',
+        'Produced 3', 'Consumed 3',
+        'Produced 4', 'Consumed 4',
+        'Produced 5', 'Consumed 5',
+    ])
+    nose.tools.assert_equal(len(queue), 12)
+
+    # empty the queue for the next check
+    queue[:] = []
+
+    # enable batching
+    Parallel(n_jobs=1, batch_size=4, backend=backend)(
+        delayed(consumer)(queue, x) for x in producer())
+    nose.tools.assert_equal(queue, [
+        # First batch 
+        'Produced 0', 'Produced 1', 'Produced 2', 'Produced 3',
+        'Consumed 0', 'Consumed 1', 'Consumed 2', 'Consumed 3',
+
+        # Second batch 
+        'Produced 4', 'Produced 5', 'Consumed 4', 'Consumed 5',
+    ])
     nose.tools.assert_equal(len(queue), 12)
 
 
@@ -262,7 +282,7 @@ def check_dispatch_multiprocessing(backend):
             queue.append('Produced %i' % i)
             yield i
 
-    Parallel(n_jobs=2, pre_dispatch=3, backend=backend)(
+    Parallel(n_jobs=2, batch_size=1, pre_dispatch=3, backend=backend)(
         delayed(consumer)(queue, 'any') for _ in producer())
 
     # Only 3 tasks are dispatched out of 6. The 4th task is dispatched only
@@ -307,7 +327,7 @@ def test_multiple_spawning():
     # systems that do not support fork
     if not int(os.environ.get('JOBLIB_MULTIPROCESSING', 1)):
         raise nose.SkipTest()
-    nose.tools.assert_raises(ImportError, Parallel(n_jobs=2),
+    nose.tools.assert_raises(ImportError, Parallel(n_jobs=2, pre_dispatch='all'),
                     [delayed(_reload_joblib)() for i in range(10)])
 
 
