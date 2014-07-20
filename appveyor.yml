@@ -14,7 +14,7 @@ environment:
 
 branches:
   only:
-    - appveyor-ci
+    - master
 
 install:
   # Install Python (from the official .msi of http://python.org) and pip when
