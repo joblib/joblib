@@ -4,9 +4,10 @@ environment:
   # platforms (universal wheel).
   # We run the tests on 2 different target platforms for testing purpose only.
   matrix:
-    - PYTHON: "C:\\Python27_32"
-      PYTHON_VERSION: "2.7.8"
-      PYTHON_ARCH: "32"
+# Disable Python 32 bit as the installer does not work anymore
+#    - PYTHON: "C:\\Python27_32"
+#      PYTHON_VERSION: "2.7.8"
+#      PYTHON_ARCH: "32"
 
     - PYTHON: "C:\\Python34"
       PYTHON_VERSION: "3.4.1"
