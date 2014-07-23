@@ -1,6 +1,6 @@
 # Sample script to install Python and pip under Windows
 # Authors: Olivier Grisel and Kyle Kastner
-# License: BSD 3 clause
+# License: CC0 1.0 Universal: http://creativecommons.org/publicdomain/zero/1.0/
 
 $BASE_URL = "https://www.python.org/ftp/python/"
 $GET_PIP_URL = "https://bootstrap.pypa.io/get-pip.py"
@@ -52,12 +52,17 @@ function InstallPython ($python_version, $architecture, $python_home) {
     } else {
         $platform_suffix = ".amd64"
     }
-    $filepath = DownloadPython $python_version $platform_suffix
-    Write-Host "Installing" $filepath "to" $python_home
+    $msipath = DownloadPython $python_version $platform_suffix
+    Write-Host "Installing" $msipath "to" $python_home
     $install_log = $python_home + ".log"
-    $args = "/qn  /log $install_log /i $filepath TARGETDIR=$python_home"
-    Write-Host "msiexec.exe" $args
-    Start-Process -FilePath "msiexec.exe" -ArgumentList $args -Wait -Passthru
+    $install_args = "/qn /log $install_log /i $msipath TARGETDIR=$python_home"
+    $uninstall_args = "/qn /x $msipath"
+    RunCommand "msiexec.exe" $install_args
+    if (-not(Test-Path $python_home)) {
+        Write-Host "Python seems to be installed else-where, reinstalling."
+        RunCommand "msiexec.exe" $uninstall_args
+        RunCommand "msiexec.exe" $install_args
+    }
     if (Test-Path $python_home) {
         Write-Host "Python $python_version ($architecture) installation complete"
     } else {
@@ -65,6 +70,11 @@ function InstallPython ($python_version, $architecture, $python_home) {
         Get-Content -Path $install_log
         Exit 1
     }
+}
+
+function RunCommand ($command, $command_args) {
+    Write-Host $command $command_args
+    Start-Process -FilePath $command -ArgumentList $command_args -Wait -Passthru
 }
 
 
@@ -81,6 +91,7 @@ function InstallPip ($python_home) {
         Write-Host "pip already installed."
     }
 }
+
 
 function main () {
     InstallPython $env:PYTHON_VERSION $env:PYTHON_ARCH $env:PYTHON
