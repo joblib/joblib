@@ -1,6 +1,32 @@
 Latest changes
 ===============
 
+Release 0.8.3
+-------------
+
+2014-08-19
+Olivier Grisel
+
+    FIX disable memmapping for object arrays
+
+2014-08-07
+Lars Buitinck <larsmans@gmail.com>
+
+    MAINT NumPy 1.10-safe version comparisons
+
+
+2014-07-11
+Olivier Grisel
+
+    FIX #146: Heisen test failure caused by thread-unsafe Python lists
+    
+    This fix uses a queue.Queue datastructure in the failing test. This
+    datastructure is thread-safe thanks to an internal Lock. This Lock instance 
+    not picklable hence cause the picklability check of delayed to check fail.
+    
+    When using the threading backend, picklability is no longer required, hence
+    this PRs give the user the ability to disable it on a case by case basis.
+
 
 Release 0.8.2
 -------------
