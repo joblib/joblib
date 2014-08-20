@@ -10,7 +10,7 @@ Olivier Grisel
     FIX disable memmapping for object arrays
 
 2014-08-07
-Lars Buitinck <larsmans@gmail.com>
+Lars Buitinck
 
     MAINT NumPy 1.10-safe version comparisons
 
