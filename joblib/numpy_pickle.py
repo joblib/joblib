@@ -376,7 +376,7 @@ def dump(value, filename, compress=0, cache_size=100):
 
 
 def load(filename, mmap_mode=None):
-    """Reconstruct a Python object from a file persisted with joblib.load.
+    """Reconstruct a Python object from a file persisted with joblib.dump.
 
     Parameters
     -----------
