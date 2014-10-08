@@ -649,7 +649,17 @@ class Parallel(Logger):
                 # Set an environment variable to avoid infinite loops
                 os.environ[JOBLIB_SPAWNED_PROCESS] = '1'
             self._iterating = True
+
+            check_pickle_args = self.backend == 'multiprocessing'
             for function, args, kwargs in iterable:
+                if check_pickle_args:
+                    try:
+                        pickle.dumps(args)
+                        pickle.dumps(kwargs)
+                        check_pickle_args = False
+                    except:
+                        raise ValueError("arguments passed to delayed should "
+                                         "be picklable.")
                 self.dispatch(function, args, kwargs)
 
             if pre_dispatch == "all" or n_jobs == 1:
