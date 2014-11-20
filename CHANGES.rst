@@ -1,6 +1,18 @@
 Latest changes
 ===============
 
+Release 0.8.4
+-------------
+
+2014-11-20
+Olivier Grisel
+
+    OPTIM use the C-optimized pickler under Python 3
+
+    This makes it possible to efficiently process parallel jobs that deal with
+    numerous Python objects such as large dictionaries.
+
+
 Release 0.8.3
 -------------
 
@@ -19,11 +31,11 @@ Lars Buitinck
 Olivier Grisel
 
     FIX #146: Heisen test failure caused by thread-unsafe Python lists
-    
+
     This fix uses a queue.Queue datastructure in the failing test. This
-    datastructure is thread-safe thanks to an internal Lock. This Lock instance 
+    datastructure is thread-safe thanks to an internal Lock. This Lock instance
     not picklable hence cause the picklability check of delayed to check fail.
-    
+
     When using the threading backend, picklability is no longer required, hence
     this PRs give the user the ability to disable it on a case by case basis.
 
