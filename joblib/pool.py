@@ -296,8 +296,8 @@ class CustomizablePickler(Pickler):
             # a reference to the class dictionary under Python 2
             self.dispatch = Pickler.dispatch.copy()
         else:
-            # Under Python 3 initialize the dispatch table with with a copy of
-            # the default registry
+            # Under Python 3 initialize the dispatch table with a copy of the
+            # default registry
             self.dispatch_table = copyreg.dispatch_table.copy()
         for type, reduce_func in reducers.items():
             self.register(type, reduce_func)
