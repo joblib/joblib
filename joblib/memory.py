@@ -338,7 +338,7 @@ class MemorizedFunc(Logger):
     # Public interface
     #-------------------------------------------------------------------------
 
-    def __init__(self, func, cachedir, ignore=None, mmap_mode=None,
+    def __init__(self, func, cachedir, ignore=None, stable=None, mmap_mode=None,
                  compress=False, verbose=1, timestamp=None):
         """
             Parameters
@@ -372,6 +372,11 @@ class MemorizedFunc(Logger):
             ignore = []
         self.ignore = ignore
 
+        if stable is None:
+            stable = []
+        self.stable = stable
+        self._stable_arg_hashes={}
+        
         self._verbose = verbose
         self.cachedir = cachedir
         self.compress = compress
@@ -503,8 +508,17 @@ class MemorizedFunc(Logger):
     #-------------------------------------------------------------------------
 
     def _get_argument_hash(self, *args, **kwargs):
-        return hashing.hash(filter_args(self.func, self.ignore,
-                                         args, kwargs),
+        fa=filter_args(self.func, self.ignore, args, kwargs)
+        # replace stable argument occurences with their respective hashes
+        for item in self.stable:
+            if item in fa:
+                ii=id(fa[item])
+                if ii not in self._stable_arg_hashes:
+                    self._stable_arg_hashes[ii]=hashing.hash(fa[item],
+                                 coerce_mmap=(self.mmap_mode is not None))
+                fa[item]=self._stable_arg_hashes[ii]
+
+        return hashing.hash(fa,
                              coerce_mmap=(self.mmap_mode is not None))
 
     def _get_output_dir(self, *args, **kwargs):
@@ -827,7 +841,7 @@ class Memory(Logger):
             self.cachedir = os.path.join(cachedir, 'joblib')
             mkdirp(self.cachedir)
 
-    def cache(self, func=None, ignore=None, verbose=None,
+    def cache(self, func=None, ignore=None, stable=None, verbose=None,
                         mmap_mode=False):
         """ Decorates the given function func to only compute its return
             value for input arguments not cached on disk.
@@ -857,7 +871,7 @@ class Memory(Logger):
         if func is None:
             # Partial application, to be able to specify extra keyword
             # arguments in decorators
-            return functools.partial(self.cache, ignore=ignore,
+            return functools.partial(self.cache, ignore=ignore, stable=stable,
                                      verbose=verbose, mmap_mode=mmap_mode)
         if self.cachedir is None:
             return NotMemorizedFunc(func)
@@ -870,6 +884,7 @@ class Memory(Logger):
         return MemorizedFunc(func, cachedir=self.cachedir,
                                    mmap_mode=mmap_mode,
                                    ignore=ignore,
+                                   stable=stable,
                                    compress=self.compress,
                                    verbose=verbose,
                                    timestamp=self.timestamp)
