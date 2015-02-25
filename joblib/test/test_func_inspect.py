@@ -100,6 +100,9 @@ def test_filter_args():
     yield nose.tools.assert_equal, filter_args(f2, [], (),
                                                dict(x=1)), {'x': 1}
 
+    yield nose.tools.assert_equal, filter_args(f, [], (1, ),
+                process={"x": lambda a: 2*a}), {'x': 2, 'y': 0}
+
 
 def test_filter_args_method():
     obj = Klass()

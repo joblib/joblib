@@ -319,6 +319,13 @@ class MemorizedFunc(Logger):
             List of variable names to ignore when choosing whether to
             recompute.
 
+        process: dict or None
+            Dictionary of variable names with associated functions to
+            filter prior to computing a key.  This means that for each
+            (arg, func) pair in process, rather than using the value of
+            arg directly, func(arg) will be used.  This may be needed
+            in case some arguments cause a failure in calculating the key.
+
         mmap_mode: {None, 'r+', 'r', 'w+', 'c'}
             The memmapping mode used when loading from cache
             numpy arrays. See numpy.load for the meaning of the different
@@ -339,7 +346,7 @@ class MemorizedFunc(Logger):
     #-------------------------------------------------------------------------
 
     def __init__(self, func, cachedir, ignore=None, mmap_mode=None,
-                 compress=False, verbose=1, timestamp=None):
+                 compress=False, verbose=1, timestamp=None, process=None):
         """
             Parameters
             ----------
@@ -349,6 +356,13 @@ class MemorizedFunc(Logger):
                 The path of the base directory to use as a data store
             ignore: list or None
                 List of variable names to ignore.
+            process: dict or None
+                Dictionary of variable names with associated functions
+                to filter prior to computing a key.  This means that for
+                each (arg, func) pair in process, rather than using the
+                value of arg directly, func(arg) will be used.  This may
+                be needed in case some arguments cause a failure in
+                calculating the key.
             mmap_mode: {None, 'r+', 'r', 'w+', 'c'}, optional
                 The memmapping mode used when loading from cache
                 numpy arrays. See numpy.load for the meaning of the
@@ -371,6 +385,9 @@ class MemorizedFunc(Logger):
         if ignore is None:
             ignore = []
         self.ignore = ignore
+        if process is None:
+            process = {}
+        self.process = process
 
         self._verbose = verbose
         self.cachedir = cachedir
@@ -504,7 +521,8 @@ class MemorizedFunc(Logger):
 
     def _get_argument_hash(self, *args, **kwargs):
         return hashing.hash(filter_args(self.func, self.ignore,
-                                         args, kwargs),
+                                         args, kwargs,
+                                         process=self.process),
                              coerce_mmap=(self.mmap_mode is not None))
 
     def _get_output_dir(self, *args, **kwargs):
@@ -714,7 +732,8 @@ class MemorizedFunc(Logger):
         """
         start_time = time.time()
         argument_dict = filter_args(self.func, self.ignore,
-                                    args, kwargs)
+                                    args, kwargs,
+                                    process=self.process)
 
         input_repr = dict((k, repr(v)) for k, v in argument_dict.items())
         # This can fail due to race-conditions with multiple
@@ -828,7 +847,7 @@ class Memory(Logger):
             mkdirp(self.cachedir)
 
     def cache(self, func=None, ignore=None, verbose=None,
-                        mmap_mode=False):
+                        mmap_mode=False, process=None):
         """ Decorates the given function func to only compute its return
             value for input arguments not cached on disk.
 
@@ -845,6 +864,13 @@ class Memory(Logger):
                 The memmapping mode used when loading from cache
                 numpy arrays. See numpy.load for the meaning of the
                 arguments. By default that of the memory object is used.
+            process: dict or None
+                Dictionary of variable names with associated functions
+                to filter prior to computing a key.  This means that for
+                each (arg, func) pair in process, rather than using the
+                value of arg directly, func(arg) will be used.  This may
+                be needed in case some arguments cause a failure in
+                calculating the key.
 
             Returns
             -------
@@ -872,7 +898,8 @@ class Memory(Logger):
                                    ignore=ignore,
                                    compress=self.compress,
                                    verbose=verbose,
-                                   timestamp=self.timestamp)
+                                   timestamp=self.timestamp,
+                                   process=process)
 
     def clear(self, warn=True):
         """ Erase the complete cache directory.
