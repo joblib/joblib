@@ -134,9 +134,9 @@ Here is an example script on parallel processing with preallocated
 
 .. warning::
 
-  Having concurrent workers write on overlapping shared memory data segments
+  Having concurrent workers write on overlapping shared memory data segments,
   for instance by using inplace operators and assignments on a `numpy.memmap`
-  instance can lead to data corruption as numpy does not offer atomic
+  instance, can lead to data corruption as numpy does not offer atomic
   operations. The previous example does not risk that issue as each task is
   updating an exclusive segment of the shared result array.
 
