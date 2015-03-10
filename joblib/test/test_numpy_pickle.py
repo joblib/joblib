@@ -234,6 +234,7 @@ def test_z_file():
     nose.tools.assert_equal(data, data_read)
 
 
+@with_numpy
 def test_compressed_pickle_python_2_3_compatibility():
     expected1 = np.arange(5)
     expected2 = np.arange(5, dtype='f8')
