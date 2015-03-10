@@ -81,8 +81,8 @@ def read_zfile(file_handle):
     # https://tools.ietf.org/html/rfc6713#section-2.1
     next_byte = file_handle.read(1)
     if next_byte != b' ':
-        # The zlib compressed data has started and we need to back one
-        # byte
+        # The zlib compressed data has started and we need to go back
+        # one byte
         file_handle.seek(header_length)
 
     # We use the known length of the data to tell Zlib the size of the
