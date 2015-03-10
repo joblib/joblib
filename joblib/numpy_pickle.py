@@ -17,7 +17,9 @@ from ._compat import _basestring
 
 from io import BytesIO
 
-if sys.version_info[0] >= 3:
+PY3 = sys.version_info[0] >= 3
+
+if PY3:
     Unpickler = pickle._Unpickler
     Pickler = pickle._Pickler
 
@@ -30,11 +32,20 @@ else:
     Pickler = pickle.Pickler
     asbytes = str
 
-_MEGA = 2 ** 20
-_MAX_LEN = len(hex(2 ** 64))
 
-# To detect file types
+def hex_str(an_int):
+    """Converts an int to an hexadecimal string
+    """
+    return '{0:#x}'.format(an_int)
+
+
+_MEGA = 2 ** 20
+
+# Compressed pickle header format: _ZFILE_PREFIX followed by _MAX_LEN
+# bytes which contains the length of the zlib compressed data as an
+# hexadecimal string. For example: 'ZF0x139              '
 _ZFILE_PREFIX = asbytes('ZF')
+_MAX_LEN = len(hex_str(2 ** 64))
 
 
 ###############################################################################
@@ -60,9 +71,22 @@ def read_zfile(file_handle):
     file_handle.seek(0)
     assert _read_magic(file_handle) == _ZFILE_PREFIX, \
         "File does not have the right magic"
-    length = file_handle.read(len(_ZFILE_PREFIX) + _MAX_LEN)
+    header_length = len(_ZFILE_PREFIX) + _MAX_LEN
+    length = file_handle.read(header_length)
     length = length[len(_ZFILE_PREFIX):]
     length = int(length, 16)
+
+    # With python2 and joblib version <= 0.8.4 compressed pickle header is one
+    # character wider so we need to ignore an additional space if present.
+    # Note: the first byte of the zlib data is guaranteed not to be a
+    # space according to
+    # https://tools.ietf.org/html/rfc6713#section-2.1
+    next_byte = file_handle.read(1)
+    if next_byte != b' ':
+        # The zlib compressed data has started and we need to go back
+        # one byte
+        file_handle.seek(header_length)
+
     # We use the known length of the data to tell Zlib the size of the
     # buffer to allocate.
     data = zlib.decompress(file_handle.read(), 15, length)
@@ -80,10 +104,7 @@ def write_zfile(file_handle, data, compress=1):
     use for external purposes.
     """
     file_handle.write(_ZFILE_PREFIX)
-    length = hex(len(data))
-    if sys.version_info[0] < 3 and type(length) is long:
-        # We need to remove the trailing 'L' in the hex representation
-        length = length[:-1]
+    length = hex_str(len(data))
     # Store the length of the data
     file_handle.write(asbytes(length.ljust(_MAX_LEN)))
     file_handle.write(zlib.compress(asbytes(data), compress))
@@ -190,8 +211,9 @@ class NumpyPickler(Pickler):
             self.file = BytesIO()
         # Count the number of npy files that we have created:
         self._npy_counter = 0
+        highest_python_2_3_compatible_protocol = 2
         Pickler.__init__(self, self.file,
-                                protocol=pickle.HIGHEST_PROTOCOL)
+                         protocol=highest_python_2_3_compatible_protocol)
         # delayed import of numpy, to avoid tight coupling
         try:
             import numpy as np
@@ -292,7 +314,7 @@ class NumpyUnpickler(Unpickler):
             self.stack.append(array)
 
     # Be careful to register our new method.
-    if sys.version_info[0] >= 3:
+    if PY3:
         dispatch[pickle.BUILD[0]] = load_build
     else:
         dispatch[pickle.BUILD] = load_build
@@ -306,6 +328,8 @@ class ZipNumpyUnpickler(NumpyUnpickler):
         NumpyUnpickler.__init__(self, filename,
                                 file_handle,
                                 mmap_mode=None)
+        if PY3:
+            self.encoding = 'latin1'
 
     def _open_pickle(self, file_handle):
         return BytesIO(read_zfile(file_handle))
