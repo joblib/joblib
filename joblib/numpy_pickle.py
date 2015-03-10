@@ -17,7 +17,9 @@ from ._compat import _basestring
 
 from io import BytesIO
 
-if sys.version_info[0] >= 3:
+PY3 = sys.version_info[0] >= 3
+
+if PY3:
     Unpickler = pickle._Unpickler
     Pickler = pickle._Pickler
 
@@ -312,7 +314,7 @@ class NumpyUnpickler(Unpickler):
             self.stack.append(array)
 
     # Be careful to register our new method.
-    if sys.version_info[0] >= 3:
+    if PY3:
         dispatch[pickle.BUILD[0]] = load_build
     else:
         dispatch[pickle.BUILD] = load_build
@@ -326,7 +328,8 @@ class ZipNumpyUnpickler(NumpyUnpickler):
         NumpyUnpickler.__init__(self, filename,
                                 file_handle,
                                 mmap_mode=None)
-        self.encoding = 'bytes'
+        if PY3:
+            self.encoding = 'latin1'
 
     def _open_pickle(self, file_handle):
         return BytesIO(read_zfile(file_handle))

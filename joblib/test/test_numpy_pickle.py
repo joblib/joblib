@@ -9,6 +9,7 @@ import shutil
 import os
 import random
 import sys
+import re
 
 import nose
 
@@ -240,38 +241,40 @@ def test_compressed_pickle_python_2_3_compatibility():
     expected2 = np.arange(5, dtype='f8')
 
     test_data_dir = os.path.dirname(os.path.abspath(data.__file__))
-    basenames = ['joblib_0.8.4_compressed_pickle_py2.gz',
-                 'joblib_0.8.5_compressed_pickle_py2.gz',
-                 'joblib_0.8.5_compressed_pickle_py3.gz']
+    basenames = ['joblib_0.8.4_compressed_pickle_py27.gz',
+                 'joblib_0.8.5_compressed_pickle_py27.gz',
+                 'joblib_0.8.4_compressed_pickle_py33.gz',
+                 'joblib_0.8.5_compressed_pickle_py33.gz',
+                 'joblib_0.8.4_compressed_pickle_py34.gz',
+                 'joblib_0.8.5_compressed_pickle_py34.gz']
     data_filenames = [os.path.join(test_data_dir, bname)
                       for bname in basenames]
 
     for fname in data_filenames:
-        result1, result2 = numpy_pickle.load(fname)
-        nose.tools.assert_equal(result1.dtype, expected1.dtype)
-        nose.tools.assert_equal(result2.dtype, expected2.dtype)
-        np.testing.assert_equal(result1, expected1)
-        np.testing.assert_equal(result2, expected2)
+        version_match = re.match(r'.+py(\d)(\d).gz', fname)
+        python_version_used_for_writing = tuple(
+            [int(each) for each in version_match.groups()])
+        python_version_used_for_reading = sys.version_info[:2]
 
-    # Testing different behaviour for pickle generated with python 3
-    basename = 'joblib_0.8.4_compressed_pickle_py3.gz'
-    data_filename = os.path.join(test_data_dir, basename)
-
-    if sys.version_info[0] >= 3:
-        result1, result2 = numpy_pickle.load(data_filename)
-        nose.tools.assert_equal(result1.dtype, expected1.dtype)
-        nose.tools.assert_equal(result2.dtype, expected2.dtype)
-        np.testing.assert_equal(result1, expected1)
-        np.testing.assert_equal(result2, expected2)
-    else:
-        # for joblib <= 0.8.4, compressed pickles generated with
-        # python 3 are not readable by python 2 because they use a
-        # pickle protocol equal to 4
-        try:
-            numpy_pickle.load(fname)
-        except ValueError as e:
-            nose.tools.assert_true(
-                'unsupported pickle protocol: 4' in e.message)
+        if ('0.8.4' in fname and
+                python_version_used_for_reading >=
+                python_version_used_for_writing):
+            result1, result2 = numpy_pickle.load(fname)
+            nose.tools.assert_equal(result1.dtype, expected1.dtype)
+            nose.tools.assert_equal(result2.dtype, expected2.dtype)
+            np.testing.assert_equal(result1, expected1)
+            np.testing.assert_equal(result2, expected2)
+        else:
+            # For joblib <= 0.8.4 compressed pickles written with
+            # python `version = v` can not be read by python with
+            # `version < v' because of differences in the default
+            # pickle protocol (2 for python 2, 3 for python 3.3 and 4
+            # for python 3.4)
+            try:
+                numpy_pickle.load(fname)
+            except ValueError as e:
+                nose.tools.assert_true(
+                    'unsupported pickle protocol' in str(e.args))
 
 
 ################################################################################
