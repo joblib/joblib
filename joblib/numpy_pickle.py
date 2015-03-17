@@ -12,6 +12,7 @@ import sys
 import os
 import zlib
 import warnings
+import struct
 
 from ._compat import _basestring
 
@@ -199,6 +200,7 @@ class NumpyPickler(Pickler):
          * optional compression using Zlib, with a special care on avoid
            temporaries.
     """
+    dispatch = Pickler.dispatch.copy()
 
     def __init__(self, filename, compress=0, cache_size=10):
         self._filename = filename
@@ -270,6 +272,28 @@ class NumpyPickler(Pickler):
                         traceback.format_exc()))
         return Pickler.save(self, obj)
 
+    def save_bytes(self, obj):
+        """Strongly inspired from python 2.7 pickle.Pickle.save_bytes"""
+        if self.bin:
+            n = len(obj)
+            if n < 256:
+                self.write(pickle.SHORT_BINSTRING + asbytes(chr(n)) + obj)
+            else:
+                self.write(pickle.BINSTRING + struct.pack("<i", n) + obj)
+            self.memoize(obj)
+        else:
+            Pickler.save_bytes(self, obj)
+
+    # We need to override save_bytes for python 3. We are using
+    # protocol=2 for python 2/3 compatibility and save_bytes for
+    # protocol < 3 ends up creating a unicode string which is very
+    # inefficient resulting in pickles up to 1.5 times the size you
+    # would get with protocol=4 or protocol=2 with python 2.7. This
+    # cause severe slowdowns in joblib.dump and joblib.save. See
+    # https://github.com/joblib/joblib/issues/194 for more details.
+    if PY3:
+        dispatch[bytes] = save_bytes
+
     def close(self):
         if self.compress:
             with open(self._filename, 'wb') as zfile:
@@ -292,6 +316,9 @@ class NumpyUnpickler(Unpickler):
         except ImportError:
             np = None
         self.np = np
+
+        if PY3:
+            self.encoding = 'latin1'
 
     def _open_pickle(self, file_handle):
         return file_handle
@@ -328,8 +355,6 @@ class ZipNumpyUnpickler(NumpyUnpickler):
         NumpyUnpickler.__init__(self, filename,
                                 file_handle,
                                 mmap_mode=None)
-        if PY3:
-            self.encoding = 'latin1'
 
     def _open_pickle(self, file_handle):
         return BytesIO(read_zfile(file_handle))
