@@ -38,7 +38,7 @@ if __name__ == '__main__':
           summary='Tools to use Python functions as pipeline jobs.',
           author='Gael Varoquaux',
           author_email='gael.varoquaux@normalesup.org',
-          url='http://packages.python.org/joblib/',
+          url='http://pythonhosted.org/joblib/',
           description="""
 Lightweight pipelining: using Python functions as pipeline jobs.
 """,

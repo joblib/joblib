@@ -133,7 +133,7 @@ class UploadDoc(upload):
         elif response.status == 301:
             location = response.getheader('Location')
             if location is None:
-                location = 'http://packages.python.org/%s/' % meta.get_name()
+                location = 'http://pythonhosted.org/%s/' % meta.get_name()
             self.announce('Upload successful. Visit %s' % location,
                           log.INFO)
         else:
