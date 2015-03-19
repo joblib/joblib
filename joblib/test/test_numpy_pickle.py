@@ -237,10 +237,15 @@ def test_z_file():
 
 @with_numpy
 def test_compressed_pickle_python_2_3_compatibility():
-    expected1 = np.arange(5)
-    expected2 = np.arange(5, dtype='f8')
+    expected_list = [np.arange(5, dtype=np.int64),
+                     np.arange(5, dtype=np.float64),
+                     np.arange(256, dtype=np.uint8).tobytes(),
+                     u"C'est l'\xe9t\xe9 !"]
 
     test_data_dir = os.path.dirname(os.path.abspath(data.__file__))
+    # These files have been generated with the
+    # joblib/test/data/create_numpy_pickle.py script for the relevant
+    # python and joblib versions
     basenames = ['joblib_0.8.4_compressed_pickle_py27.gz',
                  'joblib_0.8.5_compressed_pickle_py27.gz',
                  'joblib_0.8.4_compressed_pickle_py33.gz',
@@ -267,11 +272,16 @@ def test_compressed_pickle_python_2_3_compatibility():
         if ('0.8.4' not in fname or
                 pickle_reading_protocol >=
                 pickle_writing_protocol):
-            result1, result2 = numpy_pickle.load(fname)
-            nose.tools.assert_equal(result1.dtype, expected1.dtype)
-            nose.tools.assert_equal(result2.dtype, expected2.dtype)
-            np.testing.assert_equal(result1, expected1)
-            np.testing.assert_equal(result2, expected2)
+            result_list = numpy_pickle.load(fname)
+
+            print('fname:', fname)
+            for result, expected in zip(result_list, expected_list):
+                print('expected:', expected)
+                if isinstance(expected, np.ndarray):
+                    nose.tools.assert_equal(result.dtype, expected.dtype)
+                    np.testing.assert_equal(result, expected)
+                else:
+                    nose.tools.assert_equal(result, expected)
         else:
             # For joblib <= 0.8.4 compressed pickles written with
             # python `version = v` can not be read by python with

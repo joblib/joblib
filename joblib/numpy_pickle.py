@@ -13,6 +13,7 @@ import os
 import zlib
 import warnings
 import struct
+import codecs
 
 from ._compat import _basestring
 
@@ -318,7 +319,52 @@ class NumpyUnpickler(Unpickler):
         self.np = np
 
         if PY3:
-            self.encoding = 'latin1'
+            self.encoding = 'bytes'
+
+    # Python 3.2 and 3.3 do not support encoding=bytes so I copied
+    # _decode_string, load_string, load_binstring and
+    # load_short_binstring from python 3.4 to emulate this
+    # functionality
+    if PY3 and sys.version_info.minor < 4:
+        def _decode_string(self, value):
+            """Copied from python 3.4 pickle.Unpickler._decode_string"""
+            # Used to allow strings from Python 2 to be decoded either as
+            # bytes or Unicode strings.  This should be used only with the
+            # STRING, BINSTRING and SHORT_BINSTRING opcodes.
+            if self.encoding == "bytes":
+                return value
+            else:
+                return value.decode(self.encoding, self.errors)
+
+        def load_string(self):
+            """Copied from python 3.4 pickle.Unpickler.load_string"""
+            data = self.readline()[:-1]
+            # Strip outermost quotes
+            if len(data) >= 2 and data[0] == data[-1] and data[0] in b'"\'':
+                data = data[1:-1]
+            else:
+                raise pickle.UnpicklingError(
+                    "the STRING opcode argument must be quoted")
+            self.append(self._decode_string(codecs.escape_decode(data)[0]))
+        dispatch[pickle.STRING[0]] = load_string
+
+        def load_binstring(self):
+            """Copied from python 3.4 pickle.Unpickler.load_binstring"""
+            # Deprecated BINSTRING uses signed 32-bit length
+            len, = struct.unpack('<i', self.read(4))
+            if len < 0:
+                raise pickle.UnpicklingError(
+                    "BINSTRING pickle has negative byte count")
+            data = self.read(len)
+            self.append(self._decode_string(data))
+        dispatch[pickle.BINSTRING[0]] = load_binstring
+
+        def load_short_binstring(self):
+            """Copied from python 3.4 pickle.Unpickler.load_short_binstring"""
+            len = self.read(1)[0]
+            data = self.read(len)
+            self.append(self._decode_string(data))
+        dispatch[pickle.SHORT_BINSTRING[0]] = load_short_binstring
 
     def _open_pickle(self, file_handle):
         return file_handle
@@ -358,6 +404,7 @@ class ZipNumpyUnpickler(NumpyUnpickler):
 
     def _open_pickle(self, file_handle):
         return BytesIO(read_zfile(file_handle))
+
 
 
 ###############################################################################
