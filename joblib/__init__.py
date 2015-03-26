@@ -14,7 +14,7 @@ data and has specific optimizations for `numpy` arrays. It is
 
 
     ============================== ============================================
-    **User documentation**:        http://packages.python.org/joblib
+    **User documentation**:        http://pythonhosted.org/joblib
 
     **Download packages**:         http://pypi.python.org/pypi/joblib#downloads
 
