@@ -1,6 +1,6 @@
 The homepage of joblib with user documentation is located on:
 
-http://packages.python.org/joblib/
+https://pythonhosted.org/joblib/
 
 Getting the latest code
 =========================
@@ -21,9 +21,9 @@ As any Python packages, to install joblib, simply do::
 
 in the source code directory.
 
-Joblib has no other mandatory dependency than Python (at least version
-2.6). Numpy (at least version 1.3) is an optional dependency for array
-manipulation.
+Joblib has no other mandatory dependency than Python (supported
+versions are 2.6+ and 3.3+). Numpy (at least version 1.3) is an
+optional dependency for array manipulation.
 
 Workflow to contribute
 =========================
