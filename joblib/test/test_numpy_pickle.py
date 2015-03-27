@@ -247,11 +247,11 @@ def test_compressed_pickle_python_2_3_compatibility():
     # joblib/test/data/create_numpy_pickle.py script for the relevant
     # python and joblib versions
     basenames = ['joblib_0.8.4_compressed_pickle_py27.gz',
-                 'joblib_0.8.5_compressed_pickle_py27.gz',
+                 'joblib_0.9.0_compressed_pickle_py27.gz',
                  'joblib_0.8.4_compressed_pickle_py33.gz',
-                 'joblib_0.8.5_compressed_pickle_py33.gz',
+                 'joblib_0.9.0_compressed_pickle_py33.gz',
                  'joblib_0.8.4_compressed_pickle_py34.gz',
-                 'joblib_0.8.5_compressed_pickle_py34.gz']
+                 'joblib_0.9.0_compressed_pickle_py34.gz']
     data_filenames = [os.path.join(test_data_dir, bname)
                       for bname in basenames]
 
@@ -273,10 +273,7 @@ def test_compressed_pickle_python_2_3_compatibility():
                 pickle_reading_protocol >=
                 pickle_writing_protocol):
             result_list = numpy_pickle.load(fname)
-
-            print('fname:', fname)
             for result, expected in zip(result_list, expected_list):
-                print('expected:', expected)
                 if isinstance(expected, np.ndarray):
                     nose.tools.assert_equal(result.dtype, expected.dtype)
                     np.testing.assert_equal(result, expected)
