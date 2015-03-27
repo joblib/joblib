@@ -406,7 +406,6 @@ class ZipNumpyUnpickler(NumpyUnpickler):
         return BytesIO(read_zfile(file_handle))
 
 
-
 ###############################################################################
 # Utility functions
 
