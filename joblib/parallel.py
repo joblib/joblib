@@ -361,9 +361,10 @@ class Parallel(Logger):
          [Parallel(n_jobs=2)]: Done   6 out of   6 | elapsed:    0.0s finished
     '''
     def __init__(self, n_jobs=1, backend=None, verbose=0, pre_dispatch='all',
-                 temp_folder=None, max_nbytes=100e6, mmap_mode='r'):
+                 temp_folder=None, max_nbytes=100e6, mmap_mode='r', timeout=None):
         self.verbose = verbose
         self._mp_context = None
+        self.timeout = timeout
         if backend is None:
             backend = "multiprocessing"
         elif hasattr(backend, 'Pool') and hasattr(backend, 'Lock'):
@@ -509,7 +510,7 @@ class Parallel(Logger):
             if hasattr(self, '_lock'):
                 self._lock.release()
             try:
-                self._output.append(job.get())
+                self._output.append(job.get(timeout=self.timeout))
             except tuple(self.exceptions) as exception:
                 try:
                     self._aborting = True
