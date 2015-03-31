@@ -137,7 +137,7 @@ class ImmediateApply(object):
         # arguments in memory
         self.results = func(*args, **kwargs)
 
-    def get(self):
+    def get(self, timeout=None):
         return self.results
 
 
