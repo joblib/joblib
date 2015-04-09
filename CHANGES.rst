@@ -88,7 +88,7 @@ Gael Varoquaux
     and recomputations.
 
 
-20140-02-24
+2014-02-24
 Philippe Gervais
 
    New ``Memory.call_and_shelve`` API to handle memoized results by
