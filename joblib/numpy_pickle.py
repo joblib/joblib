@@ -274,7 +274,7 @@ class NumpyPickler(Pickler):
         return Pickler.save(self, obj)
 
     def save_bytes(self, obj):
-        """Strongly inspired from python 2.7 pickle.Pickle.save_bytes"""
+        """Strongly inspired from python 2.7 pickle.Pickler.save_string"""
         if self.bin:
             n = len(obj)
             if n < 256:
