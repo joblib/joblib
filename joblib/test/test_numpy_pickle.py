@@ -10,6 +10,7 @@ import os
 import random
 import sys
 import re
+import tempfile
 
 import nose
 
@@ -233,6 +234,24 @@ def test_z_file():
     with open(filename, 'rb') as f:
         data_read = numpy_pickle.read_zfile(f)
     nose.tools.assert_equal(data, data_read)
+
+
+@with_numpy
+def test_compressed_pickle_dump_and_load():
+    expected_list = [np.arange(5, dtype=np.int64),
+                     np.arange(5, dtype=np.float64),
+                     np.arange(256, dtype=np.uint8).tobytes(),
+                     u"C'est l'\xe9t\xe9 !"]
+
+    with tempfile.NamedTemporaryFile(suffix='.gz') as f:
+        numpy_pickle.dump(expected_list, f.name, compress=1)
+        result_list = numpy_pickle.load(f.name)
+        for result, expected in zip(result_list, expected_list):
+            if isinstance(expected, np.ndarray):
+                nose.tools.assert_equal(result.dtype, expected.dtype)
+                np.testing.assert_equal(result, expected)
+            else:
+                nose.tools.assert_equal(result, expected)
 
 
 @with_numpy
