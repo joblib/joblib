@@ -290,7 +290,7 @@ class NumpyPickler(Pickler):
     # protocol < 3 ends up creating a unicode string which is very
     # inefficient resulting in pickles up to 1.5 times the size you
     # would get with protocol=4 or protocol=2 with python 2.7. This
-    # cause severe slowdowns in joblib.dump and joblib.save. See
+    # cause severe slowdowns in joblib.dump and joblib.load. See
     # https://github.com/joblib/joblib/issues/194 for more details.
     if PY3:
         dispatch[bytes] = save_bytes
