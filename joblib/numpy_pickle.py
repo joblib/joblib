@@ -12,6 +12,8 @@ import sys
 import os
 import zlib
 import warnings
+import struct
+import codecs
 
 from ._compat import _basestring
 
@@ -199,6 +201,7 @@ class NumpyPickler(Pickler):
          * optional compression using Zlib, with a special care on avoid
            temporaries.
     """
+    dispatch = Pickler.dispatch.copy()
 
     def __init__(self, filename, compress=0, cache_size=10):
         self._filename = filename
@@ -270,6 +273,28 @@ class NumpyPickler(Pickler):
                         traceback.format_exc()))
         return Pickler.save(self, obj)
 
+    def save_bytes(self, obj):
+        """Strongly inspired from python 2.7 pickle.Pickler.save_string"""
+        if self.bin:
+            n = len(obj)
+            if n < 256:
+                self.write(pickle.SHORT_BINSTRING + asbytes(chr(n)) + obj)
+            else:
+                self.write(pickle.BINSTRING + struct.pack("<i", n) + obj)
+            self.memoize(obj)
+        else:
+            Pickler.save_bytes(self, obj)
+
+    # We need to override save_bytes for python 3. We are using
+    # protocol=2 for python 2/3 compatibility and save_bytes for
+    # protocol < 3 ends up creating a unicode string which is very
+    # inefficient resulting in pickles up to 1.5 times the size you
+    # would get with protocol=4 or protocol=2 with python 2.7. This
+    # cause severe slowdowns in joblib.dump and joblib.load. See
+    # https://github.com/joblib/joblib/issues/194 for more details.
+    if PY3:
+        dispatch[bytes] = save_bytes
+
     def close(self):
         if self.compress:
             with open(self._filename, 'wb') as zfile:
@@ -292,6 +317,54 @@ class NumpyUnpickler(Unpickler):
         except ImportError:
             np = None
         self.np = np
+
+        if PY3:
+            self.encoding = 'bytes'
+
+    # Python 3.2 and 3.3 do not support encoding=bytes so I copied
+    # _decode_string, load_string, load_binstring and
+    # load_short_binstring from python 3.4 to emulate this
+    # functionality
+    if PY3 and sys.version_info.minor < 4:
+        def _decode_string(self, value):
+            """Copied from python 3.4 pickle.Unpickler._decode_string"""
+            # Used to allow strings from Python 2 to be decoded either as
+            # bytes or Unicode strings.  This should be used only with the
+            # STRING, BINSTRING and SHORT_BINSTRING opcodes.
+            if self.encoding == "bytes":
+                return value
+            else:
+                return value.decode(self.encoding, self.errors)
+
+        def load_string(self):
+            """Copied from python 3.4 pickle.Unpickler.load_string"""
+            data = self.readline()[:-1]
+            # Strip outermost quotes
+            if len(data) >= 2 and data[0] == data[-1] and data[0] in b'"\'':
+                data = data[1:-1]
+            else:
+                raise pickle.UnpicklingError(
+                    "the STRING opcode argument must be quoted")
+            self.append(self._decode_string(codecs.escape_decode(data)[0]))
+        dispatch[pickle.STRING[0]] = load_string
+
+        def load_binstring(self):
+            """Copied from python 3.4 pickle.Unpickler.load_binstring"""
+            # Deprecated BINSTRING uses signed 32-bit length
+            len, = struct.unpack('<i', self.read(4))
+            if len < 0:
+                raise pickle.UnpicklingError(
+                    "BINSTRING pickle has negative byte count")
+            data = self.read(len)
+            self.append(self._decode_string(data))
+        dispatch[pickle.BINSTRING[0]] = load_binstring
+
+        def load_short_binstring(self):
+            """Copied from python 3.4 pickle.Unpickler.load_short_binstring"""
+            len = self.read(1)[0]
+            data = self.read(len)
+            self.append(self._decode_string(data))
+        dispatch[pickle.SHORT_BINSTRING[0]] = load_short_binstring
 
     def _open_pickle(self, file_handle):
         return file_handle
@@ -328,8 +401,6 @@ class ZipNumpyUnpickler(NumpyUnpickler):
         NumpyUnpickler.__init__(self, filename,
                                 file_handle,
                                 mmap_mode=None)
-        if PY3:
-            self.encoding = 'latin1'
 
     def _open_pickle(self, file_handle):
         return BytesIO(read_zfile(file_handle))

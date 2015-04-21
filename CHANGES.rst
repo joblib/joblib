@@ -1,6 +1,15 @@
 Latest changes
 ===============
 
+Release 0.9.0
+-------------
+
+Loïc Estève
+
+    FIX compressed pickles interoperability between Python 2 and
+    Python 3. Compressed pickles can be written with one and read with
+    the other.
+
 Release 0.8.4
 -------------
 
