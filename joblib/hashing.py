@@ -154,14 +154,21 @@ class NumpyHasher(Hasher):
         if isinstance(obj, self.np.ndarray) and not obj.dtype.hasobject:
             # Compute a hash of the object:
             try:
-                self._hash.update(self._getbuffer(obj))
+                # memoryview is not supported for some dtypes,
+                # e.g. datetime64, see
+                # https://github.com/numpy/numpy/issues/4983.  The
+                # workaround is to view the array as bytes before
+                # taking the memoryview
+                obj_bytes_view = obj.view(self.np.uint8)
+                self._hash.update(self._getbuffer(obj_bytes_view))
             except (TypeError, BufferError, ValueError):
                 # Cater for non-single-segment arrays: this creates a
                 # copy, and thus aleviates this issue.
                 # XXX: There might be a more efficient way of doing this
                 # Python 3.2's memoryview raise a ValueError instead of a
                 # TypeError or a BufferError
-                self._hash.update(self._getbuffer(obj.flatten()))
+                obj_bytes_view = obj.flatten().view(self.np.uint8)
+                self._hash.update(self._getbuffer(obj_bytes_view))
 
             # We store the class, to be able to distinguish between
             # Objects with the same binary content, but different
