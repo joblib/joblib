@@ -134,6 +134,18 @@ def test_hash_numpy():
 
 
 @with_numpy
+def test_numpy_datetime_array():
+    # memoryview is not supported for some dtypes e.g. datetime64
+    # see https://github.com/joblib/joblib/issues/188 for more details
+    dtypes = ['datetime64[s]', 'timedelta64[D]']
+
+    a_hash = hash(np.arange(10))
+    arrays = (np.arange(0, 10, dtype=dtype) for dtype in dtypes)
+    for array in arrays:
+        nose.tools.assert_not_equal(hash(array), a_hash)
+
+
+@with_numpy
 def test_hash_numpy_noncontiguous():
     a = np.asarray(np.arange(6000).reshape((1000, 2, 3)),
                    order='F')[:, :1, :]
