@@ -35,9 +35,6 @@ except ImportError:
 # Customizable pure Python pickler in Python 2
 # customizable C-optimized pickler under Python 3.3+
 from pickle import Pickler
-if sys.version_info[0] > 2 and not hasattr(Pickler, 'dispatch_table'):
-    # Special case for Python 3.2: use the pure Python pickler as fallback
-    from pickle import _Pickler as Pickler
 
 from pickle import HIGHEST_PROTOCOL
 from io import BytesIO
