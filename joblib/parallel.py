@@ -540,7 +540,7 @@ class Parallel(Logger):
                             )
                         # Convert this to a JoblibException
                         exception_type = _mk_exception(exception.etype)[0]
-                        raise exception_type(report)
+                        raise exception_type(report, exception.etype)
                     raise exception
                 finally:
                     self._lock.release()
