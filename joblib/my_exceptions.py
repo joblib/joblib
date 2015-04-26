@@ -7,6 +7,11 @@ Exceptions
 
 import sys
 
+try:
+    import cPickle as pickle
+except:
+    import pickle
+
 
 class JoblibException(Exception):
     """A simple exception with an error message that you can get to."""
@@ -38,13 +43,30 @@ class TransportableException(JoblibException):
         exception and recreate it.
     """
 
-    def __init__(self, message, etype):
+    def __init__(self, message, etype, cause=None):
         self.message = message
         self.etype = etype
+        if isinstance(cause, Exception):
+            try:
+                cause = pickle.dumps(cause)
+            except:
+                # cause cannot be pickled
+                cause = None
+        self.cause = cause
 
     def __reduce__(self):
         # For pickling
-        return self.__class__, (self.message, self.etype), {}
+        return self.__class__, (self.message, self.etype), {'cause': self.cause}
+
+    def mk_cause(self):
+        cause = None
+        if self.cause is not None:
+            try:
+                cause = pickle.loads(self.cause)
+            except TypeError:
+                # cause is not pickle-able
+                cause = None
+        return cause
 
 
 _exception_mapping = dict()

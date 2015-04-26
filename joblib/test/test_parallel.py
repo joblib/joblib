@@ -311,6 +311,12 @@ def test_multiple_spawning():
                     [delayed(_reload_joblib)() for i in range(10)])
 
 
+def test_exception_cause():
+    for backend in VALID_BACKENDS:
+        check_exception_cause(backend)
+        check_exception_unpickleable_cause(backend)
+
+
 ###############################################################################
 # Test helpers
 def test_joblib_exception():
@@ -335,3 +341,65 @@ def test_pre_dispatch_race_condition():
         for n_jobs in [2, 4]:
             Parallel(n_jobs=n_jobs, pre_dispatch="2 * n_jobs")(
                 delayed(square)(i) for i in range(n_tasks))
+
+
+def check_exception_cause(backend):
+    """Checks if ``cause`` is properly passed. """
+    n_tasks = 20
+    n_jobs = 2
+    try:
+        Parallel(n_jobs=n_jobs, pre_dispatch="2 * n_jobs", backend=backend)(
+            delayed(_parallel_func_picklable)(i) for i in range(n_tasks))
+        assert False
+    except JoblibException as e:
+        cause = e.cause
+        assert isinstance(cause, MyPickleableError)
+        assert cause.payload == 0
+
+
+def check_exception_unpickleable_cause(backend):
+    """Checks if ``cause`` is None if cause is not pickleable. """
+    n_tasks = 20
+    n_jobs = 2
+    try:
+        Parallel(n_jobs=n_jobs, pre_dispatch="2 * n_jobs", backend=backend)(
+            delayed(_parallel_func_unpicklable)(i) for i in range(n_tasks))
+        assert False
+    except JoblibException as e:
+        cause = e.cause
+        assert cause is None
+
+
+class MyPickleableError(Exception):
+    """A custom exception that is pickleable.
+
+    New args are keyword only.
+    """
+
+    def __init__(self, payload=None):
+        self.payload = payload
+        super(MyPickleableError, self).__init__()
+
+
+class MyUnPickleableError(Exception):
+    """A custom exception that is not pickleable. """
+
+    def __init__(self, payload):
+        self.payload = payload
+        super(MyUnPickleableError, self).__init__()
+
+
+def _parallel_func_picklable(i):
+    """Dummy parall function that raises an ``exception_clz`` if ``i==0``. """
+    if i == 0:
+        raise MyPickleableError(0)
+    else:
+        return i
+
+
+def _parallel_func_unpicklable(i):
+    """Dummy parall function that raises an ``exception_clz`` if ``i==0``. """
+    if i == 0:
+        raise MyUnPickleableError(0)
+    else:
+        return i

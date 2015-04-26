@@ -95,11 +95,11 @@ class SafeFunction(object):
             # something different, as multiprocessing does not
             # interrupt processing for a KeyboardInterrupt
             raise WorkerInterrupt()
-        except:
+        except Exception:
             e_type, e_value, e_tb = sys.exc_info()
             text = format_exc(e_type, e_value, e_tb, context=10,
                              tb_offset=1)
-            raise TransportableException(text, e_type)
+            raise TransportableException(text, e_type, cause=e_value)
 
 
 ###############################################################################
@@ -540,7 +540,9 @@ class Parallel(Logger):
                             )
                         # Convert this to a JoblibException
                         exception_type = _mk_exception(exception.etype)[0]
-                        raise exception_type(report)
+                        new_exception = exception_type(report)
+                        new_exception.cause = exception.mk_cause()
+                        raise new_exception
                     raise exception
                 finally:
                     self._lock.release()
