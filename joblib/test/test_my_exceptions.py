@@ -3,7 +3,7 @@ Test my automatically generate exceptions
 """
 from nose.tools import assert_true
 
-from .. import my_exceptions
+from joblib import my_exceptions
 
 
 def test_inheritance():

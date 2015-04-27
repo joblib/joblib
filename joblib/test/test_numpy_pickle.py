@@ -14,12 +14,12 @@ import tempfile
 
 import nose
 
-from .common import np, with_numpy
+from joblib.test.common import np, with_numpy
 
 # numpy_pickle is not a drop-in replacement of pickle, as it takes
 # filenames instead of open files as arguments.
-from .. import numpy_pickle
-from . import data
+from joblib import numpy_pickle
+from joblib.test import data
 
 ###############################################################################
 # Define a list of standard types.
