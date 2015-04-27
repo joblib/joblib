@@ -63,5 +63,5 @@ Lightweight pipelining: using Python functions as pipeline jobs.
           ],
           platforms='any',
           package_data={'joblib.test': ['data/*.gz']},
-          packages=['joblib', 'joblib.test'],
+          packages=['joblib', 'joblib.test', 'joblib.test.data'],
           **extra_setuptools_args)
