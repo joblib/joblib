@@ -185,7 +185,7 @@ class NumpyHasher(Hasher):
             # different views on the same data with different dtypes.
 
             # The object will be pickled by the pickler hashed at the end.
-            obj = (klass, ('HASHED', obj.dtype, obj.shape, obj.strides))
+            obj = (klass, ('HASHED', repr(obj.dtype), obj.shape, obj.strides))
         Hasher.save(self, obj)
 
 

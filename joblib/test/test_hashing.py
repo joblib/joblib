@@ -259,6 +259,14 @@ def test_hash_object_dtype():
     nose.tools.assert_equal(hash(a),
                             hash(b))
 
+    from ..parallel import Parallel, delayed
+
+    args = {'np1': np.arange(10), 'np2': np.arange(20)}
+    codes = Parallel(n_jobs=3)(delayed(hash)(args) for _ in range(10))
+
+    nose.tools.assert_equal(len(set(codes)), 1)
+    nose.tools.assert_equal(codes[0], hash(args))
+
 
 @with_numpy
 def test_numpy_scalar():
