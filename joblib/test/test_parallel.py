@@ -289,8 +289,7 @@ def test_exception_dispatch():
             )
 
 def test_nested_exception_dispatch():
-    """Ensure TransportableException objects for nested joblib cases gets propagated.
-    """
+    # Ensure TransportableException objects for nested joblib cases gets propagated.
     nose.tools.assert_raises(
         JoblibException,
         Parallel(n_jobs=2, pre_dispatch=16, verbose=0),

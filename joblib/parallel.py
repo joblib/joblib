@@ -99,7 +99,7 @@ class SafeFunction(object):
             e_type, e_value, e_tb = sys.exc_info()
             text = format_exc(e_type, e_value, e_tb, context=10,
                              tb_offset=1)
-            if e_type == TransportableException:
+            if issubclass(e_type, TransportableException):
                 raise
             else:
                 raise TransportableException(text, e_type)
