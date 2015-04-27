@@ -202,3 +202,23 @@ def test_format_signature_numpy():
     """ Test the format signature formatting with numpy.
     """
 
+
+def test_special_source_encoding():
+    from .test_func_inspect_special_encoding import big5_f
+    func_code, source_file, first_line = get_func_code(big5_f)
+    nose.tools.assert_equal(first_line, 5)
+    nose.tools.assert_true("def big5_f():" in func_code)
+    nose.tools.assert_true("test_func_inspect_special_encoding" in source_file)
+
+
+def _get_code():
+    from .test_func_inspect_special_encoding import big5_f
+    return get_func_code(big5_f)[0]
+
+
+def test_func_code_consistency():
+    from ..parallel import Parallel, delayed
+    codes = Parallel(n_jobs=2)(delayed(_get_code)() for _ in range(5))
+    nose.tools.assert_equal(len(set(codes)), 1)
+
+
