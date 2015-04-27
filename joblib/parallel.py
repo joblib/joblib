@@ -99,7 +99,10 @@ class SafeFunction(object):
             e_type, e_value, e_tb = sys.exc_info()
             text = format_exc(e_type, e_value, e_tb, context=10,
                              tb_offset=1)
-            raise TransportableException(text, e_type)
+            if e_type == TransportableException:
+                raise
+            else:
+                raise TransportableException(text, e_type)
 
 
 ###############################################################################
@@ -540,7 +543,7 @@ class Parallel(Logger):
                             )
                         # Convert this to a JoblibException
                         exception_type = _mk_exception(exception.etype)[0]
-                        raise exception_type(report, exception.etype)
+                        raise exception_type(report)
                     raise exception
                 finally:
                     self._lock.release()

@@ -62,7 +62,6 @@ def exception_raiser(x):
         raise ValueError
     return x
 
-
 def interrupt_raiser(x):
     time.sleep(.05)
     raise KeyboardInterrupt
@@ -289,6 +288,13 @@ def test_exception_dispatch():
                     (delayed(exception_raiser)(i) for i in range(30)),
             )
 
+def test_nested_exception_dispatch():
+    """Ensure TransportableException objects for nested joblib cases gets propagated.
+    """
+    nose.tools.assert_raises(
+        JoblibException,
+        Parallel(n_jobs=2, pre_dispatch=16, verbose=0),
+                (delayed(SafeFunction(exception_raiser))(i) for i in range(30)))
 
 def _reload_joblib():
     # Retrieve the path of the parallel module in a robust way
