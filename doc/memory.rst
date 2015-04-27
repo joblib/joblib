@@ -189,14 +189,6 @@ return value is loaded from the disk using memmapping::
    suggest you use the 'c' mode: copy on write.
 
 
-.. warning::
-
-   Because in the first run the array is a plain ndarray, and in the
-   second run the array is a memmap, you can have side effects of using
-   the `Memory`, especially when using `mmap_mode='r'` as the array is
-   writable in the first run, and not the second.
-
-
 Shelving: using references to cached values
 -------------------------------------------
 
