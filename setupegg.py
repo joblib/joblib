@@ -3,7 +3,6 @@
 
 import zipfile
 import os
-import sys
 
 from setuptools import Command
 from sphinx_pypi_upload import UploadDoc
@@ -59,25 +58,6 @@ class ZipHelp(Command):
         pass
 
 
-class GenerateHelp(Command):
-    description = " Generate the autosummary files "
-
-    user_options = [
-        ('None', None, 'this command has no options'),
-        ]
-
-    def run(self):
-        os.system( \
-            "%s doc/sphinxext/autosummary_generate.py " % sys.executable + \
-            "-o doc/generated/ doc/*.rst")
-
-    def initialize_options(self):
-        pass
-
-    def finalize_options(self):
-        pass
-
-
 ###############################################################################
 # Call the setup.py script, injecting the setuptools-specific arguments.
 
@@ -85,7 +65,6 @@ extra_setuptools_args = dict(
                             tests_require=['nose', 'coverage'],
                             test_suite='nose.collector',
                             cmdclass={'zip_help': ZipHelp,
-                                      'generate_help': GenerateHelp,
                                       'upload_help': UploadDoc},
                             zip_safe=False,
                             )
