@@ -59,31 +59,6 @@ the changes are local to your account and easy to clean up.
 
     python setup.py install --user
 
-* **If you are under Python 2.5**
-
-    #. First, create the following directory (where `~` is your home
-       directory, or any directory that you want to use as a base for
-       your local Python environment, and `X` is your Python version
-       number, e.g. `2.6`)::
-
-	~/usr/lib/pythonX/site-packages
-
-    #. Second, make sure that you add this directory in your environment
-       variable `PYTHONPATH`. Under window you can do this by editing
-       your environment variables in the system parameters dialog. Under
-       Unix you can add the following line to your `.bashrc` or any file
-       source at login::
-
-	export PYTHONPATH=$HOME/usr/lib/python2.6/site-packages:$PYTHONPATH
-
-    #. In the directory created by expanding the `joblib` tarball, run the
-       following command::
-
-	python setup.py install --prefix ~/usr
-
-       You should not be required to become administrator, if you have
-       write access to the directory you are installing to.
-
 Installing for all users
 ........................
 

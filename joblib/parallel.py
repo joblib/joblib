@@ -39,7 +39,8 @@ JOBLIB_SPAWNED_PROCESS = "__JOBLIB_SPAWNED_PARALLEL__"
 
 
 ###############################################################################
-# CPU that works also when multiprocessing is not installed (python2.5)
+# CPU count that works also when multiprocessing has been disabled via
+# the JOBLIB_MULTIPROCESSING environment variable
 def cpu_count():
     """ Return the number of CPUs.
     """
