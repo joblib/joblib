@@ -34,7 +34,10 @@ def write_test_pickle(to_pickle):
 to_pickle = [np.arange(5, dtype=np.int64),
              np.arange(5, dtype=np.float64),
              # all possible bytes as a byte string
-             np.arange(256, dtype=np.uint8).tobytes(),
+             # .tostring actually returns bytes and is a
+             # compatibility alias for .tobytes which was
+             # added in 1.9.0
+             np.arange(256, dtype=np.uint8).tostring(),
              # unicode string with non-ascii chars
              u"C'est l'\xe9t\xe9 !"]
 

@@ -261,7 +261,10 @@ def test_compressed_pickle_dump_and_load():
 def test_compressed_pickle_python_2_3_compatibility():
     expected_list = [np.arange(5, dtype=np.int64),
                      np.arange(5, dtype=np.float64),
-                     np.arange(256, dtype=np.uint8).tobytes(),
+                     # .tostring actually returns bytes and is a
+                     # compatibility alias for .tobytes which was
+                     # added in 1.9.0
+                     np.arange(256, dtype=np.uint8).tostring(),
                      u"C'est l'\xe9t\xe9 !"]
 
     test_data_dir = os.path.dirname(os.path.abspath(data.__file__))
