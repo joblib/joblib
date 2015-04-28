@@ -35,7 +35,6 @@ if __name__ == '__main__':
 
     setup(name='joblib',
           version=joblib.__version__,
-          summary='Tools to use Python functions as pipeline jobs.',
           author='Gael Varoquaux',
           author_email='gael.varoquaux@normalesup.org',
           url='http://pythonhosted.org/joblib/',

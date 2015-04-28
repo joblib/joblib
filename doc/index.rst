@@ -51,12 +51,13 @@ User manual
 Module reference
 -----------------
 
+.. currentmodule:: joblib
+
 .. autosummary::
-    :toctree: generated
+   :toctree: generated
 
-    Memory
-    Parallel
-    dump
-    load
-    hash
-
+   Memory
+   Parallel
+   dump
+   load
+   hash

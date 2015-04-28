@@ -32,9 +32,10 @@ sys.path.append(os.path.abspath('./sphinxext'))
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 
 extensions = ['sphinx.ext.autodoc', 'sphinx.ext.pngmath', 'numpydoc',
-              'phantom_import', 'autosummary',
+              'phantom_import', 'sphinx.ext.autosummary',
               'sphinx.ext.coverage']
-#extensions = ['sphinx.ext.autodoc', 'sphinx.ext.doctest']
+
+autosummary_generate = True
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -105,7 +106,7 @@ trim_doctest_flags = True
 # The style sheet to use for HTML and HTML Help pages. A file of that name
 # must exist either in Sphinx' static/ path, or in one of the custom paths
 # given in html_static_path.
-html_style = 'default.css'
+#html_style = 'default.css'
 
 # The name for this set of Sphinx documents.  If None, it defaults to
 # "<project> v<release> documentation".
@@ -200,6 +201,11 @@ latex_documents = [
 
 # If false, no module index is generated.
 #latex_use_modindex = True
+
+# default is used to be compatible with both sphinx 1.2.3 and sphinx
+# 1.3.1. If we want to support only 1.3.1 'classic' can be used
+# instead
+html_theme = 'default'
 
 html_theme_options = {
 #    "bgcolor": "#fff",
