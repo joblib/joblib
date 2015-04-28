@@ -243,7 +243,7 @@ def test_compressed_pickle_dump_and_load():
                      np.arange(256, dtype=np.uint8).tobytes(),
                      u"C'est l'\xe9t\xe9 !"]
 
-    with tempfile.NamedTemporaryFile(suffix='.gz') as f:
+    with tempfile.NamedTemporaryFile(suffix='.gz', dir=env['dir']) as f:
         numpy_pickle.dump(expected_list, f.name, compress=1)
         result_list = numpy_pickle.load(f.name)
         for result, expected in zip(result_list, expected_list):
