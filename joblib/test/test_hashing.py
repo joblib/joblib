@@ -16,14 +16,14 @@ import gc
 import io
 import collections
 
-from ..hashing import hash
-from ..func_inspect import filter_args
-from ..memory import Memory
-from .common import np, with_numpy
+from joblib.hashing import hash
+from joblib.func_inspect import filter_args
+from joblib.memory import Memory
+from joblib.test.common import np, with_numpy
 
-from .test_memory import env as test_memory_env
-from .test_memory import setup_module as test_memory_setup_func
-from .test_memory import teardown_module as test_memory_teardown_func
+from joblib.test.test_memory import env as test_memory_env
+from joblib.test.test_memory import setup_module as test_memory_setup_func
+from joblib.test.test_memory import teardown_module as test_memory_teardown_func
 
 try:
     # Python 2/Python 3 compat

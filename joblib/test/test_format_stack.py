@@ -8,7 +8,7 @@ Unit tests for the stack formatting utilities
 
 import nose
 
-from ..format_stack import safe_repr
+from joblib.format_stack import safe_repr
 
 
 ###############################################################################

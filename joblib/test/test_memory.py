@@ -18,9 +18,9 @@ import time
 
 import nose
 
-from ..memory import Memory, MemorizedFunc, NotMemorizedFunc, MemorizedResult
-from ..memory import NotMemorizedResult, _FUNCTION_HASHES
-from .common import with_numpy, np
+from joblib.memory import Memory, MemorizedFunc, NotMemorizedFunc, MemorizedResult
+from joblib.memory import NotMemorizedResult, _FUNCTION_HASHES
+from joblib.test.common import with_numpy, np
 
 
 ###############################################################################

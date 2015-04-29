@@ -16,7 +16,7 @@ from tempfile import mkdtemp
 
 import nose
 
-from ..disk import disk_used, memstr_to_kbytes, mkdirp
+from joblib.disk import disk_used, memstr_to_kbytes, mkdirp
 
 
 ###############################################################################
