@@ -8,9 +8,9 @@ from nose.tools import assert_equal
 from nose.tools import assert_raises
 from nose.tools import assert_false
 from nose.tools import assert_true
-from joblib.test.common import with_numpy, np
-from joblib.test.common import setup_autokill
-from joblib.test.common import teardown_autokill
+from joblib.tests.common import with_numpy, np
+from joblib.tests.common import setup_autokill
+from joblib.tests.common import teardown_autokill
 
 from joblib._multiprocessing_helpers import mp
 if mp is not None:
