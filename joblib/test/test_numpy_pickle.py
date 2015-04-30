@@ -247,14 +247,19 @@ def test_compressed_pickle_dump_and_load():
                      u"C'est l'\xe9t\xe9 !"]
 
     with tempfile.NamedTemporaryFile(suffix='.gz', dir=env['dir']) as f:
-        numpy_pickle.dump(expected_list, f.name, compress=1)
-        result_list = numpy_pickle.load(f.name)
+        fname = f.name
+
+    try:
+        numpy_pickle.dump(expected_list, fname, compress=1)
+        result_list = numpy_pickle.load(fname)
         for result, expected in zip(result_list, expected_list):
             if isinstance(expected, np.ndarray):
                 nose.tools.assert_equal(result.dtype, expected.dtype)
                 np.testing.assert_equal(result, expected)
             else:
                 nose.tools.assert_equal(result, expected)
+    finally:
+        os.remove(fname)
 
 
 @with_numpy
