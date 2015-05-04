@@ -20,7 +20,7 @@ import nose
 
 from joblib.memory import Memory, MemorizedFunc, NotMemorizedFunc, MemorizedResult
 from joblib.memory import NotMemorizedResult, _FUNCTION_HASHES
-from joblib.test.common import with_numpy, np
+from joblib.tests.common import with_numpy, np
 
 
 ###############################################################################

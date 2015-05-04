@@ -15,7 +15,7 @@ import functools
 from joblib.func_inspect import filter_args, get_func_name, get_func_code
 from joblib.func_inspect import _clean_win_chars, format_signature
 from joblib.memory import Memory
-from joblib.test.common import with_numpy
+from joblib.tests.common import with_numpy
 
 
 ###############################################################################
@@ -204,7 +204,7 @@ def test_format_signature_numpy():
 
 
 def test_special_source_encoding():
-    from joblib.test.test_func_inspect_special_encoding import big5_f
+    from joblib.tests.test_func_inspect_special_encoding import big5_f
     func_code, source_file, first_line = get_func_code(big5_f)
     nose.tools.assert_equal(first_line, 5)
     nose.tools.assert_true("def big5_f():" in func_code)
@@ -212,7 +212,7 @@ def test_special_source_encoding():
 
 
 def _get_code():
-    from joblib.test.test_func_inspect_special_encoding import big5_f
+    from joblib.tests.test_func_inspect_special_encoding import big5_f
     return get_func_code(big5_f)[0]
 
 

@@ -2,8 +2,8 @@
 
 from nose import SkipTest
 from joblib.parallel import mp
-from joblib.test.common import setup_autokill
-from joblib.test.common import teardown_autokill
+from joblib.tests.common import setup_autokill
+from joblib.tests.common import teardown_autokill
 
 
 def setup_module(module):
