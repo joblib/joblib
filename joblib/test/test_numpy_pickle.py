@@ -213,6 +213,25 @@ def test_memmap_persistence():
 
 
 @with_numpy
+def test_memmap_persistence_mixed_dtypes():
+    # loading datastructures that have sub-arrays with dtype=object
+    # should not prevent memmaping on fixed size dtype sub-arrays.
+    rnd = np.random.RandomState(0)
+    a = rnd.random_sample(10)
+    b = np.array([1, 'b'], dtype=object)
+    construct = (a, b)
+    filename = env['filename'] + str(random.randint(0, 1000))
+    numpy_pickle.dump(construct, filename)
+    a_clone, b_clone = numpy_pickle.load(filename, mmap_mode='r')
+    if [int(x) for x in np.__version__.split('.', 2)[:2]] >= [1, 3]:
+        # the floating point array has been memory mapped
+        nose.tools.assert_true(isinstance(a_clone, np.memmap))
+
+        # the object-dtype array has been loaded in memory
+        nose.tools.assert_false(isinstance(b_clone, np.memmap))
+
+
+@with_numpy
 def test_masked_array_persistence():
     # The special-case picker fails, because saving masked_array
     # not implemented, but it just delegates to the standard pickler.
