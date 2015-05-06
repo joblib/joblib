@@ -10,6 +10,13 @@ Loïc Estève
     Python 3. Compressed pickles can be written with one and read with
     the other.
 
+Olivier Grisel
+
+    FIX make it possible to call joblib.load(filename, mmap_mode='r')
+    on pickled objects that include arrays with a mix arrays of both
+    memmory memmapable dtypes and object dtype.
+
+
 Release 0.8.4
 -------------
 

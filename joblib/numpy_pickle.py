@@ -121,19 +121,23 @@ class NDArrayWrapper(object):
         The only thing this object does, is to carry the filename in which
         the array has been persisted, and the array subclass.
     """
-    def __init__(self, filename, subclass):
+    def __init__(self, filename, subclass, allow_mmap=True):
         "Store the useful information for later"
         self.filename = filename
         self.subclass = subclass
+        self.allow_mmap = allow_mmap
 
     def read(self, unpickler):
         "Reconstruct the array"
         filename = os.path.join(unpickler._dirname, self.filename)
         # Load the array from the disk
         np_ver = [int(x) for x in unpickler.np.__version__.split('.', 2)[:2]]
-        if np_ver >= [1, 3]:
-            array = unpickler.np.load(filename,
-                            mmap_mode=unpickler.mmap_mode)
+
+        # use getattr instead of self.allow_mmap to ensure backward compat
+        # with NDArrayWrapper instances pickled with joblib < 0.9.0
+        allow_mmap = getattr(self, 'allow_mmap', True)
+        if np_ver >= [1, 3] and allow_mmap:
+            array = unpickler.np.load(filename, mmap_mode=unpickler.mmap_mode)
         else:
             # Numpy does not have mmap_mode before 1.3
             array = unpickler.np.load(filename)
@@ -227,8 +231,10 @@ class NumpyPickler(Pickler):
     def _write_array(self, array, filename):
         if not self.compress:
             self.np.save(filename, array)
+            allow_mmap = not array.dtype.hasobject
             container = NDArrayWrapper(os.path.basename(filename),
-                                       type(array))
+                                       type(array),
+                                       allow_mmap=allow_mmap)
         else:
             filename += '.z'
             # Efficient compressed storage:
