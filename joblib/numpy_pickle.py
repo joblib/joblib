@@ -136,11 +136,9 @@ class NDArrayWrapper(object):
         # use getattr instead of self.allow_mmap to ensure backward compat
         # with NDArrayWrapper instances pickled with joblib < 0.9.0
         allow_mmap = getattr(self, 'allow_mmap', True)
-        if np_ver >= [1, 3] and allow_mmap:
-            array = unpickler.np.load(filename, mmap_mode=unpickler.mmap_mode)
-        else:
-            # Numpy does not have mmap_mode before 1.3
-            array = unpickler.np.load(filename)
+        memmap_kwargs = ({} if not allow_mmap
+                         else {'mmap_mode': unpickler.mmap_mode})
+        array = unpickler.np.load(filename, **memmap_kwargs)
         # Reconstruct subclasses. This does not work with old
         # versions of numpy
         if (hasattr(array, '__array_prepare__')
