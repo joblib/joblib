@@ -208,8 +208,8 @@ def test_memmap_persistence():
     filename = env['filename'] + str(random.randint(0, 1000))
     numpy_pickle.dump(a, filename)
     b = numpy_pickle.load(filename, mmap_mode='r')
-    if [int(x) for x in np.__version__.split('.', 2)[:2]] >= [1, 3]:
-        nose.tools.assert_true(isinstance(b, np.memmap))
+
+    nose.tools.assert_true(isinstance(b, np.memmap))
 
 
 @with_numpy
@@ -223,12 +223,12 @@ def test_memmap_persistence_mixed_dtypes():
     filename = env['filename'] + str(random.randint(0, 1000))
     numpy_pickle.dump(construct, filename)
     a_clone, b_clone = numpy_pickle.load(filename, mmap_mode='r')
-    if [int(x) for x in np.__version__.split('.', 2)[:2]] >= [1, 3]:
-        # the floating point array has been memory mapped
-        nose.tools.assert_true(isinstance(a_clone, np.memmap))
 
-        # the object-dtype array has been loaded in memory
-        nose.tools.assert_false(isinstance(b_clone, np.memmap))
+    # the floating point array has been memory mapped
+    nose.tools.assert_true(isinstance(a_clone, np.memmap))
+
+    # the object-dtype array has been loaded in memory
+    nose.tools.assert_false(isinstance(b_clone, np.memmap))
 
 
 @with_numpy
