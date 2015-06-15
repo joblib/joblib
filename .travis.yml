@@ -11,6 +11,7 @@ matrix:
 
 before_install:
     - pip --quiet install --use-mirrors numpy
+    - pip --quiet install dill
 
 install:
     - source continuous_integration/install.sh
