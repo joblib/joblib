@@ -56,7 +56,7 @@ class BatchedCalls(object):
         self.items = list(iterator_slice)
         self._size = len(self.items)
 
-    def __call__(self, *_args, **_kwargs):
+    def __call__(self):
         return [func(*args, **kwargs) for func, args, kwargs in self.items]
 
     def __len__(self):
@@ -124,7 +124,7 @@ class SafeFunction(object):
         except:
             e_type, e_value, e_tb = sys.exc_info()
             text = format_exc(e_type, e_value, e_tb, context=10,
-                             tb_offset=1)
+                              tb_offset=1)
             if issubclass(e_type, TransportableException):
                 raise
             else:
