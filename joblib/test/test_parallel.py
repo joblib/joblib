@@ -307,8 +307,6 @@ def test_batching_auto_threading():
 
 
 def test_batching_auto_multiprocessing():
-    # Batching is not enabled whith the threading backend as it has found
-    # to never been beneficial
     p = Parallel(n_jobs=2, batch_size='auto', backend='multiprocessing')
     p(delayed(id)(i) for i in range(5000))  # many very fast tasks
 
