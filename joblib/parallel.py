@@ -499,9 +499,12 @@ class Parallel(Logger):
             old_batch_size = self._effective_batch_size
             batch_duration = self._smoothed_batch_duration
             if (batch_duration > 0 and
-                batch_duration < MIN_IDEAL_BATCH_DURATION):
-                ideal_batch_size = int(old_batch_size * MIN_IDEAL_BATCH_DURATION
-                                       / batch_duration)
+                    batch_duration < MIN_IDEAL_BATCH_DURATION):
+                # The current batch size is too small: the duration of the
+                # processing of a batch of task is not large enough to hide
+                # the scheduling overhead.
+                ideal_batch_size = int(
+                    old_batch_size * MIN_IDEAL_BATCH_DURATION / batch_duration)
                 # Multiply by two to limit oscilations between min and max.
                 batch_size = max(2 * ideal_batch_size, 1)
                 self._effective_batch_size = batch_size
@@ -511,8 +514,11 @@ class Parallel(Logger):
                                     batch_duration, batch_size))
             elif (batch_duration > MAX_IDEAL_BATCH_DURATION and
                   old_batch_size >= 2):
-                # The current batch size is too big, the duration of
-                # individual tasks might
+                # The current batch size is too big. If we schedule overly long
+                # running batches some CPUs might wait with nothing left to do
+                # while a couple of CPUs a left processing a few long running
+                # batches. Better reduce the batch size a bit to limit the
+                # likelihood of scheduling such stragglers.
                 self._effective_batch_size = batch_size = old_batch_size // 2
                 if self.verbose >= 10:
                     self._print("Batch computation too slow (%.2fs.) "
