@@ -454,7 +454,7 @@ class Parallel(Logger):
             self.n_dispatched_tasks += len(batch)
             self.n_completed_tasks += len(batch)
             if not _verbosity_filter(self.n_dispatched_batches, self.verbose):
-                self._print('Done %3i jobs       | elapsed: %s',
+                self._print('Done %3i tasks       | elapsed: %s',
                         (self.n_completed_tasks,
                             short_format_time(time.time() - self._start_time)
                         ))
