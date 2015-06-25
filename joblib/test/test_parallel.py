@@ -39,7 +39,7 @@ from joblib.parallel import mp, cpu_count, VALID_BACKENDS
 from joblib.my_exceptions import JoblibException
 
 import nose
-from nose.tools import assert_equal, assert_true
+from nose.tools import assert_equal, assert_true, assert_raises
 
 
 ALL_VALID_BACKENDS = [None] + VALID_BACKENDS
@@ -375,6 +375,12 @@ def test_safe_function():
     nose.tools.assert_raises(JoblibException, safe_division, 1, 0)
 
 
+def test_invalid_batch_size():
+    assert_raises(ValueError, Parallel, batch_size=0)
+    assert_raises(ValueError, Parallel, batch_size=-1)
+    assert_raises(ValueError, Parallel, batch_size=1.42)
+
+
 def check_same_results(params):
     n_tasks = params.pop('n_tasks')
     expected = [square(i) for i in range(n_tasks)]
@@ -389,9 +395,13 @@ def test_dispatch_race_condition():
     yield check_same_results, dict(n_tasks=2, n_jobs=2, pre_dispatch="all")
     yield check_same_results, dict(n_tasks=2, n_jobs=2, pre_dispatch="n_jobs")
     yield check_same_results, dict(n_tasks=10, n_jobs=2, pre_dispatch="n_jobs")
-    yield check_same_results, dict(n_tasks=517, n_jobs=2, pre_dispatch="n_jobs")
+    yield check_same_results, dict(n_tasks=517, n_jobs=2,
+                                   pre_dispatch="n_jobs")
     yield check_same_results, dict(n_tasks=10, n_jobs=2, pre_dispatch="n_jobs")
     yield check_same_results, dict(n_tasks=10, n_jobs=4, pre_dispatch="n_jobs")
+    yield check_same_results, dict(n_tasks=25, n_jobs=4, batch_size=1)
+    yield check_same_results, dict(n_tasks=25, n_jobs=4, batch_size=1,
+                                   pre_dispatch="all")
     yield check_same_results, dict(n_tasks=25, n_jobs=4, batch_size=7)
     yield check_same_results, dict(n_tasks=10, n_jobs=4,
                                    pre_dispatch="2*n_jobs")

@@ -16,6 +16,7 @@ import functools
 import time
 import threading
 import itertools
+from numbers import Integral
 try:
     import cPickle as pickle
 except:
@@ -423,7 +424,14 @@ class Parallel(Logger):
                              % (backend, VALID_BACKENDS))
         self.backend = backend
         self.n_jobs = n_jobs
-        self.batch_size = batch_size
+        if (batch_size == 'auto'
+                or isinstance(batch_size, Integral) and batch_size > 0):
+            self.batch_size = batch_size
+        else:
+            raise ValueError(
+                "batch_size must be 'auto' or a positive integer, got: %r"
+                % batch_size)
+
         self.pre_dispatch = pre_dispatch
         self._pool = None
         self._temp_folder = temp_folder
