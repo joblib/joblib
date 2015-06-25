@@ -95,11 +95,10 @@ if __name__ == "__main__":
     bench_short_tasks(low_variance, **bench_parameters)
 
     # Second pair of benchmarks: one has a cycling task duration pattern that
-    # the auto batching feature should be able to roughly track. We use a pair
-    # power of cos to get only positive times with a majority close to zero
-    # (only data transfer overhead).
-    # The shuffle variant should not oscillate too much and still
-    # approximately have the same total run time.
+    # the auto batching feature should be able to roughly track. We use an even
+    # power of cos to get only positive task durations with a majority close to
+    # zero (only data transfer overhead). The shuffle variant should not
+    # oscillate too much and still approximately have the same total run time.
 
     print('# cyclic trend')
     slow_time = 0.1
