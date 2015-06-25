@@ -10,7 +10,6 @@ joblib.parallel.MIN_IDEAL_BATCH_DURATION constant.
 
 import numpy as np
 import time
-import os
 import tempfile
 from pprint import pprint
 from joblib import parallel, Parallel, delayed
@@ -80,8 +79,8 @@ if __name__ == "__main__":
     parallel.MAX_IDEAL_BATCH_DURATION = 2
 
     # First pair of benchmarks to check that the auto-batching strategy is
-    # stable (do not change the batch size too often) in the presence of of
-    # large variance while still be comparable to the equivalent load without
+    # stable (do not change the batch size too often) in the presence of large
+    # variance while still be comparable to the equivalent load without
     # variance
 
     print('# high variance, no trend')

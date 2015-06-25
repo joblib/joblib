@@ -452,7 +452,7 @@ class Parallel(Logger):
         """Queue the batch for computing, with or without multiprocessing
 
         WARNING: this method is not thread-safe: it should be only called
-        undirectly via dispatch_one_batch.
+        indirectly via dispatch_one_batch.
 
         """
         if self._pool is None:
