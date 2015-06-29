@@ -116,7 +116,7 @@ Main features
 # Dev branch marker is: 'X.Y.dev' or 'X.Y.devN' where N is an integer.
 # 'X.Y.dev0' is the canonical version of 'X.Y.dev'
 #
-__version__ = '0.9.0.b1'
+__version__ = '0.9.0b1'
 
 
 from .memory import Memory, MemorizedResult
