@@ -4,7 +4,11 @@ Latest changes
 Release 0.9.0
 -------------
 
-2014-07-20
+Olivier Grisel
+
+    New context manager based API (``with`` block) to re-use
+    the same pool of workers across consecutive parallel calls.
+
 Vlad Niculae and Olivier Grisel
 
     Automated batching of fast tasks into longer running jobs to

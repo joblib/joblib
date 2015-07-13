@@ -78,12 +78,37 @@ parameter of the :class:`Parallel` constructor:
 
 .. _`with nogil`:: http://docs.cython.org/src/userguide/external_C_code.html#acquiring-and-releasing-the-gil
 
+
+Reusing a pool of workers
+=========================
+
+Some algorithms require to make several consecutive calls to a parallel
+function interleaved with processing of the intermediate results. Calling
+``Parallel`` several times in a loop is sub-optimal because it will create and
+destroy a pool of workers (threads or processes) several times which can cause
+a significant overhead.
+
+For this case it is more efficient to use the context manager API of the
+``Parallel`` class to re-use the same pool of workers for several calls to
+the ``Parallel`` object::
+
+    >>> with Parallel(n_jobs=2) as parallel:
+    ...    accumulator = 0.
+    ...    n_iter = 0
+    ...    while accumulator < 1000:
+    ...        results = parallel(delayed(sqrt)(accumulator + i ** 2)
+    ...                           for i in range(5))
+    ...        accumulator += sum(results)  # synchronization barrier
+    ...        n_iter += 1
+    ...
+    >>> (accumulator, n_iter)                            # doctest: +ELLIPSIS
+    (1136.596..., 14)
+
 .. include:: parallel_numpy.rst
 
 
 `Parallel` reference documentation
-===================================
+==================================
 
 .. autoclass:: joblib.Parallel
    :members: auto
-
