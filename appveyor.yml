@@ -4,12 +4,12 @@ environment:
   # platforms (universal wheel).
   # We run the tests on 2 different target platforms for testing purpose only.
   matrix:
-    - PYTHON: "C:\\Python27_32"
-      PYTHON_VERSION: "2.7.8"
+    - PYTHON: "C:\\Python27"
+      PYTHON_VERSION: "2.7.x"
       PYTHON_ARCH: "32"
 
-    - PYTHON: "C:\\Python34_64"
-      PYTHON_VERSION: "3.4.1"
+    - PYTHON: "C:\\Python34-x64"
+      PYTHON_VERSION: "3.4.x"
       PYTHON_ARCH: "64"
 
 install:
