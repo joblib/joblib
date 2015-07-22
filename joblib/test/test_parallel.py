@@ -39,7 +39,7 @@ from joblib.parallel import mp, cpu_count, VALID_BACKENDS
 from joblib.my_exceptions import JoblibException
 
 import nose
-from nose.tools import assert_equal, assert_true, assert_raises
+from nose.tools import assert_equal, assert_true, assert_false, assert_raises
 
 
 ALL_VALID_BACKENDS = [None] + VALID_BACKENDS
@@ -48,7 +48,6 @@ if hasattr(mp, 'get_context'):
     # Custom multiprocessing context in Python 3.4+
     ALL_VALID_BACKENDS.append(mp.get_context('spawn'))
 
-###############################################################################
 
 def division(x, y):
     return x / y
@@ -62,6 +61,7 @@ def exception_raiser(x):
     if x == 7:
         raise ValueError
     return x
+
 
 def interrupt_raiser(x):
     time.sleep(.05)
@@ -150,16 +150,46 @@ def test_mutate_input_with_threads():
     nose.tools.assert_true(q.full())
 
 
-
 def test_parallel_kwargs():
-    """ Check the keyword argument processing of pmap.
-    """
+    """Check the keyword argument processing of pmap."""
     lst = range(10)
     for n_jobs in (1, 4):
         yield (assert_equal,
                [f(x, y=1) for x in lst],
-               Parallel(n_jobs=n_jobs)(delayed(f)(x, y=1) for x in lst)
-              )
+               Parallel(n_jobs=n_jobs)(delayed(f)(x, y=1) for x in lst))
+
+
+def check_parallel_context_manager(backend):
+    lst = range(10)
+    expected = [f(x, y=1) for x in lst]
+    with Parallel(n_jobs=4, backend=backend) as p:
+        # Internally a pool instance has been eagerly created and is managed
+        # via the context manager protocol
+        managed_pool = p._pool
+        if mp is not None:
+            assert_true(managed_pool is not None)
+
+        # We make call with the managed parallel object several times inside
+        # the managed block:
+        assert_equal(expected, p(delayed(f)(x, y=1) for x in lst))
+        assert_equal(expected, p(delayed(f)(x, y=1) for x in lst))
+
+        # Those calls have all used the same pool instance:
+        if mp is not None:
+            assert_true(managed_pool is p._pool)
+
+    # As soon as we exit the context manager block, the pool is terminated and
+    # no longer referenced from the parallel object:
+    assert_true(p._pool is None)
+
+    # It's still possible to use the parallel instance in non-managed mode:
+    assert_equal(expected, p(delayed(f)(x, y=1) for x in lst))
+    assert_true(p._pool is None)
+
+
+def test_parallel_context_manager():
+    for backend in ['multiprocessing', 'threading']:
+        yield check_parallel_context_manager, backend
 
 
 def test_parallel_pickling():
@@ -168,10 +198,8 @@ def test_parallel_pickling():
     """
     def g(x):
         return x ** 2
-    nose.tools.assert_raises(PickleError,
-                             Parallel(),
-                             (delayed(g)(x) for x in range(10))
-                            )
+
+    assert_raises(PickleError, Parallel(), (delayed(g)(x) for x in range(10)))
 
 
 def test_error_capture():
@@ -180,29 +208,52 @@ def test_error_capture():
     if mp is not None:
         # A JoblibException will be raised only if there is indeed
         # multiprocessing
-        nose.tools.assert_raises(JoblibException,
-                                Parallel(n_jobs=2),
-                    [delayed(division)(x, y) for x, y in zip((0, 1), (1, 0))],
-                        )
-        nose.tools.assert_raises(WorkerInterrupt,
-                                    Parallel(n_jobs=2),
-                        [delayed(interrupt_raiser)(x) for x in (1, 0)],
-                            )
+        assert_raises(JoblibException, Parallel(n_jobs=2),
+                      [delayed(division)(x, y)
+                       for x, y in zip((0, 1), (1, 0))])
+        assert_raises(WorkerInterrupt, Parallel(n_jobs=2),
+                      [delayed(interrupt_raiser)(x) for x in (1, 0)])
+
+        # Try again with the context manager API
+        with Parallel(n_jobs=2) as parallel:
+            assert_true(parallel._pool is not None)
+
+            assert_raises(JoblibException, parallel,
+                          [delayed(division)(x, y)
+                           for x, y in zip((0, 1), (1, 0))])
+
+            # The managed pool should still be available and be in a working
+            # state despite the previously raised (and caught) exception
+            assert_true(parallel._pool is not None)
+            assert_equal([f(x, y=1) for x in range(10)],
+                         parallel(delayed(f)(x, y=1) for x in range(10)))
+
+            assert_raises(WorkerInterrupt, parallel,
+                          [delayed(interrupt_raiser)(x) for x in (1, 0)])
+
+            # The pool should still be available despite the exception
+            assert_true(parallel._pool is not None)
+            assert_equal([f(x, y=1) for x in range(10)],
+                         parallel(delayed(f)(x, y=1) for x in range(10)))
+
+        # Check that the inner pool has been terminated when exiting the
+        # context manager
+        assert_true(parallel._pool is None)
     else:
-        nose.tools.assert_raises(KeyboardInterrupt,
-                                    Parallel(n_jobs=2),
-                        [delayed(interrupt_raiser)(x) for x in (1, 0)],
-                            )
-    nose.tools.assert_raises(ZeroDivisionError,
-                                Parallel(n_jobs=2),
-                    [delayed(division)(x, y) for x, y in zip((0, 1), (1, 0))],
-                        )
+        assert_raises(KeyboardInterrupt, Parallel(n_jobs=2),
+                      [delayed(interrupt_raiser)(x) for x in (1, 0)])
+
+    # wrapped exceptions should inherit from the class of the original
+    # exception to make it easy to catch them
+    assert_raises(ZeroDivisionError, Parallel(n_jobs=2),
+                  [delayed(division)(x, y) for x, y in zip((0, 1), (1, 0))])
     try:
+        # JoblibException wrapping is disabled in sequential mode:
         ex = JoblibException()
         Parallel(n_jobs=1)(
-                    delayed(division)(x, y) for x, y in zip((0, 1), (1, 0)))
+            delayed(division)(x, y) for x, y in zip((0, 1), (1, 0)))
     except Exception as ex:
-        nose.tools.assert_false(isinstance(ex, JoblibException))
+        assert_false(isinstance(ex, JoblibException))
 
 
 class Counter(object):
