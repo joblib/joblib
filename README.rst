@@ -46,10 +46,15 @@ Run the test suite using::
 
 from the root of the project.
 
-.. image:: https://secure.travis-ci.org/joblib/joblib.png
-   :target: https://secure.travis-ci.org/joblib/joblib
-   :alt: Build status
-   :align: right
+|Travis| |AppVeyor|
+
+.. |Travis| image:: https://travis-ci.org/joblib/joblib.svg?branch=master
+   :target: https://travis-ci.org/joblib/joblib
+   :alt: Travis build status
+
+.. |AppVeyor| image:: https://ci.appveyor.com/api/projects/status/github/joblib/joblib?branch=master&svg=true
+   :target: https://ci.appveyor.com/project/joblib-ci/joblib/history
+   :alt: AppVeyor build status
 
 
 Building the docs
