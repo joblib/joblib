@@ -10,6 +10,8 @@ import time
 import sys
 import io
 import os
+from joblib.test.common import np, with_numpy
+
 try:
     import cPickle as pickle
     PickleError = TypeError
@@ -456,3 +458,38 @@ def test_dispatch_race_condition():
     yield check_same_results, dict(n_tasks=25, n_jobs=4, batch_size=7)
     yield check_same_results, dict(n_tasks=10, n_jobs=4,
                                    pre_dispatch="2*n_jobs")
+
+
+def test_default_mp_context():
+    p = Parallel(n_jobs=2, backend='multiprocessing')
+    if sys.version_info >= (3, 4):
+        # Under Python 3.4+ use the forkserver context under non-windows
+        # platforms
+        if sys.platform == 'win32':
+            assert_equal(p._mp_context.get_start_method(), 'spawn')
+        else:
+            assert_equal(p._mp_context.get_start_method(), 'forkserver')
+    else:
+        assert_equal(p._mp_context, None)
+
+
+@with_numpy
+def test_no_blas_crash_or_freeze_with_multiprocessing():
+    if sys.version_info < (3, 4):
+        raise nose.SkipTest('multiprocessing can cause BLAS freeze on'
+                            ' old Python')
+    # Check that on recent Python version, the forkserver start method can make
+    # it possible to use multiprocessing in conjunction of any BLAS
+    # implementation that happens to be used by numpy with causing a freeze or
+    # a crash
+    rng = np.random.RandomState(42)
+
+    # call BLAS DGEMM to force the initialization of the internal thread-pool
+    # in the main process
+    a = rng.randn(1000, 1000)
+    np.dot(a, a.T)
+
+    # check that the internal BLAS thread-pool is not in an inconsistent state
+    # in the worker processes managed by multiprocessing
+    Parallel(n_jobs=2, backend='multiprocessing')(
+        delayed(np.dot)(a, a.T) for i in range(2))
