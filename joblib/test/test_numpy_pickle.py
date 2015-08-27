@@ -306,18 +306,18 @@ def test_compressed_pickle_python_2_3_compatibility():
 
     for fname in data_filenames:
         version_match = re.match(r'.+py(\d)(\d).gz', fname)
-        python_version_used_for_writing = tuple(
+        py_version_used_for_writing = tuple(
             [int(each) for each in version_match.groups()])
-        python_version_used_for_reading = sys.version_info[:2]
+        py_version_used_for_reading = sys.version_info[:2]
 
-        python_version_to_default_pickle_protocol = {
+        # Use Pickle protocol 4 for Python 3.4 and later
+        py_version_to_default_pickle_protocol = {
             (2, 6): 2, (2, 7): 2,
-            (3, 0): 3, (3, 1): 3, (3, 2): 3, (3, 3): 3, (3, 4): 4}
-
-        pickle_reading_protocol = python_version_to_default_pickle_protocol[
-            python_version_used_for_reading]
-        pickle_writing_protocol = python_version_to_default_pickle_protocol[
-            python_version_used_for_writing]
+            (3, 0): 3, (3, 1): 3, (3, 2): 3, (3, 3): 3}
+        pickle_reading_protocol = py_version_to_default_pickle_protocol.get(
+            py_version_used_for_reading, 4)
+        pickle_writing_protocol = py_version_to_default_pickle_protocol.get(
+            py_version_used_for_writing, 4)
         if ('0.8.4' not in fname or
                 pickle_reading_protocol >=
                 pickle_writing_protocol):
