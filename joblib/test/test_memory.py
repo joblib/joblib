@@ -356,6 +356,30 @@ def test_memory_numpy():
                 yield nose.tools.assert_equal, len(accumulator), i + 1
 
 
+def test_memory_with_dictionary_argument():
+    accumulator = list()
+
+    def n(l=None, test_dict=None):
+        accumulator.append(1)
+        return l
+
+    memory = Memory(cachedir=env['dir'], mmap_mode=None,
+                        verbose=0)
+    memory.clear(warn=False)
+    cached_n = memory.cache(n)
+
+    rnd = np.random.RandomState(0)
+    for i in range(3):
+        a = rnd.random_sample((10, 10))
+        test_dict = dict()
+        for _ in range(3):
+            test_dict[rnd.random_integers(1000)] = rnd.random_integers(1000)
+        for _ in range(3):
+            yield nose.tools.assert_true, np.all(cached_n(a,
+                                                          test_dict=test_dict)
+                                                 == a)
+            yield nose.tools.assert_equal, len(accumulator), i + 1
+
 @with_numpy
 def test_memory_numpy_check_mmap_mode():
     """Check that mmap_mode is respected even at the first call"""
