@@ -171,6 +171,41 @@ class NumpyHasher(Hasher):
         else:
             self._getbuffer = memoryview
 
+
+    def memoize(self, obj):
+        """Store an object in the memo."""
+
+        # The Pickler memo is a dictionary mapping object ids to 2-tuples
+        # that contain the Unpickler memo key and the object being memoized.
+        # The memo key is written to the pickle and will become
+        # the key in the Unpickler's memo.  The object is stored in the
+        # Pickler memo so that transient objects are kept alive during
+        # pickling.
+
+        # The use of the Unpickler memo length as the memo key is just a
+        # convention.  The only requirement is that the memo values be unique.
+        # But there appears no advantage to any other scheme, and this
+        # scheme allows the Unpickler memo to be implemented as a plain (but
+        # growable) array, indexed by memo key.
+        if self.fast:
+            return
+        # Avoids cache invalidation when hashing an object where subobjects
+        # share a string in memory
+        if isinstance(obj, _bytes_or_unicode):
+            return
+        assert id(obj) not in self.memo
+        memo_len = len(self.memo)
+        self.write(self.put(memo_len))
+        self.memo[id(obj)] = memo_len, obj
+
+    def persistent_id(self, obj):
+        # Avoids cache invalidation
+        # when hashing an object where subobjects share a dtype in memory
+        if isinstance(obj, self.np.dtype):
+            return obj.str
+        else:
+            return None
+
     def save(self, obj):
         """ Subclass the save method, to hash ndarray subclass, rather
             than pickling them. Off course, this is a total abuse of
