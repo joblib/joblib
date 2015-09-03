@@ -6,15 +6,8 @@ Release 0.9.0
 
 Olivier Grisel
 
-    Make joblib use the 'forkserver' start method by default under Python 3.4+
-    to avoid causing crash with 3rd party libraries (such as Apple vecLib /
-    Accelerate or the GCC OpenMP runtime) that use an internal thread pool that
-    is not not reinitialized when a ``fork`` system call happens.
-
-Olivier Grisel
-
     New context manager based API (``with`` block) to re-use
-    the same pool of workers across consecutive parallel calls.
+    the same pool of workers accross consecutive parallel calls.
 
 Vlad Niculae and Olivier Grisel
 
