@@ -506,7 +506,7 @@ class MemorizedFunc(Logger):
 
     def _get_argument_hash(self, *args, **kwargs):
         return hashing.hash(filter_args(self.func, self.ignore,
-                                         args, kwargs),
+                                               args, kwargs),
                              coerce_mmap=(self.mmap_mode is not None))
 
     def _get_output_dir(self, *args, **kwargs):

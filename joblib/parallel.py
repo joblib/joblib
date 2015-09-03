@@ -49,18 +49,6 @@ MIN_IDEAL_BATCH_DURATION = .2
 # on a single worker while other workers have no work to process any more.
 MAX_IDEAL_BATCH_DURATION = 2
 
-# Under Python 3.4+ use the 'forkserver' start method by default: this makes it
-# possible to avoid crashing 3rd party libraries that manage an internal thread
-# pool that does not tolerate forking
-if hasattr(mp, 'get_start_method'):
-    method = os.environ.get('JOBLIB_START_METHOD')
-    if (method is None and mp.get_start_method() == 'fork'
-            and 'forkserver' in mp.get_all_start_methods()):
-        method = 'forkserver'
-    DEFAULT_MP_CONTEXT = mp.get_context(method=method)
-else:
-    DEFAULT_MP_CONTEXT = None
-
 
 class BatchedCalls(object):
     """Wrap a sequence of (func, args, kwargs) tuples as a single callable"""
@@ -418,10 +406,10 @@ class Parallel(Logger):
          [Parallel(n_jobs=2)]: Done   6 out of   6 | elapsed:    0.0s finished
     '''
     def __init__(self, n_jobs=1, backend='multiprocessing', verbose=0,
-                 pre_dispatch='2 * n_jobs', batch_size='auto',
-                 temp_folder=None, max_nbytes='1M', mmap_mode='r'):
+                 pre_dispatch='2 * n_jobs', batch_size='auto', temp_folder=None,
+                 max_nbytes='1M', mmap_mode='r'):
         self.verbose = verbose
-        self._mp_context = DEFAULT_MP_CONTEXT
+        self._mp_context = None
         if backend is None:
             # `backend=None` was supported in 0.8.2 with this effect
             backend = "multiprocessing"
@@ -459,8 +447,8 @@ class Parallel(Logger):
         self._jobs = list()
         self._managed_pool = False
 
-        # This lock is used coordinate the main thread of this process with
-        # the async callback thread of our the pool.
+        # This lock is use to protect to coordinate the master thread of this
+        # process with the async callback thread of our process or thread pool.
         self._lock = threading.Lock()
 
     def __enter__(self):
@@ -477,7 +465,7 @@ class Parallel(Logger):
         if n_jobs == 0:
             raise ValueError('n_jobs == 0 in Parallel has no meaning')
         elif mp is None or n_jobs is None:
-            # multiprocessing is not available or disabled, fallback
+            # multiprocessing is not avaiable or disabled, fallback
             # to sequential mode
             return 1
         elif n_jobs < 0:
@@ -549,10 +537,11 @@ class Parallel(Logger):
         return n_jobs
 
     def _terminate_pool(self):
-        if self._pool is not None:
-            self._pool.close()
-            self._pool.terminate()  # terminate does a join()
+        pool = getattr(self, '_pool', None)
+        if pool is not None:
             self._pool = None
+            pool.close()
+            pool.terminate()  # terminate does a join()
             if self.backend == 'multiprocessing':
                 os.environ.pop(JOBLIB_SPAWNED_PROCESS, 0)
 

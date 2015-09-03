@@ -15,6 +15,8 @@ import sys
 import gc
 import io
 import collections
+import pickle
+from nose.tools import assert_equal
 
 from joblib.hashing import hash
 from joblib.func_inspect import filter_args
@@ -320,3 +322,18 @@ def test_set_hash():
     b = k.f(a)
 
     nose.tools.assert_equal(hash(a), hash(b))
+
+
+def test_string():
+    string = 'foo'
+    a = {string: 'bar'}
+    b = {string: 'bar'}
+    c = pickle.loads(pickle.dumps(b))
+    assert_equal(hash([a, b]), hash([a, c]))
+
+
+def test_dtype():
+    a = np.dtype([('f1', np.uint), ('f2', np.int32)])
+    b = a
+    c = pickle.loads(pickle.dumps(a))
+    assert_equal(hash([a, c], hash([a, b])))
