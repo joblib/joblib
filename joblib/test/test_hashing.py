@@ -15,15 +15,18 @@ import sys
 import gc
 import io
 import collections
+import pickle
+from nose.tools import assert_equal
 
 from joblib.hashing import hash
 from joblib.func_inspect import filter_args
 from joblib.memory import Memory
-from joblib.test.common import np, with_numpy
 
 from joblib.test.test_memory import env as test_memory_env
 from joblib.test.test_memory import setup_module as test_memory_setup_func
 from joblib.test.test_memory import teardown_module as test_memory_teardown_func
+
+from joblib.test.common import np, with_numpy
 
 try:
     # Python 2/Python 3 compat
@@ -320,3 +323,24 @@ def test_set_hash():
     b = k.f(a)
 
     nose.tools.assert_equal(hash(a), hash(b))
+
+
+def test_string():
+    # Test that we obtain the same hash for object owning several strings,
+    # whatever the past of these strings (which are immutable in Python)
+    string = 'foo'
+    a = {string: 'bar'}
+    b = {string: 'bar'}
+    c = pickle.loads(pickle.dumps(b))
+    assert_equal(hash([a, b]), hash([a, c]))
+
+
+@with_numpy
+def test_dtype():
+    # Test that we obtain the same hash for object owning several dtype,
+    # whatever the past of these dtypes. Catter for cache invalidation with
+    # complex dtype
+    a = np.dtype([('f1', np.uint), ('f2', np.int32)])
+    b = a
+    c = pickle.loads(pickle.dumps(a))
+    assert_equal(hash([a, c]), hash([a, b]))
