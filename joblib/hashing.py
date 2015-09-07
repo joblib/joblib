@@ -13,6 +13,7 @@ import hashlib
 import sys
 import types
 import struct
+from ._compat import _bytes_or_unicode
 
 import io
 
@@ -76,6 +77,11 @@ class Hasher(Pickler):
                 cls = obj.__self__.__class__
                 obj = _MyHash(func_name, inst, cls)
         Pickler.save(self, obj)
+
+    def memoize(self, obj):
+        if isinstance(obj, _bytes_or_unicode):
+            return
+        Pickler.memoize(self, obj)
 
     # The dispatch table of the pickler is not accessible in Python
     # 3, as these lines are only bugware for IPython, we skip them.
@@ -146,7 +152,15 @@ class NumpyHasher(Hasher):
         else:
             self._getbuffer = memoryview
 
-    def save(self, obj):
+    def persistent_id(self, obj):
+        # Separate dtypes shared by objects in the pickle graph,
+        # to avoid cache invalidation when unpickling a subobject of the graph
+        if isinstance(obj, self.np.dtype):
+            return pickle.dumps(obj)
+        else:
+            return None
+
+    def save(self, obj, save_persistent_id=True):
         """ Subclass the save method, to hash ndarray subclass, rather
             than pickling them. Off course, this is a total abuse of
             the Pickler class.
