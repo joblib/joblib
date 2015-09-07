@@ -4,6 +4,11 @@ Latest changes
 Release 0.9.0
 -------------
 
+Arthur Mensch
+
+    Fixed a bug with ``joblib.hash`` that used to return unstable values for
+    strings and numpy.dtype instances depending on interning states.
+
 Olivier Grisel
 
     Make joblib use the 'forkserver' start method by default under Python 3.4+
