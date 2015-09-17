@@ -414,8 +414,8 @@ class ZipNumpyUnpickler(NumpyUnpickler):
 # Utility functions
 
 def dump(value, filename, compress=0, cache_size=100):
-    """Fast persistence of an arbitrary Python object into a file, with
-    dedicated storage for numpy arrays.
+    """Fast persistence of an arbitrary Python object into one or multiple
+    files, with dedicated storage for numpy arrays.
 
     Parameters
     -----------
