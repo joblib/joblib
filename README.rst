@@ -33,7 +33,7 @@ To contribute to joblib, first create an account on `github
 <http://github.com/joblib/joblib>`_ to have you own repository,
 clone it using 'git clone' on the computers where you want to work. Make
 your changes in your clone, push them to your github account, test them
-on several computer, and when you are happy with them, send a pull
+on several computers, and when you are happy with them, send a pull
 request to the main repository.
 
 Running the test suite
