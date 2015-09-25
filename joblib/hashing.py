@@ -8,7 +8,7 @@ hashing of numpy arrays.
 # License: BSD Style, 3 clauses.
 
 import warnings
-import pickle
+import dill
 import hashlib
 import sys
 import types
@@ -17,11 +17,11 @@ from ._compat import _bytes_or_unicode
 
 import io
 
-if sys.version_info[0] < 3:
-    Pickler = pickle.Pickler
-else:
-    Pickler = pickle._Pickler
-
+# if sys.version_info[0] < 3:
+#     Pickler = dill.Pickler
+# else:
+#     Pickler = dill._Pickler
+Pickler = dill.Pickler
 
 class _ConsistentSet(object):
     """ Class used to ensure the hash of Sets is preserved
@@ -52,7 +52,7 @@ class Hasher(Pickler):
     def hash(self, obj, return_digest=True):
         try:
             self.dump(obj)
-        except pickle.PicklingError as e:
+        except dill.PicklingError as e:
             warnings.warn('PicklingError while hashing %r: %r' % (obj, e))
         dumps = self.stream.getvalue()
         self._hash.update(dumps)
@@ -68,7 +68,7 @@ class Hasher(Pickler):
             else:
                 func_name = obj.__name__
             inst = obj.__self__
-            if type(inst) == type(pickle):
+            if type(inst) == type(dill):
                 obj = _MyHash(func_name, inst.__name__)
             elif inst is None:
                 # type(None) or type(module) do not pickle
@@ -94,7 +94,7 @@ class Hasher(Pickler):
             del kwargs['pack']
         try:
             Pickler.save_global(self, obj, **kwargs)
-        except pickle.PicklingError:
+        except dill.PicklingError:
             Pickler.save_global(self, obj, **kwargs)
             module = getattr(obj, "__module__", None)
             if module == '__main__':
@@ -115,7 +115,7 @@ class Hasher(Pickler):
     # classobj
     dispatch[type(Pickler)] = save_global
     # function
-    dispatch[type(pickle.dump)] = save_global
+    dispatch[type(dill.dump)] = save_global
 
     def _batch_setitems(self, items):
         # forces order of keys in dict to ensure consistent hash
