@@ -659,3 +659,8 @@ def test_memory_in_memory_function_code_change():
         _function_to_cache.__code__ = _product.__code__
         nose.tools.assert_equal(f(1, 2), 2)
         nose.tools.assert_equal(f(1, 2), 2)
+
+
+def test_clear_memory_with_none_cachedir():
+    mem = Memory(cachedir=None)
+    mem.clear()
