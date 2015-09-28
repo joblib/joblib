@@ -202,7 +202,9 @@ def test_parallel_pickling():
         return x ** 2
 
     try:
-        # pickling a local function always fail
+        # pickling a local function always fail but the exception
+        # raised is a PickleError for python <= 3.4 and AttributeError
+        # for python >= 3.5
         pickle.dumps(g)
     except Exception as exc:
         exception_class = exc.__class__
