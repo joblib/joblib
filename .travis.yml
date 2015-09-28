@@ -1,16 +1,12 @@
 language: python
 
-matrix:
-  include:
-    - python: "2.6"
-    - python: "2.7"
-    - python: "3.3"
-    - python: "3.4"
-    - python: "3.4"
-      env: WITHOUT_NUMPY="true"
-
-before_install:
-    - pip --quiet install --use-mirrors numpy
+env:
+  matrix:
+    - PYTHON_VERSION="2.6" NUMPY_VERSION="1.9"
+    - PYTHON_VERSION="2.7" NUMPY_VERSION="1.9"
+    - PYTHON_VERSION="3.3" NUMPY_VERSION="1.9"
+    - PYTHON_VERSION="3.4" NUMPY_VERSION="1.9"
+    - PYTHON_VERSION="3.4"
 
 install:
     - source continuous_integration/install.sh
