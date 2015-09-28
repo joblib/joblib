@@ -225,6 +225,7 @@ def test_memory_name_collision():
     with warnings.catch_warnings(record=True) as w:
         # Cause all warnings to always be triggered.
         warnings.simplefilter("always")
+        warnings.simplefilter("ignore", DeprecationWarning)
         a(1)
         b(1)
 
@@ -245,6 +246,7 @@ def test_memory_warning_lambda_collisions():
     with warnings.catch_warnings(record=True) as w:
         # Cause all warnings to always be triggered.
         warnings.simplefilter("always")
+        warnings.simplefilter("ignore", DeprecationWarning)
         nose.tools.assert_equal(0, a(0))
         nose.tools.assert_equal(2, b(1))
         nose.tools.assert_equal(1, a(1))
@@ -272,6 +274,7 @@ def test_memory_warning_collision_detection():
     with warnings.catch_warnings(record=True) as w:
         # Cause all warnings to always be triggered.
         warnings.simplefilter("always")
+        warnings.simplefilter("ignore", DeprecationWarning)
         a1(1)
         b1(1)
         a1(0)
