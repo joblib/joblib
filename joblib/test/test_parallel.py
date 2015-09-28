@@ -201,7 +201,14 @@ def test_parallel_pickling():
     def g(x):
         return x ** 2
 
-    assert_raises(PickleError, Parallel(), (delayed(g)(x) for x in range(10)))
+    try:
+        # pickling a local function always fail
+        pickle.dumps(g)
+    except Exception as exc:
+        exception_class = exc.__class__
+
+    assert_raises(exception_class, Parallel(),
+                  (delayed(g)(x) for x in range(10)))
 
 
 def test_error_capture():
