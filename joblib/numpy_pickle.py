@@ -15,7 +15,7 @@ import warnings
 import struct
 import codecs
 
-from ._compat import _basestring
+from ._compat import _basestring, _bytes_or_unicode
 
 from io import BytesIO
 
@@ -29,10 +29,28 @@ if PY3:
         if isinstance(s, bytes):
             return s
         return s.encode('latin1')
+
+    def asstr(s):
+        if not isinstance(s, bytes):
+            return s
+        return s.decode('latin1')
 else:
     Unpickler = pickle.Unpickler
     Pickler = pickle.Pickler
     asbytes = str
+    asstr = str
+
+
+def get_numpy_and_version():
+    """Utility function to delay numpy import only when it is needed
+    """
+    try:
+        import numpy as np
+        np_version = [int(x) for x in np.__version__.split('.', 2)[:2]]
+    except ImportError:
+        np = None
+        np_version = None
+    return np, np_version
 
 
 def hex_str(an_int):
@@ -130,8 +148,8 @@ class NDArrayWrapper(object):
     def read(self, unpickler):
         "Reconstruct the array"
         filename = os.path.join(unpickler._dirname, self.filename)
+
         # Load the array from the disk
-        np_ver = [int(x) for x in unpickler.np.__version__.split('.', 2)[:2]]
 
         # use getattr instead of self.allow_mmap to ensure backward compat
         # with NDArrayWrapper instances pickled with joblib < 0.9.0
@@ -219,12 +237,7 @@ class NumpyPickler(Pickler):
         highest_python_2_3_compatible_protocol = 2
         Pickler.__init__(self, self.file,
                          protocol=highest_python_2_3_compatible_protocol)
-        # delayed import of numpy, to avoid tight coupling
-        try:
-            import numpy as np
-        except ImportError:
-            np = None
-        self.np = np
+        self.np, self.np_version = get_numpy_and_version()
 
     def _write_array(self, array, filename):
         if not self.compress:
@@ -316,11 +329,7 @@ class NumpyUnpickler(Unpickler):
         self.mmap_mode = mmap_mode
         self.file_handle = self._open_pickle(file_handle)
         Unpickler.__init__(self, self.file_handle)
-        try:
-            import numpy as np
-        except ImportError:
-            np = None
-        self.np = np
+        self.np, self.np_version = get_numpy_and_version()
 
         if PY3:
             self.encoding = 'bytes'
@@ -381,6 +390,17 @@ class NumpyUnpickler(Unpickler):
             NDArrayWrapper, by the array we are interested in. We
             replace them directly in the stack of pickler.
         """
+        stack = self.stack
+        old_numpy_version = (self.np_version is not None and
+                             self.np_version < [1, 9])
+        # For numpy < 1.9, np.dtype.__setstate__ is picky about the
+        # type of strings it needs in the tuple. It needs to be '<'
+        # and not u'<' in python 2 and '<' and not b'<' in python 3
+        if (old_numpy_version and len(stack) > 1 and
+                isinstance(stack[-2], self.np.dtype)):
+            stack[-1] = tuple(each if not isinstance(each, _bytes_or_unicode)
+                              else asstr(each) for each in stack[-1])
+
         Unpickler.load_build(self)
         if isinstance(self.stack[-1], NDArrayWrapper):
             if self.np is None:
