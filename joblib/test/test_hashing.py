@@ -264,6 +264,19 @@ def test_hash_object_dtype():
 
 
 @with_numpy
+def test_hash_consistency_between_parrallel_and_direct_computation():
+    # See https://github.com/joblib/joblib/issues/176 for more details
+    args = [np.arange(10), np.arange(20)]
+
+    from joblib import Parallel, delayed, hash
+    parallel_results = Parallel(n_jobs=3)(
+        delayed(hash)(args) for _ in range(10))
+
+    nose.tools.assert_equal(len(set(parallel_results)), 1)
+    nose.tools.assert_equal(parallel_results[0], hash(args))
+
+
+@with_numpy
 def test_numpy_scalar():
     # Numpy scalars are built from compiled functions, and lead to
     # strange pickling paths explored, that can give hash collisions

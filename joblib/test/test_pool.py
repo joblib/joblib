@@ -90,6 +90,14 @@ def inplace_double(args):
     assert_equal(data[position], 2 * expected)
 
 
+def reconstruct_array(x):
+    reduced = reduce_memmap(x)
+    reconstructed = reduced[0](*reduced[1])
+    if len(reduced) > 2:
+        reconstructed.__setstate__(reduced[2])
+
+    return reconstructed
+
 @with_numpy
 @with_multiprocessing
 @with_temp_folder
@@ -124,22 +132,14 @@ def test_memmap_based_array_reducing():
     # Array reducer with auto dumping disabled
     reducer = ArrayMemmapReducer(None, TEMP_FOLDER, 'c')
 
-    def reconstruct_array(x):
-        cons, args = reducer(x)
-        return cons(*args)
-
-    def reconstruct_memmap(x):
-        cons, args = reduce_memmap(x)
-        return cons(*args)
-
     # Reconstruct original memmap
-    a_reconstructed = reconstruct_memmap(a)
+    a_reconstructed = reconstruct_array(a)
     assert_true(has_shareable_memory(a_reconstructed))
     assert_true(isinstance(a_reconstructed, np.memmap))
     assert_array_equal(a_reconstructed, a)
 
     # Reconstruct strided memmap view
-    b_reconstructed = reconstruct_memmap(b)
+    b_reconstructed = reconstruct_array(b)
     assert_true(has_shareable_memory(b_reconstructed))
     assert_array_equal(b_reconstructed, b)
 
@@ -158,7 +158,7 @@ def test_memmap_based_array_reducing():
     # buffers
     a3 = a * 3
     assert_false(has_shareable_memory(a3))
-    a3_reconstructed = reconstruct_memmap(a3)
+    a3_reconstructed = reconstruct_array(a3)
     assert_false(has_shareable_memory(a3_reconstructed))
     assert_false(isinstance(a3_reconstructed, np.memmap))
     assert_array_equal(a3_reconstructed, a * 3)
@@ -191,29 +191,24 @@ def test_high_dimension_memmap_array_reducing():
     d = a[:, :, :, 0]
     e = a[1:3:4]
 
-    def reconstruct_memmap(x):
-        cons, args = reduce_memmap(x)
-        res = cons(*args)
-        return res
-
-    a_reconstructed = reconstruct_memmap(a)
+    a_reconstructed = reconstruct_array(a)
     assert_true(has_shareable_memory(a_reconstructed))
     assert_true(isinstance(a_reconstructed, np.memmap))
     assert_array_equal(a_reconstructed, a)
 
-    b_reconstructed = reconstruct_memmap(b)
+    b_reconstructed = reconstruct_array(b)
     assert_true(has_shareable_memory(b_reconstructed))
     assert_array_equal(b_reconstructed, b)
 
-    c_reconstructed = reconstruct_memmap(c)
+    c_reconstructed = reconstruct_array(c)
     assert_true(has_shareable_memory(c_reconstructed))
     assert_array_equal(c_reconstructed, c)
 
-    d_reconstructed = reconstruct_memmap(d)
+    d_reconstructed = reconstruct_array(d)
     assert_true(has_shareable_memory(d_reconstructed))
     assert_array_equal(d_reconstructed, d)
 
-    e_reconstructed = reconstruct_memmap(e)
+    e_reconstructed = reconstruct_array(e)
     assert_true(has_shareable_memory(e_reconstructed))
     assert_array_equal(e_reconstructed, e)
 
