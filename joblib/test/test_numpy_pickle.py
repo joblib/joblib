@@ -11,6 +11,7 @@ import random
 import sys
 import re
 import tempfile
+import glob
 
 import nose
 
@@ -281,67 +282,79 @@ def test_compressed_pickle_dump_and_load():
         os.remove(fname)
 
 
-@with_numpy
-def test_compressed_pickle_python_2_3_compatibility():
-    expected_list = [np.arange(5, dtype=np.int64),
-                     np.arange(5, dtype=np.float64),
-                     # .tostring actually returns bytes and is a
-                     # compatibility alias for .tobytes which was
-                     # added in 1.9.0
-                     np.arange(256, dtype=np.uint8).tostring(),
-                     u"C'est l'\xe9t\xe9 !"]
+def _check_pickle(filename, expected_list):
+    """Helper function to test joblib pickle content
 
-    test_data_dir = os.path.dirname(os.path.abspath(data.__file__))
-    # These files have been generated with the
-    # joblib/test/data/create_numpy_pickle.py script for the relevant
-    # python and joblib versions
-    basenames = ['joblib_0.8.4_compressed_pickle_py27.gz',
-                 'joblib_0.9.0_compressed_pickle_py27.gz',
-                 'joblib_0.8.4_compressed_pickle_py33.gz',
-                 'joblib_0.9.0_compressed_pickle_py33.gz',
-                 'joblib_0.8.4_compressed_pickle_py34.gz',
-                 'joblib_0.9.0_compressed_pickle_py34.gz']
-    data_filenames = [os.path.join(test_data_dir, bname)
-                      for bname in basenames]
+    Note: currently only pickles containing an iterable are supported
+    by this function.
+    """
+    version_match = re.match(r'.+py(\d)(\d).+', filename)
+    py_version_used_for_writing = tuple(
+        [int(each) for each in version_match.groups()])
+    py_version_used_for_reading = sys.version_info[:2]
 
-    for fname in data_filenames:
-        version_match = re.match(r'.+py(\d)(\d).gz', fname)
-        py_version_used_for_writing = tuple(
-            [int(each) for each in version_match.groups()])
-        py_version_used_for_reading = sys.version_info[:2]
-
-        # Use Pickle protocol 4 for Python 3.4 and later
-        py_version_to_default_pickle_protocol = {
-            (2, 6): 2, (2, 7): 2,
-            (3, 0): 3, (3, 1): 3, (3, 2): 3, (3, 3): 3}
-        pickle_reading_protocol = py_version_to_default_pickle_protocol.get(
-            py_version_used_for_reading, 4)
-        pickle_writing_protocol = py_version_to_default_pickle_protocol.get(
-            py_version_used_for_writing, 4)
-        if ('0.8.4' not in fname or
-                pickle_reading_protocol >=
-                pickle_writing_protocol):
-            result_list = numpy_pickle.load(fname)
+    # Use Pickle protocol 4 for Python 3.4 and later
+    py_version_to_default_pickle_protocol = {
+        (2, 6): 2, (2, 7): 2,
+        (3, 0): 3, (3, 1): 3, (3, 2): 3, (3, 3): 3}
+    pickle_reading_protocol = py_version_to_default_pickle_protocol.get(
+        py_version_used_for_reading, 4)
+    pickle_writing_protocol = py_version_to_default_pickle_protocol.get(
+        py_version_used_for_writing, 4)
+    if pickle_reading_protocol >= pickle_writing_protocol:
+        try:
+            result_list = numpy_pickle.load(filename)
             for result, expected in zip(result_list, expected_list):
                 if isinstance(expected, np.ndarray):
                     nose.tools.assert_equal(result.dtype, expected.dtype)
                     np.testing.assert_equal(result, expected)
                 else:
                     nose.tools.assert_equal(result, expected)
-        else:
-            # For joblib <= 0.8.4 compressed pickles written with
-            # python `version = v` can not be read by python with
-            # `version < v' because of differences in the default
-            # pickle protocol (2 for python 2, 3 for python 3.3 and 4
-            # for python 3.4)
-            try:
-                numpy_pickle.load(fname)
-                raise AssertionError('Numpy pickle loading should '
-                                     'have raised a ValueError exception')
-            except ValueError as e:
-                nose.tools.assert_true(
-                    'unsupported pickle protocol' in str(e.args))
+        except Exception as exc:
+            # When trying to read with python 3 a pickle generated
+            # with python 2 we expect a user-friendly error
+            if (py_version_used_for_reading[0] == 3 and
+                    py_version_used_for_writing[0] == 2):
+                nose.tools.assert_true(isinstance(exc, ValueError))
+                message = ('You may be trying to read with '
+                           'python 3 a joblib pickle generated with python 2.')
+                nose.tools.assert_true(message in str(exc))
+            else:
+                raise
+    else:
+        # Pickle protocol used for writing is too high. We expect a
+        # "unsupported pickle protocol" error message
+        try:
+            numpy_pickle.load(filename)
+            raise AssertionError('Numpy pickle loading should '
+                                 'have raised a ValueError exception')
+        except ValueError as e:
+            message = 'unsupported pickle protocol: {0}'.format(
+                pickle_writing_protocol)
+            nose.tools.assert_true(message in str(e.args))
 
+
+@with_numpy
+def test_joblib_pickle_across_python_versions():
+    expected_list = [np.arange(5, dtype=np.int64),
+                     np.arange(5, dtype=np.float64),
+                     np.array([1, 'abc', {'a': 1, 'b': 2}]),
+                     # .tostring actually returns bytes and is a
+                     # compatibility alias for .tobytes which was
+                     # added in 1.9.0
+                     np.arange(256, dtype=np.uint8).tostring(),
+                     u"C'est l'\xe9t\xe9 !"]
+
+    # Testing all the *.gz and *.pkl (compressed and non compressed
+    # pickles) in joblib/test/data. These pickles were generated by
+    # the joblib/test/data/create_numpy_pickle.py script for the
+    # relevant python, joblib and numpy versions.
+    test_data_dir = os.path.dirname(os.path.abspath(data.__file__))
+    data_filenames = glob.glob(os.path.join(test_data_dir, '*.gz'))
+    data_filenames += glob.glob(os.path.join(test_data_dir, '*.pkl'))
+
+    for fname in data_filenames:
+        _check_pickle(fname, expected_list)
 
 ################################################################################
 # Test dumping array subclasses
