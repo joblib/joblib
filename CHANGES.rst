@@ -26,12 +26,6 @@ Vlad Niculae and Olivier Grisel
     Automated batching of fast tasks into longer running jobs to
     hide multiprocessing dispatching overhead when possible.
 
-Loïc Estève
-
-    FIX compressed pickles interoperability between Python 2 and
-    Python 3. Compressed pickles can be written with one and read with
-    the other.
-
 Olivier Grisel
 
     FIX make it possible to call ``joblib.load(filename, mmap_mode='r')``
