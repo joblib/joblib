@@ -114,7 +114,10 @@ def get_func_name(func, resolv_alias=True, win_characters=True):
     if module is None:
         # Happens in doctests, eg
         module = ''
-    if module == '__main__':
+    if module == '__main__' or module == '__mp_main__':
+        # when multiprocessing using spawn to start a child process (default on windows),
+        # the entry module is named as __mp_main__ .
+        module = '__main__'
         try:
             filename = os.path.abspath(inspect.getsourcefile(func))
         except:
