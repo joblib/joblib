@@ -112,4 +112,4 @@ Here are a few examples or exceptions:
           dispatch[key](self)
         File "/home/lesteve/miniconda3/envs/py27/lib/python2.7/pickle.py", line 886, in load_proto
           raise ValueError, "unsupported pickle protocol: %d" % proto
-      ValueError: unsupported pickle protocol: 4
+      ValueError: unsupported pickle protocol: 3

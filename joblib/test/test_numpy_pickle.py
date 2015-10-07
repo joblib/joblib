@@ -289,14 +289,10 @@ def _check_pickle(filename, expected_list):
     by this function.
     """
     version_match = re.match(r'.+py(\d)(\d).+', filename)
-    py_version_used_for_writing = tuple(
-        [int(each) for each in version_match.groups()])
-    py_version_used_for_reading = sys.version_info[:2]
+    py_version_used_for_writing = int(version_match.group(1))
+    py_version_used_for_reading = sys.version_info[0]
 
-    # Use Pickle protocol 4 for Python 3.4 and later
-    py_version_to_default_pickle_protocol = {
-        (2, 6): 2, (2, 7): 2,
-        (3, 0): 3, (3, 1): 3, (3, 2): 3, (3, 3): 3}
+    py_version_to_default_pickle_protocol = {2: 2, 3: 3}
     pickle_reading_protocol = py_version_to_default_pickle_protocol.get(
         py_version_used_for_reading, 4)
     pickle_writing_protocol = py_version_to_default_pickle_protocol.get(
@@ -313,8 +309,8 @@ def _check_pickle(filename, expected_list):
         except Exception as exc:
             # When trying to read with python 3 a pickle generated
             # with python 2 we expect a user-friendly error
-            if (py_version_used_for_reading[0] == 3 and
-                    py_version_used_for_writing[0] == 2):
+            if (py_version_used_for_reading == 3 and
+                    py_version_used_for_writing == 2):
                 nose.tools.assert_true(isinstance(exc, ValueError))
                 message = ('You may be trying to read with '
                            'python 3 a joblib pickle generated with python 2.')
