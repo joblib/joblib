@@ -79,6 +79,10 @@ class Hasher(Pickler):
         Pickler.save(self, obj)
 
     def memoize(self, obj):
+        # We want hashing to be sensitive to value instead of reference.
+        # For example we want ['aa', 'aa'] and ['aa', 'aaZ'[:2]]
+        # to hash to the same value and that's why we disable memoization
+        # for strings
         if isinstance(obj, _bytes_or_unicode):
             return
         Pickler.memoize(self, obj)
@@ -152,15 +156,7 @@ class NumpyHasher(Hasher):
         else:
             self._getbuffer = memoryview
 
-    def persistent_id(self, obj):
-        # Separate dtypes shared by objects in the pickle graph,
-        # to avoid cache invalidation when unpickling a subobject of the graph
-        if isinstance(obj, self.np.dtype):
-            return pickle.dumps(obj)
-        else:
-            return None
-
-    def save(self, obj, save_persistent_id=True):
+    def save(self, obj):
         """ Subclass the save method, to hash ndarray subclass, rather
             than pickling them. Off course, this is a total abuse of
             the Pickler class.
@@ -200,6 +196,20 @@ class NumpyHasher(Hasher):
 
             # The object will be pickled by the pickler hashed at the end.
             obj = (klass, ('HASHED', obj.dtype, obj.shape, obj.strides))
+        elif isinstance(obj, self.np.dtype):
+            # Atomic dtype objects are interned by their default constructor:
+            # np.dtype('f8') is np.dtype('f8')
+            # This interning is not maintained by a
+            # pickle.loads + pickle.dumps cycle, because __reduce__
+            # uses copy=True in the dtype constructor. This
+            # non-deterministic behavior causes the internal memoizer
+            # of the hasher to generate different hash values
+            # depending on the history of the dtype object.
+            # To prevent the hash from being sensitive to this, we use
+            # .descr which is a full (and never interned) description of
+            # the array dtype according to the numpy doc.
+            klass = obj.__class__
+            obj = (klass, ('HASHED', obj.descr))
         Hasher.save(self, obj)
 
 
