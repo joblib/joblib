@@ -205,7 +205,7 @@ class NumpyPickler(Pickler):
     """
     dispatch = Pickler.dispatch.copy()
 
-    def __init__(self, filename, compress=0, cache_size=10):
+    def __init__(self, filename, compress=0, cache_size=10, protocol=None):
         self._filename = filename
         self._filenames = [filename, ]
         self.cache_size = cache_size
@@ -216,7 +216,12 @@ class NumpyPickler(Pickler):
             self.file = BytesIO()
         # Count the number of npy files that we have created:
         self._npy_counter = 0
-        protocol = pickle.DEFAULT_PROTOCOL if PY3 else pickle.HIGHEST_PROTOCOL
+        # By default we want a pickle protocol that only changes with
+        # the major python version and not the minor one
+        if protocol is None:
+            protocol = (pickle.DEFAULT_PROTOCOL if PY3
+                        else pickle.HIGHEST_PROTOCOL)
+
         Pickler.__init__(self, self.file,
                          protocol=protocol)
         # delayed import of numpy, to avoid tight coupling
@@ -343,7 +348,7 @@ class ZipNumpyUnpickler(NumpyUnpickler):
 ###############################################################################
 # Utility functions
 
-def dump(value, filename, compress=0, cache_size=100):
+def dump(value, filename, compress=0, cache_size=100, protocol=None):
     """Fast persistence of an arbitrary Python object into one or multiple
     files, with dedicated storage for numpy arrays.
 
@@ -363,6 +368,8 @@ def dump(value, filename, compress=0, cache_size=100):
         for in-memory compression. Note that this is just an order of
         magnitude estimate and that for big arrays, the code will go
         over this value at dump and at load time.
+    protocol: positive int
+        Pickle protocol, see pickle.dump documentation for more details.
 
     Returns
     -------
@@ -392,9 +399,10 @@ def dump(value, filename, compress=0, cache_size=100):
               'Second argument should be a filename, %s (type %s) was given'
               % (filename, type(filename))
             )
+
     try:
         pickler = NumpyPickler(filename, compress=compress,
-                               cache_size=cache_size)
+                               cache_size=cache_size, protocol=protocol)
         pickler.dump(value)
         pickler.close()
     finally:
