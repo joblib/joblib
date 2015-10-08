@@ -22,7 +22,7 @@ As any Python packages, to install joblib, simply do::
 in the source code directory.
 
 Joblib has no other mandatory dependency than Python (supported
-versions are 2.6+ and 3.3+). Numpy (at least version 1.3) is an
+versions are 2.6+ and 3.3+). Numpy (at least version 1.6.1) is an
 optional dependency for array manipulation.
 
 Workflow to contribute
