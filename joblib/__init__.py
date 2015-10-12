@@ -58,7 +58,6 @@ Main features
    inputs and  outputs: Python functions. Joblib can save their
    computation to disk and rerun it only if necessary::
 
-      >>> import numpy as np
       >>> from joblib import Memory
       >>> mem = Memory(cachedir='/tmp/joblib')
       >>> import numpy as np
