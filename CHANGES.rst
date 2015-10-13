@@ -4,6 +4,23 @@ Latest changes
 Release 0.9.0
 -------------
 
+Loïc Estève
+
+    Joblib pickles generated with Python 2 can not be loaded with
+    Python 3 and the same applies for joblib pickles generated with
+    Python 3 and loaded with Python 2.
+
+    During the beta period 0.9.0b2 to 0.9.0b4, we experimented with
+    a joblib serialization that aimed to make pickles serialized with
+    Python 3 loadable under Python 2. Unfortunately this serialization
+    strategy proved to be too fragile as far as the long-term
+    maintenance was concerned (For example see
+    https://github.com/joblib/joblib/pull/243). That means that joblib
+    pickles generated with joblib 0.9.0bN can not be loaded under
+    joblib 0.9.0. Joblib beta testers, who are the only ones likely to
+    be affected by this, are advised to delete their joblib cache when
+    they upgrade from 0.9.0bN to 0.9.0.
+
 Arthur Mensch
 
     Fixed a bug with ``joblib.hash`` that used to return unstable values for
