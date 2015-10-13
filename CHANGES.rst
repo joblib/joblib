@@ -6,6 +6,12 @@ Release 0.9.0
 
 Loïc Estève
 
+    Joblib hashing now uses the default pickle protocol (2 for Python
+    2 and 3 for Python 3). This makes it very unlikely to get the same
+    hash for a given object under Python 2 and Python 3.
+
+Loïc Estève
+
     Joblib pickles generated with Python 2 can not be loaded with
     Python 3 and the same applies for joblib pickles generated with
     Python 3 and loaded with Python 2.
