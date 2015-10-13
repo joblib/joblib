@@ -46,6 +46,7 @@ User manual
     installing.rst
     memory.rst
     parallel.rst
+    persistence.rst
     developing.rst
 
 Module reference
