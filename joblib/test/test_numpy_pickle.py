@@ -251,11 +251,16 @@ def test_z_file():
     # asbytes() was removed as unnecessary since all internal code paths
     # to write_zfile() pass in a bytes object already.
     # Ian Beaver - 2/3/2014
-    #data = numpy_pickle.asbytes('Foo, \n Bar, baz, \n\nfoobar')
-    data = b'Foo, \n Bar, baz, \n\nfoobar'
-    numpy_pickle.write_zfile(open(filename, 'wb'), data)
-    data_read = numpy_pickle.read_zfile(open(filename, 'rb'))
+    #data = b'Foo, \n Bar, baz, \n\nfoobar'
+    #numpy_pickle.write_zfile(open(filename, 'wb'), data)
+    #data_read = numpy_pickle.read_zfile(open(filename, 'rb'))
+    data = numpy_pickle.asbytes('Foo, \n Bar, baz, \n\nfoobar')
+    with open(filename, 'wb') as f:
+        numpy_pickle.write_zfile(f, data)
+    with open(filename, 'rb') as f:
+        data_read = numpy_pickle.read_zfile(f)
     nose.tools.assert_equal(data, data_read)
+
 
 
 @with_numpy
