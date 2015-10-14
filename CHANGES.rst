@@ -10,6 +10,12 @@ Loïc Estève
     2 and 3 for Python 3). This makes it very unlikely to get the same
     hash for a given object under Python 2 and Python 3.
 
+    In particular, for Python 3 users, this means that the output of
+    joblib.hash changes when switching from joblib 0.8.4 to 0.9.0 . We
+    strive to ensure that the output of joblib.hash does not change
+    needlessly in future versions of joblib but this is not officially
+    guaranteed.
+
 Loïc Estève
 
     Joblib pickles generated with Python 2 can not be loaded with

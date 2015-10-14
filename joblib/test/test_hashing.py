@@ -398,13 +398,19 @@ def test_hashes_stay_the_same_with_numpy_objects():
     rng = np.random.RandomState(42)
     # Being explicit about dtypes in order to avoid
     # architecture-related differences
-    to_hash_list = [rng.randint(-1000, high=1000, size=50).astype('<i8'),
-                    tuple(rng.randn(3).astype('<f8') for _ in range(5)),
-                    [rng.randn(3).astype('<f8') for _ in range(5)],
-                    [3, 'abc', None, MyClass(1, 2)],
-                    {-3333: rng.randn(3, 5).astype('<f8'),
-                     0: [rng.randint(10, size=20).astype('<i8'),
-                         rng.randn(10).astype('<f8')]}]
+    to_hash_list = [
+        rng.randint(-1000, high=1000, size=50).astype('<i8'),
+        tuple(rng.randn(3).astype('<f8') for _ in range(5)),
+        [rng.randn(3).astype('<f8') for _ in range(5)],
+        [3, 'abc', None, MyClass(1, 2)],
+        {
+            -3333: rng.randn(3, 5).astype('<f8'),
+            0: [
+                rng.randint(10, size=20).astype('<i8'),
+                rng.randn(10).astype('<f8')
+            ]
+        }
+    ]
 
     # These expected results have been generated with joblib 0.9.0
     expected_dict = {'py2': ['80f2387e7752abbda2658aafed49e086',
