@@ -367,7 +367,7 @@ def test_hashes_stay_the_same():
                     [3, 'abc', None, MyClass(1, 2)],
                     {'abcde': 123, 'sadfas': [-9999, 2, 3]}]
 
-    # These expected results have been generated with joblib 0.9.0
+    # These expected results have been generated with joblib 0.9.2
     expected_dict = {
         'py2': ['80436ada343b0d79a99bfd8883a96e45',
                 '2ff3a25200eb6219f468de2640913c2d',

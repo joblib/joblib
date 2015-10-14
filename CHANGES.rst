@@ -1,7 +1,7 @@
 Latest changes
 ===============
 
-Release 0.9.0
+Release 0.9.2
 -------------
 
 Loïc Estève
@@ -11,7 +11,7 @@ Loïc Estève
     hash for a given object under Python 2 and Python 3.
 
     In particular, for Python 3 users, this means that the output of
-    joblib.hash changes when switching from joblib 0.8.4 to 0.9.0 . We
+    joblib.hash changes when switching from joblib 0.8.4 to 0.9.2 . We
     strive to ensure that the output of joblib.hash does not change
     needlessly in future versions of joblib but this is not officially
     guaranteed.
@@ -29,9 +29,9 @@ Loïc Estève
     maintenance was concerned (For example see
     https://github.com/joblib/joblib/pull/243). That means that joblib
     pickles generated with joblib 0.9.0bN can not be loaded under
-    joblib 0.9.0. Joblib beta testers, who are the only ones likely to
+    joblib 0.9.2. Joblib beta testers, who are the only ones likely to
     be affected by this, are advised to delete their joblib cache when
-    they upgrade from 0.9.0bN to 0.9.0.
+    they upgrade from 0.9.0bN to 0.9.2.
 
 Arthur Mensch
 
