@@ -17,10 +17,12 @@ from ._compat import _bytes_or_unicode
 
 import io
 
-if sys.version_info[0] < 3:
-    Pickler = pickle.Pickler
-else:
+PY3 = sys.version[0] == '3'
+
+if PY3:
     Pickler = pickle._Pickler
+else:
+    Pickler = pickle.Pickler
 
 
 class _ConsistentSet(object):
@@ -45,7 +47,11 @@ class Hasher(Pickler):
 
     def __init__(self, hash_name='md5'):
         self.stream = io.BytesIO()
-        Pickler.__init__(self, self.stream, protocol=2)
+        # By default we want a pickle protocol that only changes with
+        # the major python version and not the minor one
+        protocol = (pickle.DEFAULT_PROTOCOL if PY3
+                    else pickle.HIGHEST_PROTOCOL)
+        Pickler.__init__(self, self.stream, protocol=protocol)
         # Initialise the hash obj
         self._hash = hashlib.new(hash_name)
 

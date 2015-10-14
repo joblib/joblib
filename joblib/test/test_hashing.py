@@ -16,9 +16,11 @@ import gc
 import io
 import collections
 import pickle
+import random
+
 from nose.tools import assert_equal
 
-from joblib.hashing import hash
+from joblib.hashing import hash, PY3
 from joblib.func_inspect import filter_args
 from joblib.memory import Memory
 
@@ -344,3 +346,86 @@ def test_dtype():
     b = a
     c = pickle.loads(pickle.dumps(a))
     assert_equal(hash([a, c]), hash([a, b]))
+
+
+class MyClass(object):
+    def __init__(self, a, b):
+        self.a, self.b = a, b
+        self.c = 'fixed'
+
+
+def test_hashes_stay_the_same():
+    # We want to make sure that hashes don't change with joblib
+    # version. For end users, that would mean that they have to
+    # regenerate their cache from scratch, which potentially means
+    # lengthy recomputations.
+    rng = random.Random(42)
+    to_hash_list = ['This is a string to hash',
+                    u"C'est l\xe9t\xe9",
+                    (123456, 54321, -98765),
+                    [rng.random() for _ in range(5)],
+                    [3, 'abc', None, MyClass(1, 2)],
+                    {'abcde': 123, 'sadfas': [-9999, 2, 3]}]
+
+    # These expected results have been generated with joblib 0.9.0
+    expected_dict = {
+        'py2': ['80436ada343b0d79a99bfd8883a96e45',
+                '2ff3a25200eb6219f468de2640913c2d',
+                '50d81c80af05061ac4dcdc2d5edee6d6',
+                '536af09b66a087ed18b515acc17dc7fc',
+                'b5547baee3f205fb763e8a97c130c054',
+                'fc9314a39ff75b829498380850447047'],
+        'py3': ['71b3f47df22cb19431d85d92d0b230b2',
+                '2d8d189e9b2b0b2e384d93c868c0e576',
+                'e205227dd82250871fa25aa0ec690aa3',
+                '9e4e9bf9b91890c9734a6111a35e6633',
+                '731fafc4405a6c192c0a85a58c9e7a93',
+                'aeda150553d4bb5c69f0e69d51b0e2ef']}
+
+    py_version_str = 'py3' if PY3 else 'py2'
+    expected_list = expected_dict[py_version_str]
+
+    for to_hash, expected in zip(to_hash_list, expected_list):
+        yield assert_equal, hash(to_hash), expected
+
+
+@with_numpy
+def test_hashes_stay_the_same_with_numpy_objects():
+    # We want to make sure that hashes don't change with joblib
+    # version. For end users, that would mean that they have to
+    # regenerate their cache from scratch, which potentially means
+    # lengthy recomputations.
+    rng = np.random.RandomState(42)
+    # Being explicit about dtypes in order to avoid
+    # architecture-related differences
+    to_hash_list = [
+        rng.randint(-1000, high=1000, size=50).astype('<i8'),
+        tuple(rng.randn(3).astype('<f8') for _ in range(5)),
+        [rng.randn(3).astype('<f8') for _ in range(5)],
+        [3, 'abc', None, MyClass(1, 2)],
+        {
+            -3333: rng.randn(3, 5).astype('<f8'),
+            0: [
+                rng.randint(10, size=20).astype('<i8'),
+                rng.randn(10).astype('<f8')
+            ]
+        }
+    ]
+
+    # These expected results have been generated with joblib 0.9.0
+    expected_dict = {'py2': ['80f2387e7752abbda2658aafed49e086',
+                             '6028954a4c71750d74e66414bbab227b',
+                             'd32171e5bcf0e60034a7923bfea59e08',
+                             'b5547baee3f205fb763e8a97c130c054',
+                             '7989a9bbb5b7334efeda618843ab3ecc'],
+                     'py3': ['10a6afc379ca2708acfbaef0ab676eab',
+                             'd93ceeb29ba96f03dfa3f846aa05f221',
+                             '54786bcda3d81ef61949d7a103168cee',
+                             '731fafc4405a6c192c0a85a58c9e7a93',
+                             '245de781f3b1948d4af0331d37a1e47f']}
+
+    py_version_str = 'py3' if PY3 else 'py2'
+    expected_list = expected_dict[py_version_str]
+
+    for to_hash, expected in zip(to_hash_list, expected_list):
+        yield assert_equal, hash(to_hash), expected
