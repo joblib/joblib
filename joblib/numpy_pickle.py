@@ -175,7 +175,7 @@ class NDArrayWrapper(object):
         # Reconstruct subclasses. This does not work with old
         # versions of numpy
         if (hasattr(array, '__array_prepare__')
-                and not self.subclass in (unpickler.np.ndarray,
+                and self.subclass not in (unpickler.np.ndarray,
                                           unpickler.np.memmap)):
             # We need to reconstruct another subclass
             new_array = unpickler.np.core.multiarray._reconstruct(
@@ -223,9 +223,9 @@ class ZNDArrayWrapper(NDArrayWrapper):
         array.resize(self.init_args[1])
 
         if PY3:
-            array.data = memoryview(read_zfile(open(filename, 'rb')))
+            array.data = read_zfile(open(filename, 'rb'))  # returns a copy
         else:
-            read_zfile(open(filename, 'rb'), array.data)
+            read_zfile(open(filename, 'rb'), array.data)  # no copy
 
         return array
 
