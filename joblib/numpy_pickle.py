@@ -221,11 +221,12 @@ class ZNDArrayWrapper(NDArrayWrapper):
         array.__setstate__(self.state)
         # Then we resize it back to its original size
         array.resize(self.init_args[1])
-
         if PY3:
-            array.data = read_zfile(open(filename, 'rb'))  # returns a copy
+            # creates a copy
+            array.data = memoryview(read_zfile(open(filename, 'rb')))
         else:
-            read_zfile(open(filename, 'rb'), array.data)  # no copy
+            # no copy as array.data is a numpy buffer
+            read_zfile(open(filename, 'rb'), array.data)
 
         return array
 
