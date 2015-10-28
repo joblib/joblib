@@ -747,7 +747,7 @@ Sub-process traceback:
 %s""" % (this_report, exception.message)
                     # Convert this to a JoblibException
                     exception_type = _mk_exception(exception.etype)[0]
-                    exception = exception_type(report)
+                    exception = exception_type(report, exception.etype)
 
                 # Kill remaining running processes without waiting for
                 # the results as we will raise the exception we got back
