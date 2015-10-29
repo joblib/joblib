@@ -260,6 +260,7 @@ def test_z_file():
 def test_compressed_pickle_dump_and_load():
     expected_list = [np.arange(5, dtype=np.int64),
                      np.arange(5, dtype=np.float64),
+                     np.array([1, 'abc', {'a': 1, 'b': 2}]),
                      # .tostring actually returns bytes and is a
                      # compatibility alias for .tobytes which was
                      # added in 1.9.0
@@ -269,17 +270,23 @@ def test_compressed_pickle_dump_and_load():
     with tempfile.NamedTemporaryFile(suffix='.gz', dir=env['dir']) as f:
         fname = f.name
 
-    try:
-        numpy_pickle.dump(expected_list, fname, compress=1)
-        result_list = numpy_pickle.load(fname)
-        for result, expected in zip(result_list, expected_list):
-            if isinstance(expected, np.ndarray):
-                nose.tools.assert_equal(result.dtype, expected.dtype)
-                np.testing.assert_equal(result, expected)
-            else:
-                nose.tools.assert_equal(result, expected)
-    finally:
-        os.remove(fname)
+    # Need to test both code branches (whether array size is greater
+    # or smaller than cache_size)
+    for cache_size in [0, 1e9]:
+        try:
+            dumped_filenames = numpy_pickle.dump(
+                expected_list, fname, compress=1,
+                cache_size=cache_size)
+            result_list = numpy_pickle.load(fname)
+            for result, expected in zip(result_list, expected_list):
+                if isinstance(expected, np.ndarray):
+                    nose.tools.assert_equal(result.dtype, expected.dtype)
+                    np.testing.assert_equal(result, expected)
+                else:
+                    nose.tools.assert_equal(result, expected)
+        finally:
+            for fn in dumped_filenames:
+                os.remove(fn)
 
 
 def _check_pickle(filename, expected_list):
