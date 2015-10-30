@@ -481,7 +481,7 @@ def test_default_mp_context():
             if method == 'forkserver':
                 assert_equal(p._mp_context.get_start_method(), 'forkserver')
             else:
-                assert_equal(p._mp_context, None)
+                assert_equal(p._mp_context.get_start_method(), 'fork')
     else:
         assert_equal(p._mp_context, None)
 
