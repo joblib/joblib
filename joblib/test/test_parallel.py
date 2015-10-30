@@ -472,12 +472,17 @@ def test_dispatch_race_condition():
 def test_default_mp_context():
     p = Parallel(n_jobs=2, backend='multiprocessing')
     if sys.version_info >= (3, 4):
-        # Under Python 3.4+ use the forkserver context under non-windows
-        # platforms
-        if sys.platform == 'win32':
-            assert_equal(p._mp_context.get_start_method(), 'spawn')
+        # Under Python 3.4+ the multiprocessing context can be configured
+        # by an environment variable
+        env_method = os.environ.get('JOBLIB_START_METHOD', '').strip() or None
+        if env_method is None:
+            # Check the default behavior
+            if sys.platform == 'win32':
+                assert_equal(p._mp_context.get_start_method(), 'spawn')
+            else:
+                assert_equal(p._mp_context.get_start_method(), 'fork')
         else:
-            assert_equal(p._mp_context.get_start_method(), 'forkserver')
+            assert_equal(p._mp_context.get_start_method(), env_method)
     else:
         assert_equal(p._mp_context, None)
 
@@ -487,7 +492,11 @@ def test_no_blas_crash_or_freeze_with_multiprocessing():
     if sys.version_info < (3, 4):
         raise nose.SkipTest('multiprocessing can cause BLAS freeze on'
                             ' old Python')
-    # Check that on recent Python version, the forkserver start method can make
+
+    # Use the spawn backend that is both robust and available on all platforms
+    spawn_backend = mp.get_context('spawn')
+
+    # Check that on recent Python version, the 'spawn' start method can make
     # it possible to use multiprocessing in conjunction of any BLAS
     # implementation that happens to be used by numpy with causing a freeze or
     # a crash
@@ -500,5 +509,5 @@ def test_no_blas_crash_or_freeze_with_multiprocessing():
 
     # check that the internal BLAS thread-pool is not in an inconsistent state
     # in the worker processes managed by multiprocessing
-    Parallel(n_jobs=2, backend='multiprocessing')(
+    Parallel(n_jobs=2, backend=spawn_backend)(
         delayed(np.dot)(a, a.T) for i in range(2))

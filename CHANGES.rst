@@ -1,6 +1,15 @@
 Latest changes
 ===============
 
+Release 0.9.3
+-------------
+
+Olivier Grisel
+
+    Revert back to the ``fork`` start method (instead of
+    ``forkserver``) as the latter was found to cause crashes in
+    interactive Python sessions.
+
 Release 0.9.2
 -------------
 

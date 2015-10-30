@@ -110,18 +110,21 @@ the ``Parallel`` object::
 Bad interaction of multiprocessing and third-party libraries
 ============================================================
 
-Prior to Python 3.4, the ``'multiprocessing'`` backend of joblib can only use
+Prior to Python 3.4 the ``'multiprocessing'`` backend of joblib can only use
 the ``fork`` strategy to create worker processes under non-Windows systems.
 This can cause some third-party libraries to crash or freeze. Such libraries
 include as Apple vecLib / Accelerate (used by NumPy under OSX), some old
 version of OpenBLAS (prior to 0.2.10) or the OpenMP runtime implementation from
 GCC.
 
-To avoid this problem ``joblib.Parallel`` uses the ``'forkserver'`` start
-method by default on Python 3.4 and later. If necessary this behavior can be
-changed by setting the ``JOBLIB_START_METHOD`` environment variable back to the
-unsafe ``'fork'`` method. You can read more on this topic in the
-`multiprocessing documentation
+To avoid this problem ``joblib.Parallel`` can be configured to use the
+``'forkserver'`` start method on Python 3.4 and later. The start method has to
+be configured by setting the ``JOBLIB_START_METHOD`` environment variable to
+``'forkserver'`` instead of the default ``'fork'`` start method. However the
+user should be aware that using the ``'forkserver'`` prevents
+``joblib.Parallel`` to call function interactively defined in a shell session.
+
+You can read more on this topic in the `multiprocessing documentation
 <https://docs.python.org/3/library/multiprocessing.html#contexts-and-start-methods>`_.
 
 Under Windows the ``fork`` system call does not exist at all so this problem
