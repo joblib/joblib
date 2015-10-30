@@ -54,7 +54,7 @@ MAX_IDEAL_BATCH_DURATION = 2
 # pool that does not tolerate forking
 if hasattr(mp, 'get_start_method'):
     method = os.environ.get('JOBLIB_START_METHOD')
-    if (method is None and mp.get_start_method() == 'fork'
+    if (method == 'forkserver'  and mp.get_start_method() == 'fork'
             and 'forkserver' in mp.get_all_start_methods()):
         method = 'forkserver'
     DEFAULT_MP_CONTEXT = mp.get_context(method=method)

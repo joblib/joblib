@@ -477,7 +477,11 @@ def test_default_mp_context():
         if sys.platform == 'win32':
             assert_equal(p._mp_context.get_start_method(), 'spawn')
         else:
-            assert_equal(p._mp_context.get_start_method(), 'forkserver')
+            method = os.environ.get('JOBLIB_START_METHOD')
+            if method == 'forkserver':
+                assert_equal(p._mp_context.get_start_method(), 'forkserver')
+            else:
+                assert_equal(p._mp_context.get_start_method(), 'fork')
     else:
         assert_equal(p._mp_context, None)
 
