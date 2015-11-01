@@ -12,8 +12,6 @@ import sys
 import os
 import zlib
 import warnings
-import struct
-import codecs
 
 from ._compat import _basestring
 
@@ -24,22 +22,22 @@ PY3 = sys.version_info[0] >= 3
 if PY3:
     Unpickler = pickle._Unpickler
     Pickler = pickle._Pickler
+    xrange = range
 
     def asbytes(s):
         if isinstance(s, bytes):
             return s
         return s.encode('latin1')
+
 else:
     Unpickler = pickle.Unpickler
     Pickler = pickle.Pickler
     asbytes = str
 
-
 def hex_str(an_int):
     """Converts an int to an hexadecimal string
     """
     return '{0:#x}'.format(an_int)
-
 
 _MEGA = 2 ** 20
 
@@ -48,10 +46,12 @@ _MEGA = 2 ** 20
 # hexadecimal string. For example: 'ZF0x139              '
 _ZFILE_PREFIX = asbytes('ZF')
 _MAX_LEN = len(hex_str(2 ** 64))
+_CHUNK_SIZE = 64 * 1024
 
 
 ###############################################################################
 # Compressed file with Zlib
+
 
 def _read_magic(file_handle):
     """ Utility to check the magic signature of a file identifying it as a
@@ -63,7 +63,7 @@ def _read_magic(file_handle):
     return magic
 
 
-def read_zfile(file_handle):
+def read_zfile(file_handle, write_buf=None):
     """Read the z-file and return the content as a string
 
     Z-files are raw data compressed with zlib used internally by joblib
@@ -89,27 +89,61 @@ def read_zfile(file_handle):
         # one byte
         file_handle.seek(header_length)
 
-    # We use the known length of the data to tell Zlib the size of the
-    # buffer to allocate.
-    data = zlib.decompress(file_handle.read(), 15, length)
-    assert len(data) == length, (
-        "Incorrect data length while decompressing %s."
-        "The file could be corrupted." % file_handle)
-    return data
+    decompresser = zlib.decompressobj()
+    idx = 0
+    if write_buf is None:
+        write_buf = bytearray()
+    while True:
+        zchunk = file_handle.read(_CHUNK_SIZE)
+        if not zchunk:
+            break
+        chunk = decompresser.decompress(zchunk)
 
+        # Write chunks at a time into the buffer
+        write_buf[idx:idx+len(chunk)] = chunk
+        idx += len(chunk)
+
+    write_buf[idx:] = decompresser.flush()  # Read the remainder
+
+    assert len(write_buf) == length, (
+                "Incorrect data length while decompressing %s."
+                "The file could be corrupted."
+                "Actual: %s, Expected: %s"% (file_handle,
+                                             len(write_buf),
+                                             length))
+
+    return write_buf
 
 def write_zfile(file_handle, data, compress=1):
     """Write the data in the given file as a Z-file.
 
     Z-files are raw data compressed with zlib used internally by joblib
-    for persistence. Backward compatibility is not guarantied. Do not
+    for persistence. Backward compatibility is not guaranteed. Do not
     use for external purposes.
     """
+    compresser = zlib.compressobj(compress)
     file_handle.write(_ZFILE_PREFIX)
-    length = hex_str(len(data))
+    if hasattr(data, 'nbytes'):
+        data_length = data.nbytes
+    else:
+        data_length = len(data)
+
+    length = hex_str(data_length)
+
     # Store the length of the data
     file_handle.write(asbytes(length.ljust(_MAX_LEN)))
-    file_handle.write(zlib.compress(asbytes(data), compress))
+
+    if hasattr(data, 'flat'):
+        # Numpy ndarray, flatten it out
+        data = data.flat
+
+    for i in xrange(data_length//_CHUNK_SIZE+1):
+        chunk = data[i*_CHUNK_SIZE:(i+1)*_CHUNK_SIZE]
+        file_handle.write(compresser.compress(chunk))
+
+    tail = compresser.flush()
+    if tail:  # Write the remainder
+        file_handle.write(tail)
 
 
 ###############################################################################
@@ -131,34 +165,31 @@ class NDArrayWrapper(object):
         "Reconstruct the array"
         filename = os.path.join(unpickler._dirname, self.filename)
         # Load the array from the disk
-        np_ver = [int(x) for x in unpickler.np.__version__.split('.', 2)[:2]]
-
         # use getattr instead of self.allow_mmap to ensure backward compat
         # with NDArrayWrapper instances pickled with joblib < 0.9.0
         allow_mmap = getattr(self, 'allow_mmap', True)
         memmap_kwargs = ({} if not allow_mmap
                          else {'mmap_mode': unpickler.mmap_mode})
         array = unpickler.np.load(filename, **memmap_kwargs)
+
         # Reconstruct subclasses. This does not work with old
         # versions of numpy
         if (hasattr(array, '__array_prepare__')
-                and not self.subclass in (unpickler.np.ndarray,
-                                      unpickler.np.memmap)):
+                and self.subclass not in (unpickler.np.ndarray,
+                                          unpickler.np.memmap)):
             # We need to reconstruct another subclass
             new_array = unpickler.np.core.multiarray._reconstruct(
-                    self.subclass, (0,), 'b')
+                self.subclass, (0,), 'b')
             new_array.__array_prepare__(array)
             array = new_array
-        return array
 
-    #def __reduce__(self):
-    #    return None
+        return array
 
 
 class ZNDArrayWrapper(NDArrayWrapper):
     """An object to be persisted instead of numpy arrays.
 
-    This object store the Zfile filename in which
+    This object stores the Zfile filename in which
     the data array has been persisted, and the meta information to
     retrieve it.
 
@@ -182,10 +213,19 @@ class ZNDArrayWrapper(NDArrayWrapper):
         # arrays
         filename = os.path.join(unpickler._dirname, self.filename)
         array = unpickler.np.core.multiarray._reconstruct(*self.init_args)
-        with open(filename, 'rb') as f:
-            data = read_zfile(f)
-        state = self.state + (data,)
-        array.__setstate__(state)
+
+        # First we construct an empty array with the original properties
+        # This requires Numpy >= 1.7 on Python3 since before that arrays
+        # initialized by __setstate__ with an empty string do not own their
+        # data??
+        array.__setstate__(self.state)
+        # Then we resize it back to its original size
+        array.resize(self.init_args[1])
+        if PY3:
+            read_zfile(open(filename, 'rb'), array.data.cast('B'))
+        else:
+            read_zfile(open(filename, 'rb'), array.data)
+
         return array
 
 
@@ -243,13 +283,24 @@ class NumpyPickler(Pickler):
             # Efficient compressed storage:
             # The meta data is stored in the container, and the core
             # numerics in a z-file
-            _, init_args, state = array.__reduce__()
-            # the last entry of 'state' is the data itself
+            init_args = (type(array), array.shape, 'b')
+
+
+            # This requires numpy >= 1.7 on Python3:
+            # Use the state to create an empty array object and resize
+            # it after the data is read from the file
+            state = (1, (0,), array.dtype,
+                              array.flags.f_contiguous and
+                              not array.flags.c_contiguous,
+                              '')
+            
             with open(filename, 'wb') as zfile:
-                write_zfile(zfile, state[-1], compress=self.compress)
-            state = state[:-1]
+                write_zfile(zfile, array, compress=self.compress)
+
+
             container = ZNDArrayWrapper(os.path.basename(filename),
-                                            init_args, state)
+                                        init_args, state)
+
         return container, filename
 
     def save(self, obj):
@@ -258,7 +309,8 @@ class NumpyPickler(Pickler):
             total abuse of the Pickler class.
         """
         if self.np is not None and type(obj) in (self.np.ndarray,
-                                            self.np.matrix, self.np.memmap):
+                                                 self.np.matrix,
+                                                 self.np.memmap):
             size = obj.size * obj.itemsize
             if self.compress and size < self.cache_size * _MEGA:
                 # When compressing, as we are not writing directly to the
@@ -278,8 +330,8 @@ class NumpyPickler(Pickler):
                 self._npy_counter -= 1
                 # XXX: We should have a logging mechanism
                 print('Failed to save %s to .npy file:\n%s' % (
-                        type(obj),
-                        traceback.format_exc()))
+                    type(obj),
+                    traceback.format_exc()))
         return Pickler.save(self, obj)
 
     def close(self):
@@ -311,7 +363,6 @@ class NumpyUnpickler(Unpickler):
     def load_build(self):
         """ This method is called to set the state of a newly created
             object.
-
             We capture it to replace our place-holder objects,
             NDArrayWrapper, by the array we are interested in. We
             replace them directly in the stack of pickler.
@@ -319,8 +370,8 @@ class NumpyUnpickler(Unpickler):
         Unpickler.load_build(self)
         if isinstance(self.stack[-1], NDArrayWrapper):
             if self.np is None:
-                raise ImportError('Trying to unpickle an ndarray, '
-                        "but numpy didn't import correctly")
+                raise ImportError("Trying to unpickle an ndarray, "
+                                  "but numpy didn't import correctly")
             nd_array_wrapper = self.stack.pop()
             array = nd_array_wrapper.read(self)
             self.stack.append(array)
@@ -396,9 +447,9 @@ def dump(value, filename, compress=0, cache_size=100, protocol=None):
         # People keep inverting arguments, and the resulting error is
         # incomprehensible
         raise ValueError(
-              'Second argument should be a filename, %s (type %s) was given'
-              % (filename, type(filename))
-            )
+            'Second argument should be a filename, %s (type %s) was given'
+            % (filename, type(filename))
+        )
 
     try:
         pickler = NumpyPickler(filename, compress=compress,
