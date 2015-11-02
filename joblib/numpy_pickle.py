@@ -215,7 +215,7 @@ class NumpyPickler(Pickler):
         else:
             self.file = BytesIO()
         # Count the number of npy files that we have created:
-        self._npy_counter = 0
+        self._npy_counter = 1
         # By default we want a pickle protocol that only changes with
         # the major python version and not the minor one
         if protocol is None:
@@ -257,8 +257,8 @@ class NumpyPickler(Pickler):
             files, rather than pickling them. Of course, this is a
             total abuse of the Pickler class.
         """
-        if self.np is not None and type(obj) in (self.np.ndarray,
-                                            self.np.matrix, self.np.memmap):
+        if (self.np is not None and type(obj) in
+                (self.np.ndarray, self.np.matrix, self.np.memmap)):
             size = obj.size * obj.itemsize
             if self.compress and size < self.cache_size * _MEGA:
                 # When compressing, as we are not writing directly to the
@@ -267,19 +267,21 @@ class NumpyPickler(Pickler):
                     # Pickling doesn't work with memmaped arrays
                     obj = self.np.asarray(obj)
                 return Pickler.save(self, obj)
-            self._npy_counter += 1
-            try:
-                filename = '%s_%02i.npy' % (self._filename,
-                                            self._npy_counter)
-                # This converts the array in a container
-                obj, filename = self._write_array(obj, filename)
-                self._filenames.append(filename)
-            except:
-                self._npy_counter -= 1
-                # XXX: We should have a logging mechanism
-                print('Failed to save %s to .npy file:\n%s' % (
+
+            if not obj.dtype.hasobject:
+                try:
+                    filename = '%s_%02i.npy' % (self._filename,
+                                                self._npy_counter)
+                    # This converts the array in a container
+                    obj, filename = self._write_array(obj, filename)
+                    self._filenames.append(filename)
+                    self._npy_counter += 1
+                except Exception:
+                    # XXX: We should have a logging mechanism
+                    print('Failed to save %s to .npy file:\n%s' % (
                         type(obj),
                         traceback.format_exc()))
+
         return Pickler.save(self, obj)
 
     def close(self):
