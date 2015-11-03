@@ -195,7 +195,12 @@ def format_records(records):   # , print_globals=False):
             # the abspath call will throw an OSError.  Just ignore it and
             # keep the original file string.
             pass
+
+        if file.endswith('.pyc'):
+            file = file[:-4] + '.py'
+
         link = file
+
         try:
             args, varargs, varkw, locals = inspect.getargvalues(frame)
         except:
