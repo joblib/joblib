@@ -1,3 +1,6 @@
+# make it explicit that we favor the new container-based travis workers
+sudo: false
+
 language: python
 
 env:
