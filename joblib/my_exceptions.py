@@ -10,23 +10,26 @@ import sys
 
 class JoblibException(Exception):
     """A simple exception with an error message that you can get to."""
-
     def __init__(self, *args):
-        self.args = args
-
-    def __reduce__(self):
-        # For pickling
-        return self.__class__, self.args, {}
+        # We need to implement __init__ so that it is picked in the
+        # multiple heritance hierarchy in the class created in
+        # _mk_exception. Note: in Python 2, if you implement __init__
+        # in your exception class you need to set .args correctly,
+        # otherwise you can dump an exception instance with pickle but
+        # not load it (at load time an empty .args will be passed to
+        # the constructor). Also we want to be explicit and not use
+        # 'super' here. Using 'super' can cause a sibling class method
+        # to be called and we have no control the sibling class method
+        # constructor signature in the exception returned by
+        # _mk_exception.
+        Exception.__init__(self, *args)
 
     def __repr__(self):
-        if hasattr(self, 'args'):
+        if hasattr(self, 'args') and len(self.args) > 0:
             message = self.args[0]
         else:
-            # Python 2 compat: instances of JoblibException can be created
-            # without calling JoblibException __init__ in case of
-            # multi-inheritance: in that case the message is stored as an
-            # explicit attribute under Python 2 (only)
-            message = self.message
+            message = ''
+
         name = self.__class__.__name__
         return '%s\n%s\n%s\n%s' % (name, 75 * '_', message, 75 * '_')
 
@@ -39,12 +42,11 @@ class TransportableException(JoblibException):
     """
 
     def __init__(self, message, etype):
+        # The next line set the .args correctly. This is needed to
+        # make the exception loadable with pickle
+        JoblibException.__init__(self, message, etype)
         self.message = message
         self.etype = etype
-
-    def __reduce__(self):
-        # For pickling
-        return self.__class__, (self.message, self.etype), {}
 
 
 _exception_mapping = dict()
@@ -64,10 +66,10 @@ def _mk_exception(exception, name=None):
             # We cannot create a subclass: we are already a trivial
             # subclass
             return JoblibException, this_name
-        this_exception = type(this_name, (exception, JoblibException),
-                    dict(__repr__=JoblibException.__repr__,
-                        __str__=JoblibException.__str__),
-                    )
+        elif issubclass(exception, JoblibException):
+            return JoblibException, JoblibException.__name__
+        this_exception = type(
+            this_name, (JoblibException, exception), {})
         _exception_mapping[this_name] = this_exception
     return this_exception, this_name
 
@@ -86,14 +88,8 @@ def _mk_common_exceptions():
     for name in common_exceptions:
         obj = getattr(_builtin_exceptions, name)
         if isinstance(obj, type) and issubclass(obj, BaseException):
-            try:
-                this_obj, this_name = _mk_exception(obj, name=name)
-                namespace[this_name] = this_obj
-            except TypeError:
-                # Cannot create a consistent method resolution order:
-                # a class that we can't subclass properly, probably
-                # BaseException
-                pass
+            this_obj, this_name = _mk_exception(obj, name=name)
+            namespace[this_name] = this_obj
     return namespace
 
 

@@ -59,9 +59,17 @@ def square(x):
     return x ** 2
 
 
-def exception_raiser(x):
+class MyExceptionWithFinickyInit(Exception):
+    """An exception class with non trivial __init__
+    """
+    def __init__(self, a, b, c, d):
+        pass
+
+
+def exception_raiser(x, custom_exception=False):
     if x == 7:
-        raise ValueError
+        raise (MyExceptionWithFinickyInit('a', 'b', 'c', 'd')
+               if custom_exception else ValueError)
     return x
 
 
@@ -258,6 +266,13 @@ def test_error_capture():
     # exception to make it easy to catch them
     assert_raises(ZeroDivisionError, Parallel(n_jobs=2),
                   [delayed(division)(x, y) for x, y in zip((0, 1), (1, 0))])
+
+    assert_raises(
+        MyExceptionWithFinickyInit,
+        Parallel(n_jobs=2, verbose=0),
+        (delayed(exception_raiser)(i, custom_exception=True)
+         for i in range(30)))
+
     try:
         # JoblibException wrapping is disabled in sequential mode:
         ex = JoblibException()
