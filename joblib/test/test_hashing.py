@@ -23,6 +23,7 @@ from nose.tools import assert_equal
 from joblib.hashing import hash, PY3
 from joblib.func_inspect import filter_args
 from joblib.memory import Memory
+from joblib.testing import assert_raises_regex
 
 from joblib.test.test_memory import env as test_memory_env
 from joblib.test.test_memory import setup_module as test_memory_setup_func
@@ -429,3 +430,12 @@ def test_hashes_stay_the_same_with_numpy_objects():
 
     for to_hash, expected in zip(to_hash_list, expected_list):
         yield assert_equal, hash(to_hash), expected
+
+
+def test_hashing_pickling_error():
+    def non_picklable():
+        return 42
+
+    assert_raises_regex(pickle.PicklingError,
+                        'PicklingError while hashing',
+                        hash, non_picklable)
