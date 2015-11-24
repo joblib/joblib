@@ -62,7 +62,7 @@ Setting the `compress` argument to `True` in :func:`joblib.dump` will allow to
 save space on disk:
 
   >>> joblib.dump(to_persist, filename, compress=True)  # doctest: +ELLIPSIS
-  ['.../test.pkl']
+  ['...test.pkl']
 
 Another advantage it that it will create a single-file joblib pickle.
 
