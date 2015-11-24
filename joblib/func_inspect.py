@@ -189,15 +189,11 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
                 'not work.' % func, stacklevel=2)
         return {'*': args, '**': kwargs}
     arg_spec = inspect.getargspec(func)
-    # We need to if/them to account for different versions of Python
-    if hasattr(arg_spec, 'args'):
-        arg_names = arg_spec.args
-        arg_defaults = arg_spec.defaults
-        arg_keywords = arg_spec.keywords
-        arg_varargs = arg_spec.varargs
-    else:
-        arg_names, arg_varargs, arg_keywords, arg_defaults = arg_spec
-    arg_defaults = arg_defaults or {}
+    arg_names = arg_spec.args
+    arg_defaults = arg_spec.defaults or {}
+    arg_keywords = arg_spec.keywords
+    arg_varargs = arg_spec.varargs
+
     if inspect.ismethod(func):
         # First argument is 'self', it has been removed by Python
         # we need to add it back:
