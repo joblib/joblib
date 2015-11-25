@@ -405,7 +405,6 @@ def test_hashes_stay_the_same_with_numpy_objects():
         rng.randint(-1000, high=1000, size=50).astype('<i8'),
         tuple(rng.randn(3).astype('<f4') for _ in range(5)),
         [rng.randn(3).astype('<f4') for _ in range(5)],
-        [3, 'abc', None, MyClass(1, 2)],
         {
             -3333: rng.randn(3, 5).astype('<f4'),
             0: [
@@ -419,12 +418,10 @@ def test_hashes_stay_the_same_with_numpy_objects():
     expected_dict = {'py2': ['80f2387e7752abbda2658aafed49e086',
                              '0d700f7f25ea670fd305e4cd93b0e8cd',
                              '83a2bdf843e79e4b3e26521db73088b9',
-                             'b5547baee3f205fb763e8a97c130c054',
                              '63e0efd43c0a9ad92a07e8ce04338dd3'],
                      'py3': ['10a6afc379ca2708acfbaef0ab676eab',
                              '988a7114f337f381393025911ebc823b',
                              'c6809f4b97e35f2fa0ee8d653cbd025c',
-                             '731fafc4405a6c192c0a85a58c9e7a93',
                              'b3ad17348e32728a7eb9cda1e7ede438']}
 
     py_version_str = 'py3' if PY3 else 'py2'
