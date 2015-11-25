@@ -27,6 +27,7 @@ from joblib.memory import Memory
 from joblib.test.test_memory import env as test_memory_env
 from joblib.test.test_memory import setup_module as test_memory_setup_func
 from joblib.test.test_memory import teardown_module as test_memory_teardown_func
+from joblib.my_exceptions import TransportableException
 
 from joblib.test.common import np, with_numpy
 
@@ -348,12 +349,6 @@ def test_dtype():
     assert_equal(hash([a, c]), hash([a, b]))
 
 
-class MyClass(object):
-    def __init__(self, a, b):
-        self.a, self.b = a, b
-        self.c = 'fixed'
-
-
 def test_hashes_stay_the_same():
     # We want to make sure that hashes don't change with joblib
     # version. For end users, that would mean that they have to
@@ -364,7 +359,8 @@ def test_hashes_stay_the_same():
                     u"C'est l\xe9t\xe9",
                     (123456, 54321, -98765),
                     [rng.random() for _ in range(5)],
-                    [3, 'abc', None, MyClass(1, 2)],
+                    [3, 'abc', None,
+                     TransportableException('the message', ValueError)],
                     {'abcde': 123, 'sadfas': [-9999, 2, 3]}]
 
     # These expected results have been generated with joblib 0.9.2
@@ -373,13 +369,13 @@ def test_hashes_stay_the_same():
                 '2ff3a25200eb6219f468de2640913c2d',
                 '50d81c80af05061ac4dcdc2d5edee6d6',
                 '536af09b66a087ed18b515acc17dc7fc',
-                'b5547baee3f205fb763e8a97c130c054',
+                'ea0744e13c2ba9036c1a83cadcff0561',
                 'fc9314a39ff75b829498380850447047'],
         'py3': ['71b3f47df22cb19431d85d92d0b230b2',
                 '2d8d189e9b2b0b2e384d93c868c0e576',
                 'e205227dd82250871fa25aa0ec690aa3',
                 '9e4e9bf9b91890c9734a6111a35e6633',
-                '731fafc4405a6c192c0a85a58c9e7a93',
+                '9788f6804198579502ba94cd8939f27f',
                 'aeda150553d4bb5c69f0e69d51b0e2ef']}
 
     py_version_str = 'py3' if PY3 else 'py2'
