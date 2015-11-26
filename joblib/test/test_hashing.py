@@ -370,13 +370,13 @@ def test_hashes_stay_the_same():
                 '2ff3a25200eb6219f468de2640913c2d',
                 '50d81c80af05061ac4dcdc2d5edee6d6',
                 '536af09b66a087ed18b515acc17dc7fc',
-                'ea0744e13c2ba9036c1a83cadcff0561',
+                '123ffc6f13480767167e171a8e1f6f4a',
                 'fc9314a39ff75b829498380850447047'],
         'py3': ['71b3f47df22cb19431d85d92d0b230b2',
                 '2d8d189e9b2b0b2e384d93c868c0e576',
                 'e205227dd82250871fa25aa0ec690aa3',
                 '9e4e9bf9b91890c9734a6111a35e6633',
-                '9788f6804198579502ba94cd8939f27f',
+                '6065a3c48e842ea5dee2cfd0d6820ad6',
                 'aeda150553d4bb5c69f0e69d51b0e2ef']}
 
     py_version_str = 'py3' if PY3 else 'py2'
