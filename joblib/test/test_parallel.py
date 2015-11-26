@@ -95,7 +95,7 @@ def test_cpu_count():
 def check_simple_parallel(backend):
     X = range(5)
     for n_jobs in (1, 2, -1, -2):
-        nose.tools.assert_equal(
+        assert_equal(
             [square(x) for x in X],
             Parallel(n_jobs=n_jobs)(delayed(square)(x) for x in X))
     try:
@@ -157,7 +157,7 @@ def test_mutate_input_with_threads():
     q = Queue(maxsize=5)
     Parallel(n_jobs=2, backend="threading")(
         delayed(q.put, check_pickle=False)(1) for _ in range(5))
-    nose.tools.assert_true(q.full())
+    assert_true(q.full())
 
 
 def test_parallel_kwargs():
@@ -289,7 +289,7 @@ class Counter(object):
 
     def __call__(self, i):
         self.list1.append(i)
-        nose.tools.assert_equal(len(self.list1), len(self.list2))
+        assert_equal(len(self.list1), len(self.list2))
 
 
 def consumer(queue, item):
@@ -309,7 +309,7 @@ def check_dispatch_one_job(backend):
     # disable batching
     Parallel(n_jobs=1, batch_size=1, backend=backend)(
         delayed(consumer)(queue, x) for x in producer())
-    nose.tools.assert_equal(queue, [
+    assert_equal(queue, [
         'Produced 0', 'Consumed 0',
         'Produced 1', 'Consumed 1',
         'Produced 2', 'Consumed 2',
@@ -317,7 +317,7 @@ def check_dispatch_one_job(backend):
         'Produced 4', 'Consumed 4',
         'Produced 5', 'Consumed 5',
     ])
-    nose.tools.assert_equal(len(queue), 12)
+    assert_equal(len(queue), 12)
 
     # empty the queue for the next check
     queue[:] = []
@@ -325,7 +325,7 @@ def check_dispatch_one_job(backend):
     # enable batching
     Parallel(n_jobs=1, batch_size=4, backend=backend)(
         delayed(consumer)(queue, x) for x in producer())
-    nose.tools.assert_equal(queue, [
+    assert_equal(queue, [
         # First batch
         'Produced 0', 'Produced 1', 'Produced 2', 'Produced 3',
         'Consumed 0', 'Consumed 1', 'Consumed 2', 'Consumed 3',
@@ -333,7 +333,7 @@ def check_dispatch_one_job(backend):
         # Second batch
         'Produced 4', 'Produced 5', 'Consumed 4', 'Consumed 5',
     ])
-    nose.tools.assert_equal(len(queue), 12)
+    assert_equal(len(queue), 12)
 
 
 def test_dispatch_one_job():
@@ -364,9 +364,9 @@ def check_dispatch_multiprocessing(backend):
     # The the first consumption event can sometimes happen before the end of
     # the dispatching, hence, pop it before introspecting the "Produced" events
     first_four.remove('Consumed any')
-    nose.tools.assert_equal(first_four,
-                            ['Produced 0', 'Produced 1', 'Produced 2'])
-    nose.tools.assert_equal(len(queue), 12)
+    assert_equal(first_four,
+                 ['Produced 0', 'Produced 1', 'Produced 2'])
+    assert_equal(len(queue), 12)
 
 
 def test_dispatch_multiprocessing():
@@ -399,7 +399,7 @@ def test_batching_auto_multiprocessing():
 
 def test_exception_dispatch():
     "Make sure that exception raised during dispatch are indeed captured"
-    nose.tools.assert_raises(
+    assert_raises(
             ValueError,
             Parallel(n_jobs=2, pre_dispatch=16, verbose=0),
                     (delayed(exception_raiser)(i) for i in range(30)),
@@ -409,10 +409,10 @@ def test_exception_dispatch():
 def test_nested_exception_dispatch():
     # Ensure TransportableException objects for nested joblib cases gets
     # propagated.
-    nose.tools.assert_raises(
+    assert_raises(
         JoblibException,
         Parallel(n_jobs=2, pre_dispatch=16, verbose=0),
-                (delayed(SafeFunction(exception_raiser))(i) for i in range(30)))
+        (delayed(SafeFunction(exception_raiser))(i) for i in range(30)))
 
 
 def _reload_joblib():
@@ -432,8 +432,8 @@ def test_multiple_spawning():
     # systems that do not support fork
     if not int(os.environ.get('JOBLIB_MULTIPROCESSING', 1)):
         raise nose.SkipTest()
-    nose.tools.assert_raises(ImportError, Parallel(n_jobs=2, pre_dispatch='all'),
-                             [delayed(_reload_joblib)() for i in range(10)])
+    assert_raises(ImportError, Parallel(n_jobs=2, pre_dispatch='all'),
+                  [delayed(_reload_joblib)() for i in range(10)])
 
 
 ###############################################################################
@@ -449,7 +449,7 @@ def test_joblib_exception():
 
 def test_safe_function():
     safe_division = SafeFunction(division)
-    nose.tools.assert_raises(JoblibException, safe_division, 1, 0)
+    assert_raises(JoblibException, safe_division, 1, 0)
 
 
 def test_invalid_batch_size():
