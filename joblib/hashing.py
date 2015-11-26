@@ -59,7 +59,8 @@ class Hasher(Pickler):
         try:
             self.dump(obj)
         except pickle.PicklingError as e:
-            warnings.warn('PicklingError while hashing %r: %r' % (obj, e))
+            e.args += ('PicklingError while hashing %r: %r' % (obj, e),)
+            raise
         dumps = self.stream.getvalue()
         self._hash.update(dumps)
         if return_digest:
