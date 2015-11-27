@@ -258,6 +258,10 @@ def test_z_file():
 
 @with_numpy
 def test_compressed_pickle_dump_and_load():
+    # XXX: temporarily disable this test on non little-endian machines
+    if sys.byteorder != 'little':
+        raise nose.SkipTest('Skipping this test on non little-endian machines')
+
     expected_list = [np.arange(5, dtype=np.dtype('<i8')),
                      np.arange(5, dtype=np.dtype('<f8')),
                      np.array([1, 'abc', {'a': 1, 'b': 2}], dtype='O'),
@@ -339,6 +343,10 @@ def _check_pickle(filename, expected_list):
 
 @with_numpy
 def test_joblib_pickle_across_python_versions():
+    # XXX: temporarily disable this test on non little-endian machines
+    if sys.byteorder != 'little':
+        raise nose.SkipTest('Skipping this test on non little-endian machines')
+
     # We need to be specific about dtypes in particular endianness
     # because the pickles can be generated on one architecture and
     # the tests run on another one. See
