@@ -43,9 +43,13 @@ def write_test_pickle(to_pickle):
     joblib.dump(to_pickle, pickle_filename, compress=False)
 
 if __name__ == '__main__':
-    to_pickle = [np.arange(5, dtype=np.int64),
-                 np.arange(5, dtype=np.float64),
-                 np.array([1, 'abc', {'a': 1, 'b': 2}]),
+    # We need to be specific about dtypes in particular endianness
+    # because the pickles can be generated on one architecture and
+    # the tests run on another one. See
+    # https://github.com/joblib/joblib/issues/279.
+    to_pickle = [np.arange(5, dtype=np.dtype('<i8')),
+                 np.arange(5, dtype=np.dtype('<f8')),
+                 np.array([1, 'abc', {'a': 1, 'b': 2}], dtype='O'),
                  # all possible bytes as a byte string
                  # .tostring actually returns bytes and is a
                  # compatibility alias for .tobytes which was
