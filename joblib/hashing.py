@@ -53,7 +53,7 @@ class Hasher(Pickler):
     def hash(self, obj, return_digest=True):
         try:
             self.dump(obj)
-        except dill.PicklingError as e:
+        except (dill.PicklingError, TypeError) as e:
             e.args += ('PicklingError while hashing %r: %r' % (obj, e),)
             raise
         dumps = self.stream.getvalue()
