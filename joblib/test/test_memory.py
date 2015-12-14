@@ -640,6 +640,67 @@ def test_memory_file_modification():
     nose.tools.assert_equal(my_stdout.getvalue(), '1\n2\nReloading\nx=1\n')
 
 
+def test_memory_arg_lambda():
+    " Test memory with a lambda argument."
+
+    memory = Memory(cachedir=env['dir'], verbose=0)
+    memory.clear(warn=False)
+
+    accum = {'value': 0}
+
+    @memory.cache()
+    def run_func(func):
+        accum['value'] += 1
+        return func()
+
+    lambda_1 = lambda: 1
+    lambda_2 = lambda: 2
+
+    a = run_func(lambda_1)
+    b = run_func(lambda_1)
+    c = run_func(lambda_2)
+
+    nose.tools.assert_equal(a, 1)
+    nose.tools.assert_equal(b, 1)
+    nose.tools.assert_equal(c, 2)
+    nose.tools.assert_equal(accum['value'], 2)
+
+
+def test_memory_arg_nested():
+    " Test memory with a nested function argument."
+
+    memory = Memory(cachedir=env['dir'], verbose=0)
+    memory.clear(warn=False)
+
+    accum = {'value': 0}
+
+    def func_1():
+        return 1
+
+    def func_2():
+        return 2
+
+    def decorator(func_):
+        def decorated():
+            return func_()
+
+        return decorated
+
+    @memory.cache()
+    def run_func(func):
+        accum['value'] += 1
+        return func()
+
+    a = run_func(decorator(func_1))
+    b = run_func(decorator(func_1))
+    c = run_func(decorator(func_2))
+
+    nose.tools.assert_equal(a, 1)
+    nose.tools.assert_equal(b, 1)
+    nose.tools.assert_equal(c, 2)
+    nose.tools.assert_equal(accum['value'], 2)
+
+
 def _function_to_cache(a, b):
     # Just a place holder function to be mutated by tests
     pass
