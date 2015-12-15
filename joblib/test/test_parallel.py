@@ -10,7 +10,9 @@ import time
 import sys
 import io
 import os
+
 from joblib.test.common import np, with_numpy
+from joblib.testing import check_subprocess_call
 
 try:
     import cPickle as pickle
@@ -20,7 +22,9 @@ except:
     PickleError = pickle.PicklingError
 
 
-if sys.version_info[0] == 3:
+PY3 = sys.version_info[0] >= 3
+
+if PY3:
     PickleError = pickle.PicklingError
 
 try:
@@ -526,3 +530,22 @@ def test_no_blas_crash_or_freeze_with_multiprocessing():
     # in the worker processes managed by multiprocessing
     Parallel(n_jobs=2, backend=spawn_backend)(
         delayed(np.dot)(a, a.T) for i in range(2))
+
+
+def test_parallel_with_interactively_defined_functions():
+    # When functions are defined interactively in a python/IPython
+    # session, we want to be able to use them with joblib.Parallel
+
+    try:
+        import posix
+    except ImportError:
+        # This test pass only when fork is the process start method
+        raise nose.SkipTest('Not a POSIX platform')
+
+    code = '\n\n'.join([
+        'from joblib import Parallel, delayed',
+        'def sqrt(x): return x**2',
+        'print(Parallel(n_jobs=2)(delayed(sqrt)(i) for i in range(5)))'])
+
+    check_subprocess_call([sys.executable, '-c', code],
+                          stdout_regex=r'\[0, 1, 4, 9, 16\]')
