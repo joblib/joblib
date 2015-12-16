@@ -1,6 +1,8 @@
 import sys
 import re
 
+from nose.tools import assert_raises
+
 from joblib.testing import assert_raises_regex, check_subprocess_call
 
 
@@ -29,11 +31,12 @@ def test_check_subprocess_call_non_matching_regex():
 
 def test_check_subprocess_call_wrong_command():
     wrong_command = '_a_command_that_does_not_exist_'
-    assert_raises_regex(OSError,
-                        '',
-                        check_subprocess_call,
-                        [wrong_command])
+    assert_raises(OSError,
+                  check_subprocess_call,
+                  [wrong_command])
 
+
+def test_check_subprocess_call_non_zero_return_code():
     code_with_non_zero_exit = '\n'.join([
         'import sys',
         'print("writing on stdout")',
@@ -47,3 +50,27 @@ def test_check_subprocess_call_wrong_command():
                         pattern,
                         check_subprocess_call,
                         [sys.executable, '-c', code_with_non_zero_exit])
+
+
+def test_check_subprocess_call_timeout():
+    code_timing_out = '\n'.join([
+        'import time',
+        'import sys',
+        'print("before sleep on stdout")',
+        'sys.stdout.flush()',
+        'sys.stderr.write("before sleep on stderr")',
+        'sys.stderr.flush()',
+        'time.sleep(1.1)',
+        'print("process should have be killed before")',
+        'sys.stdout.flush()'])
+
+    pattern = re.compile('Non-zero return code:.+'
+                         'Stdout:\nbefore sleep on stdout\s+'
+                         'Stderr:\nbefore sleep on stderr',
+                         re.DOTALL)
+
+    assert_raises_regex(ValueError,
+                        pattern,
+                        check_subprocess_call,
+                        [sys.executable, '-c', code_timing_out],
+                        timeout=1)

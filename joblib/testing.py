@@ -79,7 +79,7 @@ def check_subprocess_call(cmd, timeout=1, stdout_regex=None):
         if (stdout_regex is not None and
                 not re.search(stdout_regex, stdout)):
             raise ValueError(
-                "Unexpected output: '{0}' does not match:\n{1}".format(
+                "Unexpected output: '{0!r}' does not match:\n{1!r}".format(
                     stdout_regex, stdout))
     finally:
         timer.cancel()
