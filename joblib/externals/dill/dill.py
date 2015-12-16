@@ -492,8 +492,11 @@ if InputType:
     _reverse_typemap['OutputType'] = OutputType
 if PY3:
     _typemap = dict((v, k) for k, v in _reverse_typemap.items())
+    _builtin_typemap = dict((v, k) for k, v in dict(_create_typemap()).items())
 else:
     _typemap = dict((v, k) for k, v in _reverse_typemap.iteritems())
+    _builtin_typemap = dict((v, k) for k, v in dict(_create_typemap()).iteritems())
+del _builtin_typemap[CodeType]
 
 def _unmarshal(string):
     return marshal.loads(string)
@@ -834,7 +837,7 @@ def save_module_dict(pickler, obj):
         log.info("D2: <dict%s" % str(obj.__repr__).split('dict')[-1]) # obj
         if is_dill(pickler) and pickler._session:
             # we only care about session the first pass thru
-            pickler._session = False 
+            pickler._session = False
         StockPickler.save_dict(pickler, obj)
         log.info("# D2")
     return
@@ -1043,7 +1046,7 @@ if HAS_CTYPES and IS_PYPY:
         pickler.save_reduce(_create_cell, (obj.cell_contents,), obj=obj)
         log.info("# Ce")
         return
- 
+
 # The following function is based on 'saveDictProxy' from spickle
 # Copyright (c) 2011 by science+computing ag
 # License: http://www.apache.org/licenses/LICENSE-2.0
@@ -1181,7 +1184,9 @@ def save_module(pickler, obj):
 @register(TypeType)
 def save_type(pickler, obj):
    #stack.add(obj) #XXX: probably don't need object from all cases below
-    if obj in _typemap:
+    if obj in _builtin_typemap:
+        StockPickler.save_global(pickler, obj)
+    elif obj in _typemap:
         log.info("T1: %s" % obj)
         pickler.save_reduce(_load_type, (_typemap[obj],), obj=obj)
         log.info("# T1")
