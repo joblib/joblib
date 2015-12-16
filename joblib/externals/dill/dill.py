@@ -106,7 +106,7 @@ if NumpyArrayType: # then has numpy
             if cls is None: return False
             elif cls is TypeType: return False
             elif 'numpy.ndarray' not in str(getattr(cls, 'mro', int.mro)()):
-                return False 
+                return False
         except ReferenceError: return False # handle 'R3' weakref in 3.x
         except TypeError: return False
         # anything below here is a numpy array (or subclass) instance
@@ -124,7 +124,7 @@ if NumpyArrayType: # then has numpy
             if cls is None: return False
             elif cls is TypeType: return False
             if 'numpy.ufunc' not in str(getattr(cls, 'mro', int.mro)()):
-                return False 
+                return False
         except ReferenceError: return False # handle 'R3' weakref in 3.x
         except TypeError: return False
         # anything below here is a numpy ufunc
@@ -756,14 +756,14 @@ def save_code(pickler, obj):
         args = (
             obj.co_argcount, obj.co_kwonlyargcount, obj.co_nlocals,
             obj.co_stacksize, obj.co_flags, obj.co_code, obj.co_consts,
-            obj.co_names, obj.co_varnames, obj.co_filename, obj.co_name,
-            obj.co_firstlineno, obj.co_lnotab, obj.co_freevars, obj.co_cellvars
+            obj.co_names, obj.co_varnames, '', obj.co_name,
+            0, b'', obj.co_freevars, obj.co_cellvars
         )
     else:
         args = (
             obj.co_argcount, obj.co_nlocals, obj.co_stacksize, obj.co_flags,
             obj.co_code, obj.co_consts, obj.co_names, obj.co_varnames,
-            obj.co_filename, obj.co_name, obj.co_firstlineno, obj.co_lnotab,
+            '', obj.co_name, 0, b'',
             obj.co_freevars, obj.co_cellvars
         )
     pickler.save_reduce(CodeType, args, obj=obj)
