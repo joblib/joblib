@@ -16,7 +16,8 @@ def test_check_subprocess_call():
 
     # Now checking stdout with a regex
     check_subprocess_call([sys.executable, '-c', code],
-                          stdout_regex=r'7\n\[1, 2, 3\]')
+                          # Regex needed for platform-specific line endings
+                          stdout_regex=r'7\s{1,2}\[1, 2, 3\]')
 
 
 def test_check_subprocess_call_non_matching_regex():
