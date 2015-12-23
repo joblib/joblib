@@ -17,10 +17,6 @@ import time
 import threading
 import itertools
 from numbers import Integral
-try:
-    import cPickle as pickle
-except:
-    import pickle
 
 from ._multiprocessing_helpers import mp
 if mp is not None:
@@ -32,6 +28,7 @@ from .logger import Logger, short_format_time
 from .my_exceptions import TransportableException, _mk_exception
 from .disk import memstr_to_kbytes
 from ._compat import _basestring
+from .externals import dill
 
 
 VALID_BACKENDS = ['multiprocessing', 'threading']
@@ -155,7 +152,7 @@ def delayed(function, check_pickle=True):
     # Try to pickle the input function, to catch the problems early when
     # using with multiprocessing:
     if check_pickle:
-        pickle.dumps(function)
+        dill.dumps(function)
 
     def delayed_function(*args, **kwargs):
         return function, args, kwargs

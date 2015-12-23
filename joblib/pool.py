@@ -23,18 +23,11 @@ import atexit
 import tempfile
 import shutil
 
-try:
-    # Python 2 compat
-    from cPickle import loads
-    from cPickle import dumps
-except ImportError:
-    from pickle import loads
-    from pickle import dumps
-    import copyreg
+from joblib.externals.dill import loads
+from joblib.externals.dill import dumps
 
-# Customizable pure Python pickler in Python 2
-# customizable C-optimized pickler under Python 3.3+
-from pickle import Pickler
+from joblib.externals import dill
+Pickler = dill.Pickler
 
 from pickle import HIGHEST_PROTOCOL
 from io import BytesIO
@@ -288,14 +281,9 @@ class CustomizablePickler(Pickler):
         Pickler.__init__(self, writer, protocol=protocol)
         if reducers is None:
             reducers = {}
-        if hasattr(Pickler, 'dispatch'):
-            # Make the dispatch registry an instance level attribute instead of
-            # a reference to the class dictionary under Python 2
-            self.dispatch = Pickler.dispatch.copy()
-        else:
-            # Under Python 3 initialize the dispatch table with a copy of the
-            # default registry
-            self.dispatch_table = copyreg.dispatch_table.copy()
+        # Make the dispatch registry an instance level attribute instead of
+        # a reference to the class dictionary under Python 2
+        self.dispatch = Pickler.dispatch.copy()
         for type, reduce_func in reducers.items():
             self.register(type, reduce_func)
 
@@ -363,14 +351,12 @@ class CustomizablePicklingQueue(object):
 
         self.get = get
 
-        if self._reducers:
-            def send(obj):
-                buffer = BytesIO()
-                CustomizablePickler(buffer, self._reducers).dump(obj)
-                self._writer.send_bytes(buffer.getvalue())
-            self._send = send
-        else:
-            self._send = send = self._writer.send
+        def send(obj):
+            buffer = BytesIO()
+            CustomizablePickler(buffer, self._reducers).dump(obj)
+            self._writer.send_bytes(buffer.getvalue())
+        self._send = send
+
         if self._wlock is None:
             # writes to a message oriented win32 pipe are atomic
             self.put = send
