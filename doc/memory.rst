@@ -245,7 +245,7 @@ Gotchas
 --------
 
 * **Across sessions, function cache is identified by the function's name**.
-  Thus if you have the same name to different functions, their cache will
+  Thus if you assign the same name to different functions, their cache will
   override each-others (you have 'name collisions'), and you will get
   unwanted re-run::
 
