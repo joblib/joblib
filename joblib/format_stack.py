@@ -34,7 +34,7 @@ try:                           # Python 2
 except AttributeError:         # Python 3
     generate_tokens = tokenize.tokenize
 
-PY3 = (sys.version[0] == '3')
+PY3 = (sys.version_info[0] == 3)
 INDENT = ' ' * 8
 
 from ._compat import _basestring
