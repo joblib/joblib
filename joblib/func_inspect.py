@@ -156,7 +156,7 @@ def get_func_name(func, resolv_alias=True, win_characters=True):
     return module, name
 
 
-def filter_args(func, ignore_lst, args=(), kwargs=dict()):
+def filter_args(func, ignore_lst, args=(), kwargs=dict(), process={}):
     """ Filters the given args and kwargs using a list of arguments to
         ignore, and a function specification.
 
@@ -171,6 +171,13 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
             Positional arguments passed to the function.
         **kwargs: dict
             Keyword arguments passed to the function
+        process: dict
+            Dictionary with processing functions.  The keys of this
+            dictionary should correspond to arguments.  The values are
+            callables.  For each dictionary entry process[arg] = f, the
+            argument will be replaced by f(arg).  This may be necessary,
+            for example, if some arguments cause a failure in hashing, for
+            whatever reason.
 
         Returns
         -------
@@ -257,6 +264,11 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
                                                    arg_keywords,
                                                    arg_defaults,
                                                    )))
+
+    # Now apply processors for remaining arguments
+    for (arg, pr) in process.items():
+        arg_dict[arg] = pr(arg_dict[arg])
+
     # XXX: Return a sorted list of pairs?
     return arg_dict
 
