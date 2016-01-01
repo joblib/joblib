@@ -10,33 +10,29 @@ is called with the same input arguments.
 
 
 from __future__ import with_statement
+
+import functools
+import inspect
+import io
+import json
 import os
-import shutil
-import time
 import pydoc
 import re
+import shutil
 import sys
-try:
-    import cPickle as pickle
-except ImportError:
-    import pickle
-import functools
+import time
 import traceback
 import warnings
-import inspect
-import json
 import weakref
-import io
 
 # Local imports
-from . import hashing
-from .func_inspect import get_func_code, get_func_name, filter_args
-from .func_inspect import format_signature, format_call
-from ._memory_helpers import open_py_source
-from .logger import Logger, format_time, pformat
-from . import numpy_pickle
-from .disk import mkdirp, rm_subdirs
+from . import hashing, numpy_pickle
 from ._compat import _basestring
+from ._memory_helpers import open_py_source
+from .disk import mkdirp, rm_subdirs
+from .func_inspect import filter_args, format_call, format_signature, get_func_code, get_func_name
+from .logger import Logger, format_time, pformat
+
 
 FIRST_LINE_TEXT = "# first line:"
 

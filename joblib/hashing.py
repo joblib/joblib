@@ -7,22 +7,17 @@ hashing of numpy arrays.
 # Copyright (c) 2009 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
-import warnings
-import pickle
 import hashlib
+import io
 import sys
 import types
-import struct
-from ._compat import _bytes_or_unicode
+import warnings
 
-import io
+from ._compat import _bytes_or_unicode
+from .externals import dill
 
 PY3 = sys.version[0] == '3'
-
-if PY3:
-    Pickler = pickle._Pickler
-else:
-    Pickler = pickle.Pickler
+Pickler = dill.Pickler
 
 
 class _ConsistentSet(object):
@@ -49,8 +44,8 @@ class Hasher(Pickler):
         self.stream = io.BytesIO()
         # By default we want a pickle protocol that only changes with
         # the major python version and not the minor one
-        protocol = (pickle.DEFAULT_PROTOCOL if PY3
-                    else pickle.HIGHEST_PROTOCOL)
+        protocol = (dill.DEFAULT_PROTOCOL if PY3
+                    else dill.HIGHEST_PROTOCOL)
         Pickler.__init__(self, self.stream, protocol=protocol)
         # Initialise the hash obj
         self._hash = hashlib.new(hash_name)
@@ -58,7 +53,7 @@ class Hasher(Pickler):
     def hash(self, obj, return_digest=True):
         try:
             self.dump(obj)
-        except pickle.PicklingError as e:
+        except (dill.PicklingError, TypeError) as e:
             e.args += ('PicklingError while hashing %r: %r' % (obj, e),)
             raise
         dumps = self.stream.getvalue()
@@ -75,7 +70,7 @@ class Hasher(Pickler):
             else:
                 func_name = obj.__name__
             inst = obj.__self__
-            if type(inst) == type(pickle):
+            if type(inst) == type(dill):
                 obj = _MyHash(func_name, inst.__name__)
             elif inst is None:
                 # type(None) or type(module) do not pickle
@@ -94,39 +89,7 @@ class Hasher(Pickler):
             return
         Pickler.memoize(self, obj)
 
-    # The dispatch table of the pickler is not accessible in Python
-    # 3, as these lines are only bugware for IPython, we skip them.
-    def save_global(self, obj, name=None, pack=struct.pack):
-        # We have to override this method in order to deal with objects
-        # defined interactively in IPython that are not injected in
-        # __main__
-        kwargs = dict(name=name, pack=pack)
-        if sys.version_info >= (3, 4):
-            del kwargs['pack']
-        try:
-            Pickler.save_global(self, obj, **kwargs)
-        except pickle.PicklingError:
-            Pickler.save_global(self, obj, **kwargs)
-            module = getattr(obj, "__module__", None)
-            if module == '__main__':
-                my_name = name
-                if my_name is None:
-                    my_name = obj.__name__
-                mod = sys.modules[module]
-                if not hasattr(mod, my_name):
-                    # IPython doesn't inject the variables define
-                    # interactively in __main__
-                    setattr(mod, my_name, obj)
-
     dispatch = Pickler.dispatch.copy()
-    # builtin
-    dispatch[type(len)] = save_global
-    # type
-    dispatch[type(object)] = save_global
-    # classobj
-    dispatch[type(Pickler)] = save_global
-    # function
-    dispatch[type(pickle.dump)] = save_global
 
     def _batch_setitems(self, items):
         # forces order of keys in dict to ensure consistent hash
