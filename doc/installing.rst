@@ -51,11 +51,8 @@ If you don't need to install for all users, we strongly suggest that you
 create a local environment and install `joblib` in it. One of the pros of
 this method is that you never have to become administrator, and thus all
 the changes are local to your account and easy to clean up.
-
-* **If you are under Python 2.6 or above**
-
-  Simple go in the directory created by expanding the `joblib` tarball
-  and run the following command::
+Simply move to the directory created by expanding the `joblib` tarball
+and run the following command::
 
     python setup.py install --user
 
