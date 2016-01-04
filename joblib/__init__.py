@@ -74,7 +74,7 @@ Main features
       >>> c = square(a)
       >>> # The above call did not trigger an evaluation
 
-2) **Embarrassingly parallel helper:** to make is easy to write readable
+2) **Embarrassingly parallel helper:** to make it easy to write readable
    parallel code and debug it quickly::
 
       >>> from joblib import Parallel, delayed
