@@ -52,8 +52,8 @@ create a local environment and install `joblib` in it. One of the pros of
 this method is that you never have to become administrator, and thus all
 the changes are local to your account and easy to clean up.
 
-* **If you are under Pyton 2.6 or above**
-  
+* **If you are under Python 2.6 or above**
+
   Simple go in the directory created by expanding the `joblib` tarball
   and run the following command::
 

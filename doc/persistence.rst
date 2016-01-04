@@ -47,7 +47,7 @@ We can then load the object from the file::
 
 .. note::
 
-   As you can see from the output, joblib pickle tend to be spread
+   As you can see from the output, joblib pickle tends to be spread
    across multiple files. More precisely, on top of the main joblib
    pickle file (passed into the `joblib.dump` function), for each
    numpy array that the persisted object contains, an auxiliary .npy
@@ -64,7 +64,7 @@ save space on disk:
   >>> joblib.dump(to_persist, filename, compress=True)  # doctest: +ELLIPSIS
   ['...test.pkl']
 
-Another advantage it that it will create a single-file joblib pickle.
+Another advantage is that it will create a single-file joblib pickle.
 
 More details can be found in the :func:`joblib.dump` and
 :func:`joblib.load` documentation.
@@ -72,10 +72,10 @@ More details can be found in the :func:`joblib.dump` and
 Compatibility across python versions
 ------------------------------------
 
-Compatibility of joblib pickles across python versions is not
-supported. Note that this may appear to work when saving a pickle with
-python 2 and loading it with python 3, for a very restricted set of
-objects but relying on it is strongly discouraged.
+Compatibility of joblib pickles across python versions is not fully
+supported. Note that, for a very restricted set of objects, this may appear to
+work when saving a pickle with python 2 and loading it with python 3 but
+relying on it is strongly discouraged.
 
 If you are switching between python versions, you will need to save a
 different joblib pickle for each python version.
