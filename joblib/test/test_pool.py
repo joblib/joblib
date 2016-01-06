@@ -69,9 +69,8 @@ def check_array(args):
     range.
 
     """
-    assert_array_equal = np.testing.assert_array_equal
     data, position, expected = args
-    assert_equal(data[position], expected)
+    np.testing.assert_array_equal(data[position], expected)
 
 
 def inplace_double(args):
@@ -83,11 +82,10 @@ def inplace_double(args):
     two.
 
     """
-    assert_array_equal = np.testing.assert_array_equal
     data, position, expected = args
     assert_equal(data[position], expected)
     data[position] *= 2
-    assert_equal(data[position], 2 * expected)
+    np.testing.assert_array_equal(data[position], 2 * expected)
 
 
 @with_numpy
@@ -182,7 +180,8 @@ def test_high_dimension_memmap_array_reducing():
     filename = os.path.join(TEMP_FOLDER, 'test.mmap')
 
     # Create a high dimensional memmap
-    a = np.memmap(filename, dtype=np.float64, shape=(100, 15, 15, 3), mode='w+')
+    a = np.memmap(filename, dtype=np.float64, shape=(100, 15, 15, 3),
+                  mode='w+')
     a[:] = np.arange(100 * 15 * 15 * 3).reshape(a.shape)
 
     # Create some slices/indices at various dimensions
@@ -316,7 +315,6 @@ def test_pool_with_memmap_array_view():
 @with_temp_folder
 def test_memmaping_pool_for_large_arrays():
     """Check that large arrays are not copied in memory"""
-    assert_array_equal = np.testing.assert_array_equal
 
     # Check that the tempfolder is empty
     assert_equal(os.listdir(TEMP_FOLDER), [])
