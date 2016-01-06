@@ -12,6 +12,7 @@ import io
 import os
 
 from joblib.test.common import np, with_numpy
+from joblib.test.common import with_multiprocessing
 from joblib.testing import check_subprocess_call
 from joblib._compat import PY3_OR_LATER
 
@@ -553,3 +554,28 @@ def test_parallel_with_interactively_defined_functions():
 def test_parallel_with_exhausted_iterator():
     exhausted_iterator = iter([])
     assert_equal(Parallel(n_jobs=2)(exhausted_iterator), [])
+
+
+def check_memmap(a):
+    if not isinstance(a, np.memmap):
+        raise TypeError('Expected np.memmap instance, got %r',
+                        type(a))
+    return a.copy()  # return a regular array instead of a memmap
+
+
+@with_numpy
+@with_multiprocessing
+def test_auto_memmap_on_arrays_from_generator():
+    # Non-regression test for a problem with a bad interaction between the
+    # GC collecting arrays recently created during iteration inside the
+    # parallel dispatch loop and the auto-memmap feature of Parallel.
+    # See: https://github.com/joblib/joblib/pull/294
+    def generate_arrays(n):
+        for i in range(n):
+            yield np.ones(10, dtype=np.float32) * i
+    # Use max_nbytes=1 to force the use of memory-mapping even for small
+    # arrays
+    results = Parallel(n_jobs=2, max_nbytes=1)(
+        delayed(check_memmap)(a) for a in generate_arrays(100))
+    for result, expected in zip(results, generate_arrays(len(results))):
+        np.testing.assert_array_equal(expected, result)

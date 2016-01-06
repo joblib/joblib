@@ -8,6 +8,9 @@ import time
 import os
 import sys
 
+from joblib._multiprocessing_helpers import mp
+from nose import SkipTest
+from nose.tools import with_setup
 
 # A decorator to run tests only when numpy is available
 try:
@@ -68,3 +71,19 @@ def teardown_autokill(module_name):
     killer = _KILLER_THREADS.get(module_name)
     if killer is not None:
         killer.cancel()
+
+
+def check_multiprocessing():
+    if mp is None:
+        raise SkipTest('Need multiprocessing to run')
+
+
+with_multiprocessing = with_setup(check_multiprocessing)
+
+
+def setup_if_has_dev_shm():
+    if not os.path.exists('/dev/shm'):
+        raise SkipTest("This test requires the /dev/shm shared memory fs.")
+
+
+with_dev_shm = with_setup(setup_if_has_dev_shm)
