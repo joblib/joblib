@@ -549,3 +549,8 @@ def test_parallel_with_interactively_defined_functions():
 
     check_subprocess_call([sys.executable, '-c', code],
                           stdout_regex=r'\[0, 1, 4, 9, 16\]')
+
+
+def test_parallel_with_exhausted_iterator():
+    exhausted_iterator = iter([])
+    assert_equal(Parallel(n_jobs=2)(exhausted_iterator), [])

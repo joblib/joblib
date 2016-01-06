@@ -796,10 +796,13 @@ Sub-process traceback:
         self.n_completed_tasks = 0
         self._smoothed_batch_duration = 0.0
         try:
-            self._iterating = True
-
+            # Only set self._iterating to True if at least a batch
+            # was dispatched. In particular this covers the edge
+            # case of Parallel used with an exhausted iterator.
             while self.dispatch_one_batch(iterator):
-                pass
+                self._iterating = True
+            else:
+                self._iterating = False
 
             if pre_dispatch == "all" or n_jobs == 1:
                 # The iterable was consumed all at once by the above for loop.
