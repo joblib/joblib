@@ -530,7 +530,6 @@ class Parallel(Logger):
                     mmap_mode=self._mmap_mode,
                     temp_folder=self._temp_folder,
                     verbose=max(0, self.verbose - 50),
-                    context_id=0,  # the pool is used only for one call
                 )
                 if self._mp_context is not None:
                     # Use Python 3.4+ multiprocessing context isolation
