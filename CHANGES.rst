@@ -6,6 +6,10 @@ Release 0.9.4
 
 Loïc Estève
 
+    FIX joblib.dump/load for big numpy arrays with dtype=object
+
+Loïc Estève
+
     FIX joblib.Parallel hanging when used with an exhausted iterator
 
 Release 0.9.3
