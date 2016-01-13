@@ -748,14 +748,13 @@ Sub-process traceback:
                 # Kill remaining running processes without waiting for
                 # the results as we will raise the exception we got back
                 # to the caller instead of returning any result.
-                with self._lock:
-                    self._terminate_pool()
-                    if self._managed_pool:
-                        # In case we had to terminate a managed pool, let
-                        # us start a new one to ensure that subsequent calls
-                        # to __call__ on the same Parallel instance will get
-                        # a working pool as they expect.
-                        self._initialize_pool()
+                self._terminate_pool()
+                if self._managed_pool:
+                    # In case we had to terminate a managed pool, let
+                    # us start a new one to ensure that subsequent calls
+                    # to __call__ on the same Parallel instance will get
+                    # a working pool as they expect.
+                    self._initialize_pool()
                 raise exception
 
     def __call__(self, iterable):
