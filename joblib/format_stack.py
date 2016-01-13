@@ -29,15 +29,12 @@ import time
 import tokenize
 import traceback
 
-from ._compat import PY3_OR_LATER
-
 try:                           # Python 2
     generate_tokens = tokenize.generate_tokens
 except AttributeError:         # Python 3
     generate_tokens = tokenize.tokenize
 
 INDENT = ' ' * 8
-
 
 
 ###############################################################################

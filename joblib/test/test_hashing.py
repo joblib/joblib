@@ -20,7 +20,7 @@ import random
 
 from nose.tools import assert_equal
 
-from joblib.hashing import hash, PY3_OR_LATER
+from joblib.hashing import hash
 from joblib.func_inspect import filter_args
 from joblib.memory import Memory
 from joblib.testing import assert_raises_regex

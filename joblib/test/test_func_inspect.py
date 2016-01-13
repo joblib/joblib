@@ -157,15 +157,15 @@ def test_func_inspect_errors():
     nose.tools.assert_equal(get_func_code('a'.lower)[1:], (None, -1))
     ff = lambda x: x
     nose.tools.assert_equal(get_func_name(ff, win_characters=False)[-1],
-                                                            '<lambda>')
+                            '<lambda>')
     nose.tools.assert_equal(get_func_code(ff)[1],
-                                    __file__.replace('.pyc', '.py'))
+                            __file__.replace('.pyc', '.py'))
     # Simulate a function defined in __main__
     ff.__module__ = '__main__'
     nose.tools.assert_equal(get_func_name(ff, win_characters=False)[-1],
-                                                            '<lambda>')
+                            '<lambda>')
     nose.tools.assert_equal(get_func_code(ff)[1],
-                                    __file__.replace('.pyc', '.py'))
+                            __file__.replace('.pyc', '.py'))
 
 
 if PY3_OR_LATER:
