@@ -18,8 +18,8 @@ from joblib.func_inspect import _clean_win_chars, format_signature
 from joblib.memory import Memory
 from joblib.test.common import with_numpy
 from joblib.testing import assert_raises_regex
+from joblib._compat import PY3_OR_LATER
 
-PY3 = sys.version_info[0] >= 3
 
 ###############################################################################
 # Module-level functions, for tests
@@ -168,7 +168,7 @@ def test_func_inspect_errors():
                                     __file__.replace('.pyc', '.py'))
 
 
-if PY3:
+if PY3_OR_LATER:
     exec("""
 def func_with_kwonly_args(a, b, *, kw1='kw1', kw2='kw2'): pass
 

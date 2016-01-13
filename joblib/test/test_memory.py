@@ -22,8 +22,8 @@ from joblib.memory import Memory, MemorizedFunc, NotMemorizedFunc, MemorizedResu
 from joblib.memory import NotMemorizedResult, _FUNCTION_HASHES
 from joblib.test.common import with_numpy, np
 from joblib.testing import assert_raises_regex
+from joblib._compat import PY3_OR_LATER
 
-PY3 = sys.version_info[0] >= 3
 
 ###############################################################################
 # Module-level variables for the tests
@@ -679,7 +679,7 @@ def test_clear_memory_with_none_cachedir():
     mem = Memory(cachedir=None)
     mem.clear()
 
-if PY3:
+if PY3_OR_LATER:
     exec("""
 def func_with_kwonly_args(a, b, *, kw1='kw1', kw2='kw2'):
     return a, b, kw1, kw2

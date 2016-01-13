@@ -8,20 +8,15 @@ Utilities for fast persistence of big data, with optional compression.
 
 import pickle
 import traceback
-import sys
 import os
 import zlib
 import warnings
-import struct
-import codecs
-
-from ._compat import _basestring
-
 from io import BytesIO
 
-PY3 = sys.version_info[0] >= 3
+from ._compat import _basestring, PY3_OR_LATER
 
-if PY3:
+
+if PY3_OR_LATER:
     Unpickler = pickle._Unpickler
     Pickler = pickle._Pickler
 
@@ -219,7 +214,7 @@ class NumpyPickler(Pickler):
         # By default we want a pickle protocol that only changes with
         # the major python version and not the minor one
         if protocol is None:
-            protocol = (pickle.DEFAULT_PROTOCOL if PY3
+            protocol = (pickle.DEFAULT_PROTOCOL if PY3_OR_LATER
                         else pickle.HIGHEST_PROTOCOL)
 
         Pickler.__init__(self, self.file,
@@ -328,7 +323,7 @@ class NumpyUnpickler(Unpickler):
             self.stack.append(array)
 
     # Be careful to register our new method.
-    if PY3:
+    if PY3_OR_LATER:
         dispatch[pickle.BUILD[0]] = load_build
     else:
         dispatch[pickle.BUILD] = load_build
@@ -464,7 +459,7 @@ def load(filename, mmap_mode=None):
             obj = unpickler.load()
         except UnicodeDecodeError as exc:
             # More user-friendly error message
-            if PY3:
+            if PY3_OR_LATER:
                 new_exc = ValueError(
                     'You may be trying to read with '
                     'python 3 a joblib pickle generated with python 2. '

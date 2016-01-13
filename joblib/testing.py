@@ -9,7 +9,7 @@ import re
 import subprocess
 import threading
 
-PY3 = sys.version_info[0] >= 3
+from joblib._compat import PY3_OR_LATER
 
 
 def warnings_to_stdout():
@@ -67,7 +67,7 @@ def check_subprocess_call(cmd, timeout=1, stdout_regex=None):
         timer.start()
         stdout, stderr = proc.communicate()
 
-        if PY3:
+        if PY3_OR_LATER:
             stdout, stderr = stdout.decode(), stderr.decode()
         if proc.returncode != 0:
             message = (

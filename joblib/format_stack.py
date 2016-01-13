@@ -28,16 +28,17 @@ import sys
 import time
 import tokenize
 import traceback
-import types
+
+from ._compat import PY3_OR_LATER
+
 try:                           # Python 2
     generate_tokens = tokenize.generate_tokens
 except AttributeError:         # Python 3
     generate_tokens = tokenize.tokenize
 
-PY3 = (sys.version_info[0] == 3)
 INDENT = ' ' * 8
 
-from ._compat import _basestring
+
 
 ###############################################################################
 # some internal-use functions

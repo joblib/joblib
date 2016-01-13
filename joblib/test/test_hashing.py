@@ -20,17 +20,17 @@ import random
 
 from nose.tools import assert_equal
 
-from joblib.hashing import hash, PY3
+from joblib.hashing import hash, PY3_OR_LATER
 from joblib.func_inspect import filter_args
 from joblib.memory import Memory
 from joblib.testing import assert_raises_regex
-
 from joblib.test.test_memory import env as test_memory_env
 from joblib.test.test_memory import setup_module as test_memory_setup_func
 from joblib.test.test_memory import teardown_module as test_memory_teardown_func
-from joblib.my_exceptions import TransportableException
-
 from joblib.test.common import np, with_numpy
+from joblib.my_exceptions import TransportableException
+from joblib._compat import PY3_OR_LATER
+
 
 try:
     # Python 2/Python 3 compat
@@ -379,7 +379,7 @@ def test_hashes_stay_the_same():
                 '6065a3c48e842ea5dee2cfd0d6820ad6',
                 'aeda150553d4bb5c69f0e69d51b0e2ef']}
 
-    py_version_str = 'py3' if PY3 else 'py2'
+    py_version_str = 'py3' if PY3_OR_LATER else 'py2'
     expected_list = expected_dict[py_version_str]
 
     for to_hash, expected in zip(to_hash_list, expected_list):
@@ -421,7 +421,7 @@ def test_hashes_stay_the_same_with_numpy_objects():
                              'c6809f4b97e35f2fa0ee8d653cbd025c',
                              'b3ad17348e32728a7eb9cda1e7ede438']}
 
-    py_version_str = 'py3' if PY3 else 'py2'
+    py_version_str = 'py3' if PY3_OR_LATER else 'py2'
     expected_list = expected_dict[py_version_str]
 
     for to_hash, expected in zip(to_hash_list, expected_list):

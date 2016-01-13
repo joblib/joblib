@@ -11,13 +11,11 @@ import inspect
 import warnings
 import re
 import os
-import sys
+
 from ._compat import _basestring
 from .logger import pformat
 from ._memory_helpers import open_py_source
-
-
-PY3 = sys.version_info[0] >= 3
+from ._compat import PY3_OR_LATER
 
 
 def get_func_code(func):
@@ -190,7 +188,7 @@ def _signature_str(function_name, arg_spec):
     """Helper function to output a function signature"""
     # inspect.formatargspec can not deal with the same
     # number of arguments in python 2 and 3
-    arg_spec_for_format = arg_spec[:7 if PY3 else 4]
+    arg_spec_for_format = arg_spec[:7 if PY3_OR_LATER else 4]
 
     arg_spec_str = inspect.formatargspec(*arg_spec_for_format)
     return '{0}{1}'.format(function_name, arg_spec_str)

@@ -7,19 +7,17 @@ hashing of numpy arrays.
 # Copyright (c) 2009 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
-import warnings
 import pickle
 import hashlib
 import sys
 import types
 import struct
-from ._compat import _bytes_or_unicode
-
 import io
 
-PY3 = sys.version[0] == '3'
+from ._compat import _bytes_or_unicode, PY3_OR_LATER
 
-if PY3:
+
+if PY3_OR_LATER:
     Pickler = pickle._Pickler
 else:
     Pickler = pickle.Pickler
@@ -49,7 +47,7 @@ class Hasher(Pickler):
         self.stream = io.BytesIO()
         # By default we want a pickle protocol that only changes with
         # the major python version and not the minor one
-        protocol = (pickle.DEFAULT_PROTOCOL if PY3
+        protocol = (pickle.DEFAULT_PROTOCOL if PY3_OR_LATER
                     else pickle.HIGHEST_PROTOCOL)
         Pickler.__init__(self, self.stream, protocol=protocol)
         # Initialise the hash obj

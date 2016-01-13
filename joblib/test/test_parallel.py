@@ -13,6 +13,7 @@ import os
 
 from joblib.test.common import np, with_numpy
 from joblib.testing import check_subprocess_call
+from joblib._compat import PY3_OR_LATER
 
 try:
     import cPickle as pickle
@@ -22,9 +23,7 @@ except:
     PickleError = pickle.PicklingError
 
 
-PY3 = sys.version_info[0] >= 3
-
-if PY3:
+if PY3_OR_LATER:
     PickleError = pickle.PicklingError
 
 try:
