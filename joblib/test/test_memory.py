@@ -112,7 +112,7 @@ def test_memory_integration():
             # To smoke-test verbosity, we capture stdout
             orig_stdout = sys.stdout
             orig_stderr = sys.stdout
-            if sys.version_info[0] == 3:
+            if PY3_OR_LATER:
                 sys.stderr = io.StringIO()
                 sys.stderr = io.StringIO()
             else:
@@ -592,7 +592,7 @@ def test_memory_file_modification():
     f = mem.cache(tmp.f)
     # Capture sys.stdout to count how many time f is called
     orig_stdout = sys.stdout
-    if sys.version_info[0] == 3:
+    if PY3_OR_LATER:
         my_stdout = io.StringIO()
     else:
         my_stdout = io.BytesIO()

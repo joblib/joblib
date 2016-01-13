@@ -105,7 +105,7 @@ def check_simple_parallel(backend):
         # To smoke-test verbosity, we capture stdout
         orig_stdout = sys.stdout
         orig_stderr = sys.stdout
-        if sys.version_info[0] == 3:
+        if PY3_OR_LATER:
             sys.stderr = io.StringIO()
             sys.stderr = io.StringIO()
         else:

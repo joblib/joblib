@@ -7,6 +7,7 @@ Exceptions
 
 import sys
 
+from ._compat import PY3_OR_LATER
 
 class JoblibException(Exception):
     """A simple exception with an error message that you can get to."""
@@ -76,7 +77,7 @@ def _mk_exception(exception, name=None):
 
 def _mk_common_exceptions():
     namespace = dict()
-    if sys.version_info[0] == 3:
+    if PY3_OR_LATER:
         import builtins as _builtin_exceptions
         common_exceptions = filter(
             lambda x: x.endswith('Error'),
