@@ -64,14 +64,20 @@ def _mk_exception(exception, name=None):
         this_exception = _exception_mapping[this_name]
     else:
         if exception is Exception:
-            # We cannot create a subclass: we are already a trivial
-            # subclass
+            # JoblibException is already a subclass of Exception. No
+            # need to use multiple inheritance
             return JoblibException, this_name
-        elif issubclass(exception, JoblibException):
-            return JoblibException, JoblibException.__name__
-        this_exception = type(
-            this_name, (JoblibException, exception), {})
-        _exception_mapping[this_name] = this_exception
+        try:
+            this_exception = type(
+                this_name, (JoblibException, exception), {})
+            _exception_mapping[this_name] = this_exception
+        except TypeError:
+            # This happens if "Cannot create a consistent method
+            # resolution order", e.g. because 'exception' is a
+            # subclass of JoblibException or 'exception' is not an
+            # acceptable base class
+            this_exception = JoblibException
+
     return this_exception, this_name
 
 
