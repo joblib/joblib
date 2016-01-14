@@ -42,6 +42,16 @@ def test_inheritance_special_cases():
         assert_true(my_exceptions._mk_exception(exception)[0] is
                     my_exceptions.JoblibException)
 
+    # Non-inheritable exception classes should be mapped to
+    # JoblibException by _mk_exception. That can happen with classes
+    # generated with SWIG. See
+    # https://github.com/joblib/joblib/issues/269 for a concrete
+    # example.
+    non_inheritable_classes = [type(lambda: None), bool]
+    for exception in non_inheritable_classes:
+        assert_true(my_exceptions._mk_exception(exception)[0] is
+                    my_exceptions.JoblibException)
+
 
 def test__mk_exception():
     # Check that _mk_exception works on a bunch of different exceptions

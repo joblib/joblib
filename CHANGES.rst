@@ -4,6 +4,11 @@ Latest changes
 Release 0.9.4
 -------------
 
+Loïc Estève
+
+    FIX for raising non inheritable exceptions in a Parallel call. See
+    https://github.com/joblib/joblib/issues/269 for more details.
+
 Alexandre Abadie
 
     FIX joblib.hash error with mixed types sets and dicts containing mixed
