@@ -4,6 +4,12 @@ Latest changes
 Release 0.9.4
 -------------
 
+Alexandre Abadie
+
+    FIX joblib.hash error with mixed types sets and dicts containing mixed
+    types keys when using Python 3.
+    see https://github.com/joblib/joblib/issues/254
+
 Loïc Estève
 
     FIX joblib.dump/load for big numpy arrays with dtype=object
