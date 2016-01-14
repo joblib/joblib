@@ -17,11 +17,14 @@ Alexandre Abadie
 
 Loïc Estève
 
-    FIX joblib.dump/load for big numpy arrays with dtype=object
+    FIX joblib.dump/load for big numpy arrays with dtype=object. See
+    https://github.com/joblib/joblib/issues/220 for more details.
 
 Loïc Estève
 
-    FIX joblib.Parallel hanging when used with an exhausted iterator
+    FIX joblib.Parallel hanging when used with an exhausted
+    iterator. See https://github.com/joblib/joblib/issues/292 for more
+    details.
 
 Release 0.9.3
 -------------
