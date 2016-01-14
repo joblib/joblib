@@ -28,7 +28,17 @@ class _ConsistentSet(object):
         whatever the order of its items.
     """
     def __init__(self, set_sequence):
-        self._sequence = sorted(set_sequence)
+        # Forces order of elements in set to ensure consistent hash.
+        try:
+            # Trying first to order the set assuming the type of elements is
+            # consistent and orderable.
+            # This fails on python 3 when elements are unorderable
+            # but we keep it in a try as it's faster.
+            self._sequence = sorted(set_sequence)
+        except TypeError:
+            # If elements are unorderable, sorting them using their hash.
+            # This is slower but works in any case.
+            self._sequence = sorted((hash(e) for e in set_sequence))
 
 
 class _MyHash(object):
@@ -127,8 +137,18 @@ class Hasher(Pickler):
     dispatch[type(pickle.dump)] = save_global
 
     def _batch_setitems(self, items):
-        # forces order of keys in dict to ensure consistent hash
-        Pickler._batch_setitems(self, iter(sorted(items)))
+        # forces order of keys in dict to ensure consistent hash.
+        try:
+            # Trying first to compare dict assuming the type of keys is
+            # consistent and orderable.
+            # This fails on python 3 when keys are unorderable
+            # but we keep it in a try as it's faster.
+            Pickler._batch_setitems(self, iter(sorted(items)))
+        except TypeError:
+            # If keys are unorderable, sorting them using their hash. This is
+            # slower but works in any case.
+            Pickler._batch_setitems(self, iter(sorted((hash(k), v)
+                                                      for k, v in items)))
 
     def save_set(self, set_items):
         # forces order of items in Set to ensure consistent hash

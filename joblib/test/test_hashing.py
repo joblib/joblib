@@ -97,7 +97,13 @@ def test_trival_hash():
                 None,
                 gc.collect,
                 [1, ].append,
-               ]
+                # Next 2 sets have unorderable elements in python 3.
+                set(('a', 1)),
+                set(('a', 1, ('a', 1))),
+                # Next 2 dicts have unorderable type of keys in python 3.
+                {'a': 1, 1: 2},
+                {'a': 1, 1: 2, 'd': {'a': 1}},
+                ]
     for obj1 in obj_list:
         for obj2 in obj_list:
             # Check that 2 objects have the same hash only if they are
