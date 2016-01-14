@@ -247,8 +247,8 @@ class ArrayMemmapReducer(object):
                 print("Memmaping (shape=%s, dtype=%s) to old file %s" % (
                     a.shape, a.dtype, filename))
 
-            # Let's use the memmap reducer
-            return reduce_memmap(load(filename, mmap_mode=self._mmap_mode))
+            # The worker process will use joblib.load to memmap the data
+            return (load, (filename, self._mmap_mode))
         else:
             # do not convert a into memmap, let pickler do its usual copy with
             # the default system pickler
