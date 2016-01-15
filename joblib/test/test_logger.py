@@ -1,6 +1,4 @@
-"""
-Test the logger module.
-"""
+"""Test the logger module."""
 
 # Author: Gael Varoquaux <gael dot varoquaux at normalesup dot org>
 # Copyright (c) 2009 Gael Varoquaux
@@ -27,8 +25,7 @@ env = dict()
 
 
 def setup():
-    """ Test setup.
-    """
+    """Test setup."""
     cachedir = mkdtemp()
     if os.path.exists(cachedir):
         shutil.rmtree(cachedir)
@@ -36,8 +33,7 @@ def setup():
 
 
 def teardown():
-    """ Test teardown.
-    """
+    """Test teardown."""
     #return True
     shutil.rmtree(env['dir'])
 
@@ -62,7 +58,6 @@ def test_print_time():
         match = r"Foo: 0\..s, 0\..min\nFoo: 0\..s, 0..min\nFoo: " + \
                 r".\..s, 0..min\n"
         if not re.match(match, printed_text):
-            raise AssertionError('Excepted %s, got %s' %
-                                    (match, printed_text))
+            raise AssertionError('Excepted %s, got %s' % (match, printed_text))
     finally:
         sys.stderr = orig_stderr

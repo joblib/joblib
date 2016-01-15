@@ -207,8 +207,8 @@ def format_records(records):   # , print_globals=False):
             # Decide whether to include variable details or not
             try:
                 call = 'in %s%s' % (func, inspect.formatargvalues(args,
-                                            varargs, varkw, locals,
-                                            formatvalue=eq_repr))
+                                    varargs, varkw, locals,
+                                    formatvalue=eq_repr))
             except KeyError:
                 # Very odd crash from inspect.formatargvalues().  The
                 # scenario under which it appeared was a call to
@@ -277,7 +277,8 @@ def format_records(records):   # , print_globals=False):
             # signals exit of tokenizer
             pass
         except tokenize.TokenError as msg:
-            _m = ("An unexpected error occurred while tokenizing input file %s\n"
+            _m = ("An unexpected error occurred while tokenizing "
+                  "input file %s\n"
                   "The following traceback may be corrupted or invalid\n"
                   "The error message is: %s\n" % (file, msg))
             print(_m)
@@ -382,7 +383,7 @@ def format_outer_frames(context=5, stack_start=None, stack_end=None,
     output = list()
 
     for i, (frame, filename, line_no, func_name, lines, index) \
-                                                in enumerate(records):
+            in enumerate(records):
         # Look inside the frame's globals dictionary for __file__, which should
         # be better.
         better_fn = frame.f_globals.get('__file__', None)
@@ -395,8 +396,8 @@ def format_outer_frames(context=5, stack_start=None, stack_end=None,
                 filename = filename[:-4] + '.py'
         if ignore_ipython:
             # Hack to avoid printing the internals of IPython
-            if (os.path.basename(filename) == 'iplib.py'
-                        and func_name in ('safe_execfile', 'runcode')):
+            if (os.path.basename(filename) == 'iplib.py' and
+                    func_name in ('safe_execfile', 'runcode')):
                 break
         maybeStart = line_no - 1 - context // 2
         start = max(maybeStart, 0)

@@ -1,3 +1,5 @@
+"""Test the pool module."""
+
 import os
 import shutil
 import tempfile

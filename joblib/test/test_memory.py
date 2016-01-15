@@ -1,6 +1,4 @@
-"""
-Test the memory module.
-"""
+"""Test the memory module."""
 
 # Author: Gael Varoquaux <gael dot varoquaux at normalesup dot org>
 # Copyright (c) 2009 Gael Varoquaux
@@ -18,7 +16,8 @@ import time
 
 import nose
 
-from joblib.memory import Memory, MemorizedFunc, NotMemorizedFunc, MemorizedResult
+from joblib.memory import Memory
+from joblib.memory import MemorizedFunc, NotMemorizedFunc, MemorizedResult
 from joblib.memory import NotMemorizedResult, _FUNCTION_HASHES
 from joblib.test.common import with_numpy, np
 from joblib.testing import assert_raises_regex
@@ -28,8 +27,7 @@ from joblib._compat import PY3_OR_LATER
 ###############################################################################
 # Module-level variables for the tests
 def f(x, y=1):
-    """ A module-level function for testing purposes.
-    """
+    """A module-level function for testing purposes."""
     return x ** 2 + y
 
 
@@ -39,8 +37,7 @@ env = dict()
 
 
 def setup_module():
-    """ Test setup.
-    """
+    """Test setup."""
     cachedir = mkdtemp()
     env['dir'] = cachedir
     if os.path.exists(cachedir):
@@ -60,8 +57,7 @@ def _rmtree_onerror(func, path, excinfo):
 
 
 def teardown_module():
-    """ Test teardown.
-    """
+    """Test teardown."""
     shutil.rmtree(env['dir'], False, _rmtree_onerror)
     print(80 * '_')
     print('test_memory teardown (%s)' % env['dir'])
@@ -89,8 +85,7 @@ def check_identity_lazy(func, accumulator):
 ###############################################################################
 # Tests
 def test_memory_integration():
-    """ Simple test of memory lazy evaluation.
-    """
+    """Simple test of memory lazy evaluation."""
     accumulator = list()
     # Rmk: this function has the same name than a module-level function,
     # thus it serves as a test to see that both are identified
@@ -105,43 +100,43 @@ def test_memory_integration():
 
     # Now test clearing
     for compress in (False, True):
-     for mmap_mode in ('r', None):
-        # We turn verbosity on to smoke test the verbosity code, however,
-        # we capture it, as it is ugly
-        try:
-            # To smoke-test verbosity, we capture stdout
-            orig_stdout = sys.stdout
-            orig_stderr = sys.stdout
-            if PY3_OR_LATER:
-                sys.stderr = io.StringIO()
-                sys.stderr = io.StringIO()
-            else:
-                sys.stdout = io.BytesIO()
-                sys.stderr = io.BytesIO()
+        for mmap_mode in ('r', None):
+            # We turn verbosity on to smoke test the verbosity code, however,
+            # we capture it, as it is ugly
+            try:
+                # To smoke-test verbosity, we capture stdout
+                orig_stdout = sys.stdout
+                orig_stderr = sys.stdout
+                if PY3_OR_LATER:
+                    sys.stderr = io.StringIO()
+                    sys.stderr = io.StringIO()
+                else:
+                    sys.stdout = io.BytesIO()
+                    sys.stderr = io.BytesIO()
 
-            memory = Memory(cachedir=env['dir'], verbose=10,
-                            mmap_mode=mmap_mode, compress=compress)
-            # First clear the cache directory, to check that our code can
-            # handle that
-            # NOTE: this line would raise an exception, as the database file is
-            # still open; we ignore the error since we want to test what
-            # happens if the directory disappears
-            shutil.rmtree(env['dir'], ignore_errors=True)
-            g = memory.cache(f)
-            g(1)
-            g.clear(warn=False)
-            current_accumulator = len(accumulator)
-            out = g(1)
-        finally:
-            sys.stdout = orig_stdout
-            sys.stderr = orig_stderr
+                memory = Memory(cachedir=env['dir'], verbose=10,
+                                mmap_mode=mmap_mode, compress=compress)
+                # First clear the cache directory, to check that our code can
+                # handle that
+                # NOTE: this line would raise an exception, as the database
+                # file is still open; we ignore the error since we want to
+                # test what happens if the directory disappears.
+                shutil.rmtree(env['dir'], ignore_errors=True)
+                g = memory.cache(f)
+                g(1)
+                g.clear(warn=False)
+                current_accumulator = len(accumulator)
+                out = g(1)
+            finally:
+                sys.stdout = orig_stdout
+                sys.stderr = orig_stderr
 
-        yield nose.tools.assert_equal, len(accumulator), \
-                    current_accumulator + 1
-        # Also, check that Memory.eval works similarly
-        yield nose.tools.assert_equal, memory.eval(f, 1), out
-        yield nose.tools.assert_equal, len(accumulator), \
-                    current_accumulator + 1
+            yield nose.tools.assert_equal, len(accumulator), \
+                current_accumulator + 1
+            # Also, check that Memory.eval works similarly
+            yield nose.tools.assert_equal, memory.eval(f, 1), out
+            yield nose.tools.assert_equal, len(accumulator), \
+                current_accumulator + 1
 
     # Now do a smoke test with a function defined in __main__, as the name
     # mangling rules are more complex
@@ -163,8 +158,7 @@ def test_no_memory():
     for _ in range(4):
         current_accumulator = len(accumulator)
         gg(1)
-        yield nose.tools.assert_equal, len(accumulator), \
-                    current_accumulator + 1
+        yield nose.tools.assert_equal, len(accumulator), current_accumulator + 1
 
 
 def test_memory_kwarg():
@@ -292,7 +286,7 @@ def test_memory_warning_collision_detection():
 
         yield nose.tools.assert_equal, len(w), 2
         yield nose.tools.assert_true, \
-                "cannot detect" in str(w[-1].message).lower()
+            "cannot detect" in str(w[-1].message).lower()
 
 
 def test_memory_partial():
@@ -313,7 +307,7 @@ def test_memory_partial():
 
 
 def test_memory_eval():
-    " Smoke test memory with a function with a function defined in an eval."
+    "Smoke test memory with a function with a function defined in an eval."
     memory = Memory(cachedir=env['dir'], verbose=0)
 
     m = eval('lambda x: x')
@@ -348,7 +342,7 @@ def test_argument_change():
 
 @with_numpy
 def test_memory_numpy():
-    " Test memory with a function with numpy arrays."
+    "Test memory with a function with numpy arrays."
     # Check with memmapping and without.
     for mmap_mode in (None, 'r'):
         accumulator = list()
@@ -357,8 +351,7 @@ def test_memory_numpy():
             accumulator.append(1)
             return l
 
-        memory = Memory(cachedir=env['dir'], mmap_mode=mmap_mode,
-                            verbose=0)
+        memory = Memory(cachedir=env['dir'], mmap_mode=mmap_mode, verbose=0)
         memory.clear(warn=False)
         cached_n = memory.cache(n)
 
@@ -471,7 +464,7 @@ def test_func_dir():
     yield nose.tools.assert_false, \
         g._check_previous_func_code()
     yield nose.tools.assert_true, \
-            os.path.exists(os.path.join(path, 'func_code.py'))
+        os.path.exists(os.path.join(path, 'func_code.py'))
     yield nose.tools.assert_true, \
         g._check_previous_func_code()
 
@@ -715,8 +708,8 @@ def func_with_signature(a: int, b: float) -> float:
         # Test 'ignore' parameter
         func_cached = mem.cache(func_with_kwonly_args, ignore=['kw2'])
         nose.tools.assert_equal(func_cached(1, 2, kw1=3, kw2=4), (1, 2, 3, 4))
-        nose.tools.assert_equal(func_cached(1, 2, kw1=3, kw2='ignored'), (1, 2, 3, 4))
-
+        nose.tools.assert_equal(func_cached(1, 2, kw1=3, kw2='ignored'),
+                                (1, 2, 3, 4))
 
     def test_memory_func_with_signature():
         mem = Memory(cachedir=env['dir'], verbose=0)

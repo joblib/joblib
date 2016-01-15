@@ -512,14 +512,14 @@ class Parallel(Logger):
             else:
                 already_forked = int(os.environ.get(JOBLIB_SPAWNED_PROCESS, 0))
                 if already_forked:
-                    raise ImportError('[joblib] Attempting to do parallel computing '
-                            'without protecting your import on a system that does '
-                            'not support forking. To use parallel-computing in a '
-                            'script, you must protect your main loop using "if '
-                            "__name__ == '__main__'"
-                            '". Please see the joblib documentation on Parallel '
-                            'for more information'
-                        )
+                    raise ImportError(
+                        '[joblib] Attempting to do parallel computing '
+                        'without protecting your import on a system that does '
+                        'not support forking. To use parallel-computing in a '
+                        'script, you must protect your main loop using "if '
+                        "__name__ == '__main__'"
+                        '". Please see the joblib documentation on Parallel '
+                        'for more information')
                 # Set an environment variable to avoid infinite loops
                 os.environ[JOBLIB_SPAWNED_PROCESS] = '1'
 
@@ -571,9 +571,9 @@ class Parallel(Logger):
             self.n_completed_tasks += len(batch)
             if not _verbosity_filter(self.n_dispatched_batches, self.verbose):
                 self._print('Done %3i tasks       | elapsed: %s',
-                        (self.n_completed_tasks,
-                            short_format_time(time.time() - self._start_time)
-                        ))
+                            (self.n_completed_tasks,
+                             short_format_time(time.time() - self._start_time)
+                             ))
         else:
             dispatch_timestamp = time.time()
             cb = BatchCompletionCallBack(dispatch_timestamp, len(batch), self)
@@ -688,7 +688,7 @@ class Parallel(Logger):
             self._print('Done %3i tasks      | elapsed: %s',
                         (self.n_completed_tasks,
                          short_format_time(elapsed_time),
-                        ))
+                         ))
         else:
             index = self.n_dispatched_batches
             # We are finished dispatching
@@ -710,7 +710,7 @@ class Parallel(Logger):
                          total_tasks,
                          short_format_time(elapsed_time),
                          short_format_time(remaining_time),
-                        ))
+                         ))
 
     def retrieve(self):
         self._output = list()
