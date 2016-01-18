@@ -4,6 +4,12 @@ Latest changes
 Release 0.9.4
 -------------
 
+Olivier Grisel
+
+    FIX a bug that caused joblib.Parallel to wrongly reuse previously
+    memmapped arrays instead of creating new temporary files.
+    https://github.com/joblib/joblib/pull/294 for more details.
+
 Loïc Estève
 
     FIX for raising non inheritable exceptions in a Parallel call. See

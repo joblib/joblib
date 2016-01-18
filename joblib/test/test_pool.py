@@ -2,7 +2,6 @@ import os
 import shutil
 import tempfile
 
-from nose import SkipTest
 from nose.tools import with_setup
 from nose.tools import assert_equal
 from nose.tools import assert_raises
@@ -11,6 +10,8 @@ from nose.tools import assert_true
 from joblib.test.common import with_numpy, np
 from joblib.test.common import setup_autokill
 from joblib.test.common import teardown_autokill
+from joblib.test.common import with_multiprocessing
+from joblib.test.common import with_dev_shm
 
 from joblib._multiprocessing_helpers import mp
 if mp is not None:
@@ -31,14 +32,6 @@ def teardown_module():
     teardown_autokill(__name__)
 
 
-def check_multiprocessing():
-    if mp is None:
-        raise SkipTest('Need multiprocessing to run')
-
-
-with_multiprocessing = with_setup(check_multiprocessing)
-
-
 def setup_temp_folder():
     global TEMP_FOLDER
     TEMP_FOLDER = tempfile.mkdtemp(prefix='joblib_test_pool_')
@@ -52,14 +45,6 @@ def teardown_temp_folder():
 
 
 with_temp_folder = with_setup(setup_temp_folder, teardown_temp_folder)
-
-
-def setup_if_has_dev_shm():
-    if not os.path.exists('/dev/shm'):
-        raise SkipTest("This test requires the /dev/shm shared memory fs.")
-
-
-with_dev_shm = with_setup(setup_if_has_dev_shm)
 
 
 def check_array(args):
@@ -406,10 +391,13 @@ def test_memmaping_on_dev_shm():
         # pickling procedure generate a .pkl and a .npy file:
         assert_equal(len(os.listdir(pool_temp_folder)), 2)
 
-        b = np.ones(100, dtype=np.float64)
+        # create a new array with content that is different from 'a' so that
+        # it is mapped to a different file in the temporary folder of the
+        # pool.
+        b = np.ones(100, dtype=np.float64) * 2
         assert_equal(b.nbytes, 800)
         p.map(id, [b] * 10)
-        # A copy of both a and b are not stored in the shared memory folder
+        # A copy of both a and b are now stored in the shared memory folder
         assert_equal(len(os.listdir(pool_temp_folder)), 4)
 
     finally:
