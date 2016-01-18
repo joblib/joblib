@@ -6,6 +6,12 @@ Release 0.9.4
 
 Olivier Grisel
 
+    FIX a race condition that could cause a joblib.Parallel to hang
+    when collecting the result of a job that triggers an exception.
+    https://github.com/joblib/joblib/pull/296
+
+Olivier Grisel
+
     FIX a bug that caused joblib.Parallel to wrongly reuse previously
     memmapped arrays instead of creating new temporary files.
     https://github.com/joblib/joblib/pull/294 for more details.
