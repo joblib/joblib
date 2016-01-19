@@ -105,7 +105,7 @@ Olivier Grisel
 
     FIX make it possible to call ``joblib.load(filename, mmap_mode='r')``
     on pickled objects that include a mix of arrays of both
-    memmory memmapable dtypes and object dtype.
+    memory memmapable dtypes and object dtype.
 
 
 Release 0.8.4

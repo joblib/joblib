@@ -330,7 +330,7 @@ def test_memmaping_pool_for_large_arrays():
         dumped_filenames = os.listdir(p._temp_folder)
         assert_equal(len(dumped_filenames), 2)
 
-        # Check that memmory mapping is not triggered for arrays with
+        # Check that memory mapping is not triggered for arrays with
         # dtype='object'
         objects = np.array(['abc'] * 100, dtype='object')
         results = p.map(has_shareable_memory, [objects])

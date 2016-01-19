@@ -477,7 +477,7 @@ class MemmapingPool(PicklingPool):
           under Unix operating systems.
     max_nbytes int or None, optional, 1e6 by default
         Threshold on the size of arrays passed to the workers that
-        triggers automated memmory mapping in temp_folder.
+        triggers automated memory mapping in temp_folder.
         Use None to disable memmaping of large arrays.
     forward_reducers: dictionary, optional
         Reducers used to pickle objects passed from master to worker
