@@ -23,7 +23,6 @@ import atexit
 import tempfile
 import shutil
 import warnings
-from time import sleep
 
 try:
     WindowsError
