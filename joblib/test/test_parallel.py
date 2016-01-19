@@ -1,6 +1,4 @@
-"""
-Test the parallel module.
-"""
+"""Test the parallel module."""
 
 # Author: Gael Varoquaux <gael dot varoquaux at normalesup dot org>
 # Copyright (c) 2010-2011 Gael Varoquaux
@@ -403,11 +401,9 @@ def test_batching_auto_multiprocessing():
 
 def test_exception_dispatch():
     "Make sure that exception raised during dispatch are indeed captured"
-    assert_raises(
-            ValueError,
-            Parallel(n_jobs=2, pre_dispatch=16, verbose=0),
-                    (delayed(exception_raiser)(i) for i in range(30)),
-            )
+    assert_raises(ValueError,
+                  Parallel(n_jobs=2, pre_dispatch=16, verbose=0),
+                  (delayed(exception_raiser)(i) for i in range(30)), )
 
 
 def test_nested_exception_dispatch():

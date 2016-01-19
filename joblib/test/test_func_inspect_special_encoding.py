@@ -1,10 +1,9 @@
 # -*- coding: big5 -*-
 
 
-# Some Traditional Chinese characters: 一些中文字符
+# Some Traditional Chinese characters: 嚙瑾嚙褒歹蕭嚙踝蕭嚙緝嚙踝蕭
 def big5_f():
-    """用於測試的函數
+    """嚙諄抬蕭嚙踝蕭嚙調迎蕭嚙踝蕭嚙踝蕭
     """
-    # 註釋
+    # 嚙踝蕭嚙踝蕭
     return 0
-

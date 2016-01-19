@@ -1,6 +1,4 @@
-"""
-Test the func_inspect module.
-"""
+"""Test the func_inspect module."""
 
 # Author: Gael Varoquaux <gael dot varoquaux at normalesup dot org>
 # Copyright (c) 2009 Gael Varoquaux
@@ -11,7 +9,6 @@ import shutil
 import nose
 import tempfile
 import functools
-import sys
 
 from joblib.func_inspect import filter_args, get_func_name, get_func_code
 from joblib.func_inspect import _clean_win_chars, format_signature
@@ -84,43 +81,36 @@ class Klass(object):
 # Tests
 
 def test_filter_args():
-    yield nose.tools.assert_equal, filter_args(f, [], (1, )),\
-                                              {'x': 1, 'y': 0}
-    yield nose.tools.assert_equal, filter_args(f, ['x'], (1, )),\
-                                              {'y': 0}
-    yield nose.tools.assert_equal, filter_args(f, ['y'], (0, )),\
-                                               {'x': 0}
-    yield nose.tools.assert_equal, filter_args(f, ['y'], (0, ),
-                                               dict(y=1)), {'x': 0}
-    yield nose.tools.assert_equal, filter_args(f, ['x', 'y'],
-                                               (0, )), {}
-    yield nose.tools.assert_equal, filter_args(f, [], (0,),
-                                               dict(y=1)), {'x': 0, 'y': 1}
-    yield nose.tools.assert_equal, filter_args(f, ['y'], (),
-                                               dict(x=2, y=1)), {'x': 2}
-
+    yield nose.tools.assert_equal, filter_args(f, [], (1, )), {'x': 1, 'y': 0}
+    yield nose.tools.assert_equal, filter_args(f, ['x'], (1, )), {'y': 0}
+    yield nose.tools.assert_equal, filter_args(f, ['y'], (0, )), {'x': 0}
+    yield nose.tools.assert_equal, filter_args(f, ['y'], (0, ), dict(y=1)), \
+        {'x': 0}
+    yield nose.tools.assert_equal, filter_args(f, ['x', 'y'], (0, )), {}
+    yield nose.tools.assert_equal, filter_args(f, [], (0,), dict(y=1)), \
+        {'x': 0, 'y': 1}
+    yield nose.tools.assert_equal, filter_args(f, ['y'], (), dict(x=2, y=1)), \
+        {'x': 2}
     yield nose.tools.assert_equal, filter_args(i, [], (2, )), {'x': 2}
-    yield nose.tools.assert_equal, filter_args(f2, [], (),
-                                               dict(x=1)), {'x': 1}
+    yield nose.tools.assert_equal, filter_args(f2, [], (), dict(x=1)), {'x': 1}
 
 
 def test_filter_args_method():
     obj = Klass()
-    nose.tools.assert_equal(filter_args(obj.f, [], (1, )),
-        {'x': 1, 'self': obj})
+    nose.tools.assert_equal(
+        filter_args(obj.f, [], (1, )), {'x': 1, 'self': obj})
 
 
 def test_filter_varargs():
     yield nose.tools.assert_equal, filter_args(h, [], (1, )), \
-                            {'x': 1, 'y': 0, '*': [], '**': {}}
+        {'x': 1, 'y': 0, '*': [], '**': {}}
     yield nose.tools.assert_equal, filter_args(h, [], (1, 2, 3, 4)), \
-                            {'x': 1, 'y': 2, '*': [3, 4], '**': {}}
-    yield nose.tools.assert_equal, filter_args(h, [], (1, 25),
-                                               dict(ee=2)), \
-                            {'x': 1, 'y': 25, '*': [], '**': {'ee': 2}}
+        {'x': 1, 'y': 2, '*': [3, 4], '**': {}}
+    yield nose.tools.assert_equal, filter_args(h, [], (1, 25), dict(ee=2)), \
+        {'x': 1, 'y': 25, '*': [], '**': {'ee': 2}}
     yield nose.tools.assert_equal, filter_args(h, ['*'], (1, 2, 25),
                                                dict(ee=2)), \
-                            {'x': 1, 'y': 2, '**': {'ee': 2}}
+        {'x': 1, 'y': 2, '**': {'ee': 2}}
 
 
 def test_filter_kwargs():
@@ -200,9 +190,8 @@ def func_with_signature(a: int, b: int) -> None: pass
 
 
 def test_bound_methods():
-    """ Make sure that calling the same method on two different instances
-        of the same class does resolv to different signatures.
-    """
+    # Make sure that calling the same method on two different instances
+    # of the same class does resolv to different signatures.
     a = Klass()
     b = Klass()
     nose.tools.assert_not_equal(filter_args(a.f, [], (1, )),
@@ -210,9 +199,8 @@ def test_bound_methods():
 
 
 def test_filter_args_error_msg():
-    """ Make sure that filter_args returns decent error messages, for the
-        sake of the user.
-    """
+    # Make sure that filter_args returns decent error messages, for the
+    # sake of the user.
     nose.tools.assert_raises(ValueError, filter_args, f, [])
 
 
@@ -230,6 +218,7 @@ def test_format_signature():
     path, sgn = format_signature(g, list(range(10)), y=list(range(10)))
     nose.tools.assert_equal(sgn, 'g([0, 1, 2, 3, 4, 5, 6, 7, 8, 9],'
                             ' y=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9])')
+
 
 @with_numpy
 def test_format_signature_numpy():
@@ -254,5 +243,3 @@ def test_func_code_consistency():
     from joblib.parallel import Parallel, delayed
     codes = Parallel(n_jobs=2)(delayed(_get_code)() for _ in range(5))
     nose.tools.assert_equal(len(set(codes)), 1)
-
-

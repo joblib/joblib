@@ -107,8 +107,7 @@ def _load_output(output_dir, func_name, timestamp=None, metadata=None,
                 args = ", ".join(['%s=%s' % (name, value)
                                   for name, value
                                   in metadata['input_args'].items()])
-                signature = "%s(%s)" % (os.path.basename(func_name),
-                                             args)
+                signature = "%s(%s)" % (os.path.basename(func_name), args)
             else:
                 signature = os.path.basename(func_name)
         except KeyError:
@@ -122,8 +121,9 @@ def _load_output(output_dir, func_name, timestamp=None, metadata=None,
         if verbose < 10:
             print('[Memory]%s: Loading %s...' % (t, str(signature)))
         else:
-            print('[Memory]%s: Loading %s from %s' % (
-                    t, str(signature), output_dir))
+            print('[Memory]%s: Loading %s from %s' % (t,
+                                                      str(signature),
+                                                      output_dir))
 
     filename = os.path.join(output_dir, 'output.pkl')
     if not os.path.isfile(filename):
@@ -167,6 +167,7 @@ class MemorizedResult(Logger):
     timestamp, metadata: string
         for internal use only
     """
+
     def __init__(self, cachedir, func, argument_hash,
                  mmap_mode=None, verbose=0, timestamp=None, metadata=None):
         Logger.__init__(self)
@@ -289,10 +290,8 @@ class NotMemorizedFunc(object):
         return (self.__class__, (self.func,))
 
     def __repr__(self):
-        return '%s(func=%s)' % (
-                    self.__class__.__name__,
-                    self.func
-            )
+        return '%s(func=%s)' % (self.__class__.__name__,
+                                self.func)
 
     def clear(self, warn=True):
         # Argument "warn" is for compatibility with MemorizedFunc.clear
@@ -421,12 +420,11 @@ class MemorizedFunc(Logger):
         metadata = None
         # FIXME: The statements below should be try/excepted
         if not (self._check_previous_func_code(stacklevel=4) and
-                                 os.path.exists(output_dir)):
+                os.path.exists(output_dir)):
             if self._verbose > 10:
                 _, name = get_func_name(self.func)
                 self.warn('Computing func %s, argument hash %s in '
-                          'directory %s'
-                        % (name, argument_hash, output_dir))
+                          'directory %s' % (name, argument_hash, output_dir))
             out, metadata = self.call(*args, **kwargs)
             if self.mmap_mode is not None:
                 # Memmap the output at the first call to be consistent with
@@ -476,8 +474,8 @@ class MemorizedFunc(Logger):
         _, argument_hash, metadata = self._cached_call(args, kwargs)
 
         return MemorizedResult(self.cachedir, self.func, argument_hash,
-            metadata=metadata, verbose=self._verbose - 1,
-            timestamp=self.timestamp)
+                               metadata=metadata, verbose=self._verbose - 1,
+                               timestamp=self.timestamp)
 
     def __call__(self, *args, **kwargs):
         return self._cached_call(args, kwargs)[0]
@@ -505,9 +503,8 @@ class MemorizedFunc(Logger):
     #-------------------------------------------------------------------------
 
     def _get_argument_hash(self, *args, **kwargs):
-        return hashing.hash(filter_args(self.func, self.ignore,
-                                         args, kwargs),
-                             coerce_mmap=(self.mmap_mode is not None))
+        return hashing.hash(filter_args(self.func, self.ignore, args, kwargs),
+                            coerce_mmap=(self.mmap_mode is not None))
 
     def _get_output_dir(self, *args, **kwargs):
         """ Return the directory in which are persisted the result
@@ -594,7 +591,7 @@ class MemorizedFunc(Logger):
         try:
             with io.open(func_code_file, encoding="UTF-8") as infile:
                 old_func_code, old_first_line = \
-                            extract_first_line(infile.read())
+                    extract_first_line(infile.read())
         except IOError:
                 self._write_func_code(func_code_file, func_code, first_line)
                 return False
@@ -610,12 +607,12 @@ class MemorizedFunc(Logger):
         if old_first_line == first_line == -1 or func_name == '<lambda>':
             if not first_line == -1:
                 func_description = '%s (%s:%i)' % (func_name,
-                                                source_file, first_line)
+                                                   source_file, first_line)
             else:
                 func_description = func_name
             warnings.warn(JobLibCollisionWarning(
-                "Cannot detect name collisions for function '%s'"
-                        % func_description), stacklevel=stacklevel)
+                          "Cannot detect name collisions for function '%s'"
+                          % func_description), stacklevel=stacklevel)
 
         # Fetch the code at the old location and compare it. If it is the
         # same than the code store, we have a collision: the code in the
@@ -636,18 +633,18 @@ class MemorizedFunc(Logger):
                 possible_collision = source_file.startswith('<doctest ')
             if possible_collision:
                 warnings.warn(JobLibCollisionWarning(
-                        'Possible name collisions between functions '
-                        "'%s' (%s:%i) and '%s' (%s:%i)" %
-                        (func_name, source_file, old_first_line,
-                        func_name, source_file, first_line)),
-                                stacklevel=stacklevel)
+                    "Possible name collisions between functions "
+                    "'%s' (%s:%i) and '%s' (%s:%i)" %
+                    (func_name, source_file, old_first_line,
+                     func_name, source_file, first_line)),
+                    stacklevel=stacklevel)
 
         # The function has changed, wipe the cache directory.
         # XXX: Should be using warnings, and giving stacklevel
         if self._verbose > 10:
             _, func_name = get_func_name(self.func, resolv_alias=False)
             self.warn("Function %s (stored in %s) has changed." %
-                        (func_name, func_dir))
+                      (func_name, func_dir))
         self.clear(warn=True)
         return False
 
@@ -770,11 +767,9 @@ class MemorizedFunc(Logger):
     #-------------------------------------------------------------------------
 
     def __repr__(self):
-        return '%s(func=%s, cachedir=%s)' % (
-                    self.__class__.__name__,
-                    self.func,
-                    repr(self.cachedir),
-                    )
+        return '%s(func=%s, cachedir=%s)' % (self.__class__.__name__,
+                                             self.func,
+                                             repr(self.cachedir), )
 
 
 ###############################################################################
@@ -829,8 +824,7 @@ class Memory(Logger):
             self.cachedir = os.path.join(cachedir, 'joblib')
             mkdirp(self.cachedir)
 
-    def cache(self, func=None, ignore=None, verbose=None,
-                        mmap_mode=False):
+    def cache(self, func=None, ignore=None, verbose=None, mmap_mode=False):
         """ Decorates the given function func to only compute its return
             value for input arguments not cached on disk.
 
@@ -870,11 +864,11 @@ class Memory(Logger):
         if isinstance(func, MemorizedFunc):
             func = func.func
         return MemorizedFunc(func, cachedir=self.cachedir,
-                                   mmap_mode=mmap_mode,
-                                   ignore=ignore,
-                                   compress=self.compress,
-                                   verbose=verbose,
-                                   timestamp=self.timestamp)
+                             mmap_mode=mmap_mode,
+                             ignore=ignore,
+                             compress=self.compress,
+                             verbose=verbose,
+                             timestamp=self.timestamp)
 
     def clear(self, warn=True):
         """ Erase the complete cache directory.
@@ -902,10 +896,8 @@ class Memory(Logger):
     #-------------------------------------------------------------------------
 
     def __repr__(self):
-        return '%s(cachedir=%s)' % (
-                    self.__class__.__name__,
-                    repr(self.cachedir),
-                    )
+        return '%s(cachedir=%s)' % (self.__class__.__name__,
+                                    repr(self.cachedir), )
 
     def __reduce__(self):
         """ We don't store the timestamp when pickling, to avoid the hash

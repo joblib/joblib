@@ -1,6 +1,4 @@
-"""
-Unit tests for the disk utilities.
-"""
+"""Unit tests for the disk utilities."""
 
 # Authors: Gael Varoquaux <gael dot varoquaux at normalesup dot org>
 #          Lars Buitinck <L.J.Buitinck@uva.nl>

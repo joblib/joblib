@@ -61,16 +61,15 @@ def pformat(obj, indent=0, depth=3):
 # class `Logger`
 ###############################################################################
 class Logger(object):
-    """ Base class for logging messages.
+    """Base class for logging messages.
+
+    Parameters
+    ----------
+    depth: int, optional
+        The depth of objects printed.
     """
 
     def __init__(self, depth=3):
-        """
-            Parameters
-            ----------
-            depth: int, optional
-                The depth of objects printed.
-        """
         self.depth = depth
 
     def warn(self, msg):
@@ -81,8 +80,7 @@ class Logger(object):
         logging.debug("[%s]: %s" % (self, msg))
 
     def format(self, obj, indent=0):
-        """ Return the formated representation of the object.
-        """
+        """Return the formated representation of the object."""
         return pformat(obj, indent=indent, depth=self.depth)
 
 
@@ -90,8 +88,7 @@ class Logger(object):
 # class `PrintTime`
 ###############################################################################
 class PrintTime(object):
-    """ Print and log messages while keeping track of time.
-    """
+    """Print and log messages while keeping track of time."""
 
     def __init__(self, logfile=None, logdir=None):
         if logfile is not None and logdir is not None:
@@ -131,8 +128,8 @@ class PrintTime(object):
                 # silent failure.
 
     def __call__(self, msg='', total=False):
-        """ Print the time elapsed between the last call and the current
-            call, with an optional message.
+        """Print the time elapsed between the last call and the current
+           call, with an optional message.
         """
         if not total:
             time_lapse = time.time() - self.last_time

@@ -40,9 +40,9 @@ def memstr_to_kbytes(text):
         size = int(units[text[-1]] * float(text[:-1]))
     except (KeyError, ValueError):
         raise ValueError(
-                "Invalid literal for size give: %s (type %s) should be "
-                "alike '10G', '500M', '50K'." % (text, type(text))
-                )
+            "Invalid literal for size give: %s (type %s) should be "
+            "alike '10G', '500M', '50K'." % (text, type(text))
+            )
     return size
 
 
@@ -81,7 +81,7 @@ def rm_subdirs(path, onerror=None):
     names = []
     try:
         names = os.listdir(path)
-    except os.error as err:
+    except os.error:
         if onerror is not None:
             onerror(os.listdir, path, sys.exc_info())
         else:

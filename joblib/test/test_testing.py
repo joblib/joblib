@@ -1,3 +1,5 @@
+"""Test the testing module."""
+
 import sys
 import re
 

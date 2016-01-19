@@ -1,6 +1,4 @@
-"""
-Test the hashing module.
-"""
+"""Test the hashing module."""
 
 # Author: Gael Varoquaux <gael dot varoquaux at normalesup dot org>
 # Copyright (c) 2009 Gael Varoquaux
@@ -180,9 +178,10 @@ def test_hash_memmap():
         a = np.asarray(m)
         for coerce_mmap in (False, True):
             yield (nose.tools.assert_equal,
-                            hash(a, coerce_mmap=coerce_mmap)
-                                == hash(m, coerce_mmap=coerce_mmap),
-                            coerce_mmap)
+                   (hash(a, coerce_mmap=coerce_mmap) ==
+                    hash(m, coerce_mmap=coerce_mmap)),
+                   coerce_mmap)
+
     finally:
         if 'm' in locals():
             del m

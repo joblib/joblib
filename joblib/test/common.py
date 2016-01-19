@@ -1,6 +1,4 @@
-"""
-Small utilities for testing.
-"""
+"""Small utilities for testing."""
 import threading
 import signal
 import nose
@@ -17,14 +15,12 @@ try:
     import numpy as np
 
     def with_numpy(func):
-        """ A decorator to skip tests requiring numpy.
-        """
+        """A decorator to skip tests requiring numpy."""
         return func
 
 except ImportError:
     def with_numpy(func):
-        """ A decorator to skip tests requiring numpy.
-        """
+        """A decorator to skip tests requiring numpy."""
         def my_func():
             raise nose.SkipTest('Test requires numpy')
         return my_func
@@ -39,7 +35,7 @@ _KILLER_THREADS = dict()
 
 
 def setup_autokill(module_name, timeout=30):
-    """Timeout based suiciding thread to kill the test runner process
+    """Timeout based suiciding thread to kill the test runner process.
 
     If some subprocess dies in an unexpected way we don't want the
     parent process to block indefinitely.
@@ -67,7 +63,7 @@ def setup_autokill(module_name, timeout=30):
 
 
 def teardown_autokill(module_name):
-    """Cancel a previously started killer thread"""
+    """Cancel a previously started killer thread."""
     killer = _KILLER_THREADS.get(module_name)
     if killer is not None:
         killer.cancel()

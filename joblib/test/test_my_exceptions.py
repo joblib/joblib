@@ -1,6 +1,5 @@
-"""
-Test my automatically generate exceptions
-"""
+"""Test my automatically generate exceptions."""
+
 from nose.tools import assert_true
 
 from joblib import my_exceptions
@@ -12,11 +11,12 @@ class CustomException(Exception):
 
 
 class CustomException2(Exception):
-    """A custom exception with a .args attribute
+    """A custom exception with a .args attribute.
 
     Just to check that the JoblibException created from it
     has it args set correctly
     """
+
     def __init__(self, a, *args):
         self.a = a
         self.args = args
