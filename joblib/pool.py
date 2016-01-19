@@ -268,7 +268,7 @@ class CustomizablePickler(Pickler):
     to pickle ephemeral datastructures for interprocess communication
     hence no backward compatibility is required.
 
-    `reducers` is expected expected to be a dictionary with key/values
+    `reducers` is expected to be a dictionary with key/values
     being `(type, callable)` pairs where `callable` is a function that
     give an instance of `type` will return a tuple `(constructor,
     tuple_of_objects)` to rebuild an instance out of the pickled
