@@ -53,7 +53,7 @@ MAX_IDEAL_BATCH_DURATION = 2
 # can cause third party libraries to crash. Under Python 3.4+ it is possible
 # to set an environment variable to switch the default start method from
 # 'fork' to 'forkserver' or 'spawn' to avoid this issue albeit at the cost
-# of causing semantic changes and some additional pool instanciation overhead.
+# of causing semantic changes and some additional pool instantiation overhead.
 if hasattr(mp, 'get_context'):
     method = os.environ.get('JOBLIB_START_METHOD', '').strip() or None
     DEFAULT_MP_CONTEXT = mp.get_context(method=method)
@@ -259,7 +259,7 @@ class Parallel(Logger):
         pre_dispatch: {'all', integer, or expression, as in '3*n_jobs'}
             The number of batches (of tasks) to be pre-dispatched.
             Default is '2*n_jobs'. When batch_size="auto" this is reasonable
-            default and the multiprocessing workers shoud never starve.
+            default and the multiprocessing workers should never starve.
         batch_size: int or 'auto', default: 'auto'
             The number of atomic tasks to dispatch at once to each
             worker. When individual evaluations are very fast, multiprocessing
