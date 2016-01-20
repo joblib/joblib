@@ -1,4 +1,4 @@
-"""Custom implementation of multiprocessing.Pool with custom pickler
+"""Custom implementation of multiprocessing.Pool with custom pickler.
 
 This module provides efficient ways of working with data stored in
 shared memory with numpy.memmap arrays without inducing any memory
@@ -75,7 +75,7 @@ FILE_PERMISSIONS = stat.S_IRUSR | stat.S_IWUSR
 
 
 def _get_backing_memmap(a):
-    """Recursively look up the original np.memmap instance base if any"""
+    """Recursively look up the original np.memmap instance base if any."""
     b = getattr(a, 'base', None)
     if b is None:
         # TODO: check scipy sparse datastructure if scipy is installed
@@ -92,13 +92,13 @@ def _get_backing_memmap(a):
 
 
 def has_shareable_memory(a):
-    """Return True if a is backed by some mmap buffer directly or not"""
+    """Return True if a is backed by some mmap buffer directly or not."""
     return _get_backing_memmap(a) is not None
 
 
 def _strided_from_memmap(filename, dtype, mode, offset, order, shape, strides,
                          total_buffer_len):
-    """Reconstruct an array view on a memory mapped file"""
+    """Reconstruct an array view on a memory mapped file."""
     if mode == 'w+':
         # Do not zero the original data when unpickling
         mode = 'r+'
@@ -116,7 +116,7 @@ def _strided_from_memmap(filename, dtype, mode, offset, order, shape, strides,
 
 
 def _reduce_memmap_backed(a, m):
-    """Pickling reduction for memmap backed arrays
+    """Pickling reduction for memmap backed arrays.
 
     a is expected to be an instance of np.ndarray (or np.memmap)
     m is expected to be an instance of np.memmap on the top of the ``base``
@@ -152,7 +152,7 @@ def _reduce_memmap_backed(a, m):
 
 
 def reduce_memmap(a):
-    """Pickle the descriptors of a memmap instance to reopen on same file"""
+    """Pickle the descriptors of a memmap instance to reopen on same file."""
     m = _get_backing_memmap(a)
     if m is not None:
         # m is a real mmap backed memmap instance, reduce a preserving striding
@@ -298,6 +298,7 @@ class CustomizablePickler(Pickler):
             self.register(type, reduce_func)
 
     def register(self, type, reduce_func):
+        """Attach a reducer function to a given type in the dispatch table."""
         if hasattr(Pickler, 'dispatch'):
             # Python 2 pickler dispatching is not explicitly customizable.
             # Let us use a closure to workaround this limitation.
@@ -317,12 +318,12 @@ class CustomizablePicklingQueue(object):
     pickling reducers, for instance to avoid memory copy when passing
     memory mapped datastructures.
 
-    `reducers` is expected expected to be a dictionary with key/values
-    being `(type, callable)` pairs where `callable` is a function that
-    give an instance of `type` will return a tuple `(constructor,
-    tuple_of_objects)` to rebuild an instance out of the pickled
-    `tuple_of_objects` as would return a `__reduce__` method. See the
-    standard library documentation on pickling for more details.
+    `reducers` is expected to be a dictionary with key/values
+    being `(type, callable)` pairs where `callable` is a function that, given an
+    instance of `type`, will return a tuple `(constructor, tuple_of_objects)`
+    to rebuild an instance out of the pickled `tuple_of_objects` as would
+    return a `__reduce__` method.
+    See the standard library documentation on pickling for more details.
     """
 
     def __init__(self, context, reducers=None):
@@ -396,11 +397,10 @@ class PicklingPool(Pool):
 
     `forward_reducers` and `backward_reducers` are expected to be
     dictionaries with key/values being `(type, callable)` pairs where
-    `callable` is a function that give an instance of `type` will return
-    a tuple `(constructor, tuple_of_objects)` to rebuild an instance out
-    of the pickled `tuple_of_objects` as would return a `__reduce__`
-    method. See the standard library documentation on pickling for more
-    details.
+    `callable` is a function that, given an instance of `type`, will return a
+    tuple `(constructor, tuple_of_objects)` to rebuild an instance out of the
+    pickled `tuple_of_objects` as would return a `__reduce__` method.
+    See the standard library documentation about pickling for more details.
 
     """
 
@@ -427,7 +427,7 @@ class PicklingPool(Pool):
 
 
 def delete_folder(folder_path):
-    """Utility function to cleanup a temporary folder if still existing"""
+    """Utility function to cleanup a temporary folder if still existing."""
     try:
         if os.path.exists(folder_path):
             shutil.rmtree(folder_path)
