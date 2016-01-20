@@ -6,7 +6,7 @@ copy between the parent and child processes.
 
 This module should not be imported if multiprocessing is not
 available as it implements subclasses of multiprocessing Pool
-which uses a custom alternative to SimpleQueue.
+that uses a custom alternative to SimpleQueue.
 
 """
 # Author: Olivier Grisel <olivier.grisel@ensta.org>
@@ -315,12 +315,12 @@ class CustomizablePicklingQueue(object):
 
     This class is an alternative to the multiprocessing implementation
     of SimpleQueue in order to make it possible to pass custom
-    pickling reducers. For instance, it avoids memory copy when passing
+    pickling reducers, for instance to avoid memory copy when passing
     memory mapped datastructures.
 
     `reducers` is expected to be a dictionary with key/values
-    being `(type, callable)` pairs where `type` is an instance and `callable`
-    is a function that returns a tuple `(constructor, tuple_of_objects)`
+    being `(type, callable)` pairs where `callable` is a function that, given an
+    instance of `type`, will return a tuple `(constructor, tuple_of_objects)`
     to rebuild an instance out of the pickled `tuple_of_objects` as would
     return a `__reduce__` method.
     See the standard library documentation on pickling for more details.
@@ -396,11 +396,10 @@ class PicklingPool(Pool):
     objects passed as arguments to dispatch.
 
     `forward_reducers` and `backward_reducers` are expected to be
-    dictionaries with key/values being `(type, callable)` pairs where `type`
-    is an instance and `callable` is a function returning a tuple
-    `(constructor, tuple_of_objects)` to rebuild an instance out
-    of the pickled `tuple_of_objects` as would return a `__reduce__`
-    method.
+    dictionaries with key/values being `(type, callable)` pairs where
+    `callable` is a function that, given an instance of `type`, will return a
+    tuple `(constructor, tuple_of_objects)` to rebuild an instance out of the
+    pickled `tuple_of_objects` as would return a `__reduce__` method.
     See the standard library documentation about pickling for more details.
 
     """
@@ -437,7 +436,7 @@ def delete_folder(folder_path):
 
 
 class MemmapingPool(PicklingPool):
-    """Process pool sharing large arrays to avoid memory copy.
+    """Process pool that shares large arrays to avoid memory copy.
 
     This drop-in replacement for `multiprocessing.pool.Pool` makes
     it possible to work efficiently with shared memory in a numpy
