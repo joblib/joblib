@@ -318,11 +318,12 @@ class CustomizablePicklingQueue(object):
     pickling reducers, for instance to avoid memory copy when passing
     memory mapped datastructures.
 
-    `reducers` is expected to be a dictionary with key/values
-    being `(type, callable)` pairs where `callable` is a function that, given an
+    `reducers` is expected to be a dict with key / values being
+    `(type, callable)` pairs where `callable` is a function that, given an
     instance of `type`, will return a tuple `(constructor, tuple_of_objects)`
     to rebuild an instance out of the pickled `tuple_of_objects` as would
     return a `__reduce__` method.
+
     See the standard library documentation on pickling for more details.
     """
 

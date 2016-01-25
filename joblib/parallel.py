@@ -9,45 +9,80 @@ from __future__ import division
 
 import os
 import sys
-import gc
-import warnings
 from math import sqrt
 import functools
 import time
 import threading
 import itertools
 from numbers import Integral
+from contextlib import contextmanager
 try:
     import cPickle as pickle
 except:
     import pickle
 
 from ._multiprocessing_helpers import mp
-if mp is not None:
-    from .pool import MemmapingPool
-    from multiprocessing.pool import ThreadPool
 
-from .format_stack import format_exc, format_outer_frames
+from .format_stack import format_outer_frames
 from .logger import Logger, short_format_time
 from .my_exceptions import TransportableException, _mk_exception
 from .disk import memstr_to_kbytes
+from ._parallel_backends import (FallbackToBackend, MultiprocessingBackend,
+                                 ThreadingBackend, SequentialBackend)
 from ._compat import _basestring
 
 
-VALID_BACKENDS = ['multiprocessing', 'threading']
+BACKENDS = {
+    'multiprocessing': MultiprocessingBackend,
+    'threading': ThreadingBackend,
+    'sequential': SequentialBackend,
+}
 
-# Environment variables to protect against bad situations when nesting
-JOBLIB_SPAWNED_PROCESS = "__JOBLIB_SPAWNED_PARALLEL__"
+# name of the backend used by default by Parallel outside of any context
+# managed by ``parallel_backend``.
+DEFAULT_BACKEND = 'multiprocessing'
 
-# In seconds, should be big enough to hide multiprocessing dispatching
-# overhead.
-# This settings was found by running benchmarks/bench_auto_batching.py
-# with various parameters on various platforms.
-MIN_IDEAL_BATCH_DURATION = .2
+# Thread local value that can be overriden by the ``parallel_backend`` context
+# manager
+_default_backend = threading.local()
 
-# Should not be too high to avoid stragglers: long jobs running alone
-# on a single worker while other workers have no work to process any more.
-MAX_IDEAL_BATCH_DURATION = 2
+
+def get_default_backend():
+    """Return the active default backend"""
+    return getattr(_default_backend, 'active', None) or DEFAULT_BACKEND
+
+
+@contextmanager
+def parallel_backend(backend_name):
+    """Change the default backend used by Parallel inside a with block.
+
+    Note: backend_name must match a previously registered implementation
+    using the ``register_parallel_backend`` function.
+
+    This is an alternative to passing a backend='backend_name' argument to the
+    ``Parallel`` class constructor. It is particularly useful when calling
+    into library code that uses joblib internally but does not expose the
+    backend argument in its own API.
+
+    >>> from operator import neg
+    >>> with parallel_backend('threading'):
+    ...     print(Parallel(n_jobs=2)(delayed(neg)(i + 1) for i in range(5)))
+    ...
+    [-1, -2, -3, -4, -5]
+
+    Warning: this function is experimental and subject to change in a future
+    version of joblib.
+
+    .. versionadded:: 0.10
+
+    """
+    old_backend = getattr(_default_backend, 'active', None)
+    try:
+        _default_backend.active = backend_name
+        yield
+    finally:
+        _default_backend.active = old_backend
+
 
 # Under Linux or OS X the default start method of multiprocessing
 # can cause third party libraries to crash. Under Python 3.4+ it is possible
@@ -79,8 +114,7 @@ class BatchedCalls(object):
 # CPU count that works also when multiprocessing has been disabled via
 # the JOBLIB_MULTIPROCESSING environment variable
 def cpu_count():
-    """ Return the number of CPUs.
-    """
+    """Return the number of CPUs."""
     if mp is None:
         return 1
     return mp.cpu_count()
@@ -105,39 +139,6 @@ def _verbosity_filter(index, verbose):
     scale = sqrt(index / verbose)
     next_scale = sqrt((index + 1) / verbose)
     return (int(next_scale) == int(scale))
-
-
-###############################################################################
-class WorkerInterrupt(Exception):
-    """ An exception that is not KeyboardInterrupt to allow subprocesses
-        to be interrupted.
-    """
-    pass
-
-
-###############################################################################
-class SafeFunction(object):
-    """ Wraps a function to make it exception with full traceback in
-        their representation.
-        Useful for parallel computing with multiprocessing, for which
-        exceptions cannot be captured.
-    """
-    def __init__(self, func):
-        self.func = func
-
-    def __call__(self, *args, **kwargs):
-        try:
-            return self.func(*args, **kwargs)
-        except KeyboardInterrupt:
-            # We capture the KeyboardInterrupt and reraise it as
-            # something different, as multiprocessing does not
-            # interrupt processing for a KeyboardInterrupt
-            raise WorkerInterrupt()
-        except:
-            e_type, e_value, e_tb = sys.exc_info()
-            text = format_exc(e_type, e_value, e_tb, context=10,
-                              tb_offset=1)
-            raise TransportableException(text, e_type)
 
 
 ###############################################################################
@@ -167,23 +168,6 @@ def delayed(function, check_pickle=True):
 
 
 ###############################################################################
-class ImmediateComputeBatch(object):
-    """Sequential computation of a batch of tasks.
-
-    This replicates the async computation API but actually does not delay
-    the computations when joblib.Parallel runs in sequential mode.
-
-    """
-    def __init__(self, batch):
-        # Don't delay the application, to avoid keeping the input
-        # arguments in memory
-        self.results = batch()
-
-    def get(self):
-        return self.results
-
-
-###############################################################################
 class BatchCompletionCallBack(object):
     """Callback used by joblib.Parallel's multiprocessing backend.
 
@@ -204,24 +188,59 @@ class BatchCompletionCallBack(object):
         self.parallel.n_completed_tasks += self.batch_size
         this_batch_duration = time.time() - self.dispatch_timestamp
 
-        if (self.parallel.batch_size == 'auto'
-                and self.batch_size == self.parallel._effective_batch_size):
-            # Update the smoothed streaming estimate of the duration of a batch
-            # from dispatch to completion
-            old_duration = self.parallel._smoothed_batch_duration
-            if old_duration == 0:
-                # First record of duration for this batch size after the last
-                # reset.
-                new_duration = this_batch_duration
-            else:
-                # Update the exponentially weighted average of the duration of
-                # batch for the current effective size.
-                new_duration = 0.8 * old_duration + 0.2 * this_batch_duration
-            self.parallel._smoothed_batch_duration = new_duration
-
+        self.parallel._backend.batch_completed(self.batch_size,
+                                               this_batch_duration)
         self.parallel.print_progress()
         if self.parallel._original_iterator is not None:
             self.parallel.dispatch_next()
+
+
+###############################################################################
+def register_parallel_backend(name, factory, make_default=False):
+    """Register a new Parallel backend factory.
+
+    The new backend can then be selected by passing its name as the backend
+    argument to the Parallel class. Moreover, the default backend can be
+    overwritten globally by setting make_default=True.
+
+    The factory can be any callable that takes no argument and return an
+    instance of ``ParallelBackendBase``.
+
+    Warning: this function is experimental and subject to change in a future
+    version of joblib.
+
+    .. versionadded:: 0.10
+
+    """
+    BACKENDS[name] = factory
+    if make_default:
+        global DEFAULT_BACKEND
+        DEFAULT_BACKEND = name
+
+
+def effective_n_jobs(n_jobs=-1):
+    """Determine the number of jobs that can actually run in parallel
+
+    n_jobs is the is the number of workers requested by the callers.
+    Passing n_jobs=-1 means requesting all available workers for instance
+    matching the number of CPU cores on the worker host(s).
+
+    This method should return a guesstimate of the number of workers that can
+    actually perform work concurrently with the currently enabled default
+    backend. The primary use case is to make it possible for the caller to know
+    in how many chunks to slice the work.
+
+    In general working on larger data chunks is more efficient (less
+    scheduling overhead and better use of CPU cache prefetching heuristics)
+    as long as all the workers have enough work to do.
+
+    Warning: this function is experimental and subject to change in a future
+    version of joblib.
+
+    .. versionadded:: 0.10
+
+    """
+    return BACKENDS[get_default_backend()]().effective_n_jobs(n_jobs=-1)
 
 
 ###############################################################################
@@ -251,6 +270,9 @@ class Parallel(Logger):
                 explicitly releases the GIL (for instance a Cython loop wrapped
                 in a "with nogil" block or an expensive call to a library such
                 as NumPy).
+              - finally, you can register backends by calling
+                register_parallel_backend. This will allow you to implement
+                a backend of your liking.
         verbose: int, optional
             The verbosity level: if non zero, progress messages are
             printed. Above 50, the output is sent to stdout.
@@ -403,153 +425,102 @@ class Parallel(Logger):
          Produced 0
          Produced 1
          Produced 2
-         [Parallel(n_jobs=2)]: Done   1 jobs       | elapsed:    0.0s
+         [Parallel(n_jobs=2)]: Done 1 jobs     | elapsed:  0.0s
          Produced 3
-         [Parallel(n_jobs=2)]: Done   2 jobs       | elapsed:    0.0s
+         [Parallel(n_jobs=2)]: Done 2 jobs     | elapsed:  0.0s
          Produced 4
-         [Parallel(n_jobs=2)]: Done   3 jobs       | elapsed:    0.0s
+         [Parallel(n_jobs=2)]: Done 3 jobs     | elapsed:  0.0s
          Produced 5
-         [Parallel(n_jobs=2)]: Done   4 jobs       | elapsed:    0.0s
-         [Parallel(n_jobs=2)]: Done   5 out of   6 | elapsed:    0.0s remaining:    0.0s
-         [Parallel(n_jobs=2)]: Done   6 out of   6 | elapsed:    0.0s finished
+         [Parallel(n_jobs=2)]: Done 4 jobs     | elapsed:  0.0s
+         [Parallel(n_jobs=2)]: Done 5 out of 6 | elapsed:  0.0s remaining: 0.0s
+         [Parallel(n_jobs=2)]: Done 6 out of 6 | elapsed:  0.0s finished
     '''
-    def __init__(self, n_jobs=1, backend='multiprocessing', verbose=0,
+    def __init__(self, n_jobs=1, backend=None, verbose=0,
                  pre_dispatch='2 * n_jobs', batch_size='auto',
                  temp_folder=None, max_nbytes='1M', mmap_mode='r'):
+        self.n_jobs = n_jobs
         self.verbose = verbose
-        self._mp_context = DEFAULT_MP_CONTEXT
+        self.pre_dispatch = pre_dispatch
+
+        if isinstance(max_nbytes, _basestring):
+            max_nbytes = 1024 * memstr_to_kbytes(max_nbytes)
+
+        self._backend_args = dict(
+            max_nbytes=max_nbytes,
+            mmap_mode=mmap_mode,
+            temp_folder=temp_folder,
+            verbose=max(0, self.verbose - 50),
+        )
+        if DEFAULT_MP_CONTEXT is not None:
+            self._backend_args['context'] = DEFAULT_MP_CONTEXT
+
         if backend is None:
-            # `backend=None` was supported in 0.8.2 with this effect
-            backend = "multiprocessing"
+            backend = get_default_backend()
         elif hasattr(backend, 'Pool') and hasattr(backend, 'Lock'):
             # Make it possible to pass a custom multiprocessing context as
             # backend to change the start method to forkserver or spawn or
             # preload modules on the forkserver helper process.
-            self._mp_context = backend
+            self._backend_args['context'] = backend
             backend = "multiprocessing"
-        if backend not in VALID_BACKENDS:
+
+        try:
+            self.backend_factory = BACKENDS[backend]
+        except KeyError:
             raise ValueError("Invalid backend: %s, expected one of %r"
-                             % (backend, VALID_BACKENDS))
-        self.backend = backend
-        self.n_jobs = n_jobs
-        if (batch_size == 'auto'
-                or isinstance(batch_size, Integral) and batch_size > 0):
+                             % (backend, sorted(BACKENDS.keys())))
+
+        if (batch_size == 'auto' or isinstance(batch_size, Integral) and
+                batch_size > 0):
             self.batch_size = batch_size
         else:
             raise ValueError(
                 "batch_size must be 'auto' or a positive integer, got: %r"
                 % batch_size)
 
-        self.pre_dispatch = pre_dispatch
-        self._temp_folder = temp_folder
-        if isinstance(max_nbytes, _basestring):
-            self._max_nbytes = 1024 * memstr_to_kbytes(max_nbytes)
-        else:
-            self._max_nbytes = max_nbytes
-        self._mmap_mode = mmap_mode
         # Not starting the pool in the __init__ is a design decision, to be
         # able to close it ASAP, and not burden the user with closing it
         # unless they choose to use the context manager API with a with block.
-        self._pool = None
+        self._backend = None
         self._output = None
         self._jobs = list()
-        self._managed_pool = False
+        self._managed_backend = False
 
         # This lock is used coordinate the main thread of this process with
         # the async callback thread of our the pool.
         self._lock = threading.Lock()
 
     def __enter__(self):
-        self._managed_pool = True
-        self._initialize_pool()
+        self._managed_backend = True
+        self._initialize_backend()
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self._terminate_pool()
-        self._managed_pool = False
+        self._terminate_backend()
+        self._managed_backend = False
+
+    def _initialize_backend(self):
+        """Build a process or thread pool and return the number of workers"""
+        self._backend = self.backend_factory()
+        try:
+            n_jobs = self._backend.configure(n_jobs=self.n_jobs, parallel=self,
+                                             **self._backend_args)
+            # The list of exceptions that we will capture
+            self.exceptions = [TransportableException]
+            self.exceptions.extend(self._backend.get_exceptions())
+            return n_jobs
+        except FallbackToBackend as e:
+            self.backend_factory = e.backend_factory
+            return self._initialize_backend()
 
     def _effective_n_jobs(self):
-        n_jobs = self.n_jobs
-        if n_jobs == 0:
-            raise ValueError('n_jobs == 0 in Parallel has no meaning')
-        elif mp is None or n_jobs is None:
-            # multiprocessing is not available or disabled, fallback
-            # to sequential mode
-            return 1
-        elif n_jobs < 0:
-            n_jobs = max(mp.cpu_count() + 1 + n_jobs, 1)
-        return n_jobs
+        if self._backend:
+            return self._backend.effective_n_jobs(self.n_jobs)
+        return 1
 
-    def _initialize_pool(self):
-        """Build a process or thread pool and return the number of workers"""
-        n_jobs = self._effective_n_jobs()
-        # The list of exceptions that we will capture
-        self.exceptions = [TransportableException]
-
-        if n_jobs == 1:
-            # Sequential mode: do not use a pool instance to avoid any
-            # useless dispatching overhead
-            self._pool = None
-        elif self.backend == 'threading':
-            self._pool = ThreadPool(n_jobs)
-        elif self.backend == 'multiprocessing':
-            if mp.current_process().daemon:
-                # Daemonic processes cannot have children
-                self._pool = None
-                warnings.warn(
-                    'Multiprocessing-backed parallel loops cannot be nested,'
-                    ' setting n_jobs=1',
-                    stacklevel=3)
-                return 1
-            elif threading.current_thread().name != 'MainThread':
-                # Prevent posix fork inside in non-main posix threads
-                self._pool = None
-                warnings.warn(
-                    'Multiprocessing backed parallel loops cannot be nested'
-                    ' below threads, setting n_jobs=1',
-                    stacklevel=3)
-                return 1
-            else:
-                already_forked = int(os.environ.get(JOBLIB_SPAWNED_PROCESS, 0))
-                if already_forked:
-                    raise ImportError('[joblib] Attempting to do parallel computing '
-                            'without protecting your import on a system that does '
-                            'not support forking. To use parallel-computing in a '
-                            'script, you must protect your main loop using "if '
-                            "__name__ == '__main__'"
-                            '". Please see the joblib documentation on Parallel '
-                            'for more information'
-                        )
-                # Set an environment variable to avoid infinite loops
-                os.environ[JOBLIB_SPAWNED_PROCESS] = '1'
-
-                # Make sure to free as much memory as possible before forking
-                gc.collect()
-                poolargs = dict(
-                    max_nbytes=self._max_nbytes,
-                    mmap_mode=self._mmap_mode,
-                    temp_folder=self._temp_folder,
-                    verbose=max(0, self.verbose - 50),
-                )
-                if self._mp_context is not None:
-                    # Use Python 3.4+ multiprocessing context isolation
-                    poolargs['context'] = self._mp_context
-                self._pool = MemmapingPool(n_jobs, **poolargs)
-
-                # We are using multiprocessing, we also want to capture
-                # KeyboardInterrupts
-                self.exceptions.extend([KeyboardInterrupt, WorkerInterrupt])
-        else:
-            raise ValueError("Unsupported backend: %s" % self.backend)
-        return n_jobs
-
-    def _terminate_pool(self):
-        if self._pool is not None:
-            self._pool.close()
-            self._pool.terminate()  # terminate does a join()
-            self._pool = None
-            if self.backend == 'multiprocessing':
-                os.environ.pop(JOBLIB_SPAWNED_PROCESS, 0)
+    def _terminate_backend(self):
+        if self._backend is not None:
+            self._backend.terminate()
+            self._backend = None
 
     def _dispatch(self, batch):
         """Queue the batch for computing, with or without multiprocessing
@@ -562,24 +533,13 @@ class Parallel(Logger):
         if self._aborting:
             return
 
-        if self._pool is None:
-            job = ImmediateComputeBatch(batch)
-            self._jobs.append(job)
-            self.n_dispatched_batches += 1
-            self.n_dispatched_tasks += len(batch)
-            self.n_completed_tasks += len(batch)
-            if not _verbosity_filter(self.n_dispatched_batches, self.verbose):
-                self._print('Done %3i tasks       | elapsed: %s',
-                        (self.n_completed_tasks,
-                            short_format_time(time.time() - self._start_time)
-                        ))
-        else:
-            dispatch_timestamp = time.time()
-            cb = BatchCompletionCallBack(dispatch_timestamp, len(batch), self)
-            job = self._pool.apply_async(SafeFunction(batch), callback=cb)
-            self._jobs.append(job)
-            self.n_dispatched_tasks += len(batch)
-            self.n_dispatched_batches += 1
+        self.n_dispatched_tasks += len(batch)
+        self.n_dispatched_batches += 1
+
+        dispatch_timestamp = time.time()
+        cb = BatchCompletionCallBack(dispatch_timestamp, len(batch), self)
+        job = self._backend.apply_async(batch, callback=cb)
+        self._jobs.append(job)
 
     def dispatch_next(self):
         """Dispatch more data for parallel processing
@@ -603,52 +563,12 @@ class Parallel(Logger):
         lock so calling this function should be thread safe.
 
         """
-        if self.batch_size == 'auto' and self.backend == 'threading':
-            # Batching is never beneficial with the threading backend
-            batch_size = 1
-        elif self.batch_size == 'auto':
-            old_batch_size = self._effective_batch_size
-            batch_duration = self._smoothed_batch_duration
-            if (batch_duration > 0 and
-                    batch_duration < MIN_IDEAL_BATCH_DURATION):
-                # The current batch size is too small: the duration of the
-                # processing of a batch of task is not large enough to hide
-                # the scheduling overhead.
-                ideal_batch_size = int(
-                    old_batch_size * MIN_IDEAL_BATCH_DURATION / batch_duration)
-                # Multiply by two to limit oscilations between min and max.
-                batch_size = max(2 * ideal_batch_size, 1)
-                self._effective_batch_size = batch_size
-                if self.verbose >= 10:
-                    self._print("Batch computation too fast (%.4fs.) "
-                                "Setting batch_size=%d.", (
-                                    batch_duration, batch_size))
-            elif (batch_duration > MAX_IDEAL_BATCH_DURATION and
-                  old_batch_size >= 2):
-                # The current batch size is too big. If we schedule overly long
-                # running batches some CPUs might wait with nothing left to do
-                # while a couple of CPUs a left processing a few long running
-                # batches. Better reduce the batch size a bit to limit the
-                # likelihood of scheduling such stragglers.
-                self._effective_batch_size = batch_size = old_batch_size // 2
-                if self.verbose >= 10:
-                    self._print("Batch computation too slow (%.2fs.) "
-                                "Setting batch_size=%d.", (
-                                    batch_duration, batch_size))
-            else:
-                # No batch size adjustment
-                batch_size = old_batch_size
-
-            if batch_size != old_batch_size:
-                # Reset estimation of the smoothed mean batch duration: this
-                # estimate is updated in the multiprocessing apply_async
-                # CallBack as long as the batch_size is constant. Therefore
-                # we need to reset the estimate whenever we re-tune the batch
-                # size.
-                self._smoothed_batch_duration = 0
+        if self.batch_size == 'auto':
+            batch_size = self._backend.compute_batch_size()
         else:
             # Fixed batch size strategy
             batch_size = self.batch_size
+
         with self._lock:
             tasks = BatchedCalls(itertools.islice(iterator, batch_size))
             if not tasks:
@@ -747,13 +667,13 @@ Sub-process traceback:
                 # Kill remaining running processes without waiting for
                 # the results as we will raise the exception we got back
                 # to the caller instead of returning any result.
-                self._terminate_pool()
-                if self._managed_pool:
+                self._terminate_backend()
+                if self._managed_backend:
                     # In case we had to terminate a managed pool, let
                     # us start a new one to ensure that subsequent calls
                     # to __call__ on the same Parallel instance will get
                     # a working pool as they expect.
-                    self._initialize_pool()
+                    self._initialize_backend()
                 raise exception
 
     def __call__(self, iterable):
@@ -762,13 +682,10 @@ Sub-process traceback:
         # A flag used to abort the dispatching of jobs in case an
         # exception is found
         self._aborting = False
-        if not self._managed_pool:
-            n_jobs = self._initialize_pool()
+        if not self._managed_backend:
+            n_jobs = self._initialize_backend()
         else:
             n_jobs = self._effective_n_jobs()
-
-        if self.batch_size == 'auto':
-            self._effective_batch_size = 1
 
         iterator = iter(iterable)
         pre_dispatch = self.pre_dispatch
@@ -792,7 +709,6 @@ Sub-process traceback:
         self.n_dispatched_batches = 0
         self.n_dispatched_tasks = 0
         self.n_completed_tasks = 0
-        self._smoothed_batch_duration = 0.0
         try:
             # Only set self._iterating to True if at least a batch
             # was dispatched. In particular this covers the edge
@@ -814,8 +730,8 @@ Sub-process traceback:
                         (len(self._output), len(self._output),
                          short_format_time(elapsed_time)))
         finally:
-            if not self._managed_pool:
-                self._terminate_pool()
+            if not self._managed_backend:
+                self._terminate_backend()
             self._jobs = list()
         output = self._output
         self._output = None
