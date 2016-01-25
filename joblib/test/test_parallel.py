@@ -40,15 +40,18 @@ except ImportError:
     from Queue import Queue
 
 
-from joblib.parallel import Parallel, delayed, SafeFunction, WorkerInterrupt
-from joblib.parallel import mp, cpu_count, VALID_BACKENDS
+from joblib._parallel_backends import (SequentialBackend, SafeFunction,
+                                       WorkerInterrupt)
+from joblib.parallel import (Parallel, delayed, register_parallel_backend)
+
+from joblib.parallel import mp, cpu_count, VALID_BACKENDS, effective_n_jobs
 from joblib.my_exceptions import JoblibException
 
 import nose
 from nose.tools import assert_equal, assert_true, assert_false, assert_raises
 
 
-ALL_VALID_BACKENDS = [None] + VALID_BACKENDS
+ALL_VALID_BACKENDS = [None] + sorted(VALID_BACKENDS.keys())
 
 if hasattr(mp, 'get_context'):
     # Custom multiprocessing context in Python 3.4+
@@ -94,6 +97,10 @@ def test_cpu_count():
     assert cpu_count() > 0
 
 
+def test_effective_n_jobs():
+    assert effective_n_jobs() > 0
+
+
 ###############################################################################
 # Test parallel
 def check_simple_parallel(backend):
@@ -101,7 +108,8 @@ def check_simple_parallel(backend):
     for n_jobs in (1, 2, -1, -2):
         assert_equal(
             [square(x) for x in X],
-            Parallel(n_jobs=n_jobs)(delayed(square)(x) for x in X))
+            Parallel(n_jobs=n_jobs, backend=backend)(
+                delayed(square)(x) for x in X))
     try:
         # To smoke-test verbosity, we capture stdout
         orig_stdout = sys.stdout
@@ -179,9 +187,9 @@ def check_parallel_context_manager(backend):
     with Parallel(n_jobs=4, backend=backend) as p:
         # Internally a pool instance has been eagerly created and is managed
         # via the context manager protocol
-        managed_pool = p._pool
+        managed_backend = p._backend
         if mp is not None:
-            assert_true(managed_pool is not None)
+            assert_true(managed_backend is not None)
 
         # We make call with the managed parallel object several times inside
         # the managed block:
@@ -190,15 +198,15 @@ def check_parallel_context_manager(backend):
 
         # Those calls have all used the same pool instance:
         if mp is not None:
-            assert_true(managed_pool is p._pool)
+            assert_true(managed_backend is p._backend)
 
     # As soon as we exit the context manager block, the pool is terminated and
     # no longer referenced from the parallel object:
-    assert_true(p._pool is None)
+    assert_true(p._backend is None)
 
     # It's still possible to use the parallel instance in non-managed mode:
     assert_equal(expected, p(delayed(f)(x, y=1) for x in lst))
-    assert_true(p._pool is None)
+    assert_true(p._backend is None)
 
 
 def test_parallel_context_manager():
@@ -239,7 +247,7 @@ def test_error_capture():
 
         # Try again with the context manager API
         with Parallel(n_jobs=2) as parallel:
-            assert_true(parallel._pool is not None)
+            assert_true(parallel._backend is not None)
 
             assert_raises(JoblibException, parallel,
                           [delayed(division)(x, y)
@@ -247,7 +255,7 @@ def test_error_capture():
 
             # The managed pool should still be available and be in a working
             # state despite the previously raised (and caught) exception
-            assert_true(parallel._pool is not None)
+            assert_true(parallel._backend is not None)
             assert_equal([f(x, y=1) for x in range(10)],
                          parallel(delayed(f)(x, y=1) for x in range(10)))
 
@@ -255,13 +263,13 @@ def test_error_capture():
                           [delayed(interrupt_raiser)(x) for x in (1, 0)])
 
             # The pool should still be available despite the exception
-            assert_true(parallel._pool is not None)
+            assert_true(parallel._backend is not None)
             assert_equal([f(x, y=1) for x in range(10)],
                          parallel(delayed(f)(x, y=1) for x in range(10)))
 
         # Check that the inner pool has been terminated when exiting the
         # context manager
-        assert_true(parallel._pool is None)
+        assert_true(parallel._backend is None)
     else:
         assert_raises(KeyboardInterrupt, Parallel(n_jobs=2),
                       [delayed(interrupt_raiser)(x) for x in (1, 0)])
@@ -375,39 +383,36 @@ def check_dispatch_multiprocessing(backend):
 
 def test_dispatch_multiprocessing():
     for backend in VALID_BACKENDS:
-        yield check_dispatch_multiprocessing, backend
+        if backend != "sequential":
+            yield check_dispatch_multiprocessing, backend
 
 
 def test_batching_auto_threading():
     # batching='auto' with the threading backend leaves the effective batch
     # size to 1 (no batching) as it has been found to never be beneficial with
     # this low-overhead backend.
-    p = Parallel(n_jobs=2, batch_size='auto', backend='threading')
-    p(delayed(id)(i) for i in range(5000))  # many very fast tasks
-    assert_equal(p._effective_batch_size, 1)
+
+    with Parallel(n_jobs=2, batch_size='auto', backend='threading') as p:
+        p(delayed(id)(i) for i in range(5000))  # many very fast tasks
+        assert_equal(p._backend.compute_batch_size(), 1)
 
 
 def test_batching_auto_multiprocessing():
-    p = Parallel(n_jobs=2, batch_size='auto', backend='multiprocessing')
-    p(delayed(id)(i) for i in range(5000))  # many very fast tasks
+    with Parallel(n_jobs=2, batch_size='auto', backend='multiprocessing') as p:
+        p(delayed(id)(i) for i in range(5000))  # many very fast tasks
 
-    # When the auto-tuning of the batch size is enabled
-    # size kicks in the following attribute gets updated.
-    assert_true(hasattr(p, '_effective_batch_size'))
-
-    # It should be strictly larger than 1 but as we don't want heisen failures
-    # on clogged CI worker environment be safe and only check that it's a
-    # strictly positive number.
-    assert_true(p._effective_batch_size > 0)
+        # It should be strictly larger than 1 but as we don't want heisen
+        # failures on clogged CI worker environment be safe and only check that
+        # it's a strictly positive number.
+        assert_true(p._backend.compute_batch_size() > 0)
 
 
 def test_exception_dispatch():
     "Make sure that exception raised during dispatch are indeed captured"
     assert_raises(
-            ValueError,
-            Parallel(n_jobs=2, pre_dispatch=16, verbose=0),
-                    (delayed(exception_raiser)(i) for i in range(30)),
-            )
+        ValueError,
+        Parallel(n_jobs=2, pre_dispatch=16, verbose=0),
+        (delayed(exception_raiser)(i) for i in range(30)))
 
 
 def test_nested_exception_dispatch():
@@ -438,6 +443,35 @@ def test_multiple_spawning():
         raise nose.SkipTest()
     assert_raises(ImportError, Parallel(n_jobs=2, pre_dispatch='all'),
                   [delayed(_reload_joblib)() for i in range(10)])
+
+
+class MyParallelBackend(SequentialBackend):
+    pass
+
+
+def test_invalid_backend():
+    assert_raises(ValueError, Parallel, backend='unit-testing')
+
+
+def test_register_parallel_backend():
+    register_parallel_backend("unit-testing", MyParallelBackend)
+    assert_true("unit-testing" in VALID_BACKENDS)
+    assert_equal(VALID_BACKENDS["unit-testing"], MyParallelBackend)
+
+
+def test_overwrite_default_backend():
+    register_parallel_backend("default", VALID_BACKENDS["multiprocessing"])
+    assert_equal(VALID_BACKENDS["default"], VALID_BACKENDS["multiprocessing"])
+
+
+def test_overwrite_registered_backend():
+    assert_raises(ValueError, register_parallel_backend,
+                  'multiprocessing', MyParallelBackend)
+
+
+def test_register_nosubclass_backend():
+    assert_raises(ValueError, register_parallel_backend,
+                  'unit-testing', object)
 
 
 ###############################################################################

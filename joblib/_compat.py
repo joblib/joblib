@@ -11,3 +11,8 @@ try:
 except NameError:
     _basestring = str
     _bytes_or_unicode = (bytes, str)
+
+
+def with_metaclass(meta, *bases):
+    """Create a base class with a metaclass."""
+    return meta("NewBase", bases, {})
