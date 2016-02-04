@@ -12,12 +12,14 @@ env:
     # NUMPY_VERSION not set means numpy is not installed
     - PYTHON_VERSION="3.4"
     - PYTHON_VERSION="3.5" NUMPY_VERSION="1.10" COVERAGE="true"
+    # flake8 linting on diff wrt common ancestor with upstream/master
+    - PYTHON_VERSION="3.5" FLAKE8_VERSION="*" SKIP_TESTS="true"
 
 install:
     - source continuous_integration/install.sh
 
 script:
-    - make
+    - source continuous_integration/test_script.sh
 
 after_success:
     # Ignore coveralls failures as the coveralls server is not very reliable
