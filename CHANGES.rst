@@ -1,13 +1,27 @@
 Latest changes
 ===============
 
+Release 0.10.0
+--------------
+
+Alexandre Abadie
+
+    Joblib pickle format change: joblib.dump always create a single pickle file
+    and joblib.dump/joblib.save never do any memory copy when writing/reading
+    pickle files. Reading pickle files generated with joblib versions prior
+    to 0.10 will be supported for a limited amount of time, we advise to
+    regenerate them from scratch when convenient.
+    joblib.dump and joblib.load also support pickle files compressed using
+    various strategies: zlib, gzip, bz2, lzma and xz. Note that lzma and xz are
+    only available with python >= 3.3.
+
 Release 0.9.5
 -------------
 
 Antony Lee
 
     ENH: joblib.dump/load now accept pathlib.Path objects as filenames.
-
+    
 Release 0.9.4
 -------------
 
