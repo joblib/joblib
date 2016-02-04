@@ -93,7 +93,7 @@ def read_zfile(file_handle):
     return data
 
 
-def write_zfile(file_handle, data, compress=1):
+def write_zfile(file_handle, data, compress=1, buffer_size=1024 ** 2):
     """Write the data in the given file as a Z-file.
 
     Z-files are raw data compressed with zlib used internally by joblib
@@ -104,7 +104,18 @@ def write_zfile(file_handle, data, compress=1):
     length = hex_str(len(data))
     # Store the length of the data
     file_handle.write(asbytes(length.ljust(_MAX_LEN)))
-    file_handle.write(zlib.compress(asbytes(data), compress))
+
+    # Stream the data compressed on the fly using a buffer
+    compressor = zlib.compressobj(compress)
+    data = asbytes(data)  # should already be bytes in no pathological cases
+    offset = 0
+    for i in range(len(data) // buffer_size):
+        chunk = data[offset:offset + buffer_size]
+        file_handle.write(compressor.compress(chunk))
+        offset += buffer_size
+    last_chunk = data[offset:]
+    file_handle.write(compressor.compress(last_chunk))
+    file_handle.write(compressor.flush())
 
 
 ###############################################################################
