@@ -18,7 +18,7 @@ import collections
 import pickle
 import random
 
-from nose.tools import assert_equal
+from nose.tools import assert_equal, assert_not_equal
 
 from joblib.hashing import hash
 from joblib.func_inspect import filter_args
@@ -393,6 +393,16 @@ def test_hashes_stay_the_same():
 
 
 @with_numpy
+def test_hashes_are_different_between_c_and_fortran_contiguous_arrays():
+    # We want to be sure that the c-contiguous and f-contiguous versions of the
+    # same array produce 2 different hashes.
+    rng = np.random.RandomState(0)
+    arr_c = rng.random_sample((10, 10))
+    arr_f = np.asfortranarray(arr_c)
+    assert_not_equal(hash(arr_c), hash(arr_f))
+
+
+@with_numpy
 def test_hashes_stay_the_same_with_numpy_objects():
     # We want to make sure that hashes don't change with joblib
     # version. For end users, that would mean that they have to
@@ -414,18 +424,31 @@ def test_hashes_stay_the_same_with_numpy_objects():
                 rng.randint(10, size=20).astype('<i8'),
                 rng.randn(10).astype('<f4')
             ]
-        }
+        },
+        # Non regression cases for https://github.com/joblib/joblib/issues/308.
+        # Generated with joblib 0.9.4.
+        np.arange(100, dtype='<i8').reshape((10, 10)),
+        # Fortran contiguous array
+        np.asfortranarray(np.arange(100, dtype='<i8').reshape((10, 10))),
+        # Non contiguous array
+        np.arange(100, dtype='<i8').reshape((10, 10))[:, :2],
     ]
 
     # These expected results have been generated with joblib 0.9.0
     expected_dict = {'py2': ['80f2387e7752abbda2658aafed49e086',
                              '0d700f7f25ea670fd305e4cd93b0e8cd',
                              '83a2bdf843e79e4b3e26521db73088b9',
-                             '63e0efd43c0a9ad92a07e8ce04338dd3'],
+                             '63e0efd43c0a9ad92a07e8ce04338dd3',
+                             '03fef702946b602c852b8b4e60929914',
+                             '07074691e90d7098a85956367045c81e',
+                             'd264cf79f353aa7bbfa8349e3df72d8f'],
                      'py3': ['10a6afc379ca2708acfbaef0ab676eab',
                              '988a7114f337f381393025911ebc823b',
                              'c6809f4b97e35f2fa0ee8d653cbd025c',
-                             'b3ad17348e32728a7eb9cda1e7ede438']}
+                             'b3ad17348e32728a7eb9cda1e7ede438',
+                             '927b3e6b0b6a037e8e035bda134e0b05',
+                             '108f6ee98e7db19ea2006ffd208f4bf1',
+                             'bd48ccaaff28e16e6badee81041b7180']}
 
     py_version_str = 'py3' if PY3_OR_LATER else 'py2'
     expected_list = expected_dict[py_version_str]
