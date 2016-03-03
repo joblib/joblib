@@ -16,6 +16,7 @@ import threading
 import itertools
 import warnings
 from numbers import Integral
+from contextlib import contextmanager
 try:
     import cPickle as pickle
 except:
@@ -32,10 +33,54 @@ from ._parallel_backends import (ParallelBackendBase, MultiprocessingBackend,
 from ._compat import _basestring
 
 
-VALID_BACKENDS = {'multiprocessing': MultiprocessingBackend,
-                  'threading': ThreadingBackend,
-                  'sequential': SequentialBackend}
-VALID_BACKENDS['default'] = VALID_BACKENDS['multiprocessing']
+BACKENDS = {
+    'multiprocessing': MultiprocessingBackend,
+    'threading': ThreadingBackend,
+    'sequential': SequentialBackend,
+}
+
+# name of the backend used by default by Parallel outside of any context
+# managed by ``parallel_backend``.
+DEFAULT_BACKEND = 'multiprocessing'
+
+# Thread local value that can be overriden by the ``parallel_backend`` context
+# manager
+_default_backend = threading.local()
+
+
+def get_default_backend():
+    """Return the active default backend"""
+    return getattr(_default_backend, 'active', None) or DEFAULT_BACKEND
+
+
+@contextmanager
+def parallel_backend(backend_name):
+    """Temporary change the default backend used by Parallel
+
+    Note: backend_name must match a previously registered implementation
+    using the ``register_parallel_backend`` function.
+
+    >>> print(get_default_backend())
+    multiprocessing
+
+    >>> with parallel_backend('threading'):
+    ...     print(get_default_backend())
+    ...
+    threading
+
+    The original default backend is restaured outside of the context:
+
+    >>> print(get_default_backend())
+    multiprocessing
+
+    """
+    old_backend = getattr(_default_backend, 'active', None)
+    try:
+        _default_backend.active = backend_name
+        yield
+    finally:
+        _default_backend.active = old_backend
+
 
 # Under Linux or OS X the default start method of multiprocessing
 # can cause third party libraries to crash. Under Python 3.4+ it is possible
@@ -67,8 +112,7 @@ class BatchedCalls(object):
 # CPU count that works also when multiprocessing has been disabled via
 # the JOBLIB_MULTIPROCESSING environment variable
 def cpu_count():
-    """ Return the number of CPUs.
-    """
+    """Return the number of CPUs."""
     if mp is None:
         return 1
     return mp.cpu_count()
@@ -150,38 +194,30 @@ class BatchCompletionCallBack(object):
 
 
 ###############################################################################
-def register_parallel_backend(name, cls):
-    """ Register a new Parallel backend.
+def register_parallel_backend(name, cls, make_default=False):
+    """Register a new Parallel backend.
 
     The new backend can then be selected by passing its name as the backend
     argument to the Parallel class. Moreover, the default backend can be
-    overwritten by setting the name to 'default'.
+    overwritten by setting make_default=True.
 
-    Notes
-    -----
-
-    Only the default backend can be overwritten. A ValueError will be raised
-    if an attempt is made to overwrite an already registered parallel backend.
     """
-    if name != "default" and name in VALID_BACKENDS:
-        raise ValueError(
-            "Can only overwrite the default backend: %s was already registered"
-            % name)
-
     if not issubclass(cls, ParallelBackendBase):
-        raise ValueError(
-            "Can only register a backend which extends SequentialBackend")
+        raise TypeError(
+            "%s is not does not derive from ParallelBackendBase" % cls)
 
-    VALID_BACKENDS[name] = cls
+    BACKENDS[name] = cls
+    if make_default:
+        global DEFAULT_BACKEND
+        DEFAULT_BACKEND = name
 
 
 ###############################################################################
-def effective_n_jobs():
-    """ Determine the number of jobs which are going to run in parallel, using
+def effective_n_jobs(n_jobs=-1):
+    """Determine the number of jobs which are going to run in parallel, using
     the current default parallel backend.
     """
-    default_backend = VALID_BACKENDS['default'](None)
-    return default_backend.effective_n_jobs(n_jobs=-1)
+    return BACKENDS[get_default_backend()](None).effective_n_jobs(n_jobs=-1)
 
 
 ###############################################################################
@@ -376,7 +412,7 @@ class Parallel(Logger):
          [Parallel(n_jobs=2)]: Done 5 out of 6 | elapsed:  0.0s remaining: 0.0s
          [Parallel(n_jobs=2)]: Done 6 out of 6 | elapsed:  0.0s finished
     '''
-    def __init__(self, n_jobs=1, backend='default', verbose=0,
+    def __init__(self, n_jobs=1, backend=None, verbose=0,
                  pre_dispatch='2 * n_jobs', batch_size='auto',
                  temp_folder=None, max_nbytes='1M', mmap_mode='r'):
         self.n_jobs = n_jobs
@@ -396,22 +432,23 @@ class Parallel(Logger):
             self._backend_args['context'] = DEFAULT_MP_CONTEXT
 
         if backend is None:
-            # `backend=None` was supported in 0.8.2 with this effect
-            backend = "default"
+            backend = get_default_backend()
         elif hasattr(backend, 'Pool') and hasattr(backend, 'Lock'):
             # Make it possible to pass a custom multiprocessing context as
             # backend to change the start method to forkserver or spawn or
             # preload modules on the forkserver helper process.
             self._backend_args['context'] = backend
             backend = "multiprocessing"
-        if backend not in VALID_BACKENDS:
-            raise ValueError("Invalid backend: %s, expected one of %r"
-                             % (backend, VALID_BACKENDS.keys()))
 
-        # Silently switch to sequential backend to reduce overhead
-        if backend == "default" and n_jobs == 1:
+        if backend not in BACKENDS:
+            raise ValueError("Invalid backend: %s, expected one of %r"
+                             % (backend, sorted(BACKENDS.keys())))
+
+        if backend in ('threading', 'multiprocessing') and n_jobs == 1:
+            # Silently switch to sequential backend to reduce uncessary
+            # overhead
             backend = "sequential"
-        self.backend_factory = VALID_BACKENDS[backend]
+        self.backend_factory = BACKENDS[backend]
 
         if (batch_size == 'auto' or isinstance(batch_size, Integral) and
                 batch_size > 0):
@@ -452,12 +489,10 @@ class Parallel(Logger):
 
         n_jobs = self._backend.effective_n_jobs(self.n_jobs)
         if (n_jobs == 1 and
-                self.backend_factory != VALID_BACKENDS['sequential']):
-            # Sequential mode: do not use a pool instance to avoid any
-            # useless dispatching overhead
-            warnings.warn('Switching multiprocessing-backed to sequential',
-                          stacklevel=3)
-            self._backend = VALID_BACKENDS['sequential'](self)
+                self.backend_factory != BACKENDS['sequential']):
+            # Sequential mode: avoid unnecessary dispatching overhead
+            warnings.warn('Switching to sequential backend', stacklevel=3)
+            self._backend = BACKENDS['sequential'](self)
 
         self.exceptions.extend(self._backend.get_exceptions())
 
