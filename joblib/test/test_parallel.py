@@ -11,6 +11,8 @@ import sys
 import io
 import os
 
+from joblib import parallel
+
 from joblib.test.common import np, with_numpy
 from joblib.test.common import with_multiprocessing
 from joblib.testing import check_subprocess_call
@@ -42,16 +44,17 @@ except ImportError:
 
 from joblib._parallel_backends import (SequentialBackend, SafeFunction,
                                        WorkerInterrupt)
-from joblib.parallel import (Parallel, delayed, register_parallel_backend)
+from joblib.parallel import Parallel, delayed
+from joblib.parallel import register_parallel_backend, parallel_backend
 
-from joblib.parallel import mp, cpu_count, VALID_BACKENDS, effective_n_jobs
+from joblib.parallel import mp, cpu_count, BACKENDS, effective_n_jobs
 from joblib.my_exceptions import JoblibException
 
 import nose
 from nose.tools import assert_equal, assert_true, assert_false, assert_raises
 
 
-ALL_VALID_BACKENDS = [None] + sorted(VALID_BACKENDS.keys())
+ALL_VALID_BACKENDS = [None] + sorted(BACKENDS.keys())
 
 if hasattr(mp, 'get_context'):
     # Custom multiprocessing context in Python 3.4+
@@ -159,8 +162,8 @@ def check_nested_loop(parent_backend, child_backend):
 
 
 def test_nested_loop():
-    for parent_backend in VALID_BACKENDS:
-        for child_backend in VALID_BACKENDS:
+    for parent_backend in BACKENDS:
+        for child_backend in BACKENDS:
             yield check_nested_loop, parent_backend, child_backend
 
 
@@ -181,7 +184,7 @@ def test_parallel_kwargs():
                Parallel(n_jobs=n_jobs)(delayed(f)(x, y=1) for x in lst))
 
 
-def check_parallel_context_manager(backend):
+def check_parallel_as_context_manager(backend):
     lst = range(10)
     expected = [f(x, y=1) for x in lst]
     with Parallel(n_jobs=4, backend=backend) as p:
@@ -211,7 +214,7 @@ def check_parallel_context_manager(backend):
 
 def test_parallel_context_manager():
     for backend in ['multiprocessing', 'threading']:
-        yield check_parallel_context_manager, backend
+        yield check_parallel_as_context_manager, backend
 
 
 def test_parallel_pickling():
@@ -349,7 +352,7 @@ def check_dispatch_one_job(backend):
 
 
 def test_dispatch_one_job():
-    for backend in VALID_BACKENDS:
+    for backend in BACKENDS:
         yield check_dispatch_one_job, backend
 
 
@@ -382,7 +385,7 @@ def check_dispatch_multiprocessing(backend):
 
 
 def test_dispatch_multiprocessing():
-    for backend in VALID_BACKENDS:
+    for backend in BACKENDS:
         if backend != "sequential":
             yield check_dispatch_multiprocessing, backend
 
@@ -454,24 +457,60 @@ def test_invalid_backend():
 
 
 def test_register_parallel_backend():
-    register_parallel_backend("unit-testing", MyParallelBackend)
-    assert_true("unit-testing" in VALID_BACKENDS)
-    assert_equal(VALID_BACKENDS["unit-testing"], MyParallelBackend)
+    try:
+        register_parallel_backend("test_backend", MyParallelBackend)
+        assert_true("test_backend" in BACKENDS)
+        assert_equal(BACKENDS["test_backend"], MyParallelBackend)
+    finally:
+        del BACKENDS["test_backend"]
 
 
 def test_overwrite_default_backend():
-    register_parallel_backend("default", VALID_BACKENDS["multiprocessing"])
-    assert_equal(VALID_BACKENDS["default"], VALID_BACKENDS["multiprocessing"])
-
-
-def test_overwrite_registered_backend():
-    assert_raises(ValueError, register_parallel_backend,
-                  'multiprocessing', MyParallelBackend)
+    assert_equal(parallel.get_default_backend(), 'multiprocessing')
+    try:
+        register_parallel_backend("threading", BACKENDS["threading"],
+                                  make_default=True)
+        assert_equal(parallel.get_default_backend(), 'threading')
+    finally:
+        # Restore the global default manually
+        parallel.DEFAULT_BACKEND = 'multiprocessing'
+    assert_equal(parallel.get_default_backend(), 'multiprocessing')
 
 
 def test_register_nosubclass_backend():
-    assert_raises(ValueError, register_parallel_backend,
-                  'unit-testing', object)
+    assert_raises(TypeError, register_parallel_backend, 'unit-testing', object)
+
+
+def check_backend_context_manager(backend_name):
+    with parallel_backend(backend_name):
+        assert_equal(parallel.get_default_backend(), backend_name)
+
+
+def test_backend_context_manager():
+    all_test_backends = ['test_backend_%d' % i for i in range(5)]
+    for test_backend in all_test_backends:
+        register_parallel_backend(test_backend, MyParallelBackend)
+
+    try:
+        assert_equal(parallel.get_default_backend(), 'multiprocessing')
+        # check that this possible to switch parallel backens sequentially
+        for test_backend in all_test_backends:
+            check_backend_context_manager(test_backend)
+
+        # The default backend is retored
+        assert_equal(parallel.get_default_backend(), 'multiprocessing')
+
+        # Check that context manager switching is thread safe:
+        Parallel(n_jobs=2, backend='threading')(
+            delayed(check_backend_context_manager)(b)
+            for b in all_test_backends)
+
+        # The default backend is again retored
+        assert_equal(parallel.get_default_backend(), 'multiprocessing')
+    finally:
+        for backend_name in list(BACKENDS.keys()):
+            if backend_name.startswith('test_'):
+                del BACKENDS[backend_name]
 
 
 ###############################################################################
