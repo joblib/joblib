@@ -1,6 +1,13 @@
 Latest changes
 ===============
 
+Release 0.9.5
+-------------
+
+Antony Lee
+
+    ENH: joblib.dump/load now accept Path objects as filenames.
+
 Release 0.9.4
 -------------
 

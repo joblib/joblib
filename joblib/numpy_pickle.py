@@ -12,6 +12,10 @@ import os
 import zlib
 import warnings
 from io import BytesIO
+try:
+    from pathlib import Path
+except ImportError:
+    Path = None
 
 from ._compat import _basestring, PY3_OR_LATER
 
@@ -353,8 +357,8 @@ def dump(value, filename, compress=0, cache_size=100, protocol=None):
     -----------
     value: any Python object
         The object to store to disk
-    filename: string
-        The name of the file in which it is to be stored
+    filename: string or pathlib.Path
+        The path of the file in which it is to be stored
     compress: integer for 0 to 9, optional
         Optional compression level for the data. 0 is no compression.
         Higher means more compression, but also slower read and
@@ -389,6 +393,8 @@ def dump(value, filename, compress=0, cache_size=100, protocol=None):
         # By default, if compress is enabled, we want to be using 3 by
         # default
         compress = 3
+    if Path is not None and isinstance(filename, Path):
+        filename = str(filename)
     if not isinstance(filename, _basestring):
         # People keep inverting arguments, and the resulting error is
         # incomprehensible
@@ -414,8 +420,8 @@ def load(filename, mmap_mode=None):
 
     Parameters
     -----------
-    filename: string
-        The name of the file from which to load the object
+    filename: string or pathlib.Path
+        The path of the file from which to load the object
     mmap_mode: {None, 'r+', 'r', 'w+', 'c'}, optional
         If not None, the arrays are memory-mapped from the disk. This
         mode has no effect for compressed files. Note that in this
@@ -440,6 +446,8 @@ def load(filename, mmap_mode=None):
     object might not match the original pickled object. Note that if the
     file was saved with compression, the arrays cannot be memmaped.
     """
+    if Path is not None and isinstance(filename, Path):
+        filename = str(filename)
     with open(filename, 'rb') as file_handle:
         # We are careful to open the file handle early and keep it open to
         # avoid race-conditions on renames. That said, if data are stored in
