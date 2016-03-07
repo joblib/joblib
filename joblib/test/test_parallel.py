@@ -477,10 +477,6 @@ def test_overwrite_default_backend():
     assert_equal(parallel.get_default_backend(), 'multiprocessing')
 
 
-def test_register_nosubclass_backend():
-    assert_raises(TypeError, register_parallel_backend, 'unit-testing', object)
-
-
 def check_backend_context_manager(backend_name):
     with parallel_backend(backend_name):
         assert_equal(parallel.get_default_backend(), backend_name)
@@ -563,20 +559,22 @@ def test_dispatch_race_condition():
 
 def test_default_mp_context():
     p = Parallel(n_jobs=2, backend='multiprocessing')
+    context = p._backend_args.get('context')
     if sys.version_info >= (3, 4):
+        start_method = context.get_start_method()
         # Under Python 3.4+ the multiprocessing context can be configured
         # by an environment variable
         env_method = os.environ.get('JOBLIB_START_METHOD', '').strip() or None
         if env_method is None:
             # Check the default behavior
             if sys.platform == 'win32':
-                assert_equal(p._mp_context.get_start_method(), 'spawn')
+                assert_equal(start_method, 'spawn')
             else:
-                assert_equal(p._mp_context.get_start_method(), 'fork')
+                assert_equal(start_method, 'fork')
         else:
-            assert_equal(p._mp_context.get_start_method(), env_method)
+            assert_equal(start_method, env_method)
     else:
-        assert_equal(p._mp_context, None)
+        assert_equal(context, None)
 
 
 @with_numpy

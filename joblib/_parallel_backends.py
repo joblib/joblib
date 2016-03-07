@@ -21,19 +21,35 @@ if mp is not None:
 class ParallelBackendBase(with_metaclass(ABCMeta)):
     """Helper abc which defines all methods a ParallelBackend must implement"""
 
-    def __init__(self, parallel):
-        self.parallel = parallel
-
     @abstractmethod
     def effective_n_jobs(self, n_jobs):
-        """Determine the number of jobs which are going to run in parallel"""
+        """Determine the number of jobs that can actually run in parallel
+
+        n_jobs is the is the number of workers requested by the callers.
+        Passing n_jobs=-1 means requesting all available workers for instance
+        matching the number of CPU cores on the worker host(s).
+
+        This method should return a guesstimate of the number of workers that
+        can actually perform work concurrently. The primary use case is to make
+        it possible for the caller to know in how many chunks to slice the
+        work.
+
+        In general working on larger data chunks is more efficient (less
+        scheduling overhead and better use of CPU cache prefetching heuristics)
+        as long as all the workers have enough work to do.
+        """
 
     @abstractmethod
     def apply_async(self, func, callback=None):
         """Schedule a func to be run"""
 
-    def initialize(self, n_jobs, backend_args):
-        """Build a process or thread pool and return the number of workers"""
+    def configure(self, n_jobs=1, parallel=None, **backend_args):
+        """Reconfigure the backend and return the number of workers.
+
+        This makes it possible to reuse an existing backend instance for
+        successive independent calls to Parallel with different parameters.
+        """
+        self.parallel = parallel
         return self.effective_n_jobs(n_jobs)
 
     def terminate(self):
@@ -67,10 +83,8 @@ class SequentialBackend(ParallelBackendBase):
     def apply_async(self, func, callback=None):
         """Schedule a func to be run"""
         result = ImmediateResult(func)
-
         if callback:
             callback(result)
-
         return result
 
 
@@ -191,8 +205,13 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
     "with nogil" block or an expensive call to a library such as NumPy).
     """
 
-    def initialize(self, n_jobs, backend_args):
+    def configure(self, n_jobs=1, parallel=None, **backend_args):
         """Build a process or thread pool and return the number of workers"""
+        n_jobs = self.effective_n_jobs(n_jobs)
+        if n_jobs == 1:
+            # Avoid unnecessary overhead and use sequential backend instead.
+            raise FallbackToBackend(SequentialBackend)
+        self.parallel = parallel
         self._pool = ThreadPool(n_jobs)
         return n_jobs
 
@@ -210,9 +229,11 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
     JOBLIB_SPAWNED_PROCESS = "__JOBLIB_SPAWNED_PARALLEL__"
 
     def effective_n_jobs(self, n_jobs):
-        """ Determine the number of jobs which are going to run in parallel.
-        Will also check if we're attempting to create a nested parallel
-        loop. """
+        """Determine the number of jobs which are going to run in parallel.
+
+        This also checks if we are attempting to create a nested parallel
+        loop.
+        """
         if mp.current_process().daemon:
             # Daemonic processes cannot have children
             warnings.warn(
@@ -229,10 +250,14 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
                 stacklevel=3)
             return 1
 
-        return PoolManagerMixin.effective_n_jobs(self, n_jobs)
+        return super(MultiprocessingBackend, self).effective_n_jobs(n_jobs)
 
-    def initialize(self, n_jobs, backend_args):
+    def configure(self, n_jobs=1, parallel=None, **backend_args):
         """Build a process or thread pool and return the number of workers"""
+        n_jobs = self.effective_n_jobs(n_jobs)
+        if n_jobs == 1:
+            raise FallbackToBackend(SequentialBackend)
+
         already_forked = int(os.environ.get(self.JOBLIB_SPAWNED_PROCESS, 0))
         if already_forked:
             raise ImportError(
@@ -249,6 +274,7 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
         # Make sure to free as much memory as possible before forking
         gc.collect()
         self._pool = MemmapingPool(n_jobs, **backend_args)
+        self.parallel = parallel
         return n_jobs
 
     def terminate(self):
@@ -295,3 +321,10 @@ class SafeFunction(object):
             e_type, e_value, e_tb = sys.exc_info()
             text = format_exc(e_type, e_value, e_tb, context=10, tb_offset=1)
             raise TransportableException(text, e_type)
+
+
+class FallbackToBackend(Exception):
+    """Raised when configuration should fallback to another backend"""
+
+    def __init__(self, backend_factory):
+        self.backend_factory = backend_factory
