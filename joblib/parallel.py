@@ -14,7 +14,6 @@ import functools
 import time
 import threading
 import itertools
-import warnings
 from numbers import Integral
 from contextlib import contextmanager
 try:
