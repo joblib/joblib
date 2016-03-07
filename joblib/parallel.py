@@ -28,7 +28,7 @@ from .format_stack import format_outer_frames
 from .logger import Logger, short_format_time
 from .my_exceptions import TransportableException, _mk_exception
 from .disk import memstr_to_kbytes
-from ._parallel_backends import (ParallelBackendBase, MultiprocessingBackend,
+from ._parallel_backends import (FallbackToBackend, MultiprocessingBackend,
                                  ThreadingBackend, SequentialBackend)
 from ._compat import _basestring
 
@@ -194,19 +194,29 @@ class BatchCompletionCallBack(object):
 
 
 ###############################################################################
-def register_parallel_backend(name, cls, make_default=False):
-    """Register a new Parallel backend.
+def register_parallel_backend(name, factory, make_default=False):
+    """Register a new Parallel backend factory.
 
     The new backend can then be selected by passing its name as the backend
     argument to the Parallel class. Moreover, the default backend can be
     overwritten by setting make_default=True.
 
-    """
-    if not issubclass(cls, ParallelBackendBase):
-        raise TypeError(
-            "%s is not does not derive from ParallelBackendBase" % cls)
+    The factory can be any callable that takes no argument and return an
+    instance of ParallelBackendBase. In case the backend needs to be
+    parameterized, it is possible to pass a closure a factory::
 
-    BACKENDS[name] = cls
+        class MyCustomBackend(ParallelBackendBase):
+            def __init__(self, some_parameter):
+                self.some_parameter = some_parameter
+
+            ...
+            # Do something with self.some_parameter somewhere in
+            # one of the method of the class
+
+        register_parallel_backend('custom', lambda: MyCustomBackend(42))
+
+    """
+    BACKENDS[name] = factory
     if make_default:
         global DEFAULT_BACKEND
         DEFAULT_BACKEND = name
@@ -217,7 +227,7 @@ def effective_n_jobs(n_jobs=-1):
     """Determine the number of jobs which are going to run in parallel, using
     the current default parallel backend.
     """
-    return BACKENDS[get_default_backend()](None).effective_n_jobs(n_jobs=-1)
+    return BACKENDS[get_default_backend()]().effective_n_jobs(n_jobs=-1)
 
 
 ###############################################################################
@@ -440,15 +450,11 @@ class Parallel(Logger):
             self._backend_args['context'] = backend
             backend = "multiprocessing"
 
-        if backend not in BACKENDS:
+        try:
+            self.backend_factory = BACKENDS[backend]
+        except KeyError:
             raise ValueError("Invalid backend: %s, expected one of %r"
                              % (backend, sorted(BACKENDS.keys())))
-
-        if backend in ('threading', 'multiprocessing') and n_jobs == 1:
-            # Silently switch to sequential backend to reduce uncessary
-            # overhead
-            backend = "sequential"
-        self.backend_factory = BACKENDS[backend]
 
         if (batch_size == 'auto' or isinstance(batch_size, Integral) and
                 batch_size > 0):
@@ -465,7 +471,6 @@ class Parallel(Logger):
         self._output = None
         self._jobs = list()
         self._managed_backend = False
-        self._mp_context = self._backend_args.get('context', None)
 
         # This lock is used coordinate the main thread of this process with
         # the async callback thread of our the pool.
@@ -482,21 +487,17 @@ class Parallel(Logger):
 
     def _initialize_backend(self):
         """Build a process or thread pool and return the number of workers"""
-        self._backend = self.backend_factory(self)
-
-        # The list of exceptions that we will capture
-        self.exceptions = [TransportableException]
-
-        n_jobs = self._backend.effective_n_jobs(self.n_jobs)
-        if (n_jobs == 1 and
-                self.backend_factory != BACKENDS['sequential']):
-            # Sequential mode: avoid unnecessary dispatching overhead
-            warnings.warn('Switching to sequential backend', stacklevel=3)
-            self._backend = BACKENDS['sequential'](self)
-
-        self.exceptions.extend(self._backend.get_exceptions())
-
-        return self._backend.initialize(n_jobs, self._backend_args)
+        self._backend = self.backend_factory()
+        try:
+            n_jobs = self._backend.configure(n_jobs=self.n_jobs, parallel=self,
+                                             **self._backend_args)
+            # The list of exceptions that we will capture
+            self.exceptions = [TransportableException]
+            self.exceptions.extend(self._backend.get_exceptions())
+            return n_jobs
+        except FallbackToBackend as e:
+            self.backend_factory = e.backend_factory
+            return self._initialize_backend()
 
     def _effective_n_jobs(self):
         if self._backend:
