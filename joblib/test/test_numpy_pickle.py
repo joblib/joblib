@@ -393,3 +393,17 @@ def test_numpy_subclass():
     numpy_pickle.dump(a, filename)
     c = numpy_pickle.load(filename)
     nose.tools.assert_true(isinstance(c, SubArray))
+
+
+def test_pathlib():
+    try:
+        from pathlib import Path
+    except ImportError:
+        pass
+    else:
+        filename = env['filename']
+        value = 123
+        numpy_pickle.dump(value, Path(filename))
+        nose.tools.assert_equal(numpy_pickle.load(filename), value)
+        numpy_pickle.dump(value, filename)
+        nose.tools.assert_equal(numpy_pickle.load(Path(filename)), value)
