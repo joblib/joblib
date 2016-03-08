@@ -6,7 +6,7 @@ Release 0.9.5
 
 Antony Lee
 
-    ENH: joblib.dump/load now accept Path objects as filenames.
+    ENH: joblib.dump/load now accept pathlib.Path objects as filenames.
 
 Release 0.9.4
 -------------
