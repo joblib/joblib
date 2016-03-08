@@ -198,6 +198,17 @@ def print_bench_summary(args):
 def bench_compress(dataset, name='',
                    compress=('zlib', 0), cache_size=0, tries=5):
     """Bench joblib dump and load functions, compress modes."""
+    # generate output compression strategy string before joblib compatibility
+    # check as it may override the compress variable with a non tuple type.
+    compress_str = "Raw" if compress[1] == 0 else "{0} {1}".format(*compress)
+
+    # joblib versions prior to 0.10 doesn't support tuple in compress argument
+    # so only the second element of the tuple is used for those versions
+    # and the compression strategy is ignored.
+    if (isinstance(compress, tuple) and
+            tuple(map(int, joblib.__version__.split('.')[:2])) < (0, 10)):
+        compress = compress[1]
+
     time_write = time_read = du = mem_read = mem_write = []
     clear_out()
     time_write, obj = timeit(joblib.dump, dataset, 'out/test.pkl',
@@ -212,7 +223,6 @@ def bench_compress(dataset, name='',
     time_read, obj = timeit(joblib.load, 'out/test.pkl', tries=tries)
     delete_obj(obj)
     mem_read = memory_used(joblib.load, 'out/test.pkl')
-    compress_str = "Raw" if compress[1] == 0 else "{0} {1}".format(*compress)
     print_line(name, compress_str, time_write, time_read,
                mem_write, mem_read, du)
 
