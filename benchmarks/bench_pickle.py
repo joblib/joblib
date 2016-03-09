@@ -92,7 +92,7 @@ def generate_rand_dict(size,
                        with_arrays=False,
                        with_string=False,
                        array_shape=(10, 10)):
-    """Generate dictionnary with random values from list of keys."""
+    """Generate dictionary with random values from list of keys."""
     ret = {}
     rnd = np.random.RandomState(0)
     randoms = rnd.random_sample((size))
@@ -146,7 +146,7 @@ def print_bench_summary(args):
         . Bench nifti data     : {5}
         . Bench big array      : {6}
         . Bench 2 big arrays   : {7}
-        . Bench big dictionnary: {8}
+        . Bench big dictionary: {8}
         . Bench array+dict     : {9}
 """.format(joblib.__version__,
            args.tries,
@@ -170,7 +170,7 @@ def print_bench_summary(args):
 
     if args.dict:
         summary += """
-    - Big dictionnary:
+    - Big dictionary:
         . number of keys: {0}
         . value type: {1}
 """.format(args.size, 'np.ndarray'
@@ -349,7 +349,7 @@ def run(args):
             del obj
 
     if args.dict:
-        # Big dictionnary
+        # Big dictionary
         name = '% 5s' % 'Big dict'
         array_shape = tuple(args.valuearrayshape)
         for compress_level in compress_levels:
@@ -371,7 +371,7 @@ def run(args):
             del big_dict
 
     if args.list:
-        # Big dictionnary
+        # Big dictionary
         name = '% 5s' % 'Big list'
         array_shape = tuple(args.valuearrayshape)
         for compress_level in compress_levels:
@@ -437,7 +437,7 @@ if __name__ == "__main__":
     parser.add_argument("-m", "--nommap", action="store_true",
                         help="Don't bench memmap")
     parser.add_argument('--size', type=int, default=10000,
-                        help="Big dictionnary size.")
+                        help="Big dictionary size.")
     parser.add_argument('--valuearray', action="store_true",
                         help="Use numpy arrays type in containers "
                              "(list, dict)")
@@ -453,11 +453,11 @@ if __name__ == "__main__":
     parser.add_argument("-A", "--arrays", action="store_true",
                         help="Benchmark list of big numpy arrays")
     parser.add_argument("-d", "--dict", action="store_true",
-                        help="Benchmark big dictionnary.")
+                        help="Benchmark big dictionary.")
     parser.add_argument("-l", "--list", action="store_true",
                         help="Benchmark big list.")
     parser.add_argument("-c", "--combo", action="store_true",
-                        help="Benchmark big dictionnary + list of "
+                        help="Benchmark big dictionary + list of "
                              "big numpy arrays.")
     parser.add_argument("-s", "--summary", action="store_true",
                         help="Show bench summary.")
