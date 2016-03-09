@@ -14,14 +14,13 @@ Alexandre Abadie
     joblib.dump and joblib.load also support pickle files compressed using
     various strategies: zlib, gzip, bz2, lzma and xz. Note that lzma and xz are
     only available with python >= 3.3.
-
-Release 0.9.5
--------------
+    https://github.com/joblib/joblib/pull/260 for more details.
 
 Antony Lee
 
     ENH: joblib.dump/load now accept pathlib.Path objects as filenames.
-    
+    https://github.com/joblib/joblib/pull/316 for more details.
+
 Release 0.9.4
 -------------
 
