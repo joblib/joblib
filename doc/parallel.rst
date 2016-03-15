@@ -148,8 +148,8 @@ backend factory.
 The backend factory can be any callable that takes no argument and return an
 instance of ``ParallelBackendBase``. Moreover, the default backend can be
 overwritten globally by setting ``make_default=True``. Please refer to the
-`default backends source code`_ as a reference if you want to implement own
-custom backend.
+`default backends source code`_ as a reference if you want to implement your
+own custom backend.
 
 .. _`default backends source code`: https://github.com/joblib/joblib/blob/master/joblib/_parallel_backends.py
 
@@ -167,7 +167,7 @@ computing service along with some connection credentials::
         # one of the method of the class
 
     register_parallel_backend(
-       'custom', lambda: MyCustomBackend(),'example.com', 'deadbeefcafebabe'))
+       'custom', lambda: MyCustomBackend('example.com', 'deadbeefcafebabe'))
 
 The new backend can then be enabled by passing its name as the ``backend``
 argument to the constructor of the :class:`joblib.Parallel` class::
