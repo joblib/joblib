@@ -262,7 +262,7 @@ class Parallel(Logger):
             Supported backends are:
               - "multiprocessing" used by default, can induce some
                 communication and memory overhead when exchanging input and
-                output data with the with the worker Python processes.
+                output data with the worker Python processes.
               - "threading" is a very low-overhead backend but it suffers
                 from the Python Global Interpreter Lock if the called function
                 relies a lot on Python objects. "threading" is mostly useful
