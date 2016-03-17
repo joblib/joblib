@@ -41,6 +41,7 @@ BACKENDS = {
 # name of the backend used by default by Parallel outside of any context
 # managed by ``parallel_backend``.
 DEFAULT_BACKEND = 'multiprocessing'
+DEFAULT_N_JOBS = 1
 
 # Thread local value that can be overriden by the ``parallel_backend`` context
 # manager
@@ -49,24 +50,28 @@ _default_backend = threading.local()
 
 def get_default_backend():
     """Return the active default backend"""
-    return getattr(_default_backend, 'active', None) or DEFAULT_BACKEND
+    return (getattr(_default_backend, 'active', None) or
+            (DEFAULT_BACKEND, DEFAULT_N_JOBS))
 
 
 @contextmanager
-def parallel_backend(backend_name):
+def parallel_backend(backend_name, n_jobs=-1):
     """Change the default backend used by Parallel inside a with block.
 
     Note: backend_name must match a previously registered implementation
     using the ``register_parallel_backend`` function.
 
-    This is an alternative to passing a backend='backend_name' argument to the
-    ``Parallel`` class constructor. It is particularly useful when calling
+    By default all available workers will be used (``n_jobs=-1``) unless the
+    caller passes an explicit value for the ``n_jobs`` parameter.
+
+    This is an alternative to passing a ``backend='backend_name'`` argument to
+    the ``Parallel`` class constructor. It is particularly useful when calling
     into library code that uses joblib internally but does not expose the
     backend argument in its own API.
 
     >>> from operator import neg
     >>> with parallel_backend('threading'):
-    ...     print(Parallel(n_jobs=2)(delayed(neg)(i + 1) for i in range(5)))
+    ...     print(Parallel()(delayed(neg)(i + 1) for i in range(5)))
     ...
     [-1, -2, -3, -4, -5]
 
@@ -78,10 +83,13 @@ def parallel_backend(backend_name):
     """
     old_backend = getattr(_default_backend, 'active', None)
     try:
-        _default_backend.active = backend_name
+        _default_backend.active = (backend_name, n_jobs)
         yield
     finally:
-        _default_backend.active = old_backend
+        if old_backend is None:
+            del _default_backend.active
+        else:
+            _default_backend.active = old_backend
 
 
 # Under Linux or OS X the default start method of multiprocessing
@@ -240,7 +248,8 @@ def effective_n_jobs(n_jobs=-1):
     .. versionadded:: 0.10
 
     """
-    return BACKENDS[get_default_backend()]().effective_n_jobs(n_jobs=-1)
+    default_name, _ = get_default_backend()
+    return BACKENDS[default_name]().effective_n_jobs(n_jobs=n_jobs)
 
 
 ###############################################################################
@@ -438,6 +447,11 @@ class Parallel(Logger):
     def __init__(self, n_jobs=1, backend=None, verbose=0,
                  pre_dispatch='2 * n_jobs', batch_size='auto',
                  temp_folder=None, max_nbytes='1M', mmap_mode='r'):
+        default_backend_name, default_backend_n_jobs = get_default_backend()
+        if backend is None and n_jobs == 1:
+            # If we are under a parallel_backend context manager, look up
+            # the default number of jobs:
+            n_jobs = default_backend_n_jobs
         self.n_jobs = n_jobs
         self.verbose = verbose
         self.pre_dispatch = pre_dispatch
@@ -455,7 +469,7 @@ class Parallel(Logger):
             self._backend_args['context'] = DEFAULT_MP_CONTEXT
 
         if backend is None:
-            backend = get_default_backend()
+            backend = default_backend_name
         elif hasattr(backend, 'Pool') and hasattr(backend, 'Lock'):
             # Make it possible to pass a custom multiprocessing context as
             # backend to change the start method to forkserver or spawn or

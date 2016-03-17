@@ -448,8 +448,18 @@ def test_multiple_spawning():
                   [delayed(_reload_joblib)() for i in range(10)])
 
 
-class MyParallelBackend(SequentialBackend):
-    pass
+class FakeParallelBackend(SequentialBackend):
+    """Pretends to run conncurrently while running sequentially."""
+
+    def configure(self, n_jobs=1, parallel=None, **backend_args):
+        self.n_jobs = self.effective_n_jobs(n_jobs)
+        self.parallel = parallel
+        return n_jobs
+
+    def effective_n_jobs(self, n_jobs=1):
+        if n_jobs < 0:
+            n_jobs = max(mp.cpu_count() + 1 + n_jobs, 1)
+        return n_jobs
 
 
 def test_invalid_backend():
@@ -458,51 +468,63 @@ def test_invalid_backend():
 
 def test_register_parallel_backend():
     try:
-        register_parallel_backend("test_backend", MyParallelBackend)
+        register_parallel_backend("test_backend", FakeParallelBackend)
         assert_true("test_backend" in BACKENDS)
-        assert_equal(BACKENDS["test_backend"], MyParallelBackend)
+        assert_equal(BACKENDS["test_backend"], FakeParallelBackend)
     finally:
         del BACKENDS["test_backend"]
 
 
 def test_overwrite_default_backend():
-    assert_equal(parallel.get_default_backend(), 'multiprocessing')
+    assert_equal(parallel.get_default_backend()[0], 'multiprocessing')
     try:
         register_parallel_backend("threading", BACKENDS["threading"],
                                   make_default=True)
-        assert_equal(parallel.get_default_backend(), 'threading')
+        assert_equal(parallel.get_default_backend()[0], 'threading')
     finally:
         # Restore the global default manually
         parallel.DEFAULT_BACKEND = 'multiprocessing'
-    assert_equal(parallel.get_default_backend(), 'multiprocessing')
+    assert_equal(parallel.get_default_backend()[0], 'multiprocessing')
 
 
 def check_backend_context_manager(backend_name):
-    with parallel_backend(backend_name):
-        assert_equal(parallel.get_default_backend(), backend_name)
+    with parallel_backend(backend_name, n_jobs=3):
+        active_backend_name, active_n_jobs = parallel.get_default_backend()
+        assert_equal(active_backend_name, backend_name)
+        assert_equal(active_n_jobs, 3)
+        assert_equal(effective_n_jobs(3), 3)
+        p = Parallel()
+        assert_equal(p.n_jobs, 3)
+        if backend_name == 'multiprocessing':
+            assert_equal(p.backend_factory.__name__, 'MultiprocessingBackend')
+        elif backend_name == 'threading':
+            assert_equal(p.backend_factory.__name__, 'ThreadingBackend')
+        elif backend_name.startswith('test_'):
+            assert_equal(p.backend_factory.__name__, 'FakeParallelBackend')
 
 
 def test_backend_context_manager():
-    all_test_backends = ['test_backend_%d' % i for i in range(5)]
+    all_test_backends = ['test_backend_%d' % i for i in range(3)]
     for test_backend in all_test_backends:
-        register_parallel_backend(test_backend, MyParallelBackend)
+        register_parallel_backend(test_backend, FakeParallelBackend)
+    all_backends = ['multiprocessing', 'threading'] + all_test_backends
 
     try:
-        assert_equal(parallel.get_default_backend(), 'multiprocessing')
-        # check that this possible to switch parallel backens sequentially
-        for test_backend in all_test_backends:
-            check_backend_context_manager(test_backend)
+        assert_equal(parallel.get_default_backend(), ('multiprocessing', 1))
+        # check that this possible to switch parallel backends sequentially
+        for test_backend in all_backends:
+            yield check_backend_context_manager, test_backend
 
         # The default backend is retored
-        assert_equal(parallel.get_default_backend(), 'multiprocessing')
+        assert_equal(parallel.get_default_backend(), ('multiprocessing', 1))
 
         # Check that context manager switching is thread safe:
         Parallel(n_jobs=2, backend='threading')(
             delayed(check_backend_context_manager)(b)
-            for b in all_test_backends)
+            for b in all_backends if not b)
 
         # The default backend is again retored
-        assert_equal(parallel.get_default_backend(), 'multiprocessing')
+        assert_equal(parallel.get_default_backend(), ('multiprocessing', 1))
     finally:
         for backend_name in list(BACKENDS.keys()):
             if backend_name.startswith('test_'):

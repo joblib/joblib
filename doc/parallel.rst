@@ -177,8 +177,8 @@ argument to the constructor of the :class:`joblib.Parallel` class::
 
 or equivalently by using the :func:`joblib.parallel_backend` context manager::
 
-    with parallel_backend('custom'):
-        Parallel(n_jobs=2)(delayed(some_function)(i) for i in range(10))
+    with parallel_backend('custom', n_jobs=2):
+        Parallel()(delayed(some_function)(i) for i in range(10))
 
 Using the context manager can be helpful when using a third-party library that
 uses :class:`joblib.Parallel` internally while not exposing the ``backend``
