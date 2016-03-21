@@ -88,15 +88,16 @@ def parallel_backend(backend, n_jobs=-1, **backend_params):
     .. versionadded:: 0.10
 
     """
+    if isinstance(backend, _basestring):
+        backend = BACKENDS[backend](**backend_params)
     old_backend_and_jobs = getattr(_backend, 'backend_and_jobs', None)
     try:
-        if isinstance(backend, _basestring):
-            backend = BACKENDS[backend](**backend_params)
         _backend.backend_and_jobs = (backend, n_jobs)
         yield
     finally:
         if old_backend_and_jobs is None:
-            del _backend.backend_and_jobs
+            if getattr(_backend, 'backend_and_jobs', None) is not None:
+                del _backend.backend_and_jobs
         else:
             _backend.backend_and_jobs = old_backend_and_jobs
 
