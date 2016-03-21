@@ -145,40 +145,33 @@ default. A backend is registered with the
 :func:`joblib.register_parallel_backend` function by passing a name and a
 backend factory.
 
-The backend factory can be any callable that takes no argument and return an
-instance of ``ParallelBackendBase``. Moreover, the default backend can be
-overwritten globally by setting ``make_default=True``. Please refer to the
-`default backends source code`_ as a reference if you want to implement your
-own custom backend.
+The backend factory can be any callable that returns an instance of
+``ParallelBackendBase``. Please refer to the `default backends source code`_ as
+a reference if you want to implement your own custom backend.
 
 .. _`default backends source code`: https://github.com/joblib/joblib/blob/master/joblib/_parallel_backends.py
 
-Users can pass a lambda closure as a factory when the backend needs to be
-parameterized, for instance to give the network address to a remote cluster
-computing service along with some connection credentials::
+Note that it is possible to register a backend class that has some mandatory
+constructor parameters such as the network address and connection credentials
+for a remote cluster computing service::
 
     class MyCustomBackend(ParallelBackendBase):
-        def __init__(self, hostname, api_key):
-           self.hostname = hostname
+
+        def __init__(self, endpoint, api_key):
+           self.endpoint = endpoint
            self.api_key = api_key
 
         ...
-        # Do something with self.hostname and self.api_key somewhere in
+        # Do something with self.endpoint and self.api_key somewhere in
         # one of the method of the class
 
-    register_parallel_backend(
-       'custom', lambda: MyCustomBackend('example.com', 'deadbeefcafebabe'))
+    register_parallel_backend('custom', MyCustomBackend)
 
-The new backend can then be enabled by passing its name as the ``backend``
-argument to the constructor of the :class:`joblib.Parallel` class::
+The connection parameters can then be passed to the
+:func:`joblib.parallel_backend` context manager::
 
-    Parallel(n_jobs=2, backend='custom')(
-        delayed(some_function)(i) for i in range(10))
-
-or equivalently by using the :func:`joblib.parallel_backend` context manager::
-
-    with parallel_backend('custom'):
-        Parallel(n_jobs=2)(delayed(some_function)(i) for i in range(10))
+    with parallel_backend('custom', endpoint='http://compute', api_key='42'):
+        Parallel()(delayed(some_function)(i) for i in range(10))
 
 Using the context manager can be helpful when using a third-party library that
 uses :class:`joblib.Parallel` internally while not exposing the ``backend``

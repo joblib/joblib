@@ -210,7 +210,7 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
         n_jobs = self.effective_n_jobs(n_jobs)
         if n_jobs == 1:
             # Avoid unnecessary overhead and use sequential backend instead.
-            raise FallbackToBackend(SequentialBackend)
+            raise FallbackToBackend(SequentialBackend())
         self.parallel = parallel
         self._pool = ThreadPool(n_jobs)
         return n_jobs
@@ -256,7 +256,7 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
         """Build a process or thread pool and return the number of workers"""
         n_jobs = self.effective_n_jobs(n_jobs)
         if n_jobs == 1:
-            raise FallbackToBackend(SequentialBackend)
+            raise FallbackToBackend(SequentialBackend())
 
         already_forked = int(os.environ.get(self.JOBLIB_SPAWNED_PROCESS, 0))
         if already_forked:
@@ -326,5 +326,5 @@ class SafeFunction(object):
 class FallbackToBackend(Exception):
     """Raised when configuration should fallback to another backend"""
 
-    def __init__(self, backend_factory):
-        self.backend_factory = backend_factory
+    def __init__(self, backend):
+        self.backend = backend

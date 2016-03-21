@@ -41,32 +41,44 @@ BACKENDS = {
 # name of the backend used by default by Parallel outside of any context
 # managed by ``parallel_backend``.
 DEFAULT_BACKEND = 'multiprocessing'
+DEFAULT_N_JOBS = 1
 
 # Thread local value that can be overriden by the ``parallel_backend`` context
 # manager
-_default_backend = threading.local()
+_backend = threading.local()
 
 
-def get_default_backend():
+def get_active_backend():
     """Return the active default backend"""
-    return getattr(_default_backend, 'active', None) or DEFAULT_BACKEND
+    active_backend_and_jobs = getattr(_backend, 'backend_and_jobs', None)
+    if active_backend_and_jobs is not None:
+        return active_backend_and_jobs
+    # We are outside of the scope of any parallel_backend context manager,
+    # create the default backend instance now
+    active_backend = BACKENDS[DEFAULT_BACKEND]()
+    return active_backend, DEFAULT_N_JOBS
 
 
 @contextmanager
-def parallel_backend(backend_name):
+def parallel_backend(backend, n_jobs=-1, **backend_params):
     """Change the default backend used by Parallel inside a with block.
 
-    Note: backend_name must match a previously registered implementation
-    using the ``register_parallel_backend`` function.
+    If ``backend`` is a string it must match a previously registered
+    implementation using the ``register_parallel_backend`` function.
 
-    This is an alternative to passing a backend='backend_name' argument to the
-    ``Parallel`` class constructor. It is particularly useful when calling
+    Alternatively backend can be passed directly as an instance.
+
+    By default all available workers will be used (``n_jobs=-1``) unless the
+    caller passes an explicit value for the ``n_jobs`` parameter.
+
+    This is an alternative to passing a ``backend='backend_name'`` argument to
+    the ``Parallel`` class constructor. It is particularly useful when calling
     into library code that uses joblib internally but does not expose the
     backend argument in its own API.
 
     >>> from operator import neg
     >>> with parallel_backend('threading'):
-    ...     print(Parallel(n_jobs=2)(delayed(neg)(i + 1) for i in range(5)))
+    ...     print(Parallel()(delayed(neg)(i + 1) for i in range(5)))
     ...
     [-1, -2, -3, -4, -5]
 
@@ -76,12 +88,17 @@ def parallel_backend(backend_name):
     .. versionadded:: 0.10
 
     """
-    old_backend = getattr(_default_backend, 'active', None)
+    old_backend_and_jobs = getattr(_backend, 'backend_and_jobs', None)
     try:
-        _default_backend.active = backend_name
+        if isinstance(backend, _basestring):
+            backend = BACKENDS[backend](**backend_params)
+        _backend.backend_and_jobs = (backend, n_jobs)
         yield
     finally:
-        _default_backend.active = old_backend
+        if old_backend_and_jobs is None:
+            del _backend.backend_and_jobs
+        else:
+            _backend.backend_and_jobs = old_backend_and_jobs
 
 
 # Under Linux or OS X the default start method of multiprocessing
@@ -240,7 +257,8 @@ def effective_n_jobs(n_jobs=-1):
     .. versionadded:: 0.10
 
     """
-    return BACKENDS[get_default_backend()]().effective_n_jobs(n_jobs=-1)
+    backend, _ = get_active_backend()
+    return backend.effective_n_jobs(n_jobs=n_jobs)
 
 
 ###############################################################################
@@ -438,6 +456,11 @@ class Parallel(Logger):
     def __init__(self, n_jobs=1, backend=None, verbose=0,
                  pre_dispatch='2 * n_jobs', batch_size='auto',
                  temp_folder=None, max_nbytes='1M', mmap_mode='r'):
+        active_backend, default_n_jobs = get_active_backend()
+        if backend is None and n_jobs == 1:
+            # If we are under a parallel_backend context manager, look up
+            # the default number of jobs and use that instead:
+            n_jobs = default_n_jobs
         self.n_jobs = n_jobs
         self.verbose = verbose
         self.pre_dispatch = pre_dispatch
@@ -455,19 +478,20 @@ class Parallel(Logger):
             self._backend_args['context'] = DEFAULT_MP_CONTEXT
 
         if backend is None:
-            backend = get_default_backend()
+            backend = active_backend
         elif hasattr(backend, 'Pool') and hasattr(backend, 'Lock'):
             # Make it possible to pass a custom multiprocessing context as
             # backend to change the start method to forkserver or spawn or
             # preload modules on the forkserver helper process.
             self._backend_args['context'] = backend
-            backend = "multiprocessing"
-
-        try:
-            self.backend_factory = BACKENDS[backend]
-        except KeyError:
-            raise ValueError("Invalid backend: %s, expected one of %r"
-                             % (backend, sorted(BACKENDS.keys())))
+            backend = MultiprocessingBackend()
+        else:
+            try:
+                backend_factory = BACKENDS[backend]
+            except KeyError:
+                raise ValueError("Invalid backend: %s, expected one of %r"
+                                 % (backend, sorted(BACKENDS.keys())))
+            backend = backend_factory()
 
         if (batch_size == 'auto' or isinstance(batch_size, Integral) and
                 batch_size > 0):
@@ -477,10 +501,7 @@ class Parallel(Logger):
                 "batch_size must be 'auto' or a positive integer, got: %r"
                 % batch_size)
 
-        # Not starting the pool in the __init__ is a design decision, to be
-        # able to close it ASAP, and not burden the user with closing it
-        # unless they choose to use the context manager API with a with block.
-        self._backend = None
+        self._backend = backend
         self._output = None
         self._jobs = list()
         self._managed_backend = False
@@ -500,7 +521,6 @@ class Parallel(Logger):
 
     def _initialize_backend(self):
         """Build a process or thread pool and return the number of workers"""
-        self._backend = self.backend_factory()
         try:
             n_jobs = self._backend.configure(n_jobs=self.n_jobs, parallel=self,
                                              **self._backend_args)
@@ -509,7 +529,8 @@ class Parallel(Logger):
             self.exceptions.extend(self._backend.get_exceptions())
             return n_jobs
         except FallbackToBackend as e:
-            self.backend_factory = e.backend_factory
+            self._backend = e.backend
+            # make the configure fallback mechanism recursive
             return self._initialize_backend()
 
     def _effective_n_jobs(self):
@@ -520,7 +541,6 @@ class Parallel(Logger):
     def _terminate_backend(self):
         if self._backend is not None:
             self._backend.terminate()
-            self._backend = None
 
     def _dispatch(self, batch):
         """Queue the batch for computing, with or without multiprocessing
