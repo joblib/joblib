@@ -633,6 +633,7 @@ class Parallel(Logger):
             index = self.n_dispatched_batches
             # We are finished dispatching
             total_tasks = self.n_dispatched_tasks
+
             # We always display the first loop
             if not index == 0:
                 # Display depending on the number of remaining items
@@ -645,12 +646,14 @@ class Parallel(Logger):
                     return
             remaining_time = (elapsed_time / (index + 1) *
                               (self.n_dispatched_tasks - index - 1.))
-            self._print('Done %3i out of %3i | elapsed: %s remaining: %s',
-                        (index + 1,
-                         total_tasks,
-                         short_format_time(elapsed_time),
-                         short_format_time(remaining_time),
-                        ))
+            # only display status if remaining time is greater or equal to 0
+            if remaining_time >= 0:
+                self._print('Done %3i out of %3i | elapsed: %s remaining: %s',
+                            (index + 1,
+                             total_tasks,
+                             short_format_time(elapsed_time),
+                             short_format_time(remaining_time),
+                             ))
 
     def retrieve(self):
         self._output = list()
