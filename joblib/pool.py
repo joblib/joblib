@@ -549,7 +549,16 @@ class MemmapingPool(PicklingPool):
         # self to ensure that this callback won't prevent garbage collection of
         # the pool instance and related file handler resources such as POSIX
         # semaphores and pipes
-        atexit.register(lambda: delete_folder(pool_folder))
+        def _cleanup():
+            # In some cases the Python runtime seems to set delete_folder to
+            # None just before exiting when accessing the delete_folder
+            # function from the closure namespace. So instead we reimport
+            # the delete_folder function explicitly.
+            # https://github.com/joblib/joblib/issues/328
+            from .pool import delete_folder
+            delete_folder(pool_folder)
+
+        atexit.register(_cleanup)
 
         if np is not None:
             # Register smart numpy.ndarray reducers that detects memmap backed
