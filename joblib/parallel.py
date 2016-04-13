@@ -620,16 +620,19 @@ class Parallel(Logger):
             return
         elapsed_time = time.time() - self._start_time
 
-        # This is heuristic code to print only 'verbose' times a messages
-        # The challenge is that we may not know the queue length
-        if len(self._jobs) > 0 or getattr(self, "_iterating", False):
+        # Original job iterator becomes None once it has been fully
+        # consumed : at this point we know the total number of jobs and we are
+        # able to display an estimation of the remaining time based on already
+        # completed jobs. Otherwise, we simply display the number of completed
+        # tasks.
+        if self._original_iterator is not None:
             if _verbosity_filter(self.n_dispatched_batches, self.verbose):
                 return
             self._print('Done %3i tasks      | elapsed: %s',
                         (self.n_completed_tasks,
                          short_format_time(elapsed_time), ))
         else:
-            index = self.n_dispatched_batches
+            index = self.n_completed_tasks
             # We are finished dispatching
             total_tasks = self.n_dispatched_tasks
             # We always display the first loop
