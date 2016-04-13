@@ -592,7 +592,7 @@ class Parallel(Logger):
 
         with self._lock:
             tasks = BatchedCalls(itertools.islice(iterator, batch_size))
-            if not tasks:
+            if len(tasks) == 0:
                 # No more tasks available in the iterator: tell caller to stop.
                 return False
             else:
@@ -620,37 +620,40 @@ class Parallel(Logger):
             return
         elapsed_time = time.time() - self._start_time
 
-        # This is heuristic code to print only 'verbose' times a messages
-        # The challenge is that we may not know the queue length
-        if self._original_iterator:
+        # Original job iterator becomes None once it has been fully
+        # consumed : at this point we know the total number of jobs and we are
+        # able to display an estimation of the remaining time based on already
+        # completed jobs. Otherwise, we simply display the number of completed
+        # tasks.
+        if self._original_iterator is not None:
             if _verbosity_filter(self.n_dispatched_batches, self.verbose):
                 return
             self._print('Done %3i tasks      | elapsed: %s',
                         (self.n_completed_tasks,
-                         short_format_time(elapsed_time),
-                        ))
+                         short_format_time(elapsed_time), ))
         else:
-            index = self.n_dispatched_batches
+            index = self.n_completed_tasks
             # We are finished dispatching
             total_tasks = self.n_dispatched_tasks
             # We always display the first loop
             if not index == 0:
                 # Display depending on the number of remaining items
                 # A message as soon as we finish dispatching, cursor is 0
-                cursor = (total_tasks - index + 1
-                          - self._pre_dispatch_amount)
+                cursor = (total_tasks - index + 1 -
+                          self._pre_dispatch_amount)
                 frequency = (total_tasks // self.verbose) + 1
                 is_last_item = (index + 1 == total_tasks)
                 if (is_last_item or cursor % frequency):
                     return
-            remaining_time = (elapsed_time / (index + 1) *
-                              (self.n_dispatched_tasks - index - 1.))
+            remaining_time = (elapsed_time / index) * \
+                             (self.n_dispatched_tasks - index * 1.0)
+            # only display status if remaining time is greater or equal to 0
             self._print('Done %3i out of %3i | elapsed: %s remaining: %s',
-                        (index + 1,
+                        (index,
                          total_tasks,
                          short_format_time(elapsed_time),
                          short_format_time(remaining_time),
-                        ))
+                         ))
 
     def retrieve(self):
         self._output = list()
