@@ -262,7 +262,7 @@ def test_parallel_timeout_fail():
     # Check that timeout properly fails when function is too slow
     nose.tools.assert_raises(
         TimeoutError,
-        Parallel(n_jobs=2, timeout=0.01), 
+        Parallel(n_jobs=2, timeout=0.01),
         (delayed(sleep)(10) for x in range(10))
     )
 
