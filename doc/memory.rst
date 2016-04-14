@@ -189,14 +189,6 @@ return value is loaded from the disk using memmapping::
    suggest you use the 'c' mode: copy on write.
 
 
-.. warning::
-
-   Because in the first run the array is a plain ndarray, and in the
-   second run the array is a memmap, you can have side effects of using
-   the `Memory`, especially when using `mmap_mode='r'` as the array is
-   writable in the first run, and not the second.
-
-
 Shelving: using references to cached values
 -------------------------------------------
 
@@ -253,7 +245,7 @@ Gotchas
 --------
 
 * **Across sessions, function cache is identified by the function's name**.
-  Thus if you have the same name to different functions, their cache will
+  Thus if you assign the same name to different functions, their cache will
   override each-others (you have 'name collisions'), and you will get
   unwanted re-run::
 

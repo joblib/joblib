@@ -3,7 +3,7 @@ Unit tests for the disk utilities.
 """
 
 # Authors: Gael Varoquaux <gael dot varoquaux at normalesup dot org>
-#          Lars Buitinck <L.J.Buitinck@uva.nl>
+#          Lars Buitinck
 # Copyright (c) 2010 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
@@ -16,7 +16,7 @@ from tempfile import mkdtemp
 
 import nose
 
-from ..disk import disk_used, memstr_to_kbytes, mkdirp
+from joblib.disk import disk_used, memstr_to_kbytes, mkdirp
 
 
 ###############################################################################

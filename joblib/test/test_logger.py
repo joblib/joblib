@@ -13,7 +13,7 @@ import io
 from tempfile import mkdtemp
 import re
 
-from ..logger import PrintTime
+from joblib.logger import PrintTime
 
 try:
     # Python 2/Python 3 compat

@@ -120,9 +120,7 @@ class UploadDoc(upload):
             http.putheader('Authorization', auth)
             http.endheaders()
             http.send(body)
-        except socket.error:
-            # Cannot use 'except as' to maintain Python 2.5 compatibility
-            e = sys.exc_info()[1]
+        except socket.error as e:
             self.announce(str(e), log.ERROR)
             return
 

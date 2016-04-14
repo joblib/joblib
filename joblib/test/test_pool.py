@@ -2,22 +2,23 @@ import os
 import shutil
 import tempfile
 
-from nose import SkipTest
 from nose.tools import with_setup
 from nose.tools import assert_equal
 from nose.tools import assert_raises
 from nose.tools import assert_false
 from nose.tools import assert_true
-from .common import with_numpy, np
-from .common import setup_autokill
-from .common import teardown_autokill
+from joblib.test.common import with_numpy, np
+from joblib.test.common import setup_autokill
+from joblib.test.common import teardown_autokill
+from joblib.test.common import with_multiprocessing
+from joblib.test.common import with_dev_shm
 
-from .._multiprocessing_helpers import mp
+from joblib._multiprocessing_helpers import mp
 if mp is not None:
-    from ..pool import MemmapingPool
-    from ..pool import has_shareable_memory
-    from ..pool import ArrayMemmapReducer
-    from ..pool import reduce_memmap
+    from joblib.pool import MemmapingPool
+    from joblib.pool import has_shareable_memory
+    from joblib.pool import ArrayMemmapReducer
+    from joblib.pool import reduce_memmap
 
 
 TEMP_FOLDER = None
@@ -29,14 +30,6 @@ def setup_module():
 
 def teardown_module():
     teardown_autokill(__name__)
-
-
-def check_multiprocessing():
-    if mp is None:
-        raise SkipTest('Need multiprocessing to run')
-
-
-with_multiprocessing = with_setup(check_multiprocessing)
 
 
 def setup_temp_folder():
@@ -54,14 +47,6 @@ def teardown_temp_folder():
 with_temp_folder = with_setup(setup_temp_folder, teardown_temp_folder)
 
 
-def setup_if_has_dev_shm():
-    if not os.path.exists('/dev/shm'):
-        raise SkipTest("This test requires the /dev/shm shared memory fs.")
-
-
-with_dev_shm = with_setup(setup_if_has_dev_shm)
-
-
 def check_array(args):
     """Dummy helper function to be executed in subprocesses
 
@@ -69,9 +54,8 @@ def check_array(args):
     range.
 
     """
-    assert_array_equal = np.testing.assert_array_equal
     data, position, expected = args
-    assert_equal(data[position], expected)
+    np.testing.assert_array_equal(data[position], expected)
 
 
 def inplace_double(args):
@@ -83,11 +67,10 @@ def inplace_double(args):
     two.
 
     """
-    assert_array_equal = np.testing.assert_array_equal
     data, position, expected = args
     assert_equal(data[position], expected)
     data[position] *= 2
-    assert_equal(data[position], 2 * expected)
+    np.testing.assert_array_equal(data[position], 2 * expected)
 
 
 @with_numpy
@@ -182,7 +165,8 @@ def test_high_dimension_memmap_array_reducing():
     filename = os.path.join(TEMP_FOLDER, 'test.mmap')
 
     # Create a high dimensional memmap
-    a = np.memmap(filename, dtype=np.float64, shape=(100, 15, 15, 3), mode='w+')
+    a = np.memmap(filename, dtype=np.float64, shape=(100, 15, 15, 3),
+                  mode='w+')
     a[:] = np.arange(100 * 15 * 15 * 3).reshape(a.shape)
 
     # Create some slices/indices at various dimensions
@@ -316,7 +300,6 @@ def test_pool_with_memmap_array_view():
 @with_temp_folder
 def test_memmaping_pool_for_large_arrays():
     """Check that large arrays are not copied in memory"""
-    assert_array_equal = np.testing.assert_array_equal
 
     # Check that the tempfolder is empty
     assert_equal(os.listdir(TEMP_FOLDER), [])
@@ -347,7 +330,7 @@ def test_memmaping_pool_for_large_arrays():
         dumped_filenames = os.listdir(p._temp_folder)
         assert_equal(len(dumped_filenames), 2)
 
-        # Check that memmory mapping is not triggered for arrays with
+        # Check that memory mapping is not triggered for arrays with
         # dtype='object'
         objects = np.array(['abc'] * 100, dtype='object')
         results = p.map(has_shareable_memory, [objects])
@@ -408,10 +391,13 @@ def test_memmaping_on_dev_shm():
         # pickling procedure generate a .pkl and a .npy file:
         assert_equal(len(os.listdir(pool_temp_folder)), 2)
 
-        b = np.ones(100, dtype=np.float64)
+        # create a new array with content that is different from 'a' so that
+        # it is mapped to a different file in the temporary folder of the
+        # pool.
+        b = np.ones(100, dtype=np.float64) * 2
         assert_equal(b.nbytes, 800)
         p.map(id, [b] * 10)
-        # A copy of both a and b are not stored in the shared memory folder
+        # A copy of both a and b are now stored in the shared memory folder
         assert_equal(len(os.listdir(pool_temp_folder)), 4)
 
     finally:

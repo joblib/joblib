@@ -35,7 +35,6 @@ if __name__ == '__main__':
 
     setup(name='joblib',
           version=joblib.__version__,
-          summary='Tools to use Python functions as pipeline jobs.',
           author='Gael Varoquaux',
           author_email='gael.varoquaux@normalesup.org',
           url='http://pythonhosted.org/joblib/',
@@ -55,7 +54,6 @@ Lightweight pipelining: using Python functions as pipeline jobs.
               'Programming Language :: Python :: 2.6',
               'Programming Language :: Python :: 2.7',
               'Programming Language :: Python :: 3',
-              'Programming Language :: Python :: 3.2',
               'Programming Language :: Python :: 3.3',
               'Programming Language :: Python :: 3.4',
               'Topic :: Scientific/Engineering',
@@ -63,6 +61,6 @@ Lightweight pipelining: using Python functions as pipeline jobs.
               'Topic :: Software Development :: Libraries',
           ],
           platforms='any',
-          package_data={'joblib.test': ['data/*.gz']},
-          packages=['joblib', 'joblib.test'],
+          package_data={'joblib.test': ['data/*.gz', 'data/*.pkl', 'data/*.npy']},
+          packages=['joblib', 'joblib.test', 'joblib.test.data'],
           **extra_setuptools_args)

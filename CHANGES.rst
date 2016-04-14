@@ -1,6 +1,128 @@
 Latest changes
 ===============
 
+Release 0.10.0
+--------------
+
+Niels Zeilemaker and Olivier Grisel
+
+    Refactored joblib.Parallel to enable the registration of custom
+    computational backends.
+    https://github.com/joblib/joblib/pull/306
+    Note the API to register custom backends is considered experimental
+    and subject to change without deprecation.
+
+Antony Lee
+
+    ENH: joblib.dump/load now accept pathlib.Path objects as filenames.
+
+Release 0.9.4
+-------------
+
+Olivier Grisel
+
+    FIX a race condition that could cause a joblib.Parallel to hang
+    when collecting the result of a job that triggers an exception.
+    https://github.com/joblib/joblib/pull/296
+
+Olivier Grisel
+
+    FIX a bug that caused joblib.Parallel to wrongly reuse previously
+    memmapped arrays instead of creating new temporary files.
+    https://github.com/joblib/joblib/pull/294 for more details.
+
+Loïc Estève
+
+    FIX for raising non inheritable exceptions in a Parallel call. See
+    https://github.com/joblib/joblib/issues/269 for more details.
+
+Alexandre Abadie
+
+    FIX joblib.hash error with mixed types sets and dicts containing mixed
+    types keys when using Python 3.
+    see https://github.com/joblib/joblib/issues/254
+
+Loïc Estève
+
+    FIX joblib.dump/load for big numpy arrays with dtype=object. See
+    https://github.com/joblib/joblib/issues/220 for more details.
+
+Loïc Estève
+
+    FIX joblib.Parallel hanging when used with an exhausted
+    iterator. See https://github.com/joblib/joblib/issues/292 for more
+    details.
+
+Release 0.9.3
+-------------
+
+Olivier Grisel
+
+    Revert back to the ``fork`` start method (instead of
+    ``forkserver``) as the latter was found to cause crashes in
+    interactive Python sessions.
+
+Release 0.9.2
+-------------
+
+Loïc Estève
+
+    Joblib hashing now uses the default pickle protocol (2 for Python
+    2 and 3 for Python 3). This makes it very unlikely to get the same
+    hash for a given object under Python 2 and Python 3.
+
+    In particular, for Python 3 users, this means that the output of
+    joblib.hash changes when switching from joblib 0.8.4 to 0.9.2 . We
+    strive to ensure that the output of joblib.hash does not change
+    needlessly in future versions of joblib but this is not officially
+    guaranteed.
+
+Loïc Estève
+
+    Joblib pickles generated with Python 2 can not be loaded with
+    Python 3 and the same applies for joblib pickles generated with
+    Python 3 and loaded with Python 2.
+
+    During the beta period 0.9.0b2 to 0.9.0b4, we experimented with
+    a joblib serialization that aimed to make pickles serialized with
+    Python 3 loadable under Python 2. Unfortunately this serialization
+    strategy proved to be too fragile as far as the long-term
+    maintenance was concerned (For example see
+    https://github.com/joblib/joblib/pull/243). That means that joblib
+    pickles generated with joblib 0.9.0bN can not be loaded under
+    joblib 0.9.2. Joblib beta testers, who are the only ones likely to
+    be affected by this, are advised to delete their joblib cache when
+    they upgrade from 0.9.0bN to 0.9.2.
+
+Arthur Mensch
+
+    Fixed a bug with ``joblib.hash`` that used to return unstable values for
+    strings and numpy.dtype instances depending on interning states.
+
+Olivier Grisel
+
+    Make joblib use the 'forkserver' start method by default under Python 3.4+
+    to avoid causing crash with 3rd party libraries (such as Apple vecLib /
+    Accelerate or the GCC OpenMP runtime) that use an internal thread pool that
+    is not not reinitialized when a ``fork`` system call happens.
+
+Olivier Grisel
+
+    New context manager based API (``with`` block) to re-use
+    the same pool of workers across consecutive parallel calls.
+
+Vlad Niculae and Olivier Grisel
+
+    Automated batching of fast tasks into longer running jobs to
+    hide multiprocessing dispatching overhead when possible.
+
+Olivier Grisel
+
+    FIX make it possible to call ``joblib.load(filename, mmap_mode='r')``
+    on pickled objects that include a mix of arrays of both
+    memory memmapable dtypes and object dtype.
+
+
 Release 0.8.4
 -------------
 
@@ -88,7 +210,7 @@ Gael Varoquaux
     and recomputations.
 
 
-20140-02-24
+2014-02-24
 Philippe Gervais
 
    New ``Memory.call_and_shelve`` API to handle memoized results by

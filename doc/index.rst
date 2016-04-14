@@ -46,17 +46,19 @@ User manual
     installing.rst
     memory.rst
     parallel.rst
+    persistence.rst
     developing.rst
 
 Module reference
 -----------------
 
+.. currentmodule:: joblib
+
 .. autosummary::
-    :toctree: generated
+   :toctree: generated
 
-    Memory
-    Parallel
-    dump
-    load
-    hash
-
+   Memory
+   Parallel
+   dump
+   load
+   hash

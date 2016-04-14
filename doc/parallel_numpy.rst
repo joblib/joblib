@@ -86,7 +86,7 @@ We can free the original array from the main process memory::
   >>> import gc
   >>> _ = gc.collect()
 
-It it possible to slice ``large_memmap`` into a smaller memmap::
+It is possible to slice ``large_memmap`` into a smaller memmap::
 
   >>> small_memmap = large_memmap[2:5]
   >>> small_memmap.__class__.__name__, small_memmap.nbytes, small_memmap.shape
@@ -109,9 +109,9 @@ of a ``Parallel`` call::
   [True, True, True]
 
 Note that here we used ``max_nbytes=None`` to disable the auto-dumping
-feature of ``Parallel``. The fact that ``small_array`` is still in
-shared memory in the worker processes is a consequence of the fact
-that it was already backed by shared memory in the parent process.
+feature of ``Parallel``. ``small_array`` is still in shared memory in the
+worker processes because it was already backed by shared memory in the
+parent process.
 The pickling machinery of ``Parallel`` multiprocessing queues are
 able to detect this situation and optimize it on the fly to limit
 the number of memory copies.
@@ -121,9 +121,9 @@ Writing parallel computation results in shared memory
 -----------------------------------------------------
 
 If you open your data using the ``w+`` or ``r+`` mode in the main program, the
-worker will have ``r+`` mode access hence will be able to write results
-directly to it alleviating the need to serialization to communicate back the
-results to the parent process.
+worker will get ``r+`` mode access. Thus the worker will be able to write
+its results directly to the original data, alleviating the need of the
+serialization to send back the results to the parent process.
 
 Here is an example script on parallel processing with preallocated
 ``numpy.memmap`` datastructures:

@@ -24,6 +24,8 @@ dist
 *.egg-info
 # The shelf plugin uses this dir
 ./.shelf
+# Some IDEs add this directory
+.idea
 # Mac droppings
 .DS_Store
 doc/documentation.zip
