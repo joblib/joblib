@@ -18,6 +18,8 @@ from joblib.test.common import np, with_numpy
 from joblib.test.common import with_multiprocessing
 from joblib.testing import check_subprocess_call
 from joblib._compat import PY3_OR_LATER
+from multiprocessing import TimeoutError
+from time import sleep
 
 try:
     import cPickle as pickle
@@ -246,6 +248,21 @@ def test_parallel_pickling():
 
     assert_raises(exception_class, Parallel(),
                   (delayed(g)(x) for x in range(10)))
+
+
+def test_parallel_timeout_success():
+    # Check that timeout isn't thrown when function is fast enough
+    nose.tools.assert_equal(
+        10,
+        len(Parallel(n_jobs=2, timeout=10)(delayed(sleep)(0.001) for x in range(10))))
+
+
+def test_parallel_timeout_fail():
+    # Check that timeout properly fails when function is too slow
+    nose.tools.assert_raises(
+        TimeoutError,
+        Parallel(n_jobs=2, timeout=0.01), (delayed(sleep)(10) for x in range(10))
+    )
 
 
 def test_error_capture():
