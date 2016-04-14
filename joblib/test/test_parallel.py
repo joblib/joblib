@@ -10,6 +10,8 @@ import time
 import sys
 import io
 import os
+from multiprocessing import TimeoutError
+from time import sleep
 from math import sqrt
 
 from joblib import parallel
@@ -98,6 +100,14 @@ def f(x, y=0, z=0):
     multiprocessing.
     """
     return x ** 2 + y + z
+
+def slow_f(x):
+    time.sleep(10)
+    return x ** 2
+
+def fast_f(x):
+    time.sleep(2)
+    return x ** 2
 
 
 def _active_backend_type():
@@ -246,6 +256,23 @@ def test_parallel_pickling():
 
     assert_raises(exception_class, Parallel(),
                   (delayed(g)(x) for x in range(10)))
+
+
+def test_parallel_timeout_success():
+    # Check that timeout isn't thrown when function is fast enough
+    test_lst = [x ** 2 for x in range(10)]
+    nose.tools.assert_equal(
+               test_lst,
+               Parallel(n_jobs=2, timeout=3)(delayed(fast_f)(x) for x in range(10))
+              )
+
+
+def test_parallel_timeout_fail():
+    # Check that timeout properly fails when function is too slow
+    nose.tools.assert_raises(TimeoutError,
+                             Parallel(n_jobs=2, timeout=5),
+                             (delayed(slow_f)(x) for x in range(10))
+                            )
 
 
 def test_error_capture():

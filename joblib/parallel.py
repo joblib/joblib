@@ -454,7 +454,7 @@ class Parallel(Logger):
          [Parallel(n_jobs=2)]: Done 5 out of 6 | elapsed:  0.0s remaining: 0.0s
          [Parallel(n_jobs=2)]: Done 6 out of 6 | elapsed:  0.0s finished
     '''
-    def __init__(self, n_jobs=1, backend=None, verbose=0,
+    def __init__(self, n_jobs=1, backend=None, verbose=0, timeout=None,
                  pre_dispatch='2 * n_jobs', batch_size='auto',
                  temp_folder=None, max_nbytes='1M', mmap_mode='r'):
         active_backend, default_n_jobs = get_active_backend()
@@ -464,6 +464,7 @@ class Parallel(Logger):
             n_jobs = default_n_jobs
         self.n_jobs = n_jobs
         self.verbose = verbose
+        self.timeout = timeout
         self.pre_dispatch = pre_dispatch
 
         if isinstance(max_nbytes, _basestring):
@@ -668,7 +669,7 @@ class Parallel(Logger):
             with self._lock:
                 job = self._jobs.pop(0)
             try:
-                self._output.extend(job.get())
+                self._output.extend(job.get(timeout=self.timeout))
             except tuple(self.exceptions) as exception:
                 # Stop dispatching any new job in the async callback thread
                 self._aborting = True
