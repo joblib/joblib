@@ -252,19 +252,21 @@ def test_parallel_pickling():
 
 def test_parallel_timeout_success():
     # Check that timeout isn't thrown when function is fast enough
-    nose.tools.assert_equal(
-        10,
-        len(Parallel(n_jobs=2, timeout=10)
-            (delayed(sleep)(0.001) for x in range(10))))
+    for backend in ['multiprocessing', 'threading']:
+        nose.tools.assert_equal(
+            10,
+            len(Parallel(n_jobs=2, backend=backend, timeout=10)
+                (delayed(sleep)(0.001) for x in range(10))))
 
 
 def test_parallel_timeout_fail():
     # Check that timeout properly fails when function is too slow
-    nose.tools.assert_raises(
-        TimeoutError,
-        Parallel(n_jobs=2, timeout=0.01),
-        (delayed(sleep)(10) for x in range(10))
-    )
+    for backend in ['multiprocessing', 'threading']:
+        nose.tools.assert_raises(
+            TimeoutError,
+            Parallel(n_jobs=2, backend=backend, timeout=0.01),
+            (delayed(sleep)(10) for x in range(10))
+        )
 
 
 def test_error_capture():

@@ -297,6 +297,9 @@ class Parallel(Logger):
             printed. Above 50, the output is sent to stdout.
             The frequency of the messages increases with the verbosity level.
             If it more than 10, all iterations are reported.
+        timeout: float, optional
+            Timeout limit for each task to complete.  If any task takes longer
+            a TimeOutError will be raised. Only applied when n_jobs != 1
         pre_dispatch: {'all', integer, or expression, as in '3*n_jobs'}
             The number of batches (of tasks) to be pre-dispatched.
             Default is '2*n_jobs'. When batch_size="auto" this is reasonable
