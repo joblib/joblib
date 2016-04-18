@@ -295,7 +295,7 @@ class ImmediateResult(object):
         # arguments in memory
         self.results = batch()
 
-    def get(self, timeout=None):
+    def get(self):
         return self.results
 
 

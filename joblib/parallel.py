@@ -30,6 +30,7 @@ from .disk import memstr_to_kbytes
 from ._parallel_backends import (FallbackToBackend, MultiprocessingBackend,
                                  ThreadingBackend, SequentialBackend)
 from ._compat import _basestring
+from .func_inspect import getfullargspec
 
 
 BACKENDS = {
@@ -672,7 +673,11 @@ class Parallel(Logger):
             with self._lock:
                 job = self._jobs.pop(0)
             try:
-                self._output.extend(job.get(timeout=self.timeout))
+                # check if timeout supported in backend future implementation
+                if 'timeout' in getfullargspec(job.get).args:
+                    self._output.extend(job.get(timeout=self.timeout))
+                else:
+                    self._output.extend(job.get())
             except tuple(self.exceptions) as exception:
                 # Stop dispatching any new job in the async callback thread
                 self._aborting = True
