@@ -30,6 +30,7 @@ from .disk import memstr_to_kbytes
 from ._parallel_backends import (FallbackToBackend, MultiprocessingBackend,
                                  ThreadingBackend, SequentialBackend)
 from ._compat import _basestring
+from .func_inspect import getfullargspec
 
 
 BACKENDS = {
@@ -297,6 +298,9 @@ class Parallel(Logger):
             printed. Above 50, the output is sent to stdout.
             The frequency of the messages increases with the verbosity level.
             If it more than 10, all iterations are reported.
+        timeout: float, optional
+            Timeout limit for each task to complete.  If any task takes longer
+            a TimeOutError will be raised. Only applied when n_jobs != 1
         pre_dispatch: {'all', integer, or expression, as in '3*n_jobs'}
             The number of batches (of tasks) to be pre-dispatched.
             Default is '2*n_jobs'. When batch_size="auto" this is reasonable
@@ -454,7 +458,7 @@ class Parallel(Logger):
          [Parallel(n_jobs=2)]: Done 5 out of 6 | elapsed:  0.0s remaining: 0.0s
          [Parallel(n_jobs=2)]: Done 6 out of 6 | elapsed:  0.0s finished
     '''
-    def __init__(self, n_jobs=1, backend=None, verbose=0,
+    def __init__(self, n_jobs=1, backend=None, verbose=0, timeout=None,
                  pre_dispatch='2 * n_jobs', batch_size='auto',
                  temp_folder=None, max_nbytes='1M', mmap_mode='r'):
         active_backend, default_n_jobs = get_active_backend()
@@ -464,6 +468,7 @@ class Parallel(Logger):
             n_jobs = default_n_jobs
         self.n_jobs = n_jobs
         self.verbose = verbose
+        self.timeout = timeout
         self.pre_dispatch = pre_dispatch
 
         if isinstance(max_nbytes, _basestring):
@@ -668,7 +673,11 @@ class Parallel(Logger):
             with self._lock:
                 job = self._jobs.pop(0)
             try:
-                self._output.extend(job.get())
+                # check if timeout supported in backend future implementation
+                if 'timeout' in getfullargspec(job.get).args:
+                    self._output.extend(job.get(timeout=self.timeout))
+                else:
+                    self._output.extend(job.get())
             except tuple(self.exceptions) as exception:
                 # Stop dispatching any new job in the async callback thread
                 self._aborting = True
