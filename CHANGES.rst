@@ -12,9 +12,22 @@ Niels Zeilemaker and Olivier Grisel
     Note the API to register custom backends is considered experimental
     and subject to change without deprecation.
 
+Alexandre Abadie
+
+    Joblib pickle format change: joblib.dump always create a single pickle file
+    and joblib.dump/joblib.save never do any memory copy when writing/reading
+    pickle files. Reading pickle files generated with joblib versions prior
+    to 0.10 will be supported for a limited amount of time, we advise to
+    regenerate them from scratch when convenient.
+    joblib.dump and joblib.load also support pickle files compressed using
+    various strategies: zlib, gzip, bz2, lzma and xz. Note that lzma and xz are
+    only available with python >= 3.3.
+    https://github.com/joblib/joblib/pull/260 for more details.
+
 Antony Lee
 
     ENH: joblib.dump/load now accept pathlib.Path objects as filenames.
+    https://github.com/joblib/joblib/pull/316 for more details.
 
 Release 0.9.4
 -------------
