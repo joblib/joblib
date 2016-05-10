@@ -396,7 +396,9 @@ def test_memory_usage():
 @with_numpy
 def test_compressed_pickle_dump_and_load():
     expected_list = [np.arange(5, dtype=np.dtype('<i8')),
+                     np.arange(5, dtype=np.dtype('>i8')),
                      np.arange(5, dtype=np.dtype('<f8')),
+                     np.arange(5, dtype=np.dtype('>f8')),
                      np.array([1, 'abc', {'a': 1, 'b': 2}], dtype='O'),
                      # .tostring actually returns bytes and is a
                      # compatibility alias for .tobytes which was
@@ -406,6 +408,7 @@ def test_compressed_pickle_dump_and_load():
                      # to verify this type of object is correctly unpickled
                      # among versions.
                      np.matrix([0, 1, 2], dtype=np.dtype('<i8')),
+                     np.matrix([0, 1, 2], dtype=np.dtype('>i8')),
                      u"C'est l'\xe9t\xe9 !"]
 
     with tempfile.NamedTemporaryFile(suffix='.gz', dir=env['dir']) as f:
