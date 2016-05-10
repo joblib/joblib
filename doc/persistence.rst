@@ -38,22 +38,13 @@ which we save into `savedir`::
 
   >>> import joblib
   >>> joblib.dump(to_persist, filename)  # doctest: +ELLIPSIS
-  ['...test.pkl', '...test.pkl_01.npy']
+  ['...test.pkl']
 
 We can then load the object from the file::
 
   >>> joblib.load(filename)
   [('a', [1, 2, 3]), ('b', array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]))]
 
-.. note::
-
-   As you can see from the output, joblib pickle tends to be spread
-   across multiple files. More precisely, on top of the main joblib
-   pickle file (passed into the `joblib.dump` function), for each
-   numpy array that the persisted object contains, an auxiliary .npy
-   file with the binary data of the array will be created. When moving
-   joblib pickle files around, you will need to remember to keep all
-   these files together.
 
 Compressed joblib pickles
 =========================
@@ -61,10 +52,33 @@ Compressed joblib pickles
 Setting the `compress` argument to `True` in :func:`joblib.dump` will allow to
 save space on disk:
 
-  >>> joblib.dump(to_persist, filename, compress=True)  # doctest: +ELLIPSIS
-  ['...test.pkl']
+  >>> joblib.dump(to_persist, filename + '.compressed', compress=True)  # doctest: +ELLIPSIS
+  ['...test.pkl.compressed']
 
-Another advantage is that it will create a single-file joblib pickle.
+If the filename extension corresponds to one of the supported compression
+methods, the compressor will be used automatically:
+
+  >>> joblib.dump(to_persist, filename + '.z')  # doctest: +ELLIPSIS
+  ['...test.pkl.z']
+
+By default, `joblib.dump` uses the zlib compression method as it gives the best
+tradeoff between speed and disk space. The other supported compression methods
+are 'gzip', 'bz2', 'lzma' and 'xz':
+
+  >>> # Dumping in a gzip compressed file using a compress level of 3.
+  >>> joblib.dump(to_persist, filename + '.gz', compress=('gzip', 3))  # doctest: +ELLIPSIS
+  ['...test.pkl.gz']
+  >>> joblib.load(filename + '.gz')
+  [('a', [1, 2, 3]), ('b', array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]))]
+  >>> joblib.dump(to_persist, filename + '.bz2', compress=('bz2', 3))  # doctest: +ELLIPSIS
+  ['...test.pkl.bz2']
+  >>> joblib.load(filename + '.bz2')
+  [('a', [1, 2, 3]), ('b', array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]))]
+
+.. note::
+
+    Lzma and Xz compression methods are only available for python versions >= 3.3.
+
 
 More details can be found in the :func:`joblib.dump` and
 :func:`joblib.load` documentation.

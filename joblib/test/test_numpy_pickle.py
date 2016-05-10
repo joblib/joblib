@@ -1,7 +1,4 @@
-"""
-Test the numpy pickler as a replacement of the standard pickler.
-
-"""
+"""Test the numpy pickler as a replacement of the standard pickler."""
 
 from tempfile import mkdtemp
 import copy
@@ -12,15 +9,22 @@ import sys
 import re
 import tempfile
 import glob
-
+import io
+import warnings
 import nose
 
 from joblib.test.common import np, with_numpy
+from joblib.test.common import with_memory_profiler, memory_used
+from joblib.testing import assert_raises_regex
 
 # numpy_pickle is not a drop-in replacement of pickle, as it takes
 # filenames instead of open files as arguments.
 from joblib import numpy_pickle
 from joblib.test import data
+
+from joblib._compat import PY3_OR_LATER
+from joblib.numpy_pickle_utils import _IO_BUFFER_SIZE, BinaryZlibFile
+from joblib.numpy_pickle_utils import _detect_compressor, _COMPRESSORS
 
 ###############################################################################
 # Define a list of standard types.
@@ -66,7 +70,7 @@ try:
     _file = file
     typelist.append(_file)
 except NameError:
-    pass # file does not exists in Python 3
+    pass  # file does not exists in Python 3
 try:
     _buffer = buffer
     typelist.append(_buffer)
@@ -120,8 +124,8 @@ def teardown_module():
     """ Test teardown.
     """
     shutil.rmtree(env['dir'])
-    #del env['dir']
-    #del env['filename']
+    # del env['dir']
+    # del env['filename']
     print(80 * '_')
     print('teardown numpy_pickle')
     print(80 * '_')
@@ -151,26 +155,37 @@ def test_value_error():
                              dict())
 
 
+def test_compress_level_error():
+    # Verify that passing an invalid compress argument raises an error.
+    wrong_compress = (-1, 10, 'wrong')
+    for wrong in wrong_compress:
+        exception_msg = 'Non valid compress level given: "{0}"'.format(wrong)
+        assert_raises_regex(ValueError,
+                            exception_msg,
+                            numpy_pickle.dump, 'dummy', 'foo', compress=wrong)
+
+
 @with_numpy
 def test_numpy_persistence():
     filename = env['filename']
     rnd = np.random.RandomState(0)
     a = rnd.random_sample((10, 2))
-    for compress, cache_size in ((0, 0), (1, 0), (1, 10)):
+    for compress in (False, True, 0, 3):
         # We use 'a.T' to have a non C-contiguous array.
         for index, obj in enumerate(((a,), (a.T,), (a, a), [a, a, a])):
             # Change the file name to avoid side effects between tests
             this_filename = filename + str(random.randint(0, 1000))
+
             filenames = numpy_pickle.dump(obj, this_filename,
-                                          compress=compress,
-                                          cache_size=cache_size)
-            # Check that one file was created per array
-            if not compress:
-                nose.tools.assert_equal(len(filenames), len(obj) + 1)
-            # Check that these files do exist
-            for file in filenames:
-                nose.tools.assert_true(
-                    os.path.exists(os.path.join(env['dir'], file)))
+                                          compress=compress)
+
+            # All is cached in one file
+            nose.tools.assert_equal(len(filenames), 1)
+            # Check that only one file was created
+            nose.tools.assert_equal(filenames[0], this_filename)
+            # Check that this file does exist
+            nose.tools.assert_true(
+                os.path.exists(os.path.join(env['dir'], filenames[0])))
 
             # Unpickle the object
             obj_ = numpy_pickle.load(this_filename)
@@ -178,28 +193,48 @@ def test_numpy_persistence():
             for item in obj_:
                 nose.tools.assert_true(isinstance(item, np.ndarray))
             # And finally, check that all the values are equal.
-            nose.tools.assert_true(np.all(np.array(obj) ==
-                                                np.array(obj_)))
+            np.testing.assert_array_equal(np.array(obj), np.array(obj_))
 
         # Now test with array subclasses
-        for obj in (
-                    np.matrix(np.zeros(10)),
-                    np.core.multiarray._reconstruct(np.memmap, (), np.float)
-                   ):
+        for obj in (np.matrix(np.zeros(10)),
+                    np.memmap(filename + str(random.randint(0, 1000)) + 'mmap',
+                              mode='w+', shape=4, dtype=np.float)):
             this_filename = filename + str(random.randint(0, 1000))
             filenames = numpy_pickle.dump(obj, this_filename,
-                                          compress=compress,
-                                          cache_size=cache_size)
+                                          compress=compress)
+            # All is cached in one file
+            nose.tools.assert_equal(len(filenames), 1)
+
             obj_ = numpy_pickle.load(this_filename)
-            if (type(obj) is not np.memmap
-                        and hasattr(obj, '__array_prepare__')):
+            if (type(obj) is not np.memmap and
+                    hasattr(obj, '__array_prepare__')):
                 # We don't reconstruct memmaps
                 nose.tools.assert_true(isinstance(obj_, type(obj)))
 
-    # Finally smoke test the warning in case of compress + mmap_mode
-    this_filename = filename + str(random.randint(0, 1000))
-    numpy_pickle.dump(a, this_filename, compress=1)
-    numpy_pickle.load(this_filename, mmap_mode='r')
+            np.testing.assert_array_equal(obj_, obj)
+
+        # Test with an object containing multiple numpy arrays
+        obj = ComplexTestObject()
+        filenames = numpy_pickle.dump(obj, this_filename,
+                                      compress=compress)
+        # All is cached in one file
+        nose.tools.assert_equal(len(filenames), 1)
+
+        obj_loaded = numpy_pickle.load(this_filename)
+        nose.tools.assert_true(isinstance(obj_loaded, type(obj)))
+        np.testing.assert_array_equal(obj_loaded.array_float, obj.array_float)
+        np.testing.assert_array_equal(obj_loaded.array_int, obj.array_int)
+        np.testing.assert_array_equal(obj_loaded.array_obj, obj.array_obj)
+
+
+@with_numpy
+def test_numpy_persistence_bufferred_array_compression():
+    big_array = np.ones((_IO_BUFFER_SIZE + 100), dtype=np.uint8)
+    filename = env['filename'] + str(random.randint(0, 1000))
+    numpy_pickle.dump(big_array, filename, compress=True)
+    arr_reloaded = numpy_pickle.load(filename)
+
+    np.testing.assert_array_equal(big_array, arr_reloaded)
 
 
 @with_numpy
@@ -211,6 +246,45 @@ def test_memmap_persistence():
     b = numpy_pickle.load(filename, mmap_mode='r')
 
     nose.tools.assert_true(isinstance(b, np.memmap))
+
+    # Test with an object containing multiple numpy arrays
+    filename = env['filename'] + str(random.randint(0, 1000))
+    obj = ComplexTestObject()
+    numpy_pickle.dump(obj, filename)
+    obj_loaded = numpy_pickle.load(filename, mmap_mode='r')
+    nose.tools.assert_true(isinstance(obj_loaded, type(obj)))
+    nose.tools.assert_true(isinstance(obj_loaded.array_float, np.memmap))
+    nose.tools.assert_false(obj_loaded.array_float.flags.writeable)
+    nose.tools.assert_true(isinstance(obj_loaded.array_int, np.memmap))
+    nose.tools.assert_false(obj_loaded.array_int.flags.writeable)
+    # Memory map not allowed for numpy object arrays
+    nose.tools.assert_false(isinstance(obj_loaded.array_obj, np.memmap))
+    np.testing.assert_array_equal(obj_loaded.array_float,
+                                  obj.array_float)
+    np.testing.assert_array_equal(obj_loaded.array_int,
+                                  obj.array_int)
+    np.testing.assert_array_equal(obj_loaded.array_obj,
+                                  obj.array_obj)
+
+    # Test we can write in memmaped arrays
+    obj_loaded = numpy_pickle.load(filename, mmap_mode='r+')
+    nose.tools.assert_true(obj_loaded.array_float.flags.writeable)
+    obj_loaded.array_float[0:10] = 10.0
+    nose.tools.assert_true(obj_loaded.array_int.flags.writeable)
+    obj_loaded.array_int[0:10] = 10
+
+    obj_reloaded = numpy_pickle.load(filename, mmap_mode='r')
+    np.testing.assert_array_equal(obj_reloaded.array_float,
+                                  obj_loaded.array_float)
+    np.testing.assert_array_equal(obj_reloaded.array_int,
+                                  obj_loaded.array_int)
+
+    # Test w+ mode is caught and the mode has switched to r+
+    numpy_pickle.load(filename, mmap_mode='w+')
+    nose.tools.assert_true(obj_loaded.array_int.flags.writeable)
+    nose.tools.assert_equal(obj_loaded.array_int.mode, 'r+')
+    nose.tools.assert_true(obj_loaded.array_float.flags.writeable)
+    nose.tools.assert_equal(obj_loaded.array_float.mode, 'r+')
 
 
 @with_numpy
@@ -245,23 +319,82 @@ def test_masked_array_persistence():
     nose.tools.assert_true(isinstance(b, np.ma.masked_array))
 
 
-def test_z_file():
-    # Test saving and loading data with Zfiles
+@with_numpy
+def test_compress_mmap_mode_warning():
+    # Test the warning in case of compress + mmap_mode
+    rnd = np.random.RandomState(0)
+    a = rnd.random_sample(10)
+    this_filename = env['filename'] + str(random.randint(0, 1000))
+    numpy_pickle.dump(a, this_filename, compress=1)
+    with warnings.catch_warnings(record=True) as caught_warnings:
+        warnings.simplefilter("always")
+        numpy_pickle.load(this_filename, mmap_mode='r+')
+        nose.tools.assert_equal(len(caught_warnings), 1)
+        for warn in caught_warnings:
+            nose.tools.assert_equal(warn.category, DeprecationWarning)
+            nose.tools.assert_equal(warn.message.args[0],
+                                    'File "%(filename)s" is compressed using '
+                                    '"%(compressor)s" which is not compatible '
+                                    'with mmap_mode "%(mmap_mode)s" flag '
+                                    'passed.' % {'filename': this_filename,
+                                                 'mmap_mode': 'r+',
+                                                 'compressor': 'zlib'})
+
+
+@with_numpy
+def test_cache_size_warning():
+    # Check deprecation warning raised when cache size is not None
     filename = env['filename'] + str(random.randint(0, 1000))
-    data = numpy_pickle.asbytes('Foo, \n Bar, baz, \n\nfoobar')
-    with open(filename, 'wb') as f:
-        numpy_pickle.write_zfile(f, data)
-    with open(filename, 'rb') as f:
-        data_read = numpy_pickle.read_zfile(f)
-    nose.tools.assert_equal(data, data_read)
+    rnd = np.random.RandomState(0)
+    a = rnd.random_sample((10, 2))
+
+    for cache_size in (None, 0, 10):
+        with warnings.catch_warnings(record=True) as caught_warnings:
+            warnings.simplefilter("always")
+            numpy_pickle.dump(a, filename, cache_size=cache_size)
+            expected_nb_warnings = 1 if cache_size is not None else 0
+            nose.tools.assert_equal(len(caught_warnings),
+                                    expected_nb_warnings)
+            for warn in caught_warnings:
+                nose.tools.assert_equal(warn.category, DeprecationWarning)
+                nose.tools.assert_equal(warn.message.args[0],
+                                        "Please do not set 'cache_size' in "
+                                        "joblib.dump, this parameter has no "
+                                        "effect and will be removed. "
+                                        "You used 'cache_size={0}'".format(
+                                            cache_size))
+
+
+@with_numpy
+@with_memory_profiler
+def test_memory_usage():
+    # Verify memory stays within expected bounds.
+    filename = env['filename']
+    small_array = np.ones((10, 10))
+    big_array = np.ones(shape=100 * int(1e6), dtype=np.uint8)
+    small_matrix = np.matrix(small_array)
+    big_matrix = np.matrix(big_array)
+    for compress in (True, False):
+        for obj in (small_array, big_array, small_matrix, big_matrix):
+            size = obj.nbytes / 1e6
+            obj_filename = filename + str(np.random.randint(0, 1000))
+            mem_used = memory_used(numpy_pickle.dump,
+                                   obj, obj_filename, compress=compress)
+
+            # The memory used to dump the object shouldn't exceed the buffer
+            # size used to write array chunks (16MB).
+            write_buf_size = _IO_BUFFER_SIZE + 16 * 1024 ** 2 / 1e6
+            nose.tools.assert_true(mem_used <= write_buf_size)
+
+            mem_used = memory_used(numpy_pickle.load, obj_filename)
+            # memory used should be less than array size + buffer size used to
+            # read the array chunk by chunk.
+            read_buf_size = 32 + _IO_BUFFER_SIZE  # MiB
+            nose.tools.assert_true(mem_used < size + read_buf_size)
 
 
 @with_numpy
 def test_compressed_pickle_dump_and_load():
-    # XXX: temporarily disable this test on non little-endian machines
-    if sys.byteorder != 'little':
-        raise nose.SkipTest('Skipping this test on non little-endian machines')
-
     expected_list = [np.arange(5, dtype=np.dtype('<i8')),
                      np.arange(5, dtype=np.dtype('<f8')),
                      np.array([1, 'abc', {'a': 1, 'b': 2}], dtype='O'),
@@ -269,32 +402,31 @@ def test_compressed_pickle_dump_and_load():
                      # compatibility alias for .tobytes which was
                      # added in 1.9.0
                      np.arange(256, dtype=np.uint8).tostring(),
+                     # np.matrix is a subclass of np.ndarray, here we want
+                     # to verify this type of object is correctly unpickled
+                     # among versions.
+                     np.matrix([0, 1, 2], dtype=np.dtype('<i8')),
                      u"C'est l'\xe9t\xe9 !"]
 
     with tempfile.NamedTemporaryFile(suffix='.gz', dir=env['dir']) as f:
         fname = f.name
 
-    # Need to test both code branches (whether array size is greater
-    # or smaller than cache_size)
-    for cache_size in [0, 1e9]:
-        try:
-            dumped_filenames = numpy_pickle.dump(
-                expected_list, fname, compress=1,
-                cache_size=cache_size)
-            result_list = numpy_pickle.load(fname)
-            for result, expected in zip(result_list, expected_list):
-                if isinstance(expected, np.ndarray):
-                    nose.tools.assert_equal(result.dtype, expected.dtype)
-                    np.testing.assert_equal(result, expected)
-                else:
-                    nose.tools.assert_equal(result, expected)
-        finally:
-            for fn in dumped_filenames:
-                os.remove(fn)
+    try:
+        dumped_filenames = numpy_pickle.dump(expected_list, fname, compress=1)
+        nose.tools.assert_equal(len(dumped_filenames), 1)
+        result_list = numpy_pickle.load(fname)
+        for result, expected in zip(result_list, expected_list):
+            if isinstance(expected, np.ndarray):
+                nose.tools.assert_equal(result.dtype, expected.dtype)
+                np.testing.assert_equal(result, expected)
+            else:
+                nose.tools.assert_equal(result, expected)
+    finally:
+        os.remove(fname)
 
 
 def _check_pickle(filename, expected_list):
-    """Helper function to test joblib pickle content
+    """Helper function to test joblib pickle content.
 
     Note: currently only pickles containing an iterable are supported
     by this function.
@@ -310,7 +442,20 @@ def _check_pickle(filename, expected_list):
         py_version_used_for_writing, 4)
     if pickle_reading_protocol >= pickle_writing_protocol:
         try:
-            result_list = numpy_pickle.load(filename)
+            with warnings.catch_warnings(record=True) as caught_warnings:
+                warnings.simplefilter("always")
+                result_list = numpy_pickle.load(filename)
+                expected_nb_warnings = 1 if ("0.9" in filename or
+                                             "0.8.4" in filename) else 0
+                nose.tools.assert_equal(len(caught_warnings),
+                                        expected_nb_warnings)
+            for warn in caught_warnings:
+                nose.tools.assert_equal(warn.category, DeprecationWarning)
+                nose.tools.assert_equal(warn.message.args[0],
+                                        "The file '{0}' has been generated "
+                                        "with a joblib version less than "
+                                        "0.10. Please regenerate this pickle "
+                                        "file.".format(filename))
             for result, expected in zip(result_list, expected_list):
                 if isinstance(expected, np.ndarray):
                     nose.tools.assert_equal(result.dtype, expected.dtype)
@@ -343,10 +488,6 @@ def _check_pickle(filename, expected_list):
 
 @with_numpy
 def test_joblib_pickle_across_python_versions():
-    # XXX: temporarily disable this test on non little-endian machines
-    if sys.byteorder != 'little':
-        raise nose.SkipTest('Skipping this test on non little-endian machines')
-
     # We need to be specific about dtypes in particular endianness
     # because the pickles can be generated on one architecture and
     # the tests run on another one. See
@@ -358,6 +499,10 @@ def test_joblib_pickle_across_python_versions():
                      # compatibility alias for .tobytes which was
                      # added in 1.9.0
                      np.arange(256, dtype=np.uint8).tostring(),
+                     # np.matrix is a subclass of np.ndarray, here we want
+                     # to verify this type of object is correctly unpickled
+                     # among versions.
+                     np.matrix([0, 1, 2], dtype=np.dtype('<i8')),
                      u"C'est l'\xe9t\xe9 !"]
 
     # Testing all the *.gz and *.pkl (compressed and non compressed
@@ -371,20 +516,251 @@ def test_joblib_pickle_across_python_versions():
     for fname in data_filenames:
         _check_pickle(fname, expected_list)
 
-################################################################################
+
+def _check_compression_format(filename, expected_list):
+    if (not PY3_OR_LATER and (filename.endswith('.xz') or
+                              filename.endswith('.lzma'))):
+        # lzma is not supported for python versions < 3.3
+        nose.tools.assert_raises(NotImplementedError,
+                                 numpy_pickle.load, filename)
+    else:
+        _check_pickle(filename, expected_list)
+
+
+@with_numpy
+def test_joblib_decompression_format_support():
+    # We need to be specific about dtypes in particular endianness
+    # because the pickles can be generated on one architecture and
+    # the tests run on another one. See
+    # https://github.com/joblib/joblib/issues/279.
+    expected_list = [np.arange(5, dtype=np.dtype('<i8')),
+                     np.arange(5, dtype=np.dtype('<f8')),
+                     np.array([1, 'abc', {'a': 1, 'b': 2}], dtype='O'),
+                     # .tostring actually returns bytes and is a
+                     # compatibility alias for .tobytes which was
+                     # added in 1.9.0
+                     np.arange(256, dtype=np.uint8).tostring(),
+                     # np.matrix is a subclass of np.ndarray, here we want
+                     # to verify this type of object is correctly unpickled
+                     # among versions.
+                     np.matrix([0, 1, 2], dtype=np.dtype('<i8')),
+                     u"C'est l'\xe9t\xe9 !"]
+
+    test_data_dir = os.path.dirname(os.path.abspath(data.__file__))
+
+    extensions = ('.gz', '.gzip', '.bz2', '.xz', '.lzma')
+    compress_filenames_list = [glob.glob(os.path.join(test_data_dir, ext))
+                               for ext in extensions]
+    compress_filenames = sum(compress_filenames_list, [])
+
+    for fname in compress_filenames:
+        _check_compression_format(fname, expected_list)
+
+
+def test_compress_tuple_argument():
+    compress_tuples = (('zlib', 3),
+                       ('gzip', 3))
+
+    # Verify the tuple is correctly taken into account.
+    filename = env['filename'] + str(random.randint(0, 1000))
+    for compress in compress_tuples:
+        numpy_pickle.dump("dummy", filename,
+                          compress=compress)
+        # Verify the file contains the right magic number
+        with open(filename, 'rb') as f:
+            nose.tools.assert_equal(_detect_compressor(f), compress[0])
+
+    # Verify setting a wrong compress tuple raises a ValueError.
+    assert_raises_regex(ValueError,
+                        'Compress argument tuple should contain exactly '
+                        '2 elements',
+                        numpy_pickle.dump, "dummy", filename,
+                        compress=('zlib', 3, 'extra'))
+
+    # Verify a tuple with a wrong compress method raises a ValueError.
+    msg = 'Non valid compression method given: "{0}"'.format('wrong')
+    assert_raises_regex(ValueError, msg,
+                        numpy_pickle.dump, "dummy", filename,
+                        compress=('wrong', 3))
+
+    # Verify a tuple with a wrong compress level raises a ValueError.
+    msg = 'Non valid compress level given: "{0}"'.format('wrong')
+    assert_raises_regex(ValueError, msg,
+                        numpy_pickle.dump, "dummy", filename,
+                        compress=('zlib', 'wrong'))
+
+
+@with_numpy
+def test_joblib_compression_formats():
+    compresslevels = (1, 3, 6)
+    filename = env['filename'] + str(random.randint(0, 1000))
+    objects = (np.ones(shape=(100, 100), dtype='f8'),
+               range(10),
+               {'a': 1, 2: 'b'}, [], (), {}, 0, 1.0)
+
+    for compress in compresslevels:
+        for cmethod in _COMPRESSORS:
+            dump_filename = filename + "." + cmethod
+            for obj in objects:
+                if not PY3_OR_LATER and cmethod in ('xz', 'lzma'):
+                    # Lzma module only available for python >= 3.3
+                    msg = "{0} compression is only available".format(cmethod)
+                    assert_raises_regex(NotImplementedError, msg,
+                                        numpy_pickle.dump, obj, dump_filename,
+                                        compress=(cmethod, compress))
+                else:
+                    numpy_pickle.dump(obj, dump_filename,
+                                      compress=(cmethod, compress))
+                    # Verify the file contains the right magic number
+                    with open(dump_filename, 'rb') as f:
+                        nose.tools.assert_equal(
+                            _detect_compressor(f), cmethod)
+                    # Verify the reloaded object is correct
+                    obj_reloaded = numpy_pickle.load(dump_filename)
+                    nose.tools.assert_true(isinstance(obj_reloaded, type(obj)))
+                    if isinstance(obj, np.ndarray):
+                        np.testing.assert_array_equal(obj_reloaded, obj)
+                    else:
+                        nose.tools.assert_equal(obj_reloaded, obj)
+                    os.remove(dump_filename)
+
+
+def test_compression_using_file_extension():
+    # test that compression method corresponds to the given filename extension.
+    extensions_dict = {
+        # valid compressor extentions
+        '.z': 'zlib',
+        '.gz': 'gzip',
+        '.bz2': 'bz2',
+        '.lzma': 'lzma',
+        '.xz': 'xz',
+        # invalid compressor extensions
+        '.pkl': 'not-compressed',
+        '': 'not-compressed'
+    }
+    filename = env['filename'] + str(random.randint(0, 1000))
+    obj = "object to dump"
+
+    for ext, cmethod in extensions_dict.items():
+        dump_fname = filename + ext
+        if not PY3_OR_LATER and cmethod in ('xz', 'lzma'):
+            # Lzma module only available for python >= 3.3
+            msg = "{0} compression is only available".format(cmethod)
+            assert_raises_regex(NotImplementedError, msg,
+                                numpy_pickle.dump, obj, dump_fname)
+        else:
+            numpy_pickle.dump(obj, dump_fname)
+            # Verify the file contains the right magic number
+            with open(dump_fname, 'rb') as f:
+                nose.tools.assert_equal(
+                    _detect_compressor(f), cmethod)
+            # Verify the reloaded object is correct
+            obj_reloaded = numpy_pickle.load(dump_fname)
+            nose.tools.assert_true(isinstance(obj_reloaded, type(obj)))
+            nose.tools.assert_equal(obj_reloaded, obj)
+            os.remove(dump_fname)
+
+
+def test_binary_zlibfile():
+    filename = env['filename'] + str(random.randint(0, 1000))
+
+    # Test bad compression levels
+    for bad_value in (-1, 10, 15, 'a', (), {}):
+        nose.tools.assert_raises(ValueError,
+                                 BinaryZlibFile, filename, 'wb',
+                                 compresslevel=bad_value)
+
+    # Test invalid modes
+    for bad_mode in ('a', 'x', 'r', 'w', 1, 2):
+        nose.tools.assert_raises(ValueError,
+                                 BinaryZlibFile, filename, bad_mode)
+
+    # Test wrong filename type (not a string or a file)
+    for bad_file in (1, (), {}):
+        nose.tools.assert_raises(TypeError,
+                                 BinaryZlibFile, bad_file, 'rb')
+
+    for d in (b'a little data as bytes.',
+              # More bytes
+              10000 * "{0}"
+              .format(random.randint(0, 1000) * 1000).encode('latin-1')):
+        # Regular cases
+        for compress_level in (1, 3, 9):
+            with open(filename, 'wb') as f:
+                with BinaryZlibFile(f, 'wb',
+                                    compresslevel=compress_level) as fz:
+                    nose.tools.assert_true(fz.writable())
+                    fz.write(d)
+                    nose.tools.assert_equal(fz.fileno(), f.fileno())
+                    nose.tools.assert_raises(io.UnsupportedOperation,
+                                             fz._check_can_read)
+                    nose.tools.assert_raises(io.UnsupportedOperation,
+                                             fz._check_can_seek)
+                nose.tools.assert_true(fz.closed)
+                nose.tools.assert_raises(ValueError,
+                                         fz._check_not_closed)
+
+            with open(filename, 'rb') as f:
+                with BinaryZlibFile(f) as fz:
+                    nose.tools.assert_true(fz.readable())
+                    if PY3_OR_LATER:
+                        nose.tools.assert_true(fz.seekable())
+                    nose.tools.assert_equal(fz.fileno(), f.fileno())
+                    nose.tools.assert_equal(fz.read(), d)
+                    nose.tools.assert_raises(io.UnsupportedOperation,
+                                             fz._check_can_write)
+                    if PY3_OR_LATER:
+                        # io.BufferedIOBase doesn't have seekable() method in
+                        # python 2
+                        nose.tools.assert_true(fz.seekable())
+                        fz.seek(0)
+                        nose.tools.assert_equal(fz.tell(), 0)
+                nose.tools.assert_true(fz.closed)
+
+            os.remove(filename)
+
+            # Test with a filename as input
+            with BinaryZlibFile(filename, 'wb',
+                                compresslevel=compress_level) as fz:
+                nose.tools.assert_true(fz.writable())
+                fz.write(d)
+
+            with BinaryZlibFile(filename, 'rb') as fz:
+                nose.tools.assert_equal(fz.read(), d)
+
+            # Test without context manager
+            fz = BinaryZlibFile(filename, 'wb', compresslevel=compress_level)
+            nose.tools.assert_true(fz.writable())
+            fz.write(d)
+            fz.close()
+
+            fz = BinaryZlibFile(filename, 'rb')
+            nose.tools.assert_equal(fz.read(), d)
+            fz.close()
+
+
+###############################################################################
 # Test dumping array subclasses
 if np is not None:
 
     class SubArray(np.ndarray):
 
         def __reduce__(self):
-            return (_load_sub_array, (np.asarray(self), ))
-
+            return _load_sub_array, (np.asarray(self), )
 
     def _load_sub_array(arr):
         d = SubArray(arr.shape)
         d[:] = arr
         return d
+
+    class ComplexTestObject:
+        """A complex object containing numpy arrays as attributes."""
+
+        def __init__(self):
+            self.array_float = np.arange(100, dtype='float64')
+            self.array_int = np.ones(100, dtype='int32')
+            self.array_obj = np.array(['a', 10, 20.0], dtype='object')
+
 
 @with_numpy
 def test_numpy_subclass():
@@ -393,6 +769,7 @@ def test_numpy_subclass():
     numpy_pickle.dump(a, filename)
     c = numpy_pickle.load(filename)
     nose.tools.assert_true(isinstance(c, SubArray))
+    np.testing.assert_array_equal(c, a)
 
 
 def test_pathlib():
