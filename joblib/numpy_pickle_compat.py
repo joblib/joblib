@@ -218,7 +218,7 @@ def load_compatibility(filename):
     """
     with open(filename, 'rb') as file_handle:
         # We are careful to open the file handle early and keep it open to
-        # avoid race-conditions on renames. That said, if data are stored in
+        # avoid race-conditions on renames. That said, if data is stored in
         # companion files, moving the directory will create a race when
         # joblib tries to access the companion files.
         unpickler = ZipNumpyUnpickler(filename, file_handle=file_handle)

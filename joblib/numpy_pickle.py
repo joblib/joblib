@@ -516,7 +516,7 @@ def load(filename, mmap_mode=None):
 
             # We are careful to open the file handle early and keep it open to
             # avoid race-conditions on renames.
-            # That said, if data are stored in companion files, which can be
+            # That said, if data is stored in companion files, which can be
             # the case with the old persistence format, moving the directory
             # will create a race when joblib tries to access the companion
             # files.
