@@ -518,8 +518,8 @@ def test_joblib_pickle_across_python_versions():
 
 
 def _check_compression_format(filename, expected_list):
-    if (not PY3_OR_LATER and (filename.endswith('xz') or
-                              filename.endswith('lzma'))):
+    if (not PY3_OR_LATER and (filename.endswith('.xz') or
+                              filename.endswith('.lzma'))):
         # lzma is not supported for python versions < 3.3
         nose.tools.assert_raises(NotImplementedError,
                                  numpy_pickle.load, filename)
