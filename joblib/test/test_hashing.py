@@ -403,6 +403,16 @@ def test_hashes_are_different_between_c_and_fortran_contiguous_arrays():
 
 
 @with_numpy
+def test_0d_array():
+    hash(np.array(0))
+
+
+@with_numpy
+def test_0d_and_1d_array_hashing_is_different():
+    assert_not_equal(hash(np.array(0)), hash(np.array([0])))
+
+
+@with_numpy
 def test_hashes_stay_the_same_with_numpy_objects():
     # We want to make sure that hashes don't change with joblib
     # version. For end users, that would mean that they have to
