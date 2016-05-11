@@ -189,7 +189,11 @@ class NumpyHasher(Hasher):
         if isinstance(obj, self.np.ndarray) and not obj.dtype.hasobject:
             # Compute a hash of the object
             # The update function of the hash requires a c_contiguous buffer.
-            if obj.flags.c_contiguous:
+            if obj.shape == ():
+                # 0d arrays need to be flattened because viewing them as bytes
+                # raises a ValueError exception.
+                obj_c_contiguous = obj.flatten()
+            elif obj.flags.c_contiguous:
                 obj_c_contiguous = obj
             elif obj.flags.f_contiguous:
                 obj_c_contiguous = obj.T
