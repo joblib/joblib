@@ -397,6 +397,9 @@ def dump(value, filename, compress=0, protocol=None, cache_size=None):
     if Path is not None and isinstance(filename, Path):
         filename = str(filename)
 
+    isFilename = isinstance(filename, _basestring)
+    isFileobj = hasattr(filename, "read") and hasattr(filename, "write")
+
     compress_method = 'zlib'  # zlib is the default compression method.
     if compress is True:
         # By default, if compress is enabled, we want to be using 3 by default
@@ -424,14 +427,16 @@ def dump(value, filename, compress=0, protocol=None, cache_size=None):
             'Non valid compression method given: "{0}". Possible values are '
             '{1}.'.format(compress_method, _COMPRESSORS))
 
-    if not isinstance(filename, _basestring):
+    if not isFilename and not isFileobj:
         # People keep inverting arguments, and the resulting error is
         # incomprehensible
         raise ValueError(
-            'Second argument should be a filename, %s (type %s) was given'
+            'Second argument should be a filename or a file-like object, '
+            '%s (type %s) was given.'
             % (filename, type(filename))
         )
-    elif not isinstance(compress, tuple):
+
+    if isFilename and not isinstance(compress, tuple):
         # In case no explicit compression was requested using both compression
         # method and level in a tuple and the filename has an explicit
         # extension, we select the corresponding compressor.
@@ -475,10 +480,45 @@ def dump(value, filename, compress=0, protocol=None, cache_size=None):
             NumpyPickler(f, protocol=protocol).dump(value)
 
     else:
-        with open(filename, 'wb') as f:
-            NumpyPickler(f, protocol=protocol).dump(value)
+        if isFilename:
+            with open(filename, 'wb') as f:
+                NumpyPickler(f, protocol=protocol).dump(value)
+        else:
+            NumpyPickler(filename, protocol=protocol).dump(value)
 
     return [filename]
+
+
+def _unpickle(fobj, filename="", mmap_mode=None):
+    # We are careful to open the file handle early and keep it open to
+    # avoid race-conditions on renames.
+    # That said, if data is stored in companion files, which can be
+    # the case with the old persistence format, moving the directory
+    # will create a race when joblib tries to access the companion
+    # files.
+    unpickler = NumpyUnpickler(filename, fobj, mmap_mode=mmap_mode)
+    obj = None
+    try:
+        obj = unpickler.load()
+        if unpickler.compat_mode:
+            warnings.warn("The file '%s' has been generated with a "
+                          "joblib version less than 0.10. "
+                          "Please regenerate this pickle file."
+                          % filename,
+                          DeprecationWarning, stacklevel=3)
+    except UnicodeDecodeError as exc:
+        # More user-friendly error message
+        if PY3_OR_LATER:
+            new_exc = ValueError(
+                'You may be trying to read with '
+                'python 3 a joblib pickle generated with python 2. '
+                'This feature is not supported by joblib.')
+            new_exc.__cause__ = exc
+            raise new_exc
+        # Raise exception "as-is" with python 2
+        raise
+
+    return obj
 
 
 def load(filename, mmap_mode=None):
@@ -514,37 +554,19 @@ def load(filename, mmap_mode=None):
     """
     if Path is not None and isinstance(filename, Path):
         filename = str(filename)
-    with open(filename, 'rb') as f:
-        with _read_fileobject(f, filename, mmap_mode) as f:
-            if isinstance(f, _basestring):
-                # if the returned file object is a string, this means we try
-                # to load a pickle file generated with an version of Joblib
-                # so we load it with joblib compatibility function.
-                return load_compatibility(f)
 
-            # We are careful to open the file handle early and keep it open to
-            # avoid race-conditions on renames.
-            # That said, if data is stored in companion files, which can be
-            # the case with the old persistence format, moving the directory
-            # will create a race when joblib tries to access the companion
-            # files.
-            unpickler = NumpyUnpickler(filename, f, mmap_mode=mmap_mode)
-            try:
-                obj = unpickler.load()
-                if unpickler.compat_mode:
-                    warnings.warn("The file '%s' has been generated with a "
-                                  "joblib version less than 0.10. "
-                                  "Please regenerate this pickle file."
-                                  % filename,
-                                  DeprecationWarning, stacklevel=2)
-            except UnicodeDecodeError as exc:
-                # More user-friendly error message
-                if PY3_OR_LATER:
-                    new_exc = ValueError(
-                        'You may be trying to read with '
-                        'python 3 a joblib pickle generated with python 2. '
-                        'This feature is not supported by joblib.')
-                    new_exc.__cause__ = exc
-                    raise new_exc
+    if hasattr(filename, "read") and hasattr(filename, "write"):
+        with _read_fileobject(filename, "", mmap_mode) as fobj:
+            obj = _unpickle(fobj)
+    else:
+        with open(filename, 'rb') as f:
+            with _read_fileobject(f, filename, mmap_mode) as fobj:
+                if isinstance(fobj, _basestring):
+                    # if the returned file object is a string, this means we
+                    # try to load a pickle file generated with an version of
+                    # Joblib so we load it with joblib compatibility function.
+                    return load_compatibility(fobj)
+
+                obj = _unpickle(fobj, filename, mmap_mode)
 
     return obj
