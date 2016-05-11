@@ -490,6 +490,7 @@ def dump(value, filename, compress=0, protocol=None, cache_size=None):
 
 
 def _unpickle(fobj, filename="", mmap_mode=None):
+    """Internal unpickling function."""
     # We are careful to open the file handle early and keep it open to
     # avoid race-conditions on renames.
     # That said, if data is stored in companion files, which can be

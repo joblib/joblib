@@ -13,6 +13,7 @@ import warnings
 import nose
 import gzip
 import zlib
+import bz2
 import pickle
 from contextlib import closing
 
@@ -25,7 +26,7 @@ from joblib.testing import assert_raises_regex
 from joblib import numpy_pickle
 from joblib.test import data
 
-from joblib._compat import PY3_OR_LATER
+from joblib._compat import PY3_OR_LATER, PY26
 from joblib.numpy_pickle_utils import _IO_BUFFER_SIZE, BinaryZlibFile
 from joblib.numpy_pickle_utils import _detect_compressor, _COMPRESSORS
 
@@ -334,14 +335,15 @@ def test_compress_mmap_mode_warning():
         numpy_pickle.load(this_filename, mmap_mode='r+')
         nose.tools.assert_equal(len(caught_warnings), 1)
         for warn in caught_warnings:
-            nose.tools.assert_equal(warn.category, DeprecationWarning)
+            nose.tools.assert_equal(warn.category, Warning)
             nose.tools.assert_equal(warn.message.args[0],
                                     'File "%(filename)s" is compressed using '
                                     '"%(compressor)s" which is not compatible '
                                     'with mmap_mode "%(mmap_mode)s" flag '
-                                    'passed.' % {'filename': this_filename,
-                                                 'mmap_mode': 'r+',
-                                                 'compressor': 'zlib'})
+                                    'passed. mmap_mode option will be '
+                                    'ignored.' % {'filename': this_filename,
+                                                  'mmap_mode': 'r+',
+                                                  'compressor': 'zlib'})
 
 
 @with_numpy
@@ -679,6 +681,120 @@ def test_compression_using_file_extension():
             nose.tools.assert_true(isinstance(obj_reloaded, type(obj)))
             nose.tools.assert_equal(obj_reloaded, obj)
             os.remove(dump_fname)
+
+
+@with_numpy
+def test_file_handle_persistence():
+    objs = [np.random.random((10, 10)),
+            "some data",
+            np.matrix([0, 1, 2])]
+    fobjs = [open]
+    if not PY26:
+        fobjs += [bz2.BZ2File, gzip.GzipFile]
+    if PY3_OR_LATER:
+        import lzma
+        fobjs += [lzma.LZMAFile]
+    filename = env['filename'] + str(random.randint(0, 1000))
+
+    for obj in objs:
+        for fobj in fobjs:
+            with fobj(filename, 'wb') as f:
+                numpy_pickle.dump(obj, f)
+
+            # using the same decompressor prevents from internally
+            # decompress again.
+            with fobj(filename, 'rb') as f:
+                obj_reloaded = numpy_pickle.load(f)
+
+            # when needed, the correct decompressor should be used when
+            # passing a raw file handle.
+            with open(filename, 'rb') as f:
+                obj_reloaded_2 = numpy_pickle.load(f)
+
+            if isinstance(obj, np.ndarray):
+                np.testing.assert_array_equal(obj_reloaded, obj)
+                np.testing.assert_array_equal(obj_reloaded_2, obj)
+            else:
+                nose.tools.assert_equal(obj_reloaded, obj)
+                nose.tools.assert_equal(obj_reloaded_2, obj)
+
+            os.remove(filename)
+
+
+@with_numpy
+def test_in_memory_persistence():
+    objs = [np.random.random((10, 10)),
+            "some data",
+            np.matrix([0, 1, 2])]
+    for obj in objs:
+        f = io.BytesIO()
+        numpy_pickle.dump(obj, f)
+        obj_reloaded = numpy_pickle.load(f)
+        if isinstance(obj, np.ndarray):
+            np.testing.assert_array_equal(obj_reloaded, obj)
+        else:
+            nose.tools.assert_equal(obj_reloaded, obj)
+
+
+@with_numpy
+def test_file_handle_persistence_mmap():
+    obj = np.random.random((10, 10))
+    filename = env['filename'] + str(random.randint(0, 1000))
+
+    with open(filename, 'wb') as f:
+        numpy_pickle.dump(obj, f)
+
+    with open(filename, 'rb') as f:
+        obj_reloaded = numpy_pickle.load(f, mmap_mode='r+')
+
+    np.testing.assert_array_equal(obj_reloaded, obj)
+
+
+@with_numpy
+def test_file_handle_persistence_compressed_mmap():
+    obj = np.random.random((10, 10))
+    filename = env['filename'] + str(random.randint(0, 1000))
+
+    with open(filename, 'wb') as f:
+        numpy_pickle.dump(obj, f, compress=('gzip', 3))
+
+    with closing(gzip.GzipFile(filename, 'rb')) as f:
+        with warnings.catch_warnings(record=True) as caught_warnings:
+            warnings.simplefilter("always")
+            numpy_pickle.load(f, mmap_mode='r+')
+            nose.tools.assert_equal(len(caught_warnings), 1)
+            for warn in caught_warnings:
+                nose.tools.assert_equal(warn.category, Warning)
+                nose.tools.assert_equal(warn.message.args[0],
+                                        'File "%(filename)s" is compressed '
+                                        'using "%(compressor)s" which is not '
+                                        'compatible with mmap_mode '
+                                        '"%(mmap_mode)s" flag '
+                                        'passed. mmap_mode option will be '
+                                        'ignored.' %
+                                        {'filename': "",
+                                         'mmap_mode': 'r+',
+                                         'compressor': 'GzipFile'})
+
+
+@with_numpy
+def test_file_handle_persistence_in_memory_mmap():
+    obj = np.random.random((10, 10))
+    buf = io.BytesIO()
+
+    numpy_pickle.dump(obj, buf)
+
+    with warnings.catch_warnings(record=True) as caught_warnings:
+        warnings.simplefilter("always")
+        numpy_pickle.load(buf, mmap_mode='r+')
+        nose.tools.assert_equal(len(caught_warnings), 1)
+        for warn in caught_warnings:
+            nose.tools.assert_equal(warn.category, Warning)
+            nose.tools.assert_equal(warn.message.args[0],
+                                    'In memory persistence is not compatible '
+                                    'with mmap_mode "%(mmap_mode)s" '
+                                    'flag passed. mmap_mode option will be '
+                                    'ignored.' % {'mmap_mode': 'r+'})
 
 
 def test_binary_zlibfile():
