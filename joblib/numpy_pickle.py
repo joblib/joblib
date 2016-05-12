@@ -89,7 +89,7 @@ class NumpyArrayWrapper(object):
                                                   'zerosize_ok'],
                                            buffersize=buffersize,
                                            order=self.order):
-                pickler.file_handle.write(chunk.tostring('C'))
+                pickler.file_handle.write(chunk.data)
 
     def read_array(self, unpickler):
         """Read array from unpickler file handle.
