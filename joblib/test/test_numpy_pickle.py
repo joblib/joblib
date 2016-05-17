@@ -787,3 +787,16 @@ def test_pathlib():
         nose.tools.assert_equal(numpy_pickle.load(filename), value)
         numpy_pickle.dump(value, filename)
         nose.tools.assert_equal(numpy_pickle.load(Path(filename)), value)
+
+
+@with_numpy
+def test_non_contiguous_array_pickling():
+    filename = env['filename'] + str(random.randint(0, 1000))
+
+    array = np.ones((10, 50, 20), order='F')[:, :1, :]
+    nose.tools.assert_false(array.flags.c_contiguous)
+    nose.tools.assert_false(array.flags.f_contiguous)
+    numpy_pickle.dump(array, filename)
+    array_reloaded = numpy_pickle.load(filename)
+    np.testing.assert_array_equal(array_reloaded, array)
+    os.remove(filename)
