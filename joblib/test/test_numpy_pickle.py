@@ -793,10 +793,15 @@ def test_pathlib():
 def test_non_contiguous_array_pickling():
     filename = env['filename'] + str(random.randint(0, 1000))
 
-    array = np.ones((10, 50, 20), order='F')[:, :1, :]
-    nose.tools.assert_false(array.flags.c_contiguous)
-    nose.tools.assert_false(array.flags.f_contiguous)
-    numpy_pickle.dump(array, filename)
-    array_reloaded = numpy_pickle.load(filename)
-    np.testing.assert_array_equal(array_reloaded, array)
-    os.remove(filename)
+    for array in [  # Array that triggers a contiguousness issue with nditer,
+                    # see https://github.com/joblib/joblib/pull/352 and see
+                    # https://github.com/joblib/joblib/pull/353
+                    np.asfortranarray([[1, 2], [3, 4]])[1:],
+                    # Non contiguous array with works fine with nditer
+                    np.ones((10, 50, 20), order='F')[:, :1, :]]:
+        nose.tools.assert_false(array.flags.c_contiguous)
+        nose.tools.assert_false(array.flags.f_contiguous)
+        numpy_pickle.dump(array, filename)
+        array_reloaded = numpy_pickle.load(filename)
+        np.testing.assert_array_equal(array_reloaded, array)
+        os.remove(filename)
