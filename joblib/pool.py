@@ -23,6 +23,7 @@ import atexit
 import tempfile
 import shutil
 import warnings
+from time import sleep
 
 try:
     WindowsError
@@ -596,5 +597,16 @@ class MemmapingPool(PicklingPool):
         super(MemmapingPool, self).__init__(**poolargs)
 
     def terminate(self):
-        super(MemmapingPool, self).terminate()
+        n_retries = 10
+        for i in range(n_retries):
+            try:
+                super(MemmapingPool, self).terminate()
+                break
+            except WindowsError as e:
+                # Workaround  occasional "[Error 5] Access is denied" issue
+                # when trying to terminate a process under windows.
+                sleep(0.1)
+                if i + 1 == n_retries:
+                    warnings.warn("Failed to terminate worker processes in "
+                                  " multiprocessing pool: %r" % e)
         delete_folder(self._temp_folder)
