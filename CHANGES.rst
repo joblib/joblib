@@ -29,6 +29,13 @@ Antony Lee
     ENH: joblib.dump/load now accept pathlib.Path objects as filenames.
     https://github.com/joblib/joblib/pull/316 for more details.
 
+Olivier Grisel
+
+    Workaround for "WindowsError: [Error 5] Access is denied" when trying to
+    terminate a multiprocessing pool under Windows:
+    https://github.com/joblib/joblib/issues/354
+
+
 Release 0.9.4
 -------------
 
