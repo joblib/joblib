@@ -397,8 +397,8 @@ def dump(value, filename, compress=0, protocol=None, cache_size=None):
     if Path is not None and isinstance(filename, Path):
         filename = str(filename)
 
-    isFilename = isinstance(filename, _basestring)
-    isFileobj = hasattr(filename, "read") and hasattr(filename, "write")
+    is_filename = isinstance(filename, _basestring)
+    is_fileobj = hasattr(filename, "write")
 
     compress_method = 'zlib'  # zlib is the default compression method.
     if compress is True:
@@ -427,7 +427,7 @@ def dump(value, filename, compress=0, protocol=None, cache_size=None):
             'Non valid compression method given: "{0}". Possible values are '
             '{1}.'.format(compress_method, _COMPRESSORS))
 
-    if not isFilename and not isFileobj:
+    if not is_filename and not is_fileobj:
         # People keep inverting arguments, and the resulting error is
         # incomprehensible
         raise ValueError(
@@ -436,7 +436,7 @@ def dump(value, filename, compress=0, protocol=None, cache_size=None):
             % (filename, type(filename))
         )
 
-    if isFilename and not isinstance(compress, tuple):
+    if is_filename and not isinstance(compress, tuple):
         # In case no explicit compression was requested using both compression
         # method and level in a tuple and the filename has an explicit
         # extension, we select the corresponding compressor.
@@ -480,7 +480,7 @@ def dump(value, filename, compress=0, protocol=None, cache_size=None):
             NumpyPickler(f, protocol=protocol).dump(value)
 
     else:
-        if isFilename:
+        if is_filename:
             with open(filename, 'wb') as f:
                 NumpyPickler(f, protocol=protocol).dump(value)
         else:
@@ -556,7 +556,7 @@ def load(filename, mmap_mode=None):
     if Path is not None and isinstance(filename, Path):
         filename = str(filename)
 
-    if hasattr(filename, "read") and hasattr(filename, "write"):
+    if hasattr(filename, "read") and hasattr(filename, "seek"):
         with _read_fileobject(filename, "", mmap_mode) as fobj:
             obj = _unpickle(fobj)
     else:
