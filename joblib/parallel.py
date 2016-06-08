@@ -26,7 +26,7 @@ from ._multiprocessing_helpers import mp
 from .format_stack import format_outer_frames
 from .logger import Logger, short_format_time
 from .my_exceptions import TransportableException, _mk_exception
-from .disk import memstr_to_kbytes
+from .disk import memstr_to_bytes
 from ._parallel_backends import (FallbackToBackend, MultiprocessingBackend,
                                  ThreadingBackend, SequentialBackend)
 from ._compat import _basestring
@@ -472,7 +472,7 @@ class Parallel(Logger):
         self.pre_dispatch = pre_dispatch
 
         if isinstance(max_nbytes, _basestring):
-            max_nbytes = 1024 * memstr_to_kbytes(max_nbytes)
+            max_nbytes = memstr_to_bytes(max_nbytes)
 
         self._backend_args = dict(
             max_nbytes=max_nbytes,

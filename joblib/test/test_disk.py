@@ -16,7 +16,7 @@ from tempfile import mkdtemp
 
 import nose
 
-from joblib.disk import disk_used, memstr_to_kbytes, mkdirp
+from joblib.disk import disk_used, memstr_to_bytes, mkdirp
 
 
 ###############################################################################
@@ -43,12 +43,13 @@ def test_disk_used():
         shutil.rmtree(cachedir)
 
 
-def test_memstr_to_kbytes():
+def test_memstr_to_bytes():
     for text, value in zip(('80G', '1.4M', '120M', '53K'),
-                           (80 * 1024 ** 2, int(1.4 * 1024), 120 * 1024, 53)):
-        yield nose.tools.assert_equal, memstr_to_kbytes(text), value
+                           (80 * 1024 ** 3, int(1.4 * 1024 ** 2),
+                            120 * 1024 ** 2, 53 * 1024)):
+        yield nose.tools.assert_equal, memstr_to_bytes(text), value
 
-    nose.tools.assert_raises(ValueError, memstr_to_kbytes, 'foobar')
+    nose.tools.assert_raises(ValueError, memstr_to_bytes, 'foobar')
 
 
 def test_mkdirp():
