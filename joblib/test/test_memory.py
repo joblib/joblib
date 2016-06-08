@@ -15,12 +15,13 @@ import warnings
 import io
 import sys
 import time
+import datetime
 
 import nose
 
-from joblib.memory import Memory
-from joblib.memory import MemorizedFunc, NotMemorizedFunc
-from joblib.memory import MemorizedResult, NotMemorizedResult
+from joblib.memory import Memory, MemorizedFunc, NotMemorizedFunc
+from joblib.memory import MemorizedResult, NotMemorizedResult, _FUNCTION_HASHES
+from joblib.memory import _get_cache_items, _get_cache_items_to_delete
 from joblib.memory import _FUNCTION_HASHES, _load_output, _get_func_fullname
 from joblib.test.common import with_numpy, np
 from joblib.testing import assert_raises_regex
@@ -722,3 +723,118 @@ def func_with_signature(a: int, b: float) -> float:
         func_cached = mem.cache(func_with_signature)
 
         nose.tools.assert_equal(func_cached(1, 2.), 3.)
+
+
+def _setup_temporary_cache_folder():
+    # Use separate cache dir to avoid side-effects from other tests
+    # that do not use _setup_temporary_cache_folder
+    mem = Memory(cachedir=os.path.join(env['dir'], 'separate_cache'),
+                 verbose=0)
+
+    @mem.cache()
+    def get_1000_bytes(arg):
+        return 'a' * 1000
+
+    inputs = list(range(10))
+    for arg in inputs:
+        get_1000_bytes(arg)
+
+    hash_dirnames = [get_1000_bytes._get_output_dir(arg)[0] for arg in inputs]
+
+    full_hashdirs = [os.path.join(get_1000_bytes.cachedir, dirname)
+                     for dirname in hash_dirnames]
+    return mem, full_hashdirs
+
+
+def test__get_cache_items():
+    mem, expected_hash_cachedirs = _setup_temporary_cache_folder()
+    cachedir = mem.cachedir
+    cache_items = _get_cache_items(cachedir)
+    hash_cachedirs = [ci.path for ci in cache_items]
+    nose.tools.assert_equal(
+        set(hash_cachedirs), set(expected_hash_cachedirs))
+
+    def get_files_size(directory):
+        full_paths = [os.path.join(directory, fn)
+                      for fn in os.listdir(directory)]
+        return sum(os.path.getsize(fp) for fp in full_paths)
+
+    expected_hash_cache_sizes = [get_files_size(hash_dir)
+                                 for hash_dir in hash_cachedirs]
+    hash_cache_sizes = [ci.size for ci in cache_items]
+    nose.tools.assert_equal(hash_cache_sizes,
+                            expected_hash_cache_sizes)
+
+    output_filenames = [os.path.join(hash_dir, 'output.pkl')
+                        for hash_dir in hash_cachedirs]
+
+    expected_last_accesses = [
+        datetime.datetime.fromtimestamp(os.path.getatime(fn))
+        for fn in output_filenames]
+    last_accesses = [ci.last_access for ci in cache_items]
+    nose.tools.assert_equal(last_accesses,
+                            expected_last_accesses)
+
+
+def test__get_cache_items_to_delete():
+    mem, expected_hash_cachedirs = _setup_temporary_cache_folder()
+    cachedir = mem.cachedir
+    cache_items = _get_cache_items(cachedir)
+    # bytes_limit set to keep only one cache item (each hash cache
+    # folder is about 1000 bytes + metadata)
+    cache_items_to_delete = _get_cache_items_to_delete(cachedir, '2K')
+    nb_hashes = len(expected_hash_cachedirs)
+    nose.tools.assert_true(set.issubset(set(cache_items_to_delete),
+                                        set(cache_items)))
+    nose.tools.assert_equal(len(cache_items_to_delete), nb_hashes - 1)
+
+    # Sanity check bytes_limit=2048 is the same as bytes_limit='2K'
+    cache_items_to_delete_2048b = _get_cache_items_to_delete(cachedir, 2048)
+    nose.tools.assert_equal(sorted(cache_items_to_delete),
+                            sorted(cache_items_to_delete_2048b))
+
+    # bytes_limit greater than the size of the cache
+    cache_items_to_delete_empty = _get_cache_items_to_delete(cachedir, '1M')
+    nose.tools.assert_equal(cache_items_to_delete_empty, [])
+
+    # All the cache items need to be deleted
+    bytes_limit_too_small = 500
+    cache_items_to_delete_500b = _get_cache_items_to_delete(
+        cachedir, bytes_limit_too_small)
+    nose.tools.assert_true(set(cache_items_to_delete_500b),
+                           set(cache_items))
+
+
+def test_memory_reduce_size():
+    mem, _ = _setup_temporary_cache_folder()
+    cachedir = mem.cachedir
+    ref_cache_items = _get_cache_items(cachedir)
+
+    # By default mem.bytes_limit is None and reduce_size is a noop
+    mem.reduce_size()
+    cache_items = _get_cache_items(cachedir)
+    nose.tools.assert_equal(sorted(ref_cache_items),
+                            sorted(cache_items))
+
+    # No cache items deleted if bytes_limit greater than the size of
+    # the cache
+    mem.bytes_limit = '1M'
+    mem.reduce_size()
+    cache_items = _get_cache_items(cachedir)
+    nose.tools.assert_equal(sorted(ref_cache_items),
+                            sorted(cache_items))
+
+    # bytes_limit is set so that only two cache items are kept
+    mem.bytes_limit = '3K'
+    mem.reduce_size()
+    cache_items = _get_cache_items(cachedir)
+    nose.tools.assert_true(set.issubset(set(cache_items),
+                                        set(ref_cache_items)))
+    nose.tools.assert_equal(len(cache_items), 2)
+
+    # bytes_limit set so that no cache item is kept
+    bytes_limit_too_small = 500
+    mem.bytes_limit = bytes_limit_too_small
+    mem.reduce_size()
+    cache_items = _get_cache_items(cachedir)
+    nose.tools.assert_equal(cache_items, [])
