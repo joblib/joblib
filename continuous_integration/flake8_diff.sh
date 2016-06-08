@@ -37,4 +37,6 @@ echo -e '\nRunning flake8 on the diff in the range'\
      "($(git rev-list $COMMIT.. | wc -l) commit(s)):"
 echo '--------------------------------------------------------------------------------'
 
-git diff $COMMIT | flake8 --diff && echo -e "No problem detected by flake8\n"
+# Conservative approach: diff without context so that code that was
+# not changed does not create failures
+git diff --unified=0 $COMMIT | flake8 --diff && echo -e "No problem detected by flake8\n"
