@@ -478,13 +478,11 @@ def dump(value, filename, compress=0, protocol=None, cache_size=None):
         with _write_fileobject(filename, compress=(compress_method,
                                                    compress_level)) as f:
             NumpyPickler(f, protocol=protocol).dump(value)
-
+    elif is_filename:
+        with open(filename, 'wb') as f:
+            NumpyPickler(f, protocol=protocol).dump(value)
     else:
-        if is_filename:
-            with open(filename, 'wb') as f:
-                NumpyPickler(f, protocol=protocol).dump(value)
-        else:
-            NumpyPickler(filename, protocol=protocol).dump(value)
+        NumpyPickler(filename, protocol=protocol).dump(value)
 
     return [filename]
 
