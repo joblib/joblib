@@ -94,7 +94,8 @@ def parallel_backend(backend, n_jobs=-1, **backend_params):
     old_backend_and_jobs = getattr(_backend, 'backend_and_jobs', None)
     try:
         _backend.backend_and_jobs = (backend, n_jobs)
-        yield
+        # return the backend instance to make it easier to write tests
+        yield backend, n_jobs
     finally:
         if old_backend_and_jobs is None:
             if getattr(_backend, 'backend_and_jobs', None) is not None:
@@ -528,15 +529,11 @@ class Parallel(Logger):
     def _initialize_backend(self):
         """Build a process or thread pool and return the number of workers"""
         try:
-            n_jobs = self._backend.configure(n_jobs=self.n_jobs, parallel=self,
-                                             **self._backend_args)
-            # The list of exceptions that we will capture
-            self.exceptions = [TransportableException]
-            self.exceptions.extend(self._backend.get_exceptions())
-            return n_jobs
+            return self._backend.configure(n_jobs=self.n_jobs, parallel=self,
+                                           **self._backend_args)
         except FallbackToBackend as e:
+            # Recursively initialize the backend in case of requested fallback.
             self._backend = e.backend
-            # make the configure fallback mechanism recursive
             return self._initialize_backend()
 
     def _effective_n_jobs(self):
@@ -678,7 +675,7 @@ class Parallel(Logger):
                     self._output.extend(job.get(timeout=self.timeout))
                 else:
                     self._output.extend(job.get())
-            except tuple(self.exceptions) as exception:
+            except Exception as exception:
                 # Stop dispatching any new job in the async callback thread
                 self._aborting = True
 
@@ -697,16 +694,18 @@ Sub-process traceback:
                     exception_type = _mk_exception(exception.etype)[0]
                     exception = exception_type(report)
 
-                # Kill remaining running processes without waiting for
-                # the results as we will raise the exception we got back
-                # to the caller instead of returning any result.
-                self._terminate_backend()
-                if self._managed_backend:
-                    # In case we had to terminate a managed pool, let
-                    # us start a new one to ensure that subsequent calls
-                    # to __call__ on the same Parallel instance will get
-                    # a working pool as they expect.
-                    self._initialize_backend()
+                # If the backends allows it, cancel or kill remaining running
+                # tasks without waiting for the results as we will raise
+                # the exception we got back to the caller instead of returning
+                # any result.
+                backend = self._backend
+                if (backend is not None and
+                        hasattr(backend, 'abort_everything')):
+                    # If the backend is managed externally we need to make sure
+                    # to leave it in a working state to allow for future jobs
+                    # scheduling.
+                    ensure_ready = self._managed_backend
+                    backend.abort_everything(ensure_ready=ensure_ready)
                 raise exception
 
     def __call__(self, iterable):

@@ -66,6 +66,30 @@ class ParallelBackendBase(with_metaclass(ABCMeta)):
         """List of exception types to be captured."""
         return []
 
+    def abort_everything(self, ensure_ready=True):
+        """Abort any running tasks
+
+        This is called when an exception has been raised when executing a tasks
+        and all the remaining tasks will be ignored and can therefore be
+        aborted to spare computation resources.
+
+        If ensure_ready is True, the backend should be left in an operating
+        state as future tasks might be re-submitted via that same backend
+        instance.
+
+        If ensure_ready is False, the implementer of this method can decide
+        to leave the backend in a closed / terminated state as no new task
+        are expected to be submitted to this backend.
+
+        Setting ensure_ready to False is an optimization that can be leveraged
+        when aborting tasks via killing processes from a local process pool
+        managed by the backend it-self: if we expect no new tasks, there is no
+        point in re-creating a new working pool.
+        """
+        # Does nothing by default: to be overriden in subclasses when canceling
+        # tasks is possible.
+        pass
+
 
 class SequentialBackend(ParallelBackendBase):
     """A ParallelBackend which will execute all batches sequentially.
@@ -113,6 +137,13 @@ class PoolManagerMixin(object):
     def apply_async(self, func, callback=None):
         """Schedule a func to be run"""
         return self._pool.apply_async(SafeFunction(func), callback=callback)
+
+    def abort_everything(self, ensure_ready=True):
+        """Shutdown the pool and restart a new one with the same parameters"""
+        self.terminate()
+        if ensure_ready:
+            self.configure(n_jobs=self.parallel.n_jobs, parallel=self.parallel,
+                           **self.parallel._backend_args)
 
 
 class AutoBatchingMixin(object):
@@ -282,11 +313,6 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
         super(MultiprocessingBackend, self).terminate()
         if self.JOBLIB_SPAWNED_PROCESS in os.environ:
             del os.environ[self.JOBLIB_SPAWNED_PROCESS]
-
-    def get_exceptions(self):
-        # We are using multiprocessing, we also want to capture
-        # KeyboardInterrupts
-        return [KeyboardInterrupt, WorkerInterrupt]
 
 
 class ImmediateResult(object):
