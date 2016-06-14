@@ -15,11 +15,15 @@ of the latest code: http://github.com/joblib/joblib/archives/master
 Installing
 =========================
 
-As any Python packages, to install joblib, simply do::
+As most of pure Python packages, to install joblib, simply do::
 
-    python setup.py install
+    pip install joblib
 
-in the source code directory.
+from any directory or
+
+    pip install -e .
+
+from the source directory.
 
 Joblib has no other mandatory dependency than Python (supported
 versions are 2.6+ and 3.3+). Numpy (at least version 1.6.1) is an

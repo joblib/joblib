@@ -1,34 +1,38 @@
 Installing joblib
 ===================
 
-The `easy_install` way
------------------------
+Using `pip`
+-----------
 
-For the easiest way to install joblib you need to have `setuptools`
-installed.
+The easiest way to install joblib is to use `pip`:
 
 * For installing for all users, you need to run::
 
-    easy_install joblib
+    pip install joblib
 
   You may need to run the above command as administrator
 
   On a unix environment, it is better to install outside of the hierarchy
   managed by the system::
 
-    easy_install --prefix /usr/local joblib
+    pip install --prefix /usr/local joblib
 
 * Installing only for a specific user is easy if you use Python 2.6 or
   above::
 
-    easy_install --user joblib
+    pip install --user joblib
+
+Using `conda`
+-------------
+
+Simply run the following command:
+
+    conda install joblib
 
 .. warning::
 
-    Packages installed via `easy_install` override the Python module look
-    up mechanism and thus can confused people not familiar with
-    setuptools. Although it may seem harder, we suggest that you use the
-    manual way, as described in the following paragraph.
+    The joblib version provided by `conda` might be older than the one shipped by
+    `pip`. Thus `pip` is the recommended way for installing joblib.
 
 Using distributions
 --------------------
@@ -54,7 +58,7 @@ the changes are local to your account and easy to clean up.
 Simply move to the directory created by expanding the `joblib` tarball
 and run the following command::
 
-    python setup.py install --user
+    pip install -e . --user
 
 Installing for all users
 ........................
@@ -63,9 +67,9 @@ If you have administrator rights and want to install for all users, all
 you need to do is to go in directory created by expanding the `joblib`
 tarball and run the following line::
 
-    python setup.py install
+    pip install -e .
 
 If you are under Unix, we suggest that you install in '/usr/local' in
 order not to interfere with your system::
 
-    python setup.py install --prefix /usr/local
+    pip install -e --prefix /usr/local
