@@ -600,21 +600,21 @@ def test_joblib_compression_formats():
                     os.remove(dump_filename)
 
 
-def _decompress_gzip(filename):
+def _gzip_file_decompress(source_filename, target_filename):
     """Decompress a gzip file."""
-    with closing(gzip.GzipFile(filename + ".gz", "rb")) as fo:
+    with closing(gzip.GzipFile(source_filename, "rb")) as fo:
         buf = fo.read()
 
-    with open(filename, "wb") as fo:
+    with open(target_filename, "wb") as fo:
         fo.write(buf)
 
 
-def _decompress_zlib(filename):
+def _zlib_file_decompress(source_filename, target_filename):
     """Decompress a zlib file."""
-    with open(filename + ".z", 'rb') as fo:
+    with open(source_filename, 'rb') as fo:
         buf = zlib.decompress(fo.read())
 
-    with open(filename, 'wb') as fo:
+    with open(target_filename, 'wb') as fo:
         fo.write(buf)
 
 
@@ -622,17 +622,16 @@ def test_load_externally_decompressed_files():
     # Test that BinaryZlibFile generates valid gzip and zlib compressed files.
     obj = "a string to persist"
     filename_raw = env['filename'] + str(random.randint(0, 1000))
-    compress_list = (('.z', _decompress_zlib),
-                     ('.gz', _decompress_gzip))
+    compress_list = (('.z', _zlib_file_decompress),
+                     ('.gz', _gzip_file_decompress))
 
-    for extension, decompress_function in compress_list:
+    for extension, decompress in compress_list:
         filename_compressed = filename_raw + extension
         # Use automatic extension detection to compress with the right method.
         numpy_pickle.dump(obj, filename_compressed)
 
         # Decompress with the corresponding method
-        decompress_function(filename_raw)
-        nose.tools.assert_true(os.path.exists(filename_raw))
+        decompress(filename_compressed, filename_raw)
 
         # Test that the uncompressed pickle can be loaded and
         # that the result is correct.
