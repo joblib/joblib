@@ -8,13 +8,12 @@ import random
 import sys
 import re
 import tempfile
-import glob
 import io
 import warnings
 import nose
 import gzip
 import zlib
-from distutils.spawn import find_executable
+from contextlib import closing
 
 from joblib.test.common import np, with_numpy
 from joblib.test.common import with_memory_profiler, memory_used
@@ -603,7 +602,7 @@ def test_joblib_compression_formats():
 
 def _decompress_gzip(filename):
     """Decompress a gzip file."""
-    with gzip.GzipFile(filename + ".gz", "rb") as fo:
+    with closing(gzip.GzipFile(filename + ".gz", "rb")) as fo:
         buf = fo.read()
 
     with open(filename, "wb") as fo:
