@@ -8,10 +8,12 @@ import random
 import sys
 import re
 import tempfile
-import glob
 import io
 import warnings
 import nose
+import gzip
+import zlib
+from contextlib import closing
 
 from joblib.test.common import np, with_numpy
 from joblib.test.common import with_memory_profiler, memory_used
@@ -596,6 +598,50 @@ def test_joblib_compression_formats():
                     else:
                         nose.tools.assert_equal(obj_reloaded, obj)
                     os.remove(dump_filename)
+
+
+def _gzip_file_decompress(source_filename, target_filename):
+    """Decompress a gzip file."""
+    with closing(gzip.GzipFile(source_filename, "rb")) as fo:
+        buf = fo.read()
+
+    with open(target_filename, "wb") as fo:
+        fo.write(buf)
+
+
+def _zlib_file_decompress(source_filename, target_filename):
+    """Decompress a zlib file."""
+    with open(source_filename, 'rb') as fo:
+        buf = zlib.decompress(fo.read())
+
+    with open(target_filename, 'wb') as fo:
+        fo.write(buf)
+
+
+def test_load_externally_decompressed_files():
+    # Test that BinaryZlibFile generates valid gzip and zlib compressed files.
+    obj = "a string to persist"
+    filename_raw = env['filename'] + str(random.randint(0, 1000))
+    compress_list = (('.z', _zlib_file_decompress),
+                     ('.gz', _gzip_file_decompress))
+
+    for extension, decompress in compress_list:
+        filename_compressed = filename_raw + extension
+        # Use automatic extension detection to compress with the right method.
+        numpy_pickle.dump(obj, filename_compressed)
+
+        # Decompress with the corresponding method
+        decompress(filename_compressed, filename_raw)
+
+        # Test that the uncompressed pickle can be loaded and
+        # that the result is correct.
+        obj_reloaded = numpy_pickle.load(filename_raw)
+        nose.tools.assert_equal(obj, obj_reloaded)
+
+        # Do some cleanup
+        os.remove(filename_raw)
+        if os.path.exists(filename_compressed):
+            os.remove(filename_compressed)
 
 
 def test_compression_using_file_extension():
