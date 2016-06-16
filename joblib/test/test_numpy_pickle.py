@@ -12,6 +12,8 @@ import glob
 import io
 import warnings
 import nose
+import gzip
+import zlib
 from distutils.spawn import find_executable
 
 from joblib.test.common import np, with_numpy
@@ -599,27 +601,38 @@ def test_joblib_compression_formats():
                     os.remove(dump_filename)
 
 
-def test_zlibfile_compression_validity():
+def _decompress_gzip(filename):
+    """Decompress a gzip file."""
+    with gzip.GzipFile(filename + ".gz", "rb") as fo:
+        buf = fo.read()
+
+    with open(filename, "wb") as fo:
+        fo.write(buf)
+
+
+def _decompress_zlib(filename):
+    """Decompress a zlib file."""
+    with open(filename + ".z", 'rb') as fo:
+        buf = zlib.decompress(fo.read())
+
+    with open(filename, 'wb') as fo:
+        fo.write(buf)
+
+
+def test_load_externally_decompressed_files():
     # Test that BinaryZlibFile generates valid gzip and zlib compressed files.
     obj = "a string to persist"
     filename_raw = env['filename'] + str(random.randint(0, 1000))
-    compress_list = (('.z', 'zlib-flate', ' -uncompress < {0} > {1}'),
-                     ('.gz', 'gunzip', ' {0}'))
+    compress_list = (('.z', _decompress_zlib),
+                     ('.gz', _decompress_gzip))
 
-    for extension, command, args in compress_list:
-        # Skip the test if any of the decompression command line tool
-        # is missing.
-        if find_executable(command) is None:
-            raise nose.SkipTest("Command '{0}' is not installed "
-                                "on the system.".format(command))
-
+    for extension, decompress_function in compress_list:
         filename_compressed = filename_raw + extension
         # Use automatic extension detection to compress with the right method.
         numpy_pickle.dump(obj, filename_compressed)
 
-        # Uncompress with the corresponding command line tool
-        cmd = command + args.format(filename_compressed, filename_raw)
-        nose.tools.assert_equal(os.system(cmd), 0)
+        # Decompress with the corresponding method
+        decompress_function(filename_raw)
         nose.tools.assert_true(os.path.exists(filename_raw))
 
         # Test that the uncompressed pickle can be loaded and
