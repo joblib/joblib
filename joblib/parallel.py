@@ -675,7 +675,10 @@ class Parallel(Logger):
                     self._output.extend(job.get(timeout=self.timeout))
                 else:
                     self._output.extend(job.get())
-            except Exception as exception:
+            except BaseException as exception:
+                # Note: we catch any BaseException instead of just Exception
+                # instances to also include KeyboardInterrupt.
+
                 # Stop dispatching any new job in the async callback thread
                 self._aborting = True
 

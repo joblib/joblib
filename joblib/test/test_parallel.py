@@ -284,6 +284,7 @@ def test_error_capture():
         # Try again with the context manager API
         with Parallel(n_jobs=2) as parallel:
             assert_true(parallel._backend._pool is not None)
+            original_pool = parallel._backend._pool
 
             assert_raises(JoblibException, parallel,
                           [delayed(division)(x, y)
@@ -292,14 +293,23 @@ def test_error_capture():
             # The managed pool should still be available and be in a working
             # state despite the previously raised (and caught) exception
             assert_true(parallel._backend._pool is not None)
+
+            # The pool should have been interrupted and restarted:
+            assert_true(parallel._backend._pool is not original_pool)
+
             assert_equal([f(x, y=1) for x in range(10)],
                          parallel(delayed(f)(x, y=1) for x in range(10)))
 
+            original_pool = parallel._backend._pool
             assert_raises(WorkerInterrupt, parallel,
                           [delayed(interrupt_raiser)(x) for x in (1, 0)])
 
             # The pool should still be available despite the exception
             assert_true(parallel._backend._pool is not None)
+
+            # The pool should have been interrupted and restarted:
+            assert_true(parallel._backend._pool is not original_pool)
+
             assert_equal([f(x, y=1) for x in range(10)],
                          parallel(delayed(f)(x, y=1) for x in range(10)))
 
