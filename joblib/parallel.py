@@ -305,8 +305,8 @@ class Parallel(Logger):
             a TimeOutError will be raised. Only applied when n_jobs != 1
         silent_timeout: boolean, optional
             If enabled, TimeoutErrors will not be raised to caller, instead
-            TimeoutError will be returned as a placeholder for any batch of tasks
-            that times out.  Works best if each task to has an isolated process
+            TimeoutError will be returned as a placeholder for any batch of
+            tasks that times out.  Best if each task has an isolated process
             eg setting batch_size=1 and pre_dispatch='all'
         pre_dispatch: {'all', integer, or expression, as in '3*n_jobs'}
             The number of batches (of tasks) to be pre-dispatched.
@@ -469,8 +469,9 @@ class Parallel(Logger):
          [Parallel(n_jobs=2)]: Done 6 out of 6 | elapsed:  0.0s finished
     '''
     def __init__(self, n_jobs=1, backend=None, verbose=0, timeout=None,
-                 silent_timeout=False, pre_dispatch='2 * n_jobs', batch_size='auto',
-                 temp_folder=None, max_nbytes='1M', mmap_mode='r'):
+                 silent_timeout=False, pre_dispatch='2 * n_jobs',
+                 batch_size='auto', temp_folder=None, max_nbytes='1M',
+                 mmap_mode='r'):
         active_backend, default_n_jobs = get_active_backend()
         if backend is None and n_jobs == 1:
             # If we are under a parallel_backend context manager, look up
@@ -711,16 +712,16 @@ class Parallel(Logger):
                         exception_type = _mk_exception(exception.etype)[0]
                         exception = exception_type(report)
 
-                    # If the backends allows it, cancel or kill remaining running
-                    # tasks without waiting for the results as we will raise
-                    # the exception we got back to the caller instead of returning
-                    # any result.
+                    # If the backends allows it, cancel or kill remaining
+                    # running tasks without waiting for the results as
+                    # we will raise the exception we got back to the caller
+                    # instead of returning any result.
                     backend = self._backend
                     if (backend is not None and
                             hasattr(backend, 'abort_everything')):
-                        # If the backend is managed externally we need to make sure
-                        # to leave it in a working state to allow for future jobs
-                        # scheduling.
+                        # If the backend is managed externally we need to
+                        # make sure to leave it in a working state to
+                        # allow for future jobs scheduling.
                         ensure_ready = self._managed_backend
                         backend.abort_everything(ensure_ready=ensure_ready)
                     raise exception
