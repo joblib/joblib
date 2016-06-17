@@ -4,7 +4,7 @@ Installing joblib
 Using `pip`
 -----------
 
-The easiest way to install joblib is to use `pip`:
+The easiest way to install joblib is to use `pip`::
 
 * For installing for all users, you need to run::
 
@@ -25,22 +25,11 @@ The easiest way to install joblib is to use `pip`:
 Using `conda`
 -------------
 
-Simply run the following command:
+The latest version is already available with conda on the `conda-forge`
+channel.
+To install Joblib using `conda`, simply run the following command::
 
-    conda install joblib
-
-.. warning::
-
-    The joblib version provided by `conda` might be older than the one shipped by
-    `pip`. Thus `pip` is the recommended way for installing joblib.
-
-Using distributions
---------------------
-
-Joblib is packaged for several linux distribution: archlinux, debian,
-ubuntu, altlinux, and fedora. For minimum administration overhead, using the
-package manager is the recommended installation strategy on these
-systems.
+    conda install --channel conda-forge joblib
 
 The manual way
 ---------------
