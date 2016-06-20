@@ -492,7 +492,7 @@ def test_multiple_spawning():
 
 
 class FakeParallelBackend(SequentialBackend):
-    """Pretends to run conncurrently while running sequentially."""
+    """Pretends to run concurrently while running sequentially."""
 
     def configure(self, n_jobs=1, parallel=None, **backend_args):
         self.n_jobs = self.effective_n_jobs(n_jobs)
