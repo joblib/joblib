@@ -481,6 +481,9 @@ class MemmapingPool(PicklingPool):
         Threshold on the size of arrays passed to the workers that
         triggers automated memory mapping in temp_folder.
         Use None to disable memmaping of large arrays.
+    mmap_mode: {'r+', 'r', 'w+', 'c'}
+        Memmapping mode for numpy arrays passed to workers.
+        See 'max_nbytes' parameter documentation for more details.
     forward_reducers: dictionary, optional
         Reducers used to pickle objects passed from master to worker
         processes: see below.
