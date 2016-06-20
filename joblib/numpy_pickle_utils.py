@@ -50,9 +50,9 @@ _LZMA_PREFIX = b'\x5d\x00'
 
 # Supported compressors
 _COMPRESSORS = ('zlib', 'bz2', 'lzma', 'xz', 'gzip')
-_COMPRESSOR_OBJS = [gzip.GzipFile, bz2.BZ2File]
+_COMPRESSOR_CLASSES = [gzip.GzipFile, bz2.BZ2File]
 if lzma is not None:
-    _COMPRESSOR_OBJS.append(lzma.LZMAFile)
+    _COMPRESSOR_CLASSES.append(lzma.LZMAFile)
 
 # The max magic number length of supported compression file types.
 _MAX_PREFIX_LEN = max(len(prefix)
@@ -151,7 +151,7 @@ def _read_fileobject(fileobj, filename, mmap_mode=None):
     """
     # Detect if the fileobj contains compressed data.
     compressor = _detect_compressor(fileobj)
-    if isinstance(fileobj, tuple(_COMPRESSOR_OBJS)):
+    if isinstance(fileobj, tuple(_COMPRESSOR_CLASSES)):
         compressor = fileobj.__class__.__name__
     if compressor == 'compat':
         # Compatibility with old pickle mode: simply return the input
@@ -167,22 +167,22 @@ def _read_fileobject(fileobj, filename, mmap_mode=None):
         # mmap_mode cannot be used with compressed file or in memory buffers
         # such as io.BytesIO.
         if ((compressor in _COMPRESSORS or
-                isinstance(fileobj, tuple(_COMPRESSOR_OBJS))) and
+                isinstance(fileobj, tuple(_COMPRESSOR_CLASSES))) and
                 mmap_mode is not None):
             warnings.warn('File "%(filename)s" is compressed using '
                           '"%(compressor)s" which is not compatible with '
                           'mmap_mode "%(mmap_mode)s" flag passed. mmap_mode '
                           'option will be ignored.'
-                          % locals(), Warning, stacklevel=2)
+                          % locals(), stacklevel=2)
         if isinstance(fileobj, io.BytesIO) and mmap_mode is not None:
             warnings.warn('In memory persistence is not compatible with '
                           'mmap_mode "%(mmap_mode)s" flag passed. mmap_mode '
                           'option will be ignored.'
-                          % locals(), Warning, stacklevel=2)
+                          % locals(), stacklevel=2)
 
         # if the passed fileobj is in the supported list of decompressor
         # objects (GzipFile, BZ2File, LzmaFile), we simply return it.
-        if isinstance(fileobj, tuple(_COMPRESSOR_OBJS)):
+        if isinstance(fileobj, tuple(_COMPRESSOR_CLASSES)):
             yield fileobj
         # otherwise, based on the compressor detected in the file, we open the
         # correct decompressor file object, wrapped in a buffer.

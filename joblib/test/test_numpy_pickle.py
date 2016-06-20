@@ -335,7 +335,7 @@ def test_compress_mmap_mode_warning():
         numpy_pickle.load(this_filename, mmap_mode='r+')
         nose.tools.assert_equal(len(caught_warnings), 1)
         for warn in caught_warnings:
-            nose.tools.assert_equal(warn.category, Warning)
+            nose.tools.assert_equal(warn.category, UserWarning)
             nose.tools.assert_equal(warn.message.args[0],
                                     'File "%(filename)s" is compressed using '
                                     '"%(compressor)s" which is not compatible '
@@ -764,7 +764,7 @@ def test_file_handle_persistence_compressed_mmap():
             numpy_pickle.load(f, mmap_mode='r+')
             nose.tools.assert_equal(len(caught_warnings), 1)
             for warn in caught_warnings:
-                nose.tools.assert_equal(warn.category, Warning)
+                nose.tools.assert_equal(warn.category, UserWarning)
                 nose.tools.assert_equal(warn.message.args[0],
                                         'File "%(filename)s" is compressed '
                                         'using "%(compressor)s" which is not '
@@ -789,7 +789,7 @@ def test_file_handle_persistence_in_memory_mmap():
         numpy_pickle.load(buf, mmap_mode='r+')
         nose.tools.assert_equal(len(caught_warnings), 1)
         for warn in caught_warnings:
-            nose.tools.assert_equal(warn.category, Warning)
+            nose.tools.assert_equal(warn.category, UserWarning)
             nose.tools.assert_equal(warn.message.args[0],
                                     'In memory persistence is not compatible '
                                     'with mmap_mode "%(mmap_mode)s" '
