@@ -514,7 +514,7 @@ def _unpickle(fobj, filename="", mmap_mode=None):
                 'This feature is not supported by joblib.')
             new_exc.__cause__ = exc
             raise new_exc
-        # Raise exception "as-is" with python 2
+        # Reraise exception with Python 2
         raise
 
     return obj
