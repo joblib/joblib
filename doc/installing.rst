@@ -4,7 +4,7 @@ Installing joblib
 Using `pip`
 -----------
 
-The easiest way to install joblib is to use `pip`::
+You can use `pip` to install joblib::
 
 * For installing for all users, you need to run::
 
@@ -22,15 +22,6 @@ The easiest way to install joblib is to use `pip`::
 
     pip install --user joblib
 
-Using `conda`
--------------
-
-The latest version is already available with conda on the `conda-forge`
-channel.
-To install Joblib using `conda`, simply run the following command::
-
-    conda install --channel conda-forge joblib
-
 The manual way
 ---------------
 
@@ -47,7 +38,7 @@ the changes are local to your account and easy to clean up.
 Simply move to the directory created by expanding the `joblib` tarball
 and run the following command::
 
-    pip install -e . --user
+    pip install . --user
 
 Installing for all users
 ........................
@@ -56,9 +47,9 @@ If you have administrator rights and want to install for all users, all
 you need to do is to go in directory created by expanding the `joblib`
 tarball and run the following line::
 
-    pip install -e .
+    pip install .
 
 If you are under Unix, we suggest that you install in '/usr/local' in
 order not to interfere with your system::
 
-    pip install -e --prefix /usr/local
+    pip install --prefix /usr/local

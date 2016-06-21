@@ -21,7 +21,7 @@ As most of pure Python packages, to install joblib, simply do::
 
 from any directory or
 
-    pip install -e .
+    pip install .
 
 from the source directory.
 
