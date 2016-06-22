@@ -13,6 +13,7 @@ import warnings
 import nose
 import gzip
 import zlib
+import pickle
 from contextlib import closing
 
 from joblib.test.common import np, with_numpy
@@ -821,3 +822,17 @@ def test_non_contiguous_array_pickling():
         array_reloaded = numpy_pickle.load(filename)
         np.testing.assert_array_equal(array_reloaded, array)
         os.remove(filename)
+
+
+@with_numpy
+def test_pickle_highest_protocol():
+    # ensure persistence is valid when using the pickle HIGHEST_PROTOCOL.
+    # see https://github.com/joblib/joblib/issues/362
+
+    filename = env['filename'] + str(random.randint(0, 1000))
+    test_array = np.zeros((1, 235), np.uint32)
+
+    numpy_pickle.dump(test_array, filename, protocol=pickle.HIGHEST_PROTOCOL)
+    array_reloaded = numpy_pickle.load(filename)
+
+    np.testing.assert_array_equal(array_reloaded, test_array)

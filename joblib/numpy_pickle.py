@@ -224,6 +224,7 @@ class NumpyPickler(Pickler):
         if protocol is None:
             protocol = (pickle.DEFAULT_PROTOCOL if PY3_OR_LATER
                         else pickle.HIGHEST_PROTOCOL)
+        self.protocol = protocol
 
         Pickler.__init__(self, self.file_handle, protocol=protocol)
         # delayed import of numpy, to avoid tight coupling
@@ -263,7 +264,14 @@ class NumpyPickler(Pickler):
 
             # The array wrapper is pickled instead of the real array.
             wrapper = self._create_array_wrapper(obj)
+
             Pickler.save(self, wrapper)
+
+            # A framer was introduced with pickle protocol 4 and we want to
+            # ensure the wrapper object is written before the numpy array
+            # buffer in the pickle byte stream.
+            if self.protocol >= 4:
+                self.framer.commit_frame(force=True)
 
             # And then array bytes are written right after the wrapper.
             wrapper.write_array(obj, self)
