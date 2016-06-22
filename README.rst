@@ -15,13 +15,13 @@ of the latest code: http://github.com/joblib/joblib/archives/master
 Installing
 =========================
 
-As most of pure Python packages, to install joblib, simply do::
+You can use `pip` to install joblib::
 
     pip install joblib
 
 from any directory or
 
-    pip install .
+    python setup.py install
 
 from the source directory.
 
