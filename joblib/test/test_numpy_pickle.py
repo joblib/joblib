@@ -826,11 +826,12 @@ def test_non_contiguous_array_pickling():
 
 @with_numpy
 def test_pickle_highest_protocol():
-    # ensure persistence is valid when using the pickle HIGHEST_PROTOCOL.
+    # ensure persistence of a numpy array is valid even when using
+    # the pickle HIGHEST_PROTOCOL.
     # see https://github.com/joblib/joblib/issues/362
 
     filename = env['filename'] + str(random.randint(0, 1000))
-    test_array = np.zeros((1, 235), np.uint32)
+    test_array = np.zeros(10)
 
     numpy_pickle.dump(test_array, filename, protocol=pickle.HIGHEST_PROTOCOL)
     array_reloaded = numpy_pickle.load(filename)
