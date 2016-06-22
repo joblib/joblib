@@ -267,7 +267,9 @@ class NumpyPickler(Pickler):
 
             # A framer was introduced with pickle protocol 4 and we want to
             # ensure the wrapper object is written before the numpy array
-            # buffer in the pickle byte stream.
+            # buffer in the pickle file.
+            # See https://www.python.org/dev/peps/pep-3154/#framing to get
+            # more information on the framer behavior.
             if self.proto >= 4:
                 self.framer.commit_frame(force=True)
 
