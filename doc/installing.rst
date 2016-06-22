@@ -1,34 +1,26 @@
 Installing joblib
 ===================
 
-The `easy_install` way
------------------------
+Using `pip`
+------------
 
-For the easiest way to install joblib you need to have `setuptools`
-installed.
+You can use `pip` to install joblib::
 
 * For installing for all users, you need to run::
 
-    easy_install joblib
+    pip install joblib
 
   You may need to run the above command as administrator
 
   On a unix environment, it is better to install outside of the hierarchy
   managed by the system::
 
-    easy_install --prefix /usr/local joblib
+    pip install --prefix /usr/local joblib
 
 * Installing only for a specific user is easy if you use Python 2.6 or
   above::
 
-    easy_install --user joblib
-
-.. warning::
-
-    Packages installed via `easy_install` override the Python module look
-    up mechanism and thus can confused people not familiar with
-    setuptools. Although it may seem harder, we suggest that you use the
-    manual way, as described in the following paragraph.
+    pip install --user joblib
 
 Using distributions
 --------------------
