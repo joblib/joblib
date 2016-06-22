@@ -2,7 +2,7 @@ Installing joblib
 ===================
 
 Using `pip`
------------
+------------
 
 You can use `pip` to install joblib::
 
@@ -22,6 +22,14 @@ You can use `pip` to install joblib::
 
     pip install --user joblib
 
+Using distributions
+--------------------
+
+Joblib is packaged for several linux distribution: archlinux, debian,
+ubuntu, altlinux, and fedora. For minimum administration overhead, using the
+package manager is the recommended installation strategy on these
+systems.
+
 The manual way
 ---------------
 
@@ -38,7 +46,7 @@ the changes are local to your account and easy to clean up.
 Simply move to the directory created by expanding the `joblib` tarball
 and run the following command::
 
-    pip install . --user
+    python setup.py install --user
 
 Installing for all users
 ........................
@@ -47,9 +55,9 @@ If you have administrator rights and want to install for all users, all
 you need to do is to go in directory created by expanding the `joblib`
 tarball and run the following line::
 
-    pip install .
+    python setup.py install
 
 If you are under Unix, we suggest that you install in '/usr/local' in
 order not to interfere with your system::
 
-    pip install --prefix /usr/local
+    python setup.py install --prefix /usr/local
