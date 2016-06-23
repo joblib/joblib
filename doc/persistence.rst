@@ -46,11 +46,10 @@ We can then load the object from the file::
   [('a', [1, 2, 3]), ('b', array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]))]
 
 
-Persist in file objects
-=======================
+Persistence in file objects
+===========================
 
-Instead of filenames, `dump` and `load` functions also accept opened file
-objects:
+Instead of filenames, `dump` and `load` functions also accept file objects:
 
   >> with open(filename, 'wb') as fo:  # doctest: +ELLIPSIS
           joblib.dump(to_persist, fo)
