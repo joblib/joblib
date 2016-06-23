@@ -95,8 +95,8 @@ are 'gzip', 'bz2', 'lzma' and 'xz':
 Compressor files provided by the python standard library can also be used to
 compress pickle in a context manager, e.g `gzip.GzipFile`, `bz2.BZ2File`,
 `lzma.LZMAFile`:
-    >>> # Dumping in a gzip.GzipFile file object using a compress level of 3.
-    >>> with gzip.GzipFile(filename + '.gz', 'wb') as fo:  # doctest: +ELLIPSIS
+    >>> # Dumping in a gzip.GzipFile object using a compression level of 3.
+    >>> with gzip.GzipFile(filename + '.gz', 'wb', compresslevel=3) as fo:  # doctest: +ELLIPSIS
             joblib.dump(to_persist, f)  # doctest: +ELLIPSIS
     ['...test.pkl.gz']
     >>> with gzip.GzipFile(filename + '.gz', 'rb') as fo:  # doctest: +ELLIPSIS
