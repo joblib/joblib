@@ -51,11 +51,10 @@ Persistence in file objects
 
 Instead of filenames, `dump` and `load` functions also accept file objects:
 
-  >> with open(filename, 'wb') as fo:  # doctest: +ELLIPSIS
-          joblib.dump(to_persist, fo)
-  ['...test.pkl']
-  >> with open(filename, 'rb') as fo:  # doctest: +ELLIPSIS
-          joblib.load(to_persist)
+  >>> with open(filename, 'wb') as fo:  # doctest: +ELLIPSIS +SKIP
+  ...    joblib.dump(to_persist, fo)
+  >>> with open(filename, 'rb') as fo:  # doctest: +ELLIPSIS
+  ...    joblib.load(fo)
   [('a', [1, 2, 3]), ('b', array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]))]
 
 
@@ -96,11 +95,12 @@ Compressor files provided by the python standard library can also be used to
 compress pickle in a context manager, e.g `gzip.GzipFile`, `bz2.BZ2File`,
 `lzma.LZMAFile`:
     >>> # Dumping in a gzip.GzipFile object using a compression level of 3.
-    >>> with gzip.GzipFile(filename + '.gz', 'wb', compresslevel=3) as fo:  # doctest: +ELLIPSIS
-            joblib.dump(to_persist, f)  # doctest: +ELLIPSIS
-    ['...test.pkl.gz']
-    >>> with gzip.GzipFile(filename + '.gz', 'rb') as fo:  # doctest: +ELLIPSIS
-            joblib.load(filename + '.gz')
+    >>> import gzip
+    >>> with gzip.GzipFile(filename + '.gz', 'wb', compresslevel=3) as fo:  # doctest: +ELLIPSIS +SKIP
+    ...    joblib.dump(to_persist, fo)
+
+    >>> with gzip.GzipFile(filename + '.gz', 'rb') as fo:  # doctest: +ELLIPSIS +SKIP
+    ...    joblib.load(fo)
     [('a', [1, 2, 3]), ('b', array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]))]
 
 More details can be found in the :func:`joblib.dump` and
