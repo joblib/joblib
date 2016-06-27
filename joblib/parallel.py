@@ -689,16 +689,14 @@ class Parallel(Logger):
             except BaseException as exception:
                 # Note: we catch any BaseException instead of just Exception
                 # instances to also include KeyboardInterrupt.
-
-                # Stop dispatching any new job in the async callback thread
-                self._aborting = True
-
                 if isinstance(exception, TimeoutError) and self.silent_timeout:
                     # create equal number of TimeOut placeholder results to
                     # batch size of callback
                     cb_batch_size = job._callback.batch_size
                     self._output.extend(cb_batch_size * [TimeoutError()])
                 else:
+                    # Stop dispatching any new job in the async callback thread
+                    self._aborting = True
                     if isinstance(exception, TransportableException):
                         # Capture exception to add information on the local
                         # stack in addition to the distant stack
