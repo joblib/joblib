@@ -305,9 +305,9 @@ class Parallel(Logger):
             a TimeOutError will be raised. Only applied when n_jobs != 1
         silent_timeout: boolean, optional
             If enabled, TimeoutErrors will not be raised to caller, instead
-            TimeoutError will be returned as a placeholder for any batch of
+            TimeoutError() will be returned as placeholders for any batch of
             tasks that times out.  Best if each task has an isolated process
-            eg setting batch_size=1 and pre_dispatch='all'
+            eg setting batch_size=1
         pre_dispatch: {'all', integer, or expression, as in '3*n_jobs'}
             The number of batches (of tasks) to be pre-dispatched.
             Default is '2*n_jobs'. When batch_size="auto" this is reasonable
