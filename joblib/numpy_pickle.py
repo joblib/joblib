@@ -484,6 +484,12 @@ def dump(value, filename, compress=0, protocol=None, cache_size=None):
     else:
         NumpyPickler(filename, protocol=protocol).dump(value)
 
+    # If the target container is a file object, nothing is returned.
+    if is_fileobj:
+        return
+
+    # For compatibility, the list of created filenames (e.g with one element
+    # after 0.10.0) is returned by default.
     return [filename]
 
 
