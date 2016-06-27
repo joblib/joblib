@@ -694,8 +694,10 @@ class Parallel(Logger):
                 self._aborting = True
 
                 if isinstance(exception, TimeoutError) and self.silent_timeout:
-                    # use timeout placeholder for result
-                    self._output.extend([TimeoutError])
+                    # create equal number of TimeOut placeholder results to
+                    # batch size of callback
+                    cb_batch_size = job._callback.batch_size
+                    self._output.extend(cb_batch_size * [TimeoutError()])
                 else:
                     if isinstance(exception, TransportableException):
                         # Capture exception to add information on the local
