@@ -694,6 +694,10 @@ class Parallel(Logger):
                     # batch size of callback
                     cb_batch_size = job._callback.batch_size
                     self._output.extend(cb_batch_size * [TimeoutError()])
+                    # need to dispatch potential next task because
+                    # batch completion callback never got executed
+                    if self._original_iterator is not None:
+                        self.dispatch_next()
                 else:
                     # Stop dispatching any new job in the async callback thread
                     self._aborting = True
