@@ -92,8 +92,7 @@ are 'gzip', 'bz2', 'lzma' and 'xz':
     Lzma and Xz compression methods are only available for python versions >= 3.3.
 
 Compressor files provided by the python standard library can also be used to
-compress pickle in a context manager, e.g `gzip.GzipFile`, `bz2.BZ2File`,
-`lzma.LZMAFile`:
+compress pickle, e.g ``gzip.GzipFile``, ``bz2.BZ2File``, ``lzma.LZMAFile``:
     >>> # Dumping in a gzip.GzipFile object using a compression level of 3.
     >>> import gzip
     >>> with gzip.GzipFile(filename + '.gz', 'wb', compresslevel=3) as fo:  # doctest: +ELLIPSIS
