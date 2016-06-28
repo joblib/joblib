@@ -7,4 +7,4 @@ from joblib import _compat
 def setup_module(module):
     """Setup module."""
     if _compat.PY26:
-        raise SkipTest("Skipping persitence doctest in Python 2.6")
+        raise SkipTest("Skipping persistence doctest in Python 2.6")
