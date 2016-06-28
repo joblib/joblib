@@ -53,11 +53,10 @@ def bench_short_tasks(task_times, n_jobs=2, batch_size="auto",
         p(delayed(sleep_noop)(max(t, 0), input_data, output_data_size)
           for t in task_times)
         duration = time.time() - t0
-        effective_batch_size = getattr(p, '_effective_batch_size',
+        effective_batch_size = getattr(p._backend, '_effective_batch_size',
                                        p.batch_size)
-
-    print('Completed %d tasks in %0.3fs, final batch_size=%d\n'
-          % (len(task_times), duration, effective_batch_size))
+    print('Completed {} tasks in {:3f}s, final batch_size={}\n'.format(
+        len(task_times), duration, effective_batch_size))
     return duration, effective_batch_size
 
 
