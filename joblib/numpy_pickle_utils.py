@@ -8,6 +8,7 @@ import pickle
 import sys
 import io
 import zlib
+import gzip
 import bz2
 import warnings
 import contextlib
@@ -49,6 +50,9 @@ _LZMA_PREFIX = b'\x5d\x00'
 
 # Supported compressors
 _COMPRESSORS = ('zlib', 'bz2', 'lzma', 'xz', 'gzip')
+_COMPRESSOR_CLASSES = [gzip.GzipFile, bz2.BZ2File]
+if lzma is not None:
+    _COMPRESSOR_CLASSES.append(lzma.LZMAFile)
 
 # The max magic number length of supported compression file types.
 _MAX_PREFIX_LEN = max(len(prefix)
@@ -147,20 +151,42 @@ def _read_fileobject(fileobj, filename, mmap_mode=None):
     """
     # Detect if the fileobj contains compressed data.
     compressor = _detect_compressor(fileobj)
+    if isinstance(fileobj, tuple(_COMPRESSOR_CLASSES)):
+        compressor = fileobj.__class__.__name__
     if compressor == 'compat':
+        # Compatibility with old pickle mode: simply return the input
+        # filename "as-is" and let the compatibility function be called by the
+        # caller.
         warnings.warn("The file '%s' has been generated with a joblib "
                       "version less than 0.10. "
                       "Please regenerate this pickle file." % filename,
                       DeprecationWarning, stacklevel=2)
         yield filename
     else:
-        if compressor in _COMPRESSORS and mmap_mode is not None:
+        # Checking if incompatible load parameters with the type of file:
+        # mmap_mode cannot be used with compressed file or in memory buffers
+        # such as io.BytesIO.
+        if ((compressor in _COMPRESSORS or
+                isinstance(fileobj, tuple(_COMPRESSOR_CLASSES))) and
+                mmap_mode is not None):
             warnings.warn('File "%(filename)s" is compressed using '
                           '"%(compressor)s" which is not compatible with '
-                          'mmap_mode "%(mmap_mode)s" flag passed.'
-                          % locals(), DeprecationWarning, stacklevel=2)
+                          'mmap_mode "%(mmap_mode)s" flag passed. mmap_mode '
+                          'option will be ignored.'
+                          % locals(), stacklevel=2)
+        if isinstance(fileobj, io.BytesIO) and mmap_mode is not None:
+            warnings.warn('In memory persistence is not compatible with '
+                          'mmap_mode "%(mmap_mode)s" flag passed. mmap_mode '
+                          'option will be ignored.'
+                          % locals(), stacklevel=2)
 
-        if compressor == 'zlib':
+        # if the passed fileobj is in the supported list of decompressor
+        # objects (GzipFile, BZ2File, LzmaFile), we simply return it.
+        if isinstance(fileobj, tuple(_COMPRESSOR_CLASSES)):
+            yield fileobj
+        # otherwise, based on the compressor detected in the file, we open the
+        # correct decompressor file object, wrapped in a buffer.
+        elif compressor == 'zlib':
             yield _buffered_read_file(BinaryZlibFile(fileobj, 'rb'))
         elif compressor == 'gzip':
             yield _buffered_read_file(BinaryGzipFile(fileobj, 'rb'))
@@ -180,6 +206,7 @@ def _read_fileobject(fileobj, filename, mmap_mode=None):
                                           "python ({0}.{1})"
                                           .format(sys.version_info[0],
                                                   sys.version_info[1]))
+        # No compression detected => returning the input file object (open)
         else:
             yield fileobj
 

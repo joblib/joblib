@@ -4,6 +4,11 @@ Latest changes
 Release 0.10.0
 --------------
 
+Alexandre Abadie
+
+    ENH: joblib.dump/load now accept file-like objects besides filenames.
+    https://github.com/joblib/joblib/pull/351 for more details.
+
 Niels Zeilemaker and Olivier Grisel
 
     Refactored joblib.Parallel to enable the registration of custom
