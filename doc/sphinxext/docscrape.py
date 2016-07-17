@@ -433,7 +433,7 @@ class FunctionDoc(NumpyDocString):
                    argspec = inspect.getargspec(func)
                 else:
                    # getargspec deprecated in python3
-                argspec = inspect.getargspec(func)
+                   argspec = inspect.getargspec(func)
                 argspec = inspect.formatargspec(*argspec)
                 argspec = argspec.replace('*', '\*')
                 signature = '%s%s' % (func_name, argspec)
