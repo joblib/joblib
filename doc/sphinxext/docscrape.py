@@ -6,6 +6,7 @@ import inspect
 import textwrap
 import re
 import pydoc
+import sys
 from warnings import warn
 
 
@@ -428,6 +429,10 @@ class FunctionDoc(NumpyDocString):
             func, func_name = self.get_func()
             try:
                 # try to read signature
+                if 3 > sys.version_info[0]:
+                   argspec = inspect.getargspec(func)
+                else:
+                   # getargspec deprecated in python3
                 argspec = inspect.getargspec(func)
                 argspec = inspect.formatargspec(*argspec)
                 argspec = argspec.replace('*', '\*')
