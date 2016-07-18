@@ -227,10 +227,6 @@ def test_memory_name_collision():
     with warnings.catch_warnings(record=True) as w:
         # Cause all warnings to always be triggered.
         warnings.simplefilter("always")
-        # This is a temporary workaround until we get rid of
-        # inspect.getargspec, see
-        # https://github.com/joblib/joblib/issues/247
-        warnings.simplefilter("ignore", DeprecationWarning)
         a(1)
         b(1)
 
