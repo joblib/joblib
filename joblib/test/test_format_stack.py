@@ -6,11 +6,14 @@ Unit tests for the stack formatting utilities
 # Copyright (c) 2010 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
-import nose
+import re
 import sys
 
-from joblib.format_stack import safe_repr, _fixed_getframes, format_records
+from nose.tools import assert_true
 
+from joblib.format_stack import safe_repr, _fixed_getframes, format_records
+from joblib.format_stack import format_exc
+from joblib.test.common import with_numpy, np
 
 ###############################################################################
 
@@ -63,3 +66,19 @@ def test_format_records():
         assert "a = 'a'" in formatted_records[1]
         assert 'b = 42' in formatted_records[1]
         assert 'Nope, this can not work' in formatted_records[2]
+
+
+@with_numpy
+def test_format_exc_with_compiled_code():
+    # Trying to tokenize compiled C code raise SyntaxError.
+    # See https://github.com/joblib/joblib/issues/101 for more details.
+    try:
+        np.random.uniform('invalid_value')
+    except Exception:
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        formatted_exc = format_exc(exc_type, exc_value,
+                                   exc_traceback, context=10)
+        # The name of the extension can be something like
+        # mtrand.cpython-33m.so
+        pattern = 'mtrand[a-z0-9.-]*\.(so|pyd)'
+        assert_true(re.search(pattern, formatted_exc))

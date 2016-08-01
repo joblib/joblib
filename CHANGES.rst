@@ -1,6 +1,15 @@
 Latest changes
 ===============
 
+Release 0.10.1
+--------------
+
+Loïc Estève
+
+    FIX a bug in stack formatting when the error happens in a compiled
+    extension. See https://github.com/joblib/joblib/pull/382 for more
+    details.
+
 Release 0.10.0
 --------------
 
