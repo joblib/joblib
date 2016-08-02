@@ -14,7 +14,7 @@ import warnings
 import contextlib
 from contextlib import closing
 
-from ._compat import PY3_OR_LATER, PY26, PY27, _bytes_or_unicode
+from ._compat import PY3_OR_LATER, PY26, PY27, _basestring
 
 try:
     from threading import RLock
@@ -299,7 +299,7 @@ class BinaryZlibFile(io.BufferedIOBase):
         else:
             raise ValueError("Invalid mode: %r" % (mode,))
 
-        if isinstance(filename, _bytes_or_unicode):
+        if isinstance(filename, (bytes, _basestring)):
             self._fp = open(filename, mode)
             self._closefp = True
             self._mode = mode_code
