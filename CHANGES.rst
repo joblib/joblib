@@ -10,6 +10,12 @@ Loïc Estève
     extension. See https://github.com/joblib/joblib/pull/382 for more
     details.
 
+Vincent Latrouite
+
+    FIX a bug in the constructor of BinaryZlibFile that would throw an
+    exception when passing unicode filename (Python 2 only).
+    See https://github.com/joblib/joblib/pull/384 for more details.
+
 Release 0.10.0
 --------------
 
