@@ -1,6 +1,5 @@
 import shutil
 import os
-import random
 from tempfile import mkdtemp
 
 from joblib import numpy_pickle_utils
@@ -20,6 +19,7 @@ def setup_module():
 def teardown_module():
     """Test teardown."""
     shutil.rmtree(env['dir'])
+
 
 def test_binary_zlib_file():
     """Testing creation of files depending on the type of the filenames."""
