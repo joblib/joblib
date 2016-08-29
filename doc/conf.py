@@ -32,8 +32,7 @@ sys.path.append(os.path.abspath('./sphinxext'))
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 
 extensions = ['sphinx.ext.autodoc', 'sphinx.ext.pngmath', 'numpydoc',
-              'phantom_import', 'sphinx.ext.autosummary',
-              'sphinx.ext.coverage']
+              'sphinx.ext.autosummary', 'sphinx.ext.coverage']
 
 autosummary_generate = True
 
@@ -236,3 +235,5 @@ except IOError:
     pass
     # This fails during the tesing, as the code is ran in a different
     # directory
+
+numpydoc_show_class_members = False
