@@ -16,6 +16,13 @@ Vincent Latrouite
     exception when passing unicode filename (Python 2 only).
     See https://github.com/joblib/joblib/pull/384 for more details.
 
+Olivier Grisel
+
+    Expose :class:`joblib.parallel.ParallelBackendBase` and
+    :class:`joblib.parallel.AutoBatchingMixin` in the public API to
+    make them officially re-usable by backend implementers.
+
+
 Release 0.10.0
 --------------
 
