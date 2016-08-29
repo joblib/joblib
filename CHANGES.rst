@@ -1,7 +1,7 @@
 Latest changes
 ===============
 
-Release 0.10.1
+Release 0.10.2
 --------------
 
 Loïc Estève
