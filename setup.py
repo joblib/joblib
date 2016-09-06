@@ -7,15 +7,12 @@ import joblib
 
 # For some commands, use setuptools
 if len(set(('develop', 'sdist', 'release', 'bdist_egg', 'bdist_rpm',
-           'bdist', 'bdist_dumb', 'bdist_wininst', 'install_egg_info',
-           'build_sphinx', 'egg_info', 'easy_install', 'upload',
+            'bdist', 'bdist_dumb', 'bdist_wininst', 'install_egg_info',
+            'build_sphinx', 'egg_info', 'easy_install', 'upload',
             )).intersection(sys.argv)) > 0:
-    from setupegg import extra_setuptools_args
+    import setuptools
 
-# extra_setuptools_args is injected by the setupegg.py script, for
-# running the setup with setuptools.
-if not 'extra_setuptools_args' in globals():
-    extra_setuptools_args = dict()
+extra_setuptools_args = {}
 
 # if nose available, provide test command
 try:
