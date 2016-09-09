@@ -17,6 +17,7 @@ import io
 import collections
 import pickle
 import random
+from decimal import Decimal
 
 from nose.tools import assert_equal, assert_not_equal
 
@@ -29,7 +30,7 @@ from joblib.test.test_memory import setup_module as test_memory_setup_func
 from joblib.test.test_memory import teardown_module as test_memory_teardown_func
 from joblib.test.common import np, with_numpy
 from joblib.my_exceptions import TransportableException
-from joblib._compat import PY3_OR_LATER
+from joblib._compat import PY3_OR_LATER, PY26
 
 
 try:
@@ -311,8 +312,8 @@ def test_dict_hash():
 
 @nose.tools.with_setup(test_memory_setup_func, test_memory_teardown_func)
 def test_set_hash():
-    # Check that sets hash consistently, eventhough their ordering
-    # is not garanteed
+    # Check that sets hash consistently, even though their ordering
+    # is not guaranteed
     k = KlassWithCachedMethod()
 
     s = set(['#s12069__c_maps.nii.gz',
@@ -333,6 +334,15 @@ def test_set_hash():
     b = k.f(a)
 
     nose.tools.assert_equal(hash(a), hash(b))
+
+
+if not PY26:
+    @nose.tools.with_setup(test_memory_setup_func, test_memory_teardown_func)
+    def test_set_decimal_hash():
+        # Check that sets containing decimals hash consistently, even though
+        # ordering is not guaranteed
+        nose.tools.assert_equal(hash(set([Decimal(0), Decimal('NaN')])),
+                                hash(set([Decimal('NaN'), Decimal(0)])))
 
 
 def test_string():
