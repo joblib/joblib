@@ -90,7 +90,7 @@ def rm_subdirs(path, onerror=None):
     names = []
     try:
         names = os.listdir(path)
-    except os.error as err:
+    except os.error:
         if onerror is not None:
             onerror(os.listdir, path, sys.exc_info())
         else:
