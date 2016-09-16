@@ -491,13 +491,15 @@ class MemorizedFunc(Logger):
                 self.mmap_mode, self.compress, self._verbose))
 
     def format_signature(self, *args, **kwargs):
-        warnings.warn("MemorizedFunc.format_signature will be removed in a "
-                      "future version of joblib.", DeprecationWarning)
+        warnings.warn("MemorizedFunc.format_signature is deprecated since "
+                      "version 0.8 and will be removed after version 0.10",
+                      DeprecationWarning)
         return format_signature(self.func, *args, **kwargs)
 
     def format_call(self, *args, **kwargs):
-        warnings.warn("MemorizedFunc.format_call will be removed in a "
-                      "future version of joblib.", DeprecationWarning)
+        warnings.warn("MemorizedFunc.format_call is deprecated since "
+                      "version 0.8 and will be removed after version 0.10",
+                      DeprecationWarning)
         return format_call(self.func, args, kwargs)
 
     #-------------------------------------------------------------------------
@@ -754,9 +756,9 @@ class MemorizedFunc(Logger):
         """ Read the results of a previous calculation from the directory
             it was cached in.
         """
-        warnings.warn("MemorizedFunc.load_output is deprecated and will be "
-                      "removed in a future version\n"
-                      "of joblib. A MemorizedResult provides similar features",
+        warnings.warn("MemorizedFunc.load_output is deprecated since "
+                      "version 0.8 and will be removed after version 0.10.\n"
+                      "A MemorizedResult provides similar features",
                       DeprecationWarning)
         # No metadata available here.
         return _load_output(output_dir, _get_func_fullname(self.func),
