@@ -490,16 +490,6 @@ class MemorizedFunc(Logger):
         return (self.__class__, (self.func, self.cachedir, self.ignore,
                 self.mmap_mode, self.compress, self._verbose))
 
-    def format_signature(self, *args, **kwargs):
-        warnings.warn("MemorizedFunc.format_signature will be removed in a "
-                      "future version of joblib.", DeprecationWarning)
-        return format_signature(self.func, *args, **kwargs)
-
-    def format_call(self, *args, **kwargs):
-        warnings.warn("MemorizedFunc.format_call will be removed in a "
-                      "future version of joblib.", DeprecationWarning)
-        return format_call(self.func, args, kwargs)
-
     #-------------------------------------------------------------------------
     # Private interface
     #-------------------------------------------------------------------------
@@ -749,19 +739,6 @@ class MemorizedFunc(Logger):
                           " example so that they can fix the problem."
                           % this_duration, stacklevel=5)
         return metadata
-
-    def load_output(self, output_dir):
-        """ Read the results of a previous calculation from the directory
-            it was cached in.
-        """
-        warnings.warn("MemorizedFunc.load_output is deprecated and will be "
-                      "removed in a future version\n"
-                      "of joblib. A MemorizedResult provides similar features",
-                      DeprecationWarning)
-        # No metadata available here.
-        return _load_output(output_dir, _get_func_fullname(self.func),
-                            timestamp=self.timestamp,
-                            mmap_mode=self.mmap_mode, verbose=self._verbose)
 
     # XXX: Need a method to check if results are available.
 
