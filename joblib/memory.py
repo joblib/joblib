@@ -938,7 +938,7 @@ class Memory(Logger):
             rm_subdirs(self.cachedir)
 
     def reduce_size(self):
-        """Removes cache foldes until cache size is less than ``bytes_limit``."""
+        """Remove cache folders to make cache size fit in ``bytes_limit``."""
         if self.cachedir is not None and self.bytes_limit is not None:
             cache_items_to_delete = _get_cache_items_to_delete(
                 self.cachedir, self.bytes_limit)
