@@ -177,7 +177,7 @@ def _get_cache_items(root_path):
 
 
 def _get_cache_items_to_delete(root_path, bytes_limit):
-    """Get cache items to delete to keep the cache under a size limit"""
+    """Get cache items to delete to keep the cache under a size limit."""
     if isinstance(bytes_limit, _basestring):
         bytes_limit = memstr_to_bytes(bytes_limit)
 
@@ -188,6 +188,8 @@ def _get_cache_items_to_delete(root_path, bytes_limit):
     if to_delete_size < 0:
         return []
 
+    # We want to delete first the cache items that were accessed a
+    # long time ago
     cache_items.sort(key=operator.attrgetter('last_access'))
 
     cache_items_to_delete = []
@@ -936,6 +938,7 @@ class Memory(Logger):
             rm_subdirs(self.cachedir)
 
     def reduce_size(self):
+        """Removes cache foldes until cache size is less than ``bytes_limit``."""
         if self.cachedir is not None and self.bytes_limit is not None:
             cache_items_to_delete = _get_cache_items_to_delete(
                 self.cachedir, self.bytes_limit)
