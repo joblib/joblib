@@ -146,7 +146,7 @@ def _get_cache_items(root_path):
     cache_items = []
 
     for dirpath, dirnames, filenames in os.walk(root_path):
-        is_cache_hash_dir = re.match('[a-z0-9]{32}', os.path.basename(dirpath))
+        is_cache_hash_dir = re.match('[a-f0-9]{32}', os.path.basename(dirpath))
 
         if is_cache_hash_dir:
             output_filename = os.path.join(dirpath, 'output.pkl')
