@@ -18,8 +18,10 @@ import time
 
 import nose
 
-from joblib.memory import Memory, MemorizedFunc, NotMemorizedFunc, MemorizedResult
-from joblib.memory import NotMemorizedResult, _FUNCTION_HASHES
+from joblib.memory import Memory
+from joblib.memory import MemorizedFunc, NotMemorizedFunc
+from joblib.memory import MemorizedResult, NotMemorizedResult
+from joblib.memory import _FUNCTION_HASHES, _load_output, _get_func_fullname
 from joblib.test.common import with_numpy, np
 from joblib.testing import assert_raises_regex
 from joblib._compat import PY3_OR_LATER
@@ -487,8 +489,13 @@ def test_persistence():
     # Test the memorized functions can be pickled and restored.
     memory = Memory(cachedir=env['dir'], verbose=0)
     g = memory.cache(f)
+    output = g(1)
 
-    output_dir, _ = g.get_output_dir(1)
+    h = pickle.loads(pickle.dumps(g))
+
+    output_dir, _ = h.get_output_dir(1)
+    func_name = _get_func_fullname(f)
+    yield nose.tools.assert_equal, output, _load_output(output_dir, func_name)
     memory2 = pickle.loads(pickle.dumps(memory))
     yield nose.tools.assert_equal, memory.cachedir, memory2.cachedir
 
