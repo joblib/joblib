@@ -142,7 +142,7 @@ def _load_output(output_dir, func_name, timestamp=None, metadata=None,
 
 
 def _get_cache_items(root_path):
-    """Get cache information for reducing the size of the cache"""
+    """Get cache information for reducing the size of the cache."""
     cache_items = []
 
     for dirpath, dirnames, filenames in os.walk(root_path):
