@@ -22,7 +22,7 @@ import nose
 from joblib.memory import Memory, MemorizedFunc, NotMemorizedFunc
 from joblib.memory import MemorizedResult, NotMemorizedResult, _FUNCTION_HASHES
 from joblib.memory import _get_cache_items, _get_cache_items_to_delete
-from joblib.memory import _FUNCTION_HASHES, _load_output, _get_func_fullname
+from joblib.memory import _load_output, _get_func_fullname
 from joblib.test.common import with_numpy, np
 from joblib.testing import assert_raises_regex
 from joblib._compat import PY3_OR_LATER
