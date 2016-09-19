@@ -487,12 +487,8 @@ def test_persistence():
     # Test the memorized functions can be pickled and restored.
     memory = Memory(cachedir=env['dir'], verbose=0)
     g = memory.cache(f)
-    output = g(1)
-
-    h = pickle.loads(pickle.dumps(g))
 
     output_dir, _ = g.get_output_dir(1)
-    yield nose.tools.assert_equal, output, h.load_output(output_dir)
     memory2 = pickle.loads(pickle.dumps(memory))
     yield nose.tools.assert_equal, memory.cachedir, memory2.cachedir
 
@@ -545,10 +541,6 @@ def test_memorized_repr():
     result2 = func2.call_and_shelve(2)
     nose.tools.assert_equal(result.get(), result2.get())
     nose.tools.assert_equal(repr(func), repr(func2))
-
-    # Smoke test on deprecated methods
-    func.format_signature(2)
-    func.format_call(2)
 
     # Smoke test with NotMemorizedFunc
     func = NotMemorizedFunc(f)
