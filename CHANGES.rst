@@ -22,6 +22,11 @@ Olivier Grisel
     :class:`joblib.parallel.AutoBatchingMixin` in the public API to
     make them officially re-usable by backend implementers.
 
+Alexandre Abadie
+
+    Remove deprecated `format_signature`, `format_call` and `load_output`
+    functions from Memory API.
+
 
 Release 0.10.0
 --------------
