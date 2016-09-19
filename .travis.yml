@@ -13,7 +13,7 @@ env:
     - PYTHON_VERSION="3.4"
     - PYTHON_VERSION="3.5" NUMPY_VERSION="1.10" COVERAGE="true"
     # flake8 linting on diff wrt common ancestor with upstream/master
-    - PYTHON_VERSION="3.5" FLAKE8_VERSION="*" SKIP_TESTS="true"
+    - SKIP_TESTS="true" FLAKE8_VERSION="*" PYTHON_VERSION="3.5"
 
 install:
     - source continuous_integration/install.sh
