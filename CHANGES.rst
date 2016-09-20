@@ -9,6 +9,13 @@ Alexandre Abadie
     Remove deprecated `format_signature`, `format_call` and `load_output`
     functions from Memory API.
 
+Loïc Estève
+
+    Add initial implementation of LRU cache cleaning. You can specify
+    the size limit of a ``Memory`` object via the ``bytes_limit``
+    parameter and then need to clean explicitly the cache via the
+    ``Memory.reduce_size`` method.
+
 
 Release 0.10.2
 --------------
