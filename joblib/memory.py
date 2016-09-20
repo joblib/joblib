@@ -27,6 +27,9 @@ import inspect
 import json
 import weakref
 import io
+import operator
+import collections
+import datetime
 
 # Local imports
 from . import hashing
@@ -35,10 +38,13 @@ from .func_inspect import format_signature, format_call
 from ._memory_helpers import open_py_source
 from .logger import Logger, format_time, pformat
 from . import numpy_pickle
-from .disk import mkdirp, rm_subdirs
+from .disk import mkdirp, rm_subdirs, memstr_to_bytes
 from ._compat import _basestring, PY3_OR_LATER
 
 FIRST_LINE_TEXT = "# first line:"
+
+CacheItemInfo = collections.namedtuple('CacheItemInfo',
+                                       'path size last_access')
 
 # TODO: The following object should have a data store object as a sub
 # object, and the interface to persist and query should be separated in
@@ -130,8 +136,73 @@ def _load_output(output_dir, func_name, timestamp=None, metadata=None,
         raise KeyError(
             "Non-existing cache value (may have been cleared).\n"
             "File %s does not exist" % filename)
-    return numpy_pickle.load(filename, mmap_mode=mmap_mode)
+    result = numpy_pickle.load(filename, mmap_mode=mmap_mode)
 
+    return result
+
+
+def _get_cache_items(root_path):
+    """Get cache information for reducing the size of the cache."""
+    cache_items = []
+
+    for dirpath, dirnames, filenames in os.walk(root_path):
+        is_cache_hash_dir = re.match('[a-f0-9]{32}', os.path.basename(dirpath))
+
+        if is_cache_hash_dir:
+            output_filename = os.path.join(dirpath, 'output.pkl')
+            try:
+                last_access = os.path.getatime(output_filename)
+            except OSError:
+                try:
+                    last_access = os.path.getatime(dirpath)
+                except OSError:
+                    # The directory has already been deleted
+                    continue
+
+            last_access = datetime.datetime.fromtimestamp(last_access)
+            try:
+                full_filenames = [os.path.join(dirpath, fn)
+                                  for fn in filenames]
+                dirsize = sum(os.path.getsize(fn)
+                              for fn in full_filenames)
+            except OSError:
+                # Either output_filename or one of the files in
+                # dirpath does not exist any more. We assume this
+                # directory is being cleaned by another process already
+                continue
+
+            cache_items.append(CacheItemInfo(dirpath, dirsize, last_access))
+
+    return cache_items
+
+
+def _get_cache_items_to_delete(root_path, bytes_limit):
+    """Get cache items to delete to keep the cache under a size limit."""
+    if isinstance(bytes_limit, _basestring):
+        bytes_limit = memstr_to_bytes(bytes_limit)
+
+    cache_items = _get_cache_items(root_path)
+    cache_size = sum(item.size for item in cache_items)
+
+    to_delete_size = cache_size - bytes_limit
+    if to_delete_size < 0:
+        return []
+
+    # We want to delete first the cache items that were accessed a
+    # long time ago
+    cache_items.sort(key=operator.attrgetter('last_access'))
+
+    cache_items_to_delete = []
+    size_so_far = 0
+
+    for item in cache_items:
+        if size_so_far > to_delete_size:
+            break
+
+        cache_items_to_delete.append(item)
+        size_so_far += item.size
+
+    return cache_items_to_delete
 
 # An in-memory store to avoid looking at the disk-based function
 # source code to check if a function definition has changed
@@ -742,6 +813,7 @@ class MemorizedFunc(Logger):
 
     # XXX: Need a method to check if results are available.
 
+
     #-------------------------------------------------------------------------
     # Private `object` interface
     #-------------------------------------------------------------------------
@@ -770,7 +842,8 @@ class Memory(Logger):
     # Public interface
     #-------------------------------------------------------------------------
 
-    def __init__(self, cachedir, mmap_mode=None, compress=False, verbose=1):
+    def __init__(self, cachedir, mmap_mode=None, compress=False, verbose=1,
+                 bytes_limit=None):
         """
             Parameters
             ----------
@@ -790,6 +863,8 @@ class Memory(Logger):
             verbose: int, optional
                 Verbosity flag, controls the debug messages that are issued
                 as functions are evaluated.
+            bytes_limit: int, optional
+                Limit in bytes of the size of the cache
         """
         # XXX: Bad explanation of the None value of cachedir
         Logger.__init__(self)
@@ -797,6 +872,7 @@ class Memory(Logger):
         self.mmap_mode = mmap_mode
         self.timestamp = time.time()
         self.compress = compress
+        self.bytes_limit = bytes_limit
         if compress and mmap_mode is not None:
             warnings.warn('Compressed results cannot be memmapped',
                           stacklevel=2)
@@ -860,6 +936,24 @@ class Memory(Logger):
             self.warn('Flushing completely the cache')
         if self.cachedir is not None:
             rm_subdirs(self.cachedir)
+
+    def reduce_size(self):
+        """Remove cache folders to make cache size fit in ``bytes_limit``."""
+        if self.cachedir is not None and self.bytes_limit is not None:
+            cache_items_to_delete = _get_cache_items_to_delete(
+                self.cachedir, self.bytes_limit)
+
+            for cache_item in cache_items_to_delete:
+                if self._verbose > 10:
+                    print('Deleting cache item {0}'.format(cache_item))
+                try:
+                    shutil.rmtree(cache_item.path, ignore_errors=True)
+                except OSError:
+                    # Even with ignore_errors=True can shutil.rmtree
+                    # can raise OSErrror with [Errno 116] Stale file
+                    # handle if another process has deleted the folder
+                    # already.
+                    pass
 
     def eval(self, func, *args, **kwargs):
         """ Eval function func with arguments `*args` and `**kwargs`,
