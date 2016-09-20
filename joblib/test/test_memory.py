@@ -16,7 +16,6 @@ import io
 import sys
 import time
 import datetime
-import random
 
 import nose
 
@@ -849,30 +848,3 @@ def test_memory_reduce_size():
     mem.reduce_size()
     cache_items = _get_cache_items(cachedir)
     nose.tools.assert_equal(cache_items, [])
-
-
-def test_memory_reduce_size_lru():
-    # Test that reduce_size is keeping its promise of LRU. Loading
-    # results from half of the cache items and making sure that they
-    # survive a reduce_size
-    n_inputs = 10
-    mem, full_cache_dirs, get_1000_bytes = \
-        _setup_temporary_cache_folder(n_inputs)
-    cachedir = mem.cachedir
-
-    # bytes_limit is set so that only half of the cache items are kept
-    mem.bytes_limit = (n_inputs + 1) * 1000 // 2
-
-    # Loading the results from the cache for half of the cache items
-    # (chosen at random)
-    inputs = random.sample(range(n_inputs), n_inputs // 2)
-    for arg in inputs:
-        get_1000_bytes(arg)
-
-    mem.reduce_size()
-
-    surviving_cache_items = _get_cache_items(cachedir)
-
-    nose.tools.assert_equal(
-        set(ci.path for ci in surviving_cache_items),
-        set(full_cache_dirs[inp] for inp in inputs))
