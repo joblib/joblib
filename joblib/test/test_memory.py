@@ -16,6 +16,7 @@ import io
 import sys
 import time
 import datetime
+import random
 
 import nose
 
@@ -725,7 +726,7 @@ def func_with_signature(a: int, b: float) -> float:
         nose.tools.assert_equal(func_cached(1, 2.), 3.)
 
 
-def _setup_temporary_cache_folder():
+def _setup_temporary_cache_folder(num_inputs=10):
     # Use separate cache dir to avoid side-effects from other tests
     # that do not use _setup_temporary_cache_folder
     mem = Memory(cachedir=os.path.join(env['dir'], 'separate_cache'),
@@ -735,7 +736,7 @@ def _setup_temporary_cache_folder():
     def get_1000_bytes(arg):
         return 'a' * 1000
 
-    inputs = list(range(10))
+    inputs = list(range(num_inputs))
     for arg in inputs:
         get_1000_bytes(arg)
 
@@ -743,11 +744,11 @@ def _setup_temporary_cache_folder():
 
     full_hashdirs = [os.path.join(get_1000_bytes.cachedir, dirname)
                      for dirname in hash_dirnames]
-    return mem, full_hashdirs
+    return mem, full_hashdirs, get_1000_bytes
 
 
 def test__get_cache_items():
-    mem, expected_hash_cachedirs = _setup_temporary_cache_folder()
+    mem, expected_hash_cachedirs, _ = _setup_temporary_cache_folder()
     cachedir = mem.cachedir
     cache_items = _get_cache_items(cachedir)
     hash_cachedirs = [ci.path for ci in cache_items]
@@ -777,7 +778,7 @@ def test__get_cache_items():
 
 
 def test__get_cache_items_to_delete():
-    mem, expected_hash_cachedirs = _setup_temporary_cache_folder()
+    mem, expected_hash_cachedirs, _ = _setup_temporary_cache_folder()
     cachedir = mem.cachedir
     cache_items = _get_cache_items(cachedir)
     # bytes_limit set to keep only one cache item (each hash cache
@@ -804,9 +805,19 @@ def test__get_cache_items_to_delete():
     nose.tools.assert_true(set(cache_items_to_delete_500b),
                            set(cache_items))
 
+    # Test LRU property: surviving cache items should all have a more
+    # recent last_access that the ones that have been deleted
+    cache_items_to_delete_6000b = _get_cache_items_to_delete(cachedir, 6000)
+    surviving_cache_items = set(cache_items).difference(
+        cache_items_to_delete_6000b)
+
+    nose.tools.assert_true(
+        max(ci.last_access for ci in cache_items_to_delete_6000b) <=
+        min(ci.last_access for ci in surviving_cache_items))
+
 
 def test_memory_reduce_size():
-    mem, _ = _setup_temporary_cache_folder()
+    mem, _, _ = _setup_temporary_cache_folder()
     cachedir = mem.cachedir
     ref_cache_items = _get_cache_items(cachedir)
 
@@ -838,3 +849,30 @@ def test_memory_reduce_size():
     mem.reduce_size()
     cache_items = _get_cache_items(cachedir)
     nose.tools.assert_equal(cache_items, [])
+
+
+def test_memory_reduce_size_lru():
+    # Test that reduce_size is keeping its promise of LRU. Loading
+    # results from half of the cache items and making sure that they
+    # survive a reduce_size
+    n_inputs = 10
+    mem, full_cache_dirs, get_1000_bytes = \
+        _setup_temporary_cache_folder(n_inputs)
+    cachedir = mem.cachedir
+
+    # bytes_limit is set so that only half of the cache items are kept
+    mem.bytes_limit = (n_inputs + 1) * 1000 // 2
+
+    # Loading the results from the cache for half of the cache items
+    # (chosen at random)
+    inputs = random.sample(range(n_inputs), n_inputs // 2)
+    for arg in inputs:
+        get_1000_bytes(arg)
+
+    mem.reduce_size()
+
+    surviving_cache_items = _get_cache_items(cachedir)
+
+    nose.tools.assert_equal(
+        set(ci.path for ci in surviving_cache_items),
+        set(full_cache_dirs[inp] for inp in inputs))
