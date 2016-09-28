@@ -163,9 +163,13 @@ def _read_fileobject(fileobj, filename, mmap_mode=None):
 
     """
     # Detect if the fileobj contains compressed data.
-    compressor = _detect_compressor(fileobj)
     if isinstance(fileobj, tuple(_COMPRESSOR_CLASSES)):
         compressor = fileobj.__class__.__name__
+    else:
+        # the fileobj is supported compressor classes, let's try to determine
+        # the compressor by reading the magic number.
+        compressor = _detect_compressor(fileobj)
+
     if compressor == 'compat':
         # Compatibility with old pickle mode: simply return the input
         # filename "as-is" and let the compatibility function be called by the
