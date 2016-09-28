@@ -300,7 +300,7 @@ class BinaryZlibFile(io.BufferedIOBase):
             raise ValueError("Invalid mode: %r" % (mode,))
 
         if isinstance(filename, _basestring):
-            self._fp = open(filename, mode)
+            self._fp = io.open(filename, mode)
             self._closefp = True
             self._mode = mode_code
         elif hasattr(filename, "read") or hasattr(filename, "write"):

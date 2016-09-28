@@ -863,6 +863,7 @@ def test_binary_zlibfile():
 
             with BinaryZlibFile(filename, 'rb') as fz:
                 nose.tools.assert_equal(fz.read(), d)
+                nose.tools.assert_true(fz.seekable())
 
             # Test without context manager
             fz = BinaryZlibFile(filename, 'wb', compresslevel=compress_level)
