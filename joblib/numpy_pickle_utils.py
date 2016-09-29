@@ -9,7 +9,6 @@ import sys
 import io
 import zlib
 import gzip
-import bz2
 import warnings
 import contextlib
 from contextlib import closing
@@ -40,6 +39,16 @@ except ImportError:
     lzma = None
 
 
+try:
+    # The python standard library can be built without bz2 so we make bz2
+    # usage optional.
+    # see https://github.com/scikit-learn/scikit-learn/issues/7526 for more
+    # details.
+    import bz2
+except ImportError:
+    bz2 = None
+
+
 # Magic numbers of supported compression file formats.        '
 _ZFILE_PREFIX = b'ZF'  # used with pickle files created before 0.9.3.
 _ZLIB_PREFIX = b'\x78'
@@ -50,7 +59,11 @@ _LZMA_PREFIX = b'\x5d\x00'
 
 # Supported compressors
 _COMPRESSORS = ('zlib', 'bz2', 'lzma', 'xz', 'gzip')
-_COMPRESSOR_CLASSES = [gzip.GzipFile, bz2.BZ2File]
+_COMPRESSOR_CLASSES = [gzip.GzipFile]
+
+if bz2 is not None:
+    _COMPRESSOR_CLASSES.append(bz2.BZ2File)
+
 if lzma is not None:
     _COMPRESSOR_CLASSES.append(lzma.LZMAFile)
 
@@ -99,7 +112,7 @@ def _detect_compressor(fileobj):
 
 def _buffered_read_file(fobj):
     """Return a buffered version of a read file object."""
-    if PY26 or (PY27 and isinstance(fobj, bz2.BZ2File)):
+    if PY26 or (PY27 and bz2 is not None and isinstance(fobj, bz2.BZ2File)):
         # Python 2.6 doesn't fully support io.BufferedReader.
         # Python 2.7 doesn't work with BZ2File through a buffer: "no
         # attribute 'readable'" error.
@@ -110,7 +123,7 @@ def _buffered_read_file(fobj):
 
 def _buffered_write_file(fobj):
     """Return a buffered version of a write file object."""
-    if PY26 or (PY27 and isinstance(fobj, bz2.BZ2File)):
+    if PY26 or (PY27 and bz2 is not None and isinstance(fobj, bz2.BZ2File)):
         # Python 2.6 doesn't fully support io.BufferedWriter.
         # Python 2.7 doesn't work with BZ2File through a buffer: no attribute
         # 'writable'.
@@ -190,7 +203,7 @@ def _read_fileobject(fileobj, filename, mmap_mode=None):
             yield _buffered_read_file(BinaryZlibFile(fileobj, 'rb'))
         elif compressor == 'gzip':
             yield _buffered_read_file(BinaryGzipFile(fileobj, 'rb'))
-        elif compressor == 'bz2':
+        elif compressor == 'bz2' and bz2 is not None:
             if PY3_OR_LATER:
                 yield _buffered_read_file(bz2.BZ2File(fileobj, 'rb'))
             else:
@@ -218,7 +231,7 @@ def _write_fileobject(filename, compress=("zlib", 3)):
     if compressmethod == "gzip":
         return _buffered_write_file(BinaryGzipFile(filename, 'wb',
                                     compresslevel=compresslevel))
-    elif compressmethod == "bz2":
+    elif compressmethod == "bz2" and bz2 is not None:
         return _buffered_write_file(bz2.BZ2File(filename, 'wb',
                                                 compresslevel=compresslevel))
     elif lzma is not None and compressmethod == "xz":
