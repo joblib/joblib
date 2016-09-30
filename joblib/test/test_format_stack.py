@@ -80,5 +80,5 @@ def test_format_exc_with_compiled_code():
                                    exc_traceback, context=10)
         # The name of the extension can be something like
         # mtrand.cpython-33m.so
-        pattern = 'mtrand[a-z0-9.-]*\.(so|pyd)'
+        pattern = 'mtrand[a-z0-9._-]*\.(so|pyd)'
         assert_true(re.search(pattern, formatted_exc))
