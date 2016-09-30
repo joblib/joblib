@@ -493,7 +493,7 @@ class MemorizedFunc(Logger):
         """
 
         if not (self._check_previous_func_code(stacklevel=4) and
-                                 os.path.exists(output_dir)):
+                os.path.exists(output_dir)):
             return False
         else:
             filename = os.path.join(output_dir, 'output.pkl')
@@ -546,7 +546,7 @@ class MemorizedFunc(Logger):
                 _, name = get_func_name(self.func)
                 self.warn('Computing func %s, argument hash %s in '
                           'directory %s'
-                        % (name, argument_hash, output_dir))
+                          % (name, argument_hash, output_dir))
             out, metadata = self.call(*args, **kwargs)
             if self.mmap_mode is not None:
                 # Memmap the output at the first call to be consistent with

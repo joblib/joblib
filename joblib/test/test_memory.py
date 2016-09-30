@@ -507,6 +507,7 @@ def test_persistence():
     gp = pickle.loads(pickle.dumps(g))
     gp(1)
 
+
 def test_is_cached():
     # Test that is_cached can tell when function output is actually cached
     mem = Memory(cachedir=env['dir'], verbose=0)
@@ -523,11 +524,11 @@ def test_is_cached():
     # But with different arguments it shouldn't be
     yield nose.tools.assert_false, func.is_cached(2, 3)
 
-
     # Having cleared the cache the function should go back to being uncached
     func.clear()
     yield nose.tools.assert_false, func.is_cached(1)
     yield nose.tools.assert_false, func.is_cached(2, 3)
+ 
 
 def test_call_and_shelve():
     """Test MemorizedFunc outputting a reference to cache.
