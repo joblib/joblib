@@ -470,6 +470,35 @@ class MemorizedFunc(Logger):
             doc = func.__doc__
         self.__doc__ = 'Memoized version of %s' % doc
 
+    def is_cached(self, *args, **kwargs):
+        """Check to see if a call to the wrapped function with these arguments
+        would result in a cache hit.
+
+        Returns
+        -------
+        cached: bool
+            Whether or not the call is already cached
+        """
+        output_dir, argument_hash = self._get_output_dir(*args, **kwargs)
+        return self._needs_call(output_dir, argument_hash)
+
+    def _needs_call(self, output_dir, argument_hash):
+        """Check if the function needs to be called or if its output can be
+        loaded from cache
+
+        Returns
+        -------
+        needs_call: bool
+            Whether the wrapped function should be called
+        """
+
+        if not (self._check_previous_func_code(stacklevel=4) and
+                                 os.path.exists(output_dir)):
+            return False
+        else:
+            filename = os.path.join(output_dir, 'output.pkl')
+            return os.path.isfile(filename)
+
     def _cached_call(self, args, kwargs):
         """Call wrapped function and cache result, or read cache if available.
 
@@ -490,23 +519,7 @@ class MemorizedFunc(Logger):
         # function code has changed
         output_dir, argument_hash = self._get_output_dir(*args, **kwargs)
         metadata = None
-        # FIXME: The statements below should be try/excepted
-        if not (self._check_previous_func_code(stacklevel=4) and
-                                 os.path.exists(output_dir)):
-            if self._verbose > 10:
-                _, name = get_func_name(self.func)
-                self.warn('Computing func %s, argument hash %s in '
-                          'directory %s'
-                        % (name, argument_hash, output_dir))
-            out, metadata = self.call(*args, **kwargs)
-            if self.mmap_mode is not None:
-                # Memmap the output at the first call to be consistent with
-                # later calls
-                out = _load_output(output_dir, _get_func_fullname(self.func),
-                                   timestamp=self.timestamp,
-                                   mmap_mode=self.mmap_mode,
-                                   verbose=self._verbose)
-        else:
+        if self._needs_call(output_dir, argument_hash):
             try:
                 t0 = time.time()
                 out = _load_output(output_dir, _get_func_fullname(self.func),
@@ -527,6 +540,21 @@ class MemorizedFunc(Logger):
                 shutil.rmtree(output_dir, ignore_errors=True)
                 out, metadata = self.call(*args, **kwargs)
                 argument_hash = None
+        else:
+            # FIXME: The statements below should be try/excepted
+            if self._verbose > 10:
+                _, name = get_func_name(self.func)
+                self.warn('Computing func %s, argument hash %s in '
+                          'directory %s'
+                        % (name, argument_hash, output_dir))
+            out, metadata = self.call(*args, **kwargs)
+            if self.mmap_mode is not None:
+                # Memmap the output at the first call to be consistent with
+                # later calls
+                out = _load_output(output_dir, _get_func_fullname(self.func),
+                                   timestamp=self.timestamp,
+                                   mmap_mode=self.mmap_mode,
+                                   verbose=self._verbose)
         return (out, argument_hash, metadata)
 
     def call_and_shelve(self, *args, **kwargs):
