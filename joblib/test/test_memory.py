@@ -528,7 +528,7 @@ def test_is_cached():
     func.clear()
     yield nose.tools.assert_false, func.is_cached(1)
     yield nose.tools.assert_false, func.is_cached(2, 3)
- 
+
 
 def test_call_and_shelve():
     """Test MemorizedFunc outputting a reference to cache.
