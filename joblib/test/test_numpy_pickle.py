@@ -954,3 +954,20 @@ def test_pickle_highest_protocol():
     array_reloaded = numpy_pickle.load(filename)
 
     np.testing.assert_array_equal(array_reloaded, test_array)
+
+
+def test_pickling_in_non_seekable_fileobject_raise_error():
+    # input file object have to be seekable for joblib to determine the
+    # compression method.
+
+    def non_seekable():
+        return False
+
+    f = io.BytesIO(pickle.dumps("some bytes in a memory stream"))
+    # make this io stream non seekable.
+    f.seekable = non_seekable
+    if PY3_OR_LATER:
+        assert_raises_regex(ValueError, "Input fileobject must be seekable",
+                            numpy_pickle.load, f)
+    else:
+        numpy_pickle.load(f)

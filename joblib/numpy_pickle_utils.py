@@ -166,8 +166,12 @@ def _read_fileobject(fileobj, filename, mmap_mode=None):
     if isinstance(fileobj, tuple(_COMPRESSOR_CLASSES)):
         compressor = fileobj.__class__.__name__
     else:
-        # the fileobj is supported compressor classes, let's try to determine
-        # the compressor by reading the magic number.
+        # the fileobj is not part of the supported compressor classes
+        # let's try to determine the compressor by reading the magic number at
+        # the very beginning of the file.
+        if PY3_OR_LATER and not fileobj.seekable():
+            # With Python 3 file object have to be able to seek explicitely.
+            raise ValueError("Input fileobject must be seekable.")
         compressor = _detect_compressor(fileobj)
 
     if compressor == 'compat':
