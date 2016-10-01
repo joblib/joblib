@@ -480,11 +480,16 @@ class MemorizedFunc(Logger):
             Whether or not the call is already cached
         """
         output_dir, argument_hash = self._get_output_dir(*args, **kwargs)
-        return self._needs_call(output_dir, argument_hash)
+        return self._needs_call(output_dir)
 
-    def _needs_call(self, output_dir, argument_hash):
+    def _needs_call(self, output_dir):
         """Check if the function needs to be called or if its output can be
         loaded from cache
+
+        Parameters
+        ----------
+        output_dir: str
+            The directory in which this invokation's results are cached
 
         Returns
         -------
@@ -519,7 +524,7 @@ class MemorizedFunc(Logger):
         # function code has changed
         output_dir, argument_hash = self._get_output_dir(*args, **kwargs)
         metadata = None
-        if self._needs_call(output_dir, argument_hash):
+        if self._needs_call(output_dir):
             try:
                 t0 = time.time()
                 out = _load_output(output_dir, _get_func_fullname(self.func),
