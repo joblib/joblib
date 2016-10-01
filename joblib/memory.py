@@ -356,6 +356,9 @@ class NotMemorizedFunc(object):
     def call_and_shelve(self, *args, **kwargs):
         return NotMemorizedResult(self.func(*args, **kwargs))
 
+    def is_cached(self, *args, **kwargs):
+        return False
+
     def __reduce__(self):
         return (self.__class__, (self.func,))
 
