@@ -211,11 +211,11 @@ def _read_fileobject(fileobj, filename, mmap_mode=None):
                 # binary mode. In this case, we pass the filename.
                 yield _buffered_read_file(bz2.BZ2File(fileobj.name, 'rb'))
         elif (compressor == 'lzma' or compressor == 'xz'):
-            if lzma is not None:
+            if PY3_OR_LATER and lzma is not None:
                 yield _buffered_read_file(lzma.LZMAFile(fileobj, 'rb'))
             else:
                 raise NotImplementedError("Lzma decompression is not "
-                                          "available for this version of "
+                                          "supported for this version of "
                                           "python ({0}.{1})"
                                           .format(sys.version_info[0],
                                                   sys.version_info[1]))
