@@ -15,4 +15,6 @@ if [[ "$SKIP_TESTS" != "true" ]]; then
         mv setup.cfg{.new,}
     fi
     make
+    # Run the tests again with multiprocessing disabled
+    JOBLIB_MULTIPROCESSING=0 make
 fi

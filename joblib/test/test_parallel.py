@@ -259,6 +259,7 @@ def test_parallel_timeout_success():
                 (delayed(sleep)(0.001) for x in range(10))))
 
 
+@with_multiprocessing
 def test_parallel_timeout_fail():
     # Check that timeout properly fails when function is too slow
     for backend in ['multiprocessing', 'threading']:
@@ -548,6 +549,7 @@ def check_backend_context_manager(backend_name):
             assert_equal(type(p._backend), FakeParallelBackend)
 
 
+@with_multiprocessing
 def test_backend_context_manager():
     all_test_backends = ['test_backend_%d' % i for i in range(3)]
     for test_backend in all_test_backends:
@@ -675,6 +677,7 @@ def test_dispatch_race_condition():
                                    pre_dispatch="2*n_jobs")
 
 
+@with_multiprocessing
 def test_default_mp_context():
     p = Parallel(n_jobs=2, backend='multiprocessing')
     context = p._backend_args.get('context')
@@ -695,6 +698,7 @@ def test_default_mp_context():
         assert_equal(context, None)
 
 
+@with_multiprocessing
 @with_numpy
 def test_no_blas_crash_or_freeze_with_multiprocessing():
     if sys.version_info < (3, 4):
