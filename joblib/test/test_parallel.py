@@ -788,14 +788,12 @@ from joblib import Parallel, delayed
 
 
 def func():
-    sys.stderr.flush()
     return 42
 
 
 def parallel_func():
     res =  Parallel(n_jobs={inner_n_jobs})(delayed(func)() for _ in range(3))
     # Needed otherwise some warnings may be missed
-    sys.stderr.flush()
     return res
 
 Parallel(n_jobs={outer_n_jobs})(delayed(parallel_func)() for _ in range(5))
@@ -805,11 +803,9 @@ Parallel(n_jobs={outer_n_jobs})(delayed(parallel_func)() for _ in range(5))
     check_subprocess_call([sys.executable, '-c', code],
                           stderr_regex='^$')
 
-    # outer_n_jobs warnings if inner_n_jobs != 1
-    outer_n_jobs = 2
-    regex_str = ('(Multiprocessing-backed parallel loops cannot '
-                 'be nested.+){{{0}}}').format(outer_n_jobs)
-    regex = re.compile(regex_str, flags=re.DOTALL)
-    code = template_code.format(inner_n_jobs=-1, outer_n_jobs=outer_n_jobs)
+    #  warnings if inner_n_jobs != 1
+    regex = ('Multiprocessing-backed parallel loops cannot '
+             'be nested')
+    code = template_code.format(inner_n_jobs=2, outer_n_jobs=2)
     check_subprocess_call([sys.executable, '-c', code],
                           stderr_regex=regex)
