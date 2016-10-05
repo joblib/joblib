@@ -733,8 +733,8 @@ def test_parallel_with_interactively_defined_functions():
 
     code = '\n\n'.join([
         'from joblib import Parallel, delayed',
-        'def sqrt(x): return x**2',
-        'print(Parallel(n_jobs=2)(delayed(sqrt)(i) for i in range(5)))'])
+        'def square(x): return x**2',
+        'print(Parallel(n_jobs=2)(delayed(square)(i) for i in range(5)))'])
 
     check_subprocess_call([sys.executable, '-c', code],
                           stdout_regex=r'\[0, 1, 4, 9, 16\]')
