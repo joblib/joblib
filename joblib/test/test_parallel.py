@@ -789,6 +789,7 @@ from joblib import Parallel, delayed
 
 
 def func():
+    sys.stderr.flush()
     return 42
 
 
