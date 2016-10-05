@@ -482,7 +482,7 @@ class MemorizedFunc(Logger):
         cached: bool
             Whether or not the call is already cached
         """
-        output_dir, argument_hash = self._get_output_dir(*args, **kwargs)
+        output_dir, _ = self._get_output_dir(*args, **kwargs)
         return self._needs_call(output_dir)
 
     def _needs_call(self, output_dir):
