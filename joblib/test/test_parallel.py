@@ -792,7 +792,6 @@ def func():
 
 def parallel_func():
     res =  Parallel(n_jobs={inner_n_jobs})(delayed(func)() for _ in range(3))
-    # Needed otherwise some warnings may be missed
     return res
 
 Parallel(n_jobs={outer_n_jobs})(delayed(parallel_func)() for _ in range(5))
