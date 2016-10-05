@@ -45,6 +45,10 @@ except ImportError:
     # Backward compat
     from Queue import Queue
 
+try:
+    import posix
+except ImportError:
+    posix = None
 
 from joblib._parallel_backends import SequentialBackend
 from joblib._parallel_backends import ThreadingBackend
@@ -725,10 +729,7 @@ def test_no_blas_crash_or_freeze_with_multiprocessing():
 def test_parallel_with_interactively_defined_functions():
     # When functions are defined interactively in a python/IPython
     # session, we want to be able to use them with joblib.Parallel
-
-    try:
-        import posix
-    except ImportError:
+    if posix is None:
         # This test pass only when fork is the process start method
         raise nose.SkipTest('Not a POSIX platform')
 
@@ -776,9 +777,7 @@ def test_nested_parallel_warnings():
     # The warnings happen in child processes so
     # warnings.catch_warnings can not be used for this tests that's
     # why we use check_subprocess_call instead
-    try:
-        import posix
-    except ImportError:
+    if posix is None:
         # This test pass only when fork is the process start method
         raise nose.SkipTest('Not a POSIX platform')
 
