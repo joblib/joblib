@@ -11,6 +11,7 @@ import sys
 import io
 import os
 from math import sqrt
+import re
 
 from joblib import parallel
 
@@ -768,3 +769,36 @@ def test_auto_memmap_on_arrays_from_generator():
         delayed(check_memmap)(a) for a in generate_arrays(100))
     for result, expected in zip(results, generate_arrays(len(results))):
         np.testing.assert_array_equal(expected, result)
+
+
+@with_multiprocessing
+def test_nested_parallel_warnings():
+    # The warnings happen in child processes so
+    # warnings.catch_warnings can not be used for this tests that's
+    # why we use check_subprocess_call instead
+    template_code = """
+from joblib import Parallel, delayed
+
+
+def func():
+    return 42
+
+
+def parallel_func():
+    return Parallel(n_jobs={inner_n_jobs})(delayed(func)() for _ in range(3))
+
+Parallel(n_jobs={outer_n_jobs})(delayed(parallel_func)() for _ in range(5))
+    """
+    # no warnings if inner_n_jobs=1
+    code = template_code.format(inner_n_jobs=1, outer_n_jobs=2)
+    check_subprocess_call([sys.executable, '-c', code],
+                          stderr_regex='^$')
+
+    # outer_n_jobs warnings if inner_n_jobs != 1
+    outer_n_jobs = 2
+    regex_str = ('(Multiprocessing-backed parallel loops cannot '
+                 'be nested.+){{{0}}}').format(outer_n_jobs)
+    regex = re.compile(regex_str, flags=re.DOTALL)
+    code = template_code.format(inner_n_jobs=-1, outer_n_jobs=outer_n_jobs)
+    check_subprocess_call([sys.executable, '-c', code],
+                          stderr_regex=regex)
