@@ -265,6 +265,9 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
         This also checks if we are attempting to create a nested parallel
         loop.
         """
+        if mp is None:
+            return 1
+
         if mp.current_process().daemon:
             # Daemonic processes cannot have children
             if n_jobs != 1:
