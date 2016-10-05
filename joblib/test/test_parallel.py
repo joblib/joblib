@@ -776,7 +776,15 @@ def test_nested_parallel_warnings():
     # The warnings happen in child processes so
     # warnings.catch_warnings can not be used for this tests that's
     # why we use check_subprocess_call instead
+    try:
+        import posix
+    except ImportError:
+        # This test pass only when fork is the process start method
+        raise nose.SkipTest('Not a POSIX platform')
+
     template_code = """
+import sys
+
 from joblib import Parallel, delayed
 
 
@@ -785,7 +793,10 @@ def func():
 
 
 def parallel_func():
-    return Parallel(n_jobs={inner_n_jobs})(delayed(func)() for _ in range(3))
+    res =  Parallel(n_jobs={inner_n_jobs})(delayed(func)() for _ in range(3))
+    # Needed otherwise some warnings may be missed
+    sys.stderr.flush()
+    return res
 
 Parallel(n_jobs={outer_n_jobs})(delayed(parallel_func)() for _ in range(5))
     """
