@@ -11,7 +11,6 @@ import sys
 import io
 import os
 from math import sqrt
-import re
 
 from joblib import parallel
 
