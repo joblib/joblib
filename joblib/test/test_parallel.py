@@ -44,6 +44,10 @@ except ImportError:
     # Backward compat
     from Queue import Queue
 
+try:
+    import posix
+except ImportError:
+    posix = None
 
 from joblib._parallel_backends import SequentialBackend
 from joblib._parallel_backends import ThreadingBackend
@@ -724,10 +728,7 @@ def test_no_blas_crash_or_freeze_with_multiprocessing():
 def test_parallel_with_interactively_defined_functions():
     # When functions are defined interactively in a python/IPython
     # session, we want to be able to use them with joblib.Parallel
-
-    try:
-        import posix
-    except ImportError:
+    if posix is None:
         # This test pass only when fork is the process start method
         raise nose.SkipTest('Not a POSIX platform')
 
@@ -768,3 +769,41 @@ def test_auto_memmap_on_arrays_from_generator():
         delayed(check_memmap)(a) for a in generate_arrays(100))
     for result, expected in zip(results, generate_arrays(len(results))):
         np.testing.assert_array_equal(expected, result)
+
+
+@with_multiprocessing
+def test_nested_parallel_warnings():
+    # The warnings happen in child processes so
+    # warnings.catch_warnings can not be used for this tests that's
+    # why we use check_subprocess_call instead
+    if posix is None:
+        # This test pass only when fork is the process start method
+        raise nose.SkipTest('Not a POSIX platform')
+
+    template_code = """
+import sys
+
+from joblib import Parallel, delayed
+
+
+def func():
+    return 42
+
+
+def parallel_func():
+    res =  Parallel(n_jobs={inner_n_jobs})(delayed(func)() for _ in range(3))
+    return res
+
+Parallel(n_jobs={outer_n_jobs})(delayed(parallel_func)() for _ in range(5))
+    """
+    # no warnings if inner_n_jobs=1
+    code = template_code.format(inner_n_jobs=1, outer_n_jobs=2)
+    check_subprocess_call([sys.executable, '-c', code],
+                          stderr_regex='^$')
+
+    #  warnings if inner_n_jobs != 1
+    regex = ('Multiprocessing-backed parallel loops cannot '
+             'be nested')
+    code = template_code.format(inner_n_jobs=2, outer_n_jobs=2)
+    check_subprocess_call([sys.executable, '-c', code],
+                          stderr_regex=regex)
