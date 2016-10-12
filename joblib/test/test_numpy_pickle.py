@@ -337,13 +337,12 @@ def test_compress_mmap_mode_warning():
         for warn in caught_warnings:
             nose.tools.assert_equal(warn.category, UserWarning)
             nose.tools.assert_equal(warn.message.args[0],
-                                    'File "%(filename)s" is compressed using '
-                                    '"%(compressor)s" which is not compatible '
-                                    'with mmap_mode "%(mmap_mode)s" flag '
-                                    'passed. mmap_mode option will be '
-                                    'ignored.' % {'filename': this_filename,
-                                                  'mmap_mode': 'r+',
-                                                  'compressor': 'zlib'})
+                                    'mmap_mode "%(mmap_mode)s" is not '
+                                    'compatible with compressed file '
+                                    '%(filename)s. '
+                                    '"%(mmap_mode)s" flag will be ignored.'
+                                    % {'filename': this_filename,
+                                       'mmap_mode': 'r+'})
 
 
 @with_numpy
@@ -766,15 +765,10 @@ def test_file_handle_persistence_compressed_mmap():
             for warn in caught_warnings:
                 nose.tools.assert_equal(warn.category, UserWarning)
                 nose.tools.assert_equal(warn.message.args[0],
-                                        'File "%(filename)s" is compressed '
-                                        'using "%(compressor)s" which is not '
-                                        'compatible with mmap_mode '
-                                        '"%(mmap_mode)s" flag '
-                                        'passed. mmap_mode option will be '
-                                        'ignored.' %
-                                        {'filename': "",
-                                         'mmap_mode': 'r+',
-                                         'compressor': 'GzipFile'})
+                                        '"%(fileobj)r" is not a raw file, '
+                                        'mmap_mode "%(mmap_mode)s" flag will '
+                                        'be ignored.'
+                                        % {'fileobj': f, 'mmap_mode': 'r+'})
 
 
 @with_numpy

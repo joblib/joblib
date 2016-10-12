@@ -560,8 +560,10 @@ def load(filename, mmap_mode=None):
     if Path is not None and isinstance(filename, Path):
         filename = str(filename)
 
-    if hasattr(filename, "read") and hasattr(filename, "seek"):
-        with _read_fileobject(filename, "", mmap_mode) as fobj:
+    if hasattr(filename, "read"):
+        fobj = filename
+        filename = getattr(fobj, 'name', '')
+        with _read_fileobject(fobj, filename, mmap_mode) as fobj:
             obj = _unpickle(fobj)
     else:
         with open(filename, 'rb') as f:
