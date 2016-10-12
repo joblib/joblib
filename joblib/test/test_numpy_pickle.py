@@ -964,12 +964,12 @@ def test_pickle_in_socket():
     listener.listen(1)
 
     client = socket.create_connection(_ADDR)
-
     server, client_addr = listener.accept()
-    with closing(server.makefile("wb")) as sf:
+
+    with server.makefile("wb") as sf:
         numpy_pickle.dump(test_array, sf)
 
-    with closing(client.makefile("rb")) as cf:
+    with client.makefile("rb") as cf:
         array_reloaded = numpy_pickle.load(cf)
 
     np.testing.assert_array_equal(array_reloaded, test_array)
