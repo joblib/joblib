@@ -189,13 +189,9 @@ def _read_fileobject(fileobj, filename, mmap_mode=None):
                       DeprecationWarning, stacklevel=2)
         yield filename
     else:
-        # if the passed fileobj is in the supported list of decompressor
-        # objects (GzipFile, BZ2File, LzmaFile), we simply return it.
-        if isinstance(fileobj, tuple(_COMPRESSOR_CLASSES)):
-            pass
-        # otherwise, based on the compressor detected in the file, we open the
+        # based on the compressor detected in the file, we open the
         # correct decompressor file object, wrapped in a buffer.
-        elif compressor == 'zlib':
+        if compressor == 'zlib':
             fileobj = _buffered_read_file(BinaryZlibFile(fileobj, 'rb'))
         elif compressor == 'gzip':
             fileobj = _buffered_read_file(BinaryGzipFile(fileobj, 'rb'))
