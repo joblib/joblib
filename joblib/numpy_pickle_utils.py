@@ -82,7 +82,7 @@ def _is_raw_file(fileobj):
         fileobj = getattr(fileobj, 'raw', fileobj)
         return isinstance(fileobj, io.FileIO)
     else:
-        return isinstance(fileobj, file)
+        return isinstance(fileobj, file)  # noqa
 
 
 ###############################################################################
