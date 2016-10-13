@@ -15,6 +15,7 @@ import gzip
 import zlib
 import bz2
 import pickle
+import socket
 from contextlib import closing
 
 from joblib.test.common import np, with_numpy
@@ -946,5 +947,29 @@ def test_pickle_highest_protocol():
 
     numpy_pickle.dump(test_array, filename, protocol=pickle.HIGHEST_PROTOCOL)
     array_reloaded = numpy_pickle.load(filename)
+
+    np.testing.assert_array_equal(array_reloaded, test_array)
+
+
+@with_numpy
+def test_pickle_in_socket():
+    # test that joblib can pickle in sockets
+    if not PY3_OR_LATER:
+        raise nose.SkipTest("Cannot peek or seek in socket in python 2.")
+
+    test_array = np.arange(10)
+    _ADDR = ("localhost", 12345)
+    listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    listener.bind(_ADDR)
+    listener.listen(1)
+
+    client = socket.create_connection(_ADDR)
+    server, client_addr = listener.accept()
+
+    with server.makefile("wb") as sf:
+        numpy_pickle.dump(test_array, sf)
+
+    with client.makefile("rb") as cf:
+        array_reloaded = numpy_pickle.load(cf)
 
     np.testing.assert_array_equal(array_reloaded, test_array)
