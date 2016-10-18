@@ -29,7 +29,8 @@ from .logger import Logger, short_format_time
 from .my_exceptions import TransportableException, _mk_exception
 from .disk import memstr_to_bytes
 from ._parallel_backends import (FallbackToBackend, MultiprocessingBackend,
-                                 ThreadingBackend, SequentialBackend)
+                                 ThreadingBackend, SequentialBackend,
+                                 LokyBackend)
 from ._compat import _basestring
 
 # Make sure that those two classes are part of the public joblib.parallel API
@@ -41,6 +42,7 @@ BACKENDS = {
     'multiprocessing': MultiprocessingBackend,
     'threading': ThreadingBackend,
     'sequential': SequentialBackend,
+    'loky': LokyBackend,
 }
 
 # name of the backend used by default by Parallel outside of any context
