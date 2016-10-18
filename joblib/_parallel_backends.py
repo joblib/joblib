@@ -16,6 +16,7 @@ from ._compat import with_metaclass
 if mp is not None:
     from .pool import MemmapingPool
     from multiprocessing.pool import ThreadPool
+    from loky.reusable_executor import get_reusable_executor
 
 
 class ParallelBackendBase(with_metaclass(ABCMeta)):
@@ -323,6 +324,56 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
         super(MultiprocessingBackend, self).terminate()
         if self.JOBLIB_SPAWNED_PROCESS in os.environ:
             del os.environ[self.JOBLIB_SPAWNED_PROCESS]
+
+
+class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
+    """Managing pool of workers with loky instead of multiprocessing."""
+
+    def configure(self, n_jobs=1, parallel=None, **backend_args):
+        """Build a process or thread pool and return the number of workers"""
+        n_jobs = self.effective_n_jobs(n_jobs)
+        if n_jobs == 1:
+            raise FallbackToBackend(SequentialBackend())
+
+        # TODO: enable automatic memory mapping of large numpy arrays
+        self._n_jobs = n_jobs
+        self.parallel = parallel
+        return n_jobs
+
+    def effective_n_jobs(self, n_jobs):
+        """Determine the number of jobs which are going to run in parallel"""
+        if n_jobs == 0:
+            raise ValueError('n_jobs == 0 in Parallel has no meaning')
+        elif mp is None or n_jobs is None:
+            # multiprocessing is not available or disabled, fallback
+            # to sequential mode
+            return 1
+        elif mp.current_process().daemon:
+            # Daemonic processes cannot have children
+            if n_jobs != 1:
+                warnings.warn(
+                    'Loky-backed parallel loops cannot be called in a'
+                    ' multiprocessing, setting n_jobs=1',
+                    stacklevel=3)
+            return 1
+        elif n_jobs < 0:
+            n_jobs = max(mp.cpu_count() + 1 + n_jobs, 1)
+        return n_jobs
+
+    def apply_async(self, func, callback=None):
+        """Schedule a func to be run"""
+        executor = get_reusable_executor(self._n_jobs)
+        future = executor.submit(SafeFunction(func))
+        future.get = future.result
+        if callback is not None:
+            future.add_done_callback(callback)
+        return future
+
+    def abort_everything(self, ensure_ready=True):
+        """Shutdown the pool and restart a new one with the same parameters"""
+        get_reusable_executor(self._n_jobs).shutdown()
+        if ensure_ready:
+            get_reusable_executor(self._n_jobs)
 
 
 class ImmediateResult(object):
