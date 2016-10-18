@@ -1,6 +1,20 @@
 Latest changes
 ===============
 
+Release 0.10.3
+--------------
+
+Loïc Estève
+
+    Fix tests when multiprocessing is disabled via the
+    JOBLIB_MULTIPROCESSING environment variable.
+
+harishmk
+
+    Remove warnings in nested Parallel objects when the inner Parallel
+    has n_jobs=1. See https://github.com/joblib/joblib/pull/406 for
+    more details.
+
 Release 0.10.2
 --------------
 
