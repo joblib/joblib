@@ -121,7 +121,7 @@ To avoid this problem ``joblib.Parallel`` can be configured to use the
 ``'forkserver'`` start method on Python 3.4 and later. The start method has to
 be configured by setting the ``JOBLIB_START_METHOD`` environment variable to
 ``'forkserver'`` instead of the default ``'fork'`` start method. However the
-user should be aware that using the ``'forkserver'`` prevents
+user should be aware that using the ``'forkserver'`` method prevents
 ``joblib.Parallel`` to call function interactively defined in a shell session.
 
 You can read more on this topic in the `multiprocessing documentation
