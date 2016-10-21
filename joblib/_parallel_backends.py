@@ -356,6 +356,13 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
                     ' multiprocessing, setting n_jobs=1',
                     stacklevel=3)
             return 1
+        elif not isinstance(threading.current_thread(), threading._MainThread):
+            # Prevent posix fork inside in non-main posix threads
+            warnings.warn(
+                'Multiprocessing backed parallel loops cannot be nested'
+                ' below threads, setting n_jobs=1',
+                stacklevel=3)
+            return 1
         elif n_jobs < 0:
             n_jobs = max(mp.cpu_count() + 1 + n_jobs, 1)
         return n_jobs
