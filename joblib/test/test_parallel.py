@@ -11,6 +11,8 @@ import sys
 import io
 import os
 from math import sqrt
+import threading
+import warnings
 
 from joblib import parallel
 
@@ -164,6 +166,33 @@ def check_simple_parallel(backend):
 def test_simple_parallel():
     for backend in ALL_VALID_BACKENDS:
         yield check_simple_parallel, backend
+
+
+def check_main_thread_renamed_no_warning(backend):
+    with warnings.catch_warnings(record=True) as caught_warnings:
+        warnings.simplefilter("always")
+        results = Parallel(n_jobs=2, backend=backend)(
+            delayed(square)(x) for x in range(3))
+        assert_equal(results, [0, 1, 4])
+    # The multiprocessing backend will raise a warning when detecting that is
+    # started from the non-main thread. Let's check that there is no false
+    # positive because of the name change.
+    assert_equal(caught_warnings, [])
+
+
+def test_main_thread_renamed_no_warning():
+    # Check that no default backend relies on the name of the main thread:
+    # https://github.com/joblib/joblib/issues/180#issuecomment-253266247
+    # Some programs use a different name for the main thread. This is the case
+    # for uWSGI apps for instance.
+    main_thread = threading.current_thread()
+    original_name = main_thread.name
+    try:
+        main_thread.name = "some_new_name_for_the_main_thread"
+        for backend in ALL_VALID_BACKENDS:
+            yield check_main_thread_renamed_no_warning, backend
+    finally:
+        main_thread.name = original_name
 
 
 def nested_loop(backend):
