@@ -55,9 +55,13 @@ Running the test suite
 To run the test suite, you need the nose and coverage modules.
 Run the test suite using::
 
-    nosetests
+    nosetests joblib
 
 from the root of the project.
+
+You may find it helpful to use the ipdb plugin when test fail.
+
+    nosetests joblib --ipdb-failure
 
 |Travis| |AppVeyor| |Coveralls|
 
