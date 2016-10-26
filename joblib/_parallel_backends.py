@@ -336,8 +336,8 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
             raise FallbackToBackend(SequentialBackend())
 
         # TODO: enable automatic memory mapping of large numpy arrays
-        self._n_jobs = n_jobs
         self.parallel = parallel
+        self._executor = get_reusable_executor(n_jobs)
         return n_jobs
 
     def effective_n_jobs(self, n_jobs):
@@ -359,8 +359,8 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
         elif not isinstance(threading.current_thread(), threading._MainThread):
             # Prevent posix fork inside in non-main posix threads
             warnings.warn(
-                'Multiprocessing backed parallel loops cannot be nested'
-                ' below threads, setting n_jobs=1',
+                'Loky-backed parallel loops cannot be nested below threads,'
+                ' setting n_jobs=1',
                 stacklevel=3)
             return 1
         elif n_jobs < 0:
@@ -369,8 +369,7 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
 
     def apply_async(self, func, callback=None):
         """Schedule a func to be run"""
-        executor = get_reusable_executor(self._n_jobs)
-        future = executor.submit(SafeFunction(func))
+        future = self._executor.submit(SafeFunction(func))
         future.get = future.result
         if callback is not None:
             future.add_done_callback(callback)
@@ -378,9 +377,9 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
 
     def abort_everything(self, ensure_ready=True):
         """Shutdown the pool and restart a new one with the same parameters"""
-        get_reusable_executor(self._n_jobs).shutdown()
+        self._executor.shutdown()
         if ensure_ready:
-            get_reusable_executor(self._n_jobs)
+            self._executor = get_reusable_executor(self._n_jobs)
 
 
 class ImmediateResult(object):
