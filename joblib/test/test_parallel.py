@@ -26,7 +26,7 @@ from time import sleep
 try:
     import cPickle as pickle
     PickleError = TypeError
-except:
+except ImportError:
     import pickle
     PickleError = pickle.PicklingError
 
