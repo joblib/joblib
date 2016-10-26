@@ -70,7 +70,7 @@ Lightweight pipelining: using Python functions as pipeline jobs.
           extras_require={
               'dev': [
                   'nose>=1.3.7', 'Sphinx>=1.4.8', 'numpydoc>=0.0.6',
-                  'wheel', '.[optional]',
+                  'wheel', 'joblib[optional]',
               ],
               'optional': [
                   'numpy>=1.6.1.',
