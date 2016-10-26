@@ -18,7 +18,7 @@ from numbers import Integral
 from contextlib import contextmanager
 try:
     import cPickle as pickle
-except:
+except ImportError:
     import pickle
 
 from ._multiprocessing_helpers import mp
