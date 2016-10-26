@@ -277,10 +277,10 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
                     stacklevel=3)
             return 1
 
-        elif threading.current_thread().name != 'MainThread':
+        if not isinstance(threading.current_thread(), threading._MainThread):
             # Prevent posix fork inside in non-main posix threads
             warnings.warn(
-                'Multiprocessing backed parallel loops cannot be nested'
+                'Multiprocessing-backed parallel loops cannot be nested'
                 ' below threads, setting n_jobs=1',
                 stacklevel=3)
             return 1

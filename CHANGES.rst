@@ -16,6 +16,13 @@ Loïc Estève
     parameter and then need to clean explicitly the cache via the
     ``Memory.reduce_size`` method.
 
+Olivier Grisel
+
+    Make the multiprocessing backend work even when the name of the main
+    thread is not the Python default. Thanks to Roman Yurchak for the
+    suggestion.
+
+
 Release 0.10.3
 --------------
 
