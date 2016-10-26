@@ -29,6 +29,10 @@ Joblib has no other mandatory dependency than Python (supported
 versions are 2.6+ and 3.3+). Numpy (at least version 1.6.1) is an
 optional dependency for array manipulation.
 
+You can install the optional dependencies like this. ::
+
+    pip install 'joblib[optional]'
+
 Workflow to contribute
 =========================
 
