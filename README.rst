@@ -40,6 +40,11 @@ your changes in your clone, push them to your github account, test them
 on several computers, and when you are happy with them, send a pull
 request to the main repository.
 
+When you install joblib, also install the development dependencies, for
+things like building the documentation and running tests.
+
+    pip install '.[dev]'
+
 Running the test suite
 =========================
 

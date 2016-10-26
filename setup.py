@@ -67,4 +67,7 @@ Lightweight pipelining: using Python functions as pipeline jobs.
                                         'data/*.npy',
                                         'data/*.npy.z']},
           packages=['joblib', 'joblib.test', 'joblib.test.data'],
+          extras_require={
+              'dev': ['nose>=1.3.7', 'Sphinx>=1.4.8'],
+          },
           **extra_setuptools_args)
