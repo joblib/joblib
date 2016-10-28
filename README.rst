@@ -29,10 +29,6 @@ Joblib has no other mandatory dependency than Python (supported
 versions are 2.6+ and 3.3+). Numpy (at least version 1.6.1) is an
 optional dependency for array manipulation.
 
-You can install the optional dependencies like this. ::
-
-    pip install 'joblib[optional]'
-
 Workflow to contribute
 =========================
 
@@ -44,11 +40,6 @@ your changes in your clone, push them to your github account, test them
 on several computers, and when you are happy with them, send a pull
 request to the main repository.
 
-When you install joblib, also install the development dependencies, for
-things like building the documentation and running tests.
-
-    pip install '.[dev]'
-
 Running the test suite
 =========================
 
@@ -58,10 +49,6 @@ Run the test suite using::
     nosetests joblib
 
 from the root of the project.
-
-You may find it helpful to use the ipdb plugin when test fail.
-
-    nosetests joblib --ipdb-failure
 
 |Travis| |AppVeyor| |Coveralls|
 
