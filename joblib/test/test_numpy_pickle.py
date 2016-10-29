@@ -960,6 +960,7 @@ def test_pickle_in_socket():
     test_array = np.arange(10)
     _ADDR = ("localhost", 12345)
     listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     listener.bind(_ADDR)
     listener.listen(1)
 
