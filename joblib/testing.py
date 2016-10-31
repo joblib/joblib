@@ -8,8 +8,16 @@ import os.path
 import re
 import subprocess
 import threading
+import unittest
 
 from joblib._compat import PY3_OR_LATER
+
+
+_dummy = unittest.TestCase('__init__')
+assert_true = _dummy.assertTrue
+assert_false = _dummy.assertFalse
+assert_equal = _dummy.assertEqual
+assert_not_equal = _dummy.assertNotEqual
 
 
 def warnings_to_stdout():
