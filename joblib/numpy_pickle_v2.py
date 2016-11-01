@@ -12,8 +12,6 @@ import warnings
 from functools import partial
 from os.path import split, splitext, dirname, abspath, join
 
-import IPython
-
 try:
     from pathlib import Path
 except ImportError:
@@ -202,15 +200,11 @@ class NumpyArrayWrapper(object):
                             self.np.frombuffer(data, dtype=self.dtype,
                                                     count=read_count)
                         del data
-                try:
-                    if self.order == 'F':
-                        array.shape = self.shape[::-1]
-                        array = array.transpose()
-                    else:
-                        array.shape = self.shape
-                except Exception:
-                    IPython.embed()
-
+                if self.order == 'F':
+                    array.shape = self.shape[::-1]
+                    array = array.transpose()
+                else:
+                    array.shape = self.shape
         return array
 
     def read_mmap(self, directory, mmap_mode):
