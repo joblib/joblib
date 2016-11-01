@@ -1,9 +1,8 @@
 """
 Test my automatically generate exceptions
 """
-from nose.tools import assert_true
-
 from joblib import my_exceptions
+from joblib.testing import assert_true
 
 
 class CustomException(Exception):
