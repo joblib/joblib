@@ -11,6 +11,13 @@ import numpy as np
 import joblib
 import gc
 
+# Patch for benchmarking
+
+joblib.dump = joblib.dump2
+joblib.load = joblib.load2
+
+#
+
 from joblib.disk import disk_used
 
 try:
