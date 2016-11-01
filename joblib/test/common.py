@@ -3,7 +3,6 @@ Small utilities for testing.
 """
 import threading
 import signal
-import nose
 import time
 import os
 import sys
@@ -25,7 +24,7 @@ except ImportError:
     def with_numpy(func):
         """A decorator to skip tests requiring numpy."""
         def my_func():
-            raise nose.SkipTest('Test requires numpy')
+            raise SkipTest('Test requires numpy')
         return my_func
     np = None
 
@@ -48,7 +47,7 @@ except ImportError:
     def with_memory_profiler(func):
         """A decorator to skip tests requiring memory_profiler."""
         def dummy_func():
-            raise nose.SkipTest('Test requires memory_profiler.')
+            raise SkipTest('Test requires memory_profiler.')
         return dummy_func
 
     memory_usage = memory_used = None
