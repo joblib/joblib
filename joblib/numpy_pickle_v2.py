@@ -48,10 +48,26 @@ storage = threading.local()
 
 
 def read_np_dump(new_args, new_kwargs):
-    directory = dirname(abspath(storage.filename))
+    file_name = storage.companion_file_name
+    file_handle = storage.companion_file_handle
     mmap_mode = storage.mmap_mode
-    file_opener = storage.file_opener
-    return NumpyArrayWrapper(*new_args, **new_kwargs).read(directory, mmap_mode, file_opener=file_opener)
+    return NumpyArrayWrapper(*new_args, **new_kwargs).read(file_name, file_handle, mmap_mode)
+
+
+def get_companion_name(main_file):
+    return abspath(main_file) + '.npdata'
+
+
+def is_buffered(fp):
+    if isinstance(fp, BinaryZlibFile):
+        return True
+    if not hasattr(fp, 'seek'):
+        return True
+    try:
+        fp.seek(fp.tell())
+    except Exception:
+        return True
+    return False
 
 
 class NumpyArrayWrapper(object):
@@ -84,14 +100,13 @@ class NumpyArrayWrapper(object):
         Default: False.
     """
 
-    def __init__(self, subclass, shape, order, dtype, filename, allow_mmap=False):
+    def __init__(self, subclass, shape, order, dtype, allow_mmap=False):
         """Constructor. Store the useful information for later."""
         self.subclass = subclass
         self.shape = shape
         self.order = order
         self.dtype = dtype
         self.allow_mmap = allow_mmap
-        _, self.filename = split(filename)
 
         try:
             import numpy
@@ -109,7 +124,6 @@ class NumpyArrayWrapper(object):
             ),
             {
                 'allow_mmap': self.allow_mmap,
-                'filename': self.filename
             }
         ),)
 
@@ -128,8 +142,7 @@ class NumpyArrayWrapper(object):
     #         }
     #     )
 
-
-    def write_array(self, array, directory, file_opener=partial(open, mode='bw')):
+    def write_array(self, array, file_handle):
         """Write array bytes to pickler file handle.
 
         This function is an adaptation of the numpy write_array function
@@ -137,23 +150,22 @@ class NumpyArrayWrapper(object):
         """
         # Set buffer size to 16 MiB to hide the Python loop overhead.
 
-        with file_opener(os.path.join(directory, self.filename)) as file_handle:
-            buffersize = max(16 * 1024 ** 2 // array.itemsize, 1)
-            if array.dtype.hasobject:
-                # We contain Python objects so we cannot write out the data
-                # directly. Instead, we will pickle it out with version 2 of the
-                # pickle protocol.
-                fast_pickle.dump(array, file_handle, protocol=2)
-            else:
-                for chunk in self.np.nditer(array,
-                                               flags=['external_loop',
-                                                      'buffered',
-                                                      'zerosize_ok'],
-                                               buffersize=buffersize,
-                                               order=self.order):
-                    file_handle.write(chunk.tostring('C'))
+        buffersize = max(16 * 1024 ** 2 // array.itemsize, 1)
+        if array.dtype.hasobject:
+            # We contain Python objects so we cannot write out the data
+            # directly. Instead, we will pickle it out with version 2 of the
+            # pickle protocol.
+            fast_pickle.dump(array, file_handle, protocol=2)
+        else:
+            for chunk in self.np.nditer(array,
+                                           flags=['external_loop',
+                                                  'buffered',
+                                                  'zerosize_ok'],
+                                           buffersize=buffersize,
+                                           order=self.order):
+                file_handle.write(chunk.tostring('C'))
 
-    def read_array(self, directory, file_opener=partial(open, mode='br')):
+    def read_array(self, file_handle):
         """Read array from unpickler file handle.
 
         This function is an adaptation of the numpy read_array function
@@ -165,63 +177,65 @@ class NumpyArrayWrapper(object):
             count = self.np.multiply.reduce(self.shape)
         # Now read the actual data.
 
-        with file_opener(join(directory, self.filename)) as file_handle:
-            if self.dtype.hasobject:
-                # The array contained Python objects. We need to unpickle the data.
-                array = fast_pickle.load(file_handle)
+        if self.dtype.hasobject:
+            # The array contained Python objects. We need to unpickle the data.
+            array = fast_pickle.load(file_handle)
+        else:
+            if (not PY3_OR_LATER and
+                    self.np.compat.isfileobj(file_handle)):
+                # In python 2, gzip.GzipFile is considered as a file so one
+                # can use numpy.fromfile().
+                # For file objects, use np.fromfile function.
+                # This function is faster than the memory-intensive
+                # method below.
+                array = self.np.fromfile(file_handle,
+                                              dtype=self.dtype, count=count)
             else:
-                if (not PY3_OR_LATER and
-                        self.np.compat.isfileobj(file_handle)):
-                    # In python 2, gzip.GzipFile is considered as a file so one
-                    # can use numpy.fromfile().
-                    # For file objects, use np.fromfile function.
-                    # This function is faster than the memory-intensive
-                    # method below.
-                    array = self.np.fromfile(file_handle,
-                                                  dtype=self.dtype, count=count)
-                else:
-                    # This is not a real file. We have to read it the
-                    # memory-intensive way.
-                    # crc32 module fails on reads greater than 2 ** 32 bytes,
-                    # breaking large reads from gzip streams. Chunk reads to
-                    # BUFFER_SIZE bytes to avoid issue and reduce memory overhead
-                    # of the read. In non-chunked case count < max_read_count, so
-                    # only one read is performed.
-                    max_read_count = BUFFER_SIZE // min(BUFFER_SIZE,
-                                                        self.dtype.itemsize)
+                # This is not a real file. We have to read it the
+                # memory-intensive way.
+                # crc32 module fails on reads greater than 2 ** 32 bytes,
+                # breaking large reads from gzip streams. Chunk reads to
+                # BUFFER_SIZE bytes to avoid issue and reduce memory overhead
+                # of the read. In non-chunked case count < max_read_count, so
+                # only one read is performed.
+                max_read_count = BUFFER_SIZE // min(BUFFER_SIZE,
+                                                    self.dtype.itemsize)
 
-                    array = self.np.empty(count, dtype=self.dtype)
-                    for i in range(0, count, max_read_count):
-                        read_count = min(max_read_count, count - i)
-                        read_size = int(read_count * self.dtype.itemsize)
-                        data = _read_bytes(file_handle,
-                                           read_size, "array data")
-                        array[i:i + read_count] = \
-                            self.np.frombuffer(data, dtype=self.dtype,
-                                                    count=read_count)
-                        del data
-                if self.order == 'F':
-                    array.shape = self.shape[::-1]
-                    array = array.transpose()
-                else:
-                    array.shape = self.shape
+                array = self.np.empty(count, dtype=self.dtype)
+                for i in range(0, count, max_read_count):
+                    read_count = min(max_read_count, count - i)
+                    read_size = int(read_count * self.dtype.itemsize)
+                    data = _read_bytes(file_handle,
+                                       read_size, "array data")
+                    array[i:i + read_count] = \
+                        self.np.frombuffer(data, dtype=self.dtype,
+                                                count=read_count)
+                    del data
+            if self.order == 'F':
+                array.shape = self.shape[::-1]
+                array = array.transpose()
+            else:
+                array.shape = self.shape
         return array
 
-    def read_mmap(self, directory, mmap_mode):
+    def read_mmap(self, filename, file_handle, mmap_mode):
         """Read an array using numpy memmap."""
-        full_filename = join(directory, self.filename)
+        offset = file_handle.tell()
         if mmap_mode == 'w+':
             mmap_mode = 'r+'
 
-        marray = self.np.memmap(full_filename,
+        marray = self.np.memmap(filename,
                                  dtype=self.dtype,
                                  shape=self.shape,
                                  order=self.order,
-                                 mode=mmap_mode,)
+                                 mode=mmap_mode,
+                                 offset=offset)
+        # update the offset so that it corresponds to the end of the read array
+        file_handle.seek(offset + marray.nbytes)
 
         return marray
 
-    def read(self, directory, mmap_mode, file_opener=partial(open, mode='rb')):
+    def read(self, filename, file_handle, mmap_mode):
         """Read the array corresponding to this wrapper.
 
         Use the unpickler to get all information to correctly read the array.
@@ -237,9 +251,9 @@ class NumpyArrayWrapper(object):
         """
         # When requested, only use memmap mode if allowed.
         if mmap_mode is not None and self.allow_mmap:
-            array = self.read_mmap(directory, mmap_mode)
+            array = self.read_mmap(filename, file_handle, mmap_mode)
         else:
-            array = self.read_array(directory, file_opener)
+            array = self.read_array(file_handle)
 
         # Manage array subclass case
         if (hasattr(array, '__array_prepare__') and
@@ -274,12 +288,13 @@ class NumpyPicklerCompatible(Pickler):
 
     dispatch = Pickler.dispatch.copy()
 
-    def __init__(self, filename, file_handle, file_opener, protocol=None):
+    def __init__(self, file_handle, filename, companion_file_handle, protocol=None):
+        self.file_handle = file_handle
         self.filename = filename
-        self.file_opener = file_opener
+        self.companion_file_handle = companion_file_handle
 
-        self.buffered = isinstance(file_handle, BinaryZlibFile)
-        self.array_count = 0
+        self.buffered = is_buffered(file_handle)
+        self.buffered_companion = is_buffered(companion_file_handle)
 
         # By default we want a pickle protocol that only changes with
         # the major python version and not the minor one
@@ -299,13 +314,11 @@ class NumpyPicklerCompatible(Pickler):
         """Create and returns a numpy array wrapper from a numpy array."""
         order = 'F' if (array.flags.f_contiguous and
                         not array.flags.c_contiguous) else 'C'
-        allow_mmap = not self.buffered and not array.dtype.hasobject
-        self.array_count += 1
-        filename = "{}.array{:0>3}.part".format(self.filename, self.array_count)
+        allow_mmap = not self.buffered_companion and not array.dtype.hasobject
         wrapper = NumpyArrayWrapper(type(array),
                                     array.shape, order, array.dtype,
                                     allow_mmap=allow_mmap,
-                                    filename=filename)
+                                    )
 
         return wrapper
 
@@ -341,7 +354,7 @@ class NumpyPicklerCompatible(Pickler):
                 self.framer.commit_frame(force=True)
 
             # And then array bytes are written right after the wrapper.
-            wrapper.write_array(obj, dirname(abspath(self.filename)), file_opener=self.file_opener)
+            wrapper.write_array(obj, self.companion_file_handle)
             return
 
         return Pickler.save(self, obj)
@@ -364,7 +377,13 @@ if PY3_OR_LATER and sys.version_info[1] >= 3:
             python 3, pickle.HIGHEST_PROTOCOL otherwise.
         """
 
-        def __init__(self, filename, file_handle, file_opener, protocol=None):
+        def __init__(self, file_handle, filename, companion_file_handle, protocol=None):
+            # By default we want a pickle protocol that only changes with
+            # the major python version and not the minor one
+            if protocol is None:
+                protocol = (pickle.DEFAULT_PROTOCOL if PY3_OR_LATER
+                            else pickle.HIGHEST_PROTOCOL)
+
             super(NumpyPicklerFast, self).__init__(file_handle, protocol=protocol)
 
             import copyreg
@@ -372,16 +391,10 @@ if PY3_OR_LATER and sys.version_info[1] >= 3:
             self.dispatch_table[0] = 0
 
             self.filename = filename
-            self.file_opener = file_opener
+            self.companion_file_handle = companion_file_handle
 
-            self.buffered = isinstance(file_handle, BinaryZlibFile)
-            self.array_count = 0
-
-            # By default we want a pickle protocol that only changes with
-            # the major python version and not the minor one
-            if protocol is None:
-                protocol = (pickle.DEFAULT_PROTOCOL if PY3_OR_LATER
-                            else pickle.HIGHEST_PROTOCOL)
+            self.buffered = is_buffered(file_handle)
+            self.buffered_companion = is_buffered(companion_file_handle)
 
             # delayed import of numpy, to avoid tight coupling
             try:
@@ -392,7 +405,7 @@ if PY3_OR_LATER and sys.version_info[1] >= 3:
 
             def reduce_array(array):
                 wrapper = self._create_array_wrapper(array)
-                wrapper.write_array(array, dirname(abspath(self.filename)), file_opener=self.file_opener)
+                wrapper.write_array(array, self.companion_file_handle)
 
                 return wrapper.__reduce__()
 
@@ -405,13 +418,11 @@ if PY3_OR_LATER and sys.version_info[1] >= 3:
             """Create and returns a numpy array wrapper from a numpy array."""
             order = 'F' if (array.flags.f_contiguous and
                             not array.flags.c_contiguous) else 'C'
-            allow_mmap = not self.buffered and not array.dtype.hasobject
-            self.array_count += 1
-            filename = "{}.array{:0>3}.part".format(self.filename, self.array_count)
+            allow_mmap = not self.buffered_companion and not array.dtype.hasobject
             wrapper = NumpyArrayWrapper(type(array),
                                         array.shape, order, array.dtype,
                                         allow_mmap=allow_mmap,
-                                        filename=filename)
+                                        )
 
             return wrapper
 
@@ -554,7 +565,9 @@ def dump(value, filename, compress=0, protocol=None, cache_size=None):
         file_opener = partial(_write_fileobject, compress=(compress_method, compress_level))
 
     with file_opener(filename) as file_handle:
-        NumpyPickler(filename, file_handle, file_opener, protocol=protocol).dump(value)
+        companion_file_name = get_companion_name(filename)
+        with file_opener(companion_file_name) as companion_file_handle:
+            NumpyPickler(file_handle, filename, companion_file_handle, protocol=protocol).dump(value)
 
     # For compatibility, the list of created filenames (e.g with one element
     # after 0.10.0) is returned by default.
@@ -622,9 +635,7 @@ def load(filename, mmap_mode=None):
         filename = str(filename)
 
     try:
-        storage.filename = filename
         storage.mmap_mode = mmap_mode
-
         if hasattr(filename, "read"):
             fobj = filename
             filename = getattr(fobj, 'name', '')
@@ -632,31 +643,33 @@ def load(filename, mmap_mode=None):
                 obj = _unpickle(fobj)
         else:
             @contextlib.contextmanager
-            def file_opener(filename):
+            def file_opener(f_to_open):
                 file_ = None
                 try:
-                    file_ = open(filename, 'rb')
-                    with _read_fileobject(file_, filename, mmap_mode) as fobj:
+                    file_ = open(f_to_open, 'rb')
+                    with _read_fileobject(file_, f_to_open, mmap_mode) as fobj:
                         yield fobj
                 finally:
                     if file_ is not None:
                         file_.close()
 
-            storage.file_opener = file_opener
-
             with file_opener(filename) as fobj:
-                if isinstance(fobj, _basestring):
-                    # if the returned file object is a string, this means we
-                    # try to load a pickle file generated with an version of
-                    # Joblib so we load it with joblib compatibility function.
-                    return load_compatibility(fobj)
-                obj = _unpickle(fobj, filename, mmap_mode)
+                companion_file_name = get_companion_name(filename)
+                with file_opener(companion_file_name) as companion_file_handle:
+                    storage.companion_file_name = companion_file_name
+                    storage.companion_file_handle = companion_file_handle
+                    if isinstance(fobj, _basestring):
+                        # if the returned file object is a string, this means we
+                        # try to load a pickle file generated with an version of
+                        # Joblib so we load it with joblib compatibility function.
+                        return load_compatibility(fobj)
+                    obj = _unpickle(fobj, filename, mmap_mode)
     finally:
-        del storage.filename
-        del storage.mmap_mode
         try:
-            del storage.file_opener
-        except Exception:
+            del storage.mmap_mode
+            del storage.companion_file_name
+            del storage.companion_file_handle
+        except AttributeError:
             pass
 
     return obj
