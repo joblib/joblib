@@ -3,14 +3,13 @@
 import shutil
 import os
 import random
-import nose
 
 from tempfile import mkdtemp
 
 # numpy_pickle is not a drop-in replacement of pickle, as it takes
 # filenames instead of open files as arguments.
 from joblib import numpy_pickle_compat
-
+from joblib.testing import assert_equal
 
 ###############################################################################
 # Test fixtures
@@ -37,4 +36,4 @@ def test_z_file():
         numpy_pickle_compat.write_zfile(f, data)
     with open(filename, 'rb') as f:
         data_read = numpy_pickle_compat.read_zfile(f)
-    nose.tools.assert_equal(data, data_read)
+    assert_equal(data, data_read)
