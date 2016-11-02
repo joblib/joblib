@@ -13,10 +13,9 @@ import os
 import shutil
 import array
 from tempfile import mkdtemp
-from nose.tools import assert_raises
 
 from joblib.disk import disk_used, memstr_to_bytes, mkdirp
-from joblib.testing import assert_true, assert_equal
+from joblib.testing import assert_true, assert_equal, assert_raises
 
 ###############################################################################
 

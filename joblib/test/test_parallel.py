@@ -15,14 +15,14 @@ import threading
 import warnings
 
 from nose import SkipTest
-from nose.tools import assert_raises
 
 from joblib import parallel
 
 from joblib.test.common import np, with_numpy
 from joblib.test.common import with_multiprocessing
 from joblib.testing import check_subprocess_call
-from joblib.testing import assert_equal, assert_true, assert_false
+from joblib.testing import (assert_equal, assert_true, assert_false,
+                            assert_raises)
 from joblib._compat import PY3_OR_LATER
 from multiprocessing import TimeoutError
 from time import sleep

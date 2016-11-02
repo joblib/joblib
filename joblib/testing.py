@@ -59,6 +59,24 @@ except ImportError:
                                      expected_exception(expected_regexp))
 
 
+try:
+    from nose.tools import assert_raises
+except ImportError:
+    # for Python 2.6
+    def assert_raises(expected_exception, callable_obj=None, *args, **kwargs):
+        """Helper function to check for exceptions raised by methods"""
+        not_raised = False
+        try:
+            callable_obj(*args, **kwargs)
+            not_raised = True
+        except Exception as e:
+            if not e.__class__ == expected_exception:
+                raise AssertionError("Expected exception to be %r, found %r " %
+                                     (expected_exception, e.__class__))
+        if not_raised:
+            raise AssertionError("Should have raised %r" % expected_exception)
+
+
 def check_subprocess_call(cmd, timeout=1, stdout_regex=None,
                           stderr_regex=None):
     """Runs a command in a subprocess with timeout in seconds.
