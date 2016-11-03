@@ -84,30 +84,21 @@ class Klass(object):
 # Tests
 
 def test_filter_args():
-    yield assert_equal, filter_args(f, [], (1, )),\
-                                              {'x': 1, 'y': 0}
-    yield assert_equal, filter_args(f, ['x'], (1, )),\
-                                              {'y': 0}
-    yield assert_equal, filter_args(f, ['y'], (0, )),\
-                                               {'x': 0}
-    yield assert_equal, filter_args(f, ['y'], (0, ),
-                                               dict(y=1)), {'x': 0}
-    yield assert_equal, filter_args(f, ['x', 'y'],
-                                               (0, )), {}
-    yield assert_equal, filter_args(f, [], (0,),
-                                               dict(y=1)), {'x': 0, 'y': 1}
-    yield assert_equal, filter_args(f, ['y'], (),
-                                               dict(x=2, y=1)), {'x': 2}
+    yield assert_equal, filter_args(f, [], (1, )), {'x': 1, 'y': 0}
+    yield assert_equal, filter_args(f, ['x'], (1, )), {'y': 0}
+    yield assert_equal, filter_args(f, ['y'], (0, )), {'x': 0}
+    yield assert_equal, filter_args(f, ['y'], (0, ), dict(y=1)), {'x': 0}
+    yield assert_equal, filter_args(f, ['x', 'y'], (0, )), {}
+    yield assert_equal, filter_args(f, [], (0,), dict(y=1)), {'x': 0, 'y': 1}
+    yield assert_equal, filter_args(f, ['y'], (), dict(x=2, y=1)), {'x': 2}
 
     yield assert_equal, filter_args(i, [], (2, )), {'x': 2}
-    yield assert_equal, filter_args(f2, [], (),
-                                               dict(x=1)), {'x': 1}
+    yield assert_equal, filter_args(f2, [], (), dict(x=1)), {'x': 1}
 
 
 def test_filter_args_method():
     obj = Klass()
-    assert_equal(filter_args(obj.f, [], (1, )),
-        {'x': 1, 'self': obj})
+    assert_equal(filter_args(obj.f, [], (1, )), {'x': 1, 'self': obj})
 
 
 def test_filter_varargs():
@@ -115,11 +106,9 @@ def test_filter_varargs():
                             {'x': 1, 'y': 0, '*': [], '**': {}}
     yield assert_equal, filter_args(h, [], (1, 2, 3, 4)), \
                             {'x': 1, 'y': 2, '*': [3, 4], '**': {}}
-    yield assert_equal, filter_args(h, [], (1, 25),
-                                               dict(ee=2)), \
+    yield assert_equal, filter_args(h, [], (1, 25), dict(ee=2)), \
                             {'x': 1, 'y': 25, '*': [], '**': {'ee': 2}}
-    yield assert_equal, filter_args(h, ['*'], (1, 2, 25),
-                                               dict(ee=2)), \
+    yield assert_equal, filter_args(h, ['*'], (1, 2, 25), dict(ee=2)), \
                             {'x': 1, 'y': 2, '**': {'ee': 2}}
 
 
@@ -156,16 +145,12 @@ def test_func_inspect_errors():
     assert_equal(get_func_name('a'.lower)[-1], 'lower')
     assert_equal(get_func_code('a'.lower)[1:], (None, -1))
     ff = lambda x: x
-    assert_equal(get_func_name(ff, win_characters=False)[-1],
-                            '<lambda>')
-    assert_equal(get_func_code(ff)[1],
-                            __file__.replace('.pyc', '.py'))
+    assert_equal(get_func_name(ff, win_characters=False)[-1], '<lambda>')
+    assert_equal(get_func_code(ff)[1], __file__.replace('.pyc', '.py'))
     # Simulate a function defined in __main__
     ff.__module__ = '__main__'
-    assert_equal(get_func_name(ff, win_characters=False)[-1],
-                            '<lambda>')
-    assert_equal(get_func_code(ff)[1],
-                            __file__.replace('.pyc', '.py'))
+    assert_equal(get_func_name(ff, win_characters=False)[-1], '<lambda>')
+    assert_equal(get_func_code(ff)[1], __file__.replace('.pyc', '.py'))
 
 
 if PY3_OR_LATER:

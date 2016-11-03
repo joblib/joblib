@@ -284,19 +284,18 @@ def test_parallel_pickling():
 def test_parallel_timeout_success():
     # Check that timeout isn't thrown when function is fast enough
     for backend in ['multiprocessing', 'threading']:
-        assert_equal(10, len(Parallel(n_jobs=2, backend=backend, timeout=10)
-                             (delayed(sleep)(0.001) for x in range(10))))
+        assert_equal(10,
+                     len(Parallel(n_jobs=2, backend=backend, timeout=10)
+                         (delayed(sleep)(0.001) for x in range(10))))
 
 
 @with_multiprocessing
 def test_parallel_timeout_fail():
     # Check that timeout properly fails when function is too slow
     for backend in ['multiprocessing', 'threading']:
-        assert_raises(
-            TimeoutError,
-            Parallel(n_jobs=2, backend=backend, timeout=0.01),
-            (delayed(sleep)(10) for x in range(10))
-        )
+        assert_raises(TimeoutError,
+                      Parallel(n_jobs=2, backend=backend, timeout=0.01),
+                      (delayed(sleep)(10) for x in range(10)))
 
 
 def test_error_capture():

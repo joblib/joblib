@@ -337,12 +337,10 @@ def test_compress_mmap_mode_warning():
         for warn in caught_warnings:
             assert_equal(warn.category, UserWarning)
             assert_equal(warn.message.args[0],
-                                    'mmap_mode "%(mmap_mode)s" is not '
-                                    'compatible with compressed file '
-                                    '%(filename)s. '
-                                    '"%(mmap_mode)s" flag will be ignored.'
-                                    % {'filename': this_filename,
-                                       'mmap_mode': 'r+'})
+                         'mmap_mode "%(mmap_mode)s" is not compatible with '
+                         'compressed file %(filename)s. "%(mmap_mode)s" flag '
+                         'will be ignored.' % {'filename': this_filename,
+                                               'mmap_mode': 'r+'})
 
 
 @with_numpy
@@ -357,16 +355,14 @@ def test_cache_size_warning():
             warnings.simplefilter("always")
             numpy_pickle.dump(a, filename, cache_size=cache_size)
             expected_nb_warnings = 1 if cache_size is not None else 0
-            assert_equal(len(caught_warnings),
-                                    expected_nb_warnings)
+            assert_equal(len(caught_warnings), expected_nb_warnings)
             for warn in caught_warnings:
                 assert_equal(warn.category, DeprecationWarning)
                 assert_equal(warn.message.args[0],
-                                        "Please do not set 'cache_size' in "
-                                        "joblib.dump, this parameter has no "
-                                        "effect and will be removed. "
-                                        "You used 'cache_size={0}'".format(
-                                            cache_size))
+                             "Please do not set 'cache_size' in joblib.dump, "
+                             "this parameter has no effect and will be "
+                             "removed. You used 'cache_size={0}'".format(
+                             cache_size))
 
 
 @with_numpy

@@ -163,8 +163,7 @@ def test_no_memory():
     for _ in range(4):
         current_accumulator = len(accumulator)
         gg(1)
-        yield assert_equal, len(accumulator), \
-                    current_accumulator + 1
+        yield assert_equal, len(accumulator), current_accumulator + 1
 
 
 def test_memory_kwarg():
