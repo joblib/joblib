@@ -17,12 +17,10 @@ import pickle
 import socket
 from contextlib import closing
 
-from nose import SkipTest
-
 from joblib.test.common import np, with_numpy
 from joblib.test.common import with_memory_profiler, memory_used
 from joblib.testing import (assert_equal, assert_true, assert_false,
-                            assert_raises, assert_raises_regex)
+                            assert_raises, assert_raises_regex, SkipTest)
 
 # numpy_pickle is not a drop-in replacement of pickle, as it takes
 # filenames instead of open files as arguments.

@@ -18,14 +18,11 @@ import pickle
 import random
 from decimal import Decimal
 
-from nose import SkipTest
-from nose.tools import with_setup
-
 from joblib.hashing import hash
 from joblib.func_inspect import filter_args
 from joblib.memory import Memory
 from joblib.testing import (assert_equal, assert_not_equal,
-                            assert_raises_regex)
+                            assert_raises_regex, SkipTest, with_setup)
 from joblib.test.test_memory import env as test_memory_env
 from joblib.test.test_memory import setup_module as test_memory_setup_func
 from joblib.test.test_memory import teardown_module as test_memory_teardown_func

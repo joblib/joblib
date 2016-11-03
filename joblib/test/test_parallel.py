@@ -14,15 +14,12 @@ from math import sqrt
 import threading
 import warnings
 
-from nose import SkipTest
-
 from joblib import parallel
 
 from joblib.test.common import np, with_numpy
 from joblib.test.common import with_multiprocessing
-from joblib.testing import check_subprocess_call
 from joblib.testing import (assert_equal, assert_true, assert_false,
-                            assert_raises)
+                            assert_raises, check_subprocess_call, SkipTest)
 from joblib._compat import PY3_OR_LATER
 from multiprocessing import TimeoutError
 from time import sleep
@@ -288,7 +285,7 @@ def test_parallel_timeout_success():
     # Check that timeout isn't thrown when function is fast enough
     for backend in ['multiprocessing', 'threading']:
         assert_equal(10, len(Parallel(n_jobs=2, backend=backend, timeout=10)
-                         (delayed(sleep)(0.001) for x in range(10))))
+                             (delayed(sleep)(0.001) for x in range(10))))
 
 
 @with_multiprocessing

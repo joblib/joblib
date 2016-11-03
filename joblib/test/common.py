@@ -9,8 +9,8 @@ import sys
 import gc
 
 from joblib._multiprocessing_helpers import mp
-from nose import SkipTest
-from nose.tools import with_setup
+from joblib.testing import SkipTest, with_setup
+
 
 # A decorator to run tests only when numpy is available
 try:
