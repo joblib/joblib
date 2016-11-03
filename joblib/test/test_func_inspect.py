@@ -114,24 +114,21 @@ def test_filter_varargs():
 
 def test_filter_kwargs():
     assert_equal(filter_args(k, [], (1, 2), dict(ee=2)),
-                            {'*': [1, 2], '**': {'ee': 2}})
-    assert_equal(filter_args(k, [], (3, 4)),
-                            {'*': [3, 4], '**': {}})
+                 {'*': [1, 2], '**': {'ee': 2}})
+    assert_equal(filter_args(k, [], (3, 4)), {'*': [3, 4], '**': {}})
 
 
 def test_filter_args_2():
     assert_equal(filter_args(j, [], (1, 2), dict(ee=2)),
-                            {'x': 1, 'y': 2, '**': {'ee': 2}})
+                 {'x': 1, 'y': 2, '**': {'ee': 2}})
 
     assert_raises(ValueError, filter_args, f, 'a', (None, ))
     # Check that we capture an undefined argument
     assert_raises(ValueError, filter_args, f, ['a'], (None, ))
     ff = functools.partial(f, 1)
     # filter_args has to special-case partial
-    assert_equal(filter_args(ff, [], (1, )),
-                            {'*': [1], '**': {}})
-    assert_equal(filter_args(ff, ['y'], (1, )),
-                            {'*': [1], '**': {}})
+    assert_equal(filter_args(ff, [], (1, )), {'*': [1], '**': {}})
+    assert_equal(filter_args(ff, ['y'], (1, )), {'*': [1], '**': {}})
 
 
 def test_func_name():
@@ -190,8 +187,7 @@ def test_bound_methods():
     """
     a = Klass()
     b = Klass()
-    assert_not_equal(filter_args(a.f, [], (1, )),
-                                filter_args(b.f, [], (1, )))
+    assert_not_equal(filter_args(a.f, [], (1, )), filter_args(b.f, [], (1, )))
 
 
 def test_filter_args_error_msg():
@@ -214,7 +210,7 @@ def test_format_signature():
     assert_equal(sgn, 'g([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])')
     path, sgn = format_signature(g, list(range(10)), y=list(range(10)))
     assert_equal(sgn, 'g([0, 1, 2, 3, 4, 5, 6, 7, 8, 9],'
-                            ' y=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9])')
+                      ' y=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9])')
 
 @with_numpy
 def test_format_signature_numpy():
