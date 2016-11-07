@@ -6,7 +6,6 @@ Test the hashing module.
 # Copyright (c) 2009 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
-import nose
 import time
 import hashlib
 import tempfile
@@ -19,12 +18,11 @@ import pickle
 import random
 from decimal import Decimal
 
-from nose.tools import assert_equal, assert_not_equal
-
 from joblib.hashing import hash
 from joblib.func_inspect import filter_args
 from joblib.memory import Memory
-from joblib.testing import assert_raises_regex
+from joblib.testing import (assert_equal, assert_not_equal,
+                            assert_raises_regex, SkipTest, with_setup)
 from joblib.test.test_memory import env as test_memory_env
 from joblib.test.test_memory import setup_module as test_memory_setup_func
 from joblib.test.test_memory import teardown_module as test_memory_teardown_func
@@ -109,17 +107,16 @@ def test_trival_hash():
         for obj2 in obj_list:
             # Check that 2 objects have the same hash only if they are
             # the same.
-            yield nose.tools.assert_equal, hash(obj1) == hash(obj2), \
-                obj1 is obj2
+            yield assert_equal, hash(obj1) == hash(obj2), obj1 is obj2
 
 
 def test_hash_methods():
     # Check that hashing instance methods works
     a = io.StringIO(unicode('a'))
-    nose.tools.assert_equal(hash(a.flush), hash(a.flush))
+    assert_equal(hash(a.flush), hash(a.flush))
     a1 = collections.deque(range(10))
     a2 = collections.deque(range(9))
-    nose.tools.assert_not_equal(hash(a1.extend), hash(a2.extend))
+    assert_not_equal(hash(a1.extend), hash(a2.extend))
 
 
 @with_numpy
@@ -134,17 +131,16 @@ def test_hash_numpy():
     obj_list = (arr1, arr2, arr3)
     for obj1 in obj_list:
         for obj2 in obj_list:
-            yield nose.tools.assert_equal, hash(obj1) == hash(obj2), \
-                np.all(obj1 == obj2)
+            yield assert_equal, hash(obj1) == hash(obj2), np.all(obj1 == obj2)
 
     d1 = {1: arr1, 2: arr1}
     d2 = {1: arr2, 2: arr2}
-    yield nose.tools.assert_equal, hash(d1), hash(d2)
+    yield assert_equal, hash(d1), hash(d2)
 
     d3 = {1: arr2, 2: arr3}
-    yield nose.tools.assert_not_equal, hash(d1), hash(d3)
+    yield assert_not_equal, hash(d1), hash(d3)
 
-    yield nose.tools.assert_not_equal, hash(arr1), hash(arr1.T)
+    yield assert_not_equal, hash(arr1), hash(arr1.T)
 
 
 @with_numpy
@@ -156,7 +152,7 @@ def test_numpy_datetime_array():
     a_hash = hash(np.arange(10))
     arrays = (np.arange(0, 10, dtype=dtype) for dtype in dtypes)
     for array in arrays:
-        nose.tools.assert_not_equal(hash(array), a_hash)
+        assert_not_equal(hash(array), a_hash)
 
 
 @with_numpy
@@ -164,10 +160,10 @@ def test_hash_numpy_noncontiguous():
     a = np.asarray(np.arange(6000).reshape((1000, 2, 3)),
                    order='F')[:, :1, :]
     b = np.ascontiguousarray(a)
-    nose.tools.assert_not_equal(hash(a), hash(b))
+    assert_not_equal(hash(a), hash(b))
 
     c = np.asfortranarray(a)
-    nose.tools.assert_not_equal(hash(a), hash(c))
+    assert_not_equal(hash(a), hash(c))
 
 
 @with_numpy
@@ -180,10 +176,10 @@ def test_hash_memmap():
         m = np.memmap(filename, shape=(10, 10), mode='w+')
         a = np.asarray(m)
         for coerce_mmap in (False, True):
-            yield (nose.tools.assert_equal,
-                            hash(a, coerce_mmap=coerce_mmap)
-                                == hash(m, coerce_mmap=coerce_mmap),
-                            coerce_mmap)
+            yield (assert_equal,
+                   hash(a, coerce_mmap=coerce_mmap) ==
+                   hash(m, coerce_mmap=coerce_mmap),
+                   coerce_mmap)
     finally:
         if 'm' in locals():
             del m
@@ -219,7 +215,7 @@ def test_hash_numpy_performance():
     """
     # This test is not stable under windows for some reason, skip it.
     if sys.platform == 'win32':
-        raise nose.SkipTest()
+        raise SkipTest()
 
     rnd = np.random.RandomState(0)
     a = rnd.random_sample(1000000)
@@ -248,19 +244,19 @@ def test_bound_methods_hash():
     """
     a = Klass()
     b = Klass()
-    nose.tools.assert_equal(hash(filter_args(a.f, [], (1, ))),
-                            hash(filter_args(b.f, [], (1, ))))
+    assert_equal(hash(filter_args(a.f, [], (1, ))),
+                 hash(filter_args(b.f, [], (1, ))))
 
 
-@nose.tools.with_setup(test_memory_setup_func, test_memory_teardown_func)
+@with_setup(test_memory_setup_func, test_memory_teardown_func)
 def test_bound_cached_methods_hash():
     """ Make sure that calling the same _cached_ method on two different
     instances of the same class does resolve to the same hashes.
     """
     a = KlassWithCachedMethod()
     b = KlassWithCachedMethod()
-    nose.tools.assert_equal(hash(filter_args(a.f.func, [], (1, ))),
-                            hash(filter_args(b.f.func, [], (1, ))))
+    assert_equal(hash(filter_args(a.f.func, [], (1, ))),
+                 hash(filter_args(b.f.func, [], (1, ))))
 
 
 @with_numpy
@@ -270,8 +266,7 @@ def test_hash_object_dtype():
     a = np.array([np.arange(i) for i in range(6)], dtype=object)
     b = np.array([np.arange(i) for i in range(6)], dtype=object)
 
-    nose.tools.assert_equal(hash(a),
-                            hash(b))
+    assert_equal(hash(a), hash(b))
 
 
 @with_numpy
@@ -280,10 +275,10 @@ def test_numpy_scalar():
     # strange pickling paths explored, that can give hash collisions
     a = np.float64(2.0)
     b = np.float64(3.0)
-    nose.tools.assert_not_equal(hash(a), hash(b))
+    assert_not_equal(hash(a), hash(b))
 
 
-@nose.tools.with_setup(test_memory_setup_func, test_memory_teardown_func)
+@with_setup(test_memory_setup_func, test_memory_teardown_func)
 def test_dict_hash():
     # Check that dictionaries hash consistently, eventhough the ordering
     # of the keys is not garanteed
@@ -306,11 +301,10 @@ def test_dict_hash():
     a = k.f(d)
     b = k.f(a)
 
-    nose.tools.assert_equal(hash(a),
-                            hash(b))
+    assert_equal(hash(a), hash(b))
 
 
-@nose.tools.with_setup(test_memory_setup_func, test_memory_teardown_func)
+@with_setup(test_memory_setup_func, test_memory_teardown_func)
 def test_set_hash():
     # Check that sets hash consistently, even though their ordering
     # is not guaranteed
@@ -333,16 +327,16 @@ def test_set_hash():
     a = k.f(s)
     b = k.f(a)
 
-    nose.tools.assert_equal(hash(a), hash(b))
+    assert_equal(hash(a), hash(b))
 
 
 if not PY26:
-    @nose.tools.with_setup(test_memory_setup_func, test_memory_teardown_func)
+    @with_setup(test_memory_setup_func, test_memory_teardown_func)
     def test_set_decimal_hash():
         # Check that sets containing decimals hash consistently, even though
         # ordering is not guaranteed
-        nose.tools.assert_equal(hash(set([Decimal(0), Decimal('NaN')])),
-                                hash(set([Decimal('NaN'), Decimal(0)])))
+        assert_equal(hash(set([Decimal(0), Decimal('NaN')])),
+                     hash(set([Decimal('NaN'), Decimal(0)])))
 
 
 def test_string():

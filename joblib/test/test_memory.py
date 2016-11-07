@@ -17,14 +17,13 @@ import sys
 import time
 import datetime
 
-import nose
-
 from joblib.memory import Memory, MemorizedFunc, NotMemorizedFunc
 from joblib.memory import MemorizedResult, NotMemorizedResult, _FUNCTION_HASHES
 from joblib.memory import _get_cache_items, _get_cache_items_to_delete
 from joblib.memory import _load_output, _get_func_fullname
 from joblib.test.common import with_numpy, np
-from joblib.testing import assert_raises_regex
+from joblib.testing import (assert_equal, assert_true, assert_false,
+                            assert_raises, assert_raises_regex)
 from joblib._compat import PY3_OR_LATER
 
 
@@ -85,8 +84,8 @@ def check_identity_lazy(func, accumulator):
     func = memory.cache(func)
     for i in range(3):
         for _ in range(2):
-            yield nose.tools.assert_equal, func(i), i
-            yield nose.tools.assert_equal, len(accumulator), i + 1
+            yield assert_equal, func(i), i
+            yield assert_equal, len(accumulator), i + 1
 
 
 ###############################################################################
@@ -139,12 +138,10 @@ def test_memory_integration():
             sys.stdout = orig_stdout
             sys.stderr = orig_stderr
 
-        yield nose.tools.assert_equal, len(accumulator), \
-                    current_accumulator + 1
+        yield assert_equal, len(accumulator), current_accumulator + 1
         # Also, check that Memory.eval works similarly
-        yield nose.tools.assert_equal, memory.eval(f, 1), out
-        yield nose.tools.assert_equal, len(accumulator), \
-                    current_accumulator + 1
+        yield assert_equal, memory.eval(f, 1), out
+        yield assert_equal, len(accumulator), current_accumulator + 1
 
     # Now do a smoke test with a function defined in __main__, as the name
     # mangling rules are more complex
@@ -166,8 +163,7 @@ def test_no_memory():
     for _ in range(4):
         current_accumulator = len(accumulator)
         gg(1)
-        yield nose.tools.assert_equal, len(accumulator), \
-                    current_accumulator + 1
+        yield assert_equal, len(accumulator), current_accumulator + 1
 
 
 def test_memory_kwarg():
@@ -184,7 +180,7 @@ def test_memory_kwarg():
     memory = Memory(cachedir=env['dir'], verbose=0)
     g = memory.cache(g)
     # Smoke test with an explicit keyword argument:
-    nose.tools.assert_equal(g(l=30, m=2), 30)
+    assert_equal(g(l=30, m=2), 30)
 
 
 def test_memory_lambda():
@@ -237,8 +233,8 @@ def test_memory_name_collision():
         a(1)
         b(1)
 
-        yield nose.tools.assert_equal, len(w), 1
-        yield nose.tools.assert_true, "collision" in str(w[-1].message)
+        yield assert_equal, len(w), 1
+        yield assert_true, "collision" in str(w[-1].message)
 
 
 def test_memory_warning_lambda_collisions():
@@ -258,13 +254,13 @@ def test_memory_warning_lambda_collisions():
         # inspect.getargspec, see
         # https://github.com/joblib/joblib/issues/247
         warnings.simplefilter("ignore", DeprecationWarning)
-        nose.tools.assert_equal(0, a(0))
-        nose.tools.assert_equal(2, b(1))
-        nose.tools.assert_equal(1, a(1))
+        assert_equal(0, a(0))
+        assert_equal(2, b(1))
+        assert_equal(1, a(1))
 
     # In recent Python versions, we can retrieve the code of lambdas,
     # thus nothing is raised
-    nose.tools.assert_equal(len(w), 4)
+    assert_equal(len(w), 4)
 
 
 def test_memory_warning_collision_detection():
@@ -293,9 +289,8 @@ def test_memory_warning_collision_detection():
         b1(1)
         a1(0)
 
-        yield nose.tools.assert_equal, len(w), 2
-        yield nose.tools.assert_true, \
-                "cannot detect" in str(w[-1].message).lower()
+        yield assert_equal, len(w), 2
+        yield assert_true, "cannot detect" in str(w[-1].message).lower()
 
 
 def test_memory_partial():
@@ -322,7 +317,7 @@ def test_memory_eval():
     m = eval('lambda x: x')
     mm = memory.cache(m)
 
-    yield nose.tools.assert_equal, 1, mm(1)
+    yield assert_equal, 1, mm(1)
 
 
 def count_and_append(x=[]):
@@ -369,8 +364,8 @@ def test_memory_numpy():
         for i in range(3):
             a = rnd.random_sample((10, 10))
             for _ in range(3):
-                yield nose.tools.assert_true, np.all(cached_n(a) == a)
-                yield nose.tools.assert_equal, len(accumulator), i + 1
+                yield assert_true, np.all(cached_n(a) == a)
+                yield assert_equal, len(accumulator), i + 1
 
 
 @with_numpy
@@ -389,11 +384,11 @@ def test_memory_numpy_check_mmap_mode():
     b = twice(a)
     c = twice(a)
 
-    nose.tools.assert_true(isinstance(c, np.memmap))
-    nose.tools.assert_equal(c.mode, 'r')
+    assert_true(isinstance(c, np.memmap))
+    assert_equal(c.mode, 'r')
 
-    nose.tools.assert_true(isinstance(b, np.memmap))
-    nose.tools.assert_equal(b.mode, 'r')
+    assert_true(isinstance(b, np.memmap))
+    assert_equal(b.mode, 'r')
 
 
 def test_memory_exception():
@@ -414,7 +409,7 @@ def test_memory_exception():
 
     for _ in range(3):
         # Call 3 times, to be sure that the Exception is always raised
-        yield nose.tools.assert_raises, MyException, h, 1
+        yield assert_raises, MyException, h, 1
 
 
 def test_memory_ignore():
@@ -426,14 +421,14 @@ def test_memory_ignore():
     def z(x, y=1):
         accumulator.append(1)
 
-    yield nose.tools.assert_equal, z.ignore, ['y']
+    yield assert_equal, z.ignore, ['y']
 
     z(0, y=1)
-    yield nose.tools.assert_equal, len(accumulator), 1
+    yield assert_equal, len(accumulator), 1
     z(0, y=1)
-    yield nose.tools.assert_equal, len(accumulator), 1
+    yield assert_equal, len(accumulator), 1
     z(0, y=2)
-    yield nose.tools.assert_equal, len(accumulator), 1
+    yield assert_equal, len(accumulator), 1
 
 
 def test_partial_decoration():
@@ -449,9 +444,9 @@ def test_partial_decoration():
         def z(x):
             pass
 
-        yield nose.tools.assert_equal, z.ignore, ignore
-        yield nose.tools.assert_equal, z._verbose, verbose
-        yield nose.tools.assert_equal, z.mmap_mode, mmap_mode
+        yield assert_equal, z.ignore, ignore
+        yield assert_equal, z._verbose, verbose
+        yield assert_equal, z.mmap_mode, mmap_mode
 
 
 def test_func_dir():
@@ -464,26 +459,23 @@ def test_func_dir():
 
     g = memory.cache(f)
     # Test that the function directory is created on demand
-    yield nose.tools.assert_equal, g._get_func_dir(), path
-    yield nose.tools.assert_true, os.path.exists(path)
+    yield assert_equal, g._get_func_dir(), path
+    yield assert_true, os.path.exists(path)
 
     # Test that the code is stored.
     # For the following test to be robust to previous execution, we clear
     # the in-memory store
     _FUNCTION_HASHES.clear()
-    yield nose.tools.assert_false, \
-        g._check_previous_func_code()
-    yield nose.tools.assert_true, \
-            os.path.exists(os.path.join(path, 'func_code.py'))
-    yield nose.tools.assert_true, \
-        g._check_previous_func_code()
+    yield assert_false, g._check_previous_func_code()
+    yield assert_true, os.path.exists(os.path.join(path, 'func_code.py'))
+    yield assert_true, g._check_previous_func_code()
 
     # Test the robustness to failure of loading previous results.
     dir, _ = g.get_output_dir(1)
     a = g(1)
-    yield nose.tools.assert_true, os.path.exists(dir)
+    yield assert_true, os.path.exists(dir)
     os.remove(os.path.join(dir, 'output.pkl'))
-    yield nose.tools.assert_equal, a, g(1)
+    yield assert_equal, a, g(1)
 
 
 def test_persistence():
@@ -496,9 +488,9 @@ def test_persistence():
 
     output_dir, _ = h.get_output_dir(1)
     func_name = _get_func_fullname(f)
-    yield nose.tools.assert_equal, output, _load_output(output_dir, func_name)
+    yield assert_equal, output, _load_output(output_dir, func_name)
     memory2 = pickle.loads(pickle.dumps(memory))
-    yield nose.tools.assert_equal, memory.cachedir, memory2.cachedir
+    yield assert_equal, memory.cachedir, memory2.cachedir
 
     # Smoke test that pickling a memory with cachedir=None works
     memory = Memory(cachedir=None, verbose=0)
@@ -519,13 +511,13 @@ def test_call_and_shelve():
                              ),
                             (MemorizedResult, NotMemorizedResult,
                              MemorizedResult, NotMemorizedResult)):
-        nose.tools.assert_equal(func(2), 5)
+        assert_equal(func(2), 5)
         result = func.call_and_shelve(2)
-        nose.tools.assert_true(isinstance(result, Result))
-        nose.tools.assert_equal(result.get(), 5)
+        assert_true(isinstance(result, Result))
+        assert_equal(result.get(), 5)
 
         result.clear()
-        nose.tools.assert_raises(KeyError, result.get)
+        assert_raises(KeyError, result.get)
         result.clear()  # Do nothing if there is no cache.
 
 
@@ -537,7 +529,7 @@ def test_memorized_pickling():
             pickle.dump(result, fp)
         with open(filename, 'rb') as fp:
             result2 = pickle.load(fp)
-        nose.tools.assert_equal(result2.get(), result.get())
+        assert_equal(result2.get(), result.get())
         os.remove(filename)
 
 
@@ -547,8 +539,8 @@ def test_memorized_repr():
 
     func2 = MemorizedFunc(f, env['dir'])
     result2 = func2.call_and_shelve(2)
-    nose.tools.assert_equal(result.get(), result2.get())
-    nose.tools.assert_equal(repr(func), repr(func2))
+    assert_equal(result.get(), result2.get())
+    assert_equal(repr(func), repr(func2))
 
     # Smoke test with NotMemorizedFunc
     func = NotMemorizedFunc(f)
@@ -639,7 +631,7 @@ def test_memory_file_modification():
 
     finally:
         sys.stdout = orig_stdout
-    nose.tools.assert_equal(my_stdout.getvalue(), '1\n2\nReloading\nx=1\n')
+    assert_equal(my_stdout.getvalue(), '1\n2\nReloading\nx=1\n')
 
 
 def _function_to_cache(a, b):
@@ -661,8 +653,8 @@ def test_memory_in_memory_function_code_change():
     mem = Memory(cachedir=env['dir'], verbose=0)
     f = mem.cache(_function_to_cache)
 
-    nose.tools.assert_equal(f(1, 2), 3)
-    nose.tools.assert_equal(f(1, 2), 3)
+    assert_equal(f(1, 2), 3)
+    assert_equal(f(1, 2), 3)
 
     with warnings.catch_warnings(record=True):
         # ignore name collision warnings
@@ -671,8 +663,8 @@ def test_memory_in_memory_function_code_change():
         # Check that inline function modification triggers a cache invalidation
 
         _function_to_cache.__code__ = _product.__code__
-        nose.tools.assert_equal(f(1, 2), 2)
-        nose.tools.assert_equal(f(1, 2), 2)
+        assert_equal(f(1, 2), 2)
+        assert_equal(f(1, 2), 2)
 
 
 def test_clear_memory_with_none_cachedir():
@@ -692,7 +684,7 @@ def func_with_signature(a: int, b: float) -> float:
         mem = Memory(cachedir=env['dir'], verbose=0)
         func_cached = mem.cache(func_with_kwonly_args)
 
-        nose.tools.assert_equal(func_cached(1, 2, kw1=3), (1, 2, 3, 'kw2'))
+        assert_equal(func_cached(1, 2, kw1=3), (1, 2, 3, 'kw2'))
 
         # Making sure that providing a keyword-only argument by
         # position raises an exception
@@ -714,15 +706,15 @@ def func_with_signature(a: int, b: float) -> float:
 
         # Test 'ignore' parameter
         func_cached = mem.cache(func_with_kwonly_args, ignore=['kw2'])
-        nose.tools.assert_equal(func_cached(1, 2, kw1=3, kw2=4), (1, 2, 3, 4))
-        nose.tools.assert_equal(func_cached(1, 2, kw1=3, kw2='ignored'), (1, 2, 3, 4))
+        assert_equal(func_cached(1, 2, kw1=3, kw2=4), (1, 2, 3, 4))
+        assert_equal(func_cached(1, 2, kw1=3, kw2='ignored'), (1, 2, 3, 4))
 
 
     def test_memory_func_with_signature():
         mem = Memory(cachedir=env['dir'], verbose=0)
         func_cached = mem.cache(func_with_signature)
 
-        nose.tools.assert_equal(func_cached(1, 2.), 3.)
+        assert_equal(func_cached(1, 2.), 3.)
 
 
 def _setup_temporary_cache_folder(num_inputs=10):
@@ -751,8 +743,7 @@ def test__get_cache_items():
     cachedir = mem.cachedir
     cache_items = _get_cache_items(cachedir)
     hash_cachedirs = [ci.path for ci in cache_items]
-    nose.tools.assert_equal(
-        set(hash_cachedirs), set(expected_hash_cachedirs))
+    assert_equal(set(hash_cachedirs), set(expected_hash_cachedirs))
 
     def get_files_size(directory):
         full_paths = [os.path.join(directory, fn)
@@ -762,8 +753,7 @@ def test__get_cache_items():
     expected_hash_cache_sizes = [get_files_size(hash_dir)
                                  for hash_dir in hash_cachedirs]
     hash_cache_sizes = [ci.size for ci in cache_items]
-    nose.tools.assert_equal(hash_cache_sizes,
-                            expected_hash_cache_sizes)
+    assert_equal(hash_cache_sizes, expected_hash_cache_sizes)
 
     output_filenames = [os.path.join(hash_dir, 'output.pkl')
                         for hash_dir in hash_cachedirs]
@@ -772,8 +762,7 @@ def test__get_cache_items():
         datetime.datetime.fromtimestamp(os.path.getatime(fn))
         for fn in output_filenames]
     last_accesses = [ci.last_access for ci in cache_items]
-    nose.tools.assert_equal(last_accesses,
-                            expected_last_accesses)
+    assert_equal(last_accesses, expected_last_accesses)
 
 
 def test__get_cache_items_to_delete():
@@ -784,25 +773,23 @@ def test__get_cache_items_to_delete():
     # folder is about 1000 bytes + metadata)
     cache_items_to_delete = _get_cache_items_to_delete(cachedir, '2K')
     nb_hashes = len(expected_hash_cachedirs)
-    nose.tools.assert_true(set.issubset(set(cache_items_to_delete),
-                                        set(cache_items)))
-    nose.tools.assert_equal(len(cache_items_to_delete), nb_hashes - 1)
+    assert_true(set.issubset(set(cache_items_to_delete), set(cache_items)))
+    assert_equal(len(cache_items_to_delete), nb_hashes - 1)
 
     # Sanity check bytes_limit=2048 is the same as bytes_limit='2K'
     cache_items_to_delete_2048b = _get_cache_items_to_delete(cachedir, 2048)
-    nose.tools.assert_equal(sorted(cache_items_to_delete),
-                            sorted(cache_items_to_delete_2048b))
+    assert_equal(sorted(cache_items_to_delete),
+                 sorted(cache_items_to_delete_2048b))
 
     # bytes_limit greater than the size of the cache
     cache_items_to_delete_empty = _get_cache_items_to_delete(cachedir, '1M')
-    nose.tools.assert_equal(cache_items_to_delete_empty, [])
+    assert_equal(cache_items_to_delete_empty, [])
 
     # All the cache items need to be deleted
     bytes_limit_too_small = 500
     cache_items_to_delete_500b = _get_cache_items_to_delete(
         cachedir, bytes_limit_too_small)
-    nose.tools.assert_true(set(cache_items_to_delete_500b),
-                           set(cache_items))
+    assert_true(set(cache_items_to_delete_500b), set(cache_items))
 
     # Test LRU property: surviving cache items should all have a more
     # recent last_access that the ones that have been deleted
@@ -810,7 +797,7 @@ def test__get_cache_items_to_delete():
     surviving_cache_items = set(cache_items).difference(
         cache_items_to_delete_6000b)
 
-    nose.tools.assert_true(
+    assert_true(
         max(ci.last_access for ci in cache_items_to_delete_6000b) <=
         min(ci.last_access for ci in surviving_cache_items))
 
@@ -823,28 +810,25 @@ def test_memory_reduce_size():
     # By default mem.bytes_limit is None and reduce_size is a noop
     mem.reduce_size()
     cache_items = _get_cache_items(cachedir)
-    nose.tools.assert_equal(sorted(ref_cache_items),
-                            sorted(cache_items))
+    assert_equal(sorted(ref_cache_items), sorted(cache_items))
 
     # No cache items deleted if bytes_limit greater than the size of
     # the cache
     mem.bytes_limit = '1M'
     mem.reduce_size()
     cache_items = _get_cache_items(cachedir)
-    nose.tools.assert_equal(sorted(ref_cache_items),
-                            sorted(cache_items))
+    assert_equal(sorted(ref_cache_items), sorted(cache_items))
 
     # bytes_limit is set so that only two cache items are kept
     mem.bytes_limit = '3K'
     mem.reduce_size()
     cache_items = _get_cache_items(cachedir)
-    nose.tools.assert_true(set.issubset(set(cache_items),
-                                        set(ref_cache_items)))
-    nose.tools.assert_equal(len(cache_items), 2)
+    assert_true(set.issubset(set(cache_items), set(ref_cache_items)))
+    assert_equal(len(cache_items), 2)
 
     # bytes_limit set so that no cache item is kept
     bytes_limit_too_small = 500
     mem.bytes_limit = bytes_limit_too_small
     mem.reduce_size()
     cache_items = _get_cache_items(cachedir)
-    nose.tools.assert_equal(cache_items, [])
+    assert_equal(cache_items, [])

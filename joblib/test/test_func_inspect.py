@@ -8,7 +8,6 @@ Test the func_inspect module.
 
 import os
 import shutil
-import nose
 import tempfile
 import functools
 import sys
@@ -17,7 +16,8 @@ from joblib.func_inspect import filter_args, get_func_name, get_func_code
 from joblib.func_inspect import _clean_win_chars, format_signature
 from joblib.memory import Memory
 from joblib.test.common import with_numpy
-from joblib.testing import assert_raises_regex
+from joblib.testing import (assert_true, assert_false, assert_not_equal,
+                            assert_equal, assert_raises_regex, assert_raises)
 from joblib._compat import PY3_OR_LATER
 
 
@@ -84,88 +84,70 @@ class Klass(object):
 # Tests
 
 def test_filter_args():
-    yield nose.tools.assert_equal, filter_args(f, [], (1, )),\
-                                              {'x': 1, 'y': 0}
-    yield nose.tools.assert_equal, filter_args(f, ['x'], (1, )),\
-                                              {'y': 0}
-    yield nose.tools.assert_equal, filter_args(f, ['y'], (0, )),\
-                                               {'x': 0}
-    yield nose.tools.assert_equal, filter_args(f, ['y'], (0, ),
-                                               dict(y=1)), {'x': 0}
-    yield nose.tools.assert_equal, filter_args(f, ['x', 'y'],
-                                               (0, )), {}
-    yield nose.tools.assert_equal, filter_args(f, [], (0,),
-                                               dict(y=1)), {'x': 0, 'y': 1}
-    yield nose.tools.assert_equal, filter_args(f, ['y'], (),
-                                               dict(x=2, y=1)), {'x': 2}
+    yield assert_equal, filter_args(f, [], (1, )), {'x': 1, 'y': 0}
+    yield assert_equal, filter_args(f, ['x'], (1, )), {'y': 0}
+    yield assert_equal, filter_args(f, ['y'], (0, )), {'x': 0}
+    yield assert_equal, filter_args(f, ['y'], (0, ), dict(y=1)), {'x': 0}
+    yield assert_equal, filter_args(f, ['x', 'y'], (0, )), {}
+    yield assert_equal, filter_args(f, [], (0,), dict(y=1)), {'x': 0, 'y': 1}
+    yield assert_equal, filter_args(f, ['y'], (), dict(x=2, y=1)), {'x': 2}
 
-    yield nose.tools.assert_equal, filter_args(i, [], (2, )), {'x': 2}
-    yield nose.tools.assert_equal, filter_args(f2, [], (),
-                                               dict(x=1)), {'x': 1}
+    yield assert_equal, filter_args(i, [], (2, )), {'x': 2}
+    yield assert_equal, filter_args(f2, [], (), dict(x=1)), {'x': 1}
 
 
 def test_filter_args_method():
     obj = Klass()
-    nose.tools.assert_equal(filter_args(obj.f, [], (1, )),
-        {'x': 1, 'self': obj})
+    assert_equal(filter_args(obj.f, [], (1, )), {'x': 1, 'self': obj})
 
 
 def test_filter_varargs():
-    yield nose.tools.assert_equal, filter_args(h, [], (1, )), \
+    yield assert_equal, filter_args(h, [], (1, )), \
                             {'x': 1, 'y': 0, '*': [], '**': {}}
-    yield nose.tools.assert_equal, filter_args(h, [], (1, 2, 3, 4)), \
+    yield assert_equal, filter_args(h, [], (1, 2, 3, 4)), \
                             {'x': 1, 'y': 2, '*': [3, 4], '**': {}}
-    yield nose.tools.assert_equal, filter_args(h, [], (1, 25),
-                                               dict(ee=2)), \
+    yield assert_equal, filter_args(h, [], (1, 25), dict(ee=2)), \
                             {'x': 1, 'y': 25, '*': [], '**': {'ee': 2}}
-    yield nose.tools.assert_equal, filter_args(h, ['*'], (1, 2, 25),
-                                               dict(ee=2)), \
+    yield assert_equal, filter_args(h, ['*'], (1, 2, 25), dict(ee=2)), \
                             {'x': 1, 'y': 2, '**': {'ee': 2}}
 
 
 def test_filter_kwargs():
-    nose.tools.assert_equal(filter_args(k, [], (1, 2), dict(ee=2)),
-                            {'*': [1, 2], '**': {'ee': 2}})
-    nose.tools.assert_equal(filter_args(k, [], (3, 4)),
-                            {'*': [3, 4], '**': {}})
+    assert_equal(filter_args(k, [], (1, 2), dict(ee=2)),
+                 {'*': [1, 2], '**': {'ee': 2}})
+    assert_equal(filter_args(k, [], (3, 4)), {'*': [3, 4], '**': {}})
 
 
 def test_filter_args_2():
-    nose.tools.assert_equal(filter_args(j, [], (1, 2), dict(ee=2)),
-                            {'x': 1, 'y': 2, '**': {'ee': 2}})
+    assert_equal(filter_args(j, [], (1, 2), dict(ee=2)),
+                 {'x': 1, 'y': 2, '**': {'ee': 2}})
 
-    nose.tools.assert_raises(ValueError, filter_args, f, 'a', (None, ))
+    assert_raises(ValueError, filter_args, f, 'a', (None, ))
     # Check that we capture an undefined argument
-    nose.tools.assert_raises(ValueError, filter_args, f, ['a'], (None, ))
+    assert_raises(ValueError, filter_args, f, ['a'], (None, ))
     ff = functools.partial(f, 1)
     # filter_args has to special-case partial
-    nose.tools.assert_equal(filter_args(ff, [], (1, )),
-                            {'*': [1], '**': {}})
-    nose.tools.assert_equal(filter_args(ff, ['y'], (1, )),
-                            {'*': [1], '**': {}})
+    assert_equal(filter_args(ff, [], (1, )), {'*': [1], '**': {}})
+    assert_equal(filter_args(ff, ['y'], (1, )), {'*': [1], '**': {}})
 
 
 def test_func_name():
-    yield nose.tools.assert_equal, 'f', get_func_name(f)[1]
+    yield assert_equal, 'f', get_func_name(f)[1]
     # Check that we are not confused by the decoration
-    yield nose.tools.assert_equal, 'g', get_func_name(g)[1]
+    yield assert_equal, 'g', get_func_name(g)[1]
 
 
 def test_func_inspect_errors():
     # Check that func_inspect is robust and will work on weird objects
-    nose.tools.assert_equal(get_func_name('a'.lower)[-1], 'lower')
-    nose.tools.assert_equal(get_func_code('a'.lower)[1:], (None, -1))
+    assert_equal(get_func_name('a'.lower)[-1], 'lower')
+    assert_equal(get_func_code('a'.lower)[1:], (None, -1))
     ff = lambda x: x
-    nose.tools.assert_equal(get_func_name(ff, win_characters=False)[-1],
-                            '<lambda>')
-    nose.tools.assert_equal(get_func_code(ff)[1],
-                            __file__.replace('.pyc', '.py'))
+    assert_equal(get_func_name(ff, win_characters=False)[-1], '<lambda>')
+    assert_equal(get_func_code(ff)[1], __file__.replace('.pyc', '.py'))
     # Simulate a function defined in __main__
     ff.__module__ = '__main__'
-    nose.tools.assert_equal(get_func_name(ff, win_characters=False)[-1],
-                            '<lambda>')
-    nose.tools.assert_equal(get_func_code(ff)[1],
-                            __file__.replace('.pyc', '.py'))
+    assert_equal(get_func_name(ff, win_characters=False)[-1], '<lambda>')
+    assert_equal(get_func_code(ff)[1], __file__.replace('.pyc', '.py'))
 
 
 if PY3_OR_LATER:
@@ -176,7 +158,7 @@ def func_with_signature(a: int, b: int) -> None: pass
 """)
 
     def test_filter_args_python_3():
-        nose.tools.assert_equal(
+        assert_equal(
             filter_args(func_with_kwonly_args,
                         [], (1, 2), {'kw1': 3, 'kw2': 4}),
             {'a': 1, 'b': 2, 'kw1': 3, 'kw2': 4})
@@ -189,12 +171,12 @@ def func_with_signature(a: int, b: int) -> None: pass
             filter_args,
             func_with_kwonly_args, [], (1, 2, 3), {'kw2': 2})
 
-        nose.tools.assert_equal(
+        assert_equal(
             filter_args(func_with_kwonly_args, ['b', 'kw2'], (1, 2),
                         {'kw1': 3, 'kw2': 4}),
             {'a': 1, 'kw1': 3})
 
-        nose.tools.assert_equal(
+        assert_equal(
             filter_args(func_with_signature, ['b'], (1, 2)),
             {'a': 1})
 
@@ -205,31 +187,30 @@ def test_bound_methods():
     """
     a = Klass()
     b = Klass()
-    nose.tools.assert_not_equal(filter_args(a.f, [], (1, )),
-                                filter_args(b.f, [], (1, )))
+    assert_not_equal(filter_args(a.f, [], (1, )), filter_args(b.f, [], (1, )))
 
 
 def test_filter_args_error_msg():
     """ Make sure that filter_args returns decent error messages, for the
         sake of the user.
     """
-    nose.tools.assert_raises(ValueError, filter_args, f, [])
+    assert_raises(ValueError, filter_args, f, [])
 
 
 def test_clean_win_chars():
     string = r'C:\foo\bar\main.py'
     mangled_string = _clean_win_chars(string)
     for char in ('\\', ':', '<', '>', '!'):
-        nose.tools.assert_false(char in mangled_string)
+        assert_false(char in mangled_string)
 
 
 def test_format_signature():
     # Test signature formatting.
     path, sgn = format_signature(g, list(range(10)))
-    nose.tools.assert_equal(sgn, 'g([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])')
+    assert_equal(sgn, 'g([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])')
     path, sgn = format_signature(g, list(range(10)), y=list(range(10)))
-    nose.tools.assert_equal(sgn, 'g([0, 1, 2, 3, 4, 5, 6, 7, 8, 9],'
-                            ' y=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9])')
+    assert_equal(sgn, 'g([0, 1, 2, 3, 4, 5, 6, 7, 8, 9],'
+                      ' y=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9])')
 
 @with_numpy
 def test_format_signature_numpy():
@@ -240,9 +221,9 @@ def test_format_signature_numpy():
 def test_special_source_encoding():
     from joblib.test.test_func_inspect_special_encoding import big5_f
     func_code, source_file, first_line = get_func_code(big5_f)
-    nose.tools.assert_equal(first_line, 5)
-    nose.tools.assert_true("def big5_f():" in func_code)
-    nose.tools.assert_true("test_func_inspect_special_encoding" in source_file)
+    assert_equal(first_line, 5)
+    assert_true("def big5_f():" in func_code)
+    assert_true("test_func_inspect_special_encoding" in source_file)
 
 
 def _get_code():
@@ -253,6 +234,6 @@ def _get_code():
 def test_func_code_consistency():
     from joblib.parallel import Parallel, delayed
     codes = Parallel(n_jobs=2)(delayed(_get_code)() for _ in range(5))
-    nose.tools.assert_equal(len(set(codes)), 1)
+    assert_equal(len(set(codes)), 1)
 
 

@@ -2,16 +2,13 @@ import os
 import shutil
 import tempfile
 
-from nose.tools import with_setup
-from nose.tools import assert_equal
-from nose.tools import assert_raises
-from nose.tools import assert_false
-from nose.tools import assert_true
 from joblib.test.common import with_numpy, np
 from joblib.test.common import setup_autokill
 from joblib.test.common import teardown_autokill
 from joblib.test.common import with_multiprocessing
 from joblib.test.common import with_dev_shm
+from joblib.testing import (assert_equal, assert_true, assert_false,
+                            assert_raises, with_setup)
 
 from joblib._multiprocessing_helpers import mp
 if mp is not None:

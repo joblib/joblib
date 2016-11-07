@@ -1,9 +1,8 @@
 import sys
 import re
 
-from nose.tools import assert_raises
-
-from joblib.testing import assert_raises_regex, check_subprocess_call
+from joblib.testing import (assert_raises, assert_raises_regex,
+                            check_subprocess_call)
 
 
 def test_check_subprocess_call():

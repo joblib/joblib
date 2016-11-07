@@ -8,8 +8,48 @@ import os.path
 import re
 import subprocess
 import threading
+import unittest
+
+import nose
+
 
 from joblib._compat import PY3_OR_LATER
+
+
+_dummy = unittest.TestCase('__init__')
+assert_true = _dummy.assertTrue
+assert_false = _dummy.assertFalse
+assert_equal = _dummy.assertEqual
+assert_not_equal = _dummy.assertNotEqual
+assert_raises = _dummy.assertRaises
+
+try:
+    assert_raises_regex = _dummy.assertRaisesRegexp
+except AttributeError:
+    def assert_raises_regex(expected_exception, expected_regexp,
+                            callable_obj=None, *args, **kwargs):
+        """Helper function to check for message patterns in exceptions"""
+        not_raised = False
+        try:
+            callable_obj(*args, **kwargs)
+            not_raised = True
+        except Exception as e:
+            error_message = str(e)
+            if not re.compile(expected_regexp).search(error_message):
+                raise AssertionError("Error message should match pattern "
+                                     "%r. %r does not." %
+                                     (expected_regexp, error_message))
+        if not_raised:
+            raise AssertionError("Should have raised %r" %
+                                 expected_exception(expected_regexp))
+
+try:
+    SkipTest = unittest.case.SkipTest
+except AttributeError:
+    # Python <= 2.6, we still need nose here
+    SkipTest = nose.SkipTest
+
+with_setup = nose.tools.with_setup
 
 
 def warnings_to_stdout():
@@ -22,33 +62,6 @@ def warnings_to_stdout():
 
     warnings.showwarning = showwarning
     #warnings.simplefilter('always')
-
-
-try:
-    from nose.tools import assert_raises_regex
-except ImportError:
-    # For Python 2.7
-    try:
-        from nose.tools import assert_raises_regexp as assert_raises_regex
-    except ImportError:
-        # for Python 2.6
-        def assert_raises_regex(expected_exception, expected_regexp,
-                                callable_obj=None, *args, **kwargs):
-            """Helper function to check for message patterns in exceptions"""
-
-            not_raised = False
-            try:
-                callable_obj(*args, **kwargs)
-                not_raised = True
-            except Exception as e:
-                error_message = str(e)
-                if not re.compile(expected_regexp).search(error_message):
-                    raise AssertionError("Error message should match pattern "
-                                         "%r. %r does not." %
-                                         (expected_regexp, error_message))
-            if not_raised:
-                raise AssertionError("Should have raised %r" %
-                                     expected_exception(expected_regexp))
 
 
 def check_subprocess_call(cmd, timeout=1, stdout_regex=None,

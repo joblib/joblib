@@ -3,15 +3,14 @@ Small utilities for testing.
 """
 import threading
 import signal
-import nose
 import time
 import os
 import sys
 import gc
 
 from joblib._multiprocessing_helpers import mp
-from nose import SkipTest
-from nose.tools import with_setup
+from joblib.testing import SkipTest, with_setup
+
 
 # A decorator to run tests only when numpy is available
 try:
@@ -25,7 +24,7 @@ except ImportError:
     def with_numpy(func):
         """A decorator to skip tests requiring numpy."""
         def my_func():
-            raise nose.SkipTest('Test requires numpy')
+            raise SkipTest('Test requires numpy')
         return my_func
     np = None
 
@@ -48,7 +47,7 @@ except ImportError:
     def with_memory_profiler(func):
         """A decorator to skip tests requiring memory_profiler."""
         def dummy_func():
-            raise nose.SkipTest('Test requires memory_profiler.')
+            raise SkipTest('Test requires memory_profiler.')
         return dummy_func
 
     memory_usage = memory_used = None

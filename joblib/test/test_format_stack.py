@@ -9,11 +9,10 @@ Unit tests for the stack formatting utilities
 import re
 import sys
 
-from nose.tools import assert_true
-
 from joblib.format_stack import safe_repr, _fixed_getframes, format_records
 from joblib.format_stack import format_exc
 from joblib.test.common import with_numpy, np
+from joblib.testing import assert_true
 
 ###############################################################################
 

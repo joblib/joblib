@@ -1,9 +1,9 @@
 """Fixture module to skip memmaping test if numpy is not installed"""
 
-from nose import SkipTest
 from joblib.parallel import mp
 from joblib.test.common import setup_autokill
 from joblib.test.common import teardown_autokill
+from joblib.testing import SkipTest
 
 
 def setup_module(module):

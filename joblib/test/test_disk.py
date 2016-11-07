@@ -14,12 +14,11 @@ import shutil
 import array
 from tempfile import mkdtemp
 
-import nose
-
 from joblib.disk import disk_used, memstr_to_bytes, mkdirp
-
+from joblib.testing import assert_true, assert_equal, assert_raises
 
 ###############################################################################
+
 
 def test_disk_used():
     cachedir = mkdtemp()
@@ -37,8 +36,8 @@ def test_disk_used():
         a = array.array('i', n * (1,))
         with open(os.path.join(cachedir, 'test'), 'wb') as output:
             a.tofile(output)
-        nose.tools.assert_true(disk_used(cachedir) >= target_size)
-        nose.tools.assert_true(disk_used(cachedir) < target_size + 12)
+        assert_true(disk_used(cachedir) >= target_size)
+        assert_true(disk_used(cachedir) < target_size + 12)
     finally:
         shutil.rmtree(cachedir)
 
@@ -47,9 +46,9 @@ def test_memstr_to_bytes():
     for text, value in zip(('80G', '1.4M', '120M', '53K'),
                            (80 * 1024 ** 3, int(1.4 * 1024 ** 2),
                             120 * 1024 ** 2, 53 * 1024)):
-        yield nose.tools.assert_equal, memstr_to_bytes(text), value
+        yield assert_equal, memstr_to_bytes(text), value
 
-    nose.tools.assert_raises(ValueError, memstr_to_bytes, 'foobar')
+    assert_raises(ValueError, memstr_to_bytes, 'foobar')
 
 
 def test_mkdirp():
@@ -61,7 +60,7 @@ def test_mkdirp():
         mkdirp(os.path.join(tmp, "spam", "spam"))
 
         # Not all OSErrors are ignored
-        nose.tools.assert_raises(OSError, mkdirp, "")
+        assert_raises(OSError, mkdirp, "")
 
     finally:
         shutil.rmtree(tmp)
