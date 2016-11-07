@@ -1,7 +1,7 @@
 """Fixture module to skip the persistence doctest with python 2.6."""
 
-from nose import SkipTest
 from joblib import _compat
+from joblib.testing import SkipTest
 
 
 def setup_module(module):
