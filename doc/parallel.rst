@@ -68,15 +68,14 @@ processes as concurrent workers. For instance this is the case if you write the
 CPU intensive part of your code inside a `with nogil`_ block of a Cython
 function.
 
+.. _`with nogil`: http://docs.cython.org/src/userguide/external_C_code.html#acquiring-and-releasing-the-gil
+
 To use the threads, just pass ``"threading"`` as the value of the ``backend``
 parameter of the :class:`Parallel` constructor:
 
     >>> Parallel(n_jobs=2, backend="threading")(
     ...     delayed(sqrt)(i ** 2) for i in range(10))
     [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
-
-
-.. _`with nogil`:: http://docs.cython.org/src/userguide/external_C_code.html#acquiring-and-releasing-the-gil
 
 
 Reusing a pool of workers
