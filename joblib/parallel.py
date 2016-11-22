@@ -16,6 +16,7 @@ import threading
 import itertools
 from numbers import Integral
 from contextlib import contextmanager
+from multiprocessing import TimeoutError
 try:
     import cPickle as pickle
 except ImportError:
@@ -306,6 +307,11 @@ class Parallel(Logger):
         timeout: float, optional
             Timeout limit for each task to complete.  If any task takes longer
             a TimeOutError will be raised. Only applied when n_jobs != 1
+        silent_timeout: boolean, optional
+            If enabled, TimeoutErrors will not be raised to caller, instead
+            TimeoutError() will be returned as placeholders for any batch of
+            tasks that times out.  Best if each task has an isolated process
+            eg setting batch_size=1
         pre_dispatch: {'all', integer, or expression, as in '3*n_jobs'}
             The number of batches (of tasks) to be pre-dispatched.
             Default is '2*n_jobs'. When batch_size="auto" this is reasonable
@@ -467,8 +473,9 @@ class Parallel(Logger):
          [Parallel(n_jobs=2)]: Done 6 out of 6 | elapsed:  0.0s finished
     '''
     def __init__(self, n_jobs=1, backend=None, verbose=0, timeout=None,
-                 pre_dispatch='2 * n_jobs', batch_size='auto',
-                 temp_folder=None, max_nbytes='1M', mmap_mode='r'):
+                 silent_timeout=False, pre_dispatch='2 * n_jobs',
+                 batch_size='auto', temp_folder=None, max_nbytes='1M',
+                 mmap_mode='r'):
         active_backend, default_n_jobs = get_active_backend()
         if backend is None and n_jobs == 1:
             # If we are under a parallel_backend context manager, look up
@@ -477,6 +484,7 @@ class Parallel(Logger):
         self.n_jobs = n_jobs
         self.verbose = verbose
         self.timeout = timeout
+        self.silent_timeout = silent_timeout
         self.pre_dispatch = pre_dispatch
 
         if isinstance(max_nbytes, _basestring):
@@ -685,38 +693,46 @@ class Parallel(Logger):
             except BaseException as exception:
                 # Note: we catch any BaseException instead of just Exception
                 # instances to also include KeyboardInterrupt.
+                if isinstance(exception, TimeoutError) and self.silent_timeout:
+                    # create equal number of TimeOut placeholder results to
+                    # batch size of callback
+                    cb_batch_size = job._callback.batch_size
+                    self._output.extend(cb_batch_size * [TimeoutError()])
+                    # need to dispatch potential next task because
+                    # batch completion callback never got executed
+                    if self._original_iterator is not None:
+                        self.dispatch_next()
+                else:
+                    # Stop dispatching any new job in the async callback thread
+                    self._aborting = True
+                    if isinstance(exception, TransportableException):
+                        # Capture exception to add information on the local
+                        # stack in addition to the distant stack
+                        this_report = format_outer_frames(context=10,
+                                                          stack_start=1)
+                        report = """Multiprocessing exception:
+    %s
+    ---------------------------------------------------------------------------
+    Sub-process traceback:
+    ---------------------------------------------------------------------------
+    %s""" % (this_report, exception.message)
+                        # Convert this to a JoblibException
+                        exception_type = _mk_exception(exception.etype)[0]
+                        exception = exception_type(report)
 
-                # Stop dispatching any new job in the async callback thread
-                self._aborting = True
-
-                if isinstance(exception, TransportableException):
-                    # Capture exception to add information on the local
-                    # stack in addition to the distant stack
-                    this_report = format_outer_frames(context=10,
-                                                      stack_start=1)
-                    report = """Multiprocessing exception:
-%s
----------------------------------------------------------------------------
-Sub-process traceback:
----------------------------------------------------------------------------
-%s""" % (this_report, exception.message)
-                    # Convert this to a JoblibException
-                    exception_type = _mk_exception(exception.etype)[0]
-                    exception = exception_type(report)
-
-                # If the backends allows it, cancel or kill remaining running
-                # tasks without waiting for the results as we will raise
-                # the exception we got back to the caller instead of returning
-                # any result.
-                backend = self._backend
-                if (backend is not None and
-                        hasattr(backend, 'abort_everything')):
-                    # If the backend is managed externally we need to make sure
-                    # to leave it in a working state to allow for future jobs
-                    # scheduling.
-                    ensure_ready = self._managed_backend
-                    backend.abort_everything(ensure_ready=ensure_ready)
-                raise exception
+                    # If the backends allows it, cancel or kill remaining
+                    # running tasks without waiting for the results as
+                    # we will raise the exception we got back to the caller
+                    # instead of returning any result.
+                    backend = self._backend
+                    if (backend is not None and
+                            hasattr(backend, 'abort_everything')):
+                        # If the backend is managed externally we need to
+                        # make sure to leave it in a working state to
+                        # allow for future jobs scheduling.
+                        ensure_ready = self._managed_backend
+                        backend.abort_everything(ensure_ready=ensure_ready)
+                    raise exception
 
     def __call__(self, iterable):
         if self._jobs:

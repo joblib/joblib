@@ -298,6 +298,41 @@ def test_parallel_timeout_fail():
                       (delayed(sleep)(10) for x in range(10)))
 
 
+def test_parallel_timeout_silent_all_timeouts():
+    for backend in ['multiprocessing', 'threading']:
+        res = (Parallel(n_jobs=2, backend=backend,
+                        timeout=0.01, silent_timeout=True)
+               (delayed(sleep)(10) for x in range(10)))
+        # Check that correct number of results returned
+        nose.tools.assert_true(len(res), 10)
+        # Check that only placeholders returned
+        nose.tools.assert_true(
+            all(isinstance(x, TimeoutError) for x in res))
+
+
+def test_parallel_timeout_silent_no_timeouts():
+    for backend in ['multiprocessing', 'threading']:
+        res = (Parallel(n_jobs=2, backend=backend,
+                        timeout=10, silent_timeout=True)
+               (delayed(sleep)(0.01) for x in range(10)))
+        # Check that correct number of results returned
+        nose.tools.assert_true(len(res), 10)
+        # Check that only None returned
+        nose.tools.assert_true(all(x is None for x in res))
+
+
+def test_parallel_timeout_silent_mixed_timeouts():
+    for backend in ['multiprocessing', 'threading']:
+        res = (Parallel(n_jobs=2, backend=backend,
+                        timeout=0.01, silent_timeout=True,
+                        batch_size=1)
+               (delayed(sleep)(5 * x) for x in range(10)))
+        # Check that correct number of results returned
+        nose.tools.assert_true(len(res), 10)
+        # Only one task should succeed
+        nose.tools.assert_equal(1, sum(x is None for x in res))
+
+
 def test_error_capture():
     # Check that error are captured, and that correct exceptions
     # are raised.
