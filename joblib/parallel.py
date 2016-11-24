@@ -689,7 +689,22 @@ class Parallel(Logger):
                 # Stop dispatching any new job in the async callback thread
                 self._aborting = True
 
-                if isinstance(exception, TransportableException):
+                # If the backend allows it, cancel or kill remaining running
+                # tasks without waiting for the results as we will raise
+                # the exception we got back to the caller instead of returning
+                # any result.
+                backend = self._backend
+                if (backend is not None and
+                        hasattr(backend, 'abort_everything')):
+                    # If the backend is managed externally we need to make sure
+                    # to leave it in a working state to allow for future jobs
+                    # scheduling.
+                    ensure_ready = self._managed_backend
+                    backend.abort_everything(ensure_ready=ensure_ready)
+
+                if not isinstance(exception, TransportableException):
+                    raise
+                else:
                     # Capture exception to add information on the local
                     # stack in addition to the distant stack
                     this_report = format_outer_frames(context=10,
@@ -704,19 +719,7 @@ Sub-process traceback:
                     exception_type = _mk_exception(exception.etype)[0]
                     exception = exception_type(report)
 
-                # If the backends allows it, cancel or kill remaining running
-                # tasks without waiting for the results as we will raise
-                # the exception we got back to the caller instead of returning
-                # any result.
-                backend = self._backend
-                if (backend is not None and
-                        hasattr(backend, 'abort_everything')):
-                    # If the backend is managed externally we need to make sure
-                    # to leave it in a working state to allow for future jobs
-                    # scheduling.
-                    ensure_ready = self._managed_backend
-                    backend.abort_everything(ensure_ready=ensure_ready)
-                raise exception
+                    raise exception
 
     def __call__(self, iterable):
         if self._jobs:
