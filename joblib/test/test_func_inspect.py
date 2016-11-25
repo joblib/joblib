@@ -15,7 +15,7 @@ from joblib.func_inspect import filter_args, get_func_name, get_func_code
 from joblib.func_inspect import _clean_win_chars, format_signature
 from joblib.memory import Memory
 from joblib.test.common import with_numpy
-from joblib.testing import (assert_false, assert_not_equal, assert_equal,
+from joblib.testing import (assert_not_equal, assert_equal,
                             assert_raises_regex, assert_raises)
 from joblib._compat import PY3_OR_LATER
 
@@ -200,7 +200,7 @@ def test_clean_win_chars():
     string = r'C:\foo\bar\main.py'
     mangled_string = _clean_win_chars(string)
     for char in ('\\', ':', '<', '>', '!'):
-        assert_false(char in mangled_string)
+        assert char not in mangled_string
 
 
 def test_format_signature():

@@ -19,7 +19,7 @@ from contextlib import closing
 
 from joblib.test.common import np, with_numpy
 from joblib.test.common import with_memory_profiler, memory_used
-from joblib.testing import (assert_equal, assert_true, assert_false,
+from joblib.testing import (assert_equal, assert_false,
                             assert_raises, assert_raises_regex, SkipTest)
 
 # numpy_pickle is not a drop-in replacement of pickle, as it takes
@@ -257,11 +257,11 @@ def test_memmap_persistence():
     obj_loaded = numpy_pickle.load(filename, mmap_mode='r')
     assert isinstance(obj_loaded, type(obj))
     assert isinstance(obj_loaded.array_float, np.memmap)
-    assert_false(obj_loaded.array_float.flags.writeable)
+    assert not obj_loaded.array_float.flags.writeable
     assert isinstance(obj_loaded.array_int, np.memmap)
-    assert_false(obj_loaded.array_int.flags.writeable)
+    assert not obj_loaded.array_int.flags.writeable
     # Memory map not allowed for numpy object arrays
-    assert_false(isinstance(obj_loaded.array_obj, np.memmap))
+    assert not isinstance(obj_loaded.array_obj, np.memmap)
     np.testing.assert_array_equal(obj_loaded.array_float,
                                   obj.array_float)
     np.testing.assert_array_equal(obj_loaded.array_int,
@@ -306,7 +306,7 @@ def test_memmap_persistence_mixed_dtypes():
     assert isinstance(a_clone, np.memmap)
 
     # the object-dtype array has been loaded in memory
-    assert_false(isinstance(b_clone, np.memmap))
+    assert not isinstance(b_clone, np.memmap)
 
 
 @with_numpy
@@ -909,8 +909,8 @@ def test_non_contiguous_array_pickling():
                     np.asfortranarray([[1, 2], [3, 4]])[1:],
                     # Non contiguous array with works fine with nditer
                     np.ones((10, 50, 20), order='F')[:, :1, :]]:
-        assert_false(array.flags.c_contiguous)
-        assert_false(array.flags.f_contiguous)
+        assert not array.flags.c_contiguous
+        assert not array.flags.f_contiguous
         numpy_pickle.dump(array, filename)
         array_reloaded = numpy_pickle.load(filename)
         np.testing.assert_array_equal(array_reloaded, array)

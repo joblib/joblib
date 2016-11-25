@@ -18,8 +18,8 @@ from joblib import parallel
 
 from joblib.test.common import np, with_numpy
 from joblib.test.common import with_multiprocessing
-from joblib.testing import (assert_equal, assert_true, assert_false,
-                            assert_raises, check_subprocess_call, SkipTest)
+from joblib.testing import (assert_equal, assert_raises, check_subprocess_call,
+                            SkipTest)
 from joblib._compat import PY3_OR_LATER
 from multiprocessing import TimeoutError
 from time import sleep
@@ -366,7 +366,7 @@ def test_error_capture():
         Parallel(n_jobs=1)(
             delayed(division)(x, y) for x, y in zip((0, 1), (1, 0)))
     except Exception as ex:
-        assert_false(isinstance(ex, JoblibException))
+        assert not isinstance(ex, JoblibException)
 
 
 class Counter(object):
