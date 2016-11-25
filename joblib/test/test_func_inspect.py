@@ -10,14 +10,13 @@ import os
 import shutil
 import tempfile
 import functools
-import sys
 
 from joblib.func_inspect import filter_args, get_func_name, get_func_code
 from joblib.func_inspect import _clean_win_chars, format_signature
 from joblib.memory import Memory
 from joblib.test.common import with_numpy
-from joblib.testing import (assert_true, assert_false, assert_not_equal,
-                            assert_equal, assert_raises_regex, assert_raises)
+from joblib.testing import (assert_false, assert_not_equal, assert_equal,
+                            assert_raises_regex, assert_raises)
 from joblib._compat import PY3_OR_LATER
 
 
@@ -222,8 +221,8 @@ def test_special_source_encoding():
     from joblib.test.test_func_inspect_special_encoding import big5_f
     func_code, source_file, first_line = get_func_code(big5_f)
     assert_equal(first_line, 5)
-    assert_true("def big5_f():" in func_code)
-    assert_true("test_func_inspect_special_encoding" in source_file)
+    assert "def big5_f():" in func_code
+    assert "test_func_inspect_special_encoding" in source_file
 
 
 def _get_code():

@@ -2,7 +2,6 @@
 Test my automatically generate exceptions
 """
 from joblib import my_exceptions
-from joblib.testing import assert_true
 
 
 class CustomException(Exception):
@@ -22,24 +21,24 @@ class CustomException2(Exception):
 
 
 def test_inheritance():
-    assert_true(isinstance(my_exceptions.JoblibNameError(), NameError))
-    assert_true(isinstance(my_exceptions.JoblibNameError(),
-                           my_exceptions.JoblibException))
-    assert_true(my_exceptions.JoblibNameError is
-                my_exceptions._mk_exception(NameError)[0])
+    assert isinstance(my_exceptions.JoblibNameError(), NameError)
+    assert isinstance(my_exceptions.JoblibNameError(),
+                      my_exceptions.JoblibException)
+    assert (my_exceptions.JoblibNameError is
+            my_exceptions._mk_exception(NameError)[0])
 
 
 def test_inheritance_special_cases():
     # _mk_exception should transform Exception to JoblibException
-    assert_true(my_exceptions._mk_exception(Exception)[0] is
-                my_exceptions.JoblibException)
+    assert (my_exceptions._mk_exception(Exception[0] is
+            my_exceptions.JoblibException))
 
     # Subclasses of JoblibException should be mapped to
     # JoblibException by _mk_exception
     for exception in [my_exceptions.JoblibException,
                       my_exceptions.TransportableException]:
-        assert_true(my_exceptions._mk_exception(exception)[0] is
-                    my_exceptions.JoblibException)
+        assert (my_exceptions._mk_exception(exception[0] is
+                my_exceptions.JoblibException))
 
     # Non-inheritable exception classes should be mapped to
     # JoblibException by _mk_exception. That can happen with classes
@@ -48,8 +47,8 @@ def test_inheritance_special_cases():
     # example.
     non_inheritable_classes = [type(lambda: None), bool]
     for exception in non_inheritable_classes:
-        assert_true(my_exceptions._mk_exception(exception)[0] is
-                    my_exceptions.JoblibException)
+        assert (my_exceptions._mk_exception(exception[0] is
+                my_exceptions.JoblibException))
 
 
 def test__mk_exception():
@@ -62,7 +61,7 @@ def test__mk_exception():
             'some', 'other', 'args', 'that are not', 'in the repr')
         exc_repr = repr(exc)
 
-        assert_true(isinstance(exc, klass))
-        assert_true(isinstance(exc, my_exceptions.JoblibException))
-        assert_true(exc.__class__.__name__ in exc_repr)
-        assert_true(message in exc_repr)
+        assert isinstance(exc, klass)
+        assert isinstance(exc, my_exceptions.JoblibException)
+        assert exc.__class__.__name__ in exc_repr
+        assert message in exc_repr

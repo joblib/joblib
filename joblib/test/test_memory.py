@@ -384,10 +384,10 @@ def test_memory_numpy_check_mmap_mode():
     b = twice(a)
     c = twice(a)
 
-    assert_true(isinstance(c, np.memmap))
+    assert isinstance(c, np.memmap)
     assert_equal(c.mode, 'r')
 
-    assert_true(isinstance(b, np.memmap))
+    assert isinstance(b, np.memmap)
     assert_equal(b.mode, 'r')
 
 
@@ -513,7 +513,7 @@ def test_call_and_shelve():
                              MemorizedResult, NotMemorizedResult)):
         assert_equal(func(2), 5)
         result = func.call_and_shelve(2)
-        assert_true(isinstance(result, Result))
+        assert isinstance(result, Result)
         assert_equal(result.get(), 5)
 
         result.clear()
@@ -773,7 +773,7 @@ def test__get_cache_items_to_delete():
     # folder is about 1000 bytes + metadata)
     cache_items_to_delete = _get_cache_items_to_delete(cachedir, '2K')
     nb_hashes = len(expected_hash_cachedirs)
-    assert_true(set.issubset(set(cache_items_to_delete), set(cache_items)))
+    assert set.issubset(set(cache_items_to_delete), set(cache_items))
     assert_equal(len(cache_items_to_delete), nb_hashes - 1)
 
     # Sanity check bytes_limit=2048 is the same as bytes_limit='2K'
@@ -789,7 +789,7 @@ def test__get_cache_items_to_delete():
     bytes_limit_too_small = 500
     cache_items_to_delete_500b = _get_cache_items_to_delete(
         cachedir, bytes_limit_too_small)
-    assert_true(set(cache_items_to_delete_500b), set(cache_items))
+    assert set(cache_items_to_delete_500b), set(cache_items)
 
     # Test LRU property: surviving cache items should all have a more
     # recent last_access that the ones that have been deleted
@@ -823,7 +823,7 @@ def test_memory_reduce_size():
     mem.bytes_limit = '3K'
     mem.reduce_size()
     cache_items = _get_cache_items(cachedir)
-    assert_true(set.issubset(set(cache_items), set(ref_cache_items)))
+    assert set.issubset(set(cache_items), set(ref_cache_items))
     assert_equal(len(cache_items), 2)
 
     # bytes_limit set so that no cache item is kept

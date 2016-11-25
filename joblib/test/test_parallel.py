@@ -214,7 +214,7 @@ def test_mutate_input_with_threads():
     q = Queue(maxsize=5)
     Parallel(n_jobs=2, backend="threading")(
         delayed(q.put, check_pickle=False)(1) for _ in range(5))
-    assert_true(q.full())
+    assert q.full()
 
 
 def test_parallel_kwargs():
@@ -234,8 +234,8 @@ def check_parallel_as_context_manager(backend):
         # via the context manager protocol
         managed_backend = p._backend
         if mp is not None:
-            assert_true(managed_backend is not None)
-            assert_true(managed_backend._pool is not None)
+            assert managed_backend is not None
+            assert managed_backend._pool is not None
 
         # We make call with the managed parallel object several times inside
         # the managed block:
@@ -244,17 +244,17 @@ def check_parallel_as_context_manager(backend):
 
         # Those calls have all used the same pool instance:
         if mp is not None:
-            assert_true(managed_backend._pool is p._backend._pool)
+            assert managed_backend._pool is p._backend._pool
 
     # As soon as we exit the context manager block, the pool is terminated and
     # no longer referenced from the parallel object:
     if mp is not None:
-        assert_true(p._backend._pool is None)
+        assert p._backend._pool is None
 
     # It's still possible to use the parallel instance in non-managed mode:
     assert_equal(expected, p(delayed(f)(x, y=1) for x in lst))
     if mp is not None:
-        assert_true(p._backend._pool is None)
+        assert p._backend._pool is None
 
 
 def test_parallel_context_manager():
@@ -312,7 +312,7 @@ def test_error_capture():
 
         # Try again with the context manager API
         with Parallel(n_jobs=2) as parallel:
-            assert_true(parallel._backend._pool is not None)
+            assert parallel._backend._pool is not None
             original_pool = parallel._backend._pool
 
             assert_raises(JoblibException, parallel,
@@ -321,10 +321,10 @@ def test_error_capture():
 
             # The managed pool should still be available and be in a working
             # state despite the previously raised (and caught) exception
-            assert_true(parallel._backend._pool is not None)
+            assert parallel._backend._pool is not None
 
             # The pool should have been interrupted and restarted:
-            assert_true(parallel._backend._pool is not original_pool)
+            assert parallel._backend._pool is not original_pool
 
             assert_equal([f(x, y=1) for x in range(10)],
                          parallel(delayed(f)(x, y=1) for x in range(10)))
@@ -334,17 +334,17 @@ def test_error_capture():
                           [delayed(interrupt_raiser)(x) for x in (1, 0)])
 
             # The pool should still be available despite the exception
-            assert_true(parallel._backend._pool is not None)
+            assert parallel._backend._pool is not None
 
             # The pool should have been interrupted and restarted:
-            assert_true(parallel._backend._pool is not original_pool)
+            assert parallel._backend._pool is not original_pool
 
             assert_equal([f(x, y=1) for x in range(10)],
                          parallel(delayed(f)(x, y=1) for x in range(10)))
 
         # Check that the inner pool has been terminated when exiting the
         # context manager
-        assert_true(parallel._backend._pool is None)
+        assert parallel._backend._pool is None
     else:
         assert_raises(KeyboardInterrupt, Parallel(n_jobs=2),
                       [delayed(interrupt_raiser)(x) for x in (1, 0)])
@@ -479,7 +479,7 @@ def test_batching_auto_multiprocessing():
         # It should be strictly larger than 1 but as we don't want heisen
         # failures on clogged CI worker environment be safe and only check that
         # it's a strictly positive number.
-        assert_true(p._backend.compute_batch_size() > 0)
+        assert p._backend.compute_batch_size() > 0
 
 
 def test_exception_dispatch():
@@ -541,7 +541,7 @@ def test_invalid_backend():
 def test_register_parallel_backend():
     try:
         register_parallel_backend("test_backend", FakeParallelBackend)
-        assert_true("test_backend" in BACKENDS)
+        assert "test_backend" in BACKENDS
         assert_equal(BACKENDS["test_backend"], FakeParallelBackend)
     finally:
         del BACKENDS["test_backend"]
@@ -627,7 +627,7 @@ def test_parameterized_backend_context_manager():
             assert_equal(active_n_jobs, 3)
             p = Parallel()
             assert_equal(p.n_jobs, 3)
-            assert_true(p._backend is active_backend)
+            assert p._backend is active_backend
             results = p(delayed(sqrt)(i) for i in range(5))
         assert_equal(results, [sqrt(i) for i in range(5)])
 
@@ -649,7 +649,7 @@ def test_direct_parameterized_backend_context_manager():
         assert_equal(active_n_jobs, 5)
         p = Parallel()
         assert_equal(p.n_jobs, 5)
-        assert_true(p._backend is active_backend)
+        assert p._backend is active_backend
         results = p(delayed(sqrt)(i) for i in range(5))
     assert_equal(results, [sqrt(i) for i in range(5)])
 

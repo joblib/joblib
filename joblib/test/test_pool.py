@@ -433,7 +433,7 @@ def test_memmaping_pool_for_large_arrays_in_return():
 
 def _worker_multiply(a, n_times):
     """Multiplication function to be executed by subprocess"""
-    assert_true(has_shareable_memory(a))
+    assert has_shareable_memory(a)
     return a * n_times
 
 
