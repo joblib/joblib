@@ -4,3 +4,4 @@
 numpy==1.9.2
 nose
 wheel
+pytest

@@ -3,8 +3,8 @@
 all: test 
 
 test:
-	nosetests joblib
+	py.test --pyargs joblib
 
 test-no-multiprocessing:
-	export JOBLIB_MULTIPROCESSING=0 && nosetests
+	export JOBLIB_MULTIPROCESSING=0 && py.test --pyargs joblib
 
