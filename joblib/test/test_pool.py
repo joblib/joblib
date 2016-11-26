@@ -7,8 +7,8 @@ from joblib.test.common import setup_autokill
 from joblib.test.common import teardown_autokill
 from joblib.test.common import with_multiprocessing
 from joblib.test.common import with_dev_shm
-from joblib.testing import (assert_equal, assert_true,
-                            assert_raises, with_setup)
+from joblib.testing import (assert_raises, with_setup)
+
 
 from joblib._multiprocessing_helpers import mp
 if mp is not None:
@@ -65,7 +65,7 @@ def inplace_double(args):
 
     """
     data, position, expected = args
-    assert_equal(data[position], expected)
+    assert data[position] == expected
     data[position] *= 2
     np.testing.assert_array_equal(data[position], 2 * expected)
 
@@ -230,7 +230,7 @@ def test_pool_with_memmap():
 
         # Passing memmap instances to the pool should not trigger the creation
         # of new files on the FS
-        assert_equal(os.listdir(pool_temp_folder), [])
+        assert os.listdir(pool_temp_folder) == []
 
         # the original data is untouched
         assert_array_equal(a, 2 * np.ones(a.shape))
@@ -285,7 +285,7 @@ def test_pool_with_memmap_array_view():
 
         # Passing memmap array view to the pool should not trigger the
         # creation of new files on the FS
-        assert_equal(os.listdir(pool_temp_folder), [])
+        assert os.listdir(pool_temp_folder) == []
 
     finally:
         p.terminate()
@@ -299,33 +299,33 @@ def test_memmaping_pool_for_large_arrays():
     """Check that large arrays are not copied in memory"""
 
     # Check that the tempfolder is empty
-    assert_equal(os.listdir(TEMP_FOLDER), [])
+    assert os.listdir(TEMP_FOLDER) == []
 
     # Build an array reducers that automaticaly dump large array content
     # to filesystem backed memmap instances to avoid memory explosion
     p = MemmapingPool(3, max_nbytes=40, temp_folder=TEMP_FOLDER)
     try:
-        # The tempory folder for the pool is not provisioned in advance
-        assert_equal(os.listdir(TEMP_FOLDER), [])
+        # The temporary folder for the pool is not provisioned in advance
+        assert os.listdir(TEMP_FOLDER) == []
         assert not os.path.exists(p._temp_folder)
 
         small = np.ones(5, dtype=np.float32)
-        assert_equal(small.nbytes, 20)
+        assert small.nbytes == 20
         p.map(check_array, [(small, i, 1.0) for i in range(small.shape[0])])
 
         # Memory has been copied, the pool filesystem folder is unused
-        assert_equal(os.listdir(TEMP_FOLDER), [])
+        assert os.listdir(TEMP_FOLDER) == []
 
         # Try with a file larger than the memmap threshold of 40 bytes
         large = np.ones(100, dtype=np.float64)
-        assert_equal(large.nbytes, 800)
+        assert large.nbytes == 800
         p.map(check_array, [(large, i, 1.0) for i in range(large.shape[0])])
 
         # The data has been dumped in a temp folder for subprocess to share it
         # without per-child memory copies
         assert os.path.isdir(p._temp_folder)
         dumped_filenames = os.listdir(p._temp_folder)
-        assert_equal(len(dumped_filenames), 1)
+        assert len(dumped_filenames) == 1
 
         # Check that memory mapping is not triggered for arrays with
         # dtype='object'
@@ -350,15 +350,15 @@ def test_memmaping_pool_for_large_arrays_disabled():
     try:
 
         # Check that the tempfolder is empty
-        assert_equal(os.listdir(TEMP_FOLDER), [])
+        assert os.listdir(TEMP_FOLDER) == []
 
         # Try with a file largish than the memmap threshold of 40 bytes
         large = np.ones(100, dtype=np.float64)
-        assert_equal(large.nbytes, 800)
+        assert large.nbytes == 800
         p.map(check_array, [(large, i, 1.0) for i in range(large.shape[0])])
 
         # Check that the tempfolder is still empty
-        assert_equal(os.listdir(TEMP_FOLDER), [])
+        assert os.listdir(TEMP_FOLDER) == []
 
     finally:
         # Cleanup open file descriptors
@@ -382,20 +382,20 @@ def test_memmaping_on_dev_shm():
 
         # Try with a file larger than the memmap threshold of 10 bytes
         a = np.ones(100, dtype=np.float64)
-        assert_equal(a.nbytes, 800)
+        assert a.nbytes == 800
         p.map(id, [a] * 10)
         # a should have been memmaped to the pool temp folder: the joblib
         # pickling procedure generate one .pkl file:
-        assert_equal(len(os.listdir(pool_temp_folder)), 1)
+        assert len(os.listdir(pool_temp_folder)) == 1
 
         # create a new array with content that is different from 'a' so that
         # it is mapped to a different file in the temporary folder of the
         # pool.
         b = np.ones(100, dtype=np.float64) * 2
-        assert_equal(b.nbytes, 800)
+        assert b.nbytes == 800
         p.map(id, [b] * 10)
         # A copy of both a and b are now stored in the shared memory folder
-        assert_equal(len(os.listdir(pool_temp_folder)), 2)
+        assert len(os.listdir(pool_temp_folder)) == 2
 
     finally:
         # Cleanup open file descriptors

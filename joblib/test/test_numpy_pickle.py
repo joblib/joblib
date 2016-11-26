@@ -19,8 +19,8 @@ from contextlib import closing
 
 from joblib.test.common import np, with_numpy
 from joblib.test.common import with_memory_profiler, memory_used
-from joblib.testing import (assert_equal, assert_false,
-                            assert_raises, assert_raises_regex, SkipTest)
+from joblib.testing import (assert_equal, assert_raises, assert_raises_regex,
+                            SkipTest)
 
 # numpy_pickle is not a drop-in replacement of pickle, as it takes
 # filenames instead of open files as arguments.
@@ -184,9 +184,9 @@ def test_numpy_persistence():
                                           compress=compress)
 
             # All is cached in one file
-            assert_equal(len(filenames), 1)
+            assert len(filenames) == 1
             # Check that only one file was created
-            assert_equal(filenames[0], this_filename)
+            assert filenames[0] == this_filename
             # Check that this file does exist
             assert os.path.exists(os.path.join(env['dir'], filenames[0]))
 
@@ -206,7 +206,7 @@ def test_numpy_persistence():
             filenames = numpy_pickle.dump(obj, this_filename,
                                           compress=compress)
             # All is cached in one file
-            assert_equal(len(filenames), 1)
+            assert len(filenames) == 1
 
             obj_ = numpy_pickle.load(this_filename)
             if (type(obj) is not np.memmap and
@@ -221,7 +221,7 @@ def test_numpy_persistence():
         filenames = numpy_pickle.dump(obj, this_filename,
                                       compress=compress)
         # All is cached in one file
-        assert_equal(len(filenames), 1)
+        assert len(filenames) == 1
 
         obj_loaded = numpy_pickle.load(this_filename)
         assert isinstance(obj_loaded, type(obj))
@@ -285,9 +285,9 @@ def test_memmap_persistence():
     # Test w+ mode is caught and the mode has switched to r+
     numpy_pickle.load(filename, mmap_mode='w+')
     assert obj_loaded.array_int.flags.writeable
-    assert_equal(obj_loaded.array_int.mode, 'r+')
+    assert obj_loaded.array_int.mode == 'r+'
     assert obj_loaded.array_float.flags.writeable
-    assert_equal(obj_loaded.array_float.mode, 'r+')
+    assert obj_loaded.array_float.mode == 'r+'
 
 
 @with_numpy
@@ -332,14 +332,14 @@ def test_compress_mmap_mode_warning():
     with warnings.catch_warnings(record=True) as caught_warnings:
         warnings.simplefilter("always")
         numpy_pickle.load(this_filename, mmap_mode='r+')
-        assert_equal(len(caught_warnings), 1)
+        assert len(caught_warnings) == 1
         for warn in caught_warnings:
-            assert_equal(warn.category, UserWarning)
-            assert_equal(warn.message.args[0],
-                         'mmap_mode "%(mmap_mode)s" is not compatible with '
-                         'compressed file %(filename)s. "%(mmap_mode)s" flag '
-                         'will be ignored.' % {'filename': this_filename,
-                                               'mmap_mode': 'r+'})
+            assert warn.category == UserWarning
+            assert (warn.message.args[0] ==
+                    'mmap_mode "%(mmap_mode)s" is not compatible with '
+                    'compressed file %(filename)s. "%(mmap_mode)s" flag will '
+                    'be ignored.' % {'filename': this_filename,
+                                     'mmap_mode': 'r+'})
 
 
 @with_numpy
@@ -354,14 +354,13 @@ def test_cache_size_warning():
             warnings.simplefilter("always")
             numpy_pickle.dump(a, filename, cache_size=cache_size)
             expected_nb_warnings = 1 if cache_size is not None else 0
-            assert_equal(len(caught_warnings), expected_nb_warnings)
+            assert len(caught_warnings) == expected_nb_warnings
             for warn in caught_warnings:
-                assert_equal(warn.category, DeprecationWarning)
-                assert_equal(warn.message.args[0],
-                             "Please do not set 'cache_size' in joblib.dump, "
-                             "this parameter has no effect and will be "
-                             "removed. You used 'cache_size={0}'".format(
-                             cache_size))
+                assert warn.category == DeprecationWarning
+                assert (warn.message.args[0] ==
+                        "Please do not set 'cache_size' in joblib.dump, this "
+                        "parameter has no effect and will be removed. You "
+                        "used 'cache_size={0}'".format(cache_size))
 
 
 @with_numpy
@@ -415,14 +414,14 @@ def test_compressed_pickle_dump_and_load():
 
     try:
         dumped_filenames = numpy_pickle.dump(expected_list, fname, compress=1)
-        assert_equal(len(dumped_filenames), 1)
+        assert len(dumped_filenames) == 1
         result_list = numpy_pickle.load(fname)
         for result, expected in zip(result_list, expected_list):
             if isinstance(expected, np.ndarray):
-                assert_equal(result.dtype, expected.dtype)
+                assert result.dtype == expected.dtype
                 np.testing.assert_equal(result, expected)
             else:
-                assert_equal(result, expected)
+                assert result == expected
     finally:
         os.remove(fname)
 
@@ -455,19 +454,19 @@ def _check_pickle(filename, expected_list):
                 result_list = numpy_pickle.load(filename)
                 expected_nb_warnings = 1 if ("0.9" in filename or
                                              "0.8.4" in filename) else 0
-                assert_equal(len(caught_warnings), expected_nb_warnings)
+                assert len(caught_warnings) == expected_nb_warnings
             for warn in caught_warnings:
-                assert_equal(warn.category, DeprecationWarning)
-                assert_equal(warn.message.args[0],
-                             "The file '{0}' has been generated with a joblib "
-                             "version less than 0.10. Please regenerate this "
-                             "pickle file.".format(filename))
+                assert warn.category == DeprecationWarning
+                assert (warn.message.args[0] ==
+                        "The file '{0}' has been generated with a joblib "
+                        "version less than 0.10. Please regenerate this "
+                        "pickle file.".format(filename))
             for result, expected in zip(result_list, expected_list):
                 if isinstance(expected, np.ndarray):
-                    assert_equal(result.dtype, expected.dtype)
+                    assert result.dtype == expected.dtype
                     np.testing.assert_equal(result, expected)
                 else:
-                    assert_equal(result, expected)
+                    assert result == expected
         except Exception as exc:
             # When trying to read with python 3 a pickle generated
             # with python 2 we expect a user-friendly error
@@ -537,7 +536,7 @@ def test_compress_tuple_argument():
                           compress=compress)
         # Verify the file contains the right magic number
         with open(filename, 'rb') as f:
-            assert_equal(_detect_compressor(f), compress[0])
+            assert _detect_compressor(f) == compress[0]
 
     # Verify setting a wrong compress tuple raises a ValueError.
     assert_raises_regex(ValueError,
@@ -582,14 +581,14 @@ def test_joblib_compression_formats():
                                       compress=(cmethod, compress))
                     # Verify the file contains the right magic number
                     with open(dump_filename, 'rb') as f:
-                        assert_equal(_detect_compressor(f), cmethod)
+                        assert _detect_compressor(f) == cmethod
                     # Verify the reloaded object is correct
                     obj_reloaded = numpy_pickle.load(dump_filename)
                     assert isinstance(obj_reloaded, type(obj))
                     if isinstance(obj, np.ndarray):
                         np.testing.assert_array_equal(obj_reloaded, obj)
                     else:
-                        assert_equal(obj_reloaded, obj)
+                        assert obj_reloaded == obj
                     os.remove(dump_filename)
 
 
@@ -629,7 +628,7 @@ def test_load_externally_decompressed_files():
         # Test that the uncompressed pickle can be loaded and
         # that the result is correct.
         obj_reloaded = numpy_pickle.load(filename_raw)
-        assert_equal(obj, obj_reloaded)
+        assert obj == obj_reloaded
 
         # Do some cleanup
         os.remove(filename_raw)
@@ -664,11 +663,11 @@ def test_compression_using_file_extension():
             numpy_pickle.dump(obj, dump_fname)
             # Verify the file contains the right magic number
             with open(dump_fname, 'rb') as f:
-                assert_equal(_detect_compressor(f), cmethod)
+                assert _detect_compressor(f) == cmethod
             # Verify the reloaded object is correct
             obj_reloaded = numpy_pickle.load(dump_fname)
             assert isinstance(obj_reloaded, type(obj))
-            assert_equal(obj_reloaded, obj)
+            assert obj_reloaded == obj
             os.remove(dump_fname)
 
 
@@ -704,8 +703,8 @@ def test_file_handle_persistence():
                 np.testing.assert_array_equal(obj_reloaded, obj)
                 np.testing.assert_array_equal(obj_reloaded_2, obj)
             else:
-                assert_equal(obj_reloaded, obj)
-                assert_equal(obj_reloaded_2, obj)
+                assert obj_reloaded == obj
+                assert obj_reloaded_2 == obj
 
             os.remove(filename)
 
@@ -722,7 +721,7 @@ def test_in_memory_persistence():
         if isinstance(obj, np.ndarray):
             np.testing.assert_array_equal(obj_reloaded, obj)
         else:
-            assert_equal(obj_reloaded, obj)
+            assert obj_reloaded == obj
 
 
 @with_numpy
@@ -751,13 +750,13 @@ def test_file_handle_persistence_compressed_mmap():
         with warnings.catch_warnings(record=True) as caught_warnings:
             warnings.simplefilter("always")
             numpy_pickle.load(f, mmap_mode='r+')
-            assert_equal(len(caught_warnings), 1)
+            assert len(caught_warnings) == 1
             for warn in caught_warnings:
-                assert_equal(warn.category, UserWarning)
-                assert_equal(warn.message.args[0],
-                             '"%(fileobj)r" is not a raw file, mmap_mode '
-                             '"%(mmap_mode)s" flag will be ignored.'
-                             % {'fileobj': f, 'mmap_mode': 'r+'})
+                assert warn.category == UserWarning
+                assert (warn.message.args[0] ==
+                        '"%(fileobj)r" is not a raw file, mmap_mode '
+                        '"%(mmap_mode)s" flag will be ignored.'
+                        % {'fileobj': f, 'mmap_mode': 'r+'})
 
 
 @with_numpy
@@ -770,13 +769,13 @@ def test_file_handle_persistence_in_memory_mmap():
     with warnings.catch_warnings(record=True) as caught_warnings:
         warnings.simplefilter("always")
         numpy_pickle.load(buf, mmap_mode='r+')
-        assert_equal(len(caught_warnings), 1)
+        assert len(caught_warnings) == 1
         for warn in caught_warnings:
-            assert_equal(warn.category, UserWarning)
-            assert_equal(warn.message.args[0],
-                         'In memory persistence is not compatible with '
-                         'mmap_mode "%(mmap_mode)s" flag passed. mmap_mode '
-                         'option will be ignored.' % {'mmap_mode': 'r+'})
+            assert warn.category == UserWarning
+            assert (warn.message.args[0] ==
+                    'In memory persistence is not compatible with '
+                    'mmap_mode "%(mmap_mode)s" flag passed. mmap_mode '
+                    'option will be ignored.' % {'mmap_mode': 'r+'})
 
 
 def test_binary_zlibfile():
@@ -806,7 +805,7 @@ def test_binary_zlibfile():
                                     compresslevel=compress_level) as fz:
                     assert fz.writable()
                     fz.write(d)
-                    assert_equal(fz.fileno(), f.fileno())
+                    assert fz.fileno() == f.fileno()
                     assert_raises(io.UnsupportedOperation, fz._check_can_read)
                     assert_raises(io.UnsupportedOperation, fz._check_can_seek)
                 assert fz.closed
@@ -817,8 +816,8 @@ def test_binary_zlibfile():
                     assert fz.readable()
                     if PY3_OR_LATER:
                         assert fz.seekable()
-                    assert_equal(fz.fileno(), f.fileno())
-                    assert_equal(fz.read(), d)
+                    assert fz.fileno() == f.fileno()
+                    assert fz.read() == d
                     assert_raises(io.UnsupportedOperation,
                                   fz._check_can_write)
                     if PY3_OR_LATER:
@@ -826,7 +825,7 @@ def test_binary_zlibfile():
                         # python 2
                         assert fz.seekable()
                         fz.seek(0)
-                        assert_equal(fz.tell(), 0)
+                        assert fz.tell() == 0
                 assert fz.closed
 
             os.remove(filename)
@@ -838,7 +837,7 @@ def test_binary_zlibfile():
                 fz.write(d)
 
             with BinaryZlibFile(filename, 'rb') as fz:
-                assert_equal(fz.read(), d)
+                assert fz.read() == d
                 assert fz.seekable()
 
             # Test without context manager
@@ -848,7 +847,7 @@ def test_binary_zlibfile():
             fz.close()
 
             fz = BinaryZlibFile(filename, 'rb')
-            assert_equal(fz.read(), d)
+            assert fz.read() == d
             fz.close()
 
 
@@ -894,9 +893,9 @@ def test_pathlib():
         filename = env['filename']
         value = 123
         numpy_pickle.dump(value, Path(filename))
-        assert_equal(numpy_pickle.load(filename), value)
+        assert numpy_pickle.load(filename) == value
         numpy_pickle.dump(value, filename)
-        assert_equal(numpy_pickle.load(Path(filename)), value)
+        assert numpy_pickle.load(Path(filename)) == value
 
 
 @with_numpy

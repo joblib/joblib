@@ -30,15 +30,15 @@ def test_inheritance():
 
 def test_inheritance_special_cases():
     # _mk_exception should transform Exception to JoblibException
-    assert (my_exceptions._mk_exception(Exception[0] is
-            my_exceptions.JoblibException))
+    assert (my_exceptions._mk_exception(Exception)[0] is
+            my_exceptions.JoblibException)
 
     # Subclasses of JoblibException should be mapped to
     # JoblibException by _mk_exception
     for exception in [my_exceptions.JoblibException,
                       my_exceptions.TransportableException]:
-        assert (my_exceptions._mk_exception(exception[0] is
-                my_exceptions.JoblibException))
+        assert (my_exceptions._mk_exception(exception)[0] is
+                my_exceptions.JoblibException)
 
     # Non-inheritable exception classes should be mapped to
     # JoblibException by _mk_exception. That can happen with classes
@@ -47,8 +47,8 @@ def test_inheritance_special_cases():
     # example.
     non_inheritable_classes = [type(lambda: None), bool]
     for exception in non_inheritable_classes:
-        assert (my_exceptions._mk_exception(exception[0] is
-                my_exceptions.JoblibException))
+        assert (my_exceptions._mk_exception(exception)[0] is
+                my_exceptions.JoblibException)
 
 
 def test__mk_exception():
