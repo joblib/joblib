@@ -20,26 +20,20 @@ from joblib.testing import assert_equal, assert_raises
 ###############################################################################
 
 
-def test_disk_used():
-    cachedir = mkdtemp()
-    try:
-        if os.path.exists(cachedir):
-            shutil.rmtree(cachedir)
-        os.mkdir(cachedir)
-        # Not write a file that is 1M big in this directory, and check the
-        # size. The reason we use such a big file is that it makes us robust
-        # to errors due to block allocation.
-        a = array.array('i')
-        sizeof_i = a.itemsize
-        target_size = 1024
-        n = int(target_size * 1024 / sizeof_i)
-        a = array.array('i', n * (1,))
-        with open(os.path.join(cachedir, 'test'), 'wb') as output:
-            a.tofile(output)
-        assert disk_used(cachedir) >= target_size
-        assert disk_used(cachedir) < target_size + 12
-    finally:
-        shutil.rmtree(cachedir)
+def test_disk_used(tmpdir):
+    cachedir = tmpdir.strpath
+    # Not write a file that is 1M big in this directory, and check the
+    # size. The reason we use such a big file is that it makes us robust
+    # to errors due to block allocation.
+    a = array.array('i')
+    sizeof_i = a.itemsize
+    target_size = 1024
+    n = int(target_size * 1024 / sizeof_i)
+    a = array.array('i', n * (1,))
+    with open(os.path.join(cachedir, 'test'), 'wb') as output:
+        a.tofile(output)
+    assert disk_used(cachedir) >= target_size
+    assert disk_used(cachedir) < target_size + 12
 
 
 def test_memstr_to_bytes():
