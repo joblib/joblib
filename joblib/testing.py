@@ -21,7 +21,7 @@ assert_true = _dummy.assertTrue
 assert_false = _dummy.assertFalse
 assert_equal = _dummy.assertEqual
 assert_not_equal = _dummy.assertNotEqual
-assert_raises = _dummy.assertRaises
+assert_raises = pytest.raises
 
 try:
     assert_raises_regex = _dummy.assertRaisesRegex
@@ -32,6 +32,7 @@ except AttributeError:
 SkipTest = _pytest.runner.Skipped
 skipif = pytest.mark.skipif
 fixture = pytest.fixture
+parametrize = pytest.mark.parametrize
 
 
 def warnings_to_stdout():

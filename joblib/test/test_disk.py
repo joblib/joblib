@@ -15,7 +15,7 @@ import array
 from tempfile import mkdtemp
 
 from joblib.disk import disk_used, memstr_to_bytes, mkdirp
-from joblib.testing import assert_equal, assert_raises
+from joblib.testing import parametrize, assert_raises
 
 ###############################################################################
 
@@ -36,13 +36,18 @@ def test_disk_used(tmpdir):
     assert disk_used(cachedir) < target_size + 12
 
 
-def test_memstr_to_bytes():
-    for text, value in zip(('80G', '1.4M', '120M', '53K'),
-                           (80 * 1024 ** 3, int(1.4 * 1024 ** 2),
-                            120 * 1024 ** 2, 53 * 1024)):
-        yield assert_equal, memstr_to_bytes(text), value
+@parametrize(['text', 'value', 'exception'],
+             [('80G', 80 * 1024 ** 3, None),
+              ('1.4M', int(1.4 * 1024 ** 2), None),
+              ('120M', 120 * 1024 ** 2, None),
+              ('53K', 53 * 1024, None),
+              ('foo', None, ValueError)])
+def test_memstr_to_bytes(text, value, exception):
+    if not exception:
+        assert memstr_to_bytes(text) == value
+    else:
+        assert_raises(exception, memstr_to_bytes, text)
 
-    assert_raises(ValueError, memstr_to_bytes, 'foobar')
 
 
 def test_mkdirp():
