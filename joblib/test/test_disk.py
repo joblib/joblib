@@ -8,11 +8,8 @@ Unit tests for the disk utilities.
 # License: BSD Style, 3 clauses.
 
 from __future__ import with_statement
-
-import os
-import shutil
 import array
-from tempfile import mkdtemp
+import os
 
 from joblib.disk import disk_used, memstr_to_bytes, mkdirp
 from joblib.testing import parametrize, assert_raises
@@ -49,17 +46,10 @@ def test_memstr_to_bytes(text, value, exception):
         assert_raises(exception, memstr_to_bytes, text)
 
 
+def test_mkdirp(tmpdir):
+    mkdirp(os.path.join(tmpdir.strpath, 'ham'))
+    mkdirp(os.path.join(tmpdir.strpath, 'ham'))
+    mkdirp(os.path.join(tmpdir.strpath, 'spam', 'spam'))
 
-def test_mkdirp():
-    try:
-        tmp = mkdtemp()
-
-        mkdirp(os.path.join(tmp, "ham"))
-        mkdirp(os.path.join(tmp, "ham"))
-        mkdirp(os.path.join(tmp, "spam", "spam"))
-
-        # Not all OSErrors are ignored
-        assert_raises(OSError, mkdirp, "")
-
-    finally:
-        shutil.rmtree(tmp)
+    # Not all OSErrors are ignored
+    assert_raises(OSError, mkdirp, '')
