@@ -6,54 +6,43 @@ Test the func_inspect module.
 # Copyright (c) 2009 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
-import os
-import shutil
-import tempfile
 import functools
 
 from joblib.func_inspect import filter_args, get_func_name, get_func_code
 from joblib.func_inspect import _clean_win_chars, format_signature
 from joblib.memory import Memory
 from joblib.test.common import with_numpy
-from joblib.testing import assert_equal, assert_raises_regex, assert_raises
+from joblib.testing import (fixture, assert_equal, assert_raises_regex,
+                            assert_raises)
 from joblib._compat import PY3_OR_LATER
 
 
 ###############################################################################
 # Module-level functions, for tests
-def f(x, y=0):
-    pass
+
+@fixture(scope='module')
+def f():
+    def f_inner(x, y=0):
+        pass
+    return f_inner
 
 
-def g(x, y=1):
-    """ A module-level function for testing purposes.
-    """
-    return x ** 2 + y
+@fixture(scope='module')
+def g(tmpdir):
+    # Create a Memory object to test decorated functions.
+    # We should be careful not to call the decorated functions, so that
+    # cache directories are not created in the temp dir.
+    cachedir = tmpdir.mkdir(prefix="joblib_test_func_inspect_")
+    mem = Memory(cachedir)
+
+    @mem.cache
+    def g_inner(x):
+        return x
+    return g_inner
 
 
 def f2(x):
     pass
-
-
-# Create a Memory object to test decorated functions.
-# We should be careful not to call the decorated functions, so that
-# cache directories are not created in the temp dir.
-temp_folder = tempfile.mkdtemp(prefix="joblib_test_func_inspect_")
-mem = Memory(cachedir=temp_folder)
-
-
-def teardown_module():
-    if os.path.exists(temp_folder):
-        try:
-            shutil.rmtree(temp_folder)
-        except Exception as e:
-            print("Failed to delete temporary folder %s: %r" %
-                  (temp_folder, e))
-
-
-@mem.cache
-def g(x):
-    return x
 
 
 def h(x, y=0, *args, **kwargs):
