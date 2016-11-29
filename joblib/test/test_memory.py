@@ -796,9 +796,8 @@ def test__get_cache_items_to_delete():
     surviving_cache_items = set(cache_items).difference(
         cache_items_to_delete_6000b)
 
-    assert_true(
-        max(ci.last_access for ci in cache_items_to_delete_6000b) <=
-        min(ci.last_access for ci in surviving_cache_items))
+    assert (max(ci.last_access for ci in cache_items_to_delete_6000b) <=
+            min(ci.last_access for ci in surviving_cache_items))
 
 
 def test_memory_reduce_size():
