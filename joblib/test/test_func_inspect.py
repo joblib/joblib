@@ -12,8 +12,7 @@ from joblib.func_inspect import filter_args, get_func_name, get_func_code
 from joblib.func_inspect import _clean_win_chars, format_signature
 from joblib.memory import Memory
 from joblib.test.common import with_numpy
-from joblib.testing import (fixture, parametrize, assert_raises_regex,
-                            assert_raises)
+from joblib.testing import (fixture, parametrize, assert_raises_regex)
 from joblib._compat import PY3_OR_LATER
 
 
@@ -109,9 +108,6 @@ def test_filter_args_2(funcs):
     assert (filter_args(funcs['j'], [], (1, 2), dict(ee=2)) ==
             {'x': 1, 'y': 2, '**': {'ee': 2}})
 
-    assert_raises(ValueError, filter_args, funcs['f'], 'a', (None, ))
-    # Check that we capture an undefined argument
-    assert_raises(ValueError, filter_args, funcs['f'], ['a'], (None, ))
     ff = functools.partial(funcs['f'], 1)
     # filter_args has to special-case partial
     assert filter_args(ff, [], (1, )) == {'*': [1], '**': {}}
@@ -181,12 +177,20 @@ def test_bound_methods():
     assert filter_args(a.f, [], (1, )) != filter_args(b.f, [], (1, ))
 
 
-def test_filter_args_error_msg(funcs):
+@parametrize(['exception', 'regex', 'funcname', 'args'],
+             [(ValueError, 'ignore_lst must be a list of parameters to ignore',
+               'f', ['bar', (None, )]),
+              (ValueError, 'Ignore list: argument \'(.*)\' is not defined',
+               'g', [['bar'], (None, )]),
+              (ValueError, 'Wrong number of arguments',
+               'h', [[]])
+              ])
+def test_filter_args_error_msg(funcs, exception, regex, funcname, args):
     """
     Make sure that filter_args returns decent error messages, for the sake
     of the user.
     """
-    assert_raises(ValueError, filter_args, funcs['f'], [])
+    assert_raises_regex(exception, regex, filter_args, funcs[funcname], *args)
 
 
 def test_clean_win_chars():
