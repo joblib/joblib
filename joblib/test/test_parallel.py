@@ -13,6 +13,8 @@ import os
 from math import sqrt
 import threading
 import warnings
+from multiprocessing import TimeoutError
+from time import sleep
 
 from joblib import parallel
 
@@ -21,8 +23,6 @@ from joblib.test.common import with_multiprocessing
 from joblib.testing import (assert_equal, assert_raises, check_subprocess_call,
                             SkipTest)
 from joblib._compat import PY3_OR_LATER
-from multiprocessing import TimeoutError
-from time import sleep
 
 try:
     import cPickle as pickle
