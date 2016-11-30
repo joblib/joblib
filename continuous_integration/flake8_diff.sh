@@ -2,10 +2,12 @@
 
 # This script is used in Travis to check that PRs do not add obvious
 # flake8 violations. It relies on two things:
-#   - find common ancestor between branch and
-#     joblib/joblib remote
-#   - run flake8 --diff on the diff between the branch and the common
-#     ancestor
+#   - computing a similar diff to what github is showing in a PR. The
+#     diff is done between:
+#       1. the common ancestor of the local branch and the
+   #       joblib/joblib remote
+#       2. the local branch
+#   - run flake8 --diff on the computed diff
 #
 # Additional features:
 #   - the line numbers in Travis match the local branch on the PR
@@ -87,33 +89,21 @@ if [[ -z "$COMMIT_RANGE" ]]; then
     LOCAL_BRANCH_SHORT_HASH=$(git rev-parse --short $LOCAL_BRANCH_REF)
     REMOTE_MASTER_SHORT_HASH=$(git rev-parse --short $REMOTE_MASTER_REF)
 
-    COMMIT=$(git merge-base $LOCAL_BRANCH_REF $REMOTE_MASTER_REF) || \
-        echo "No common ancestor found for $(git show $LOCAL_BRANCH_REF -q) and $(git show $REMOTE_MASTER_REF -q)"
+    # Very confusing: need to use '..' i.e. two dots for 'git
+    # rev-list' but '...' i.e. three dots for 'git diff'
+    DIFF_RANGE="$REMOTE_MASTER_SHORT_HASH...$LOCAL_BRANCH_SHORT_HASH"
+    REV_RANGE="$REMOTE_MASTER_SHORT_HASH..$LOCAL_BRANCH_SHORT_HASH"
 
-    if [ -z "$COMMIT" ]; then
-        exit 1
-    fi
-
-    COMMIT_SHORT_HASH=$(git rev-parse --short $COMMIT)
-
-    echo -e "\nCommon ancestor between $LOCAL_BRANCH_REF ($LOCAL_BRANCH_SHORT_HASH)"\
-         "and $REMOTE_MASTER_REF ($REMOTE_MASTER_SHORT_HASH) is $COMMIT_SHORT_HASH:"
+    echo -e '\nRunning flake8 on the diff in the range'\
+         "$DIFF_RANGE ($(git rev-list $REV_RANGE | wc -l) commit(s)):"
     echo '--------------------------------------------------------------------------------'
-    git show --no-patch $COMMIT_SHORT_HASH
-
-    COMMIT_RANGE="$COMMIT_SHORT_HASH..$LOCAL_BRANCH_SHORT_HASH"
 
     if [[ -n "$TMP_REMOTE" ]]; then
         git remote remove $TMP_REMOTE
     fi
-
 else
     echo "Got the commit range from Travis: $COMMIT_RANGE"
 fi
-
-echo -e '\nRunning flake8 on the diff in the range' "$COMMIT_RANGE" \
-     "($(git rev-list $COMMIT_RANGE | wc -l) commit(s)):"
-echo '--------------------------------------------------------------------------------'
 
 # We ignore files from doc/sphintext. Unfortunately there is no
 # way to do it with flake8 directly (the --exclude does not seem to
@@ -122,7 +112,7 @@ echo '--------------------------------------------------------------------------
 # uses git 1.8.
 # We need the following command to exit with 0 hence the echo in case
 # there is no match
-MODIFIED_FILES=$(git diff --name-only $COMMIT_RANGE | \
+MODIFIED_FILES=$(git diff --name-only $DIFF_RANGE | \
                      grep -v 'doc/sphinxext' || echo "no_match")
 
 if [[ "$MODIFIED_FILES" == "no_match" ]]; then
@@ -130,6 +120,6 @@ if [[ "$MODIFIED_FILES" == "no_match" ]]; then
 else
     # Conservative approach: diff without context so that code that
     # was not changed does not create failures
-    git diff --unified=0 $COMMIT -- $MODIFIED_FILES | flake8 --diff --show-source
+    git diff --unified=0 $DIFF_RANGE -- $MODIFIED_FILES | flake8 --diff --show-source
 fi
 echo -e "No problem detected by flake8\n"
