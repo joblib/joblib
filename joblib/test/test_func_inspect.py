@@ -15,7 +15,7 @@ from joblib.func_inspect import filter_args, get_func_name, get_func_code
 from joblib.func_inspect import _clean_win_chars, format_signature
 from joblib.memory import Memory
 from joblib.test.common import with_numpy
-from joblib.testing import (assert_equal, assert_raises_regex, assert_raises)
+from joblib.testing import assert_equal, assert_raises_regex, assert_raises
 from joblib._compat import PY3_OR_LATER
 
 

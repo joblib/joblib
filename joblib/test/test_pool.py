@@ -7,7 +7,7 @@ from joblib.test.common import setup_autokill
 from joblib.test.common import teardown_autokill
 from joblib.test.common import with_multiprocessing
 from joblib.test.common import with_dev_shm
-from joblib.testing import (assert_raises, with_setup)
+from joblib.testing import assert_raises, with_setup
 
 
 from joblib._multiprocessing_helpers import mp
