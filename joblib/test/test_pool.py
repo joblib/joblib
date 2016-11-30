@@ -7,8 +7,8 @@ from joblib.test.common import setup_autokill
 from joblib.test.common import teardown_autokill
 from joblib.test.common import with_multiprocessing
 from joblib.test.common import with_dev_shm
-from joblib.testing import (assert_equal, assert_true, assert_false,
-                            assert_raises, with_setup)
+from joblib.testing import assert_raises, with_setup
+
 
 from joblib._multiprocessing_helpers import mp
 if mp is not None:
@@ -65,7 +65,7 @@ def inplace_double(args):
 
     """
     data, position, expected = args
-    assert_equal(data[position], expected)
+    assert data[position] == expected
     data[position] *= 2
     np.testing.assert_array_equal(data[position], 2 * expected)
 
@@ -114,42 +114,42 @@ def test_memmap_based_array_reducing():
 
     # Reconstruct original memmap
     a_reconstructed = reconstruct_memmap(a)
-    assert_true(has_shareable_memory(a_reconstructed))
-    assert_true(isinstance(a_reconstructed, np.memmap))
+    assert has_shareable_memory(a_reconstructed)
+    assert isinstance(a_reconstructed, np.memmap)
     assert_array_equal(a_reconstructed, a)
 
     # Reconstruct strided memmap view
     b_reconstructed = reconstruct_memmap(b)
-    assert_true(has_shareable_memory(b_reconstructed))
+    assert has_shareable_memory(b_reconstructed)
     assert_array_equal(b_reconstructed, b)
 
     # Reconstruct arrays views on memmap base
     c_reconstructed = reconstruct_array(c)
-    assert_false(isinstance(c_reconstructed, np.memmap))
-    assert_true(has_shareable_memory(c_reconstructed))
+    assert not isinstance(c_reconstructed, np.memmap)
+    assert has_shareable_memory(c_reconstructed)
     assert_array_equal(c_reconstructed, c)
 
     d_reconstructed = reconstruct_array(d)
-    assert_false(isinstance(d_reconstructed, np.memmap))
-    assert_true(has_shareable_memory(d_reconstructed))
+    assert not isinstance(d_reconstructed, np.memmap)
+    assert has_shareable_memory(d_reconstructed)
     assert_array_equal(d_reconstructed, d)
 
     # Test graceful degradation on fake memmap instances with in-memory
     # buffers
     a3 = a * 3
-    assert_false(has_shareable_memory(a3))
+    assert not has_shareable_memory(a3)
     a3_reconstructed = reconstruct_memmap(a3)
-    assert_false(has_shareable_memory(a3_reconstructed))
-    assert_false(isinstance(a3_reconstructed, np.memmap))
+    assert not has_shareable_memory(a3_reconstructed)
+    assert not isinstance(a3_reconstructed, np.memmap)
     assert_array_equal(a3_reconstructed, a * 3)
 
     # Test graceful degradation on arrays derived from fake memmap instances
     b3 = np.asarray(a3)
-    assert_false(has_shareable_memory(b3))
+    assert not has_shareable_memory(b3)
 
     b3_reconstructed = reconstruct_array(b3)
-    assert_true(isinstance(b3_reconstructed, np.ndarray))
-    assert_false(has_shareable_memory(b3_reconstructed))
+    assert isinstance(b3_reconstructed, np.ndarray)
+    assert not has_shareable_memory(b3_reconstructed)
     assert_array_equal(b3_reconstructed, b3)
 
 
@@ -178,24 +178,24 @@ def test_high_dimension_memmap_array_reducing():
         return res
 
     a_reconstructed = reconstruct_memmap(a)
-    assert_true(has_shareable_memory(a_reconstructed))
-    assert_true(isinstance(a_reconstructed, np.memmap))
+    assert has_shareable_memory(a_reconstructed)
+    assert isinstance(a_reconstructed, np.memmap)
     assert_array_equal(a_reconstructed, a)
 
     b_reconstructed = reconstruct_memmap(b)
-    assert_true(has_shareable_memory(b_reconstructed))
+    assert has_shareable_memory(b_reconstructed)
     assert_array_equal(b_reconstructed, b)
 
     c_reconstructed = reconstruct_memmap(c)
-    assert_true(has_shareable_memory(c_reconstructed))
+    assert has_shareable_memory(c_reconstructed)
     assert_array_equal(c_reconstructed, c)
 
     d_reconstructed = reconstruct_memmap(d)
-    assert_true(has_shareable_memory(d_reconstructed))
+    assert has_shareable_memory(d_reconstructed)
     assert_array_equal(d_reconstructed, d)
 
     e_reconstructed = reconstruct_memmap(e)
-    assert_true(has_shareable_memory(e_reconstructed))
+    assert has_shareable_memory(e_reconstructed)
     assert_array_equal(e_reconstructed, e)
 
 
@@ -230,7 +230,7 @@ def test_pool_with_memmap():
 
         # Passing memmap instances to the pool should not trigger the creation
         # of new files on the FS
-        assert_equal(os.listdir(pool_temp_folder), [])
+        assert os.listdir(pool_temp_folder) == []
 
         # the original data is untouched
         assert_array_equal(a, 2 * np.ones(a.shape))
@@ -272,8 +272,8 @@ def test_pool_with_memmap_array_view():
 
         # Create an ndarray view on the memmap instance
         a_view = np.asarray(a)
-        assert_false(isinstance(a_view, np.memmap))
-        assert_true(has_shareable_memory(a_view))
+        assert not isinstance(a_view, np.memmap)
+        assert has_shareable_memory(a_view)
 
         p.map(inplace_double, [(a_view, (i, j), 1.0)
                                for i in range(a.shape[0])
@@ -285,7 +285,7 @@ def test_pool_with_memmap_array_view():
 
         # Passing memmap array view to the pool should not trigger the
         # creation of new files on the FS
-        assert_equal(os.listdir(pool_temp_folder), [])
+        assert os.listdir(pool_temp_folder) == []
 
     finally:
         p.terminate()
@@ -299,44 +299,44 @@ def test_memmaping_pool_for_large_arrays():
     """Check that large arrays are not copied in memory"""
 
     # Check that the tempfolder is empty
-    assert_equal(os.listdir(TEMP_FOLDER), [])
+    assert os.listdir(TEMP_FOLDER) == []
 
     # Build an array reducers that automaticaly dump large array content
     # to filesystem backed memmap instances to avoid memory explosion
     p = MemmapingPool(3, max_nbytes=40, temp_folder=TEMP_FOLDER)
     try:
-        # The tempory folder for the pool is not provisioned in advance
-        assert_equal(os.listdir(TEMP_FOLDER), [])
-        assert_false(os.path.exists(p._temp_folder))
+        # The temporary folder for the pool is not provisioned in advance
+        assert os.listdir(TEMP_FOLDER) == []
+        assert not os.path.exists(p._temp_folder)
 
         small = np.ones(5, dtype=np.float32)
-        assert_equal(small.nbytes, 20)
+        assert small.nbytes == 20
         p.map(check_array, [(small, i, 1.0) for i in range(small.shape[0])])
 
         # Memory has been copied, the pool filesystem folder is unused
-        assert_equal(os.listdir(TEMP_FOLDER), [])
+        assert os.listdir(TEMP_FOLDER) == []
 
         # Try with a file larger than the memmap threshold of 40 bytes
         large = np.ones(100, dtype=np.float64)
-        assert_equal(large.nbytes, 800)
+        assert large.nbytes == 800
         p.map(check_array, [(large, i, 1.0) for i in range(large.shape[0])])
 
         # The data has been dumped in a temp folder for subprocess to share it
         # without per-child memory copies
-        assert_true(os.path.isdir(p._temp_folder))
+        assert os.path.isdir(p._temp_folder)
         dumped_filenames = os.listdir(p._temp_folder)
-        assert_equal(len(dumped_filenames), 1)
+        assert len(dumped_filenames) == 1
 
         # Check that memory mapping is not triggered for arrays with
         # dtype='object'
         objects = np.array(['abc'] * 100, dtype='object')
         results = p.map(has_shareable_memory, [objects])
-        assert_false(results[0])
+        assert not results[0]
 
     finally:
         # check FS garbage upon pool termination
         p.terminate()
-        assert_false(os.path.exists(p._temp_folder))
+        assert not os.path.exists(p._temp_folder)
         del p
 
 
@@ -350,15 +350,15 @@ def test_memmaping_pool_for_large_arrays_disabled():
     try:
 
         # Check that the tempfolder is empty
-        assert_equal(os.listdir(TEMP_FOLDER), [])
+        assert os.listdir(TEMP_FOLDER) == []
 
         # Try with a file largish than the memmap threshold of 40 bytes
         large = np.ones(100, dtype=np.float64)
-        assert_equal(large.nbytes, 800)
+        assert large.nbytes == 800
         p.map(check_array, [(large, i, 1.0) for i in range(large.shape[0])])
 
         # Check that the tempfolder is still empty
-        assert_equal(os.listdir(TEMP_FOLDER), [])
+        assert os.listdir(TEMP_FOLDER) == []
 
     finally:
         # Cleanup open file descriptors
@@ -377,25 +377,25 @@ def test_memmaping_on_dev_shm():
         # shared memory filesystem.
         pool_temp_folder = p._temp_folder
         folder_prefix = '/dev/shm/joblib_memmaping_pool_'
-        assert_true(pool_temp_folder.startswith(folder_prefix))
-        assert_true(os.path.exists(pool_temp_folder))
+        assert pool_temp_folder.startswith(folder_prefix)
+        assert os.path.exists(pool_temp_folder)
 
         # Try with a file larger than the memmap threshold of 10 bytes
         a = np.ones(100, dtype=np.float64)
-        assert_equal(a.nbytes, 800)
+        assert a.nbytes == 800
         p.map(id, [a] * 10)
         # a should have been memmaped to the pool temp folder: the joblib
         # pickling procedure generate one .pkl file:
-        assert_equal(len(os.listdir(pool_temp_folder)), 1)
+        assert len(os.listdir(pool_temp_folder)) == 1
 
         # create a new array with content that is different from 'a' so that
         # it is mapped to a different file in the temporary folder of the
         # pool.
         b = np.ones(100, dtype=np.float64) * 2
-        assert_equal(b.nbytes, 800)
+        assert b.nbytes == 800
         p.map(id, [b] * 10)
         # A copy of both a and b are now stored in the shared memory folder
-        assert_equal(len(os.listdir(pool_temp_folder)), 2)
+        assert len(os.listdir(pool_temp_folder)) == 2
 
     finally:
         # Cleanup open file descriptors
@@ -403,7 +403,7 @@ def test_memmaping_on_dev_shm():
         del p
 
     # The temp folder is cleaned up upon pool termination
-    assert_false(os.path.exists(pool_temp_folder))
+    assert not os.path.exists(pool_temp_folder)
 
 
 @with_numpy
@@ -424,7 +424,7 @@ def test_memmaping_pool_for_large_arrays_in_return():
     try:
         res = p.apply_async(np.ones, args=(1000,))
         large = res.get()
-        assert_false(has_shareable_memory(large))
+        assert not has_shareable_memory(large)
         assert_array_equal(large, np.ones(1000))
     finally:
         p.terminate()
@@ -433,7 +433,7 @@ def test_memmaping_pool_for_large_arrays_in_return():
 
 def _worker_multiply(a, n_times):
     """Multiplication function to be executed by subprocess"""
-    assert_true(has_shareable_memory(a))
+    assert has_shareable_memory(a)
     return a * n_times
 
 
@@ -458,7 +458,7 @@ def test_workaround_against_bad_memmap_with_copied_buffers():
         # Call a non-inplace multiply operation on the worker and memmap and
         # send it back to the parent.
         b = p.apply_async(_worker_multiply, args=(a, 3)).get()
-        assert_false(has_shareable_memory(b))
+        assert not has_shareable_memory(b)
         assert_array_equal(b, 3 * a)
     finally:
         p.terminate()

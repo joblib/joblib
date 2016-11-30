@@ -180,7 +180,7 @@ def test_memory_kwarg():
     memory = Memory(cachedir=env['dir'], verbose=0)
     g = memory.cache(g)
     # Smoke test with an explicit keyword argument:
-    assert_equal(g(l=30, m=2), 30)
+    assert g(l=30, m=2) == 30
 
 
 def test_memory_lambda():
@@ -254,13 +254,13 @@ def test_memory_warning_lambda_collisions():
         # inspect.getargspec, see
         # https://github.com/joblib/joblib/issues/247
         warnings.simplefilter("ignore", DeprecationWarning)
-        assert_equal(0, a(0))
-        assert_equal(2, b(1))
-        assert_equal(1, a(1))
+        assert a(0) == 0
+        assert b(1) == 2
+        assert a(1) == 1
 
     # In recent Python versions, we can retrieve the code of lambdas,
     # thus nothing is raised
-    assert_equal(len(w), 4)
+    assert len(w) == 4
 
 
 def test_memory_warning_collision_detection():
@@ -384,11 +384,11 @@ def test_memory_numpy_check_mmap_mode():
     b = twice(a)
     c = twice(a)
 
-    assert_true(isinstance(c, np.memmap))
-    assert_equal(c.mode, 'r')
+    assert isinstance(c, np.memmap)
+    assert c.mode == 'r'
 
-    assert_true(isinstance(b, np.memmap))
-    assert_equal(b.mode, 'r')
+    assert isinstance(b, np.memmap)
+    assert b.mode == 'r'
 
 
 def test_memory_exception():
@@ -511,10 +511,10 @@ def test_call_and_shelve():
                              ),
                             (MemorizedResult, NotMemorizedResult,
                              MemorizedResult, NotMemorizedResult)):
-        assert_equal(func(2), 5)
+        assert func(2) == 5
         result = func.call_and_shelve(2)
-        assert_true(isinstance(result, Result))
-        assert_equal(result.get(), 5)
+        assert isinstance(result, Result)
+        assert result.get() == 5
 
         result.clear()
         assert_raises(KeyError, result.get)
@@ -529,7 +529,7 @@ def test_memorized_pickling():
             pickle.dump(result, fp)
         with open(filename, 'rb') as fp:
             result2 = pickle.load(fp)
-        assert_equal(result2.get(), result.get())
+        assert result2.get() == result.get()
         os.remove(filename)
 
 
@@ -539,8 +539,8 @@ def test_memorized_repr():
 
     func2 = MemorizedFunc(f, env['dir'])
     result2 = func2.call_and_shelve(2)
-    assert_equal(result.get(), result2.get())
-    assert_equal(repr(func), repr(func2))
+    assert result.get() == result2.get()
+    assert repr(func) == repr(func2)
 
     # Smoke test with NotMemorizedFunc
     func = NotMemorizedFunc(f)
@@ -631,7 +631,7 @@ def test_memory_file_modification():
 
     finally:
         sys.stdout = orig_stdout
-    assert_equal(my_stdout.getvalue(), '1\n2\nReloading\nx=1\n')
+    assert my_stdout.getvalue() == '1\n2\nReloading\nx=1\n'
 
 
 def _function_to_cache(a, b):
@@ -653,8 +653,8 @@ def test_memory_in_memory_function_code_change():
     mem = Memory(cachedir=env['dir'], verbose=0)
     f = mem.cache(_function_to_cache)
 
-    assert_equal(f(1, 2), 3)
-    assert_equal(f(1, 2), 3)
+    assert f(1, 2) == 3
+    assert f(1, 2) == 3
 
     with warnings.catch_warnings(record=True):
         # ignore name collision warnings
@@ -663,8 +663,8 @@ def test_memory_in_memory_function_code_change():
         # Check that inline function modification triggers a cache invalidation
 
         _function_to_cache.__code__ = _product.__code__
-        assert_equal(f(1, 2), 2)
-        assert_equal(f(1, 2), 2)
+        assert f(1, 2) == 2
+        assert f(1, 2) == 2
 
 
 def test_clear_memory_with_none_cachedir():
@@ -684,7 +684,7 @@ def func_with_signature(a: int, b: float) -> float:
         mem = Memory(cachedir=env['dir'], verbose=0)
         func_cached = mem.cache(func_with_kwonly_args)
 
-        assert_equal(func_cached(1, 2, kw1=3), (1, 2, 3, 'kw2'))
+        assert func_cached(1, 2, kw1=3) == (1, 2, 3, 'kw2')
 
         # Making sure that providing a keyword-only argument by
         # position raises an exception
@@ -706,15 +706,15 @@ def func_with_signature(a: int, b: float) -> float:
 
         # Test 'ignore' parameter
         func_cached = mem.cache(func_with_kwonly_args, ignore=['kw2'])
-        assert_equal(func_cached(1, 2, kw1=3, kw2=4), (1, 2, 3, 4))
-        assert_equal(func_cached(1, 2, kw1=3, kw2='ignored'), (1, 2, 3, 4))
+        assert func_cached(1, 2, kw1=3, kw2=4) == (1, 2, 3, 4)
+        assert func_cached(1, 2, kw1=3, kw2='ignored') == (1, 2, 3, 4)
 
 
     def test_memory_func_with_signature():
         mem = Memory(cachedir=env['dir'], verbose=0)
         func_cached = mem.cache(func_with_signature)
 
-        assert_equal(func_cached(1, 2.), 3.)
+        assert func_cached(1, 2.) == 3.
 
 
 def _setup_temporary_cache_folder(num_inputs=10):
@@ -743,7 +743,7 @@ def test__get_cache_items():
     cachedir = mem.cachedir
     cache_items = _get_cache_items(cachedir)
     hash_cachedirs = [ci.path for ci in cache_items]
-    assert_equal(set(hash_cachedirs), set(expected_hash_cachedirs))
+    assert set(hash_cachedirs) == set(expected_hash_cachedirs)
 
     def get_files_size(directory):
         full_paths = [os.path.join(directory, fn)
@@ -753,7 +753,7 @@ def test__get_cache_items():
     expected_hash_cache_sizes = [get_files_size(hash_dir)
                                  for hash_dir in hash_cachedirs]
     hash_cache_sizes = [ci.size for ci in cache_items]
-    assert_equal(hash_cache_sizes, expected_hash_cache_sizes)
+    assert hash_cache_sizes == expected_hash_cache_sizes
 
     output_filenames = [os.path.join(hash_dir, 'output.pkl')
                         for hash_dir in hash_cachedirs]
@@ -762,7 +762,7 @@ def test__get_cache_items():
         datetime.datetime.fromtimestamp(os.path.getatime(fn))
         for fn in output_filenames]
     last_accesses = [ci.last_access for ci in cache_items]
-    assert_equal(last_accesses, expected_last_accesses)
+    assert last_accesses == expected_last_accesses
 
 
 def test__get_cache_items_to_delete():
@@ -773,23 +773,22 @@ def test__get_cache_items_to_delete():
     # folder is about 1000 bytes + metadata)
     cache_items_to_delete = _get_cache_items_to_delete(cachedir, '2K')
     nb_hashes = len(expected_hash_cachedirs)
-    assert_true(set.issubset(set(cache_items_to_delete), set(cache_items)))
-    assert_equal(len(cache_items_to_delete), nb_hashes - 1)
+    assert set.issubset(set(cache_items_to_delete), set(cache_items))
+    assert len(cache_items_to_delete) == nb_hashes - 1
 
     # Sanity check bytes_limit=2048 is the same as bytes_limit='2K'
     cache_items_to_delete_2048b = _get_cache_items_to_delete(cachedir, 2048)
-    assert_equal(sorted(cache_items_to_delete),
-                 sorted(cache_items_to_delete_2048b))
+    assert sorted(cache_items_to_delete) == sorted(cache_items_to_delete_2048b)
 
     # bytes_limit greater than the size of the cache
     cache_items_to_delete_empty = _get_cache_items_to_delete(cachedir, '1M')
-    assert_equal(cache_items_to_delete_empty, [])
+    assert cache_items_to_delete_empty == []
 
     # All the cache items need to be deleted
     bytes_limit_too_small = 500
     cache_items_to_delete_500b = _get_cache_items_to_delete(
         cachedir, bytes_limit_too_small)
-    assert_true(set(cache_items_to_delete_500b), set(cache_items))
+    assert set(cache_items_to_delete_500b), set(cache_items)
 
     # Test LRU property: surviving cache items should all have a more
     # recent last_access that the ones that have been deleted
@@ -797,9 +796,8 @@ def test__get_cache_items_to_delete():
     surviving_cache_items = set(cache_items).difference(
         cache_items_to_delete_6000b)
 
-    assert_true(
-        max(ci.last_access for ci in cache_items_to_delete_6000b) <=
-        min(ci.last_access for ci in surviving_cache_items))
+    assert (max(ci.last_access for ci in cache_items_to_delete_6000b) <=
+            min(ci.last_access for ci in surviving_cache_items))
 
 
 def test_memory_reduce_size():
@@ -810,25 +808,25 @@ def test_memory_reduce_size():
     # By default mem.bytes_limit is None and reduce_size is a noop
     mem.reduce_size()
     cache_items = _get_cache_items(cachedir)
-    assert_equal(sorted(ref_cache_items), sorted(cache_items))
+    assert sorted(ref_cache_items) == sorted(cache_items)
 
     # No cache items deleted if bytes_limit greater than the size of
     # the cache
     mem.bytes_limit = '1M'
     mem.reduce_size()
     cache_items = _get_cache_items(cachedir)
-    assert_equal(sorted(ref_cache_items), sorted(cache_items))
+    assert sorted(ref_cache_items) == sorted(cache_items)
 
     # bytes_limit is set so that only two cache items are kept
     mem.bytes_limit = '3K'
     mem.reduce_size()
     cache_items = _get_cache_items(cachedir)
-    assert_true(set.issubset(set(cache_items), set(ref_cache_items)))
-    assert_equal(len(cache_items), 2)
+    assert set.issubset(set(cache_items), set(ref_cache_items))
+    assert len(cache_items) == 2
 
     # bytes_limit set so that no cache item is kept
     bytes_limit_too_small = 500
     mem.bytes_limit = bytes_limit_too_small
     mem.reduce_size()
     cache_items = _get_cache_items(cachedir)
-    assert_equal(cache_items, [])
+    assert cache_items == []

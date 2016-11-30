@@ -15,7 +15,7 @@ import array
 from tempfile import mkdtemp
 
 from joblib.disk import disk_used, memstr_to_bytes, mkdirp
-from joblib.testing import assert_true, assert_equal, assert_raises
+from joblib.testing import assert_equal, assert_raises
 
 ###############################################################################
 
@@ -36,8 +36,8 @@ def test_disk_used():
         a = array.array('i', n * (1,))
         with open(os.path.join(cachedir, 'test'), 'wb') as output:
             a.tofile(output)
-        assert_true(disk_used(cachedir) >= target_size)
-        assert_true(disk_used(cachedir) < target_size + 12)
+        assert disk_used(cachedir) >= target_size
+        assert disk_used(cachedir) < target_size + 12
     finally:
         shutil.rmtree(cachedir)
 

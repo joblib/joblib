@@ -12,9 +12,9 @@ import sys
 from joblib.format_stack import safe_repr, _fixed_getframes, format_records
 from joblib.format_stack import format_exc
 from joblib.test.common import with_numpy, np
-from joblib.testing import assert_true
 
 ###############################################################################
+
 
 class Vicious(object):
     def __repr__(self):
@@ -80,4 +80,4 @@ def test_format_exc_with_compiled_code():
         # The name of the extension can be something like
         # mtrand.cpython-33m.so
         pattern = 'mtrand[a-z0-9._-]*\.(so|pyd)'
-        assert_true(re.search(pattern, formatted_exc))
+        assert re.search(pattern, formatted_exc)

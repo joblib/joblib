@@ -18,8 +18,8 @@ from joblib import parallel
 
 from joblib.test.common import np, with_numpy
 from joblib.test.common import with_multiprocessing
-from joblib.testing import (assert_equal, assert_true, assert_false,
-                            assert_raises, check_subprocess_call, SkipTest)
+from joblib.testing import (assert_equal, assert_raises, check_subprocess_call,
+                            SkipTest)
 from joblib._compat import PY3_OR_LATER
 from multiprocessing import TimeoutError
 from time import sleep
@@ -124,10 +124,9 @@ def test_effective_n_jobs():
 def check_simple_parallel(backend):
     X = range(5)
     for n_jobs in (1, 2, -1, -2):
-        assert_equal(
-            [square(x) for x in X],
-            Parallel(n_jobs=n_jobs, backend=backend)(
-                delayed(square)(x) for x in X))
+        assert ([square(x) for x in X] ==
+                Parallel(n_jobs=n_jobs, backend=backend)(
+                    delayed(square)(x) for x in X))
     try:
         # To smoke-test verbosity, we capture stdout
         orig_stdout = sys.stdout
@@ -171,11 +170,11 @@ def check_main_thread_renamed_no_warning(backend):
         warnings.simplefilter("always")
         results = Parallel(n_jobs=2, backend=backend)(
             delayed(square)(x) for x in range(3))
-        assert_equal(results, [0, 1, 4])
+        assert results == [0, 1, 4]
     # The multiprocessing backend will raise a warning when detecting that is
     # started from the non-main thread. Let's check that there is no false
     # positive because of the name change.
-    assert_equal(caught_warnings, [])
+    assert caught_warnings == []
 
 
 def test_main_thread_renamed_no_warning():
@@ -214,7 +213,7 @@ def test_mutate_input_with_threads():
     q = Queue(maxsize=5)
     Parallel(n_jobs=2, backend="threading")(
         delayed(q.put, check_pickle=False)(1) for _ in range(5))
-    assert_true(q.full())
+    assert q.full()
 
 
 def test_parallel_kwargs():
@@ -234,27 +233,27 @@ def check_parallel_as_context_manager(backend):
         # via the context manager protocol
         managed_backend = p._backend
         if mp is not None:
-            assert_true(managed_backend is not None)
-            assert_true(managed_backend._pool is not None)
+            assert managed_backend is not None
+            assert managed_backend._pool is not None
 
         # We make call with the managed parallel object several times inside
         # the managed block:
-        assert_equal(expected, p(delayed(f)(x, y=1) for x in lst))
-        assert_equal(expected, p(delayed(f)(x, y=1) for x in lst))
+        assert expected == p(delayed(f)(x, y=1) for x in lst)
+        assert expected == p(delayed(f)(x, y=1) for x in lst)
 
         # Those calls have all used the same pool instance:
         if mp is not None:
-            assert_true(managed_backend._pool is p._backend._pool)
+            assert managed_backend._pool is p._backend._pool
 
     # As soon as we exit the context manager block, the pool is terminated and
     # no longer referenced from the parallel object:
     if mp is not None:
-        assert_true(p._backend._pool is None)
+        assert p._backend._pool is None
 
     # It's still possible to use the parallel instance in non-managed mode:
-    assert_equal(expected, p(delayed(f)(x, y=1) for x in lst))
+    assert expected == p(delayed(f)(x, y=1) for x in lst)
     if mp is not None:
-        assert_true(p._backend._pool is None)
+        assert p._backend._pool is None
 
 
 def test_parallel_context_manager():
@@ -284,9 +283,8 @@ def test_parallel_pickling():
 def test_parallel_timeout_success():
     # Check that timeout isn't thrown when function is fast enough
     for backend in ['multiprocessing', 'threading']:
-        assert_equal(10,
-                     len(Parallel(n_jobs=2, backend=backend, timeout=10)
-                         (delayed(sleep)(0.001) for x in range(10))))
+        assert len(Parallel(n_jobs=2, backend=backend, timeout=10)(
+            delayed(sleep)(0.001) for x in range(10))) == 10
 
 
 @with_multiprocessing
@@ -312,7 +310,7 @@ def test_error_capture():
 
         # Try again with the context manager API
         with Parallel(n_jobs=2) as parallel:
-            assert_true(parallel._backend._pool is not None)
+            assert parallel._backend._pool is not None
             original_pool = parallel._backend._pool
 
             assert_raises(JoblibException, parallel,
@@ -321,30 +319,30 @@ def test_error_capture():
 
             # The managed pool should still be available and be in a working
             # state despite the previously raised (and caught) exception
-            assert_true(parallel._backend._pool is not None)
+            assert parallel._backend._pool is not None
 
             # The pool should have been interrupted and restarted:
-            assert_true(parallel._backend._pool is not original_pool)
+            assert parallel._backend._pool is not original_pool
 
-            assert_equal([f(x, y=1) for x in range(10)],
-                         parallel(delayed(f)(x, y=1) for x in range(10)))
+            assert ([f(x, y=1) for x in range(10)] ==
+                    parallel(delayed(f)(x, y=1) for x in range(10)))
 
             original_pool = parallel._backend._pool
             assert_raises(WorkerInterrupt, parallel,
                           [delayed(interrupt_raiser)(x) for x in (1, 0)])
 
             # The pool should still be available despite the exception
-            assert_true(parallel._backend._pool is not None)
+            assert parallel._backend._pool is not None
 
             # The pool should have been interrupted and restarted:
-            assert_true(parallel._backend._pool is not original_pool)
+            assert parallel._backend._pool is not original_pool
 
-            assert_equal([f(x, y=1) for x in range(10)],
-                         parallel(delayed(f)(x, y=1) for x in range(10)))
+            assert ([f(x, y=1) for x in range(10)] ==
+                    parallel(delayed(f)(x, y=1) for x in range(10)))
 
         # Check that the inner pool has been terminated when exiting the
         # context manager
-        assert_true(parallel._backend._pool is None)
+        assert parallel._backend._pool is None
     else:
         assert_raises(KeyboardInterrupt, Parallel(n_jobs=2),
                       [delayed(interrupt_raiser)(x) for x in (1, 0)])
@@ -366,7 +364,7 @@ def test_error_capture():
         Parallel(n_jobs=1)(
             delayed(division)(x, y) for x, y in zip((0, 1), (1, 0)))
     except Exception as ex:
-        assert_false(isinstance(ex, JoblibException))
+        assert not isinstance(ex, JoblibException)
 
 
 class Counter(object):
@@ -376,7 +374,7 @@ class Counter(object):
 
     def __call__(self, i):
         self.list1.append(i)
-        assert_equal(len(self.list1), len(self.list2))
+        assert len(self.list1) == len(self.list2)
 
 
 def consumer(queue, item):
@@ -404,7 +402,7 @@ def check_dispatch_one_job(backend):
         'Produced 4', 'Consumed 4',
         'Produced 5', 'Consumed 5',
     ])
-    assert_equal(len(queue), 12)
+    assert len(queue) == 12
 
     # empty the queue for the next check
     queue[:] = []
@@ -420,7 +418,7 @@ def check_dispatch_one_job(backend):
         # Second batch
         'Produced 4', 'Produced 5', 'Consumed 4', 'Consumed 5',
     ])
-    assert_equal(len(queue), 12)
+    assert len(queue) == 12
 
 
 def test_dispatch_one_job():
@@ -453,7 +451,7 @@ def check_dispatch_multiprocessing(backend):
     first_four.remove('Consumed any')
     assert_equal(first_four,
                  ['Produced 0', 'Produced 1', 'Produced 2'])
-    assert_equal(len(queue), 12)
+    assert len(queue) == 12
 
 
 def test_dispatch_multiprocessing():
@@ -469,7 +467,7 @@ def test_batching_auto_threading():
 
     with Parallel(n_jobs=2, batch_size='auto', backend='threading') as p:
         p(delayed(id)(i) for i in range(5000))  # many very fast tasks
-        assert_equal(p._backend.compute_batch_size(), 1)
+        assert p._backend.compute_batch_size() == 1
 
 
 def test_batching_auto_multiprocessing():
@@ -479,7 +477,7 @@ def test_batching_auto_multiprocessing():
         # It should be strictly larger than 1 but as we don't want heisen
         # failures on clogged CI worker environment be safe and only check that
         # it's a strictly positive number.
-        assert_true(p._backend.compute_batch_size() > 0)
+        assert p._backend.compute_batch_size() > 0
 
 
 def test_exception_dispatch():
@@ -541,40 +539,40 @@ def test_invalid_backend():
 def test_register_parallel_backend():
     try:
         register_parallel_backend("test_backend", FakeParallelBackend)
-        assert_true("test_backend" in BACKENDS)
-        assert_equal(BACKENDS["test_backend"], FakeParallelBackend)
+        assert "test_backend" in BACKENDS
+        assert BACKENDS["test_backend"] == FakeParallelBackend
     finally:
         del BACKENDS["test_backend"]
 
 
 def test_overwrite_default_backend():
-    assert_equal(_active_backend_type(), MultiprocessingBackend)
+    assert _active_backend_type() == MultiprocessingBackend
     try:
         register_parallel_backend("threading", BACKENDS["threading"],
                                   make_default=True)
-        assert_equal(_active_backend_type(), ThreadingBackend)
+        assert _active_backend_type() == ThreadingBackend
     finally:
         # Restore the global default manually
         parallel.DEFAULT_BACKEND = 'multiprocessing'
-    assert_equal(_active_backend_type(), MultiprocessingBackend)
+    assert _active_backend_type() == MultiprocessingBackend
 
 
 def check_backend_context_manager(backend_name):
     with parallel_backend(backend_name, n_jobs=3):
         active_backend, active_n_jobs = parallel.get_active_backend()
-        assert_equal(active_n_jobs, 3)
-        assert_equal(effective_n_jobs(3), 3)
+        assert active_n_jobs == 3
+        assert effective_n_jobs(3) == 3
         p = Parallel()
-        assert_equal(p.n_jobs, 3)
+        assert p.n_jobs == 3
         if backend_name == 'multiprocessing':
-            assert_equal(type(active_backend), MultiprocessingBackend)
-            assert_equal(type(p._backend), MultiprocessingBackend)
+            assert type(active_backend) == MultiprocessingBackend
+            assert type(p._backend) == MultiprocessingBackend
         elif backend_name == 'threading':
-            assert_equal(type(active_backend), ThreadingBackend)
-            assert_equal(type(p._backend), ThreadingBackend)
+            assert type(active_backend) == ThreadingBackend
+            assert type(p._backend) == ThreadingBackend
         elif backend_name.startswith('test_'):
-            assert_equal(type(active_backend), FakeParallelBackend)
-            assert_equal(type(p._backend), FakeParallelBackend)
+            assert type(active_backend) == FakeParallelBackend
+            assert type(p._backend) == FakeParallelBackend
 
 
 @with_multiprocessing
@@ -585,13 +583,13 @@ def test_backend_context_manager():
     all_backends = ['multiprocessing', 'threading'] + all_test_backends
 
     try:
-        assert_equal(_active_backend_type(), MultiprocessingBackend)
+        assert _active_backend_type() == MultiprocessingBackend
         # check that this possible to switch parallel backends sequentially
         for test_backend in all_backends:
             yield check_backend_context_manager, test_backend
 
         # The default backend is retored
-        assert_equal(_active_backend_type(), MultiprocessingBackend)
+        assert _active_backend_type() == MultiprocessingBackend
 
         # Check that context manager switching is thread safe:
         Parallel(n_jobs=2, backend='threading')(
@@ -599,7 +597,7 @@ def test_backend_context_manager():
             for b in all_backends if not b)
 
         # The default backend is again retored
-        assert_equal(_active_backend_type(), MultiprocessingBackend)
+        assert _active_backend_type() == MultiprocessingBackend
     finally:
         for backend_name in list(BACKENDS.keys()):
             if backend_name.startswith('test_'):
@@ -618,43 +616,43 @@ class ParameterizedParallelBackend(SequentialBackend):
 def test_parameterized_backend_context_manager():
     register_parallel_backend('param_backend', ParameterizedParallelBackend)
     try:
-        assert_equal(_active_backend_type(), MultiprocessingBackend)
+        assert _active_backend_type() == MultiprocessingBackend
 
         with parallel_backend('param_backend', param=42, n_jobs=3):
             active_backend, active_n_jobs = parallel.get_active_backend()
-            assert_equal(type(active_backend), ParameterizedParallelBackend)
-            assert_equal(active_backend.param, 42)
-            assert_equal(active_n_jobs, 3)
+            assert type(active_backend) == ParameterizedParallelBackend
+            assert active_backend.param == 42
+            assert active_n_jobs == 3
             p = Parallel()
-            assert_equal(p.n_jobs, 3)
-            assert_true(p._backend is active_backend)
+            assert p.n_jobs == 3
+            assert p._backend is active_backend
             results = p(delayed(sqrt)(i) for i in range(5))
-        assert_equal(results, [sqrt(i) for i in range(5)])
+        assert results == [sqrt(i) for i in range(5)]
 
         # The default backend is again retored
-        assert_equal(_active_backend_type(), MultiprocessingBackend)
+        assert _active_backend_type() == MultiprocessingBackend
     finally:
         del BACKENDS['param_backend']
 
 
 def test_direct_parameterized_backend_context_manager():
-    assert_equal(_active_backend_type(), MultiprocessingBackend)
+    assert _active_backend_type() == MultiprocessingBackend
 
     # Check that it's possible to pass a backend instance directly,
     # without registration
     with parallel_backend(ParameterizedParallelBackend(param=43), n_jobs=5):
         active_backend, active_n_jobs = parallel.get_active_backend()
-        assert_equal(type(active_backend), ParameterizedParallelBackend)
-        assert_equal(active_backend.param, 43)
-        assert_equal(active_n_jobs, 5)
+        assert type(active_backend) == ParameterizedParallelBackend
+        assert active_backend.param == 43
+        assert active_n_jobs == 5
         p = Parallel()
-        assert_equal(p.n_jobs, 5)
-        assert_true(p._backend is active_backend)
+        assert p.n_jobs == 5
+        assert p._backend is active_backend
         results = p(delayed(sqrt)(i) for i in range(5))
-    assert_equal(results, [sqrt(i) for i in range(5)])
+    assert results == [sqrt(i) for i in range(5)]
 
     # The default backend is again retored
-    assert_equal(_active_backend_type(), MultiprocessingBackend)
+    assert _active_backend_type() == MultiprocessingBackend
 
 
 ###############################################################################
@@ -683,7 +681,7 @@ def check_same_results(params):
     n_tasks = params.pop('n_tasks')
     expected = [square(i) for i in range(n_tasks)]
     results = Parallel(**params)(delayed(square)(i) for i in range(n_tasks))
-    assert_equal(results, expected)
+    assert results == expected
 
 
 def test_dispatch_race_condition():
@@ -717,13 +715,13 @@ def test_default_mp_context():
         if env_method is None:
             # Check the default behavior
             if sys.platform == 'win32':
-                assert_equal(start_method, 'spawn')
+                assert start_method == 'spawn'
             else:
-                assert_equal(start_method, 'fork')
+                assert start_method == 'fork'
         else:
-            assert_equal(start_method, env_method)
+            assert start_method == env_method
     else:
-        assert_equal(context, None)
+        assert context is None
 
 
 @with_multiprocessing
@@ -770,7 +768,7 @@ def test_parallel_with_interactively_defined_functions():
 
 def test_parallel_with_exhausted_iterator():
     exhausted_iterator = iter([])
-    assert_equal(Parallel(n_jobs=2)(exhausted_iterator), [])
+    assert Parallel(n_jobs=2)(exhausted_iterator) == []
 
 
 def check_memmap(a):

@@ -38,11 +38,6 @@ except NameError:
     unicode = lambda s: s
 
 
-def assert_less(a, b):
-    if a > b:
-        raise AssertionError("%r is not lower than %r")
-
-
 ###############################################################################
 # Helper functions for the tests
 def time_func(func, *args):
@@ -113,10 +108,10 @@ def test_trival_hash():
 def test_hash_methods():
     # Check that hashing instance methods works
     a = io.StringIO(unicode('a'))
-    assert_equal(hash(a.flush), hash(a.flush))
+    assert hash(a.flush) == hash(a.flush)
     a1 = collections.deque(range(10))
     a2 = collections.deque(range(9))
-    assert_not_equal(hash(a1.extend), hash(a2.extend))
+    assert hash(a1.extend) != hash(a2.extend)
 
 
 @with_numpy
@@ -152,7 +147,7 @@ def test_numpy_datetime_array():
     a_hash = hash(np.arange(10))
     arrays = (np.arange(0, 10, dtype=dtype) for dtype in dtypes)
     for array in arrays:
-        assert_not_equal(hash(array), a_hash)
+        assert hash(array) != a_hash
 
 
 @with_numpy
@@ -160,10 +155,10 @@ def test_hash_numpy_noncontiguous():
     a = np.asarray(np.arange(6000).reshape((1000, 2, 3)),
                    order='F')[:, :1, :]
     b = np.ascontiguousarray(a)
-    assert_not_equal(hash(a), hash(b))
+    assert hash(a) != hash(b)
 
     c = np.asfortranarray(a)
-    assert_not_equal(hash(a), hash(c))
+    assert hash(a) != hash(c)
 
 
 @with_numpy
@@ -227,7 +222,7 @@ def test_hash_numpy_performance():
     md5_hash = lambda x: hashlib.md5(getbuffer(x)).hexdigest()
 
     relative_diff = relative_time(md5_hash, hash, a)
-    assert_less(relative_diff, 0.3)
+    assert relative_diff < 0.3
 
     # Check that hashing an tuple of 3 arrays takes approximately
     # 3 times as much as hashing one array
@@ -235,7 +230,7 @@ def test_hash_numpy_performance():
     time_hash = time_func(hash, (a, a, a))
     relative_diff = 0.5 * (abs(time_hash - time_hashlib)
                            / (time_hash + time_hashlib))
-    assert_less(relative_diff, 0.3)
+    assert relative_diff < 0.3
 
 
 def test_bound_methods_hash():
@@ -244,8 +239,8 @@ def test_bound_methods_hash():
     """
     a = Klass()
     b = Klass()
-    assert_equal(hash(filter_args(a.f, [], (1, ))),
-                 hash(filter_args(b.f, [], (1, ))))
+    assert (hash(filter_args(a.f, [], (1, ))) ==
+            hash(filter_args(b.f, [], (1, ))))
 
 
 @with_setup(test_memory_setup_func, test_memory_teardown_func)
@@ -255,8 +250,8 @@ def test_bound_cached_methods_hash():
     """
     a = KlassWithCachedMethod()
     b = KlassWithCachedMethod()
-    assert_equal(hash(filter_args(a.f.func, [], (1, ))),
-                 hash(filter_args(b.f.func, [], (1, ))))
+    assert (hash(filter_args(a.f.func, [], (1, ))) ==
+            hash(filter_args(b.f.func, [], (1, ))))
 
 
 @with_numpy
@@ -266,7 +261,7 @@ def test_hash_object_dtype():
     a = np.array([np.arange(i) for i in range(6)], dtype=object)
     b = np.array([np.arange(i) for i in range(6)], dtype=object)
 
-    assert_equal(hash(a), hash(b))
+    assert hash(a) == hash(b)
 
 
 @with_numpy
@@ -275,7 +270,7 @@ def test_numpy_scalar():
     # strange pickling paths explored, that can give hash collisions
     a = np.float64(2.0)
     b = np.float64(3.0)
-    assert_not_equal(hash(a), hash(b))
+    assert hash(a) != hash(b)
 
 
 @with_setup(test_memory_setup_func, test_memory_teardown_func)
@@ -301,7 +296,7 @@ def test_dict_hash():
     a = k.f(d)
     b = k.f(a)
 
-    assert_equal(hash(a), hash(b))
+    assert hash(a) == hash(b)
 
 
 @with_setup(test_memory_setup_func, test_memory_teardown_func)
@@ -327,7 +322,7 @@ def test_set_hash():
     a = k.f(s)
     b = k.f(a)
 
-    assert_equal(hash(a), hash(b))
+    assert hash(a) == hash(b)
 
 
 if not PY26:
@@ -335,8 +330,8 @@ if not PY26:
     def test_set_decimal_hash():
         # Check that sets containing decimals hash consistently, even though
         # ordering is not guaranteed
-        assert_equal(hash(set([Decimal(0), Decimal('NaN')])),
-                     hash(set([Decimal('NaN'), Decimal(0)])))
+        assert (hash(set([Decimal(0), Decimal('NaN')])) ==
+                hash(set([Decimal('NaN'), Decimal(0)])))
 
 
 def test_string():
@@ -346,7 +341,7 @@ def test_string():
     a = {string: 'bar'}
     b = {string: 'bar'}
     c = pickle.loads(pickle.dumps(b))
-    assert_equal(hash([a, b]), hash([a, c]))
+    assert hash([a, b]) == hash([a, c])
 
 
 @with_numpy
@@ -357,7 +352,7 @@ def test_dtype():
     a = np.dtype([('f1', np.uint), ('f2', np.int32)])
     b = a
     c = pickle.loads(pickle.dumps(a))
-    assert_equal(hash([a, c]), hash([a, b]))
+    assert hash([a, c]) == hash([a, b])
 
 
 def test_hashes_stay_the_same():
@@ -403,7 +398,7 @@ def test_hashes_are_different_between_c_and_fortran_contiguous_arrays():
     rng = np.random.RandomState(0)
     arr_c = rng.random_sample((10, 10))
     arr_f = np.asfortranarray(arr_c)
-    assert_not_equal(hash(arr_c), hash(arr_f))
+    assert hash(arr_c) != hash(arr_f)
 
 
 @with_numpy
@@ -413,7 +408,7 @@ def test_0d_array():
 
 @with_numpy
 def test_0d_and_1d_array_hashing_is_different():
-    assert_not_equal(hash(np.array(0)), hash(np.array([0])))
+    assert hash(np.array(0)) != hash(np.array([0]))
 
 
 @with_numpy
