@@ -586,7 +586,7 @@ def test_backend_context_manager():
         assert _active_backend_type() == MultiprocessingBackend
         # check that this possible to switch parallel backends sequentially
         for test_backend in all_backends:
-            yield check_backend_context_manager, test_backend
+            check_backend_context_manager(test_backend)
 
         # The default backend is retored
         assert _active_backend_type() == MultiprocessingBackend
