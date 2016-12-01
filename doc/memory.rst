@@ -325,9 +325,10 @@ Gotchas
     0.0
 
 * **caching methods**: you cannot decorate a method at class definition,
-  because when the class is instantiated, the first argument (self) is
-  *bound*, and no longer accessible to the `Memory` object. The following
-  code won't work::
+  because when the class is instantiated, the first argument (`self`) is
+  *bound*, and no longer accessible to the `Memory` object. Thus the
+  following code will raise an error when you try to call `method` on
+  an object of type `Foo`::
 
     class Foo(object):
 
@@ -344,6 +345,14 @@ Gotchas
 
         def method(self, ...):
 	    pass
+
+  Note that the first argument (`self`) will **not** be checked as
+  part of the caching. In other words, if you have two different
+  instances `foo1`, `foo2` which are both of type `Foo` and you call
+  `foo2.method` after `foo1.method` with the same arguments then the
+  second call will return the previously cached result, even though
+  `foo1` and `foo2` are different objects.
+
 
 Ignoring some arguments
 ------------------------
