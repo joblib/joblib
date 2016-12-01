@@ -75,7 +75,7 @@ if [ -n "$NUMPY_VERSION" ]; then
 fi
 
 if [[ "$COVERAGE" == "true" ]]; then
-    pip install coverage coveralls
+    pip install pytest-cov coverage coveralls
 fi
 
 python setup.py install

@@ -25,5 +25,11 @@ if [[ "$SKIP_TESTS" != "true" ]]; then
         cat setup.cfg | grep -v '    --doctest' > setup.cfg.new
         mv setup.cfg{.new,}
     fi
+
+    if [ "$COVERAGE" == "true" ]; then
+        # Add coverage option to setup.cfg file if current test run
+        # has to generate report for coveralls ...
+        sed -i '/addopts/a\    --cov="joblib"' setup.cfg
+    fi
     make
 fi
