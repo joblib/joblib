@@ -219,10 +219,6 @@ def test_memory_name_collision():
 
     b = name_collision
 
-    if not hasattr(warnings, 'catch_warnings'):
-        # catch_warnings is new in Python 2.6
-        return
-
     with warnings.catch_warnings(record=True) as w:
         # Cause all warnings to always be triggered.
         warnings.simplefilter("always")
@@ -273,10 +269,6 @@ def test_memory_warning_collision_detection():
     a1 = memory.cache(a1)
     b1 = eval('lambda x: x+1')
     b1 = memory.cache(b1)
-
-    if not hasattr(warnings, 'catch_warnings'):
-        # catch_warnings is new in Python 2.6
-        return
 
     with warnings.catch_warnings(record=True) as w:
         # Cause all warnings to always be triggered.

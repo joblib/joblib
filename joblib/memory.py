@@ -945,7 +945,7 @@ class Memory(Logger):
 
             for cache_item in cache_items_to_delete:
                 if self._verbose > 10:
-                    print('Deleting cache item {0}'.format(cache_item))
+                    print('Deleting cache item {}'.format(cache_item))
                 try:
                     shutil.rmtree(cache_item.path, ignore_errors=True)
                 except OSError:

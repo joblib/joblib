@@ -190,7 +190,7 @@ def _signature_str(function_name, arg_spec):
     arg_spec_for_format = arg_spec[:7 if PY3_OR_LATER else 4]
 
     arg_spec_str = inspect.formatargspec(*arg_spec_for_format)
-    return '{0}{1}'.format(function_name, arg_spec_str)
+    return '{}{}'.format(function_name, arg_spec_str)
 
 
 def _function_called_str(function_name, args, kwargs):

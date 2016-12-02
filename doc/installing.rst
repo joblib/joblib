@@ -17,7 +17,7 @@ You can use `pip` to install joblib::
 
     pip install --prefix /usr/local joblib
 
-* Installing only for a specific user is easy if you use Python 2.6 or
+* Installing only for a specific user is easy if you use Python 2.7 or
   above::
 
     pip install --user joblib

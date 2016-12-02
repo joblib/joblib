@@ -138,16 +138,16 @@ def print_bench_summary(args):
     """Nice bench summary function."""
     summary = """Benchmark summary:
     - Global values:
-        . Joblib version: {0}
-        . Number of tries to compute mean execution time: {1}
-        . Compression levels   : {2}
-        . Compression algorithm: {3}
-        . Memory map mode      : {4}
-        . Bench nifti data     : {5}
-        . Bench big array      : {6}
-        . Bench 2 big arrays   : {7}
-        . Bench big dictionary: {8}
-        . Bench array+dict     : {9}
+        . Joblib version: {}
+        . Number of tries to compute mean execution time: {}
+        . Compression levels   : {}
+        . Compression algorithm: {}
+        . Memory map mode      : {}
+        . Bench nifti data     : {}
+        . Bench big array      : {}
+        . Bench 2 big arrays   : {}
+        . Bench big dictionary: {}
+        . Bench array+dict     : {}
 """.format(joblib.__version__,
            args.tries,
            ", ".join(map(str, args.compress)),
@@ -164,32 +164,32 @@ def print_bench_summary(args):
         size = round(np.multiply.reduce(shape) * 8 / 1024 ** 2, 1)
         summary += """
     - Big array:
-        . shape: {0}
-        . size in memory: {1} MB
+        . shape: {}
+        . size in memory: {} MB
 """.format(str(shape), size)
 
     if args.dict:
         summary += """
     - Big dictionary:
-        . number of keys: {0}
-        . value type: {1}
+        . number of keys: {}
+        . value type: {}
 """.format(args.size, 'np.ndarray'
            if args.valuearray else 'str'
             if args.valuestring else 'int')
         if args.valuearray:
-            summary += """        . arrays shape: {0}
+            summary += """        . arrays shape: {}
 """.format(str(tuple(args.valuearrayshape)))
 
     if args.list:
         summary += """
     - Big list:
-        . number of elements: {0}
-        . value type: {1}
+        . number of elements: {}
+        . value type: {}
 """.format(args.size, 'np.ndarray'
            if args.valuearray else 'str'
             if args.valuestring else 'int')
         if args.valuearray:
-            summary += """        . arrays shape: {0}
+            summary += """        . arrays shape: {}
 """.format(str(tuple(args.valuearrayshape)))
 
     print(summary)
@@ -200,7 +200,7 @@ def bench_compress(dataset, name='',
     """Bench joblib dump and load functions, compress modes."""
     # generate output compression strategy string before joblib compatibility
     # check as it may override the compress variable with a non tuple type.
-    compress_str = "Raw" if compress[1] == 0 else "{0} {1}".format(*compress)
+    compress_str = "Raw" if compress[1] == 0 else "{} {}".format(*compress)
 
     # joblib versions prior to 0.10 doesn't support tuple in compress argument
     # so only the second element of the tuple is used for those versions
