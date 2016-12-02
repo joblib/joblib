@@ -3,6 +3,7 @@
 
     >>> from joblib.testing import warnings_to_stdout
     >>> warnings_to_stdout()
+    >>> fixture = getfixture('persistence_fixture')
 
 .. _persistence:
 
@@ -18,6 +19,7 @@ Usecase
 :func:`joblib.dump` and :func:`joblib.load` provide a replacement for
 pickle to work efficiently on Python objects containing large data, in
 particular large numpy arrays.
+
 
 A simple example
 ================

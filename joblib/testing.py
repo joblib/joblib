@@ -11,7 +11,7 @@ import threading
 import unittest
 
 import nose
-
+import pytest
 
 from joblib._compat import PY3_OR_LATER
 
@@ -43,7 +43,10 @@ except AttributeError:
             raise AssertionError("Should have raised %r" %
                                  expected_exception(expected_regexp))
 
-SkipTest = unittest.case.SkipTest
+SkipTest = pytest.skip
+skipif = pytest.mark.skipif
+
+fixture = pytest.fixture
 with_setup = nose.tools.with_setup
 
 
