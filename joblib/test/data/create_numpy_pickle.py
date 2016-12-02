@@ -5,7 +5,7 @@ This script is used to generate test data for joblib/test/test_numpy_pickle.py
 import sys
 import re
 
-# nosetests needs to be able to import this module even when numpy is
+# pytest needs to be able to import this module even when numpy is
 # not installed
 try:
     import numpy as np

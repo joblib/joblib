@@ -12,6 +12,7 @@ import unittest
 
 import nose
 import pytest
+import _pytest
 
 from joblib._compat import PY3_OR_LATER
 
@@ -43,11 +44,15 @@ except AttributeError:
             raise AssertionError("Should have raised %r" %
                                  expected_exception(expected_regexp))
 
-SkipTest = pytest.skip
-skipif = pytest.mark.skipif
+try:
+    SkipTest = unittest.case.SkipTest
+except AttributeError:
+    SkipTest = _pytest.runner.Skipped
 
-fixture = pytest.fixture
+skipif = pytest.mark.skipif
 with_setup = nose.tools.with_setup
+fixture = pytest.fixture
+parametrize = pytest.mark.parametrize
 
 
 def warnings_to_stdout():
