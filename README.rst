@@ -43,10 +43,10 @@ request to the main repository.
 Running the test suite
 =========================
 
-To run the test suite, you need the nose and coverage modules.
+To run the test suite, you need the pytest and coverage modules.
 Run the test suite using::
 
-    nosetests joblib
+    py.test joblib
 
 from the root of the project.
 
