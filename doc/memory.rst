@@ -205,7 +205,7 @@ Getting a reference to the cache can be done using the
 
     >>> result = g.call_and_shelve(4)
     A long-running calculation, with parameter 4
-    >>> result  #doctest: +ELLIPSIS 
+    >>> result  #doctest: +ELLIPSIS
     MemorizedResult(cachedir="...", func="g...", argument_hash="...")
 
 Once computed, the output of `g` is stored on disk, and deleted from
@@ -254,7 +254,7 @@ Gotchas
     ...     print('Running func(%s)' % x)
 
     >>> func2 = func
-    
+
     >>> @memory.cache
     ... def func(x):
     ...     print('Running a different func(%s)' % x)
@@ -297,7 +297,7 @@ Gotchas
 
 * **lambda functions**
 
-  Beware that with Python 2.6 lambda functions cannot be separated out::
+  Beware that with Python 2.7 lambda functions cannot be separated out::
 
     >>> def my_print(x):
     ...     print(x)
