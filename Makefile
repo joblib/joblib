@@ -1,10 +1,9 @@
 
 
-all: test 
+all: test
 
 test:
-	py.test --pyargs joblib
+	py.test joblib
 
 test-no-multiprocessing:
-	export JOBLIB_MULTIPROCESSING=0 && py.test --pyargs joblib
-
+	export JOBLIB_MULTIPROCESSING=0 && py.test joblib

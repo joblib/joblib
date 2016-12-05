@@ -1,4 +1,3 @@
-from joblib import _compat
 from joblib.parallel import mp
 from joblib.test.common import np, setup_autokill, teardown_autokill
 from joblib.testing import skipif, fixture
