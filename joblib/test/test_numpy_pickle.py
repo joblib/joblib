@@ -450,7 +450,10 @@ def _check_pickle(filename, expected_list):
     if pickle_reading_protocol >= pickle_writing_protocol:
         try:
             with warnings.catch_warnings(record=True) as caught_warnings:
-                warnings.simplefilter("always")
+                warnings.simplefilter('always')
+                warnings.filterwarnings(
+                    'ignore', module='numpy',
+                    message='The compiler package is deprecated')
                 result_list = numpy_pickle.load(filename)
                 expected_nb_warnings = 1 if ("0.9" in filename or
                                              "0.8.4" in filename) else 0
