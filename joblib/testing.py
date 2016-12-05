@@ -61,7 +61,7 @@ def warnings_to_stdout():
         showwarning_orig(msg, cat, os.path.basename(fname), line, sys.stdout)
 
     warnings.showwarning = showwarning
-    #warnings.simplefilter('always')
+    # warnings.simplefilter('always')
 
 
 def check_subprocess_call(cmd, timeout=1, stdout_regex=None,
@@ -86,20 +86,20 @@ def check_subprocess_call(cmd, timeout=1, stdout_regex=None,
             stdout, stderr = stdout.decode(), stderr.decode()
         if proc.returncode != 0:
             message = (
-                'Non-zero return code: {0}.\nStdout:\n{1}\n'
-                'Stderr:\n{2}').format(
+                'Non-zero return code: {}.\nStdout:\n{}\n'
+                'Stderr:\n{}').format(
                     proc.returncode, stdout, stderr)
             raise ValueError(message)
 
         if (stdout_regex is not None and
                 not re.search(stdout_regex, stdout)):
             raise ValueError(
-                "Unexpected stdout: {0!r} does not match:\n{1!r}".format(
+                "Unexpected stdout: {!r} does not match:\n{!r}".format(
                     stdout_regex, stdout))
         if (stderr_regex is not None and
                 not re.search(stderr_regex, stderr)):
             raise ValueError(
-                "Unexpected stderr: {0!r} does not match:\n{1!r}".format(
+                "Unexpected stderr: {!r} does not match:\n{!r}".format(
                     stderr_regex, stderr))
 
     finally:

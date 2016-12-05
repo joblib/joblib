@@ -28,7 +28,7 @@ from joblib.test.test_memory import setup_module as test_memory_setup_func
 from joblib.test.test_memory import teardown_module as test_memory_teardown_func
 from joblib.test.common import np, with_numpy
 from joblib.my_exceptions import TransportableException
-from joblib._compat import PY3_OR_LATER, PY26
+from joblib._compat import PY3_OR_LATER
 
 
 try:
@@ -325,13 +325,12 @@ def test_set_hash():
     assert hash(a) == hash(b)
 
 
-if not PY26:
-    @with_setup(test_memory_setup_func, test_memory_teardown_func)
-    def test_set_decimal_hash():
-        # Check that sets containing decimals hash consistently, even though
-        # ordering is not guaranteed
-        assert (hash(set([Decimal(0), Decimal('NaN')])) ==
-                hash(set([Decimal('NaN'), Decimal(0)])))
+@with_setup(test_memory_setup_func, test_memory_teardown_func)
+def test_set_decimal_hash():
+    # Check that sets containing decimals hash consistently, even though
+    # ordering is not guaranteed
+    assert (hash(set([Decimal(0), Decimal('NaN')])) ==
+            hash(set([Decimal('NaN'), Decimal(0)])))
 
 
 def test_string():

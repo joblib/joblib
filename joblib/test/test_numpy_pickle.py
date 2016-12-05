@@ -27,7 +27,7 @@ from joblib.testing import (assert_equal, assert_raises, assert_raises_regex,
 from joblib import numpy_pickle
 from joblib.test import data
 
-from joblib._compat import PY3_OR_LATER, PY26
+from joblib._compat import PY3_OR_LATER
 from joblib.numpy_pickle_utils import _IO_BUFFER_SIZE, BinaryZlibFile
 from joblib.numpy_pickle_utils import _detect_compressor, _COMPRESSORS
 
@@ -450,7 +450,10 @@ def _check_pickle(filename, expected_list):
     if pickle_reading_protocol >= pickle_writing_protocol:
         try:
             with warnings.catch_warnings(record=True) as caught_warnings:
-                warnings.simplefilter("always")
+                warnings.simplefilter('always')
+                warnings.filterwarnings(
+                    'ignore', module='numpy',
+                    message='The compiler package is deprecated')
                 result_list = numpy_pickle.load(filename)
                 expected_nb_warnings = 1 if ("0.9" in filename or
                                              "0.8.4" in filename) else 0
@@ -546,13 +549,13 @@ def test_compress_tuple_argument():
                         compress=('zlib', 3, 'extra'))
 
     # Verify a tuple with a wrong compress method raises a ValueError.
-    msg = 'Non valid compression method given: "{0}"'.format('wrong')
+    msg = 'Non valid compression method given: "{}"'.format('wrong')
     assert_raises_regex(ValueError, msg,
                         numpy_pickle.dump, "dummy", filename,
                         compress=('wrong', 3))
 
     # Verify a tuple with a wrong compress level raises a ValueError.
-    msg = 'Non valid compress level given: "{0}"'.format('wrong')
+    msg = 'Non valid compress level given: "{}"'.format('wrong')
     assert_raises_regex(ValueError, msg,
                         numpy_pickle.dump, "dummy", filename,
                         compress=('zlib', 'wrong'))
@@ -572,7 +575,7 @@ def test_joblib_compression_formats():
             for obj in objects:
                 if not PY3_OR_LATER and cmethod in ('xz', 'lzma'):
                     # Lzma module only available for python >= 3.3
-                    msg = "{0} compression is only available".format(cmethod)
+                    msg = "{} compression is only available".format(cmethod)
                     assert_raises_regex(NotImplementedError, msg,
                                         numpy_pickle.dump, obj, dump_filename,
                                         compress=(cmethod, compress))
@@ -656,7 +659,7 @@ def test_compression_using_file_extension():
         dump_fname = filename + ext
         if not PY3_OR_LATER and cmethod in ('xz', 'lzma'):
             # Lzma module only available for python >= 3.3
-            msg = "{0} compression is only available".format(cmethod)
+            msg = "{} compression is only available".format(cmethod)
             assert_raises_regex(NotImplementedError, msg,
                                 numpy_pickle.dump, obj, dump_fname)
         else:
@@ -676,9 +679,7 @@ def test_file_handle_persistence():
     objs = [np.random.random((10, 10)),
             "some data",
             np.matrix([0, 1, 2])]
-    fobjs = [open]
-    if not PY26:
-        fobjs += [bz2.BZ2File, gzip.GzipFile]
+    fobjs = [bz2.BZ2File, gzip.GzipFile]
     if PY3_OR_LATER:
         import lzma
         fobjs += [lzma.LZMAFile]
@@ -796,7 +797,7 @@ def test_binary_zlibfile():
 
     for d in (b'a little data as bytes.',
               # More bytes
-              10000 * "{0}"
+              10000 * "{}"
               .format(random.randint(0, 1000) * 1000).encode('latin-1')):
         # Regular cases
         for compress_level in (1, 3, 9):

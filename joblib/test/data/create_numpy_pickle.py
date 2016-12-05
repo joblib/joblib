@@ -46,14 +46,14 @@ def write_test_pickle(to_pickle, args):
             extension = '.gz'
         else:
             kwargs['compress'] = (method, 3)
-            extension = '.pkl.{0}'.format(method)
+            extension = '.pkl.{}'.format(method)
         if args.cache_size:
             kwargs['cache_size'] = 0
             body += '_cache_size'
     else:
         extension = '.pkl'
 
-    pickle_filename = 'joblib_{0}{1}_pickle_py{2}_np{3}{4}'.format(
+    pickle_filename = 'joblib_{}{}_pickle_py{}_np{}{}'.format(
         joblib_version, body, py_version, numpy_version, extension)
 
     try:
@@ -61,10 +61,10 @@ def write_test_pickle(to_pickle, args):
     except Exception as e:
         # With old python version (=< 3.3.), we can arrive there when
         # dumping compressed pickle with LzmaFile.
-        print("Error: cannot generate file '{0}' with arguments '{1}'. "
-              "Error was: {2}".format(pickle_filename, kwargs, e))
+        print("Error: cannot generate file '{}' with arguments '{}'. "
+              "Error was: {}".format(pickle_filename, kwargs, e))
     else:
-        print("File '{0}' generated successfuly.".format(pickle_filename))
+        print("File '{}' generated successfuly.".format(pickle_filename))
 
 if __name__ == '__main__':
     import argparse

@@ -13,7 +13,7 @@ import warnings
 import contextlib
 from contextlib import closing
 
-from ._compat import PY3_OR_LATER, PY26, PY27, _basestring
+from ._compat import PY3_OR_LATER, PY27, _basestring
 
 try:
     from threading import RLock
@@ -126,8 +126,7 @@ def _detect_compressor(fileobj):
 
 def _buffered_read_file(fobj):
     """Return a buffered version of a read file object."""
-    if PY26 or (PY27 and bz2 is not None and isinstance(fobj, bz2.BZ2File)):
-        # Python 2.6 doesn't fully support io.BufferedReader.
+    if PY27 and bz2 is not None and isinstance(fobj, bz2.BZ2File):
         # Python 2.7 doesn't work with BZ2File through a buffer: "no
         # attribute 'readable'" error.
         return fobj
@@ -137,8 +136,7 @@ def _buffered_read_file(fobj):
 
 def _buffered_write_file(fobj):
     """Return a buffered version of a write file object."""
-    if PY26 or (PY27 and bz2 is not None and isinstance(fobj, bz2.BZ2File)):
-        # Python 2.6 doesn't fully support io.BufferedWriter.
+    if PY27 and bz2 is not None and isinstance(fobj, bz2.BZ2File):
         # Python 2.7 doesn't work with BZ2File through a buffer: no attribute
         # 'writable'.
         # BZ2File doesn't implement the file object context manager in python 2
@@ -213,7 +211,7 @@ def _read_fileobject(fileobj, filename, mmap_mode=None):
             else:
                 raise NotImplementedError("Lzma decompression is not "
                                           "supported for this version of "
-                                          "python ({0}.{1})"
+                                          "python ({}.{})"
                                           .format(sys.version_info[0],
                                                   sys.version_info[1]))
         # Checking if incompatible load parameters with the type of file:
@@ -281,7 +279,7 @@ class BinaryZlibFile(io.BufferedIOBase):
     is returned as bytes, and data to be written should be given as bytes.
 
     This object is an adaptation of the BZ2File object and is compatible with
-    versions of python >= 2.6.
+    versions of python >= 2.7.
 
     If filename is a str or bytes object, it gives the name
     of the file to be opened. Otherwise, it should be a file object,
@@ -308,7 +306,7 @@ class BinaryZlibFile(io.BufferedIOBase):
 
         if not isinstance(compresslevel, int) or not (1 <= compresslevel <= 9):
             raise ValueError("compresslevel must be between an integer "
-                             "between 1 and 9, you gave {0}"
+                             "between 1 and 9, you gave {}"
                              .format(compresslevel))
 
         if mode == "rb":
@@ -394,7 +392,7 @@ class BinaryZlibFile(io.BufferedIOBase):
             fname = getattr(self._fp, 'name', None)
             msg = "I/O operation on closed file"
             if fname is not None:
-                msg += " {0}".format(fname)
+                msg += " {}".format(fname)
             msg += "."
             raise ValueError(msg)
 
@@ -519,7 +517,7 @@ class BinaryZlibFile(io.BufferedIOBase):
         with self._lock:
             self._check_can_write()
             # Convert data type if called by io.BufferedWriter.
-            if not PY26 and isinstance(data, memoryview):
+            if isinstance(data, memoryview):
                 data = data.tobytes()
 
             compressed = self._compressor.compress(data)

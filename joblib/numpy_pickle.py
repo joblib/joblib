@@ -409,7 +409,7 @@ def dump(value, filename, compress=0, protocol=None, cache_size=None):
         if len(compress) != 2:
             raise ValueError(
                 'Compress argument tuple should contain exactly 2 elements: '
-                '(compress method, compress level), you passed {0}'
+                '(compress method, compress level), you passed {}'
                 .format(compress))
         compress_method, compress_level = compress
     else:
@@ -418,14 +418,14 @@ def dump(value, filename, compress=0, protocol=None, cache_size=None):
     if compress_level is not False and compress_level not in range(10):
         # Raising an error if a non valid compress level is given.
         raise ValueError(
-            'Non valid compress level given: "{0}". Possible values are '
-            '{1}.'.format(compress_level, list(range(10))))
+            'Non valid compress level given: "{}". Possible values are '
+            '{}.'.format(compress_level, list(range(10))))
 
     if compress_method not in _COMPRESSORS:
         # Raising an error if an unsupported compression method is given.
         raise ValueError(
-            'Non valid compression method given: "{0}". Possible values are '
-            '{1}.'.format(compress_method, _COMPRESSORS))
+            'Non valid compression method given: "{}". Possible values are '
+            '{}.'.format(compress_method, _COMPRESSORS))
 
     if not is_filename and not is_fileobj:
         # People keep inverting arguments, and the resulting error is
@@ -461,17 +461,17 @@ def dump(value, filename, compress=0, protocol=None, cache_size=None):
             compress_level = 3
 
     if not PY3_OR_LATER and compress_method in ('lzma', 'xz'):
-        raise NotImplementedError("{0} compression is only available for "
+        raise NotImplementedError("{} compression is only available for "
                                   "python version >= 3.3. You are using "
-                                  "{1}.{2}".format(compress_method,
-                                                   sys.version_info[0],
-                                                   sys.version_info[1]))
+                                  "{}.{}".format(compress_method,
+                                                 sys.version_info[0],
+                                                 sys.version_info[1]))
 
     if cache_size is not None:
         # Cache size is deprecated starting from version 0.10
         warnings.warn("Please do not set 'cache_size' in joblib.dump, "
                       "this parameter has no effect and will be removed. "
-                      "You used 'cache_size={0}'".format(cache_size),
+                      "You used 'cache_size={}'".format(cache_size),
                       DeprecationWarning, stacklevel=2)
 
     if compress_level != 0:
