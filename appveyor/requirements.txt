@@ -2,6 +2,5 @@
 # force numpy version to use the wheel hosted on rackspace instead of
 # tarball from PyPI
 numpy==1.9.2
-nose
 wheel
 pytest
