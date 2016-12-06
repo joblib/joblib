@@ -9,7 +9,7 @@ import sys
 import gc
 
 from joblib._multiprocessing_helpers import mp
-from joblib.testing import SkipTest, with_setup
+from joblib.testing import SkipTest, skipif
 
 
 # A decorator to run tests only when numpy is available
@@ -94,17 +94,9 @@ def teardown_autokill(module_name):
         killer.cancel()
 
 
-def check_multiprocessing():
-    if mp is None:
-        raise SkipTest('Need multiprocessing to run')
+with_multiprocessing = skipif(
+    mp is None, reason='Needs multiprocessing to run.')
 
-
-with_multiprocessing = with_setup(check_multiprocessing)
-
-
-def setup_if_has_dev_shm():
-    if not os.path.exists('/dev/shm'):
-        raise SkipTest("This test requires the /dev/shm shared memory fs.")
-
-
-with_dev_shm = with_setup(setup_if_has_dev_shm)
+with_dev_shm = skipif(
+    not os.path.exists('/dev/shm'),
+    reason='This test requires the /dev/shm shared memory fs.')
