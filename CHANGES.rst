@@ -6,6 +6,10 @@ master
 
 Alexandre Abadie
 
+    Remove support for python 2.6
+
+Alexandre Abadie
+
     Remove deprecated `format_signature`, `format_call` and `load_output`
     functions from Memory API.
 

@@ -43,12 +43,7 @@ except AttributeError:
             raise AssertionError("Should have raised %r" %
                                  expected_exception(expected_regexp))
 
-try:
-    SkipTest = unittest.case.SkipTest
-except AttributeError:
-    # Python <= 2.6, we still need nose here
-    SkipTest = nose.SkipTest
-
+SkipTest = unittest.case.SkipTest
 with_setup = nose.tools.with_setup
 
 
