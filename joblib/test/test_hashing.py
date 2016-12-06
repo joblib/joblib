@@ -22,10 +22,7 @@ from joblib.hashing import hash
 from joblib.func_inspect import filter_args
 from joblib.memory import Memory
 from joblib.testing import (assert_equal, assert_not_equal,
-                            assert_raises_regex, SkipTest, with_setup)
-from joblib.test.test_memory import env as test_memory_env
-from joblib.test.test_memory import setup_module as test_memory_setup_func
-from joblib.test.test_memory import teardown_module as test_memory_teardown_func
+                            assert_raises_regex, SkipTest, fixture)
 from joblib.test.common import np, with_numpy
 from joblib.my_exceptions import TransportableException
 from joblib._compat import PY3_OR_LATER
@@ -36,6 +33,11 @@ try:
     unicode('str')
 except NameError:
     unicode = lambda s: s
+
+
+@fixture(scope='function')
+def tmpdir_path(tmpdir):
+    return tmpdir.strpath
 
 
 ###############################################################################
@@ -70,8 +72,8 @@ class Klass(object):
 
 class KlassWithCachedMethod(object):
 
-    def __init__(self):
-        mem = Memory(cachedir=test_memory_env['dir'])
+    def __init__(self, tmpdir_path):
+        mem = Memory(cachedir=tmpdir_path)
         self.f = mem.cache(self.f)
 
     def f(self, x):
@@ -243,13 +245,12 @@ def test_bound_methods_hash():
             hash(filter_args(b.f, [], (1, ))))
 
 
-@with_setup(test_memory_setup_func, test_memory_teardown_func)
-def test_bound_cached_methods_hash():
+def test_bound_cached_methods_hash(tmpdir_path):
     """ Make sure that calling the same _cached_ method on two different
     instances of the same class does resolve to the same hashes.
     """
-    a = KlassWithCachedMethod()
-    b = KlassWithCachedMethod()
+    a = KlassWithCachedMethod(tmpdir_path)
+    b = KlassWithCachedMethod(tmpdir_path)
     assert (hash(filter_args(a.f.func, [], (1, ))) ==
             hash(filter_args(b.f.func, [], (1, ))))
 
@@ -273,11 +274,10 @@ def test_numpy_scalar():
     assert hash(a) != hash(b)
 
 
-@with_setup(test_memory_setup_func, test_memory_teardown_func)
-def test_dict_hash():
+def test_dict_hash(tmpdir_path):
     # Check that dictionaries hash consistently, eventhough the ordering
     # of the keys is not garanteed
-    k = KlassWithCachedMethod()
+    k = KlassWithCachedMethod(tmpdir_path)
 
     d = {'#s12069__c_maps.nii.gz': [33],
          '#s12158__c_maps.nii.gz': [33],
@@ -299,11 +299,10 @@ def test_dict_hash():
     assert hash(a) == hash(b)
 
 
-@with_setup(test_memory_setup_func, test_memory_teardown_func)
-def test_set_hash():
+def test_set_hash(tmpdir_path):
     # Check that sets hash consistently, even though their ordering
     # is not guaranteed
-    k = KlassWithCachedMethod()
+    k = KlassWithCachedMethod(tmpdir_path)
 
     s = set(['#s12069__c_maps.nii.gz',
              '#s12158__c_maps.nii.gz',
@@ -325,7 +324,6 @@ def test_set_hash():
     assert hash(a) == hash(b)
 
 
-@with_setup(test_memory_setup_func, test_memory_teardown_func)
 def test_set_decimal_hash():
     # Check that sets containing decimals hash consistently, even though
     # ordering is not guaranteed
