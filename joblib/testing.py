@@ -44,15 +44,10 @@ except AttributeError:
             raise AssertionError("Should have raised %r" %
                                  expected_exception(expected_regexp))
 
-try:
-    SkipTest = unittest.case.SkipTest
-except AttributeError:
-    SkipTest = _pytest.runner.Skipped
-
+SkipTest = _pytest.runner.Skipped
 skipif = pytest.mark.skipif
 with_setup = nose.tools.with_setup
 fixture = pytest.fixture
-parametrize = pytest.mark.parametrize
 
 
 def warnings_to_stdout():

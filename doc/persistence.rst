@@ -20,7 +20,6 @@ Usecase
 pickle to work efficiently on Python objects containing large data, in
 particular large numpy arrays.
 
-
 A simple example
 ================
 

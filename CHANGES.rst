@@ -26,6 +26,11 @@ Olivier Grisel
     thread is not the Python default. Thanks to Roman Yurchak for the
     suggestion.
 
+Karan Desai
+
+    py.test is used to run the tests and not nosetests anymore.
+    `python setup.py test` or `python setup.py nosetests` does not exist
+    anymore, run `py.test joblib` instead.
 
 Release 0.10.3
 --------------
