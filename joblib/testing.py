@@ -10,7 +10,6 @@ import subprocess
 import threading
 import unittest
 
-import nose
 import pytest
 import _pytest
 
@@ -32,7 +31,6 @@ except AttributeError:
 
 SkipTest = _pytest.runner.Skipped
 skipif = pytest.mark.skipif
-with_setup = nose.tools.with_setup
 fixture = pytest.fixture
 
 
