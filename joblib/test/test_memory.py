@@ -229,8 +229,8 @@ def test_memory_name_collision():
         a(1)
         b(1)
 
-        yield assert_equal, len(w), 1
-        yield assert_true, "collision" in str(w[-1].message)
+        assert len(w) == 1
+        assert "collision" in str(w[-1].message)
 
 
 def test_memory_warning_lambda_collisions():
@@ -281,8 +281,8 @@ def test_memory_warning_collision_detection():
         b1(1)
         a1(0)
 
-        yield assert_equal, len(w), 2
-        yield assert_true, "cannot detect" in str(w[-1].message).lower()
+        assert len(w) == 2
+        assert "cannot detect" in str(w[-1].message).lower()
 
 
 def test_memory_partial():

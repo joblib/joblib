@@ -23,7 +23,7 @@ install:
   - "python setup.py bdist_wheel"
   - ps: "ls dist"
 
-  # Install the genreated wheel package to test it
+  # Install the generated wheel package to test it
   - "pip install --pre --no-index --find-links dist/ joblib"
 
 # Not a .NET project, we build in the install step instead
@@ -33,7 +33,7 @@ test_script:
   # Change to a non-source folder to make sure we run the tests on the
   # installed library.
   - "cd C:\\"
-  - "python -c \"import nose; nose.main()\" -v -s joblib"
+  - "py.test --pyargs joblib"
 
 artifacts:
   # Archive the generated wheel package in the ci.appveyor.com build report.

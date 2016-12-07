@@ -6,30 +6,16 @@ import sys
 import joblib
 
 # For some commands, use setuptools
-if len(set(('develop', 'sdist', 'release', 'bdist_egg', 'bdist_rpm',
-            'bdist', 'bdist_dumb', 'bdist_wininst', 'install_egg_info',
+if len(set(('develop', 'sdist', 'release', 'bdist', 'bdist_egg', 'bdist_dumb',
+            'bdist_rpm', 'bdist_wheel', 'bdist_wininst', 'install_egg_info',
             'build_sphinx', 'egg_info', 'easy_install', 'upload',
             )).intersection(sys.argv)) > 0:
     import setuptools
 
 extra_setuptools_args = {}
 
-# if nose available, provide test command
-try:
-    from nose.commands import nosetests
-    cmdclass = extra_setuptools_args.pop('cmdclass', {})
-    cmdclass['test'] = nosetests
-    cmdclass['nosetests'] = nosetests
-    extra_setuptools_args['cmdclass'] = cmdclass
-except ImportError:
-    pass
-
 
 if __name__ == '__main__':
-    # Protect the call to the setup function to prevent a fork-bomb
-    # when running the tests with:
-    # python setup.py nosetests
-
     setup(name='joblib',
           version=joblib.__version__,
           author='Gael Varoquaux',

@@ -1,13 +1,11 @@
 import os
-import shutil
-import tempfile
 
 from joblib.test.common import with_numpy, np
 from joblib.test.common import setup_autokill
 from joblib.test.common import teardown_autokill
 from joblib.test.common import with_multiprocessing
 from joblib.test.common import with_dev_shm
-from joblib.testing import assert_raises, with_setup
+from joblib.testing import assert_raises, fixture
 
 
 from joblib._multiprocessing_helpers import mp
@@ -18,7 +16,9 @@ if mp is not None:
     from joblib.pool import reduce_memmap
 
 
-TEMP_FOLDER = None
+@fixture(scope='function')
+def tmpdir_path(tmpdir):
+    return tmpdir.strpath
 
 
 def setup_module():
@@ -27,21 +27,6 @@ def setup_module():
 
 def teardown_module():
     teardown_autokill(__name__)
-
-
-def setup_temp_folder():
-    global TEMP_FOLDER
-    TEMP_FOLDER = tempfile.mkdtemp(prefix='joblib_test_pool_')
-
-
-def teardown_temp_folder():
-    global TEMP_FOLDER
-    if TEMP_FOLDER is not None:
-        shutil.rmtree(TEMP_FOLDER)
-        TEMP_FOLDER = None
-
-
-with_temp_folder = with_setup(setup_temp_folder, teardown_temp_folder)
 
 
 def check_array(args):
@@ -72,11 +57,10 @@ def inplace_double(args):
 
 @with_numpy
 @with_multiprocessing
-@with_temp_folder
-def test_memmap_based_array_reducing():
+def test_memmap_based_array_reducing(tmpdir_path):
     """Check that it is possible to reduce a memmap backed array"""
     assert_array_equal = np.testing.assert_array_equal
-    filename = os.path.join(TEMP_FOLDER, 'test.mmap')
+    filename = os.path.join(tmpdir_path, 'test.mmap')
 
     # Create a file larger than what will be used by a
     buffer = np.memmap(filename, dtype=np.float64, shape=500, mode='w+')
@@ -102,7 +86,7 @@ def test_memmap_based_array_reducing():
     d = c.T
 
     # Array reducer with auto dumping disabled
-    reducer = ArrayMemmapReducer(None, TEMP_FOLDER, 'c')
+    reducer = ArrayMemmapReducer(None, tmpdir_path, 'c')
 
     def reconstruct_array(x):
         cons, args = reducer(x)
@@ -155,11 +139,10 @@ def test_memmap_based_array_reducing():
 
 @with_numpy
 @with_multiprocessing
-@with_temp_folder
-def test_high_dimension_memmap_array_reducing():
+def test_high_dimension_memmap_array_reducing(tmpdir_path):
     assert_array_equal = np.testing.assert_array_equal
 
-    filename = os.path.join(TEMP_FOLDER, 'test.mmap')
+    filename = os.path.join(tmpdir_path, 'test.mmap')
 
     # Create a high dimensional memmap
     a = np.memmap(filename, dtype=np.float64, shape=(100, 15, 15, 3),
@@ -201,17 +184,16 @@ def test_high_dimension_memmap_array_reducing():
 
 @with_numpy
 @with_multiprocessing
-@with_temp_folder
-def test_pool_with_memmap():
+def test_pool_with_memmap(tmpdir_path):
     """Check that subprocess can access and update shared memory memmap"""
     assert_array_equal = np.testing.assert_array_equal
 
     # Fork the subprocess before allocating the objects to be passed
-    pool_temp_folder = os.path.join(TEMP_FOLDER, 'pool')
+    pool_temp_folder = os.path.join(tmpdir_path, 'pool')
     os.makedirs(pool_temp_folder)
     p = MemmapingPool(10, max_nbytes=2, temp_folder=pool_temp_folder)
     try:
-        filename = os.path.join(TEMP_FOLDER, 'test.mmap')
+        filename = os.path.join(tmpdir_path, 'test.mmap')
         a = np.memmap(filename, dtype=np.float32, shape=(3, 5), mode='w+')
         a.fill(1.0)
 
@@ -255,18 +237,17 @@ def test_pool_with_memmap():
 
 @with_numpy
 @with_multiprocessing
-@with_temp_folder
-def test_pool_with_memmap_array_view():
+def test_pool_with_memmap_array_view(tmpdir_path):
     """Check that subprocess can access and update shared memory array"""
     assert_array_equal = np.testing.assert_array_equal
 
     # Fork the subprocess before allocating the objects to be passed
-    pool_temp_folder = os.path.join(TEMP_FOLDER, 'pool')
+    pool_temp_folder = os.path.join(tmpdir_path, 'pool')
     os.makedirs(pool_temp_folder)
     p = MemmapingPool(10, max_nbytes=2, temp_folder=pool_temp_folder)
     try:
 
-        filename = os.path.join(TEMP_FOLDER, 'test.mmap')
+        filename = os.path.join(tmpdir_path, 'test.mmap')
         a = np.memmap(filename, dtype=np.float32, shape=(3, 5), mode='w+')
         a.fill(1.0)
 
@@ -294,19 +275,18 @@ def test_pool_with_memmap_array_view():
 
 @with_numpy
 @with_multiprocessing
-@with_temp_folder
-def test_memmaping_pool_for_large_arrays():
+def test_memmaping_pool_for_large_arrays(tmpdir_path):
     """Check that large arrays are not copied in memory"""
 
     # Check that the tempfolder is empty
-    assert os.listdir(TEMP_FOLDER) == []
+    assert os.listdir(tmpdir_path) == []
 
     # Build an array reducers that automaticaly dump large array content
     # to filesystem backed memmap instances to avoid memory explosion
-    p = MemmapingPool(3, max_nbytes=40, temp_folder=TEMP_FOLDER)
+    p = MemmapingPool(3, max_nbytes=40, temp_folder=tmpdir_path)
     try:
         # The temporary folder for the pool is not provisioned in advance
-        assert os.listdir(TEMP_FOLDER) == []
+        assert os.listdir(tmpdir_path) == []
         assert not os.path.exists(p._temp_folder)
 
         small = np.ones(5, dtype=np.float32)
@@ -314,7 +294,7 @@ def test_memmaping_pool_for_large_arrays():
         p.map(check_array, [(small, i, 1.0) for i in range(small.shape[0])])
 
         # Memory has been copied, the pool filesystem folder is unused
-        assert os.listdir(TEMP_FOLDER) == []
+        assert os.listdir(tmpdir_path) == []
 
         # Try with a file larger than the memmap threshold of 40 bytes
         large = np.ones(100, dtype=np.float64)
@@ -342,15 +322,14 @@ def test_memmaping_pool_for_large_arrays():
 
 @with_numpy
 @with_multiprocessing
-@with_temp_folder
-def test_memmaping_pool_for_large_arrays_disabled():
+def test_memmaping_pool_for_large_arrays_disabled(tmpdir_path):
     """Check that large arrays memmaping can be disabled"""
     # Set max_nbytes to None to disable the auto memmaping feature
-    p = MemmapingPool(3, max_nbytes=None, temp_folder=TEMP_FOLDER)
+    p = MemmapingPool(3, max_nbytes=None, temp_folder=tmpdir_path)
     try:
 
         # Check that the tempfolder is empty
-        assert os.listdir(TEMP_FOLDER) == []
+        assert os.listdir(tmpdir_path) == []
 
         # Try with a file largish than the memmap threshold of 40 bytes
         large = np.ones(100, dtype=np.float64)
@@ -358,7 +337,7 @@ def test_memmaping_pool_for_large_arrays_disabled():
         p.map(check_array, [(large, i, 1.0) for i in range(large.shape[0])])
 
         # Check that the tempfolder is still empty
-        assert os.listdir(TEMP_FOLDER) == []
+        assert os.listdir(tmpdir_path) == []
 
     finally:
         # Cleanup open file descriptors
@@ -408,8 +387,7 @@ def test_memmaping_on_dev_shm():
 
 @with_numpy
 @with_multiprocessing
-@with_temp_folder
-def test_memmaping_pool_for_large_arrays_in_return():
+def test_memmaping_pool_for_large_arrays_in_return(tmpdir_path):
     """Check that large arrays are not copied in memory in return"""
     assert_array_equal = np.testing.assert_array_equal
 
@@ -420,7 +398,7 @@ def test_memmaping_pool_for_large_arrays_in_return():
 
     # The MemmapingPool user can always return numpy.memmap object explicitly
     # to avoid memory copy
-    p = MemmapingPool(3, max_nbytes=10, temp_folder=TEMP_FOLDER)
+    p = MemmapingPool(3, max_nbytes=10, temp_folder=tmpdir_path)
     try:
         res = p.apply_async(np.ones, args=(1000,))
         large = res.get()
@@ -439,8 +417,7 @@ def _worker_multiply(a, n_times):
 
 @with_numpy
 @with_multiprocessing
-@with_temp_folder
-def test_workaround_against_bad_memmap_with_copied_buffers():
+def test_workaround_against_bad_memmap_with_copied_buffers(tmpdir_path):
     """Check that memmaps with a bad buffer are returned as regular arrays
 
     Unary operations and ufuncs on memmap instances return a new memmap
@@ -448,7 +425,7 @@ def test_workaround_against_bad_memmap_with_copied_buffers():
     """
     assert_array_equal = np.testing.assert_array_equal
 
-    p = MemmapingPool(3, max_nbytes=10, temp_folder=TEMP_FOLDER)
+    p = MemmapingPool(3, max_nbytes=10, temp_folder=tmpdir_path)
     try:
         # Send a complex, large-ish view on a array that will be converted to
         # a memmap in the worker process

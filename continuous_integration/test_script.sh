@@ -11,8 +11,14 @@ if [[ "$SKIP_TESTS" != "true" ]]; then
         # We want to disable doctests because they need numpy to run. I
         # could not find a way to override the with-doctest value in
         # setup.cfg so doing it the hacky way ...
-        cat setup.cfg | grep -v 'with-doctest=' > setup.cfg.new
+        cat setup.cfg | grep -v '    --doctest' > setup.cfg.new
         mv setup.cfg{.new,}
+    fi
+
+    if [ "$COVERAGE" == "true" ]; then
+        # Add coverage option to setup.cfg file if current test run
+        # has to generate report for coveralls ...
+        export PYTEST_ADDOPTS="--cov=joblib"
     fi
     make
 fi

@@ -54,11 +54,10 @@ def test_inheritance_special_cases():
 def test__mk_exception():
     # Check that _mk_exception works on a bunch of different exceptions
     for klass in (Exception, TypeError, SyntaxError, ValueError,
-                  AssertionError, CustomException, CustomException2):
+                  ImportError, CustomException, CustomException2):
         message = 'This message should be in the exception repr'
         exc = my_exceptions._mk_exception(klass)[0](
-            message,
-            'some', 'other', 'args', 'that are not', 'in the repr')
+            message, 'some', 'other', 'args', 'that are not', 'in the repr')
         exc_repr = repr(exc)
 
         assert isinstance(exc, klass)

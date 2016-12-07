@@ -1,3 +1,10 @@
+..
+    For doctests:
+
+    >>> import sys
+    >>> setup = getfixture('parallel_numpy_fixture')
+    >>> fixture = setup(sys.modules[__name__])
+
 Working with numerical data in shared memory (memmaping)
 ========================================================
 
