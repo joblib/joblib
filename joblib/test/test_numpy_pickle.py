@@ -455,8 +455,9 @@ def _check_pickle(filename, expected_list):
                     'ignore', module='numpy',
                     message='The compiler package is deprecated')
                 result_list = numpy_pickle.load(filename)
-                expected_nb_warnings = 1 if ("0.9" in filename or
-                                             "0.8.4" in filename) else 0
+                filename_base = os.path.basename(filename)
+                expected_nb_warnings = 1 if ("_0.9" in filename_base or
+                                             "_0.8.4" in filename_base) else 0
                 assert len(caught_warnings) == expected_nb_warnings
             for warn in caught_warnings:
                 assert warn.category == DeprecationWarning
