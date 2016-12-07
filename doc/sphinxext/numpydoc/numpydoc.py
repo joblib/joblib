@@ -117,7 +117,7 @@ def mangle_signature(app, what, name, obj, options, sig, retann):
 
 def setup(app, get_doc_object_=get_doc_object):
     if not hasattr(app, 'add_config_value'):
-        return # probably called by nose, better bail out
+        return  # probably called by nose, better bail out
 
     global get_doc_object
     get_doc_object = get_doc_object_
