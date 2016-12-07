@@ -12,7 +12,7 @@ set -e
 
 print_conda_requirements() {
     # Echo a conda requirement string for example
-    # "pip python='2.7.3 scikit-learn=*". It has a hardcoded
+    # "pip python=2.7.3 scikit-learn=*". It has a hardcoded
     # list of possible packages to install and looks at _VERSION
     # environment variables to know whether to install a given package and
     # if yes which version to install. For example:
