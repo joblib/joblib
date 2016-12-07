@@ -72,8 +72,8 @@ class Klass(object):
 
 class KlassWithCachedMethod(object):
 
-    def __init__(self, tmpdir_path):
-        mem = Memory(cachedir=tmpdir_path)
+    def __init__(self, cachedir):
+        mem = Memory(cachedir=cachedir)
         self.f = mem.cache(self.f)
 
     def f(self, x):
