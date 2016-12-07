@@ -35,11 +35,6 @@ except NameError:
     unicode = lambda s: s
 
 
-@fixture(scope='function')
-def tmpdir_path(tmpdir):
-    return tmpdir.strpath
-
-
 ###############################################################################
 # Helper functions for the tests
 def time_func(func, *args):

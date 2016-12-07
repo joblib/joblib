@@ -17,8 +17,8 @@ from joblib.testing import parametrize, assert_raises
 ###############################################################################
 
 
-def test_disk_used(tmpdir):
-    cachedir = tmpdir.strpath
+def test_disk_used(tmpdir_path):
+    cachedir = tmpdir_path
     # Not write a file that is 1M big in this directory, and check the
     # size. The reason we use such a big file is that it makes us robust
     # to errors due to block allocation.
@@ -38,7 +38,7 @@ def test_disk_used(tmpdir):
               ('1.4M', int(1.4 * 1024 ** 2), None),
               ('120M', 120 * 1024 ** 2, None),
               ('53K', 53 * 1024, None),
-              ('foo', None, ValueError)])
+              ('fooG', None, ValueError)])
 def test_memstr_to_bytes(text, value, exception):
     if not exception:
         assert memstr_to_bytes(text) == value
@@ -46,10 +46,10 @@ def test_memstr_to_bytes(text, value, exception):
         assert_raises(exception, memstr_to_bytes, text)
 
 
-def test_mkdirp(tmpdir):
-    mkdirp(os.path.join(tmpdir.strpath, 'ham'))
-    mkdirp(os.path.join(tmpdir.strpath, 'ham'))
-    mkdirp(os.path.join(tmpdir.strpath, 'spam', 'spam'))
+def test_mkdirp(tmpdir_path):
+    mkdirp(os.path.join(tmpdir_path, 'ham'))
+    mkdirp(os.path.join(tmpdir_path, 'ham'))
+    mkdirp(os.path.join(tmpdir_path, 'spam', 'spam'))
 
     # Not all OSErrors are ignored
     assert_raises(OSError, mkdirp, '')
