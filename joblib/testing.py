@@ -21,7 +21,8 @@ assert_true = _dummy.assertTrue
 assert_false = _dummy.assertFalse
 assert_equal = _dummy.assertEqual
 assert_not_equal = _dummy.assertNotEqual
-assert_raises = pytest.raises
+assert_raises = _dummy.assertRaises
+pytest_assert_raises = pytest.raises
 
 try:
     assert_raises_regex = _dummy.assertRaisesRegex

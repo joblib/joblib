@@ -12,7 +12,7 @@ import array
 import os
 
 from joblib.disk import disk_used, memstr_to_bytes, mkdirp
-from joblib.testing import parametrize, assert_raises
+from joblib.testing import parametrize, assert_raises, pytest_assert_raises
 
 ###############################################################################
 
@@ -33,17 +33,21 @@ def test_disk_used(tmpdir_path):
     assert disk_used(cachedir) < target_size + 12
 
 
-@parametrize(['text', 'value', 'exception'],
-             [('80G', 80 * 1024 ** 3, None),
-              ('1.4M', int(1.4 * 1024 ** 2), None),
-              ('120M', 120 * 1024 ** 2, None),
-              ('53K', 53 * 1024, None),
-              ('fooG', None, ValueError)])
-def test_memstr_to_bytes(text, value, exception):
-    if not exception:
-        assert memstr_to_bytes(text) == value
-    else:
-        assert_raises(exception, memstr_to_bytes, text)
+@parametrize(['text', 'value'],
+             [('80G', 80 * 1024 ** 3),
+              ('1.4M', int(1.4 * 1024 ** 2)),
+              ('120M', 120 * 1024 ** 2),
+              ('53K', 53 * 1024)])
+def test_memstr_to_bytes(text, value):
+    assert memstr_to_bytes(text) == value
+
+
+@parametrize(['text', 'exception', 'exc_substr'],
+             [('fooG', ValueError, 'Invalid literal for size')])
+def test_memstr_to_bytes_exception(text, exception, exc_substr):
+    with pytest_assert_raises(exception) as excinfo:
+        memstr_to_bytes(text)
+    assert exc_substr in str(excinfo.value)
 
 
 def test_mkdirp(tmpdir_path):
