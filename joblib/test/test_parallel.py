@@ -65,6 +65,8 @@ from joblib.my_exceptions import JoblibException
 
 
 ALL_VALID_BACKENDS = [None] + sorted(BACKENDS.keys())
+# Add backend instances
+ALL_VALID_BACKENDS += [BACKENDS[backend_str]() for backend_str in BACKENDS]
 
 if hasattr(mp, 'get_context'):
     # Custom multiprocessing context in Python 3.4+

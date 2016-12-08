@@ -282,7 +282,8 @@ class Parallel(Logger):
             is used at all, which is useful for debugging. For n_jobs below -1,
             (n_cpus + 1 + n_jobs) are used. Thus for n_jobs = -2, all
             CPUs but one are used.
-        backend: str or None, default: 'multiprocessing'
+        backend: str, ParallelBackendBase instance or None, \
+                default: 'multiprocessing'
             Specify the parallelization backend implementation.
             Supported backends are:
               - "multiprocessing" used by default, can induce some
@@ -493,6 +494,9 @@ class Parallel(Logger):
 
         if backend is None:
             backend = active_backend
+        elif isinstance(backend, ParallelBackendBase):
+            # Use provided backend as is
+            pass
         elif hasattr(backend, 'Pool') and hasattr(backend, 'Lock'):
             # Make it possible to pass a custom multiprocessing context as
             # backend to change the start method to forkserver or spawn or
