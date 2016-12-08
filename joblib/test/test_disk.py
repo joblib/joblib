@@ -17,8 +17,8 @@ from joblib.testing import parametrize, assert_raises, pytest_assert_raises
 ###############################################################################
 
 
-def test_disk_used(tmpdir_path):
-    cachedir = tmpdir_path
+def test_disk_used(tmpdir):
+    cachedir = tmpdir.strpath
     # Not write a file that is 1M big in this directory, and check the
     # size. The reason we use such a big file is that it makes us robust
     # to errors due to block allocation.
@@ -50,10 +50,10 @@ def test_memstr_to_bytes_exception(text, exception, exc_substr):
     assert exc_substr in str(excinfo.value)
 
 
-def test_mkdirp(tmpdir_path):
-    mkdirp(os.path.join(tmpdir_path, 'ham'))
-    mkdirp(os.path.join(tmpdir_path, 'ham'))
-    mkdirp(os.path.join(tmpdir_path, 'spam', 'spam'))
+def test_mkdirp(tmpdir):
+    mkdirp(os.path.join(tmpdir.strpath, 'ham'))
+    mkdirp(os.path.join(tmpdir.strpath, 'ham'))
+    mkdirp(os.path.join(tmpdir.strpath, 'spam', 'spam'))
 
     # Not all OSErrors are ignored
     assert_raises(OSError, mkdirp, '')
