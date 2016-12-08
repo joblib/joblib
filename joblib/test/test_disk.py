@@ -42,12 +42,13 @@ def test_memstr_to_bytes(text, value):
     assert memstr_to_bytes(text) == value
 
 
-@parametrize(['text', 'exception', 'exc_substr'],
-             [('fooG', ValueError, 'Invalid literal for size')])
-def test_memstr_to_bytes_exception(text, exception, exc_substr):
+@parametrize(['text', 'exception', 'regex'],
+             [('fooG', ValueError, r'Invalid literal for size.*fooG.*'),
+              ('1.4N', ValueError, r'Invalid literal for size.*1.4N.*')])
+def test_memstr_to_bytes_exception(text, exception, regex):
     with pytest_assert_raises(exception) as excinfo:
         memstr_to_bytes(text)
-    assert exc_substr in str(excinfo.value)
+    assert excinfo.match(regex)
 
 
 def test_mkdirp(tmpdir):
