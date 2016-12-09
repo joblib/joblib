@@ -15,11 +15,21 @@ from joblib.testing import SkipTest, skipif
 # A decorator to run tests only when numpy is available
 try:
     import numpy as np
+
+    def with_numpy(func):
+        """A decorator to skip tests requiring numpy."""
+        return func
+
 except ImportError:
+    def with_numpy(func):
+        """A decorator to skip tests requiring numpy."""
+        def my_func():
+            raise SkipTest('Test requires numpy')
+        return my_func
     np = None
 
-with_numpy = skipif(not np, reason='Test requires numpy.')
-
+# TODO: Turn this back on after refactoring yield based tests in test_hashing
+# with_numpy = skipif(not np, reason='Test requires numpy.')
 
 # we use memory_profiler library for memory consumption checks
 try:
