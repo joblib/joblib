@@ -200,14 +200,13 @@ def test_clean_win_chars():
         assert char not in mangled_string
 
 
-def test_format_signature(funcs):
+@parametrize(['funcname', 'args', 'kwargs', 'sgn_expected'],
+             [('g', [list(range(5))], dict(), 'g([0, 1, 2, 3, 4])'),
+              ('k', [1, 2, (3, 4)], {'y': True}, 'k(1, 2, (3, 4), y=True)')])
+def test_format_signature(funcs, funcname, args, kwargs, sgn_expected):
     # Test signature formatting.
-    path, sgn = format_signature(funcs['g'], list(range(10)))
-    assert sgn == 'g([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])'
-    path, sgn = format_signature(funcs['g'], list(range(10)),
-                                 y=list(range(10)))
-    assert sgn == 'g([0, 1, 2, 3, 4, 5, 6, 7, 8, 9],' \
-                  ' y=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9])'
+    path, sgn_result = format_signature(funcs[funcname], *args, **kwargs)
+    assert sgn_result == sgn_expected
 
 
 @with_numpy
