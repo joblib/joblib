@@ -43,7 +43,7 @@ request to the main repository.
 Running the test suite
 =========================
 
-To run the test suite, you need the pytest and coverage modules.
+To run the test suite, you need the pytest (version >= 3) and coverage modules.
 Run the test suite using::
 
     py.test joblib
