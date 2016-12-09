@@ -18,7 +18,7 @@ print_conda_requirements() {
     # if yes which version to install. For example:
     #   - for numpy, NUMPY_VERSION is used
     #   - for scikit-learn, SCIKIT_LEARN_VERSION is used
-    TO_INSTALL_ALWAYS="pip pytest"
+    TO_INSTALL_ALWAYS="pip"
     REQUIREMENTS="$TO_INSTALL_ALWAYS"
     TO_INSTALL_MAYBE="python numpy flake8"
     for PACKAGE in $TO_INSTALL_MAYBE; do
@@ -63,6 +63,12 @@ create_new_conda_env() {
         # Make sure that MKL is not used
         conda remove --yes --features mkl || echo "MKL not installed"
     fi
+
+    # Install pytest with pip to make sure we have pytest >= 3 because
+    # conda has some outdated dependencies for Python 3.3. This can be
+    # removed and pytest can be install through conda when we drop
+    # support for Python 3.3
+    pip install pytest
 }
 
 create_new_conda_env
