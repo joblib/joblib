@@ -126,18 +126,18 @@ def test_hash_numpy():
     arr3 = arr2.copy()
     arr3[0] += 1
     obj_list = (arr1, arr2, arr3)
-    # for obj1 in obj_list:
-    #     for obj2 in obj_list:
-    #         yield assert_equal, hash(obj1) == hash(obj2), np.all(obj1 == obj2)
-    #
-    # d1 = {1: arr1, 2: arr1}
-    # d2 = {1: arr2, 2: arr2}
-    # yield assert_equal, hash(d1), hash(d2)
-    #
-    # d3 = {1: arr2, 2: arr3}
-    # yield assert_not_equal, hash(d1), hash(d3)
-    #
-    # yield assert_not_equal, hash(arr1), hash(arr1.T)
+    for obj1 in obj_list:
+        for obj2 in obj_list:
+            yield assert_equal, hash(obj1) == hash(obj2), np.all(obj1 == obj2)
+
+    d1 = {1: arr1, 2: arr1}
+    d2 = {1: arr2, 2: arr2}
+    yield assert_equal, hash(d1), hash(d2)
+
+    d3 = {1: arr2, 2: arr3}
+    yield assert_not_equal, hash(d1), hash(d3)
+
+    yield assert_not_equal, hash(arr1), hash(arr1.T)
 
 
 @with_numpy
