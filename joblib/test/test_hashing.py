@@ -351,40 +351,39 @@ def test_dtype():
     assert hash([a, c]) == hash([a, b])
 
 
-def test_hashes_stay_the_same():
+@parametrize(['to_hash', 'expected'],
+             [('This is a string to hash',
+                 {'py2': '80436ada343b0d79a99bfd8883a96e45',
+                  'py3': '71b3f47df22cb19431d85d92d0b230b2'}),
+
+              (u"C'est l\xe9t\xe9",
+                 {'py2': '2ff3a25200eb6219f468de2640913c2d',
+                  'py3': '2d8d189e9b2b0b2e384d93c868c0e576'}),
+
+              ((123456, 54321, -98765),
+                 {'py2': '50d81c80af05061ac4dcdc2d5edee6d6',
+                  'py3': 'e205227dd82250871fa25aa0ec690aa3'}),
+
+              ([random.Random(42).random() for _ in range(5)],
+                 {'py2': '1a36a691b2e2ba3a9df72de3dccf17ea',
+                  'py3': 'a11ffad81f9682a7d901e6edc3d16c84'}),
+
+              ([3, 'abc', None, TransportableException('foo', ValueError)],
+                 {'py2': 'adb6ba84990ee5e462dc138383f11802',
+                  'py3': '994f663c64ba5e64b2a85ebe75287829'}),
+
+              ({'abcde': 123, 'sadfas': [-9999, 2, 3]},
+                 {'py2': 'fc9314a39ff75b829498380850447047',
+                  'py3': 'aeda150553d4bb5c69f0e69d51b0e2ef'})])
+def test_hashes_stay_the_same(to_hash, expected):
     # We want to make sure that hashes don't change with joblib
     # version. For end users, that would mean that they have to
     # regenerate their cache from scratch, which potentially means
     # lengthy recomputations.
-    rng = random.Random(42)
-    to_hash_list = ['This is a string to hash',
-                    u"C'est l\xe9t\xe9",
-                    (123456, 54321, -98765),
-                    [rng.random() for _ in range(5)],
-                    [3, 'abc', None,
-                     TransportableException('the message', ValueError)],
-                    {'abcde': 123, 'sadfas': [-9999, 2, 3]}]
-
-    # These expected results have been generated with joblib 0.9.2
-    expected_dict = {
-        'py2': ['80436ada343b0d79a99bfd8883a96e45',
-                '2ff3a25200eb6219f468de2640913c2d',
-                '50d81c80af05061ac4dcdc2d5edee6d6',
-                '536af09b66a087ed18b515acc17dc7fc',
-                '123ffc6f13480767167e171a8e1f6f4a',
-                'fc9314a39ff75b829498380850447047'],
-        'py3': ['71b3f47df22cb19431d85d92d0b230b2',
-                '2d8d189e9b2b0b2e384d93c868c0e576',
-                'e205227dd82250871fa25aa0ec690aa3',
-                '9e4e9bf9b91890c9734a6111a35e6633',
-                '6065a3c48e842ea5dee2cfd0d6820ad6',
-                'aeda150553d4bb5c69f0e69d51b0e2ef']}
+    # Expected results have been generated with joblib 0.9.2
 
     py_version_str = 'py3' if PY3_OR_LATER else 'py2'
-    expected_list = expected_dict[py_version_str]
-
-    for to_hash, expected in zip(to_hash_list, expected_list):
-        yield assert_equal, hash(to_hash), expected
+    assert hash(to_hash) == expected[py_version_str]
 
 
 @with_numpy
