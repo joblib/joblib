@@ -6,23 +6,25 @@ Test the hashing module.
 # Copyright (c) 2009 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
-import time
-import hashlib
-import tempfile
-import os
-import sys
-import gc
-import io
 import collections
+from decimal import Decimal
+import gc
+import hashlib
+import io
+import itertools
+import os
 import pickle
 import random
-from decimal import Decimal
+import sys
+import tempfile
+import time
 
 from joblib.hashing import hash
 from joblib.func_inspect import filter_args
 from joblib.memory import Memory
 from joblib.testing import (assert_equal, assert_not_equal,
-                            assert_raises_regex, SkipTest, fixture)
+                            assert_raises_regex, SkipTest, fixture,
+                            parametrize)
 from joblib.test.common import np, with_numpy
 from joblib.my_exceptions import TransportableException
 from joblib._compat import PY3_OR_LATER
@@ -83,28 +85,25 @@ class KlassWithCachedMethod(object):
 ###############################################################################
 # Tests
 
-def test_trival_hash():
-    """ Smoke test hash on various types.
-    """
-    obj_list = [1, 2, 1., 2., 1 + 1j, 2. + 1j,
-                'a', 'b',
-                (1, ), (1, 1, ), [1, ], [1, 1, ],
-                {1: 1}, {1: 2}, {2: 1},
-                None,
-                gc.collect,
-                [1, ].append,
-                # Next 2 sets have unorderable elements in python 3.
-                set(('a', 1)),
-                set(('a', 1, ('a', 1))),
-                # Next 2 dicts have unorderable type of keys in python 3.
-                {'a': 1, 1: 2},
-                {'a': 1, 1: 2, 'd': {'a': 1}},
-                ]
-    for obj1 in obj_list:
-        for obj2 in obj_list:
-            # Check that 2 objects have the same hash only if they are
-            # the same.
-            yield assert_equal, hash(obj1) == hash(obj2), obj1 is obj2
+@parametrize(['obj1', 'obj2'], list(itertools.product(
+    [1, 2, 1., 2., 1 + 1j, 2. + 1j,
+     'a', 'b',
+     (1,), (1, 1,), [1, ], [1, 1, ],
+     {1: 1}, {1: 2}, {2: 1},
+     None,
+     gc.collect,
+     [1, ].append,
+     # Next 2 sets have unorderable elements in python 3.
+     set(('a', 1)),
+     set(('a', 1, ('a', 1))),
+     # Next 2 dicts have unorderable type of keys in python 3.
+     {'a': 1, 1: 2},
+     {'a': 1, 1: 2, 'd': {'a': 1}}], repeat=2)))
+def test_trival_hash(obj1, obj2):
+    """Smoke test hash on various types."""
+    # Check that 2 objects have the same hash only if they are the same.
+    if obj1 is obj2:
+        assert hash(obj1) == hash(obj2)
 
 
 def test_hash_methods():
