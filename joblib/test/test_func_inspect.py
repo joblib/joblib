@@ -122,9 +122,17 @@ def test_filter_args_2():
     assert filter_args(ff, ['y'], (1, )) == {'*': [1], '**': {}}
 
 
-# @parametrize(['func', 'funcname'], [f, g, f2], ['f', 'g', 'f2'])
-# def test_func_name(func, funcname):
-#     assert get_func_name(func)[1] == funcname
+@parametrize(['func', 'funcname'], [(f, 'f'), (g, 'g'), (f2, 'f2')])
+def test_func_name(func, funcname):
+    # Check that we are not confused by decoration
+    # here testcase 'f2' is the function itself
+    assert get_func_name(func)[1] == funcname
+
+
+def test_func_name_on_inner_func(f2):
+    # Check that we are not confused by decoration
+    # here testcase 'f2' is the 'f2_inner' function returned by 'f2' fixture
+    assert get_func_name(f2)[1] == 'f2_inner'
 
 
 def test_func_inspect_errors():
