@@ -406,12 +406,9 @@ def test_0d_and_1d_array_hashing_is_different():
     assert hash(np.array(0)) != hash(np.array([0]))
 
 
+@fixture(scope='function')
 @with_numpy
-def test_hashes_stay_the_same_with_numpy_objects():
-    # We want to make sure that hashes don't change with joblib
-    # version. For end users, that would mean that they have to
-    # regenerate their cache from scratch, which potentially means
-    # lengthy recomputations.
+def to_hash_np_objs(request):
     rng = np.random.RandomState(42)
     # Being explicit about dtypes in order to avoid
     # architecture-related differences. Also using 'f4' rather than
@@ -438,27 +435,39 @@ def test_hashes_stay_the_same_with_numpy_objects():
         np.arange(100, dtype='<i8').reshape((10, 10))[:, :2],
     ]
 
-    # These expected results have been generated with joblib 0.9.0
-    expected_dict = {'py2': ['80f2387e7752abbda2658aafed49e086',
-                             '0d700f7f25ea670fd305e4cd93b0e8cd',
-                             '83a2bdf843e79e4b3e26521db73088b9',
-                             '63e0efd43c0a9ad92a07e8ce04338dd3',
-                             '03fef702946b602c852b8b4e60929914',
-                             '07074691e90d7098a85956367045c81e',
-                             'd264cf79f353aa7bbfa8349e3df72d8f'],
-                     'py3': ['10a6afc379ca2708acfbaef0ab676eab',
-                             '988a7114f337f381393025911ebc823b',
-                             'c6809f4b97e35f2fa0ee8d653cbd025c',
-                             'b3ad17348e32728a7eb9cda1e7ede438',
-                             '927b3e6b0b6a037e8e035bda134e0b05',
-                             '108f6ee98e7db19ea2006ffd208f4bf1',
-                             'bd48ccaaff28e16e6badee81041b7180']}
+    # Return member of list requested by parametrize marker in test below
+    return to_hash_list[request.param]
 
+
+@parametrize(['to_hash_np_objs', 'expected'],
+             # Here only an index is specified for 'to_hash_np_objs'
+             # Corresponding element will be fetched from above fixture
+             # of same name due to 'indirect' keyword used here
+             # Expected results have been generated with joblib 0.9.0
+             [(0, {'py2': '80f2387e7752abbda2658aafed49e086',
+                   'py3': '10a6afc379ca2708acfbaef0ab676eab'}),
+
+              (1, {'py2': '0d700f7f25ea670fd305e4cd93b0e8cd',
+                   'py3': '988a7114f337f381393025911ebc823b'}),
+
+              (2, {'py2': '83a2bdf843e79e4b3e26521db73088b9',
+                   'py3': 'c6809f4b97e35f2fa0ee8d653cbd025c'}),
+
+              (3, {'py2': '63e0efd43c0a9ad92a07e8ce04338dd3',
+                   'py3': 'b3ad17348e32728a7eb9cda1e7ede438'}),
+
+              (4, {'py2': '03fef702946b602c852b8b4e60929914',
+                   'py3': '927b3e6b0b6a037e8e035bda134e0b05'}),
+
+              (5, {'py2': '07074691e90d7098a85956367045c81e',
+                   'py3': '108f6ee98e7db19ea2006ffd208f4bf1'}),
+
+              (6, {'py2': 'd264cf79f353aa7bbfa8349e3df72d8f',
+                   'py3': 'bd48ccaaff28e16e6badee81041b7180'})],
+             indirect=['to_hash_np_objs'])
+def test_hashes_stay_the_same_with_numpy_objects(to_hash_np_objs, expected):
     py_version_str = 'py3' if PY3_OR_LATER else 'py2'
-    expected_list = expected_dict[py_version_str]
-
-    for to_hash, expected in zip(to_hash_list, expected_list):
-        yield assert_equal, hash(to_hash), expected
+    assert hash(to_hash_np_objs) == expected[py_version_str]
 
 
 def test_hashing_pickling_error():
