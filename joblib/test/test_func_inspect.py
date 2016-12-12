@@ -6,54 +6,24 @@ Test the func_inspect module.
 # Copyright (c) 2009 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
-import os
-import shutil
-import tempfile
 import functools
 
 from joblib.func_inspect import filter_args, get_func_name, get_func_code
 from joblib.func_inspect import _clean_win_chars, format_signature
 from joblib.memory import Memory
 from joblib.test.common import with_numpy
-from joblib.testing import assert_equal, assert_raises_regex, assert_raises
+from joblib.testing import fixture, parametrize, pytest_assert_raises
 from joblib._compat import PY3_OR_LATER
 
 
 ###############################################################################
-# Module-level functions, for tests
+# Module-level functions and fixture, for tests
 def f(x, y=0):
     pass
 
 
-def g(x, y=1):
-    """ A module-level function for testing purposes.
-    """
-    return x ** 2 + y
-
-
-def f2(x):
-    pass
-
-
-# Create a Memory object to test decorated functions.
-# We should be careful not to call the decorated functions, so that
-# cache directories are not created in the temp dir.
-temp_folder = tempfile.mkdtemp(prefix="joblib_test_func_inspect_")
-mem = Memory(cachedir=temp_folder)
-
-
-def teardown_module():
-    if os.path.exists(temp_folder):
-        try:
-            shutil.rmtree(temp_folder)
-        except Exception as e:
-            print("Failed to delete temporary folder %s: %r" %
-                  (temp_folder, e))
-
-
-@mem.cache
 def g(x):
-    return x
+    pass
 
 
 def h(x, y=0, *args, **kwargs):
@@ -72,6 +42,21 @@ def k(*args, **kwargs):
     pass
 
 
+@fixture(scope='module')
+def cached_func(tmpdir_factory):
+    # Create a Memory object to test decorated functions.
+    # We should be careful not to call the decorated functions, so that
+    # cache directories are not created in the temp dir.
+    cachedir = tmpdir_factory.mktemp("joblib_test_func_inspect")
+    mem = Memory(cachedir.strpath)
+
+    @mem.cache
+    def cached_func_inner(x):
+        return x
+
+    return cached_func_inner
+
+
 class Klass(object):
 
     def f(self, x):
@@ -81,17 +66,19 @@ class Klass(object):
 ###############################################################################
 # Tests
 
-def test_filter_args():
-    yield assert_equal, filter_args(f, [], (1, )), {'x': 1, 'y': 0}
-    yield assert_equal, filter_args(f, ['x'], (1, )), {'y': 0}
-    yield assert_equal, filter_args(f, ['y'], (0, )), {'x': 0}
-    yield assert_equal, filter_args(f, ['y'], (0, ), dict(y=1)), {'x': 0}
-    yield assert_equal, filter_args(f, ['x', 'y'], (0, )), {}
-    yield assert_equal, filter_args(f, [], (0,), dict(y=1)), {'x': 0, 'y': 1}
-    yield assert_equal, filter_args(f, ['y'], (), dict(x=2, y=1)), {'x': 2}
 
-    yield assert_equal, filter_args(i, [], (2, )), {'x': 2}
-    yield assert_equal, filter_args(f2, [], (), dict(x=1)), {'x': 1}
+@parametrize(['func', 'args', 'filtered_args'],
+             [(f, [[], (1, )], {'x': 1, 'y': 0}),
+              (f, [['x'], (1, )], {'y': 0}),
+              (f, [['y'], (0, )], {'x': 0}),
+              (f, [['y'], (0, ), {'y': 1}], {'x': 0}),
+              (f, [['x', 'y'], (0, )], {}),
+              (f, [[], (0,), {'y': 1}], {'x': 0, 'y': 1}),
+              (f, [['y'], (), {'x': 2, 'y': 1}], {'x': 2}),
+              (g, [[], (), {'x': 1}], {'x': 1}),
+              (i, [[], (2, )], {'x': 2})])
+def test_filter_args(func, args, filtered_args):
+    assert filter_args(func, *args) == filtered_args
 
 
 def test_filter_args_method():
@@ -99,40 +86,51 @@ def test_filter_args_method():
     assert filter_args(obj.f, [], (1, )) == {'x': 1, 'self': obj}
 
 
-def test_filter_varargs():
-    yield assert_equal, filter_args(h, [], (1, )), \
-                            {'x': 1, 'y': 0, '*': [], '**': {}}
-    yield assert_equal, filter_args(h, [], (1, 2, 3, 4)), \
-                            {'x': 1, 'y': 2, '*': [3, 4], '**': {}}
-    yield assert_equal, filter_args(h, [], (1, 25), dict(ee=2)), \
-                            {'x': 1, 'y': 25, '*': [], '**': {'ee': 2}}
-    yield assert_equal, filter_args(h, ['*'], (1, 2, 25), dict(ee=2)), \
-                            {'x': 1, 'y': 2, '**': {'ee': 2}}
+@parametrize(['func', 'args', 'filtered_args'],
+             [(h, [[], (1, )],
+               {'x': 1, 'y': 0, '*': [], '**': {}}),
+              (h, [[], (1, 2, 3, 4)],
+               {'x': 1, 'y': 2, '*': [3, 4], '**': {}}),
+              (h, [[], (1, 25), {'ee': 2}],
+               {'x': 1, 'y': 25, '*': [], '**': {'ee': 2}}),
+              (h, [['*'], (1, 2, 25), {'ee': 2}],
+               {'x': 1, 'y': 2, '**': {'ee': 2}})])
+def test_filter_varargs(func, args, filtered_args):
+    assert filter_args(func, *args) == filtered_args
 
 
-def test_filter_kwargs():
-    assert (filter_args(k, [], (1, 2), dict(ee=2)) ==
-            {'*': [1, 2], '**': {'ee': 2}})
-    assert filter_args(k, [], (3, 4)) == {'*': [3, 4], '**': {}}
+@parametrize(['func', 'args', 'filtered_args'],
+             [(k, [[], (1, 2), {'ee': 2}],
+               {'*': [1, 2], '**': {'ee': 2}}),
+              (k, [[], (3, 4)],
+               {'*': [3, 4], '**': {}})])
+def test_filter_kwargs(func, args, filtered_args):
+    assert filter_args(func, *args) == filtered_args
 
 
 def test_filter_args_2():
-    assert (filter_args(j, [], (1, 2), dict(ee=2)) ==
+    assert (filter_args(j, [], (1, 2), {'ee': 2}) ==
             {'x': 1, 'y': 2, '**': {'ee': 2}})
 
-    assert_raises(ValueError, filter_args, f, 'a', (None, ))
-    # Check that we capture an undefined argument
-    assert_raises(ValueError, filter_args, f, ['a'], (None, ))
     ff = functools.partial(f, 1)
     # filter_args has to special-case partial
     assert filter_args(ff, [], (1, )) == {'*': [1], '**': {}}
     assert filter_args(ff, ['y'], (1, )) == {'*': [1], '**': {}}
 
 
-def test_func_name():
-    yield assert_equal, 'f', get_func_name(f)[1]
-    # Check that we are not confused by the decoration
-    yield assert_equal, 'g', get_func_name(g)[1]
+@parametrize(['func', 'funcname'], [(f, 'f'), (g, 'g'),
+                                    (cached_func, 'cached_func')])
+def test_func_name(func, funcname):
+    # Check that we are not confused by decoration
+    # here testcase 'cached_func' is the function itself
+    assert get_func_name(func)[1] == funcname
+
+
+def test_func_name_on_inner_func(cached_func):
+    # Check that we are not confused by decoration
+    # here testcase 'cached_func' is the 'cached_func_inner' function
+    # returned by 'cached_func' fixture
+    assert get_func_name(cached_func)[1] == 'cached_func_inner'
 
 
 def test_func_inspect_errors():
@@ -170,11 +168,10 @@ def func_with_signature(a: int, b: int) -> None: pass
 
         # filter_args doesn't care about keyword-only arguments so you
         # can pass 'kw1' into *args without any problem
-        assert_raises_regex(
-            ValueError,
-            "Keyword-only parameter 'kw1' was passed as positional parameter",
-            filter_args,
-            func_with_kwonly_args, [], (1, 2, 3), {'kw2': 2})
+        with pytest_assert_raises(ValueError) as excinfo:
+            filter_args(func_with_kwonly_args, [], (1, 2, 3), {'kw2': 2})
+        excinfo.match("Keyword-only parameter 'kw1' was passed as positional "
+                      "parameter")
 
         assert (
             filter_args(func_with_kwonly_args, ['b', 'kw2'], (1, 2),
@@ -193,11 +190,21 @@ def test_bound_methods():
     assert filter_args(a.f, [], (1, )) != filter_args(b.f, [], (1, ))
 
 
-def test_filter_args_error_msg():
+@parametrize(['exception', 'regex', 'func', 'args'],
+             [(ValueError, 'ignore_lst must be a list of parameters to ignore',
+               f, ['bar', (None, )]),
+              (ValueError, 'Ignore list: argument \'(.*)\' is not defined',
+               g, [['bar'], (None, )]),
+              (ValueError, 'Wrong number of arguments',
+               h, [[]])
+              ])
+def test_filter_args_error_msg(exception, regex, func, args):
     """ Make sure that filter_args returns decent error messages, for the
         sake of the user.
     """
-    assert_raises(ValueError, filter_args, f, [])
+    with pytest_assert_raises(exception) as excinfo:
+        filter_args(func, *args)
+    excinfo.match(regex)
 
 
 def test_clean_win_chars():
@@ -207,13 +214,13 @@ def test_clean_win_chars():
         assert char not in mangled_string
 
 
-def test_format_signature():
+@parametrize(['func', 'args', 'kwargs', 'sgn_expected'],
+             [(g, [list(range(5))], {}, 'g([0, 1, 2, 3, 4])'),
+              (k, [1, 2, (3, 4)], {'y': True}, 'k(1, 2, (3, 4), y=True)')])
+def test_format_signature(func, args, kwargs, sgn_expected):
     # Test signature formatting.
-    path, sgn = format_signature(g, list(range(10)))
-    assert sgn == 'g([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])'
-    path, sgn = format_signature(g, list(range(10)), y=list(range(10)))
-    assert sgn == 'g([0, 1, 2, 3, 4, 5, 6, 7, 8, 9],' \
-                  ' y=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9])'
+    path, sgn_result = format_signature(func, *args, **kwargs)
+    assert sgn_result == sgn_expected
 
 
 @with_numpy

@@ -28,6 +28,8 @@ except ImportError:
         return my_func
     np = None
 
+# TODO: Turn this back on after refactoring yield based tests in test_hashing
+# with_numpy = skipif(not np, reason='Test requires numpy.')
 
 # we use memory_profiler library for memory consumption checks
 try:
