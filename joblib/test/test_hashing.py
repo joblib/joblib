@@ -20,7 +20,7 @@ import time
 from joblib.hashing import hash
 from joblib.func_inspect import filter_args
 from joblib.memory import Memory
-from joblib.testing import assert_raises_regex, skipif, fixture, parametrize
+from joblib.testing import pytest_assert_raises, skipif, fixture, parametrize
 from joblib.test.common import np, with_numpy
 from joblib.my_exceptions import TransportableException
 from joblib._compat import PY3_OR_LATER
@@ -465,6 +465,6 @@ def test_hashing_pickling_error():
     def non_picklable():
         return 42
 
-    assert_raises_regex(pickle.PicklingError,
-                        'PicklingError while hashing',
-                        hash, non_picklable)
+    with pytest_assert_raises(pickle.PicklingError) as excinfo:
+        hash(non_picklable)
+    excinfo.match('PicklingError while hashing')
