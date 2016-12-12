@@ -20,7 +20,7 @@ import time
 from joblib.hashing import hash
 from joblib.func_inspect import filter_args
 from joblib.memory import Memory
-from joblib.testing import (assert_raises_regex, SkipTest, fixture,
+from joblib.testing import (assert_raises_regex, skipif, fixture,
                             parametrize)
 from joblib.test.common import np, with_numpy
 from joblib.my_exceptions import TransportableException
@@ -188,6 +188,8 @@ def test_hash_memmap(tmpdir, coerce_mmap):
 
 
 @with_numpy
+@skipif(sys.platform == 'win32', reason='This test is not stable under windows'
+                                        ' for some reason')
 def test_hash_numpy_performance():
     """ Check the performance of hashing numpy arrays:
 
@@ -205,10 +207,6 @@ def test_hash_numpy_performance():
         In [26]: %timeit hash(a)
         100 loops, best of 3: 20.8 ms per loop
     """
-    # This test is not stable under windows for some reason, skip it.
-    if sys.platform == 'win32':
-        raise SkipTest()
-
     rnd = np.random.RandomState(0)
     a = rnd.random_sample(1000000)
     if hasattr(np, 'getbuffer'):
