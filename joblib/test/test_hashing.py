@@ -115,28 +115,42 @@ def test_hash_methods():
     assert hash(a1.extend) != hash(a2.extend)
 
 
+@fixture(scope='function')
 @with_numpy
-def test_hash_numpy():
-    """ Test hashing with numpy arrays.
+def three_np_arrays():
+    """
+    Returns three numpy arrays where first two are same and third is a bit
+    different. These arrays will be used by few tests below.
     """
     rnd = np.random.RandomState(0)
     arr1 = rnd.random_sample((10, 10))
     arr2 = arr1.copy()
     arr3 = arr2.copy()
     arr3[0] += 1
-    obj_list = (arr1, arr2, arr3)
-    for obj1 in obj_list:
-        for obj2 in obj_list:
-            yield assert_equal, hash(obj1) == hash(obj2), np.all(obj1 == obj2)
+    return arr1, arr2, arr3
 
-    d1 = {1: arr1, 2: arr1}
-    d2 = {1: arr2, 2: arr2}
-    yield assert_equal, hash(d1), hash(d2)
 
+def test_hash_numpy_arrays(three_np_arrays):
+    """Test hashing with numpy arrays."""
+    arr1, arr2, arr3 = three_np_arrays
+
+    # Only same arrays will have same hash
+    assert hash(arr1) == hash(arr2)
+    assert hash(arr1) != hash(arr3)
+    assert hash(arr1) != hash(arr1.T)
+
+
+def test_hash_numpy_dict_of_arrays(three_np_arrays):
+    """Test hashing with dicts made of numpy arrays."""
+    arr1, arr2, arr3 = three_np_arrays
+
+    d1 = {1: arr1, 2: arr2}
+    d2 = {1: arr2, 2: arr1}
     d3 = {1: arr2, 2: arr3}
-    yield assert_not_equal, hash(d1), hash(d3)
 
-    yield assert_not_equal, hash(arr1), hash(arr1.T)
+    # Two dicts will have same hash if they have exact same key value pairs
+    assert hash(d1) == hash(d2)
+    assert hash(d1) != hash(d3)
 
 
 @with_numpy
