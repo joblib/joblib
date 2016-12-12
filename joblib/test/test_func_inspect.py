@@ -43,7 +43,7 @@ def k(*args, **kwargs):
 
 
 @fixture(scope='module')
-def f2(tmpdir_factory):
+def cached_func(tmpdir_factory):
     # Create a Memory object to test decorated functions.
     # We should be careful not to call the decorated functions, so that
     # cache directories are not created in the temp dir.
@@ -51,10 +51,10 @@ def f2(tmpdir_factory):
     mem = Memory(cachedir.strpath)
 
     @mem.cache
-    def f2_inner(x):
+    def cached_func_inner(x):
         return x
 
-    return f2_inner
+    return cached_func_inner
 
 
 class Klass(object):
@@ -118,17 +118,19 @@ def test_filter_args_2():
     assert filter_args(ff, ['y'], (1, )) == {'*': [1], '**': {}}
 
 
-@parametrize(['func', 'funcname'], [(f, 'f'), (g, 'g'), (f2, 'f2')])
+@parametrize(['func', 'funcname'], [(f, 'f'), (g, 'g'),
+                                    (cached_func, 'cached_func')])
 def test_func_name(func, funcname):
     # Check that we are not confused by decoration
-    # here testcase 'f2' is the function itself
+    # here testcase 'cached_func' is the function itself
     assert get_func_name(func)[1] == funcname
 
 
-def test_func_name_on_inner_func(f2):
+def test_func_name_on_inner_func(cached_func):
     # Check that we are not confused by decoration
-    # here testcase 'f2' is the 'f2_inner' function returned by 'f2' fixture
-    assert get_func_name(f2)[1] == 'f2_inner'
+    # here testcase 'cached_func' is the 'cached_func_inner' function
+    # returned by 'cached_func' fixture
+    assert get_func_name(cached_func)[1] == 'cached_func_inner'
 
 
 def test_func_inspect_errors():
