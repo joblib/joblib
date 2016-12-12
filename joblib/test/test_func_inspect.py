@@ -12,7 +12,7 @@ from joblib.func_inspect import filter_args, get_func_name, get_func_code
 from joblib.func_inspect import _clean_win_chars, format_signature
 from joblib.memory import Memory
 from joblib.test.common import with_numpy
-from joblib.testing import (fixture, parametrize, pytest_assert_raises)
+from joblib.testing import fixture, parametrize, pytest_assert_raises
 from joblib._compat import PY3_OR_LATER
 
 
@@ -44,10 +44,6 @@ def k(*args, **kwargs):
 
 @fixture(scope='module')
 def f2(tmpdir_factory):
-    """
-    This fixture returns a dict of functions which are used as test cases
-    by tests written in this module.
-    """
     # Create a Memory object to test decorated functions.
     # We should be careful not to call the decorated functions, so that
     # cache directories are not created in the temp dir.
@@ -75,11 +71,11 @@ class Klass(object):
              [(f, [[], (1, )], {'x': 1, 'y': 0}),
               (f, [['x'], (1, )], {'y': 0}),
               (f, [['y'], (0, )], {'x': 0}),
-              (f, [['y'], (0, ), dict(y=1)], {'x': 0}),
+              (f, [['y'], (0, ), {'y': 1}], {'x': 0}),
               (f, [['x', 'y'], (0, )], {}),
-              (f, [[], (0,), dict(y=1)], {'x': 0, 'y': 1}),
-              (f, [['y'], (), dict(x=2, y=1)], {'x': 2}),
-              (g, [[], (), dict(x=1)], {'x': 1}),
+              (f, [[], (0,), {'y': 1}], {'x': 0, 'y': 1}),
+              (f, [['y'], (), {'x': 2, 'y': 1}], {'x': 2}),
+              (g, [[], (), {'x': 1}], {'x': 1}),
               (i, [[], (2, )], {'x': 2})])
 def test_filter_args(func, args, filtered_args):
     assert filter_args(func, *args) == filtered_args
@@ -95,16 +91,16 @@ def test_filter_args_method():
                {'x': 1, 'y': 0, '*': [], '**': {}}),
               (h, [[], (1, 2, 3, 4)],
                {'x': 1, 'y': 2, '*': [3, 4], '**': {}}),
-              (h, [[], (1, 25), dict(ee=2)],
+              (h, [[], (1, 25), {'ee': 2}],
                {'x': 1, 'y': 25, '*': [], '**': {'ee': 2}}),
-              (h, [['*'], (1, 2, 25), dict(ee=2)],
+              (h, [['*'], (1, 2, 25), {'ee': 2}],
                {'x': 1, 'y': 2, '**': {'ee': 2}})])
 def test_filter_varargs(func, args, filtered_args):
     assert filter_args(func, *args) == filtered_args
 
 
 @parametrize(['func', 'args', 'filtered_args'],
-             [(k, [[], (1, 2), dict(ee=2)],
+             [(k, [[], (1, 2), {'ee': 2}],
                {'*': [1, 2], '**': {'ee': 2}}),
               (k, [[], (3, 4)],
                {'*': [3, 4], '**': {}})])
@@ -113,7 +109,7 @@ def test_filter_kwargs(func, args, filtered_args):
 
 
 def test_filter_args_2():
-    assert (filter_args(j, [], (1, 2), dict(ee=2)) ==
+    assert (filter_args(j, [], (1, 2), {'ee': 2}) ==
             {'x': 1, 'y': 2, '**': {'ee': 2}})
 
     ff = functools.partial(f, 1)
@@ -218,7 +214,7 @@ def test_clean_win_chars():
 
 
 @parametrize(['func', 'args', 'kwargs', 'sgn_expected'],
-             [(g, [list(range(5))], dict(), 'g([0, 1, 2, 3, 4])'),
+             [(g, [list(range(5))], {}, 'g([0, 1, 2, 3, 4])'),
               (k, [1, 2, (3, 4)], {'y': True}, 'k(1, 2, (3, 4), y=True)')])
 def test_format_signature(func, args, kwargs, sgn_expected):
     # Test signature formatting.
