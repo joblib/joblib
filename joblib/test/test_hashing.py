@@ -12,18 +12,15 @@ import gc
 import hashlib
 import io
 import itertools
-import os
 import pickle
 import random
 import sys
-import tempfile
 import time
 
 from joblib.hashing import hash
 from joblib.func_inspect import filter_args
 from joblib.memory import Memory
-from joblib.testing import (assert_equal, assert_not_equal,
-                            assert_raises_regex, SkipTest, fixture,
+from joblib.testing import (assert_raises_regex, SkipTest, fixture,
                             parametrize)
 from joblib.test.common import np, with_numpy
 from joblib.my_exceptions import TransportableException
@@ -35,11 +32,6 @@ try:
     unicode('str')
 except NameError:
     unicode = lambda s: s
-
-
-@fixture(scope='function')
-def tmpdir_path(tmpdir):
-    return tmpdir.strpath
 
 
 ###############################################################################
@@ -177,19 +169,15 @@ def test_hash_numpy_noncontiguous():
 
 
 @with_numpy
-def test_hash_memmap():
-    """ Check that memmap and arrays hash identically if coerce_mmap is
-        True.
-    """
-    filename = tempfile.mktemp(prefix='joblib_test_hash_memmap_')
+@parametrize('coerce_mmap', [True, False])
+def test_hash_memmap(tmpdir, coerce_mmap):
+    """Check that memmap and arrays hash identically if coerce_mmap is True."""
+    filename = tmpdir.join('memmap_temp').strpath
     try:
         m = np.memmap(filename, shape=(10, 10), mode='w+')
         a = np.asarray(m)
-        for coerce_mmap in (False, True):
-            yield (assert_equal,
-                   hash(a, coerce_mmap=coerce_mmap) ==
-                   hash(m, coerce_mmap=coerce_mmap),
-                   coerce_mmap)
+        assert ((hash(a, coerce_mmap=coerce_mmap) ==
+                 hash(m, coerce_mmap=coerce_mmap)) == coerce_mmap)
     finally:
         if 'm' in locals():
             del m
@@ -197,12 +185,6 @@ def test_hash_memmap():
             # object is delete, and we don't run in a problem under
             # Windows with a file handle still open.
             gc.collect()
-            try:
-                os.unlink(filename)
-            except OSError as e:
-                # Under windows, some files don't get erased.
-                if not os.name == 'nt':
-                    raise e
 
 
 @with_numpy
@@ -258,12 +240,12 @@ def test_bound_methods_hash():
             hash(filter_args(b.f, [], (1, ))))
 
 
-def test_bound_cached_methods_hash(tmpdir_path):
+def test_bound_cached_methods_hash(tmpdir):
     """ Make sure that calling the same _cached_ method on two different
     instances of the same class does resolve to the same hashes.
     """
-    a = KlassWithCachedMethod(tmpdir_path)
-    b = KlassWithCachedMethod(tmpdir_path)
+    a = KlassWithCachedMethod(tmpdir.strpath)
+    b = KlassWithCachedMethod(tmpdir.strpath)
     assert (hash(filter_args(a.f.func, [], (1, ))) ==
             hash(filter_args(b.f.func, [], (1, ))))
 
@@ -287,10 +269,10 @@ def test_numpy_scalar():
     assert hash(a) != hash(b)
 
 
-def test_dict_hash(tmpdir_path):
+def test_dict_hash(tmpdir):
     # Check that dictionaries hash consistently, eventhough the ordering
     # of the keys is not garanteed
-    k = KlassWithCachedMethod(tmpdir_path)
+    k = KlassWithCachedMethod(tmpdir.strpath)
 
     d = {'#s12069__c_maps.nii.gz': [33],
          '#s12158__c_maps.nii.gz': [33],
@@ -312,10 +294,10 @@ def test_dict_hash(tmpdir_path):
     assert hash(a) == hash(b)
 
 
-def test_set_hash(tmpdir_path):
+def test_set_hash(tmpdir):
     # Check that sets hash consistently, even though their ordering
     # is not guaranteed
-    k = KlassWithCachedMethod(tmpdir_path)
+    k = KlassWithCachedMethod(tmpdir.strpath)
 
     s = set(['#s12069__c_maps.nii.gz',
              '#s12158__c_maps.nii.gz',
