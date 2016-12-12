@@ -197,9 +197,8 @@ def test_bound_methods():
                h, [[]])
               ])
 def test_filter_args_error_msg(exception, regex, func, args):
-    """
-    Make sure that filter_args returns decent error messages, for the sake
-    of the user.
+    """ Make sure that filter_args returns decent error messages, for the
+        sake of the user.
     """
     with pytest_assert_raises(exception) as excinfo:
         filter_args(func, *args)
