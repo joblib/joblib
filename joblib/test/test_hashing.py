@@ -20,8 +20,7 @@ import time
 from joblib.hashing import hash
 from joblib.func_inspect import filter_args
 from joblib.memory import Memory
-from joblib.testing import (assert_raises_regex, skipif, fixture,
-                            parametrize)
+from joblib.testing import assert_raises_regex, skipif, fixture, parametrize
 from joblib.test.common import np, with_numpy
 from joblib.my_exceptions import TransportableException
 from joblib._compat import PY3_OR_LATER
@@ -146,15 +145,13 @@ def test_hash_numpy_dict_of_arrays(three_np_arrays):
 
 
 @with_numpy
-def test_numpy_datetime_array():
+@parametrize('dtype', ['datetime64[s]', 'timedelta64[D]'])
+def test_numpy_datetime_array(dtype):
     # memoryview is not supported for some dtypes e.g. datetime64
     # see https://github.com/joblib/joblib/issues/188 for more details
-    dtypes = ['datetime64[s]', 'timedelta64[D]']
-
     a_hash = hash(np.arange(10))
-    arrays = (np.arange(0, 10, dtype=dtype) for dtype in dtypes)
-    for array in arrays:
-        assert hash(array) != a_hash
+    array = np.arange(0, 10, dtype=dtype)
+    assert hash(array) != a_hash
 
 
 @with_numpy
