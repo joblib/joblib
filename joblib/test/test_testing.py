@@ -1,8 +1,7 @@
 import sys
 import re
 
-from joblib.testing import (assert_raises, pytest_assert_raises,
-                            check_subprocess_call)
+from joblib.testing import pytest_assert_raises, check_subprocess_call
 
 
 def test_check_subprocess_call():
@@ -31,9 +30,8 @@ def test_check_subprocess_call_non_matching_regex():
 
 def test_check_subprocess_call_wrong_command():
     wrong_command = '_a_command_that_does_not_exist_'
-    assert_raises(OSError,
-                  check_subprocess_call,
-                  [wrong_command])
+    with pytest_assert_raises(OSError):
+        check_subprocess_call([wrong_command])
 
 
 def test_check_subprocess_call_non_zero_return_code():
