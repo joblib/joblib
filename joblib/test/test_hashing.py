@@ -93,8 +93,9 @@ class KlassWithCachedMethod(object):
 def test_trivial_hash(obj1, obj2):
     """Smoke test hash on various types."""
     # Check that 2 objects have the same hash only if they are the same.
-    is_hash_equal = hash(obj1) == hash(obj2)
-    assert is_hash_equal == obj1 is obj2
+    are_hashes_equal = hash(obj1) == hash(obj2)
+    are_objs_identical = obj1 is obj2
+    assert are_hashes_equal == are_objs_identical
 
 
 def test_hash_methods():
@@ -125,9 +126,9 @@ def test_hash_numpy_arrays(three_np_arrays):
 
     # Only same arrays will have same hash
     for obj1, obj2 in itertools.product(three_np_arrays, repeat=2):
-        is_hash_equal = hash(obj1) == hash(obj2)
-        is_array_equal = np.all(obj1 == obj2)
-        assert is_hash_equal == is_array_equal
+        are_hashes_equal = hash(obj1) == hash(obj2)
+        are_arrays_equal = np.all(obj1 == obj2)
+        assert are_hashes_equal == are_arrays_equal
 
     assert hash(arr1) != hash(arr1.T)
 
@@ -173,9 +174,9 @@ def test_hash_memmap(tmpdir, coerce_mmap):
     try:
         m = np.memmap(filename, shape=(10, 10), mode='w+')
         a = np.asarray(m)
-        is_hash_equal = (hash(a, coerce_mmap=coerce_mmap) ==
-                         hash(m, coerce_mmap=coerce_mmap))
-        assert is_hash_equal == coerce_mmap
+        are_hashes_equal = (hash(a, coerce_mmap=coerce_mmap) ==
+                            hash(m, coerce_mmap=coerce_mmap))
+        assert are_hashes_equal == coerce_mmap
     finally:
         if 'm' in locals():
             del m
