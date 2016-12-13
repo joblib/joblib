@@ -6,16 +6,16 @@ Test the hashing module.
 # Copyright (c) 2009 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
-import collections
-from decimal import Decimal
-import gc
+import time
 import hashlib
+import sys
+import gc
 import io
+import collections
 import itertools
 import pickle
 import random
-import sys
-import time
+from decimal import Decimal
 
 from joblib.hashing import hash
 from joblib.func_inspect import filter_args
@@ -93,8 +93,8 @@ class KlassWithCachedMethod(object):
 def test_trival_hash(obj1, obj2):
     """Smoke test hash on various types."""
     # Check that 2 objects have the same hash only if they are the same.
-    if obj1 is obj2:
-        assert hash(obj1) == hash(obj2)
+    is_hash_equal = (hash(obj1) == hash(obj2))
+    assert is_hash_equal == (obj1 is obj2)
 
 
 def test_hash_methods():
@@ -109,9 +109,8 @@ def test_hash_methods():
 @fixture(scope='function')
 @with_numpy
 def three_np_arrays():
-    """
-    Returns three numpy arrays where first two are same and third is a bit
-    different. These arrays will be used by few tests below.
+    """Returns three numpy arrays where first two are same and third is a bit
+       different. These arrays will be used by few tests below.
     """
     rnd = np.random.RandomState(0)
     arr1 = rnd.random_sample((10, 10))
@@ -126,8 +125,11 @@ def test_hash_numpy_arrays(three_np_arrays):
     arr1, arr2, arr3 = three_np_arrays
 
     # Only same arrays will have same hash
-    assert hash(arr1) == hash(arr2)
-    assert hash(arr1) != hash(arr3)
+    for obj1, obj2 in itertools.product(three_np_arrays, repeat=2):
+        is_hash_equal = hash(obj1) == hash(obj2)
+        is_array_equal = np.all(obj1 == obj2)
+        assert is_hash_equal == is_array_equal
+
     assert hash(arr1) != hash(arr1.T)
 
 
@@ -173,8 +175,9 @@ def test_hash_memmap(tmpdir, coerce_mmap):
     try:
         m = np.memmap(filename, shape=(10, 10), mode='w+')
         a = np.asarray(m)
-        assert ((hash(a, coerce_mmap=coerce_mmap) ==
-                 hash(m, coerce_mmap=coerce_mmap)) == coerce_mmap)
+        is_hash_equal = (hash(a, coerce_mmap=coerce_mmap) ==
+                         hash(m, coerce_mmap=coerce_mmap))
+        assert is_hash_equal == coerce_mmap
     finally:
         if 'm' in locals():
             del m
@@ -346,23 +349,18 @@ def test_dtype():
              [('This is a string to hash',
                  {'py2': '80436ada343b0d79a99bfd8883a96e45',
                   'py3': '71b3f47df22cb19431d85d92d0b230b2'}),
-
               (u"C'est l\xe9t\xe9",
                  {'py2': '2ff3a25200eb6219f468de2640913c2d',
                   'py3': '2d8d189e9b2b0b2e384d93c868c0e576'}),
-
               ((123456, 54321, -98765),
                  {'py2': '50d81c80af05061ac4dcdc2d5edee6d6',
                   'py3': 'e205227dd82250871fa25aa0ec690aa3'}),
-
               ([random.Random(42).random() for _ in range(5)],
                  {'py2': '1a36a691b2e2ba3a9df72de3dccf17ea',
                   'py3': 'a11ffad81f9682a7d901e6edc3d16c84'}),
-
               ([3, 'abc', None, TransportableException('foo', ValueError)],
                  {'py2': 'adb6ba84990ee5e462dc138383f11802',
                   'py3': '994f663c64ba5e64b2a85ebe75287829'}),
-
               ({'abcde': 123, 'sadfas': [-9999, 2, 3]},
                  {'py2': 'fc9314a39ff75b829498380850447047',
                   'py3': 'aeda150553d4bb5c69f0e69d51b0e2ef'})])
@@ -437,22 +435,16 @@ def to_hash_np_objs(request):
              # Expected results have been generated with joblib 0.9.0
              [(0, {'py2': '80f2387e7752abbda2658aafed49e086',
                    'py3': '10a6afc379ca2708acfbaef0ab676eab'}),
-
               (1, {'py2': '0d700f7f25ea670fd305e4cd93b0e8cd',
                    'py3': '988a7114f337f381393025911ebc823b'}),
-
               (2, {'py2': '83a2bdf843e79e4b3e26521db73088b9',
                    'py3': 'c6809f4b97e35f2fa0ee8d653cbd025c'}),
-
               (3, {'py2': '63e0efd43c0a9ad92a07e8ce04338dd3',
                    'py3': 'b3ad17348e32728a7eb9cda1e7ede438'}),
-
               (4, {'py2': '03fef702946b602c852b8b4e60929914',
                    'py3': '927b3e6b0b6a037e8e035bda134e0b05'}),
-
               (5, {'py2': '07074691e90d7098a85956367045c81e',
                    'py3': '108f6ee98e7db19ea2006ffd208f4bf1'}),
-
               (6, {'py2': 'd264cf79f353aa7bbfa8349e3df72d8f',
                    'py3': 'bd48ccaaff28e16e6badee81041b7180'})],
              indirect=['to_hash_np_objs'])
