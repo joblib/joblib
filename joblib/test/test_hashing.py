@@ -121,7 +121,6 @@ def three_np_arrays():
 
 
 def test_hash_numpy_arrays(three_np_arrays):
-    """Test hashing with numpy arrays."""
     arr1, arr2, arr3 = three_np_arrays
 
     # Only same arrays will have same hash
@@ -134,7 +133,6 @@ def test_hash_numpy_arrays(three_np_arrays):
 
 
 def test_hash_numpy_dict_of_arrays(three_np_arrays):
-    """Test hashing with dicts made of numpy arrays."""
     arr1, arr2, arr3 = three_np_arrays
 
     d1 = {1: arr1, 2: arr2}
