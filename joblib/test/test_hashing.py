@@ -76,20 +76,23 @@ class KlassWithCachedMethod(object):
 ###############################################################################
 # Tests
 
-@parametrize('obj1, obj2', list(itertools.product(
-    [1, 2, 1., 2., 1 + 1j, 2. + 1j,
-     'a', 'b',
-     (1,), (1, 1,), [1, ], [1, 1, ],
-     {1: 1}, {1: 2}, {2: 1},
-     None,
-     gc.collect,
-     [1, ].append,
-     # Next 2 sets have unorderable elements in python 3.
-     set(('a', 1)),
-     set(('a', 1, ('a', 1))),
-     # Next 2 dicts have unorderable type of keys in python 3.
-     {'a': 1, 1: 2},
-     {'a': 1, 1: 2, 'd': {'a': 1}}], repeat=2)))
+input_list = [1, 2, 1., 2., 1 + 1j, 2. + 1j,
+              'a', 'b',
+              (1,), (1, 1,), [1, ], [1, 1, ],
+              {1: 1}, {1: 2}, {2: 1},
+              None,
+              gc.collect,
+              [1, ].append,
+              # Next 2 sets have unorderable elements in python 3.
+              set(('a', 1)),
+              set(('a', 1, ('a', 1))),
+              # Next 2 dicts have unorderable type of keys in python 3.
+              {'a': 1, 1: 2},
+              {'a': 1, 1: 2, 'd': {'a': 1}}]
+
+
+@parametrize('obj1', input_list)
+@parametrize('obj2', input_list)
 def test_trivial_hash(obj1, obj2):
     """Smoke test hash on various types."""
     # Check that 2 objects have the same hash only if they are the same.
@@ -441,8 +444,7 @@ def test_hashes_stay_the_same_with_numpy_objects():
     expected_list = expected_dict[py_version_str]
 
     for to_hash, expected in zip(to_hash_list, expected_list):
-        py_version_str = 'py3' if PY3_OR_LATER else 'py2'
-        assert hash(to_hash) == expected[py_version_str]
+        assert hash(to_hash) == expected
 
 
 def test_hashing_pickling_error():
