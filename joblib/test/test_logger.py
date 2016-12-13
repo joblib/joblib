@@ -19,26 +19,22 @@ except NameError:
     unicode = lambda s: s
 
 
-def test_print_time(tmpdir):
+def test_print_time(tmpdir, capsys):
     # A simple smoke test for PrintTime.
     logfile = tmpdir.join('test.log').strpath
-    try:
-        orig_stderr = sys.stderr
-        sys.stderr = io.StringIO()
-        print_time = PrintTime(logfile=logfile)
-        print_time(unicode('Foo'))
-        # Create a second time, to smoke test log rotation.
-        print_time = PrintTime(logfile=logfile)
-        print_time(unicode('Foo'))
-        # And a third time
-        print_time = PrintTime(logfile=logfile)
-        print_time(unicode('Foo'))
-        printed_text = sys.stderr.getvalue()
-        # Use regexps to be robust to time variations
-        match = r"Foo: 0\..s, 0\..min\nFoo: 0\..s, 0..min\nFoo: " + \
-                r".\..s, 0..min\n"
-        if not re.match(match, printed_text):
-            raise AssertionError('Excepted %s, got %s' %
-                                    (match, printed_text))
-    finally:
-        sys.stderr = orig_stderr
+    print_time = PrintTime(logfile=logfile)
+    print_time(unicode('Foo'))
+    # Create a second time, to smoke test log rotation.
+    print_time = PrintTime(logfile=logfile)
+    print_time(unicode('Foo'))
+    # And a third time
+    print_time = PrintTime(logfile=logfile)
+    print_time(unicode('Foo'))
+
+    out_printed_text, err_printed_text = capsys.readouterr()
+    # Use regexps to be robust to time variations
+    match = r"Foo: 0\..s, 0\..min\nFoo: 0\..s, 0..min\nFoo: " + \
+            r".\..s, 0..min\n"
+    if not re.match(match, err_printed_text):
+        raise AssertionError('Excepted %s, got %s' %
+                                (match, err_printed_text))
