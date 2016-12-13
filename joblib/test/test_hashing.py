@@ -93,8 +93,8 @@ class KlassWithCachedMethod(object):
 def test_trival_hash(obj1, obj2):
     """Smoke test hash on various types."""
     # Check that 2 objects have the same hash only if they are the same.
-    is_hash_equal = (hash(obj1) == hash(obj2))
-    assert is_hash_equal == (obj1 is obj2)
+    is_hash_equal = hash(obj1) == hash(obj2)
+    assert is_hash_equal == obj1 is obj2
 
 
 def test_hash_methods():
