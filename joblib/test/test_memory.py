@@ -12,7 +12,6 @@ import os.path
 from tempfile import mkdtemp
 import pickle
 import warnings
-import io
 import sys
 import time
 import datetime
@@ -107,20 +106,7 @@ def test_memory_integration():
 
     # Now test clearing
     for compress in (False, True):
-     for mmap_mode in ('r', None):
-        # We turn verbosity on to smoke test the verbosity code, however,
-        # we capture it, as it is ugly
-        try:
-            # To smoke-test verbosity, we capture stdout
-            orig_stdout = sys.stdout
-            orig_stderr = sys.stdout
-            if PY3_OR_LATER:
-                sys.stderr = io.StringIO()
-                sys.stderr = io.StringIO()
-            else:
-                sys.stdout = io.BytesIO()
-                sys.stderr = io.BytesIO()
-
+        for mmap_mode in ('r', None):
             memory = Memory(cachedir=env['dir'], verbose=10,
                             mmap_mode=mmap_mode, compress=compress)
             # First clear the cache directory, to check that our code can
@@ -134,9 +120,6 @@ def test_memory_integration():
             g.clear(warn=False)
             current_accumulator = len(accumulator)
             out = g(1)
-        finally:
-            sys.stdout = orig_stdout
-            sys.stderr = orig_stderr
 
         yield assert_equal, len(accumulator), current_accumulator + 1
         # Also, check that Memory.eval works similarly
@@ -557,7 +540,7 @@ def test_memorized_repr():
     result.get()
 
 
-def test_memory_file_modification():
+def test_memory_file_modification(capsys):
     # Test that modifying a Python file after loading it does not lead to
     # Recomputation
     dir_name = os.path.join(env['dir'], 'tmp_import')
@@ -574,56 +557,45 @@ def test_memory_file_modification():
 
     mem = Memory(cachedir=env['dir'], verbose=0)
     f = mem.cache(tmp.f)
-    # Capture sys.stdout to count how many time f is called
-    orig_stdout = sys.stdout
-    if PY3_OR_LATER:
-        my_stdout = io.StringIO()
-    else:
-        my_stdout = io.BytesIO()
+    # First call f a few times
+    f(1)
+    f(2)
+    f(1)
 
-    try:
-        sys.stdout = my_stdout
+    # Now modify the module where f is stored without modifying f
+    with open(filename, 'w') as module_file:
+        module_file.write('\n\n' + content)
 
-        # First call f a few times
-        f(1)
-        f(2)
-        f(1)
+    # And call f a couple more times
+    f(1)
+    f(1)
 
-        # Now modify the module where f is stored without modifying f
-        with open(filename, 'w') as module_file:
-            module_file.write('\n\n' + content)
+    # Flush the .pyc files
+    shutil.rmtree(dir_name)
+    os.mkdir(dir_name)
+    # Now modify the module where f is stored, modifying f
+    content = 'def f(x):\n    print("x=%s" % x)\n    return x\n'
+    with open(filename, 'w') as module_file:
+        module_file.write(content)
 
-        # And call f a couple more times
-        f(1)
-        f(1)
+    # And call f more times prior to reloading: the cache should not be
+    # invalidated at this point as the active function definition has not
+    # changed in memory yet.
+    f(1)
+    f(1)
 
-        # Flush the .pyc files
-        shutil.rmtree(dir_name)
-        os.mkdir(dir_name)
-        # Now modify the module where f is stored, modifying f
-        content = 'def f(x):\n    print("x=%s" % x)\n    return x\n'
-        with open(filename, 'w') as module_file:
-            module_file.write(content)
+    # Now reload
+    sys.stdout.write('Reloading\n')
+    sys.modules.pop('tmp_joblib_')
+    import tmp_joblib_ as tmp
+    f = mem.cache(tmp.f)
 
-        # And call f more times prior to reloading: the cache should not be
-        # invalidated at this point as the active function definition has not
-        # changed in memory yet.
-        f(1)
-        f(1)
+    # And call f more times
+    f(1)
+    f(1)
 
-        # Now reload
-        my_stdout.write('Reloading\n')
-        sys.modules.pop('tmp_joblib_')
-        import tmp_joblib_ as tmp
-        f = mem.cache(tmp.f)
-
-        # And call f more times
-        f(1)
-        f(1)
-
-    finally:
-        sys.stdout = orig_stdout
-    assert my_stdout.getvalue() == '1\n2\nReloading\nx=1\n'
+    out, err = capsys.readouterr()
+    assert out == '1\n2\nReloading\nx=1\n'
 
 
 def _function_to_cache(a, b):
