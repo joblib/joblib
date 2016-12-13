@@ -90,7 +90,7 @@ class KlassWithCachedMethod(object):
      # Next 2 dicts have unorderable type of keys in python 3.
      {'a': 1, 1: 2},
      {'a': 1, 1: 2, 'd': {'a': 1}}], repeat=2)))
-def test_trival_hash(obj1, obj2):
+def test_trivial_hash(obj1, obj2):
     """Smoke test hash on various types."""
     # Check that 2 objects have the same hash only if they are the same.
     is_hash_equal = hash(obj1) == hash(obj2)
