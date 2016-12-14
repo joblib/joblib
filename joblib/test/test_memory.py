@@ -22,7 +22,8 @@ from joblib.memory import _get_cache_items, _get_cache_items_to_delete
 from joblib.memory import _load_output, _get_func_fullname
 from joblib.test.common import with_numpy, np
 from joblib.testing import (assert_equal, assert_true, assert_raises,
-                            assert_raises_regex, parametrize)
+                            pytest_assert_raises, assert_raises_regex,
+                            parametrize)
 from joblib._compat import PY3_OR_LATER
 
 
@@ -384,7 +385,7 @@ def test_memory_exception():
 
     for _ in range(3):
         # Call 3 times, to be sure that the Exception is always raised
-        yield assert_raises, MyException, h, 1
+        pytest_assert_raises(MyException, h, 1)
 
 
 def test_memory_ignore():
