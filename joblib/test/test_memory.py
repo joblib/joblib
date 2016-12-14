@@ -21,7 +21,7 @@ from joblib.memory import MemorizedResult, NotMemorizedResult, _FUNCTION_HASHES
 from joblib.memory import _get_cache_items, _get_cache_items_to_delete
 from joblib.memory import _load_output, _get_func_fullname
 from joblib.test.common import with_numpy, np
-from joblib.testing import (assert_equal, assert_true, assert_false,
+from joblib.testing import (assert_equal, assert_true,
                             assert_raises, assert_raises_regex)
 from joblib._compat import PY3_OR_LATER
 
@@ -121,10 +121,10 @@ def test_memory_integration():
             current_accumulator = len(accumulator)
             out = g(1)
 
-        yield assert_equal, len(accumulator), current_accumulator + 1
+        assert len(accumulator) == current_accumulator + 1
         # Also, check that Memory.eval works similarly
-        yield assert_equal, memory.eval(f, 1), out
-        yield assert_equal, len(accumulator), current_accumulator + 1
+        assert memory.eval(f, 1) == out
+        assert len(accumulator) == current_accumulator + 1
 
     # Now do a smoke test with a function defined in __main__, as the name
     # mangling rules are more complex
@@ -292,7 +292,7 @@ def test_memory_eval():
     m = eval('lambda x: x')
     mm = memory.cache(m)
 
-    yield assert_equal, 1, mm(1)
+    assert mm(1) == 1
 
 
 def count_and_append(x=[]):
@@ -396,14 +396,14 @@ def test_memory_ignore():
     def z(x, y=1):
         accumulator.append(1)
 
-    yield assert_equal, z.ignore, ['y']
+    assert z.ignore == ['y']
 
     z(0, y=1)
-    yield assert_equal, len(accumulator), 1
+    assert len(accumulator) == 1
     z(0, y=1)
-    yield assert_equal, len(accumulator), 1
+    assert len(accumulator) == 1
     z(0, y=2)
-    yield assert_equal, len(accumulator), 1
+    assert len(accumulator) == 1
 
 
 def test_partial_decoration():
@@ -434,23 +434,23 @@ def test_func_dir():
 
     g = memory.cache(f)
     # Test that the function directory is created on demand
-    yield assert_equal, g._get_func_dir(), path
-    yield assert_true, os.path.exists(path)
+    assert g._get_func_dir() == path
+    assert os.path.exists(path)
 
     # Test that the code is stored.
     # For the following test to be robust to previous execution, we clear
     # the in-memory store
     _FUNCTION_HASHES.clear()
-    yield assert_false, g._check_previous_func_code()
-    yield assert_true, os.path.exists(os.path.join(path, 'func_code.py'))
-    yield assert_true, g._check_previous_func_code()
+    assert not g._check_previous_func_code()
+    assert os.path.exists(os.path.join(path, 'func_code.py'))
+    assert g._check_previous_func_code()
 
     # Test the robustness to failure of loading previous results.
     dir, _ = g.get_output_dir(1)
     a = g(1)
-    yield assert_true, os.path.exists(dir)
+    assert os.path.exists(dir)
     os.remove(os.path.join(dir, 'output.pkl'))
-    yield assert_equal, a, g(1)
+    assert a == g(1)
 
 
 def test_persistence():
@@ -463,9 +463,9 @@ def test_persistence():
 
     output_dir, _ = h.get_output_dir(1)
     func_name = _get_func_fullname(f)
-    yield assert_equal, output, _load_output(output_dir, func_name)
+    assert output == _load_output(output_dir, func_name)
     memory2 = pickle.loads(pickle.dumps(memory))
-    yield assert_equal, memory.cachedir, memory2.cachedir
+    assert memory.cachedir == memory2.cachedir
 
     # Smoke test that pickling a memory with cachedir=None works
     memory = Memory(cachedir=None, verbose=0)
