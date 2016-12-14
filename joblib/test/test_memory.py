@@ -21,8 +21,8 @@ from joblib.memory import MemorizedResult, NotMemorizedResult, _FUNCTION_HASHES
 from joblib.memory import _get_cache_items, _get_cache_items_to_delete
 from joblib.memory import _load_output, _get_func_fullname
 from joblib.test.common import with_numpy, np
-from joblib.testing import (assert_equal, assert_true,
-                            assert_raises, assert_raises_regex)
+from joblib.testing import (assert_equal, assert_true, assert_raises,
+                            assert_raises_regex, parametrize)
 from joblib._compat import PY3_OR_LATER
 
 
@@ -406,22 +406,20 @@ def test_memory_ignore():
     assert len(accumulator) == 1
 
 
-def test_partial_decoration():
+@parametrize('ignore, verbose, mmap_mode',
+             [(['x'], 100, 'r'),
+              ([], 10, None)])
+def test_partial_decoration(ignore, verbose, mmap_mode):
     "Check cache may be called with kwargs before decorating"
     memory = Memory(cachedir=env['dir'], verbose=0)
 
-    test_values = [
-        (['x'], 100, 'r'),
-        ([], 10, None),
-    ]
-    for ignore, verbose, mmap_mode in test_values:
-        @memory.cache(ignore=ignore, verbose=verbose, mmap_mode=mmap_mode)
-        def z(x):
-            pass
+    @memory.cache(ignore=ignore, verbose=verbose, mmap_mode=mmap_mode)
+    def z(x):
+        pass
 
-        yield assert_equal, z.ignore, ignore
-        yield assert_equal, z._verbose, verbose
-        yield assert_equal, z.mmap_mode, mmap_mode
+    assert z.ignore == ignore
+    assert z._verbose == verbose
+    assert z.mmap_mode == mmap_mode
 
 
 def test_func_dir():
