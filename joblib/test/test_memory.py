@@ -9,7 +9,6 @@ Test the memory module.
 import shutil
 import os
 import os.path
-from tempfile import mkdtemp
 import pickle
 import warnings
 import sys
@@ -21,7 +20,7 @@ from joblib.memory import MemorizedResult, NotMemorizedResult, _FUNCTION_HASHES
 from joblib.memory import _get_cache_items, _get_cache_items_to_delete
 from joblib.memory import _load_output, _get_func_fullname
 from joblib.test.common import with_numpy, np
-from joblib.testing import pytest_assert_raises, parametrize
+from joblib.testing import pytest_assert_raises, parametrize, fixture
 from joblib._compat import PY3_OR_LATER
 
 
@@ -34,50 +33,15 @@ def f(x, y=1):
 
 
 ###############################################################################
-# Test fixtures
-env = dict()
-
-
-def setup_module():
-    """ Test setup.
-    """
-    cachedir = mkdtemp()
-    env['dir'] = cachedir
-    if os.path.exists(cachedir):
-        shutil.rmtree(cachedir)
-    # Don't make the cachedir, Memory should be able to do that on the fly
-    print(80 * '_')
-    print('test_memory setup (%s)' % env['dir'])
-    print(80 * '_')
-
-
-def _rmtree_onerror(func, path, excinfo):
-    print('!' * 79)
-    print('os function failed: %r' % func)
-    print('file to be removed: %s' % path)
-    print('exception was: %r' % excinfo[1])
-    print('!' * 79)
-
-
-def teardown_module():
-    """ Test teardown.
-    """
-    shutil.rmtree(env['dir'], False, _rmtree_onerror)
-    print(80 * '_')
-    print('test_memory teardown (%s)' % env['dir'])
-    print(80 * '_')
-
-
-###############################################################################
 # Helper function for the tests
-def check_identity_lazy(func, accumulator):
+def check_identity_lazy(func, accumulator, tmpdir):
     """ Given a function and an accumulator (a list that grows every
         time the function is called), check that the function can be
         decorated by memory to be a lazy identity.
     """
     # Call each function with several arguments, and check that it is
     # evaluated only once per argument.
-    memory = Memory(cachedir=env['dir'], verbose=0)
+    memory = Memory(cachedir=tmpdir.strpath, verbose=0)
     memory.clear(warn=False)
     func = memory.cache(func)
     for i in range(3):
@@ -88,7 +52,7 @@ def check_identity_lazy(func, accumulator):
 
 ###############################################################################
 # Tests
-def test_memory_integration():
+def test_memory_integration(tmpdir):
     """ Simple test of memory lazy evaluation.
     """
     accumulator = list()
@@ -100,19 +64,19 @@ def test_memory_integration():
         accumulator.append(1)
         return l
 
-    check_identity_lazy(f, accumulator)
+    check_identity_lazy(f, accumulator, tmpdir)
 
     # Now test clearing
     for compress in (False, True):
         for mmap_mode in ('r', None):
-            memory = Memory(cachedir=env['dir'], verbose=10,
+            memory = Memory(cachedir=tmpdir.strpath, verbose=10,
                             mmap_mode=mmap_mode, compress=compress)
             # First clear the cache directory, to check that our code can
             # handle that
             # NOTE: this line would raise an exception, as the database file is
             # still open; we ignore the error since we want to test what
             # happens if the directory disappears
-            shutil.rmtree(env['dir'], ignore_errors=True)
+            shutil.rmtree(tmpdir.strpath, ignore_errors=True)
             g = memory.cache(f)
             g(1)
             g.clear(warn=False)
@@ -127,7 +91,7 @@ def test_memory_integration():
     # Now do a smoke test with a function defined in __main__, as the name
     # mangling rules are more complex
     f.__module__ = '__main__'
-    memory = Memory(cachedir=env['dir'], verbose=0)
+    memory = Memory(cachedir=tmpdir.strpath, verbose=0)
     memory.cache(f)(1)
 
 
@@ -147,7 +111,7 @@ def test_no_memory():
         assert len(accumulator) == current_accumulator + 1
 
 
-def test_memory_kwarg():
+def test_memory_kwarg(tmpdir):
     " Test memory with a function with keyword arguments."
     accumulator = list()
 
@@ -155,15 +119,15 @@ def test_memory_kwarg():
         accumulator.append(1)
         return l
 
-    check_identity_lazy(g, accumulator)
+    check_identity_lazy(g, accumulator, tmpdir)
 
-    memory = Memory(cachedir=env['dir'], verbose=0)
+    memory = Memory(cachedir=tmpdir.strpath, verbose=0)
     g = memory.cache(g)
     # Smoke test with an explicit keyword argument:
     assert g(l=30, m=2) == 30
 
 
-def test_memory_lambda():
+def test_memory_lambda(tmpdir):
     " Test memory with a function with a lambda."
     accumulator = list()
 
@@ -175,12 +139,12 @@ def test_memory_lambda():
 
     l = lambda x: helper(x)
 
-    check_identity_lazy(l, accumulator)
+    check_identity_lazy(l, accumulator, tmpdir)
 
 
-def test_memory_name_collision():
+def test_memory_name_collision(tmpdir):
     " Check that name collisions with functions will raise warnings"
-    memory = Memory(cachedir=env['dir'], verbose=0)
+    memory = Memory(cachedir=tmpdir.strpath, verbose=0)
 
     @memory.cache
     def name_collision(x):
@@ -212,9 +176,9 @@ def test_memory_name_collision():
         assert "collision" in str(w[-1].message)
 
 
-def test_memory_warning_lambda_collisions():
+def test_memory_warning_lambda_collisions(tmpdir):
     # Check that multiple use of lambda will raise collisions
-    memory = Memory(cachedir=env['dir'], verbose=0)
+    memory = Memory(cachedir=tmpdir.strpath, verbose=0)
     # For isolation with other tests
     memory.clear()
     a = lambda x: x
@@ -238,10 +202,10 @@ def test_memory_warning_lambda_collisions():
     assert len(w) == 4
 
 
-def test_memory_warning_collision_detection():
+def test_memory_warning_collision_detection(tmpdir):
     # Check that collisions impossible to detect will raise appropriate
     # warnings.
-    memory = Memory(cachedir=env['dir'], verbose=0)
+    memory = Memory(cachedir=tmpdir.strpath, verbose=0)
     # For isolation with other tests
     memory.clear()
     a1 = eval('lambda x: x')
@@ -264,7 +228,7 @@ def test_memory_warning_collision_detection():
         assert "cannot detect" in str(w[-1].message).lower()
 
 
-def test_memory_partial():
+def test_memory_partial(tmpdir):
     " Test memory with functools.partial."
     accumulator = list()
 
@@ -277,12 +241,12 @@ def test_memory_partial():
     import functools
     function = functools.partial(func, 1)
 
-    check_identity_lazy(function, accumulator)
+    check_identity_lazy(function, accumulator, tmpdir)
 
 
-def test_memory_eval():
+def test_memory_eval(tmpdir):
     " Smoke test memory with a function with a function defined in an eval."
-    memory = Memory(cachedir=env['dir'], verbose=0)
+    memory = Memory(cachedir=tmpdir.strpath, verbose=0)
 
     m = eval('lambda x: x')
     mm = memory.cache(m)
@@ -300,11 +264,11 @@ def count_and_append(x=[]):
     return len_x
 
 
-def test_argument_change():
+def test_argument_change(tmpdir):
     """ Check that if a function has a side effect in its arguments, it
         should use the hash of changing arguments.
     """
-    mem = Memory(cachedir=env['dir'], verbose=0)
+    mem = Memory(cachedir=tmpdir.strpath, verbose=0)
     func = mem.cache(count_and_append)
     # call the function for the first time, is should cache it with
     # argument x=[]
@@ -315,7 +279,7 @@ def test_argument_change():
 
 
 @with_numpy
-def test_memory_numpy():
+def test_memory_numpy(tmpdir):
     " Test memory with a function with numpy arrays."
     # Check with memmapping and without.
     for mmap_mode in (None, 'r'):
@@ -325,7 +289,7 @@ def test_memory_numpy():
             accumulator.append(1)
             return l
 
-        memory = Memory(cachedir=env['dir'], mmap_mode=mmap_mode,
+        memory = Memory(cachedir=tmpdir.strpath, mmap_mode=mmap_mode,
                             verbose=0)
         memory.clear(warn=False)
         cached_n = memory.cache(n)
@@ -339,10 +303,10 @@ def test_memory_numpy():
 
 
 @with_numpy
-def test_memory_numpy_check_mmap_mode():
+def test_memory_numpy_check_mmap_mode(tmpdir):
     """Check that mmap_mode is respected even at the first call"""
 
-    memory = Memory(cachedir=env['dir'], mmap_mode='r', verbose=0)
+    memory = Memory(cachedir=tmpdir.strpath, mmap_mode='r', verbose=0)
     memory.clear(warn=False)
 
     @memory.cache()
@@ -361,10 +325,10 @@ def test_memory_numpy_check_mmap_mode():
     assert b.mode == 'r'
 
 
-def test_memory_exception():
+def test_memory_exception(tmpdir):
     """ Smoketest the exception handling of Memory.
     """
-    memory = Memory(cachedir=env['dir'], verbose=0)
+    memory = Memory(cachedir=tmpdir.strpath, verbose=0)
 
     class MyException(Exception):
         pass
@@ -382,9 +346,9 @@ def test_memory_exception():
         pytest_assert_raises(MyException, h, 1)
 
 
-def test_memory_ignore():
+def test_memory_ignore(tmpdir):
     " Test the ignore feature of memory "
-    memory = Memory(cachedir=env['dir'], verbose=0)
+    memory = Memory(cachedir=tmpdir.strpath, verbose=0)
     accumulator = list()
 
     @memory.cache(ignore=['y'])
@@ -404,9 +368,9 @@ def test_memory_ignore():
 @parametrize('ignore, verbose, mmap_mode',
              [(['x'], 100, 'r'),
               ([], 10, None)])
-def test_partial_decoration(ignore, verbose, mmap_mode):
+def test_partial_decoration(ignore, verbose, mmap_mode, tmpdir):
     "Check cache may be called with kwargs before decorating"
-    memory = Memory(cachedir=env['dir'], verbose=0)
+    memory = Memory(cachedir=tmpdir.strpath, verbose=0)
 
     @memory.cache(ignore=ignore, verbose=verbose, mmap_mode=mmap_mode)
     def z(x):
@@ -417,13 +381,13 @@ def test_partial_decoration(ignore, verbose, mmap_mode):
     assert z.mmap_mode == mmap_mode
 
 
-def test_func_dir():
+def test_func_dir(tmpdir):
     # Test the creation of the memory cache directory for the function.
-    memory = Memory(cachedir=env['dir'], verbose=0)
+    memory = Memory(cachedir=tmpdir.strpath, verbose=0)
     memory.clear()
     path = __name__.split('.')
     path.append('f')
-    path = os.path.join(env['dir'], 'joblib', *path)
+    path = os.path.join(tmpdir.strpath, 'joblib', *path)
 
     g = memory.cache(f)
     # Test that the function directory is created on demand
@@ -446,9 +410,9 @@ def test_func_dir():
     assert a == g(1)
 
 
-def test_persistence():
+def test_persistence(tmpdir):
     # Test the memorized functions can be pickled and restored.
-    memory = Memory(cachedir=env['dir'], verbose=0)
+    memory = Memory(cachedir=tmpdir.strpath, verbose=0)
     g = memory.cache(f)
     output = g(1)
 
@@ -468,13 +432,13 @@ def test_persistence():
     gp(1)
 
 
-def test_call_and_shelve():
+def test_call_and_shelve(tmpdir):
     """Test MemorizedFunc outputting a reference to cache.
     """
 
-    for func, Result in zip((MemorizedFunc(f, env['dir']),
+    for func, Result in zip((MemorizedFunc(f, tmpdir.strpath),
                              NotMemorizedFunc(f),
-                             Memory(cachedir=env['dir']).cache(f),
+                             Memory(cachedir=tmpdir.strpath).cache(f),
                              Memory(cachedir=None).cache(f),
                              ),
                             (MemorizedResult, NotMemorizedResult,
@@ -489,9 +453,9 @@ def test_call_and_shelve():
         result.clear()  # Do nothing if there is no cache.
 
 
-def test_memorized_pickling():
-    for func in (MemorizedFunc(f, env['dir']), NotMemorizedFunc(f)):
-        filename = os.path.join(env['dir'], 'pickling_test.dat')
+def test_memorized_pickling(tmpdir):
+    for func in (MemorizedFunc(f, tmpdir.strpath), NotMemorizedFunc(f)):
+        filename = os.path.join(tmpdir.strpath, 'pickling_test.dat')
         result = func.call_and_shelve(2)
         with open(filename, 'wb') as fp:
             pickle.dump(result, fp)
@@ -501,11 +465,11 @@ def test_memorized_pickling():
         os.remove(filename)
 
 
-def test_memorized_repr():
-    func = MemorizedFunc(f, env['dir'])
+def test_memorized_repr(tmpdir):
+    func = MemorizedFunc(f, tmpdir.strpath)
     result = func.call_and_shelve(2)
 
-    func2 = MemorizedFunc(f, env['dir'])
+    func2 = MemorizedFunc(f, tmpdir.strpath)
     result2 = func2.call_and_shelve(2)
     assert result.get() == result2.get()
     assert repr(func) == repr(func2)
@@ -516,27 +480,27 @@ def test_memorized_repr():
     repr(func.call_and_shelve(2))
 
     # Smoke test for message output (increase code coverage)
-    func = MemorizedFunc(f, env['dir'], verbose=11, timestamp=time.time())
+    func = MemorizedFunc(f, tmpdir.strpath, verbose=11, timestamp=time.time())
     result = func.call_and_shelve(11)
     result.get()
 
-    func = MemorizedFunc(f, env['dir'], verbose=11)
+    func = MemorizedFunc(f, tmpdir.strpath, verbose=11)
     result = func.call_and_shelve(11)
     result.get()
 
-    func = MemorizedFunc(f, env['dir'], verbose=5, timestamp=time.time())
+    func = MemorizedFunc(f, tmpdir.strpath, verbose=5, timestamp=time.time())
     result = func.call_and_shelve(11)
     result.get()
 
-    func = MemorizedFunc(f, env['dir'], verbose=5)
+    func = MemorizedFunc(f, tmpdir.strpath, verbose=5)
     result = func.call_and_shelve(11)
     result.get()
 
 
-def test_memory_file_modification(capsys):
+def test_memory_file_modification(capsys, tmpdir):
     # Test that modifying a Python file after loading it does not lead to
     # Recomputation
-    dir_name = os.path.join(env['dir'], 'tmp_import')
+    dir_name = os.path.join(tmpdir.strpath, 'tmp_import')
     if not os.path.exists(dir_name):
         os.mkdir(dir_name)
     filename = os.path.join(dir_name, 'tmp_joblib_.py')
@@ -548,7 +512,7 @@ def test_memory_file_modification(capsys):
     sys.path.append(dir_name)
     import tmp_joblib_ as tmp
 
-    mem = Memory(cachedir=env['dir'], verbose=0)
+    mem = Memory(cachedir=tmpdir.strpath, verbose=0)
     f = mem.cache(tmp.f)
     # First call f a few times
     f(1)
@@ -604,10 +568,10 @@ def _product(a, b):
     return a * b
 
 
-def test_memory_in_memory_function_code_change():
+def test_memory_in_memory_function_code_change(tmpdir):
     _function_to_cache.__code__ = _sum.__code__
 
-    mem = Memory(cachedir=env['dir'], verbose=0)
+    mem = Memory(cachedir=tmpdir.strpath, verbose=0)
     f = mem.cache(_function_to_cache)
 
     assert f(1, 2) == 3
@@ -637,8 +601,8 @@ def func_with_signature(a: int, b: float) -> float:
     return a + b
 """)
 
-    def test_memory_func_with_kwonly_args():
-        mem = Memory(cachedir=env['dir'], verbose=0)
+    def test_memory_func_with_kwonly_args(tmpdir):
+        mem = Memory(cachedir=tmpdir.strpath, verbose=0)
         func_cached = mem.cache(func_with_kwonly_args)
 
         assert func_cached(1, 2, kw1=3) == (1, 2, 3, 'kw2')
@@ -665,17 +629,17 @@ def func_with_signature(a: int, b: float) -> float:
         assert func_cached(1, 2, kw1=3, kw2='ignored') == (1, 2, 3, 4)
 
 
-    def test_memory_func_with_signature():
-        mem = Memory(cachedir=env['dir'], verbose=0)
+    def test_memory_func_with_signature(tmpdir):
+        mem = Memory(cachedir=tmpdir.strpath, verbose=0)
         func_cached = mem.cache(func_with_signature)
 
         assert func_cached(1, 2.) == 3.
 
 
-def _setup_temporary_cache_folder(num_inputs=10):
+def _setup_temporary_cache_folder(tmpdir, num_inputs=10):
     # Use separate cache dir to avoid side-effects from other tests
     # that do not use _setup_temporary_cache_folder
-    mem = Memory(cachedir=os.path.join(env['dir'], 'separate_cache'),
+    mem = Memory(cachedir=tmpdir.mkdir('separate_cache').strpath,
                  verbose=0)
 
     @mem.cache()
@@ -693,8 +657,8 @@ def _setup_temporary_cache_folder(num_inputs=10):
     return mem, full_hashdirs, get_1000_bytes
 
 
-def test__get_cache_items():
-    mem, expected_hash_cachedirs, _ = _setup_temporary_cache_folder()
+def test__get_cache_items(tmpdir):
+    mem, expected_hash_cachedirs, _ = _setup_temporary_cache_folder(tmpdir)
     cachedir = mem.cachedir
     cache_items = _get_cache_items(cachedir)
     hash_cachedirs = [ci.path for ci in cache_items]
@@ -720,8 +684,8 @@ def test__get_cache_items():
     assert last_accesses == expected_last_accesses
 
 
-def test__get_cache_items_to_delete():
-    mem, expected_hash_cachedirs, _ = _setup_temporary_cache_folder()
+def test__get_cache_items_to_delete(tmpdir):
+    mem, expected_hash_cachedirs, _ = _setup_temporary_cache_folder(tmpdir)
     cachedir = mem.cachedir
     cache_items = _get_cache_items(cachedir)
     # bytes_limit set to keep only one cache item (each hash cache
@@ -755,8 +719,8 @@ def test__get_cache_items_to_delete():
             min(ci.last_access for ci in surviving_cache_items))
 
 
-def test_memory_reduce_size():
-    mem, _, _ = _setup_temporary_cache_folder()
+def test_memory_reduce_size(tmpdir):
+    mem, _, _ = _setup_temporary_cache_folder(tmpdir)
     cachedir = mem.cachedir
     ref_cache_items = _get_cache_items(cachedir)
 
