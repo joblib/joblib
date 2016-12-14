@@ -19,8 +19,7 @@ from contextlib import closing
 
 from joblib.test.common import np, with_numpy
 from joblib.test.common import with_memory_profiler, memory_used
-from joblib.testing import (assert_equal, assert_raises, assert_raises_regex,
-                            SkipTest)
+from joblib.testing import assert_raises, assert_raises_regex, SkipTest
 
 # numpy_pickle is not a drop-in replacement of pickle, as it takes
 # filenames instead of open files as arguments.
@@ -151,7 +150,7 @@ def test_standard_types():
             # We compare the pickled instance to the reloaded one only if it
             # can be compared to a copied one
             if member == copy.deepcopy(member):
-                yield assert_equal, member, _member
+                assert member == _member
 
 
 def test_value_error():
