@@ -84,8 +84,8 @@ def check_identity_lazy(func, accumulator):
     func = memory.cache(func)
     for i in range(3):
         for _ in range(2):
-            yield assert_equal, func(i), i
-            yield assert_equal, len(accumulator), i + 1
+            assert func(i) == i
+            assert len(accumulator) == i + 1
 
 
 ###############################################################################
@@ -102,8 +102,7 @@ def test_memory_integration():
         accumulator.append(1)
         return l
 
-    for test in check_identity_lazy(f, accumulator):
-        yield test
+    check_identity_lazy(f, accumulator)
 
     # Now test clearing
     for compress in (False, True):
@@ -158,8 +157,7 @@ def test_memory_kwarg():
         accumulator.append(1)
         return l
 
-    for test in check_identity_lazy(g, accumulator):
-        yield test
+    check_identity_lazy(g, accumulator)
 
     memory = Memory(cachedir=env['dir'], verbose=0)
     g = memory.cache(g)
@@ -179,8 +177,7 @@ def test_memory_lambda():
 
     l = lambda x: helper(x)
 
-    for test in check_identity_lazy(l, accumulator):
-        yield test
+    check_identity_lazy(l, accumulator)
 
 
 def test_memory_name_collision():
@@ -282,8 +279,7 @@ def test_memory_partial():
     import functools
     function = functools.partial(func, 1)
 
-    for test in check_identity_lazy(function, accumulator):
-        yield test
+    check_identity_lazy(function, accumulator)
 
 
 def test_memory_eval():
