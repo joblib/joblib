@@ -19,7 +19,7 @@ from joblib import parallel
 
 from joblib.test.common import np, with_numpy
 from joblib.test.common import with_multiprocessing
-from joblib.testing import (assert_equal, assert_raises, check_subprocess_call,
+from joblib.testing import (assert_raises, check_subprocess_call,
                             SkipTest, skipif)
 from joblib._compat import PY3_OR_LATER
 
@@ -140,7 +140,7 @@ def check_simple_parallel(backend):
 
 def test_simple_parallel():
     for backend in ALL_VALID_BACKENDS:
-        yield check_simple_parallel, backend
+        check_simple_parallel(backend)
 
 
 def check_main_thread_renamed_no_warning(backend):
@@ -165,7 +165,7 @@ def test_main_thread_renamed_no_warning():
     try:
         main_thread.name = "some_new_name_for_the_main_thread"
         for backend in ALL_VALID_BACKENDS:
-            yield check_main_thread_renamed_no_warning, backend
+            check_main_thread_renamed_no_warning(backend)
     finally:
         main_thread.name = original_name
 
@@ -183,7 +183,7 @@ def check_nested_loop(parent_backend, child_backend):
 def test_nested_loop():
     for parent_backend in BACKENDS:
         for child_backend in BACKENDS:
-            yield check_nested_loop, parent_backend, child_backend
+            check_nested_loop(parent_backend, child_backend)
 
 
 def test_mutate_input_with_threads():
@@ -198,9 +198,8 @@ def test_parallel_kwargs():
     """Check the keyword argument processing of pmap."""
     lst = range(10)
     for n_jobs in (1, 4):
-        yield (assert_equal,
-               [f(x, y=1) for x in lst],
-               Parallel(n_jobs=n_jobs)(delayed(f)(x, y=1) for x in lst))
+        assert ([f(x, y=1) for x in lst] ==
+                Parallel(n_jobs=n_jobs)(delayed(f)(x, y=1) for x in lst))
 
 
 def check_parallel_as_context_manager(backend):
@@ -236,7 +235,7 @@ def check_parallel_as_context_manager(backend):
 
 def test_parallel_context_manager():
     for backend in ['multiprocessing', 'threading']:
-        yield check_parallel_as_context_manager, backend
+        check_parallel_as_context_manager(backend)
 
 
 def test_parallel_pickling():
@@ -372,14 +371,14 @@ def check_dispatch_one_job(backend):
     # disable batching
     Parallel(n_jobs=1, batch_size=1, backend=backend)(
         delayed(consumer)(queue, x) for x in producer())
-    assert_equal(queue, [
+    assert queue == [
         'Produced 0', 'Consumed 0',
         'Produced 1', 'Consumed 1',
         'Produced 2', 'Consumed 2',
         'Produced 3', 'Consumed 3',
         'Produced 4', 'Consumed 4',
         'Produced 5', 'Consumed 5',
-    ])
+    ]
     assert len(queue) == 12
 
     # empty the queue for the next check
@@ -388,20 +387,20 @@ def check_dispatch_one_job(backend):
     # enable batching
     Parallel(n_jobs=1, batch_size=4, backend=backend)(
         delayed(consumer)(queue, x) for x in producer())
-    assert_equal(queue, [
+    assert queue == [
         # First batch
         'Produced 0', 'Produced 1', 'Produced 2', 'Produced 3',
         'Consumed 0', 'Consumed 1', 'Consumed 2', 'Consumed 3',
 
         # Second batch
         'Produced 4', 'Produced 5', 'Consumed 4', 'Consumed 5',
-    ])
+    ]
     assert len(queue) == 12
 
 
 def test_dispatch_one_job():
     for backend in BACKENDS:
-        yield check_dispatch_one_job, backend
+        check_dispatch_one_job(backend)
 
 
 def check_dispatch_multiprocessing(backend):
@@ -427,15 +426,14 @@ def check_dispatch_multiprocessing(backend):
     # The the first consumption event can sometimes happen before the end of
     # the dispatching, hence, pop it before introspecting the "Produced" events
     first_four.remove('Consumed any')
-    assert_equal(first_four,
-                 ['Produced 0', 'Produced 1', 'Produced 2'])
+    assert first_four == ['Produced 0', 'Produced 1', 'Produced 2']
     assert len(queue) == 12
 
 
 def test_dispatch_multiprocessing():
     for backend in BACKENDS:
         if backend != "sequential":
-            yield check_dispatch_multiprocessing, backend
+            check_dispatch_multiprocessing(backend)
 
 
 def test_batching_auto_threading():
@@ -668,19 +666,19 @@ def test_dispatch_race_condition():
     # Check that using (async-)dispatch does not yield a race condition on the
     # iterable generator that is not thread-safe natively.
     # This is a non-regression test for the "Pool seems closed" class of error
-    yield check_same_results, dict(n_tasks=2, n_jobs=2, pre_dispatch="all")
-    yield check_same_results, dict(n_tasks=2, n_jobs=2, pre_dispatch="n_jobs")
-    yield check_same_results, dict(n_tasks=10, n_jobs=2, pre_dispatch="n_jobs")
-    yield check_same_results, dict(n_tasks=517, n_jobs=2,
-                                   pre_dispatch="n_jobs")
-    yield check_same_results, dict(n_tasks=10, n_jobs=2, pre_dispatch="n_jobs")
-    yield check_same_results, dict(n_tasks=10, n_jobs=4, pre_dispatch="n_jobs")
-    yield check_same_results, dict(n_tasks=25, n_jobs=4, batch_size=1)
-    yield check_same_results, dict(n_tasks=25, n_jobs=4, batch_size=1,
-                                   pre_dispatch="all")
-    yield check_same_results, dict(n_tasks=25, n_jobs=4, batch_size=7)
-    yield check_same_results, dict(n_tasks=10, n_jobs=4,
-                                   pre_dispatch="2*n_jobs")
+    check_same_results({'n_tasks': 2, 'n_jobs': 2, 'pre_dispatch': "all"})
+    check_same_results({'n_tasks': 2, 'n_jobs': 2, 'pre_dispatch': "n_jobs"})
+    check_same_results({'n_tasks': 10, 'n_jobs': 2, 'pre_dispatch': "n_jobs"})
+    check_same_results({'n_tasks': 517, 'n_jobs': 2,
+                        'pre_dispatch': "n_jobs"})
+    check_same_results({'n_tasks': 10, 'n_jobs': 2, 'pre_dispatch': "n_jobs"})
+    check_same_results({'n_tasks': 10, 'n_jobs': 4, 'pre_dispatch': "n_jobs"})
+    check_same_results({'n_tasks': 25, 'n_jobs': 4, 'batch_size': 1})
+    check_same_results({'n_tasks': 25, 'n_jobs': 4, 'batch_size': 1,
+                        'pre_dispatch': "all"})
+    check_same_results({'n_tasks': 25, 'n_jobs': 4, 'batch_size': 7})
+    check_same_results({'n_tasks': 10, 'n_jobs': 4,
+                        'pre_dispatch': "2*n_jobs"})
 
 
 @with_multiprocessing
