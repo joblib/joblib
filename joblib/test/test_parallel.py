@@ -8,7 +8,6 @@ Test the parallel module.
 
 import time
 import sys
-import io
 import os
 from math import sqrt
 import threading
@@ -127,37 +126,16 @@ def check_simple_parallel(backend):
         assert ([square(x) for x in X] ==
                 Parallel(n_jobs=n_jobs, backend=backend)(
                     delayed(square)(x) for x in X))
-    try:
-        # To smoke-test verbosity, we capture stdout
-        orig_stdout = sys.stdout
-        orig_stderr = sys.stdout
-        if PY3_OR_LATER:
-            sys.stderr = io.StringIO()
-            sys.stderr = io.StringIO()
-        else:
-            sys.stdout = io.BytesIO()
-            sys.stderr = io.BytesIO()
-        for verbose in (2, 11, 100):
-            Parallel(n_jobs=-1, verbose=verbose, backend=backend)(
-                delayed(square)(x) for x in X)
-            Parallel(n_jobs=1, verbose=verbose, backend=backend)(
-                delayed(square)(x) for x in X)
-            Parallel(n_jobs=2, verbose=verbose, pre_dispatch=2,
-                     backend=backend)(
-                delayed(square)(x) for x in X)
-            Parallel(n_jobs=2, verbose=verbose, backend=backend)(
-                delayed(square)(x) for x in X)
-    except Exception as e:
-        my_stdout = sys.stdout
-        my_stderr = sys.stderr
-        sys.stdout = orig_stdout
-        sys.stderr = orig_stderr
-        print(unicode(my_stdout.getvalue()))
-        print(unicode(my_stderr.getvalue()))
-        raise e
-    finally:
-        sys.stdout = orig_stdout
-        sys.stderr = orig_stderr
+    for verbose in (2, 11, 100):
+        Parallel(n_jobs=-1, verbose=verbose, backend=backend)(
+            delayed(square)(x) for x in X)
+        Parallel(n_jobs=1, verbose=verbose, backend=backend)(
+            delayed(square)(x) for x in X)
+        Parallel(n_jobs=2, verbose=verbose, pre_dispatch=2,
+                 backend=backend)(
+            delayed(square)(x) for x in X)
+        Parallel(n_jobs=2, verbose=verbose, backend=backend)(
+            delayed(square)(x) for x in X)
 
 
 def test_simple_parallel():
