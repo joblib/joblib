@@ -21,9 +21,7 @@ from joblib.memory import MemorizedResult, NotMemorizedResult, _FUNCTION_HASHES
 from joblib.memory import _get_cache_items, _get_cache_items_to_delete
 from joblib.memory import _load_output, _get_func_fullname
 from joblib.test.common import with_numpy, np
-from joblib.testing import (assert_equal, assert_true, assert_raises,
-                            pytest_assert_raises, assert_raises_regex,
-                            parametrize)
+from joblib.testing import pytest_assert_raises, parametrize
 from joblib._compat import PY3_OR_LATER
 
 
@@ -146,7 +144,7 @@ def test_no_memory():
     for _ in range(4):
         current_accumulator = len(accumulator)
         gg(1)
-        yield assert_equal, len(accumulator), current_accumulator + 1
+        assert len(accumulator) == current_accumulator + 1
 
 
 def test_memory_kwarg():
@@ -336,8 +334,8 @@ def test_memory_numpy():
         for i in range(3):
             a = rnd.random_sample((10, 10))
             for _ in range(3):
-                yield assert_true, np.all(cached_n(a) == a)
-                yield assert_equal, len(accumulator), i + 1
+                assert np.all(cached_n(a) == a)
+                assert len(accumulator) == i + 1
 
 
 @with_numpy
@@ -487,7 +485,7 @@ def test_call_and_shelve():
         assert result.get() == 5
 
         result.clear()
-        assert_raises(KeyError, result.get)
+        pytest_assert_raises(KeyError, result.get)
         result.clear()  # Do nothing if there is no cache.
 
 
@@ -647,21 +645,19 @@ def func_with_signature(a: int, b: float) -> float:
 
         # Making sure that providing a keyword-only argument by
         # position raises an exception
-        assert_raises_regex(
-            ValueError,
-            "Keyword-only parameter 'kw1' was passed as positional parameter",
-            func_cached,
-            1, 2, 3, {'kw2': 4})
+        with pytest_assert_raises(ValueError) as excinfo:
+            func_cached(1, 2, 3, {'kw2': 4})
+        excinfo.match("Keyword-only parameter 'kw1' was passed as positional "
+                      "parameter")
 
         # Keyword-only parameter passed by position with cached call
         # should still raise ValueError
         func_cached(1, 2, kw1=3, kw2=4)
 
-        assert_raises_regex(
-            ValueError,
-            "Keyword-only parameter 'kw1' was passed as positional parameter",
-            func_cached,
-            1, 2, 3, {'kw2': 4})
+        with pytest_assert_raises(ValueError) as excinfo:
+            func_cached(1, 2, 3, {'kw2': 4})
+        excinfo.match("Keyword-only parameter 'kw1' was passed as positional "
+                      "parameter")
 
         # Test 'ignore' parameter
         func_cached = mem.cache(func_with_kwonly_args, ignore=['kw2'])
