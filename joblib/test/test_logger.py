@@ -6,8 +6,6 @@ Test the logger module.
 # Copyright (c) 2009 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
-import sys
-import io
 import re
 
 from joblib.logger import PrintTime
@@ -37,4 +35,4 @@ def test_print_time(tmpdir, capsys):
             r".\..s, 0..min\n"
     if not re.match(match, err_printed_text):
         raise AssertionError('Excepted %s, got %s' %
-                                (match, err_printed_text))
+                             (match, err_printed_text))

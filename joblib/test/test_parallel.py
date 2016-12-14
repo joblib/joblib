@@ -8,7 +8,6 @@ Test the parallel module.
 
 import time
 import sys
-import io
 import os
 from math import sqrt
 import threading
