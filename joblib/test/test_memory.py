@@ -34,14 +34,14 @@ def f(x, y=1):
 
 ###############################################################################
 # Helper function for the tests
-def check_identity_lazy(func, accumulator, tmpdir):
+def check_identity_lazy(func, accumulator, cachedir):
     """ Given a function and an accumulator (a list that grows every
         time the function is called), check that the function can be
         decorated by memory to be a lazy identity.
     """
     # Call each function with several arguments, and check that it is
     # evaluated only once per argument.
-    memory = Memory(cachedir=tmpdir.strpath, verbose=0)
+    memory = Memory(cachedir=cachedir, verbose=0)
     memory.clear(warn=False)
     func = memory.cache(func)
     for i in range(3):
@@ -64,7 +64,7 @@ def test_memory_integration(tmpdir):
         accumulator.append(1)
         return l
 
-    check_identity_lazy(f, accumulator, tmpdir)
+    check_identity_lazy(f, accumulator, tmpdir.strpath)
 
     # Now test clearing
     for compress in (False, True):
@@ -119,7 +119,7 @@ def test_memory_kwarg(tmpdir):
         accumulator.append(1)
         return l
 
-    check_identity_lazy(g, accumulator, tmpdir)
+    check_identity_lazy(g, accumulator, tmpdir.strpath)
 
     memory = Memory(cachedir=tmpdir.strpath, verbose=0)
     g = memory.cache(g)
@@ -139,7 +139,7 @@ def test_memory_lambda(tmpdir):
 
     l = lambda x: helper(x)
 
-    check_identity_lazy(l, accumulator, tmpdir)
+    check_identity_lazy(l, accumulator, tmpdir.strpath)
 
 
 def test_memory_name_collision(tmpdir):
@@ -241,7 +241,7 @@ def test_memory_partial(tmpdir):
     import functools
     function = functools.partial(func, 1)
 
-    check_identity_lazy(function, accumulator, tmpdir)
+    check_identity_lazy(function, accumulator, tmpdir.strpath)
 
 
 def test_memory_eval(tmpdir):

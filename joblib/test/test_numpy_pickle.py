@@ -113,7 +113,6 @@ def test_standard_types(tmpdir):
     filename = tmpdir.join('test.pkl').strpath
     for compress in [0, 1]:
         for member in typelist:
-            # Change the file name to avoid side effects between tests
             numpy_pickle.dump(member, filename, compress=compress)
             _member = numpy_pickle.load(filename)
             # We compare the pickled instance to the reloaded one only if it
@@ -145,7 +144,6 @@ def test_numpy_persistence(tmpdir):
     for compress in (False, True, 0, 3):
         # We use 'a.T' to have a non C-contiguous array.
         for index, obj in enumerate(((a,), (a.T,), (a, a), [a, a, a])):
-            # Change the file name to avoid side effects between tests
             filenames = numpy_pickle.dump(obj, filename, compress=compress)
 
             # All is cached in one file
@@ -206,14 +204,13 @@ def test_numpy_persistence_bufferred_array_compression(tmpdir):
 def test_memmap_persistence(tmpdir):
     rnd = np.random.RandomState(0)
     a = rnd.random_sample(10)
-    filename = tmpdir.join('test1.pkl').strpath
+    filename = tmpdir.join('test.pkl').strpath
     numpy_pickle.dump(a, filename)
     b = numpy_pickle.load(filename, mmap_mode='r')
 
     assert isinstance(b, np.memmap)
 
     # Test with an object containing multiple numpy arrays
-    filename = tmpdir.join('test2.pkl').strpath
     obj = ComplexTestObject()
     numpy_pickle.dump(obj, filename)
     obj_loaded = numpy_pickle.load(filename, mmap_mode='r')
@@ -371,7 +368,7 @@ def test_compressed_pickle_dump_and_load(tmpdir):
                      np.matrix([0, 1, 2], dtype=np.dtype('>i8')),
                      u"C'est l'\xe9t\xe9 !"]
 
-    fname = tmpdir.join('dump_temp.gz').strpath
+    fname = tmpdir.join('temp.pkl.gz').strpath
 
     dumped_filenames = numpy_pickle.dump(expected_list, fname, compress=1)
     assert len(dumped_filenames) == 1
