@@ -5,7 +5,6 @@ import os
 import random
 import sys
 import re
-import tempfile
 import io
 import warnings
 import gzip
@@ -380,21 +379,17 @@ def test_compressed_pickle_dump_and_load(tmpdir):
                      np.matrix([0, 1, 2], dtype=np.dtype('>i8')),
                      u"C'est l'\xe9t\xe9 !"]
 
-    with tempfile.NamedTemporaryFile(suffix='.gz', dir=tmpdir.strpath) as f:
-        fname = f.name
+    fname = tmpdir.join('dump_temp.gz').strpath
 
-    try:
-        dumped_filenames = numpy_pickle.dump(expected_list, fname, compress=1)
-        assert len(dumped_filenames) == 1
-        result_list = numpy_pickle.load(fname)
-        for result, expected in zip(result_list, expected_list):
-            if isinstance(expected, np.ndarray):
-                assert result.dtype == expected.dtype
-                np.testing.assert_equal(result, expected)
-            else:
-                assert result == expected
-    finally:
-        os.remove(fname)
+    dumped_filenames = numpy_pickle.dump(expected_list, fname, compress=1)
+    assert len(dumped_filenames) == 1
+    result_list = numpy_pickle.load(fname)
+    for result, expected in zip(result_list, expected_list):
+        if isinstance(expected, np.ndarray):
+            assert result.dtype == expected.dtype
+            np.testing.assert_equal(result, expected)
+        else:
+            assert result == expected
 
 
 def _check_pickle(filename, expected_list):
@@ -564,7 +559,6 @@ def test_joblib_compression_formats(tmpdir):
                         np.testing.assert_array_equal(obj_reloaded, obj)
                     else:
                         assert obj_reloaded == obj
-                    os.remove(dump_filename)
 
 
 def _gzip_file_decompress(source_filename, target_filename):
@@ -606,11 +600,6 @@ def test_load_externally_decompressed_files(tmpdir):
         obj_reloaded = numpy_pickle.load(filename_raw)
         assert obj == obj_reloaded
 
-        # Do some cleanup
-        os.remove(filename_raw)
-        if os.path.exists(filename_compressed):
-            os.remove(filename_compressed)
-
 
 def test_compression_using_file_extension(tmpdir):
     # test that compression method corresponds to the given filename extension.
@@ -644,7 +633,6 @@ def test_compression_using_file_extension(tmpdir):
             obj_reloaded = numpy_pickle.load(dump_fname)
             assert isinstance(obj_reloaded, type(obj))
             assert obj_reloaded == obj
-            os.remove(dump_fname)
 
 
 @with_numpy
@@ -679,8 +667,6 @@ def test_file_handle_persistence(tmpdir):
             else:
                 assert obj_reloaded == obj
                 assert obj_reloaded_2 == obj
-
-            os.remove(filename)
 
 
 @with_numpy
@@ -802,8 +788,6 @@ def test_binary_zlibfile(tmpdir):
                         assert fz.tell() == 0
                 assert fz.closed
 
-            os.remove(filename)
-
             # Test with a filename as input
             with BinaryZlibFile(filename, 'wb',
                                 compresslevel=compress_level) as fz:
@@ -887,7 +871,6 @@ def test_non_contiguous_array_pickling(tmpdir):
         numpy_pickle.dump(array, filename)
         array_reloaded = numpy_pickle.load(filename)
         np.testing.assert_array_equal(array_reloaded, array)
-        os.remove(filename)
 
 
 @with_numpy
