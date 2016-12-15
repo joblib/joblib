@@ -109,13 +109,8 @@ def _active_backend_type():
     return type(parallel.get_active_backend()[0])
 
 
-def func():
-    return 42
-
-
 def parallel_func(inner_n_jobs):
-    res = Parallel(n_jobs=inner_n_jobs)(delayed(func)() for _ in range(3))
-    return res
+    return Parallel(n_jobs=inner_n_jobs)(delayed(square)(i) for i in range(3))
 
 
 ###############################################################################
