@@ -20,7 +20,7 @@ from joblib import parallel
 from joblib.test.common import np, with_numpy
 from joblib.test.common import with_multiprocessing
 from joblib.testing import (assert_raises, check_subprocess_call,
-                            SkipTest, skipif)
+                            SkipTest)
 from joblib._compat import PY3_OR_LATER
 
 try:
@@ -107,6 +107,10 @@ def f(x, y=0, z=0):
 
 def _active_backend_type():
     return type(parallel.get_active_backend()[0])
+
+
+def parallel_func(inner_n_jobs):
+    return Parallel(n_jobs=inner_n_jobs)(delayed(square)(i) for i in range(3))
 
 
 ###############################################################################
@@ -774,41 +778,20 @@ def test_auto_memmap_on_arrays_from_generator():
         np.testing.assert_array_equal(expected, result)
 
 
-# TODO: Fix https://github.com/joblib/joblib/issues/413 and unskip this test
 @with_multiprocessing
-@skipif(True, reason='Uncertain CI failure (Issue #413)')
-def test_nested_parallel_warnings():
-    # The warnings happen in child processes so
-    # warnings.catch_warnings can not be used for this tests that's
-    # why we use check_subprocess_call instead
+def test_nested_parallel_warnings(capfd):
     if posix is None:
         # This test pass only when fork is the process start method
         raise SkipTest('Not a POSIX platform')
 
-    template_code = """
-import sys
-
-from joblib import Parallel, delayed
-
-
-def func():
-    return 42
-
-
-def parallel_func():
-    res =  Parallel(n_jobs={inner_n_jobs})(delayed(func)() for _ in range(3))
-    return res
-
-Parallel(n_jobs={outer_n_jobs})(delayed(parallel_func)() for _ in range(5))
-    """
     # no warnings if inner_n_jobs=1
-    code = template_code.format(inner_n_jobs=1, outer_n_jobs=2)
-    check_subprocess_call([sys.executable, '-c', code],
-                          stderr_regex='^$')
+    Parallel(n_jobs=2)(delayed(parallel_func)(inner_n_jobs=1)
+                       for _ in range(5))
+    out, err = capfd.readouterr()
+    assert err == ''
 
     #  warnings if inner_n_jobs != 1
-    regex = ('Multiprocessing-backed parallel loops cannot '
-             'be nested')
-    code = template_code.format(inner_n_jobs=2, outer_n_jobs=2)
-    check_subprocess_call([sys.executable, '-c', code],
-                          stderr_regex=regex)
+    Parallel(n_jobs=2)(delayed(parallel_func)(inner_n_jobs=2)
+                       for _ in range(5))
+    out, err = capfd.readouterr()
+    assert 'Multiprocessing-backed parallel loops cannot be nested' in err
