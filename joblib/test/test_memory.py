@@ -389,7 +389,7 @@ def test_func_dir(tmpdir):
     memory.clear()
     path = __name__.split('.')
     path.append('f')
-    path = os.path.join(tmpdir.strpath, 'joblib', *path)
+    path = tmpdir.join('joblib', *path).strpath
 
     g = memory.cache(f)
     # Test that the function directory is created on demand
@@ -457,7 +457,7 @@ def test_call_and_shelve(tmpdir):
 
 def test_memorized_pickling(tmpdir):
     for func in (MemorizedFunc(f, tmpdir.strpath), NotMemorizedFunc(f)):
-        filename = os.path.join(tmpdir.strpath, 'pickling_test.dat')
+        filename = tmpdir.join('pickling_test.dat').strpath
         result = func.call_and_shelve(2)
         with open(filename, 'wb') as fp:
             pickle.dump(result, fp)
@@ -502,9 +502,7 @@ def test_memorized_repr(tmpdir):
 def test_memory_file_modification(capsys, tmpdir):
     # Test that modifying a Python file after loading it does not lead to
     # Recomputation
-    dir_name = os.path.join(tmpdir.strpath, 'tmp_import')
-    if not os.path.exists(dir_name):
-        os.mkdir(dir_name)
+    dir_name = tmpdir.mkdir('tmp_import').strpath
     filename = os.path.join(dir_name, 'tmp_joblib_.py')
     content = 'def f(x):\n    print(x)\n    return x\n'
     with open(filename, 'w') as module_file:
