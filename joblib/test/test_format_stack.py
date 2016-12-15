@@ -60,11 +60,19 @@ def test_format_records():
             assert 'test_format_stack.py in' in fmt_rec
 
         # Check exception stack
-        assert "_raise_exception('a', 42)" in formatted_records[0]
-        assert 'helper(a, b)' in formatted_records[1]
+        arrow_regex = r'^--->\s+\d+\s+'
+        assert re.search(arrow_regex + "_raise_exception\('a', 42\)",
+                         formatted_records[0],
+                         re.MULTILINE)
+        assert re.search(arrow_regex + r'helper\(a, b\)',
+                         formatted_records[1],
+                         re.MULTILINE)
         assert "a = 'a'" in formatted_records[1]
         assert 'b = 42' in formatted_records[1]
-        assert 'Nope, this can not work' in formatted_records[2]
+        assert re.search(arrow_regex +
+                         "raise ValueError\('Nope, this can not work'\)",
+                         formatted_records[2],
+                         re.MULTILINE)
 
 
 @with_numpy
