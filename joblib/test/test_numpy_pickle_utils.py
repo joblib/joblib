@@ -1,36 +1,16 @@
-import shutil
-import os
-from tempfile import mkdtemp
-
 from joblib import numpy_pickle_utils
 
 
-###############################################################################
-# Test fixtures
-
-env = dict()
-
-
-def setup_module():
-    """Test setup."""
-    env['dir'] = mkdtemp()
-
-
-def teardown_module():
-    """Test teardown."""
-    shutil.rmtree(env['dir'])
-
-
-def test_binary_zlib_file():
+def test_binary_zlib_file(tmpdir):
     """Testing creation of files depending on the type of the filenames."""
     # Testing str filename.
     binary_file = numpy_pickle_utils.BinaryZlibFile(
-        os.path.join(env['dir'], 'test'),
+        tmpdir.join('test').strpath,
         mode='wb')
     binary_file.close()
 
     # Testing unicode filename.
     binary_file = numpy_pickle_utils.BinaryZlibFile(
-        os.path.join(env['dir'], u'test'),
+        tmpdir.join(u'test').strpath,
         mode='wb')
     binary_file.close()
