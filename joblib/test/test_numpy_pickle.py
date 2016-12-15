@@ -1,8 +1,6 @@
 """Test the numpy pickler as a replacement of the standard pickler."""
 
-from tempfile import mkdtemp
 import copy
-import shutil
 import os
 import random
 import sys
@@ -109,38 +107,11 @@ typelist.append(_object)  # <type 'class'>
 
 
 ###############################################################################
-# Test fixtures
-
-env = dict()
-
-
-def setup_module():
-    """ Test setup.
-    """
-    env['dir'] = mkdtemp()
-    env['filename'] = os.path.join(env['dir'], 'test.pkl')
-    print(80 * '_')
-    print('setup numpy_pickle')
-    print(80 * '_')
-
-
-def teardown_module():
-    """ Test teardown.
-    """
-    shutil.rmtree(env['dir'])
-    # del env['dir']
-    # del env['filename']
-    print(80 * '_')
-    print('teardown numpy_pickle')
-    print(80 * '_')
-
-
-###############################################################################
 # Tests
 
-def test_standard_types():
+def test_standard_types(tmpdir):
     # Test pickling and saving with standard types.
-    filename = env['filename']
+    filename = tmpdir.join('test.pkl').strpath
     for compress in [0, 1]:
         for member in typelist:
             # Change the file name to avoid side effects between tests
@@ -169,8 +140,8 @@ def test_compress_level_error():
 
 
 @with_numpy
-def test_numpy_persistence():
-    filename = env['filename']
+def test_numpy_persistence(tmpdir):
+    filename = tmpdir.join('test.pkl').strpath
     rnd = np.random.RandomState(0)
     a = rnd.random_sample((10, 2))
     for compress in (False, True, 0, 3):
@@ -187,7 +158,7 @@ def test_numpy_persistence():
             # Check that only one file was created
             assert filenames[0] == this_filename
             # Check that this file does exist
-            assert os.path.exists(os.path.join(env['dir'], filenames[0]))
+            assert os.path.exists(filenames[0])
 
             # Unpickle the object
             obj_ = numpy_pickle.load(this_filename)
@@ -230,9 +201,9 @@ def test_numpy_persistence():
 
 
 @with_numpy
-def test_numpy_persistence_bufferred_array_compression():
+def test_numpy_persistence_bufferred_array_compression(tmpdir):
     big_array = np.ones((_IO_BUFFER_SIZE + 100), dtype=np.uint8)
-    filename = env['filename'] + str(random.randint(0, 1000))
+    filename = tmpdir.join('test.pkl').strpath + str(random.randint(0, 1000))
     numpy_pickle.dump(big_array, filename, compress=True)
     arr_reloaded = numpy_pickle.load(filename)
 
@@ -240,17 +211,17 @@ def test_numpy_persistence_bufferred_array_compression():
 
 
 @with_numpy
-def test_memmap_persistence():
+def test_memmap_persistence(tmpdir):
     rnd = np.random.RandomState(0)
     a = rnd.random_sample(10)
-    filename = env['filename'] + str(random.randint(0, 1000))
+    filename = tmpdir.join('test.pkl').strpath + str(random.randint(0, 1000))
     numpy_pickle.dump(a, filename)
     b = numpy_pickle.load(filename, mmap_mode='r')
 
     assert isinstance(b, np.memmap)
 
     # Test with an object containing multiple numpy arrays
-    filename = env['filename'] + str(random.randint(0, 1000))
+    filename = tmpdir.join('test.pkl').strpath + str(random.randint(0, 1000))
     obj = ComplexTestObject()
     numpy_pickle.dump(obj, filename)
     obj_loaded = numpy_pickle.load(filename, mmap_mode='r')
@@ -290,14 +261,14 @@ def test_memmap_persistence():
 
 
 @with_numpy
-def test_memmap_persistence_mixed_dtypes():
+def test_memmap_persistence_mixed_dtypes(tmpdir):
     # loading datastructures that have sub-arrays with dtype=object
     # should not prevent memmaping on fixed size dtype sub-arrays.
     rnd = np.random.RandomState(0)
     a = rnd.random_sample(10)
     b = np.array([1, 'b'], dtype=object)
     construct = (a, b)
-    filename = env['filename'] + str(random.randint(0, 1000))
+    filename = tmpdir.join('test.pkl').strpath + str(random.randint(0, 1000))
     numpy_pickle.dump(construct, filename)
     a_clone, b_clone = numpy_pickle.load(filename, mmap_mode='r')
 
@@ -309,24 +280,25 @@ def test_memmap_persistence_mixed_dtypes():
 
 
 @with_numpy
-def test_masked_array_persistence():
+def test_masked_array_persistence(tmpdir):
     # The special-case picker fails, because saving masked_array
     # not implemented, but it just delegates to the standard pickler.
     rnd = np.random.RandomState(0)
     a = rnd.random_sample(10)
     a = np.ma.masked_greater(a, 0.5)
-    filename = env['filename'] + str(random.randint(0, 1000))
+    filename = tmpdir.join('test.pkl').strpath + str(random.randint(0, 1000))
     numpy_pickle.dump(a, filename)
     b = numpy_pickle.load(filename, mmap_mode='r')
     assert isinstance(b, np.ma.masked_array)
 
 
 @with_numpy
-def test_compress_mmap_mode_warning():
+def test_compress_mmap_mode_warning(tmpdir):
     # Test the warning in case of compress + mmap_mode
     rnd = np.random.RandomState(0)
     a = rnd.random_sample(10)
-    this_filename = env['filename'] + str(random.randint(0, 1000))
+    this_filename = (tmpdir.join('test.pkl').strpath +
+                     str(random.randint(0, 1000)))
     numpy_pickle.dump(a, this_filename, compress=1)
     with warnings.catch_warnings(record=True) as caught_warnings:
         warnings.simplefilter("always")
@@ -342,9 +314,9 @@ def test_compress_mmap_mode_warning():
 
 
 @with_numpy
-def test_cache_size_warning():
+def test_cache_size_warning(tmpdir):
     # Check deprecation warning raised when cache size is not None
-    filename = env['filename'] + str(random.randint(0, 1000))
+    filename = tmpdir.join('test.pkl').strpath + str(random.randint(0, 1000))
     rnd = np.random.RandomState(0)
     a = rnd.random_sample((10, 2))
 
@@ -364,9 +336,9 @@ def test_cache_size_warning():
 
 @with_numpy
 @with_memory_profiler
-def test_memory_usage():
+def test_memory_usage(tmpdir):
     # Verify memory stays within expected bounds.
-    filename = env['filename']
+    filename = tmpdir.join('test.pkl').strpath
     small_array = np.ones((10, 10))
     big_array = np.ones(shape=100 * int(1e6), dtype=np.uint8)
     small_matrix = np.matrix(small_array)
@@ -391,7 +363,7 @@ def test_memory_usage():
 
 
 @with_numpy
-def test_compressed_pickle_dump_and_load():
+def test_compressed_pickle_dump_and_load(tmpdir):
     expected_list = [np.arange(5, dtype=np.dtype('<i8')),
                      np.arange(5, dtype=np.dtype('>i8')),
                      np.arange(5, dtype=np.dtype('<f8')),
@@ -408,7 +380,7 @@ def test_compressed_pickle_dump_and_load():
                      np.matrix([0, 1, 2], dtype=np.dtype('>i8')),
                      u"C'est l'\xe9t\xe9 !"]
 
-    with tempfile.NamedTemporaryFile(suffix='.gz', dir=env['dir']) as f:
+    with tempfile.NamedTemporaryFile(suffix='.gz', dir=tmpdir.strpath) as f:
         fname = f.name
 
     try:
@@ -528,12 +500,12 @@ def test_joblib_pickle_across_python_versions():
         _check_pickle(fname, expected_list)
 
 
-def test_compress_tuple_argument():
+def test_compress_tuple_argument(tmpdir):
     compress_tuples = (('zlib', 3),
                        ('gzip', 3))
 
     # Verify the tuple is correctly taken into account.
-    filename = env['filename'] + str(random.randint(0, 1000))
+    filename = tmpdir.join('test.pkl').strpath + str(random.randint(0, 1000))
     for compress in compress_tuples:
         numpy_pickle.dump("dummy", filename,
                           compress=compress)
@@ -562,9 +534,9 @@ def test_compress_tuple_argument():
 
 
 @with_numpy
-def test_joblib_compression_formats():
+def test_joblib_compression_formats(tmpdir):
     compresslevels = (1, 3, 6)
-    filename = env['filename'] + str(random.randint(0, 1000))
+    filename = tmpdir.join('test.pkl').strpath + str(random.randint(0, 1000))
     objects = (np.ones(shape=(100, 100), dtype='f8'),
                range(10),
                {'a': 1, 2: 'b'}, [], (), {}, 0, 1.0)
@@ -613,10 +585,11 @@ def _zlib_file_decompress(source_filename, target_filename):
         fo.write(buf)
 
 
-def test_load_externally_decompressed_files():
+def test_load_externally_decompressed_files(tmpdir):
     # Test that BinaryZlibFile generates valid gzip and zlib compressed files.
     obj = "a string to persist"
-    filename_raw = env['filename'] + str(random.randint(0, 1000))
+    filename_raw = (tmpdir.join('test.pkl').strpath +
+                    str(random.randint(0, 1000)))
     compress_list = (('.z', _zlib_file_decompress),
                      ('.gz', _gzip_file_decompress))
 
@@ -639,7 +612,7 @@ def test_load_externally_decompressed_files():
             os.remove(filename_compressed)
 
 
-def test_compression_using_file_extension():
+def test_compression_using_file_extension(tmpdir):
     # test that compression method corresponds to the given filename extension.
     extensions_dict = {
         # valid compressor extentions
@@ -652,7 +625,7 @@ def test_compression_using_file_extension():
         '.pkl': 'not-compressed',
         '': 'not-compressed'
     }
-    filename = env['filename'] + str(random.randint(0, 1000))
+    filename = tmpdir.join('test.pkl').strpath + str(random.randint(0, 1000))
     obj = "object to dump"
 
     for ext, cmethod in extensions_dict.items():
@@ -675,7 +648,7 @@ def test_compression_using_file_extension():
 
 
 @with_numpy
-def test_file_handle_persistence():
+def test_file_handle_persistence(tmpdir):
     objs = [np.random.random((10, 10)),
             "some data",
             np.matrix([0, 1, 2])]
@@ -683,7 +656,7 @@ def test_file_handle_persistence():
     if PY3_OR_LATER:
         import lzma
         fobjs += [lzma.LZMAFile]
-    filename = env['filename'] + str(random.randint(0, 1000))
+    filename = tmpdir.join('test.pkl').strpath + str(random.randint(0, 1000))
 
     for obj in objs:
         for fobj in fobjs:
@@ -726,9 +699,9 @@ def test_in_memory_persistence():
 
 
 @with_numpy
-def test_file_handle_persistence_mmap():
+def test_file_handle_persistence_mmap(tmpdir):
     obj = np.random.random((10, 10))
-    filename = env['filename'] + str(random.randint(0, 1000))
+    filename = tmpdir.join('test.pkl').strpath + str(random.randint(0, 1000))
 
     with open(filename, 'wb') as f:
         numpy_pickle.dump(obj, f)
@@ -740,9 +713,9 @@ def test_file_handle_persistence_mmap():
 
 
 @with_numpy
-def test_file_handle_persistence_compressed_mmap():
+def test_file_handle_persistence_compressed_mmap(tmpdir):
     obj = np.random.random((10, 10))
-    filename = env['filename'] + str(random.randint(0, 1000))
+    filename = tmpdir.join('test.pkl').strpath + str(random.randint(0, 1000))
 
     with open(filename, 'wb') as f:
         numpy_pickle.dump(obj, f, compress=('gzip', 3))
@@ -779,8 +752,8 @@ def test_file_handle_persistence_in_memory_mmap():
                     'option will be ignored.' % {'mmap_mode': 'r+'})
 
 
-def test_binary_zlibfile():
-    filename = env['filename'] + str(random.randint(0, 1000))
+def test_binary_zlibfile(tmpdir):
+    filename = tmpdir.join('test.pkl').strpath + str(random.randint(0, 1000))
 
     # Test bad compression levels
     for bad_value in (-1, 10, 15, 'a', (), {}):
@@ -876,8 +849,8 @@ if np is not None:
 
 
 @with_numpy
-def test_numpy_subclass():
-    filename = env['filename']
+def test_numpy_subclass(tmpdir):
+    filename = tmpdir.join('test.pkl').strpath
     a = SubArray((10,))
     numpy_pickle.dump(a, filename)
     c = numpy_pickle.load(filename)
@@ -885,13 +858,13 @@ def test_numpy_subclass():
     np.testing.assert_array_equal(c, a)
 
 
-def test_pathlib():
+def test_pathlib(tmpdir):
     try:
         from pathlib import Path
     except ImportError:
         pass
     else:
-        filename = env['filename']
+        filename = tmpdir.join('test.pkl').strpath
         value = 123
         numpy_pickle.dump(value, Path(filename))
         assert numpy_pickle.load(filename) == value
@@ -900,8 +873,8 @@ def test_pathlib():
 
 
 @with_numpy
-def test_non_contiguous_array_pickling():
-    filename = env['filename'] + str(random.randint(0, 1000))
+def test_non_contiguous_array_pickling(tmpdir):
+    filename = tmpdir.join('test.pkl').strpath + str(random.randint(0, 1000))
 
     for array in [  # Array that triggers a contiguousness issue with nditer,
                     # see https://github.com/joblib/joblib/pull/352 and see
@@ -918,12 +891,12 @@ def test_non_contiguous_array_pickling():
 
 
 @with_numpy
-def test_pickle_highest_protocol():
+def test_pickle_highest_protocol(tmpdir):
     # ensure persistence of a numpy array is valid even when using
     # the pickle HIGHEST_PROTOCOL.
     # see https://github.com/joblib/joblib/issues/362
 
-    filename = env['filename'] + str(random.randint(0, 1000))
+    filename = tmpdir.join('test.pkl').strpath + str(random.randint(0, 1000))
     test_array = np.zeros(10)
 
     numpy_pickle.dump(test_array, filename, protocol=pickle.HIGHEST_PROTOCOL)
