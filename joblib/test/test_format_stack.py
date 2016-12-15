@@ -60,7 +60,7 @@ def test_format_records():
             assert 'test_format_stack.py in' in fmt_rec
 
         # Check exception stack
-        arrow_regex = r'^--->\s+\d+\s+'
+        arrow_regex = r'^-+>\s+\d+\s+'
         assert re.search(arrow_regex + "_raise_exception\('a', 42\)",
                          formatted_records[0],
                          re.MULTILINE)
