@@ -9,7 +9,7 @@ from joblib import numpy_pickle_compat
 
 def test_z_file(tmpdir):
     # Test saving and loading data with Zfiles.
-    filename = tmpdir.join('test.pkl').strpath + str(random.randint(0, 1000))
+    filename = tmpdir.join('test.pkl').strpath
     data = numpy_pickle_compat.asbytes('Foo, \n Bar, baz, \n\nfoobar')
     with open(filename, 'wb') as f:
         numpy_pickle_compat.write_zfile(f, data)

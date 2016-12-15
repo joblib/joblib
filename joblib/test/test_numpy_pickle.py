@@ -114,9 +114,8 @@ def test_standard_types(tmpdir):
     for compress in [0, 1]:
         for member in typelist:
             # Change the file name to avoid side effects between tests
-            this_filename = filename + str(random.randint(0, 1000))
-            numpy_pickle.dump(member, this_filename, compress=compress)
-            _member = numpy_pickle.load(this_filename)
+            numpy_pickle.dump(member, filename, compress=compress)
+            _member = numpy_pickle.load(filename)
             # We compare the pickled instance to the reloaded one only if it
             # can be compared to a copied one
             if member == copy.deepcopy(member):
@@ -147,20 +146,17 @@ def test_numpy_persistence(tmpdir):
         # We use 'a.T' to have a non C-contiguous array.
         for index, obj in enumerate(((a,), (a.T,), (a, a), [a, a, a])):
             # Change the file name to avoid side effects between tests
-            this_filename = filename + str(random.randint(0, 1000))
-
-            filenames = numpy_pickle.dump(obj, this_filename,
-                                          compress=compress)
+            filenames = numpy_pickle.dump(obj, filename, compress=compress)
 
             # All is cached in one file
             assert len(filenames) == 1
             # Check that only one file was created
-            assert filenames[0] == this_filename
+            assert filenames[0] == filename
             # Check that this file does exist
             assert os.path.exists(filenames[0])
 
             # Unpickle the object
-            obj_ = numpy_pickle.load(this_filename)
+            obj_ = numpy_pickle.load(filename)
             # Check that the items are indeed arrays
             for item in obj_:
                 assert isinstance(item, np.ndarray)
@@ -169,15 +165,13 @@ def test_numpy_persistence(tmpdir):
 
         # Now test with array subclasses
         for obj in (np.matrix(np.zeros(10)),
-                    np.memmap(filename + str(random.randint(0, 1000)) + 'mmap',
+                    np.memmap(filename + 'mmap',
                               mode='w+', shape=4, dtype=np.float)):
-            this_filename = filename + str(random.randint(0, 1000))
-            filenames = numpy_pickle.dump(obj, this_filename,
-                                          compress=compress)
+            filenames = numpy_pickle.dump(obj, filename, compress=compress)
             # All is cached in one file
             assert len(filenames) == 1
 
-            obj_ = numpy_pickle.load(this_filename)
+            obj_ = numpy_pickle.load(filename)
             if (type(obj) is not np.memmap and
                     hasattr(obj, '__array_prepare__')):
                 # We don't reconstruct memmaps
@@ -187,12 +181,11 @@ def test_numpy_persistence(tmpdir):
 
         # Test with an object containing multiple numpy arrays
         obj = ComplexTestObject()
-        filenames = numpy_pickle.dump(obj, this_filename,
-                                      compress=compress)
+        filenames = numpy_pickle.dump(obj, filename, compress=compress)
         # All is cached in one file
         assert len(filenames) == 1
 
-        obj_loaded = numpy_pickle.load(this_filename)
+        obj_loaded = numpy_pickle.load(filename)
         assert isinstance(obj_loaded, type(obj))
         np.testing.assert_array_equal(obj_loaded.array_float, obj.array_float)
         np.testing.assert_array_equal(obj_loaded.array_int, obj.array_int)
@@ -202,7 +195,7 @@ def test_numpy_persistence(tmpdir):
 @with_numpy
 def test_numpy_persistence_bufferred_array_compression(tmpdir):
     big_array = np.ones((_IO_BUFFER_SIZE + 100), dtype=np.uint8)
-    filename = tmpdir.join('test.pkl').strpath + str(random.randint(0, 1000))
+    filename = tmpdir.join('test.pkl').strpath
     numpy_pickle.dump(big_array, filename, compress=True)
     arr_reloaded = numpy_pickle.load(filename)
 
@@ -213,14 +206,14 @@ def test_numpy_persistence_bufferred_array_compression(tmpdir):
 def test_memmap_persistence(tmpdir):
     rnd = np.random.RandomState(0)
     a = rnd.random_sample(10)
-    filename = tmpdir.join('test.pkl').strpath + str(random.randint(0, 1000))
+    filename = tmpdir.join('test1.pkl').strpath
     numpy_pickle.dump(a, filename)
     b = numpy_pickle.load(filename, mmap_mode='r')
 
     assert isinstance(b, np.memmap)
 
     # Test with an object containing multiple numpy arrays
-    filename = tmpdir.join('test.pkl').strpath + str(random.randint(0, 1000))
+    filename = tmpdir.join('test2.pkl').strpath
     obj = ComplexTestObject()
     numpy_pickle.dump(obj, filename)
     obj_loaded = numpy_pickle.load(filename, mmap_mode='r')
@@ -267,7 +260,7 @@ def test_memmap_persistence_mixed_dtypes(tmpdir):
     a = rnd.random_sample(10)
     b = np.array([1, 'b'], dtype=object)
     construct = (a, b)
-    filename = tmpdir.join('test.pkl').strpath + str(random.randint(0, 1000))
+    filename = tmpdir.join('test.pkl').strpath
     numpy_pickle.dump(construct, filename)
     a_clone, b_clone = numpy_pickle.load(filename, mmap_mode='r')
 
@@ -285,7 +278,7 @@ def test_masked_array_persistence(tmpdir):
     rnd = np.random.RandomState(0)
     a = rnd.random_sample(10)
     a = np.ma.masked_greater(a, 0.5)
-    filename = tmpdir.join('test.pkl').strpath + str(random.randint(0, 1000))
+    filename = tmpdir.join('test.pkl').strpath
     numpy_pickle.dump(a, filename)
     b = numpy_pickle.load(filename, mmap_mode='r')
     assert isinstance(b, np.ma.masked_array)
@@ -296,8 +289,7 @@ def test_compress_mmap_mode_warning(tmpdir):
     # Test the warning in case of compress + mmap_mode
     rnd = np.random.RandomState(0)
     a = rnd.random_sample(10)
-    this_filename = (tmpdir.join('test.pkl').strpath +
-                     str(random.randint(0, 1000)))
+    this_filename = tmpdir.join('test.pkl').strpath
     numpy_pickle.dump(a, this_filename, compress=1)
     with warnings.catch_warnings(record=True) as caught_warnings:
         warnings.simplefilter("always")
@@ -315,7 +307,7 @@ def test_compress_mmap_mode_warning(tmpdir):
 @with_numpy
 def test_cache_size_warning(tmpdir):
     # Check deprecation warning raised when cache size is not None
-    filename = tmpdir.join('test.pkl').strpath + str(random.randint(0, 1000))
+    filename = tmpdir.join('test.pkl').strpath
     rnd = np.random.RandomState(0)
     a = rnd.random_sample((10, 2))
 
@@ -500,7 +492,7 @@ def test_compress_tuple_argument(tmpdir):
                        ('gzip', 3))
 
     # Verify the tuple is correctly taken into account.
-    filename = tmpdir.join('test.pkl').strpath + str(random.randint(0, 1000))
+    filename = tmpdir.join('test.pkl').strpath
     for compress in compress_tuples:
         numpy_pickle.dump("dummy", filename,
                           compress=compress)
@@ -531,7 +523,7 @@ def test_compress_tuple_argument(tmpdir):
 @with_numpy
 def test_joblib_compression_formats(tmpdir):
     compresslevels = (1, 3, 6)
-    filename = tmpdir.join('test.pkl').strpath + str(random.randint(0, 1000))
+    filename = tmpdir.join('test.pkl').strpath
     objects = (np.ones(shape=(100, 100), dtype='f8'),
                range(10),
                {'a': 1, 2: 'b'}, [], (), {}, 0, 1.0)
@@ -582,8 +574,7 @@ def _zlib_file_decompress(source_filename, target_filename):
 def test_load_externally_decompressed_files(tmpdir):
     # Test that BinaryZlibFile generates valid gzip and zlib compressed files.
     obj = "a string to persist"
-    filename_raw = (tmpdir.join('test.pkl').strpath +
-                    str(random.randint(0, 1000)))
+    filename_raw = tmpdir.join('test.pkl').strpath
     compress_list = (('.z', _zlib_file_decompress),
                      ('.gz', _gzip_file_decompress))
 
@@ -614,7 +605,7 @@ def test_compression_using_file_extension(tmpdir):
         '.pkl': 'not-compressed',
         '': 'not-compressed'
     }
-    filename = tmpdir.join('test.pkl').strpath + str(random.randint(0, 1000))
+    filename = tmpdir.join('test.pkl').strpath
     obj = "object to dump"
 
     for ext, cmethod in extensions_dict.items():
@@ -644,7 +635,7 @@ def test_file_handle_persistence(tmpdir):
     if PY3_OR_LATER:
         import lzma
         fobjs += [lzma.LZMAFile]
-    filename = tmpdir.join('test.pkl').strpath + str(random.randint(0, 1000))
+    filename = tmpdir.join('test.pkl').strpath
 
     for obj in objs:
         for fobj in fobjs:
@@ -687,7 +678,7 @@ def test_in_memory_persistence():
 @with_numpy
 def test_file_handle_persistence_mmap(tmpdir):
     obj = np.random.random((10, 10))
-    filename = tmpdir.join('test.pkl').strpath + str(random.randint(0, 1000))
+    filename = tmpdir.join('test.pkl').strpath
 
     with open(filename, 'wb') as f:
         numpy_pickle.dump(obj, f)
@@ -701,7 +692,7 @@ def test_file_handle_persistence_mmap(tmpdir):
 @with_numpy
 def test_file_handle_persistence_compressed_mmap(tmpdir):
     obj = np.random.random((10, 10))
-    filename = tmpdir.join('test.pkl').strpath + str(random.randint(0, 1000))
+    filename = tmpdir.join('test.pkl').strpath
 
     with open(filename, 'wb') as f:
         numpy_pickle.dump(obj, f, compress=('gzip', 3))
@@ -739,7 +730,7 @@ def test_file_handle_persistence_in_memory_mmap():
 
 
 def test_binary_zlibfile(tmpdir):
-    filename = tmpdir.join('test.pkl').strpath + str(random.randint(0, 1000))
+    filename = tmpdir.join('test.pkl').strpath
 
     # Test bad compression levels
     for bad_value in (-1, 10, 15, 'a', (), {}):
@@ -858,7 +849,7 @@ def test_pathlib(tmpdir):
 
 @with_numpy
 def test_non_contiguous_array_pickling(tmpdir):
-    filename = tmpdir.join('test.pkl').strpath + str(random.randint(0, 1000))
+    filename = tmpdir.join('test.pkl').strpath
 
     for array in [  # Array that triggers a contiguousness issue with nditer,
                     # see https://github.com/joblib/joblib/pull/352 and see
@@ -879,7 +870,7 @@ def test_pickle_highest_protocol(tmpdir):
     # the pickle HIGHEST_PROTOCOL.
     # see https://github.com/joblib/joblib/issues/362
 
-    filename = tmpdir.join('test.pkl').strpath + str(random.randint(0, 1000))
+    filename = tmpdir.join('test.pkl').strpath
     test_array = np.zeros(10)
 
     numpy_pickle.dump(test_array, filename, protocol=pickle.HIGHEST_PROTOCOL)
