@@ -204,13 +204,14 @@ def test_numpy_persistence_bufferred_array_compression(tmpdir):
 def test_memmap_persistence(tmpdir):
     rnd = np.random.RandomState(0)
     a = rnd.random_sample(10)
-    filename = tmpdir.join('test.pkl').strpath
+    filename = tmpdir.join('test1.pkl').strpath
     numpy_pickle.dump(a, filename)
     b = numpy_pickle.load(filename, mmap_mode='r')
 
     assert isinstance(b, np.memmap)
 
     # Test with an object containing multiple numpy arrays
+    filename = tmpdir.join('test2.pkl').strpath
     obj = ComplexTestObject()
     numpy_pickle.dump(obj, filename)
     obj_loaded = numpy_pickle.load(filename, mmap_mode='r')
