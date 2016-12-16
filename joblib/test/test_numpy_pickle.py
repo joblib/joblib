@@ -16,7 +16,7 @@ from contextlib import closing
 
 from joblib.test.common import np, with_numpy
 from joblib.test.common import with_memory_profiler, memory_used
-from joblib.testing import assert_raises, assert_raises_regex, SkipTest
+from joblib.testing import assert_raises, pytest_assert_raises, SkipTest
 
 # numpy_pickle is not a drop-in replacement of pickle, as it takes
 # filenames instead of open files as arguments.
@@ -131,9 +131,9 @@ def test_compress_level_error():
     wrong_compress = (-1, 10, 'wrong')
     for wrong in wrong_compress:
         exception_msg = 'Non valid compress level given: "{0}"'.format(wrong)
-        assert_raises_regex(ValueError,
-                            exception_msg,
-                            numpy_pickle.dump, 'dummy', 'foo', compress=wrong)
+        with pytest_assert_raises(ValueError) as excinfo:
+            numpy_pickle.dump('dummy', 'foo', compress=wrong)
+        excinfo.match(exception_msg)
 
 
 @with_numpy
@@ -499,23 +499,19 @@ def test_compress_tuple_argument(tmpdir):
             assert _detect_compressor(f) == compress[0]
 
     # Verify setting a wrong compress tuple raises a ValueError.
-    assert_raises_regex(ValueError,
-                        'Compress argument tuple should contain exactly '
-                        '2 elements',
-                        numpy_pickle.dump, "dummy", filename,
-                        compress=('zlib', 3, 'extra'))
+    with pytest_assert_raises(ValueError) as excinfo:
+        numpy_pickle.dump('dummy', filename, compress=('zlib', 3, 'extra'))
+    excinfo.match('Compress argument tuple should contain exactly 2 elements')
 
     # Verify a tuple with a wrong compress method raises a ValueError.
-    msg = 'Non valid compression method given: "{}"'.format('wrong')
-    assert_raises_regex(ValueError, msg,
-                        numpy_pickle.dump, "dummy", filename,
-                        compress=('wrong', 3))
+    with pytest_assert_raises(ValueError) as excinfo:
+        numpy_pickle.dump('dummy', filename, compress=('wrong', 3))
+    excinfo.match('Non valid compression method given: "{}"'.format('wrong'))
 
     # Verify a tuple with a wrong compress level raises a ValueError.
-    msg = 'Non valid compress level given: "{}"'.format('wrong')
-    assert_raises_regex(ValueError, msg,
-                        numpy_pickle.dump, "dummy", filename,
-                        compress=('zlib', 'wrong'))
+    with pytest_assert_raises(ValueError) as excinfo:
+        numpy_pickle.dump('dummy', filename, compress=('zlib', 'wrong'))
+    excinfo.match('Non valid compress level given: "{}"'.format('wrong'))
 
 
 @with_numpy
@@ -533,9 +529,10 @@ def test_joblib_compression_formats(tmpdir):
                 if not PY3_OR_LATER and cmethod in ('xz', 'lzma'):
                     # Lzma module only available for python >= 3.3
                     msg = "{} compression is only available".format(cmethod)
-                    assert_raises_regex(NotImplementedError, msg,
-                                        numpy_pickle.dump, obj, dump_filename,
-                                        compress=(cmethod, compress))
+                    with pytest_assert_raises(NotImplementedError) as excinfo:
+                        numpy_pickle.dump(obj, dump_filename,
+                                          compress=(cmethod, compress))
+                    excinfo.match(msg)
                 else:
                     numpy_pickle.dump(obj, dump_filename,
                                       compress=(cmethod, compress))
@@ -611,8 +608,9 @@ def test_compression_using_file_extension(tmpdir):
         if not PY3_OR_LATER and cmethod in ('xz', 'lzma'):
             # Lzma module only available for python >= 3.3
             msg = "{} compression is only available".format(cmethod)
-            assert_raises_regex(NotImplementedError, msg,
-                                numpy_pickle.dump, obj, dump_fname)
+            with pytest_assert_raises(NotImplementedError) as excinfo:
+                numpy_pickle.dump(obj, dump_fname)
+            excinfo.match(msg)
         else:
             numpy_pickle.dump(obj, dump_fname)
             # Verify the file contains the right magic number
