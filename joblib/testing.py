@@ -8,7 +8,6 @@ import os.path
 import re
 import subprocess
 import threading
-import unittest
 
 import pytest
 import _pytest
@@ -16,11 +15,7 @@ import _pytest
 from joblib._compat import PY3_OR_LATER
 
 
-_dummy = unittest.TestCase('__init__')
-
-assert_raises = _dummy.assertRaises
-pytest_assert_raises = pytest.raises
-
+assert_raises = pytest.raises
 SkipTest = _pytest.runner.Skipped
 skipif = pytest.mark.skipif
 fixture = pytest.fixture

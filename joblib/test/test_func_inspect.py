@@ -12,7 +12,7 @@ from joblib.func_inspect import filter_args, get_func_name, get_func_code
 from joblib.func_inspect import _clean_win_chars, format_signature
 from joblib.memory import Memory
 from joblib.test.common import with_numpy
-from joblib.testing import fixture, parametrize, pytest_assert_raises
+from joblib.testing import fixture, parametrize, assert_raises
 from joblib._compat import PY3_OR_LATER
 
 
@@ -168,7 +168,7 @@ def func_with_signature(a: int, b: int) -> None: pass
 
         # filter_args doesn't care about keyword-only arguments so you
         # can pass 'kw1' into *args without any problem
-        with pytest_assert_raises(ValueError) as excinfo:
+        with assert_raises(ValueError) as excinfo:
             filter_args(func_with_kwonly_args, [], (1, 2, 3), {'kw2': 2})
         excinfo.match("Keyword-only parameter 'kw1' was passed as positional "
                       "parameter")
@@ -202,7 +202,7 @@ def test_filter_args_error_msg(exception, regex, func, args):
     """ Make sure that filter_args returns decent error messages, for the
         sake of the user.
     """
-    with pytest_assert_raises(exception) as excinfo:
+    with assert_raises(exception) as excinfo:
         filter_args(func, *args)
     excinfo.match(regex)
 

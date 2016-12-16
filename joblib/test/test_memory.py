@@ -20,7 +20,7 @@ from joblib.memory import MemorizedResult, NotMemorizedResult, _FUNCTION_HASHES
 from joblib.memory import _get_cache_items, _get_cache_items_to_delete
 from joblib.memory import _load_output, _get_func_fullname
 from joblib.test.common import with_numpy, np
-from joblib.testing import assert_raises, pytest_assert_raises
+from joblib.testing import assert_raises
 from joblib._compat import PY3_OR_LATER
 
 
@@ -609,7 +609,7 @@ def func_with_signature(a: int, b: float) -> float:
 
         # Making sure that providing a keyword-only argument by
         # position raises an exception
-        with pytest_assert_raises(ValueError) as excinfo:
+        with assert_raises(ValueError) as excinfo:
             func_cached(1, 2, 3, kw2=4)
         excinfo.match("Keyword-only parameter 'kw1' was passed as positional "
                       "parameter")
@@ -618,7 +618,7 @@ def func_with_signature(a: int, b: float) -> float:
         # should still raise ValueError
         func_cached(1, 2, kw1=3, kw2=4)
 
-        with pytest_assert_raises(ValueError) as excinfo:
+        with assert_raises(ValueError) as excinfo:
             func_cached(1, 2, 3, kw2=4)
         excinfo.match("Keyword-only parameter 'kw1' was passed as positional "
                       "parameter")
