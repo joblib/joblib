@@ -1,8 +1,7 @@
 import sys
 import re
 
-from joblib.testing import (assert_raises, assert_raises_regex,
-                            check_subprocess_call)
+from joblib.testing import pytest_assert_raises, check_subprocess_call
 
 
 def test_check_subprocess_call():
@@ -22,18 +21,17 @@ def test_check_subprocess_call():
 def test_check_subprocess_call_non_matching_regex():
     code = '42'
     non_matching_pattern = '_no_way_this_matches_anything_'
-    assert_raises_regex(ValueError,
-                        'Unexpected stdout.+{}'.format(non_matching_pattern),
-                        check_subprocess_call,
-                        [sys.executable, '-c', code],
-                        stdout_regex=non_matching_pattern)
+
+    with pytest_assert_raises(ValueError) as excinfo:
+        check_subprocess_call([sys.executable, '-c', code],
+                              stdout_regex=non_matching_pattern)
+    excinfo.match('Unexpected stdout.+{}'.format(non_matching_pattern))
 
 
 def test_check_subprocess_call_wrong_command():
     wrong_command = '_a_command_that_does_not_exist_'
-    assert_raises(OSError,
-                  check_subprocess_call,
-                  [wrong_command])
+    with pytest_assert_raises(OSError):
+        check_subprocess_call([wrong_command])
 
 
 def test_check_subprocess_call_non_zero_return_code():
@@ -46,10 +44,10 @@ def test_check_subprocess_call_non_zero_return_code():
     pattern = re.compile('Non-zero return code: 123.+'
                          'Stdout:\nwriting on stdout.+'
                          'Stderr:\nwriting on stderr', re.DOTALL)
-    assert_raises_regex(ValueError,
-                        pattern,
-                        check_subprocess_call,
-                        [sys.executable, '-c', code_with_non_zero_exit])
+
+    with pytest_assert_raises(ValueError) as excinfo:
+        check_subprocess_call([sys.executable, '-c', code_with_non_zero_exit])
+    excinfo.match(pattern)
 
 
 def test_check_subprocess_call_timeout():
@@ -69,8 +67,7 @@ def test_check_subprocess_call_timeout():
                          'Stderr:\nbefore sleep on stderr',
                          re.DOTALL)
 
-    assert_raises_regex(ValueError,
-                        pattern,
-                        check_subprocess_call,
-                        [sys.executable, '-c', code_timing_out],
-                        timeout=1)
+    with pytest_assert_raises(ValueError) as excinfo:
+        check_subprocess_call([sys.executable, '-c', code_timing_out],
+                              timeout=1)
+    excinfo.match(pattern)
