@@ -12,7 +12,7 @@ import array
 import os
 
 from joblib.disk import disk_used, memstr_to_bytes, mkdirp
-from joblib.testing import parametrize, assert_raises
+from joblib.testing import parametrize, raises
 
 ###############################################################################
 
@@ -46,7 +46,7 @@ def test_memstr_to_bytes(text, value):
              [('fooG', ValueError, r'Invalid literal for size.*fooG.*'),
               ('1.4N', ValueError, r'Invalid literal for size.*1.4N.*')])
 def test_memstr_to_bytes_exception(text, exception, regex):
-    with assert_raises(exception) as excinfo:
+    with raises(exception) as excinfo:
         memstr_to_bytes(text)
     assert excinfo.match(regex)
 
@@ -57,4 +57,5 @@ def test_mkdirp(tmpdir):
     mkdirp(os.path.join(tmpdir.strpath, 'spam', 'spam'))
 
     # Not all OSErrors are ignored
-    assert_raises(OSError, mkdirp, '')
+    with raises(OSError):
+        mkdirp('')

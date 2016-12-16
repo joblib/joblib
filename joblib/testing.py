@@ -15,7 +15,7 @@ import _pytest
 from joblib._compat import PY3_OR_LATER
 
 
-assert_raises = pytest.raises
+raises = pytest.raises
 SkipTest = _pytest.runner.Skipped
 skipif = pytest.mark.skipif
 fixture = pytest.fixture
