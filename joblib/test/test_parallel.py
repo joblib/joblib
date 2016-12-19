@@ -466,7 +466,7 @@ def test_exception_dispatch():
     "Make sure that exception raised during dispatch are indeed captured"
     with raises(ValueError):
         Parallel(n_jobs=2, pre_dispatch=16, verbose=0)(
-            (delayed(exception_raiser)(i) for i in range(30)))
+            delayed(exception_raiser)(i) for i in range(30))
 
 
 def test_nested_exception_dispatch():
