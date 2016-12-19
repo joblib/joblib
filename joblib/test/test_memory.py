@@ -165,10 +165,6 @@ def test_memory_name_collision(tmpdir):
     with warnings.catch_warnings(record=True) as w:
         # Cause all warnings to always be triggered.
         warnings.simplefilter("always")
-        # This is a temporary workaround until we get rid of
-        # inspect.getargspec, see
-        # https://github.com/joblib/joblib/issues/247
-        warnings.simplefilter("ignore", DeprecationWarning)
         a(1)
         b(1)
 
@@ -189,10 +185,6 @@ def test_memory_warning_lambda_collisions(tmpdir):
     with warnings.catch_warnings(record=True) as w:
         # Cause all warnings to always be triggered.
         warnings.simplefilter("always")
-        # This is a temporary workaround until we get rid of
-        # inspect.getargspec, see
-        # https://github.com/joblib/joblib/issues/247
-        warnings.simplefilter("ignore", DeprecationWarning)
         assert a(0) == 0
         assert b(1) == 2
         assert a(1) == 1
@@ -216,10 +208,6 @@ def test_memory_warning_collision_detection(tmpdir):
     with warnings.catch_warnings(record=True) as w:
         # Cause all warnings to always be triggered.
         warnings.simplefilter("always")
-        # This is a temporary workaround until we get rid of
-        # inspect.getargspec, see
-        # https://github.com/joblib/joblib/issues/247
-        warnings.simplefilter("ignore", DeprecationWarning)
         a1(1)
         b1(1)
         a1(0)
