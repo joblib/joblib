@@ -11,7 +11,6 @@ import sys
 import os
 from math import sqrt
 import threading
-import warnings
 from multiprocessing import TimeoutError
 from time import sleep
 
@@ -148,19 +147,17 @@ def test_simple_parallel():
         check_simple_parallel(backend)
 
 
-def check_main_thread_renamed_no_warning(backend):
-    with warnings.catch_warnings(record=True) as caught_warnings:
-        warnings.simplefilter("always")
-        results = Parallel(n_jobs=2, backend=backend)(
-            delayed(square)(x) for x in range(3))
-        assert results == [0, 1, 4]
+def check_main_thread_renamed_no_warning(backend, recwarn):
+    results = Parallel(n_jobs=2, backend=backend)(
+        delayed(square)(x) for x in range(3))
+    assert results == [0, 1, 4]
     # The multiprocessing backend will raise a warning when detecting that is
     # started from the non-main thread. Let's check that there is no false
     # positive because of the name change.
-    assert caught_warnings == []
+    assert len(recwarn) == 0
 
 
-def test_main_thread_renamed_no_warning():
+def test_main_thread_renamed_no_warning(recwarn):
     # Check that no default backend relies on the name of the main thread:
     # https://github.com/joblib/joblib/issues/180#issuecomment-253266247
     # Some programs use a different name for the main thread. This is the case
@@ -170,7 +167,7 @@ def test_main_thread_renamed_no_warning():
     try:
         main_thread.name = "some_new_name_for_the_main_thread"
         for backend in ALL_VALID_BACKENDS:
-            check_main_thread_renamed_no_warning(backend)
+            check_main_thread_renamed_no_warning(backend, recwarn)
     finally:
         main_thread.name = original_name
 
