@@ -20,7 +20,7 @@ from joblib.memory import MemorizedResult, NotMemorizedResult, _FUNCTION_HASHES
 from joblib.memory import _get_cache_items, _get_cache_items_to_delete
 from joblib.memory import _load_output, _get_func_fullname
 from joblib.test.common import with_numpy, np
-from joblib.testing import assert_raises, assert_raises_regex
+from joblib.testing import raises
 from joblib._compat import PY3_OR_LATER
 
 
@@ -343,7 +343,8 @@ def test_memory_exception(tmpdir):
 
     for _ in range(3):
         # Call 3 times, to be sure that the Exception is always raised
-        assert_raises(MyException, h, 1)
+        with raises(MyException):
+            h(1)
 
 
 def test_memory_ignore(tmpdir):
@@ -451,7 +452,8 @@ def test_call_and_shelve(tmpdir):
         assert result.get() == 5
 
         result.clear()
-        assert_raises(KeyError, result.get)
+        with raises(KeyError):
+            result.get()
         result.clear()  # Do nothing if there is no cache.
 
 
@@ -609,21 +611,19 @@ def func_with_signature(a: int, b: float) -> float:
 
         # Making sure that providing a keyword-only argument by
         # position raises an exception
-        assert_raises_regex(
-            ValueError,
-            "Keyword-only parameter 'kw1' was passed as positional parameter",
-            func_cached,
-            1, 2, 3, {'kw2': 4})
+        with raises(ValueError) as excinfo:
+            func_cached(1, 2, 3, kw2=4)
+        excinfo.match("Keyword-only parameter 'kw1' was passed as positional "
+                      "parameter")
 
         # Keyword-only parameter passed by position with cached call
         # should still raise ValueError
         func_cached(1, 2, kw1=3, kw2=4)
 
-        assert_raises_regex(
-            ValueError,
-            "Keyword-only parameter 'kw1' was passed as positional parameter",
-            func_cached,
-            1, 2, 3, {'kw2': 4})
+        with raises(ValueError) as excinfo:
+            func_cached(1, 2, 3, kw2=4)
+        excinfo.match("Keyword-only parameter 'kw1' was passed as positional "
+                      "parameter")
 
         # Test 'ignore' parameter
         func_cached = mem.cache(func_with_kwonly_args, ignore=['kw2'])

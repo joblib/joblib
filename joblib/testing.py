@@ -8,7 +8,6 @@ import os.path
 import re
 import subprocess
 import threading
-import unittest
 
 import pytest
 import _pytest
@@ -16,17 +15,7 @@ import _pytest
 from joblib._compat import PY3_OR_LATER
 
 
-_dummy = unittest.TestCase('__init__')
-
-assert_raises = _dummy.assertRaises
-pytest_assert_raises = pytest.raises
-
-try:
-    assert_raises_regex = _dummy.assertRaisesRegex
-except AttributeError:
-    # Python 2.7
-    assert_raises_regex = _dummy.assertRaisesRegexp
-
+raises = pytest.raises
 SkipTest = _pytest.runner.Skipped
 skipif = pytest.mark.skipif
 fixture = pytest.fixture

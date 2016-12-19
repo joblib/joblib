@@ -19,8 +19,7 @@ from joblib import parallel
 
 from joblib.test.common import np, with_numpy
 from joblib.test.common import with_multiprocessing
-from joblib.testing import (assert_raises, check_subprocess_call,
-                            SkipTest)
+from joblib.testing import raises, check_subprocess_call, SkipTest
 from joblib._compat import PY3_OR_LATER
 
 try:
@@ -257,8 +256,8 @@ def test_parallel_pickling():
     except Exception as exc:
         exception_class = exc.__class__
 
-    assert_raises(exception_class, Parallel(),
-                  (delayed(g)(x) for x in range(10)))
+    with raises(exception_class):
+        Parallel()(delayed(g)(x) for x in range(10))
 
 
 def test_parallel_timeout_success():
@@ -272,9 +271,9 @@ def test_parallel_timeout_success():
 def test_parallel_timeout_fail():
     # Check that timeout properly fails when function is too slow
     for backend in ['multiprocessing', 'threading']:
-        assert_raises(TimeoutError,
-                      Parallel(n_jobs=2, backend=backend, timeout=0.01),
-                      (delayed(sleep)(10) for x in range(10)))
+        with raises(TimeoutError):
+            Parallel(n_jobs=2, backend=backend, timeout=0.01)(
+                delayed(sleep)(10) for x in range(10))
 
 
 def test_error_capture():
@@ -283,20 +282,22 @@ def test_error_capture():
     if mp is not None:
         # A JoblibException will be raised only if there is indeed
         # multiprocessing
-        assert_raises(JoblibException, Parallel(n_jobs=2),
-                      [delayed(division)(x, y)
-                       for x, y in zip((0, 1), (1, 0))])
-        assert_raises(WorkerInterrupt, Parallel(n_jobs=2),
-                      [delayed(interrupt_raiser)(x) for x in (1, 0)])
+        with raises(JoblibException):
+            Parallel(n_jobs=2)(
+                [delayed(division)(x, y)
+                    for x, y in zip((0, 1), (1, 0))])
+        with raises(WorkerInterrupt):
+            Parallel(n_jobs=2)(
+                [delayed(interrupt_raiser)(x) for x in (1, 0)])
 
         # Try again with the context manager API
         with Parallel(n_jobs=2) as parallel:
             assert parallel._backend._pool is not None
             original_pool = parallel._backend._pool
 
-            assert_raises(JoblibException, parallel,
-                          [delayed(division)(x, y)
-                           for x, y in zip((0, 1), (1, 0))])
+            with raises(JoblibException):
+                parallel([delayed(division)(x, y)
+                          for x, y in zip((0, 1), (1, 0))])
 
             # The managed pool should still be available and be in a working
             # state despite the previously raised (and caught) exception
@@ -309,8 +310,8 @@ def test_error_capture():
                     parallel(delayed(f)(x, y=1) for x in range(10)))
 
             original_pool = parallel._backend._pool
-            assert_raises(WorkerInterrupt, parallel,
-                          [delayed(interrupt_raiser)(x) for x in (1, 0)])
+            with raises(WorkerInterrupt):
+                parallel([delayed(interrupt_raiser)(x) for x in (1, 0)])
 
             # The pool should still be available despite the exception
             assert parallel._backend._pool is not None
@@ -325,19 +326,20 @@ def test_error_capture():
         # context manager
         assert parallel._backend._pool is None
     else:
-        assert_raises(KeyboardInterrupt, Parallel(n_jobs=2),
-                      [delayed(interrupt_raiser)(x) for x in (1, 0)])
+        with raises(KeyboardInterrupt):
+            Parallel(n_jobs=2)(
+                [delayed(interrupt_raiser)(x) for x in (1, 0)])
 
     # wrapped exceptions should inherit from the class of the original
     # exception to make it easy to catch them
-    assert_raises(ZeroDivisionError, Parallel(n_jobs=2),
-                  [delayed(division)(x, y) for x, y in zip((0, 1), (1, 0))])
+    with raises(ZeroDivisionError):
+        Parallel(n_jobs=2)(
+            [delayed(division)(x, y) for x, y in zip((0, 1), (1, 0))])
 
-    assert_raises(
-        MyExceptionWithFinickyInit,
-        Parallel(n_jobs=2, verbose=0),
-        (delayed(exception_raiser)(i, custom_exception=True)
-         for i in range(30)))
+    with raises(MyExceptionWithFinickyInit):
+        Parallel(n_jobs=2, verbose=0)(
+            (delayed(exception_raiser)(i, custom_exception=True)
+             for i in range(30)))
 
     try:
         # JoblibException wrapping is disabled in sequential mode:
@@ -462,19 +464,17 @@ def test_batching_auto_multiprocessing():
 
 def test_exception_dispatch():
     "Make sure that exception raised during dispatch are indeed captured"
-    assert_raises(
-        ValueError,
-        Parallel(n_jobs=2, pre_dispatch=16, verbose=0),
-        (delayed(exception_raiser)(i) for i in range(30)))
+    with raises(ValueError):
+        Parallel(n_jobs=2, pre_dispatch=16, verbose=0)(
+            delayed(exception_raiser)(i) for i in range(30))
 
 
 def test_nested_exception_dispatch():
     # Ensure TransportableException objects for nested joblib cases gets
     # propagated.
-    assert_raises(
-        JoblibException,
-        Parallel(n_jobs=2, pre_dispatch=16, verbose=0),
-        (delayed(SafeFunction(exception_raiser))(i) for i in range(30)))
+    with raises(JoblibException):
+        Parallel(n_jobs=2, pre_dispatch=16, verbose=0)(
+            delayed(SafeFunction(exception_raiser))(i) for i in range(30))
 
 
 def _reload_joblib():
@@ -494,8 +494,9 @@ def test_multiple_spawning():
     # systems that do not support fork
     if not int(os.environ.get('JOBLIB_MULTIPROCESSING', 1)):
         raise SkipTest()
-    assert_raises(ImportError, Parallel(n_jobs=2, pre_dispatch='all'),
-                  [delayed(_reload_joblib)() for i in range(10)])
+    with raises(ImportError):
+        Parallel(n_jobs=2, pre_dispatch='all')(
+            [delayed(_reload_joblib)() for i in range(10)])
 
 
 class FakeParallelBackend(SequentialBackend):
@@ -513,7 +514,8 @@ class FakeParallelBackend(SequentialBackend):
 
 
 def test_invalid_backend():
-    assert_raises(ValueError, Parallel, backend='unit-testing')
+    with raises(ValueError):
+        Parallel(backend='unit-testing')
 
 
 def test_register_parallel_backend():
@@ -650,13 +652,17 @@ def test_joblib_exception():
 
 def test_safe_function():
     safe_division = SafeFunction(division)
-    assert_raises(JoblibException, safe_division, 1, 0)
+    with raises(JoblibException):
+        safe_division(1, 0)
 
 
 def test_invalid_batch_size():
-    assert_raises(ValueError, Parallel, batch_size=0)
-    assert_raises(ValueError, Parallel, batch_size=-1)
-    assert_raises(ValueError, Parallel, batch_size=1.42)
+    with raises(ValueError):
+        Parallel(batch_size=0)
+    with raises(ValueError):
+        Parallel(batch_size=-1)
+    with raises(ValueError):
+        Parallel(batch_size=1.42)
 
 
 def check_same_results(params):

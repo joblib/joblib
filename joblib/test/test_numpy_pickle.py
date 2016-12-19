@@ -16,7 +16,7 @@ from contextlib import closing
 
 from joblib.test.common import np, with_numpy
 from joblib.test.common import with_memory_profiler, memory_used
-from joblib.testing import assert_raises, assert_raises_regex, SkipTest
+from joblib.testing import raises, SkipTest
 
 # numpy_pickle is not a drop-in replacement of pickle, as it takes
 # filenames instead of open files as arguments.
@@ -123,7 +123,8 @@ def test_standard_types(tmpdir):
 
 def test_value_error():
     # Test inverting the input arguments to dump
-    assert_raises(ValueError, numpy_pickle.dump, 'foo', dict())
+    with raises(ValueError):
+        numpy_pickle.dump('foo', dict())
 
 
 def test_compress_level_error():
@@ -131,9 +132,9 @@ def test_compress_level_error():
     wrong_compress = (-1, 10, 'wrong')
     for wrong in wrong_compress:
         exception_msg = 'Non valid compress level given: "{0}"'.format(wrong)
-        assert_raises_regex(ValueError,
-                            exception_msg,
-                            numpy_pickle.dump, 'dummy', 'foo', compress=wrong)
+        with raises(ValueError) as excinfo:
+            numpy_pickle.dump('dummy', 'foo', compress=wrong)
+        excinfo.match(exception_msg)
 
 
 @with_numpy
@@ -391,7 +392,8 @@ def _check_pickle(filename, expected_list):
     if (not PY3_OR_LATER and (filename.endswith('.xz') or
                               filename.endswith('.lzma'))):
         # lzma is not supported for python versions < 3.3
-        assert_raises(NotImplementedError, numpy_pickle.load, filename)
+        with raises(NotImplementedError):
+            numpy_pickle.load(filename)
         return
 
     version_match = re.match(r'.+py(\d)(\d).+', filename)
@@ -499,23 +501,19 @@ def test_compress_tuple_argument(tmpdir):
             assert _detect_compressor(f) == compress[0]
 
     # Verify setting a wrong compress tuple raises a ValueError.
-    assert_raises_regex(ValueError,
-                        'Compress argument tuple should contain exactly '
-                        '2 elements',
-                        numpy_pickle.dump, "dummy", filename,
-                        compress=('zlib', 3, 'extra'))
+    with raises(ValueError) as excinfo:
+        numpy_pickle.dump('dummy', filename, compress=('zlib', 3, 'extra'))
+    excinfo.match('Compress argument tuple should contain exactly 2 elements')
 
     # Verify a tuple with a wrong compress method raises a ValueError.
-    msg = 'Non valid compression method given: "{}"'.format('wrong')
-    assert_raises_regex(ValueError, msg,
-                        numpy_pickle.dump, "dummy", filename,
-                        compress=('wrong', 3))
+    with raises(ValueError) as excinfo:
+        numpy_pickle.dump('dummy', filename, compress=('wrong', 3))
+    excinfo.match('Non valid compression method given: "{}"'.format('wrong'))
 
     # Verify a tuple with a wrong compress level raises a ValueError.
-    msg = 'Non valid compress level given: "{}"'.format('wrong')
-    assert_raises_regex(ValueError, msg,
-                        numpy_pickle.dump, "dummy", filename,
-                        compress=('zlib', 'wrong'))
+    with raises(ValueError) as excinfo:
+        numpy_pickle.dump('dummy', filename, compress=('zlib', 'wrong'))
+    excinfo.match('Non valid compress level given: "{}"'.format('wrong'))
 
 
 @with_numpy
@@ -533,9 +531,10 @@ def test_joblib_compression_formats(tmpdir):
                 if not PY3_OR_LATER and cmethod in ('xz', 'lzma'):
                     # Lzma module only available for python >= 3.3
                     msg = "{} compression is only available".format(cmethod)
-                    assert_raises_regex(NotImplementedError, msg,
-                                        numpy_pickle.dump, obj, dump_filename,
-                                        compress=(cmethod, compress))
+                    with raises(NotImplementedError) as excinfo:
+                        numpy_pickle.dump(obj, dump_filename,
+                                          compress=(cmethod, compress))
+                    excinfo.match(msg)
                 else:
                     numpy_pickle.dump(obj, dump_filename,
                                       compress=(cmethod, compress))
@@ -611,8 +610,9 @@ def test_compression_using_file_extension(tmpdir):
         if not PY3_OR_LATER and cmethod in ('xz', 'lzma'):
             # Lzma module only available for python >= 3.3
             msg = "{} compression is only available".format(cmethod)
-            assert_raises_regex(NotImplementedError, msg,
-                                numpy_pickle.dump, obj, dump_fname)
+            with raises(NotImplementedError) as excinfo:
+                numpy_pickle.dump(obj, dump_fname)
+            excinfo.match(msg)
         else:
             numpy_pickle.dump(obj, dump_fname)
             # Verify the file contains the right magic number
@@ -732,16 +732,18 @@ def test_binary_zlibfile(tmpdir):
 
     # Test bad compression levels
     for bad_value in (-1, 10, 15, 'a', (), {}):
-        assert_raises(ValueError, BinaryZlibFile, filename, 'wb',
-                      compresslevel=bad_value)
+        with raises(ValueError):
+            BinaryZlibFile(filename, 'wb', compresslevel=bad_value)
 
     # Test invalid modes
     for bad_mode in ('a', 'x', 'r', 'w', 1, 2):
-        assert_raises(ValueError, BinaryZlibFile, filename, bad_mode)
+        with raises(ValueError):
+            BinaryZlibFile(filename, bad_mode)
 
     # Test wrong filename type (not a string or a file)
     for bad_file in (1, (), {}):
-        assert_raises(TypeError, BinaryZlibFile, bad_file, 'rb')
+        with raises(TypeError):
+            BinaryZlibFile(bad_file, 'rb')
 
     for d in (b'a little data as bytes.',
               # More bytes
@@ -755,10 +757,14 @@ def test_binary_zlibfile(tmpdir):
                     assert fz.writable()
                     fz.write(d)
                     assert fz.fileno() == f.fileno()
-                    assert_raises(io.UnsupportedOperation, fz._check_can_read)
-                    assert_raises(io.UnsupportedOperation, fz._check_can_seek)
+                    with raises(io.UnsupportedOperation):
+                        fz._check_can_read()
+
+                    with raises(io.UnsupportedOperation):
+                        fz._check_can_seek()
                 assert fz.closed
-                assert_raises(ValueError, fz._check_not_closed)
+                with raises(ValueError):
+                    fz._check_not_closed()
 
             with open(filename, 'rb') as f:
                 with BinaryZlibFile(f) as fz:
@@ -767,8 +773,8 @@ def test_binary_zlibfile(tmpdir):
                         assert fz.seekable()
                     assert fz.fileno() == f.fileno()
                     assert fz.read() == d
-                    assert_raises(io.UnsupportedOperation,
-                                  fz._check_can_write)
+                    with raises(io.UnsupportedOperation):
+                        fz._check_can_write()
                     if PY3_OR_LATER:
                         # io.BufferedIOBase doesn't have seekable() method in
                         # python 2

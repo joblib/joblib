@@ -5,7 +5,7 @@ from joblib.test.common import setup_autokill
 from joblib.test.common import teardown_autokill
 from joblib.test.common import with_multiprocessing
 from joblib.test.common import with_dev_shm
-from joblib.testing import assert_raises, fixture
+from joblib.testing import raises
 
 
 from joblib._multiprocessing_helpers import mp
@@ -216,13 +216,13 @@ def test_pool_with_memmap(tmpdir):
         c = np.memmap(filename, dtype=np.float32, shape=(10,), mode='r',
                       offset=5 * 4)
 
-        assert_raises(AssertionError, p.map, check_array,
-                      [(c, i, 3.0) for i in range(c.shape[0])])
+        with raises(AssertionError):
+            p.map(check_array, [(c, i, 3.0) for i in range(c.shape[0])])
 
         # depending on the version of numpy one can either get a RuntimeError
         # or a ValueError
-        assert_raises((RuntimeError, ValueError), p.map, inplace_double,
-                      [(c, i, 2.0) for i in range(c.shape[0])])
+        with raises((RuntimeError, ValueError)):
+            p.map(inplace_double, [(c, i, 2.0) for i in range(c.shape[0])])
     finally:
         # Clean all filehandlers held by the pool
         p.terminate()
