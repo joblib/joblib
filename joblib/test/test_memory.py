@@ -173,12 +173,12 @@ def test_memory_warning_lambda_collisions(tmpdir, recwarn):
     # Check that multiple use of lambda will raise collisions
     memory = Memory(cachedir=tmpdir.strpath, verbose=0)
     # For isolation with other tests
-    memory.clear()
+    memory.clear(warn=False)
+
     a = lambda x: x
     a = memory.cache(a)
     b = lambda x: x + 1
     b = memory.cache(b)
-
 
     assert a(0) == 0
     assert b(1) == 2
@@ -194,7 +194,8 @@ def test_memory_warning_collision_detection(tmpdir, recwarn):
     # warnings.
     memory = Memory(cachedir=tmpdir.strpath, verbose=0)
     # For isolation with other tests
-    memory.clear()
+    memory.clear(warn=False)
+
     a1 = eval('lambda x: x')
     a1 = memory.cache(a1)
     b1 = eval('lambda x: x+1')
