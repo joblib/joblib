@@ -32,6 +32,11 @@ Karan Desai
     ``python setup.py test`` or ``python setup.py nosetests`` do not work
     anymore, run ``py.test joblib`` instead.
 
+Loïc Estève
+
+    An instance of ``joblib.ParallelBackendBase`` can be passed into
+    the ``parallel`` argument in ``joblib.Parallel``.
+
 Release 0.10.3
 --------------
 
