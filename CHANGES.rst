@@ -35,7 +35,7 @@ Karan Desai
 Loïc Estève
 
     An instance of ``joblib.ParallelBackendBase`` can be passed into
-    the ``joblib.Parallel`` argument.
+    the ``parallel`` argument in ``joblib.Parallel``.
 
 Release 0.10.3
 --------------
