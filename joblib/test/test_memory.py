@@ -10,7 +10,6 @@ import shutil
 import os
 import os.path
 import pickle
-import warnings
 import sys
 import time
 import datetime
@@ -19,8 +18,9 @@ from joblib.memory import Memory, MemorizedFunc, NotMemorizedFunc
 from joblib.memory import MemorizedResult, NotMemorizedResult, _FUNCTION_HASHES
 from joblib.memory import _get_cache_items, _get_cache_items_to_delete
 from joblib.memory import _load_output, _get_func_fullname
+from joblib.memory import JobLibCollisionWarning
 from joblib.test.common import with_numpy, np
-from joblib.testing import raises
+from joblib.testing import raises, warns
 from joblib._compat import PY3_OR_LATER
 
 
@@ -162,14 +162,12 @@ def test_memory_name_collision(tmpdir):
 
     b = name_collision
 
-    with warnings.catch_warnings(record=True) as w:
-        # Cause all warnings to always be triggered.
-        warnings.simplefilter("always")
+    with warns(JobLibCollisionWarning) as warninfo:
         a(1)
         b(1)
 
-        assert len(w) == 1
-        assert "collision" in str(w[-1].message)
+    assert len(warninfo) == 1
+    assert "collision" in str(warninfo[0].message)
 
 
 def test_memory_warning_lambda_collisions(tmpdir):
@@ -182,16 +180,14 @@ def test_memory_warning_lambda_collisions(tmpdir):
     b = lambda x: x + 1
     b = memory.cache(b)
 
-    with warnings.catch_warnings(record=True) as w:
-        # Cause all warnings to always be triggered.
-        warnings.simplefilter("always")
+    with warns(JobLibCollisionWarning) as warninfo:
         assert a(0) == 0
         assert b(1) == 2
         assert a(1) == 1
 
     # In recent Python versions, we can retrieve the code of lambdas,
     # thus nothing is raised
-    assert len(w) == 4
+    assert len(warninfo) == 4
 
 
 def test_memory_warning_collision_detection(tmpdir):
@@ -205,15 +201,13 @@ def test_memory_warning_collision_detection(tmpdir):
     b1 = eval('lambda x: x+1')
     b1 = memory.cache(b1)
 
-    with warnings.catch_warnings(record=True) as w:
-        # Cause all warnings to always be triggered.
-        warnings.simplefilter("always")
+    with warns(JobLibCollisionWarning) as warninfo:
         a1(1)
         b1(1)
         a1(0)
 
-        assert len(w) == 2
-        assert "cannot detect" in str(w[-1].message).lower()
+    assert len(warninfo) == 2
+    assert "cannot detect" in str(warninfo[0].message).lower()
 
 
 def test_memory_partial(tmpdir):
@@ -567,12 +561,8 @@ def test_memory_in_memory_function_code_change(tmpdir):
     assert f(1, 2) == 3
     assert f(1, 2) == 3
 
-    with warnings.catch_warnings(record=True):
-        # ignore name collision warnings
-        warnings.simplefilter("always")
-
+    with warns(JobLibCollisionWarning):
         # Check that inline function modification triggers a cache invalidation
-
         _function_to_cache.__code__ = _product.__code__
         assert f(1, 2) == 2
         assert f(1, 2) == 2

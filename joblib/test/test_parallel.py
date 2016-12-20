@@ -11,7 +11,6 @@ import sys
 import os
 from math import sqrt
 import threading
-import warnings
 from multiprocessing import TimeoutError
 from time import sleep
 
@@ -19,7 +18,7 @@ from joblib import parallel
 
 from joblib.test.common import np, with_numpy
 from joblib.test.common import with_multiprocessing
-from joblib.testing import raises, check_subprocess_call, SkipTest
+from joblib.testing import raises, check_subprocess_call, SkipTest, warns
 from joblib._compat import PY3_OR_LATER
 
 try:
@@ -149,15 +148,14 @@ def test_simple_parallel():
 
 
 def check_main_thread_renamed_no_warning(backend):
-    with warnings.catch_warnings(record=True) as caught_warnings:
-        warnings.simplefilter("always")
+    with warns(None) as warninfo:
         results = Parallel(n_jobs=2, backend=backend)(
             delayed(square)(x) for x in range(3))
         assert results == [0, 1, 4]
     # The multiprocessing backend will raise a warning when detecting that is
     # started from the non-main thread. Let's check that there is no false
     # positive because of the name change.
-    assert caught_warnings == []
+    assert len(warninfo) == 0
 
 
 def test_main_thread_renamed_no_warning():
