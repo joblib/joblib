@@ -300,7 +300,7 @@ def test_compress_mmap_mode_warning(tmpdir):
 
 
 @with_numpy
-def test_cache_size_warning(tmpdir, recwarn):
+def test_cache_size_warning(tmpdir):
     # Check deprecation warning raised when cache size is not None
     filename = tmpdir.join('test.pkl').strpath
     rnd = np.random.RandomState(0)
@@ -308,11 +308,12 @@ def test_cache_size_warning(tmpdir, recwarn):
 
     for cache_size in (None, 0, 10):
         warnings.simplefilter("always")
-        numpy_pickle.dump(a, filename, cache_size=cache_size)
+        with warns(None) as warninfo:
+            numpy_pickle.dump(a, filename, cache_size=cache_size)
         expected_nb_warnings = 1 if cache_size is not None else 0
-        assert len(recwarn) == expected_nb_warnings
-        if expected_nb_warnings:
-            w = recwarn.pop(DeprecationWarning)
+        assert len(warninfo) == expected_nb_warnings
+        for w in warninfo:
+            assert w.category == DeprecationWarning
             assert (str(w.message) ==
                     "Please do not set 'cache_size' in joblib.dump, this "
                     "parameter has no effect and will be removed. You "
@@ -378,7 +379,7 @@ def test_compressed_pickle_dump_and_load(tmpdir):
             assert result == expected
 
 
-def _check_pickle(filename, expected_list, recwarn):
+def _check_pickle(filename, expected_list):
     """Helper function to test joblib pickle content.
 
     Note: currently only pickles containing an iterable are supported
@@ -406,13 +407,14 @@ def _check_pickle(filename, expected_list, recwarn):
             warnings.filterwarnings(
                 'ignore', module='numpy',
                 message='The compiler package is deprecated')
-            result_list = numpy_pickle.load(filename)
-            filename_base = os.path.basename(filename)
+            with warns(None) as warninfo:
+                result_list = numpy_pickle.load(filename)
+                filename_base = os.path.basename(filename)
             expected_nb_warnings = 1 if ("_0.9" in filename_base or
                                          "_0.8.4" in filename_base) else 0
-            assert len(recwarn) == expected_nb_warnings
-            if expected_nb_warnings:
-                w = recwarn.pop(DeprecationWarning)
+            assert len(warninfo) == expected_nb_warnings
+            for w in warninfo:
+                assert w.category == DeprecationWarning
                 assert (str(w.message) ==
                         "The file '{0}' has been generated with a joblib "
                         "version less than 0.10. Please regenerate this "
@@ -448,7 +450,7 @@ def _check_pickle(filename, expected_list, recwarn):
 
 
 @with_numpy
-def test_joblib_pickle_across_python_versions(recwarn):
+def test_joblib_pickle_across_python_versions():
     # We need to be specific about dtypes in particular endianness
     # because the pickles can be generated on one architecture and
     # the tests run on another one. See
@@ -478,8 +480,7 @@ def test_joblib_pickle_across_python_versions(recwarn):
                         if any(fn.endswith(ext) for ext in pickle_extensions)]
 
     for fname in pickle_filenames:
-        recwarn.clear()
-        _check_pickle(fname, expected_list, recwarn)
+        _check_pickle(fname, expected_list)
 
 
 def test_compress_tuple_argument(tmpdir):
@@ -683,7 +684,7 @@ def test_file_handle_persistence_mmap(tmpdir):
 
 
 @with_numpy
-def test_file_handle_persistence_compressed_mmap(tmpdir, recwarn):
+def test_file_handle_persistence_compressed_mmap(tmpdir):
     obj = np.random.random((10, 10))
     filename = tmpdir.join('test.pkl').strpath
 
@@ -700,7 +701,7 @@ def test_file_handle_persistence_compressed_mmap(tmpdir, recwarn):
 
 
 @with_numpy
-def test_file_handle_persistence_in_memory_mmap(recwarn):
+def test_file_handle_persistence_in_memory_mmap():
     obj = np.random.random((10, 10))
     buf = io.BytesIO()
 
