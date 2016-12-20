@@ -290,10 +290,10 @@ def test_compress_mmap_mode_warning(tmpdir):
     a = rnd.random_sample(10)
     this_filename = tmpdir.join('test.pkl').strpath
     numpy_pickle.dump(a, this_filename, compress=1)
-    with warns(UserWarning) as warninfo:
+    with warns(UserWarning) as record:
         numpy_pickle.load(this_filename, mmap_mode='r+')
-    assert len(warninfo) == 1
-    assert (str(warninfo[-1].message) ==
+    assert len(record) == 1
+    assert (str(record[0].message) ==
             'mmap_mode "%(mmap_mode)s" is not compatible with compressed '
             'file %(filename)s. "%(mmap_mode)s" flag will be ignored.' %
             {'filename': this_filename, 'mmap_mode': 'r+'})
@@ -308,11 +308,11 @@ def test_cache_size_warning(tmpdir):
 
     for cache_size in (None, 0, 10):
         warnings.simplefilter("always")
-        with warns(None) as warninfo:
+        with warns(None) as record:
             numpy_pickle.dump(a, filename, cache_size=cache_size)
         expected_nb_warnings = 1 if cache_size is not None else 0
-        assert len(warninfo) == expected_nb_warnings
-        for w in warninfo:
+        assert len(record) == expected_nb_warnings
+        for w in record:
             assert w.category == DeprecationWarning
             assert (str(w.message) ==
                     "Please do not set 'cache_size' in joblib.dump, this "
@@ -403,17 +403,17 @@ def _check_pickle(filename, expected_list):
         py_version_used_for_writing, 4)
     if pickle_reading_protocol >= pickle_writing_protocol:
         try:
-            warnings.simplefilter('always')
-            warnings.filterwarnings(
-                'ignore', module='numpy',
-                message='The compiler package is deprecated')
-            with warns(None) as warninfo:
+            with warns(None) as record:
+                warnings.simplefilter('always')
+                warnings.filterwarnings(
+                    'ignore', module='numpy',
+                    message='The compiler package is deprecated')
                 result_list = numpy_pickle.load(filename)
-                filename_base = os.path.basename(filename)
+            filename_base = os.path.basename(filename)
             expected_nb_warnings = 1 if ("_0.9" in filename_base or
                                          "_0.8.4" in filename_base) else 0
-            assert len(warninfo) == expected_nb_warnings
-            for w in warninfo:
+            assert len(record) == expected_nb_warnings
+            for w in record:
                 assert w.category == DeprecationWarning
                 assert (str(w.message) ==
                         "The file '{0}' has been generated with a joblib "
@@ -692,10 +692,10 @@ def test_file_handle_persistence_compressed_mmap(tmpdir):
         numpy_pickle.dump(obj, f, compress=('gzip', 3))
 
     with closing(gzip.GzipFile(filename, 'rb')) as f:
-        with warns(UserWarning) as warninfo:
+        with warns(UserWarning) as record:
             numpy_pickle.load(f, mmap_mode='r+')
-        assert len(warninfo) == 1
-        assert (str(warninfo[-1].message) ==
+        assert len(record) == 1
+        assert (str(record[0].message) ==
                 '"%(fileobj)r" is not a raw file, mmap_mode "%(mmap_mode)s" '
                 'flag will be ignored.' % {'fileobj': f, 'mmap_mode': 'r+'})
 
@@ -707,10 +707,10 @@ def test_file_handle_persistence_in_memory_mmap():
 
     numpy_pickle.dump(obj, buf)
 
-    with warns(UserWarning) as warninfo:
+    with warns(UserWarning) as record:
         numpy_pickle.load(buf, mmap_mode='r+')
-    assert len(warninfo) == 1
-    assert (str(warninfo[-1].message) ==
+    assert len(record) == 1
+    assert (str(record[0].message) ==
             'In memory persistence is not compatible with mmap_mode '
             '"%(mmap_mode)s" flag passed. mmap_mode option will be '
             'ignored.' % {'mmap_mode': 'r+'})

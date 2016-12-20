@@ -162,12 +162,12 @@ def test_memory_name_collision(tmpdir):
 
     b = name_collision
 
-    with warns(JobLibCollisionWarning) as warninfo:
+    with warns(JobLibCollisionWarning) as record:
         a(1)
         b(1)
 
-    assert len(warninfo) == 1
-    assert "collision" in str(warninfo[-1].message)
+    assert len(record) == 1
+    assert "collision" in str(record[0].message)
 
 
 def test_memory_warning_lambda_collisions(tmpdir):
@@ -180,14 +180,14 @@ def test_memory_warning_lambda_collisions(tmpdir):
     b = lambda x: x + 1
     b = memory.cache(b)
 
-    with warns(JobLibCollisionWarning) as warninfo:
+    with warns(JobLibCollisionWarning) as record:
         assert a(0) == 0
         assert b(1) == 2
         assert a(1) == 1
 
     # In recent Python versions, we can retrieve the code of lambdas,
     # thus nothing is raised
-    assert len(warninfo) == 4
+    assert len(record) == 4
 
 
 def test_memory_warning_collision_detection(tmpdir):
@@ -201,13 +201,13 @@ def test_memory_warning_collision_detection(tmpdir):
     b1 = eval('lambda x: x+1')
     b1 = memory.cache(b1)
 
-    with warns(JobLibCollisionWarning) as warninfo:
+    with warns(JobLibCollisionWarning) as record:
         a1(1)
         b1(1)
         a1(0)
 
-    assert len(warninfo) == 2
-    assert "cannot detect" in str(warninfo[-1].message).lower()
+    assert len(record) == 2
+    assert "cannot detect" in str(record[0].message).lower()
 
 
 def test_memory_partial(tmpdir):
