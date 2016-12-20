@@ -36,8 +36,6 @@ def no_memoize_memory():
     return Memory(cachedir=None, verbose=0)
 
 
-###############################################################################
-# Module-level variables for the tests
 def f(x, y=1):
     """ A module-level function for testing purposes.
     """
@@ -597,8 +595,6 @@ def func_with_signature(a: int, b: float) -> float:
 
 
 def _setup_temporary_cache_folder(memory, num_inputs=10):
-    # Use separate cache dir to avoid side-effects from other tests
-    # that do not use _setup_temporary_cache_folder
     @memory.cache()
     def get_1000_bytes(arg):
         return 'a' * 1000
@@ -611,12 +607,12 @@ def _setup_temporary_cache_folder(memory, num_inputs=10):
 
     full_hashdirs = [os.path.join(get_1000_bytes.cachedir, dirname)
                      for dirname in hash_dirnames]
-    return memory, full_hashdirs, get_1000_bytes
+    return full_hashdirs, get_1000_bytes
 
 
 def test__get_cache_items(memory):
-    mem, expected_hash_cachedirs, _ = _setup_temporary_cache_folder(memory)
-    cachedir = mem.cachedir
+    expected_hash_cachedirs, _ = _setup_temporary_cache_folder(memory)
+    cachedir = memory.cachedir
     cache_items = _get_cache_items(cachedir)
     hash_cachedirs = [ci.path for ci in cache_items]
     assert set(hash_cachedirs) == set(expected_hash_cachedirs)
@@ -642,8 +638,8 @@ def test__get_cache_items(memory):
 
 
 def test__get_cache_items_to_delete(memory):
-    mem, expected_hash_cachedirs, _ = _setup_temporary_cache_folder(memory)
-    cachedir = mem.cachedir
+    expected_hash_cachedirs, _ = _setup_temporary_cache_folder(memory)
+    cachedir = memory.cachedir
     cache_items = _get_cache_items(cachedir)
     # bytes_limit set to keep only one cache item (each hash cache
     # folder is about 1000 bytes + metadata)
@@ -677,32 +673,32 @@ def test__get_cache_items_to_delete(memory):
 
 
 def test_memory_reduce_size(memory):
-    mem, _, _ = _setup_temporary_cache_folder(memory)
+    _, _ = _setup_temporary_cache_folder(memory)
     cachedir = memory.cachedir
     ref_cache_items = _get_cache_items(cachedir)
 
     # By default mem.bytes_limit is None and reduce_size is a noop
-    mem.reduce_size()
+    memory.reduce_size()
     cache_items = _get_cache_items(cachedir)
     assert sorted(ref_cache_items) == sorted(cache_items)
 
     # No cache items deleted if bytes_limit greater than the size of
     # the cache
-    mem.bytes_limit = '1M'
-    mem.reduce_size()
+    memory.bytes_limit = '1M'
+    memory.reduce_size()
     cache_items = _get_cache_items(cachedir)
     assert sorted(ref_cache_items) == sorted(cache_items)
 
     # bytes_limit is set so that only two cache items are kept
-    mem.bytes_limit = '3K'
-    mem.reduce_size()
+    memory.bytes_limit = '3K'
+    memory.reduce_size()
     cache_items = _get_cache_items(cachedir)
     assert set.issubset(set(cache_items), set(ref_cache_items))
     assert len(cache_items) == 2
 
     # bytes_limit set so that no cache item is kept
     bytes_limit_too_small = 500
-    mem.bytes_limit = bytes_limit_too_small
-    mem.reduce_size()
+    memory.bytes_limit = bytes_limit_too_small
+    memory.reduce_size()
     cache_items = _get_cache_items(cachedir)
     assert cache_items == []
