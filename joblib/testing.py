@@ -16,6 +16,7 @@ from joblib._compat import PY3_OR_LATER
 
 
 raises = pytest.raises
+warns = pytest.warns
 SkipTest = _pytest.runner.Skipped
 skipif = pytest.mark.skipif
 fixture = pytest.fixture

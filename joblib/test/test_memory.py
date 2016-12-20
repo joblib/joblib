@@ -20,7 +20,7 @@ from joblib.memory import _get_cache_items, _get_cache_items_to_delete
 from joblib.memory import _load_output, _get_func_fullname
 from joblib.memory import JobLibCollisionWarning
 from joblib.test.common import with_numpy, np
-from joblib.testing import raises
+from joblib.testing import raises, warns
 from joblib._compat import PY3_OR_LATER
 
 
@@ -142,7 +142,7 @@ def test_memory_lambda(tmpdir):
     check_identity_lazy(l, accumulator, tmpdir.strpath)
 
 
-def test_memory_name_collision(tmpdir, recwarn):
+def test_memory_name_collision(tmpdir):
     " Check that name collisions with functions will raise warnings"
     memory = Memory(cachedir=tmpdir.strpath, verbose=0)
 
@@ -162,52 +162,52 @@ def test_memory_name_collision(tmpdir, recwarn):
 
     b = name_collision
 
-    a(1)
-    b(1)
-    assert len(recwarn) == 1
-    w = recwarn.pop(JobLibCollisionWarning)
-    assert "collision" in str(w.message)
+    with warns(JobLibCollisionWarning) as warninfo:
+        a(1)
+        b(1)
+
+    assert len(warninfo) == 1
+    assert "collision" in str(warninfo[-1].message)
 
 
-def test_memory_warning_lambda_collisions(tmpdir, recwarn):
+def test_memory_warning_lambda_collisions(tmpdir):
     # Check that multiple use of lambda will raise collisions
     memory = Memory(cachedir=tmpdir.strpath, verbose=0)
     # For isolation with other tests
-    memory.clear(warn=False)
-
+    memory.clear()
     a = lambda x: x
     a = memory.cache(a)
     b = lambda x: x + 1
     b = memory.cache(b)
 
-    assert a(0) == 0
-    assert b(1) == 2
-    assert a(1) == 1
+    with warns(JobLibCollisionWarning) as warninfo:
+        assert a(0) == 0
+        assert b(1) == 2
+        assert a(1) == 1
 
     # In recent Python versions, we can retrieve the code of lambdas,
     # thus nothing is raised
-    assert len(recwarn) == 4
+    assert len(warninfo) == 4
 
 
-def test_memory_warning_collision_detection(tmpdir, recwarn):
+def test_memory_warning_collision_detection(tmpdir):
     # Check that collisions impossible to detect will raise appropriate
     # warnings.
     memory = Memory(cachedir=tmpdir.strpath, verbose=0)
     # For isolation with other tests
-    memory.clear(warn=False)
-
+    memory.clear()
     a1 = eval('lambda x: x')
     a1 = memory.cache(a1)
     b1 = eval('lambda x: x+1')
     b1 = memory.cache(b1)
 
-    a1(1)
-    b1(1)
-    a1(0)
+    with warns(JobLibCollisionWarning) as warninfo:
+        a1(1)
+        b1(1)
+        a1(0)
 
-    assert len(recwarn) == 2
-    w = recwarn.pop(JobLibCollisionWarning)
-    assert "cannot detect" in str(w.message).lower()
+    assert len(warninfo) == 2
+    assert "cannot detect" in str(warninfo[-1].message).lower()
 
 
 def test_memory_partial(tmpdir):
@@ -561,11 +561,11 @@ def test_memory_in_memory_function_code_change(tmpdir):
     assert f(1, 2) == 3
     assert f(1, 2) == 3
 
-    # Check that inline function modification triggers a cache invalidation
-
-    _function_to_cache.__code__ = _product.__code__
-    assert f(1, 2) == 2
-    assert f(1, 2) == 2
+    with warns(JobLibCollisionWarning):
+        # Check that inline function modification triggers a cache invalidation
+        _function_to_cache.__code__ = _product.__code__
+        assert f(1, 2) == 2
+        assert f(1, 2) == 2
 
 
 def test_clear_memory_with_none_cachedir():

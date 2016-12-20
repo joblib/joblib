@@ -16,7 +16,7 @@ from contextlib import closing
 
 from joblib.test.common import np, with_numpy
 from joblib.test.common import with_memory_profiler, memory_used
-from joblib.testing import raises, SkipTest
+from joblib.testing import raises, SkipTest, warns
 
 # numpy_pickle is not a drop-in replacement of pickle, as it takes
 # filenames instead of open files as arguments.
@@ -284,16 +284,16 @@ def test_masked_array_persistence(tmpdir):
 
 
 @with_numpy
-def test_compress_mmap_mode_warning(tmpdir, recwarn):
+def test_compress_mmap_mode_warning(tmpdir):
     # Test the warning in case of compress + mmap_mode
     rnd = np.random.RandomState(0)
     a = rnd.random_sample(10)
     this_filename = tmpdir.join('test.pkl').strpath
     numpy_pickle.dump(a, this_filename, compress=1)
-    numpy_pickle.load(this_filename, mmap_mode='r+')
-    assert len(recwarn) == 1
-    w = recwarn.pop(UserWarning)
-    assert (str(w.message) ==
+    with warns(UserWarning) as warninfo:
+        numpy_pickle.load(this_filename, mmap_mode='r+')
+    assert len(warninfo) == 1
+    assert (str(warninfo[-1].message) ==
             'mmap_mode "%(mmap_mode)s" is not compatible with compressed '
             'file %(filename)s. "%(mmap_mode)s" flag will be ignored.' %
             {'filename': this_filename, 'mmap_mode': 'r+'})
@@ -691,10 +691,10 @@ def test_file_handle_persistence_compressed_mmap(tmpdir, recwarn):
         numpy_pickle.dump(obj, f, compress=('gzip', 3))
 
     with closing(gzip.GzipFile(filename, 'rb')) as f:
-        numpy_pickle.load(f, mmap_mode='r+')
-        assert len(recwarn) == 1
-        w = recwarn.pop(UserWarning)
-        assert (str(w.message) ==
+        with warns(UserWarning) as warninfo:
+            numpy_pickle.load(f, mmap_mode='r+')
+        assert len(warninfo) == 1
+        assert (str(warninfo[-1].message) ==
                 '"%(fileobj)r" is not a raw file, mmap_mode "%(mmap_mode)s" '
                 'flag will be ignored.' % {'fileobj': f, 'mmap_mode': 'r+'})
 
@@ -706,10 +706,10 @@ def test_file_handle_persistence_in_memory_mmap(recwarn):
 
     numpy_pickle.dump(obj, buf)
 
-    numpy_pickle.load(buf, mmap_mode='r+')
-    assert len(recwarn) == 1
-    w = recwarn.pop(UserWarning)
-    assert (str(w.message) ==
+    with warns(UserWarning) as warninfo:
+        numpy_pickle.load(buf, mmap_mode='r+')
+    assert len(warninfo) == 1
+    assert (str(warninfo[-1].message) ==
             'In memory persistence is not compatible with mmap_mode '
             '"%(mmap_mode)s" flag passed. mmap_mode option will be '
             'ignored.' % {'mmap_mode': 'r+'})
