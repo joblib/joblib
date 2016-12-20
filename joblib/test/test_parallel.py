@@ -18,7 +18,8 @@ from joblib import parallel
 
 from joblib.test.common import np, with_numpy
 from joblib.test.common import with_multiprocessing
-from joblib.testing import raises, check_subprocess_call, SkipTest, warns
+from joblib.testing import (parametrize, raises, check_subprocess_call,
+                            SkipTest, warns)
 from joblib._compat import PY3_OR_LATER
 
 try:
@@ -124,27 +125,13 @@ def test_effective_n_jobs():
 
 ###############################################################################
 # Test parallel
-def check_simple_parallel(backend):
-    X = range(5)
-    for n_jobs in (1, 2, -1, -2):
-        assert ([square(x) for x in X] ==
-                Parallel(n_jobs=n_jobs, backend=backend)(
-                    delayed(square)(x) for x in X))
-    for verbose in (2, 11, 100):
-        Parallel(n_jobs=-1, verbose=verbose, backend=backend)(
-            delayed(square)(x) for x in X)
-        Parallel(n_jobs=1, verbose=verbose, backend=backend)(
-            delayed(square)(x) for x in X)
-        Parallel(n_jobs=2, verbose=verbose, pre_dispatch=2,
-                 backend=backend)(
-            delayed(square)(x) for x in X)
-        Parallel(n_jobs=2, verbose=verbose, backend=backend)(
-            delayed(square)(x) for x in X)
 
-
-def test_simple_parallel():
-    for backend in ALL_VALID_BACKENDS:
-        check_simple_parallel(backend)
+@parametrize('backend', ALL_VALID_BACKENDS)
+@parametrize('n_jobs', [1, 2, -1, -2])
+def test_simple_parallel(backend, n_jobs):
+    assert ([square(x) for x in range(5)] ==
+            Parallel(n_jobs=n_jobs, backend=backend)(
+                delayed(square)(x) for x in range(5)))
 
 
 def check_main_thread_renamed_no_warning(backend):
