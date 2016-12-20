@@ -20,7 +20,7 @@ from joblib.memory import _get_cache_items, _get_cache_items_to_delete
 from joblib.memory import _load_output, _get_func_fullname
 from joblib.memory import JobLibCollisionWarning
 from joblib.test.common import with_numpy, np
-from joblib.testing import fixture, raises, warns
+from joblib.testing import fixture, parametrize, raises, warns
 from joblib._compat import PY3_OR_LATER
 
 
@@ -254,27 +254,24 @@ def test_argument_change(memory):
 
 
 @with_numpy
-def test_memory_numpy(tmpdir):
+@parametrize('mmap_mode', [None, 'r'])
+def test_memory_numpy(memory, mmap_mode):
     " Test memory with a function with numpy arrays."
-    # Check with memmapping and without.
-    for mmap_mode in (None, 'r'):
-        accumulator = list()
+    memory.mmap_mode = mmap_mode
+    accumulator = list()
 
-        def n(l=None):
-            accumulator.append(1)
-            return l
+    def n(l=None):
+        accumulator.append(1)
+        return l
 
-        memory = Memory(cachedir=tmpdir.strpath, mmap_mode=mmap_mode,
-                            verbose=0)
-        memory.clear(warn=False)
-        cached_n = memory.cache(n)
+    cached_n = memory.cache(n)
 
-        rnd = np.random.RandomState(0)
-        for i in range(3):
-            a = rnd.random_sample((10, 10))
-            for _ in range(3):
-                assert np.all(cached_n(a) == a)
-                assert len(accumulator) == i + 1
+    rnd = np.random.RandomState(0)
+    for i in range(3):
+        a = rnd.random_sample((10, 10))
+        for _ in range(3):
+            assert np.all(cached_n(a) == a)
+            assert len(accumulator) == i + 1
 
 
 @with_numpy
