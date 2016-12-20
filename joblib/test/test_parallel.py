@@ -148,14 +148,14 @@ def test_simple_parallel():
 
 
 def check_main_thread_renamed_no_warning(backend):
-    with warns(None) as record:
+    with warns(None) as warninfo:
         results = Parallel(n_jobs=2, backend=backend)(
             delayed(square)(x) for x in range(3))
         assert results == [0, 1, 4]
     # The multiprocessing backend will raise a warning when detecting that is
     # started from the non-main thread. Let's check that there is no false
     # positive because of the name change.
-    assert len(record) == 0
+    assert len(warninfo) == 0
 
 
 def test_main_thread_renamed_no_warning():
