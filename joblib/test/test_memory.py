@@ -275,11 +275,9 @@ def test_memory_numpy(memory, mmap_mode):
 
 
 @with_numpy
-def test_memory_numpy_check_mmap_mode(tmpdir):
+def test_memory_numpy_check_mmap_mode(memory):
     """Check that mmap_mode is respected even at the first call"""
-
-    memory = Memory(cachedir=tmpdir.strpath, mmap_mode='r', verbose=0)
-    memory.clear(warn=False)
+    memory.mmap_mode = 'r'
 
     @memory.cache()
     def twice(a):
@@ -335,20 +333,17 @@ def test_memory_ignore(memory):
     assert len(accumulator) == 1
 
 
-def test_partial_decoration(memory):
+@parametrize('ignore, verbose, mmap_mode', [(['x'], 100, 'r'),
+                                            ([], 10, None)])
+def test_partial_decoration(memory, ignore, verbose, mmap_mode):
     "Check cache may be called with kwargs before decorating"
-    test_values = [
-        (['x'], 100, 'r'),
-        ([], 10, None),
-    ]
-    for ignore, verbose, mmap_mode in test_values:
-        @memory.cache(ignore=ignore, verbose=verbose, mmap_mode=mmap_mode)
-        def z(x):
-            pass
+    @memory.cache(ignore=ignore, verbose=verbose, mmap_mode=mmap_mode)
+    def z(x):
+        pass
 
-        assert z.ignore == ignore
-        assert z._verbose == verbose
-        assert z.mmap_mode == mmap_mode
+    assert z.ignore == ignore
+    assert z._verbose == verbose
+    assert z.mmap_mode == mmap_mode
 
 
 def test_func_dir(tmpdir, memory):
