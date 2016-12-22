@@ -347,7 +347,20 @@ def consumer(queue, item):
     queue.append('Consumed %s' % item)
 
 
-def check_dispatch_one_job(backend):
+@parametrize('backend', BACKENDS)
+@parametrize('batch_size, expected_queue',
+             [(1, ['Produced 0', 'Consumed 0',
+                   'Produced 1', 'Consumed 1',
+                   'Produced 2', 'Consumed 2',
+                   'Produced 3', 'Consumed 3',
+                   'Produced 4', 'Consumed 4',
+                   'Produced 5', 'Consumed 5']),
+              (4, [  # First batch
+                   'Produced 0', 'Produced 1', 'Produced 2', 'Produced 3',
+                   'Consumed 0', 'Consumed 1', 'Consumed 2', 'Consumed 3',
+                     # Second batch
+                   'Produced 4', 'Produced 5', 'Consumed 4', 'Consumed 5'])])
+def test_dispatch_one_job(backend, batch_size, expected_queue):
     """ Test that with only one job, Parallel does act as a iterator.
     """
     queue = list()
@@ -357,47 +370,18 @@ def check_dispatch_one_job(backend):
             queue.append('Produced %i' % i)
             yield i
 
-    # disable batching
-    Parallel(n_jobs=1, batch_size=1, backend=backend)(
+    Parallel(n_jobs=1, batch_size=batch_size, backend=backend)(
         delayed(consumer)(queue, x) for x in producer())
-    assert queue == [
-        'Produced 0', 'Consumed 0',
-        'Produced 1', 'Consumed 1',
-        'Produced 2', 'Consumed 2',
-        'Produced 3', 'Consumed 3',
-        'Produced 4', 'Consumed 4',
-        'Produced 5', 'Consumed 5',
-    ]
-    assert len(queue) == 12
-
-    # empty the queue for the next check
-    queue[:] = []
-
-    # enable batching
-    Parallel(n_jobs=1, batch_size=4, backend=backend)(
-        delayed(consumer)(queue, x) for x in producer())
-    assert queue == [
-        # First batch
-        'Produced 0', 'Produced 1', 'Produced 2', 'Produced 3',
-        'Consumed 0', 'Consumed 1', 'Consumed 2', 'Consumed 3',
-
-        # Second batch
-        'Produced 4', 'Produced 5', 'Consumed 4', 'Consumed 5',
-    ]
+    assert queue == expected_queue
     assert len(queue) == 12
 
 
-def test_dispatch_one_job():
-    for backend in BACKENDS:
-        check_dispatch_one_job(backend)
-
-
-def check_dispatch_multiprocessing(backend):
+@with_multiprocessing
+@parametrize('backend', ['multiprocessing', 'threading'])
+def test_dispatch_multiprocessing(backend):
     """ Check that using pre_dispatch Parallel does indeed dispatch items
         lazily.
     """
-    if mp is None:
-        raise SkipTest()
     manager = mp.Manager()
     queue = manager.list()
 
@@ -417,12 +401,6 @@ def check_dispatch_multiprocessing(backend):
     first_four.remove('Consumed any')
     assert first_four == ['Produced 0', 'Produced 1', 'Produced 2']
     assert len(queue) == 12
-
-
-def test_dispatch_multiprocessing():
-    for backend in BACKENDS:
-        if backend != "sequential":
-            check_dispatch_multiprocessing(backend)
 
 
 def test_batching_auto_threading():
