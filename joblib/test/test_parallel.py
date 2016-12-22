@@ -146,25 +146,22 @@ def check_main_thread_renamed_no_warning(backend):
 
 
 @parametrize('backend', ALL_VALID_BACKENDS)
-def test_main_thread_renamed_no_warning(backend):
+def test_main_thread_renamed_no_warning(backend, monkeypatch):
     # Check that no default backend relies on the name of the main thread:
     # https://github.com/joblib/joblib/issues/180#issuecomment-253266247
     # Some programs use a different name for the main thread. This is the case
     # for uWSGI apps for instance.
-    main_thread = threading.current_thread()
-    original_name = main_thread.name
-    try:
-        main_thread.name = "some_new_name_for_the_main_thread"
-        with warns(None) as record:
-            results = Parallel(n_jobs=2, backend=backend)(
-                delayed(square)(x) for x in range(3))
-            assert results == [0, 1, 4]
-        # The multiprocessing backend will raise a warning when detecting that is
-        # started from the non-main thread. Let's check that there is no false
-        # positive because of the name change.
-        assert len(record) == 0
-    finally:
-        main_thread.name = original_name
+    monkeypatch.setattr(target=threading.current_thread(), name='name',
+                        value='some_new_name_for_the_main_thread')
+
+    with warns(None) as record:
+        results = Parallel(n_jobs=2, backend=backend)(
+            delayed(square)(x) for x in range(3))
+        assert results == [0, 1, 4]
+    # The multiprocessing backend will raise a warning when detecting that is
+    # started from the non-main thread. Let's check that there is no false
+    # positive because of the name change.
+    assert len(record) == 0
 
 
 def nested_loop(backend):
