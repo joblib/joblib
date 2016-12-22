@@ -192,7 +192,8 @@ def test_parallel_kwargs(n_jobs):
             Parallel(n_jobs=n_jobs)(delayed(f)(x, y=1) for x in lst))
 
 
-def check_parallel_as_context_manager(backend):
+@parametrize('backend', ['multiprocessing', 'threading'])
+def test_parallel_as_context_manager(backend):
     lst = range(10)
     expected = [f(x, y=1) for x in lst]
     with Parallel(n_jobs=4, backend=backend) as p:
@@ -223,11 +224,6 @@ def check_parallel_as_context_manager(backend):
         assert p._backend._pool is None
 
 
-def test_parallel_context_manager():
-    for backend in ['multiprocessing', 'threading']:
-        check_parallel_as_context_manager(backend)
-
-
 def test_parallel_pickling():
     """ Check that pmap captures the errors when it is passed an object
         that cannot be pickled.
@@ -247,20 +243,20 @@ def test_parallel_pickling():
         Parallel()(delayed(g)(x) for x in range(10))
 
 
-def test_parallel_timeout_success():
+@parametrize('backend', ['multiprocessing', 'threading'])
+def test_parallel_timeout_success(backend):
     # Check that timeout isn't thrown when function is fast enough
-    for backend in ['multiprocessing', 'threading']:
-        assert len(Parallel(n_jobs=2, backend=backend, timeout=10)(
-            delayed(sleep)(0.001) for x in range(10))) == 10
+    assert len(Parallel(n_jobs=2, backend=backend, timeout=10)(
+        delayed(sleep)(0.001) for x in range(10))) == 10
 
 
 @with_multiprocessing
-def test_parallel_timeout_fail():
+@parametrize('backend', ['multiprocessing', 'threading'])
+def test_parallel_timeout_fail(backend):
     # Check that timeout properly fails when function is too slow
-    for backend in ['multiprocessing', 'threading']:
-        with raises(TimeoutError):
-            Parallel(n_jobs=2, backend=backend, timeout=0.01)(
-                delayed(sleep)(10) for x in range(10))
+    with raises(TimeoutError):
+        Parallel(n_jobs=2, backend=backend, timeout=0.01)(
+            delayed(sleep)(10) for x in range(10))
 
 
 def test_error_capture():
