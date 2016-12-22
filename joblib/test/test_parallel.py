@@ -553,26 +553,24 @@ class ParameterizedParallelBackend(SequentialBackend):
         self.param = param
 
 
-def test_parameterized_backend_context_manager():
-    register_parallel_backend('param_backend', ParameterizedParallelBackend)
-    try:
-        assert _active_backend_type() == MultiprocessingBackend
+def test_parameterized_backend_context_manager(monkeypatch):
+    monkeypatch.setitem(BACKENDS, 'param_backend',
+                        ParameterizedParallelBackend)
+    assert _active_backend_type() == MultiprocessingBackend
 
-        with parallel_backend('param_backend', param=42, n_jobs=3):
-            active_backend, active_n_jobs = parallel.get_active_backend()
-            assert type(active_backend) == ParameterizedParallelBackend
-            assert active_backend.param == 42
-            assert active_n_jobs == 3
-            p = Parallel()
-            assert p.n_jobs == 3
-            assert p._backend is active_backend
-            results = p(delayed(sqrt)(i) for i in range(5))
-        assert results == [sqrt(i) for i in range(5)]
+    with parallel_backend('param_backend', param=42, n_jobs=3):
+        active_backend, active_n_jobs = parallel.get_active_backend()
+        assert type(active_backend) == ParameterizedParallelBackend
+        assert active_backend.param == 42
+        assert active_n_jobs == 3
+        p = Parallel()
+        assert p.n_jobs == 3
+        assert p._backend is active_backend
+        results = p(delayed(sqrt)(i) for i in range(5))
+    assert results == [sqrt(i) for i in range(5)]
 
-        # The default backend is again retored
-        assert _active_backend_type() == MultiprocessingBackend
-    finally:
-        del BACKENDS['param_backend']
+    # The default backend is again restored
+    assert _active_backend_type() == MultiprocessingBackend
 
 
 def test_direct_parameterized_backend_context_manager():
