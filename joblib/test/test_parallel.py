@@ -518,35 +518,30 @@ def check_backend_context_manager(backend_name):
             assert type(p._backend) == FakeParallelBackend
 
 
+all_backends_for_context_manager = ['multiprocessing', 'threading'] + \
+                                   ['test_backend_%d' % i for i in range(3)]
+
+
 @with_multiprocessing
-def test_backend_context_manager():
-    all_test_backends = ['test_backend_%d' % i for i in range(3)]
-    for test_backend in all_test_backends:
-        register_parallel_backend(test_backend, FakeParallelBackend)
-    all_backends = ['multiprocessing', 'threading'] + all_test_backends
+@parametrize('backend', all_backends_for_context_manager)
+def test_backend_context_manager(monkeypatch, backend):
+    if backend not in BACKENDS:
+        monkeypatch.setitem(BACKENDS, backend, FakeParallelBackend)
 
-    try:
-        assert _active_backend_type() == MultiprocessingBackend
-        # check that this possible to switch parallel backends sequentially
-        for test_backend in all_backends:
-            # TODO: parametrize this block later
-            # yield check_backend_context_manager, test_backend
-            check_backend_context_manager(test_backend)
+    assert _active_backend_type() == MultiprocessingBackend
+    # check that this possible to switch parallel backends sequentially
+    check_backend_context_manager(backend)
 
-        # The default backend is retored
-        assert _active_backend_type() == MultiprocessingBackend
+    # The default backend is retored
+    assert _active_backend_type() == MultiprocessingBackend
 
-        # Check that context manager switching is thread safe:
-        Parallel(n_jobs=2, backend='threading')(
-            delayed(check_backend_context_manager)(b)
-            for b in all_backends if not b)
+    # Check that context manager switching is thread safe:
+    Parallel(n_jobs=2, backend='threading')(
+        delayed(check_backend_context_manager)(b)
+        for b in all_backends_for_context_manager if not b)
 
-        # The default backend is again retored
-        assert _active_backend_type() == MultiprocessingBackend
-    finally:
-        for backend_name in list(BACKENDS.keys()):
-            if backend_name.startswith('test_'):
-                del BACKENDS[backend_name]
+    # The default backend is again retored
+    assert _active_backend_type() == MultiprocessingBackend
 
 
 class ParameterizedParallelBackend(SequentialBackend):
