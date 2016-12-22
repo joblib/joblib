@@ -355,11 +355,11 @@ def consumer(queue, item):
                    'Produced 3', 'Consumed 3',
                    'Produced 4', 'Consumed 4',
                    'Produced 5', 'Consumed 5']),
-              (4, [  # First batch
-                   'Produced 0', 'Produced 1', 'Produced 2', 'Produced 3',
-                   'Consumed 0', 'Consumed 1', 'Consumed 2', 'Consumed 3',
+              (4, [  # First Batch
+                  'Produced 0', 'Produced 1', 'Produced 2', 'Produced 3',
+                  'Consumed 0', 'Consumed 1', 'Consumed 2', 'Consumed 3',
                      # Second batch
-                   'Produced 4', 'Produced 5', 'Consumed 4', 'Consumed 5'])])
+                  'Produced 4', 'Produced 5', 'Consumed 4', 'Consumed 5'])])
 def test_dispatch_one_job(backend, batch_size, expected_queue):
     """ Test that with only one job, Parallel does act as a iterator.
     """
@@ -610,39 +610,32 @@ def test_safe_function():
         safe_division(1, 0)
 
 
-def test_invalid_batch_size():
+@parametrize('batch_size', [0, -1, 1.42])
+def test_invalid_batch_size(batch_size):
     with raises(ValueError):
-        Parallel(batch_size=0)
-    with raises(ValueError):
-        Parallel(batch_size=-1)
-    with raises(ValueError):
-        Parallel(batch_size=1.42)
+        Parallel(batch_size=batch_size)
 
 
-def check_same_results(params):
-    n_tasks = params.pop('n_tasks')
-    expected = [square(i) for i in range(n_tasks)]
-    results = Parallel(**params)(delayed(square)(i) for i in range(n_tasks))
-    assert results == expected
-
-
-def test_dispatch_race_condition():
+@parametrize('n_tasks, n_jobs, pre_dispatch, batch_size',
+             [(2, 2, 'all', 'auto'),
+              (2, 2, 'n_jobs', 'auto'),
+              (10, 2, 'n_jobs', 'auto'),
+              (517, 2, 'n_jobs', 'auto'),
+              (10, 2, 'n_jobs', 'auto'),
+              (10, 4, 'n_jobs', 'auto'),
+              (25, 4, '2 * n_jobs', 1),
+              (25, 4, 'all', 1),
+              (25, 4, '2 * n_jobs', 7),
+              (10, 4, '2 * n_jobs', 'auto')])
+def test_dispatch_race_condition(n_tasks, n_jobs, pre_dispatch, batch_size):
     # Check that using (async-)dispatch does not yield a race condition on the
     # iterable generator that is not thread-safe natively.
     # This is a non-regression test for the "Pool seems closed" class of error
-    check_same_results({'n_tasks': 2, 'n_jobs': 2, 'pre_dispatch': "all"})
-    check_same_results({'n_tasks': 2, 'n_jobs': 2, 'pre_dispatch': "n_jobs"})
-    check_same_results({'n_tasks': 10, 'n_jobs': 2, 'pre_dispatch': "n_jobs"})
-    check_same_results({'n_tasks': 517, 'n_jobs': 2,
-                        'pre_dispatch': "n_jobs"})
-    check_same_results({'n_tasks': 10, 'n_jobs': 2, 'pre_dispatch': "n_jobs"})
-    check_same_results({'n_tasks': 10, 'n_jobs': 4, 'pre_dispatch': "n_jobs"})
-    check_same_results({'n_tasks': 25, 'n_jobs': 4, 'batch_size': 1})
-    check_same_results({'n_tasks': 25, 'n_jobs': 4, 'batch_size': 1,
-                        'pre_dispatch': "all"})
-    check_same_results({'n_tasks': 25, 'n_jobs': 4, 'batch_size': 7})
-    check_same_results({'n_tasks': 10, 'n_jobs': 4,
-                        'pre_dispatch': "2*n_jobs"})
+    params = {'n_jobs': n_jobs, 'pre_dispatch': pre_dispatch,
+              'batch_size': batch_size}
+    expected = [square(i) for i in range(n_tasks)]
+    results = Parallel(**params)(delayed(square)(i) for i in range(n_tasks))
+    assert results == expected
 
 
 @with_multiprocessing
