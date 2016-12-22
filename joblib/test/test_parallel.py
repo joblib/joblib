@@ -169,15 +169,11 @@ def nested_loop(backend):
         delayed(square)(.01) for _ in range(2))
 
 
-def check_nested_loop(parent_backend, child_backend):
+@parametrize('parent_backend', BACKENDS)
+@parametrize('child_backend', BACKENDS)
+def test_nested_loop(parent_backend, child_backend):
     Parallel(n_jobs=2, backend=parent_backend)(
         delayed(nested_loop)(child_backend) for _ in range(2))
-
-
-def test_nested_loop():
-    for parent_backend in BACKENDS:
-        for child_backend in BACKENDS:
-            check_nested_loop(parent_backend, child_backend)
 
 
 def test_mutate_input_with_threads():
@@ -188,12 +184,12 @@ def test_mutate_input_with_threads():
     assert q.full()
 
 
-def test_parallel_kwargs():
+@parametrize('n_jobs', [1, 2, 3])
+def test_parallel_kwargs(n_jobs):
     """Check the keyword argument processing of pmap."""
     lst = range(10)
-    for n_jobs in (1, 4):
-        assert ([f(x, y=1) for x in lst] ==
-                Parallel(n_jobs=n_jobs)(delayed(f)(x, y=1) for x in lst))
+    assert ([f(x, y=1) for x in lst] ==
+            Parallel(n_jobs=n_jobs)(delayed(f)(x, y=1) for x in lst))
 
 
 def check_parallel_as_context_manager(backend):
