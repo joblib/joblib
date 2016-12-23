@@ -322,30 +322,31 @@ def test_cache_size_warning(tmpdir, cache_size):
 
 @with_numpy
 @with_memory_profiler
-def test_memory_usage(tmpdir):
+@parametrize('compress', [True, False])
+def test_memory_usage(tmpdir, compress):
     # Verify memory stays within expected bounds.
     filename = tmpdir.join('test.pkl').strpath
     small_array = np.ones((10, 10))
     big_array = np.ones(shape=100 * int(1e6), dtype=np.uint8)
     small_matrix = np.matrix(small_array)
     big_matrix = np.matrix(big_array)
-    for compress in (True, False):
-        for obj in (small_array, big_array, small_matrix, big_matrix):
-            size = obj.nbytes / 1e6
-            obj_filename = filename + str(np.random.randint(0, 1000))
-            mem_used = memory_used(numpy_pickle.dump,
-                                   obj, obj_filename, compress=compress)
 
-            # The memory used to dump the object shouldn't exceed the buffer
-            # size used to write array chunks (16MB).
-            write_buf_size = _IO_BUFFER_SIZE + 16 * 1024 ** 2 / 1e6
-            assert mem_used <= write_buf_size
+    for obj in (small_array, big_array, small_matrix, big_matrix):
+        size = obj.nbytes / 1e6
+        obj_filename = filename + str(np.random.randint(0, 1000))
+        mem_used = memory_used(numpy_pickle.dump,
+                               obj, obj_filename, compress=compress)
 
-            mem_used = memory_used(numpy_pickle.load, obj_filename)
-            # memory used should be less than array size + buffer size used to
-            # read the array chunk by chunk.
-            read_buf_size = 32 + _IO_BUFFER_SIZE  # MiB
-            assert mem_used < size + read_buf_size
+        # The memory used to dump the object shouldn't exceed the buffer
+        # size used to write array chunks (16MB).
+        write_buf_size = _IO_BUFFER_SIZE + 16 * 1024 ** 2 / 1e6
+        assert mem_used <= write_buf_size
+
+        mem_used = memory_used(numpy_pickle.load, obj_filename)
+        # memory used should be less than array size + buffer size used to
+        # read the array chunk by chunk.
+        read_buf_size = 32 + _IO_BUFFER_SIZE  # MiB
+        assert mem_used < size + read_buf_size
 
 
 @with_numpy
@@ -500,8 +501,7 @@ def test_compress_tuple_argument(tmpdir, compress_tuple):
               (('wrong', 3),                # wrong compress method
                'Non valid compression method given: "{}"'.format('wrong')),
               (('zlib', 'wrong'),           # wrong compress level
-               'Non valid compress level given: "{}"'.format('wrong')),
-              ])
+               'Non valid compress level given: "{}"'.format('wrong'))])
 def test_compress_tuple_argument_exception(tmpdir, compress_tuple, message):
     filename = tmpdir.join('test.pkl').strpath
     # Verify setting a wrong compress tuple raises a ValueError.
@@ -511,37 +511,36 @@ def test_compress_tuple_argument_exception(tmpdir, compress_tuple, message):
 
 
 @with_numpy
-def test_joblib_compression_formats(tmpdir):
-    compresslevels = (1, 3, 6)
+@parametrize('compress', [1, 3, 6])
+@parametrize('cmethod', _COMPRESSORS)
+def test_joblib_compression_formats(tmpdir, compress, cmethod):
     filename = tmpdir.join('test.pkl').strpath
     objects = (np.ones(shape=(100, 100), dtype='f8'),
                range(10),
                {'a': 1, 2: 'b'}, [], (), {}, 0, 1.0)
 
-    for compress in compresslevels:
-        for cmethod in _COMPRESSORS:
-            dump_filename = filename + "." + cmethod
-            for obj in objects:
-                if not PY3_OR_LATER and cmethod in ('xz', 'lzma'):
-                    # Lzma module only available for python >= 3.3
-                    msg = "{} compression is only available".format(cmethod)
-                    with raises(NotImplementedError) as excinfo:
-                        numpy_pickle.dump(obj, dump_filename,
-                                          compress=(cmethod, compress))
-                    excinfo.match(msg)
-                else:
-                    numpy_pickle.dump(obj, dump_filename,
-                                      compress=(cmethod, compress))
-                    # Verify the file contains the right magic number
-                    with open(dump_filename, 'rb') as f:
-                        assert _detect_compressor(f) == cmethod
-                    # Verify the reloaded object is correct
-                    obj_reloaded = numpy_pickle.load(dump_filename)
-                    assert isinstance(obj_reloaded, type(obj))
-                    if isinstance(obj, np.ndarray):
-                        np.testing.assert_array_equal(obj_reloaded, obj)
-                    else:
-                        assert obj_reloaded == obj
+    dump_filename = filename + "." + cmethod
+    for obj in objects:
+        if not PY3_OR_LATER and cmethod in ('xz', 'lzma'):
+            # Lzma module only available for python >= 3.3
+            msg = "{} compression is only available".format(cmethod)
+            with raises(NotImplementedError) as excinfo:
+                numpy_pickle.dump(obj, dump_filename,
+                                  compress=(cmethod, compress))
+            excinfo.match(msg)
+        else:
+            numpy_pickle.dump(obj, dump_filename,
+                              compress=(cmethod, compress))
+            # Verify the file contains the right magic number
+            with open(dump_filename, 'rb') as f:
+                assert _detect_compressor(f) == cmethod
+            # Verify the reloaded object is correct
+            obj_reloaded = numpy_pickle.load(dump_filename)
+            assert isinstance(obj_reloaded, type(obj))
+            if isinstance(obj, np.ndarray):
+                np.testing.assert_array_equal(obj_reloaded, obj)
+            else:
+                assert obj_reloaded == obj
 
 
 def _gzip_file_decompress(source_filename, target_filename):
@@ -562,25 +561,25 @@ def _zlib_file_decompress(source_filename, target_filename):
         fo.write(buf)
 
 
-def test_load_externally_decompressed_files(tmpdir):
+@parametrize('extension, decompress',
+             [('.z', _zlib_file_decompress),
+              ('.gz', _gzip_file_decompress)])
+def test_load_externally_decompressed_files(tmpdir, extension, decompress):
     # Test that BinaryZlibFile generates valid gzip and zlib compressed files.
     obj = "a string to persist"
     filename_raw = tmpdir.join('test.pkl').strpath
-    compress_list = (('.z', _zlib_file_decompress),
-                     ('.gz', _gzip_file_decompress))
 
-    for extension, decompress in compress_list:
-        filename_compressed = filename_raw + extension
-        # Use automatic extension detection to compress with the right method.
-        numpy_pickle.dump(obj, filename_compressed)
+    filename_compressed = filename_raw + extension
+    # Use automatic extension detection to compress with the right method.
+    numpy_pickle.dump(obj, filename_compressed)
 
-        # Decompress with the corresponding method
-        decompress(filename_compressed, filename_raw)
+    # Decompress with the corresponding method
+    decompress(filename_compressed, filename_raw)
 
-        # Test that the uncompressed pickle can be loaded and
-        # that the result is correct.
-        obj_reloaded = numpy_pickle.load(filename_raw)
-        assert obj == obj_reloaded
+    # Test that the uncompressed pickle can be loaded and
+    # that the result is correct.
+    obj_reloaded = numpy_pickle.load(filename_raw)
+    assert obj == obj_reloaded
 
 
 def test_compression_using_file_extension(tmpdir):
