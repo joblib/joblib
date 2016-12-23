@@ -582,39 +582,37 @@ def test_load_externally_decompressed_files(tmpdir, extension, decompress):
     assert obj == obj_reloaded
 
 
-def test_compression_using_file_extension(tmpdir):
+@parametrize('extension, cmethod',
+             # valid compressor extensions
+             [('.z', 'zlib'),
+              ('.gz', 'gzip'),
+              ('.bz2', 'bz2'),
+              ('.lzma', 'lzma'),
+              ('.xz', 'xz'),
+              # invalid compressor extensions
+              ('.pkl', 'not-compressed'),
+              ('', 'not-compressed')])
+def test_compression_using_file_extension(tmpdir, extension, cmethod):
     # test that compression method corresponds to the given filename extension.
-    extensions_dict = {
-        # valid compressor extentions
-        '.z': 'zlib',
-        '.gz': 'gzip',
-        '.bz2': 'bz2',
-        '.lzma': 'lzma',
-        '.xz': 'xz',
-        # invalid compressor extensions
-        '.pkl': 'not-compressed',
-        '': 'not-compressed'
-    }
     filename = tmpdir.join('test.pkl').strpath
     obj = "object to dump"
 
-    for ext, cmethod in extensions_dict.items():
-        dump_fname = filename + ext
-        if not PY3_OR_LATER and cmethod in ('xz', 'lzma'):
-            # Lzma module only available for python >= 3.3
-            msg = "{} compression is only available".format(cmethod)
-            with raises(NotImplementedError) as excinfo:
-                numpy_pickle.dump(obj, dump_fname)
-            excinfo.match(msg)
-        else:
+    dump_fname = filename + extension
+    if not PY3_OR_LATER and cmethod in ('xz', 'lzma'):
+        # Lzma module only available for python >= 3.3
+        msg = "{} compression is only available".format(cmethod)
+        with raises(NotImplementedError) as excinfo:
             numpy_pickle.dump(obj, dump_fname)
-            # Verify the file contains the right magic number
-            with open(dump_fname, 'rb') as f:
-                assert _detect_compressor(f) == cmethod
-            # Verify the reloaded object is correct
-            obj_reloaded = numpy_pickle.load(dump_fname)
-            assert isinstance(obj_reloaded, type(obj))
-            assert obj_reloaded == obj
+        excinfo.match(msg)
+    else:
+        numpy_pickle.dump(obj, dump_fname)
+        # Verify the file contains the right magic number
+        with open(dump_fname, 'rb') as f:
+            assert _detect_compressor(f) == cmethod
+        # Verify the reloaded object is correct
+        obj_reloaded = numpy_pickle.load(dump_fname)
+        assert isinstance(obj_reloaded, type(obj))
+        assert obj_reloaded == obj
 
 
 @with_numpy
