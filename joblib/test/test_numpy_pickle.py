@@ -16,7 +16,7 @@ from contextlib import closing
 
 from joblib.test.common import np, with_numpy
 from joblib.test.common import with_memory_profiler, memory_used
-from joblib.testing import raises, SkipTest, warns
+from joblib.testing import parametrize, raises, SkipTest, warns
 
 # numpy_pickle is not a drop-in replacement of pickle, as it takes
 # filenames instead of open files as arguments.
@@ -108,17 +108,17 @@ typelist.append(_object)  # <type 'class'>
 ###############################################################################
 # Tests
 
-def test_standard_types(tmpdir):
+@parametrize('compress', [0, 1])
+@parametrize('member', typelist)
+def test_standard_types(tmpdir, compress, member):
     # Test pickling and saving with standard types.
     filename = tmpdir.join('test.pkl').strpath
-    for compress in [0, 1]:
-        for member in typelist:
-            numpy_pickle.dump(member, filename, compress=compress)
-            _member = numpy_pickle.load(filename)
-            # We compare the pickled instance to the reloaded one only if it
-            # can be compared to a copied one
-            if member == copy.deepcopy(member):
-                assert member == _member
+    numpy_pickle.dump(member, filename, compress=compress)
+    _member = numpy_pickle.load(filename)
+    # We compare the pickled instance to the reloaded one only if it
+    # can be compared to a copied one
+    if member == copy.deepcopy(member):
+        assert member == _member
 
 
 def test_value_error():
@@ -127,68 +127,68 @@ def test_value_error():
         numpy_pickle.dump('foo', dict())
 
 
-def test_compress_level_error():
+@parametrize('wrong_compress', [-1, 10, 'wrong'])
+def test_compress_level_error(wrong_compress):
     # Verify that passing an invalid compress argument raises an error.
-    wrong_compress = (-1, 10, 'wrong')
-    for wrong in wrong_compress:
-        exception_msg = 'Non valid compress level given: "{0}"'.format(wrong)
-        with raises(ValueError) as excinfo:
-            numpy_pickle.dump('dummy', 'foo', compress=wrong)
-        excinfo.match(exception_msg)
+    exception_msg = ('Non valid compress level given: '
+                     '"{0}"'.format(wrong_compress))
+    with raises(ValueError) as excinfo:
+        numpy_pickle.dump('dummy', 'foo', compress=wrong_compress)
+    excinfo.match(exception_msg)
 
 
 @with_numpy
-def test_numpy_persistence(tmpdir):
+@parametrize('compress', [False, True, 0, 3])
+def test_numpy_persistence(tmpdir, compress):
     filename = tmpdir.join('test.pkl').strpath
     rnd = np.random.RandomState(0)
     a = rnd.random_sample((10, 2))
-    for compress in (False, True, 0, 3):
-        # We use 'a.T' to have a non C-contiguous array.
-        for index, obj in enumerate(((a,), (a.T,), (a, a), [a, a, a])):
-            filenames = numpy_pickle.dump(obj, filename, compress=compress)
+    # We use 'a.T' to have a non C-contiguous array.
+    for index, obj in enumerate(((a,), (a.T,), (a, a), [a, a, a])):
+        filenames = numpy_pickle.dump(obj, filename, compress=compress)
 
-            # All is cached in one file
-            assert len(filenames) == 1
-            # Check that only one file was created
-            assert filenames[0] == filename
-            # Check that this file does exist
-            assert os.path.exists(filenames[0])
+        # All is cached in one file
+        assert len(filenames) == 1
+        # Check that only one file was created
+        assert filenames[0] == filename
+        # Check that this file does exist
+        assert os.path.exists(filenames[0])
 
-            # Unpickle the object
-            obj_ = numpy_pickle.load(filename)
-            # Check that the items are indeed arrays
-            for item in obj_:
-                assert isinstance(item, np.ndarray)
-            # And finally, check that all the values are equal.
-            np.testing.assert_array_equal(np.array(obj), np.array(obj_))
+        # Unpickle the object
+        obj_ = numpy_pickle.load(filename)
+        # Check that the items are indeed arrays
+        for item in obj_:
+            assert isinstance(item, np.ndarray)
+        # And finally, check that all the values are equal.
+        np.testing.assert_array_equal(np.array(obj), np.array(obj_))
 
-        # Now test with array subclasses
-        for obj in (np.matrix(np.zeros(10)),
-                    np.memmap(filename + 'mmap',
-                              mode='w+', shape=4, dtype=np.float)):
-            filenames = numpy_pickle.dump(obj, filename, compress=compress)
-            # All is cached in one file
-            assert len(filenames) == 1
-
-            obj_ = numpy_pickle.load(filename)
-            if (type(obj) is not np.memmap and
-                    hasattr(obj, '__array_prepare__')):
-                # We don't reconstruct memmaps
-                assert isinstance(obj_, type(obj))
-
-            np.testing.assert_array_equal(obj_, obj)
-
-        # Test with an object containing multiple numpy arrays
-        obj = ComplexTestObject()
+    # Now test with array subclasses
+    for obj in (np.matrix(np.zeros(10)),
+                np.memmap(filename + 'mmap',
+                          mode='w+', shape=4, dtype=np.float)):
         filenames = numpy_pickle.dump(obj, filename, compress=compress)
         # All is cached in one file
         assert len(filenames) == 1
 
-        obj_loaded = numpy_pickle.load(filename)
-        assert isinstance(obj_loaded, type(obj))
-        np.testing.assert_array_equal(obj_loaded.array_float, obj.array_float)
-        np.testing.assert_array_equal(obj_loaded.array_int, obj.array_int)
-        np.testing.assert_array_equal(obj_loaded.array_obj, obj.array_obj)
+        obj_ = numpy_pickle.load(filename)
+        if (type(obj) is not np.memmap and
+                hasattr(obj, '__array_prepare__')):
+            # We don't reconstruct memmaps
+            assert isinstance(obj_, type(obj))
+
+        np.testing.assert_array_equal(obj_, obj)
+
+    # Test with an object containing multiple numpy arrays
+    obj = ComplexTestObject()
+    filenames = numpy_pickle.dump(obj, filename, compress=compress)
+    # All is cached in one file
+    assert len(filenames) == 1
+
+    obj_loaded = numpy_pickle.load(filename)
+    assert isinstance(obj_loaded, type(obj))
+    np.testing.assert_array_equal(obj_loaded.array_float, obj.array_float)
+    np.testing.assert_array_equal(obj_loaded.array_int, obj.array_int)
+    np.testing.assert_array_equal(obj_loaded.array_obj, obj.array_obj)
 
 
 @with_numpy
