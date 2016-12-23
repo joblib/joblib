@@ -300,24 +300,24 @@ def test_compress_mmap_mode_warning(tmpdir):
 
 
 @with_numpy
-def test_cache_size_warning(tmpdir):
+@parametrize('cache_size', [None, 0, 10])
+def test_cache_size_warning(tmpdir, cache_size):
     # Check deprecation warning raised when cache size is not None
     filename = tmpdir.join('test.pkl').strpath
     rnd = np.random.RandomState(0)
     a = rnd.random_sample((10, 2))
 
-    for cache_size in (None, 0, 10):
-        warnings.simplefilter("always")
-        with warns(None) as warninfo:
-            numpy_pickle.dump(a, filename, cache_size=cache_size)
-        expected_nb_warnings = 1 if cache_size is not None else 0
-        assert len(warninfo) == expected_nb_warnings
-        for w in warninfo:
-            assert w.category == DeprecationWarning
-            assert (str(w.message) ==
-                    "Please do not set 'cache_size' in joblib.dump, this "
-                    "parameter has no effect and will be removed. You "
-                    "used 'cache_size={0}'".format(cache_size))
+    warnings.simplefilter("always")
+    with warns(None) as warninfo:
+        numpy_pickle.dump(a, filename, cache_size=cache_size)
+    expected_nb_warnings = 1 if cache_size is not None else 0
+    assert len(warninfo) == expected_nb_warnings
+    for w in warninfo:
+        assert w.category == DeprecationWarning
+        assert (str(w.message) ==
+                "Please do not set 'cache_size' in joblib.dump, this "
+                "parameter has no effect and will be removed. You "
+                "used 'cache_size={0}'".format(cache_size))
 
 
 @with_numpy
@@ -483,33 +483,31 @@ def test_joblib_pickle_across_python_versions():
         _check_pickle(fname, expected_list)
 
 
-def test_compress_tuple_argument(tmpdir):
-    compress_tuples = (('zlib', 3),
-                       ('gzip', 3))
-
+@parametrize('compress_tuple', [('zlib', 3), ('gzip', 3)])
+def test_compress_tuple_argument(tmpdir, compress_tuple):
     # Verify the tuple is correctly taken into account.
     filename = tmpdir.join('test.pkl').strpath
-    for compress in compress_tuples:
-        numpy_pickle.dump("dummy", filename,
-                          compress=compress)
-        # Verify the file contains the right magic number
-        with open(filename, 'rb') as f:
-            assert _detect_compressor(f) == compress[0]
+    numpy_pickle.dump("dummy", filename,
+                      compress=compress_tuple)
+    # Verify the file contains the right magic number
+    with open(filename, 'rb') as f:
+        assert _detect_compressor(f) == compress_tuple[0]
 
+
+@parametrize('compress_tuple, message',
+             [(('zlib', 3, 'extra'),        # wrong compress tuple
+               'Compress argument tuple should contain exactly 2 elements'),
+              (('wrong', 3),                # wrong compress method
+               'Non valid compression method given: "{}"'.format('wrong')),
+              (('zlib', 'wrong'),           # wrong compress level
+               'Non valid compress level given: "{}"'.format('wrong')),
+              ])
+def test_compress_tuple_argument_exception(tmpdir, compress_tuple, message):
+    filename = tmpdir.join('test.pkl').strpath
     # Verify setting a wrong compress tuple raises a ValueError.
     with raises(ValueError) as excinfo:
-        numpy_pickle.dump('dummy', filename, compress=('zlib', 3, 'extra'))
-    excinfo.match('Compress argument tuple should contain exactly 2 elements')
-
-    # Verify a tuple with a wrong compress method raises a ValueError.
-    with raises(ValueError) as excinfo:
-        numpy_pickle.dump('dummy', filename, compress=('wrong', 3))
-    excinfo.match('Non valid compression method given: "{}"'.format('wrong'))
-
-    # Verify a tuple with a wrong compress level raises a ValueError.
-    with raises(ValueError) as excinfo:
-        numpy_pickle.dump('dummy', filename, compress=('zlib', 'wrong'))
-    excinfo.match('Non valid compress level given: "{}"'.format('wrong'))
+        numpy_pickle.dump('dummy', filename, compress=compress_tuple)
+    excinfo.match(message)
 
 
 @with_numpy
