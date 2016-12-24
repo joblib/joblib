@@ -711,81 +711,88 @@ def test_file_handle_persistence_in_memory_mmap():
             'ignored.' % {'mmap_mode': 'r+'})
 
 
-def test_binary_zlibfile(tmpdir):
+@parametrize('data', [b'a little data as bytes.',
+                      # More bytes
+                      10000 * "{}".format(
+                          random.randint(0, 1000) * 1000).encode('latin-1')])
+@parametrize('compress_level', [1, 3, 9])
+def test_binary_zlibfile(tmpdir, data, compress_level):
     filename = tmpdir.join('test.pkl').strpath
-
-    # Test bad compression levels
-    for bad_value in (-1, 10, 15, 'a', (), {}):
-        with raises(ValueError):
-            BinaryZlibFile(filename, 'wb', compresslevel=bad_value)
-
-    # Test invalid modes
-    for bad_mode in ('a', 'x', 'r', 'w', 1, 2):
-        with raises(ValueError):
-            BinaryZlibFile(filename, bad_mode)
-
-    # Test wrong filename type (not a string or a file)
-    for bad_file in (1, (), {}):
-        with raises(TypeError):
-            BinaryZlibFile(bad_file, 'rb')
-
-    for d in (b'a little data as bytes.',
-              # More bytes
-              10000 * "{}"
-              .format(random.randint(0, 1000) * 1000).encode('latin-1')):
-        # Regular cases
-        for compress_level in (1, 3, 9):
-            with open(filename, 'wb') as f:
-                with BinaryZlibFile(f, 'wb',
-                                    compresslevel=compress_level) as fz:
-                    assert fz.writable()
-                    fz.write(d)
-                    assert fz.fileno() == f.fileno()
-                    with raises(io.UnsupportedOperation):
-                        fz._check_can_read()
-
-                    with raises(io.UnsupportedOperation):
-                        fz._check_can_seek()
-                assert fz.closed
-                with raises(ValueError):
-                    fz._check_not_closed()
-
-            with open(filename, 'rb') as f:
-                with BinaryZlibFile(f) as fz:
-                    assert fz.readable()
-                    if PY3_OR_LATER:
-                        assert fz.seekable()
-                    assert fz.fileno() == f.fileno()
-                    assert fz.read() == d
-                    with raises(io.UnsupportedOperation):
-                        fz._check_can_write()
-                    if PY3_OR_LATER:
-                        # io.BufferedIOBase doesn't have seekable() method in
-                        # python 2
-                        assert fz.seekable()
-                        fz.seek(0)
-                        assert fz.tell() == 0
-                assert fz.closed
-
-            # Test with a filename as input
-            with BinaryZlibFile(filename, 'wb',
-                                compresslevel=compress_level) as fz:
-                assert fz.writable()
-                fz.write(d)
-
-            with BinaryZlibFile(filename, 'rb') as fz:
-                assert fz.read() == d
-                assert fz.seekable()
-
-            # Test without context manager
-            fz = BinaryZlibFile(filename, 'wb', compresslevel=compress_level)
+    # Regular cases
+    with open(filename, 'wb') as f:
+        with BinaryZlibFile(f, 'wb',
+                            compresslevel=compress_level) as fz:
             assert fz.writable()
-            fz.write(d)
-            fz.close()
+            fz.write(data)
+            assert fz.fileno() == f.fileno()
+            with raises(io.UnsupportedOperation):
+                fz._check_can_read()
 
-            fz = BinaryZlibFile(filename, 'rb')
-            assert fz.read() == d
-            fz.close()
+            with raises(io.UnsupportedOperation):
+                fz._check_can_seek()
+        assert fz.closed
+        with raises(ValueError):
+            fz._check_not_closed()
+
+    with open(filename, 'rb') as f:
+        with BinaryZlibFile(f) as fz:
+            assert fz.readable()
+            if PY3_OR_LATER:
+                assert fz.seekable()
+            assert fz.fileno() == f.fileno()
+            assert fz.read() == data
+            with raises(io.UnsupportedOperation):
+                fz._check_can_write()
+            if PY3_OR_LATER:
+                # io.BufferedIOBase doesn't have seekable() method in
+                # python 2
+                assert fz.seekable()
+                fz.seek(0)
+                assert fz.tell() == 0
+        assert fz.closed
+
+    # Test with a filename as input
+    with BinaryZlibFile(filename, 'wb',
+                        compresslevel=compress_level) as fz:
+        assert fz.writable()
+        fz.write(data)
+
+    with BinaryZlibFile(filename, 'rb') as fz:
+        assert fz.read() == data
+        assert fz.seekable()
+
+    # Test without context manager
+    fz = BinaryZlibFile(filename, 'wb', compresslevel=compress_level)
+    assert fz.writable()
+    fz.write(data)
+    fz.close()
+
+    fz = BinaryZlibFile(filename, 'rb')
+    assert fz.read() == data
+    fz.close()
+
+
+@parametrize('bad_value', [-1, 10, 15, 'a', (), {}])
+def test_binary_zlibfile_bad_compression_levels(tmpdir, bad_value):
+    filename = tmpdir.join('test.pkl').strpath
+    with raises(ValueError) as excinfo:
+        BinaryZlibFile(filename, 'wb', compresslevel=bad_value)
+    excinfo.match("compresslevel must be between an integer between 1 and 9")
+
+
+@parametrize('bad_mode', ['a', 'x', 'r', 'w', 1, 2])
+def test_binary_zlibfile_invalid_modes(tmpdir, bad_mode):
+    filename = tmpdir.join('test.pkl').strpath
+    with raises(ValueError) as excinfo:
+        BinaryZlibFile(filename, bad_mode)
+    excinfo.match("Invalid mode: {}".format(bad_mode))
+
+
+@parametrize('bad_file', [1, (), {}])
+def test_binary_zlibfile_invalid_filename_type(bad_file):
+    with raises(TypeError) as excinfo:
+        BinaryZlibFile(bad_file, 'rb')
+    excinfo.match("filename must be a str or bytes object, or a file")
 
 
 ###############################################################################
