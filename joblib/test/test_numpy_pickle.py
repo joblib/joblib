@@ -785,7 +785,7 @@ def test_binary_zlibfile_invalid_modes(tmpdir, bad_mode):
     filename = tmpdir.join('test.pkl').strpath
     with raises(ValueError) as excinfo:
         BinaryZlibFile(filename, bad_mode)
-    excinfo.match("Invalid mode: {}".format(bad_mode))
+    excinfo.match("Invalid mode")
 
 
 @parametrize('bad_file', [1, (), {}])
