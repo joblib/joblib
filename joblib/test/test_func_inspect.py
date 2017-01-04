@@ -67,7 +67,7 @@ class Klass(object):
 # Tests
 
 
-@parametrize(['func', 'args', 'filtered_args'],
+@parametrize('func,args,filtered_args',
              [(f, [[], (1, )], {'x': 1, 'y': 0}),
               (f, [['x'], (1, )], {'y': 0}),
               (f, [['y'], (0, )], {'x': 0}),
@@ -86,7 +86,7 @@ def test_filter_args_method():
     assert filter_args(obj.f, [], (1, )) == {'x': 1, 'self': obj}
 
 
-@parametrize(['func', 'args', 'filtered_args'],
+@parametrize('func,args,filtered_args',
              [(h, [[], (1, )],
                {'x': 1, 'y': 0, '*': [], '**': {}}),
               (h, [[], (1, 2, 3, 4)],
@@ -99,7 +99,7 @@ def test_filter_varargs(func, args, filtered_args):
     assert filter_args(func, *args) == filtered_args
 
 
-@parametrize(['func', 'args', 'filtered_args'],
+@parametrize('func,args,filtered_args',
              [(k, [[], (1, 2), {'ee': 2}],
                {'*': [1, 2], '**': {'ee': 2}}),
               (k, [[], (3, 4)],
@@ -118,8 +118,8 @@ def test_filter_args_2():
     assert filter_args(ff, ['y'], (1, )) == {'*': [1], '**': {}}
 
 
-@parametrize(['func', 'funcname'], [(f, 'f'), (g, 'g'),
-                                    (cached_func, 'cached_func')])
+@parametrize('func,funcname', [(f, 'f'), (g, 'g'),
+                               (cached_func, 'cached_func')])
 def test_func_name(func, funcname):
     # Check that we are not confused by decoration
     # here testcase 'cached_func' is the function itself
@@ -190,14 +190,13 @@ def test_bound_methods():
     assert filter_args(a.f, [], (1, )) != filter_args(b.f, [], (1, ))
 
 
-@parametrize(['exception', 'regex', 'func', 'args'],
+@parametrize('exception,regex,func,args',
              [(ValueError, 'ignore_lst must be a list of parameters to ignore',
                f, ['bar', (None, )]),
               (ValueError, 'Ignore list: argument \'(.*)\' is not defined',
                g, [['bar'], (None, )]),
               (ValueError, 'Wrong number of arguments',
-               h, [[]])
-              ])
+               h, [[]])])
 def test_filter_args_error_msg(exception, regex, func, args):
     """ Make sure that filter_args returns decent error messages, for the
         sake of the user.
@@ -214,7 +213,7 @@ def test_clean_win_chars():
         assert char not in mangled_string
 
 
-@parametrize(['func', 'args', 'kwargs', 'sgn_expected'],
+@parametrize('func,args,kwargs,sgn_expected',
              [(g, [list(range(5))], {}, 'g([0, 1, 2, 3, 4])'),
               (k, [1, 2, (3, 4)], {'y': True}, 'k(1, 2, (3, 4), y=True)')])
 def test_format_signature(func, args, kwargs, sgn_expected):

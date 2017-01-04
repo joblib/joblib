@@ -1,16 +1,11 @@
 from joblib import numpy_pickle_utils
+from joblib.testing import parametrize
 
 
-def test_binary_zlib_file(tmpdir):
+@parametrize('filename', ['test', u'test'])  # testing str and unicode names
+def test_binary_zlib_file(tmpdir, filename):
     """Testing creation of files depending on the type of the filenames."""
-    # Testing str filename.
     binary_file = numpy_pickle_utils.BinaryZlibFile(
-        tmpdir.join('test').strpath,
-        mode='wb')
-    binary_file.close()
-
-    # Testing unicode filename.
-    binary_file = numpy_pickle_utils.BinaryZlibFile(
-        tmpdir.join(u'test').strpath,
+        tmpdir.join(filename).strpath,
         mode='wb')
     binary_file.close()

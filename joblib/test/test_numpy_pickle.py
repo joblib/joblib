@@ -16,7 +16,7 @@ from contextlib import closing
 
 from joblib.test.common import np, with_numpy
 from joblib.test.common import with_memory_profiler, memory_used
-from joblib.testing import raises, SkipTest, warns
+from joblib.testing import parametrize, raises, SkipTest, warns
 
 # numpy_pickle is not a drop-in replacement of pickle, as it takes
 # filenames instead of open files as arguments.
@@ -108,17 +108,17 @@ typelist.append(_object)  # <type 'class'>
 ###############################################################################
 # Tests
 
-def test_standard_types(tmpdir):
+@parametrize('compress', [0, 1])
+@parametrize('member', typelist)
+def test_standard_types(tmpdir, compress, member):
     # Test pickling and saving with standard types.
     filename = tmpdir.join('test.pkl').strpath
-    for compress in [0, 1]:
-        for member in typelist:
-            numpy_pickle.dump(member, filename, compress=compress)
-            _member = numpy_pickle.load(filename)
-            # We compare the pickled instance to the reloaded one only if it
-            # can be compared to a copied one
-            if member == copy.deepcopy(member):
-                assert member == _member
+    numpy_pickle.dump(member, filename, compress=compress)
+    _member = numpy_pickle.load(filename)
+    # We compare the pickled instance to the reloaded one only if it
+    # can be compared to a copied one
+    if member == copy.deepcopy(member):
+        assert member == _member
 
 
 def test_value_error():
@@ -127,68 +127,68 @@ def test_value_error():
         numpy_pickle.dump('foo', dict())
 
 
-def test_compress_level_error():
+@parametrize('wrong_compress', [-1, 10, 'wrong'])
+def test_compress_level_error(wrong_compress):
     # Verify that passing an invalid compress argument raises an error.
-    wrong_compress = (-1, 10, 'wrong')
-    for wrong in wrong_compress:
-        exception_msg = 'Non valid compress level given: "{0}"'.format(wrong)
-        with raises(ValueError) as excinfo:
-            numpy_pickle.dump('dummy', 'foo', compress=wrong)
-        excinfo.match(exception_msg)
+    exception_msg = ('Non valid compress level given: '
+                     '"{0}"'.format(wrong_compress))
+    with raises(ValueError) as excinfo:
+        numpy_pickle.dump('dummy', 'foo', compress=wrong_compress)
+    excinfo.match(exception_msg)
 
 
 @with_numpy
-def test_numpy_persistence(tmpdir):
+@parametrize('compress', [False, True, 0, 3])
+def test_numpy_persistence(tmpdir, compress):
     filename = tmpdir.join('test.pkl').strpath
     rnd = np.random.RandomState(0)
     a = rnd.random_sample((10, 2))
-    for compress in (False, True, 0, 3):
-        # We use 'a.T' to have a non C-contiguous array.
-        for index, obj in enumerate(((a,), (a.T,), (a, a), [a, a, a])):
-            filenames = numpy_pickle.dump(obj, filename, compress=compress)
+    # We use 'a.T' to have a non C-contiguous array.
+    for index, obj in enumerate(((a,), (a.T,), (a, a), [a, a, a])):
+        filenames = numpy_pickle.dump(obj, filename, compress=compress)
 
-            # All is cached in one file
-            assert len(filenames) == 1
-            # Check that only one file was created
-            assert filenames[0] == filename
-            # Check that this file does exist
-            assert os.path.exists(filenames[0])
+        # All is cached in one file
+        assert len(filenames) == 1
+        # Check that only one file was created
+        assert filenames[0] == filename
+        # Check that this file does exist
+        assert os.path.exists(filenames[0])
 
-            # Unpickle the object
-            obj_ = numpy_pickle.load(filename)
-            # Check that the items are indeed arrays
-            for item in obj_:
-                assert isinstance(item, np.ndarray)
-            # And finally, check that all the values are equal.
-            np.testing.assert_array_equal(np.array(obj), np.array(obj_))
+        # Unpickle the object
+        obj_ = numpy_pickle.load(filename)
+        # Check that the items are indeed arrays
+        for item in obj_:
+            assert isinstance(item, np.ndarray)
+        # And finally, check that all the values are equal.
+        np.testing.assert_array_equal(np.array(obj), np.array(obj_))
 
-        # Now test with array subclasses
-        for obj in (np.matrix(np.zeros(10)),
-                    np.memmap(filename + 'mmap',
-                              mode='w+', shape=4, dtype=np.float)):
-            filenames = numpy_pickle.dump(obj, filename, compress=compress)
-            # All is cached in one file
-            assert len(filenames) == 1
-
-            obj_ = numpy_pickle.load(filename)
-            if (type(obj) is not np.memmap and
-                    hasattr(obj, '__array_prepare__')):
-                # We don't reconstruct memmaps
-                assert isinstance(obj_, type(obj))
-
-            np.testing.assert_array_equal(obj_, obj)
-
-        # Test with an object containing multiple numpy arrays
-        obj = ComplexTestObject()
+    # Now test with array subclasses
+    for obj in (np.matrix(np.zeros(10)),
+                np.memmap(filename + 'mmap',
+                          mode='w+', shape=4, dtype=np.float)):
         filenames = numpy_pickle.dump(obj, filename, compress=compress)
         # All is cached in one file
         assert len(filenames) == 1
 
-        obj_loaded = numpy_pickle.load(filename)
-        assert isinstance(obj_loaded, type(obj))
-        np.testing.assert_array_equal(obj_loaded.array_float, obj.array_float)
-        np.testing.assert_array_equal(obj_loaded.array_int, obj.array_int)
-        np.testing.assert_array_equal(obj_loaded.array_obj, obj.array_obj)
+        obj_ = numpy_pickle.load(filename)
+        if (type(obj) is not np.memmap and
+                hasattr(obj, '__array_prepare__')):
+            # We don't reconstruct memmaps
+            assert isinstance(obj_, type(obj))
+
+        np.testing.assert_array_equal(obj_, obj)
+
+    # Test with an object containing multiple numpy arrays
+    obj = ComplexTestObject()
+    filenames = numpy_pickle.dump(obj, filename, compress=compress)
+    # All is cached in one file
+    assert len(filenames) == 1
+
+    obj_loaded = numpy_pickle.load(filename)
+    assert isinstance(obj_loaded, type(obj))
+    np.testing.assert_array_equal(obj_loaded.array_float, obj.array_float)
+    np.testing.assert_array_equal(obj_loaded.array_int, obj.array_int)
+    np.testing.assert_array_equal(obj_loaded.array_obj, obj.array_obj)
 
 
 @with_numpy
@@ -300,52 +300,53 @@ def test_compress_mmap_mode_warning(tmpdir):
 
 
 @with_numpy
-def test_cache_size_warning(tmpdir):
+@parametrize('cache_size', [None, 0, 10])
+def test_cache_size_warning(tmpdir, cache_size):
     # Check deprecation warning raised when cache size is not None
     filename = tmpdir.join('test.pkl').strpath
     rnd = np.random.RandomState(0)
     a = rnd.random_sample((10, 2))
 
-    for cache_size in (None, 0, 10):
-        warnings.simplefilter("always")
-        with warns(None) as warninfo:
-            numpy_pickle.dump(a, filename, cache_size=cache_size)
-        expected_nb_warnings = 1 if cache_size is not None else 0
-        assert len(warninfo) == expected_nb_warnings
-        for w in warninfo:
-            assert w.category == DeprecationWarning
-            assert (str(w.message) ==
-                    "Please do not set 'cache_size' in joblib.dump, this "
-                    "parameter has no effect and will be removed. You "
-                    "used 'cache_size={0}'".format(cache_size))
+    warnings.simplefilter("always")
+    with warns(None) as warninfo:
+        numpy_pickle.dump(a, filename, cache_size=cache_size)
+    expected_nb_warnings = 1 if cache_size is not None else 0
+    assert len(warninfo) == expected_nb_warnings
+    for w in warninfo:
+        assert w.category == DeprecationWarning
+        assert (str(w.message) ==
+                "Please do not set 'cache_size' in joblib.dump, this "
+                "parameter has no effect and will be removed. You "
+                "used 'cache_size={0}'".format(cache_size))
 
 
 @with_numpy
 @with_memory_profiler
-def test_memory_usage(tmpdir):
+@parametrize('compress', [True, False])
+def test_memory_usage(tmpdir, compress):
     # Verify memory stays within expected bounds.
     filename = tmpdir.join('test.pkl').strpath
     small_array = np.ones((10, 10))
     big_array = np.ones(shape=100 * int(1e6), dtype=np.uint8)
     small_matrix = np.matrix(small_array)
     big_matrix = np.matrix(big_array)
-    for compress in (True, False):
-        for obj in (small_array, big_array, small_matrix, big_matrix):
-            size = obj.nbytes / 1e6
-            obj_filename = filename + str(np.random.randint(0, 1000))
-            mem_used = memory_used(numpy_pickle.dump,
-                                   obj, obj_filename, compress=compress)
 
-            # The memory used to dump the object shouldn't exceed the buffer
-            # size used to write array chunks (16MB).
-            write_buf_size = _IO_BUFFER_SIZE + 16 * 1024 ** 2 / 1e6
-            assert mem_used <= write_buf_size
+    for obj in (small_array, big_array, small_matrix, big_matrix):
+        size = obj.nbytes / 1e6
+        obj_filename = filename + str(np.random.randint(0, 1000))
+        mem_used = memory_used(numpy_pickle.dump,
+                               obj, obj_filename, compress=compress)
 
-            mem_used = memory_used(numpy_pickle.load, obj_filename)
-            # memory used should be less than array size + buffer size used to
-            # read the array chunk by chunk.
-            read_buf_size = 32 + _IO_BUFFER_SIZE  # MiB
-            assert mem_used < size + read_buf_size
+        # The memory used to dump the object shouldn't exceed the buffer
+        # size used to write array chunks (16MB).
+        write_buf_size = _IO_BUFFER_SIZE + 16 * 1024 ** 2 / 1e6
+        assert mem_used <= write_buf_size
+
+        mem_used = memory_used(numpy_pickle.load, obj_filename)
+        # memory used should be less than array size + buffer size used to
+        # read the array chunk by chunk.
+        read_buf_size = 32 + _IO_BUFFER_SIZE  # MiB
+        assert mem_used < size + read_buf_size
 
 
 @with_numpy
@@ -483,67 +484,63 @@ def test_joblib_pickle_across_python_versions():
         _check_pickle(fname, expected_list)
 
 
-def test_compress_tuple_argument(tmpdir):
-    compress_tuples = (('zlib', 3),
-                       ('gzip', 3))
-
+@parametrize('compress_tuple', [('zlib', 3), ('gzip', 3)])
+def test_compress_tuple_argument(tmpdir, compress_tuple):
     # Verify the tuple is correctly taken into account.
     filename = tmpdir.join('test.pkl').strpath
-    for compress in compress_tuples:
-        numpy_pickle.dump("dummy", filename,
-                          compress=compress)
-        # Verify the file contains the right magic number
-        with open(filename, 'rb') as f:
-            assert _detect_compressor(f) == compress[0]
+    numpy_pickle.dump("dummy", filename,
+                      compress=compress_tuple)
+    # Verify the file contains the right magic number
+    with open(filename, 'rb') as f:
+        assert _detect_compressor(f) == compress_tuple[0]
 
+
+@parametrize('compress_tuple,message',
+             [(('zlib', 3, 'extra'),        # wrong compress tuple
+               'Compress argument tuple should contain exactly 2 elements'),
+              (('wrong', 3),                # wrong compress method
+               'Non valid compression method given: "{}"'.format('wrong')),
+              (('zlib', 'wrong'),           # wrong compress level
+               'Non valid compress level given: "{}"'.format('wrong'))])
+def test_compress_tuple_argument_exception(tmpdir, compress_tuple, message):
+    filename = tmpdir.join('test.pkl').strpath
     # Verify setting a wrong compress tuple raises a ValueError.
     with raises(ValueError) as excinfo:
-        numpy_pickle.dump('dummy', filename, compress=('zlib', 3, 'extra'))
-    excinfo.match('Compress argument tuple should contain exactly 2 elements')
-
-    # Verify a tuple with a wrong compress method raises a ValueError.
-    with raises(ValueError) as excinfo:
-        numpy_pickle.dump('dummy', filename, compress=('wrong', 3))
-    excinfo.match('Non valid compression method given: "{}"'.format('wrong'))
-
-    # Verify a tuple with a wrong compress level raises a ValueError.
-    with raises(ValueError) as excinfo:
-        numpy_pickle.dump('dummy', filename, compress=('zlib', 'wrong'))
-    excinfo.match('Non valid compress level given: "{}"'.format('wrong'))
+        numpy_pickle.dump('dummy', filename, compress=compress_tuple)
+    excinfo.match(message)
 
 
 @with_numpy
-def test_joblib_compression_formats(tmpdir):
-    compresslevels = (1, 3, 6)
+@parametrize('compress', [1, 3, 6])
+@parametrize('cmethod', _COMPRESSORS)
+def test_joblib_compression_formats(tmpdir, compress, cmethod):
     filename = tmpdir.join('test.pkl').strpath
     objects = (np.ones(shape=(100, 100), dtype='f8'),
                range(10),
                {'a': 1, 2: 'b'}, [], (), {}, 0, 1.0)
 
-    for compress in compresslevels:
-        for cmethod in _COMPRESSORS:
-            dump_filename = filename + "." + cmethod
-            for obj in objects:
-                if not PY3_OR_LATER and cmethod in ('xz', 'lzma'):
-                    # Lzma module only available for python >= 3.3
-                    msg = "{} compression is only available".format(cmethod)
-                    with raises(NotImplementedError) as excinfo:
-                        numpy_pickle.dump(obj, dump_filename,
-                                          compress=(cmethod, compress))
-                    excinfo.match(msg)
-                else:
-                    numpy_pickle.dump(obj, dump_filename,
-                                      compress=(cmethod, compress))
-                    # Verify the file contains the right magic number
-                    with open(dump_filename, 'rb') as f:
-                        assert _detect_compressor(f) == cmethod
-                    # Verify the reloaded object is correct
-                    obj_reloaded = numpy_pickle.load(dump_filename)
-                    assert isinstance(obj_reloaded, type(obj))
-                    if isinstance(obj, np.ndarray):
-                        np.testing.assert_array_equal(obj_reloaded, obj)
-                    else:
-                        assert obj_reloaded == obj
+    dump_filename = filename + "." + cmethod
+    for obj in objects:
+        if not PY3_OR_LATER and cmethod in ('xz', 'lzma'):
+            # Lzma module only available for python >= 3.3
+            msg = "{} compression is only available".format(cmethod)
+            with raises(NotImplementedError) as excinfo:
+                numpy_pickle.dump(obj, dump_filename,
+                                  compress=(cmethod, compress))
+            excinfo.match(msg)
+        else:
+            numpy_pickle.dump(obj, dump_filename,
+                              compress=(cmethod, compress))
+            # Verify the file contains the right magic number
+            with open(dump_filename, 'rb') as f:
+                assert _detect_compressor(f) == cmethod
+            # Verify the reloaded object is correct
+            obj_reloaded = numpy_pickle.load(dump_filename)
+            assert isinstance(obj_reloaded, type(obj))
+            if isinstance(obj, np.ndarray):
+                np.testing.assert_array_equal(obj_reloaded, obj)
+            else:
+                assert obj_reloaded == obj
 
 
 def _gzip_file_decompress(source_filename, target_filename):
@@ -564,60 +561,58 @@ def _zlib_file_decompress(source_filename, target_filename):
         fo.write(buf)
 
 
-def test_load_externally_decompressed_files(tmpdir):
+@parametrize('extension,decompress',
+             [('.z', _zlib_file_decompress),
+              ('.gz', _gzip_file_decompress)])
+def test_load_externally_decompressed_files(tmpdir, extension, decompress):
     # Test that BinaryZlibFile generates valid gzip and zlib compressed files.
     obj = "a string to persist"
     filename_raw = tmpdir.join('test.pkl').strpath
-    compress_list = (('.z', _zlib_file_decompress),
-                     ('.gz', _gzip_file_decompress))
 
-    for extension, decompress in compress_list:
-        filename_compressed = filename_raw + extension
-        # Use automatic extension detection to compress with the right method.
-        numpy_pickle.dump(obj, filename_compressed)
+    filename_compressed = filename_raw + extension
+    # Use automatic extension detection to compress with the right method.
+    numpy_pickle.dump(obj, filename_compressed)
 
-        # Decompress with the corresponding method
-        decompress(filename_compressed, filename_raw)
+    # Decompress with the corresponding method
+    decompress(filename_compressed, filename_raw)
 
-        # Test that the uncompressed pickle can be loaded and
-        # that the result is correct.
-        obj_reloaded = numpy_pickle.load(filename_raw)
-        assert obj == obj_reloaded
+    # Test that the uncompressed pickle can be loaded and
+    # that the result is correct.
+    obj_reloaded = numpy_pickle.load(filename_raw)
+    assert obj == obj_reloaded
 
 
-def test_compression_using_file_extension(tmpdir):
+@parametrize('extension,cmethod',
+             # valid compressor extensions
+             [('.z', 'zlib'),
+              ('.gz', 'gzip'),
+              ('.bz2', 'bz2'),
+              ('.lzma', 'lzma'),
+              ('.xz', 'xz'),
+              # invalid compressor extensions
+              ('.pkl', 'not-compressed'),
+              ('', 'not-compressed')])
+def test_compression_using_file_extension(tmpdir, extension, cmethod):
     # test that compression method corresponds to the given filename extension.
-    extensions_dict = {
-        # valid compressor extentions
-        '.z': 'zlib',
-        '.gz': 'gzip',
-        '.bz2': 'bz2',
-        '.lzma': 'lzma',
-        '.xz': 'xz',
-        # invalid compressor extensions
-        '.pkl': 'not-compressed',
-        '': 'not-compressed'
-    }
     filename = tmpdir.join('test.pkl').strpath
     obj = "object to dump"
 
-    for ext, cmethod in extensions_dict.items():
-        dump_fname = filename + ext
-        if not PY3_OR_LATER and cmethod in ('xz', 'lzma'):
-            # Lzma module only available for python >= 3.3
-            msg = "{} compression is only available".format(cmethod)
-            with raises(NotImplementedError) as excinfo:
-                numpy_pickle.dump(obj, dump_fname)
-            excinfo.match(msg)
-        else:
+    dump_fname = filename + extension
+    if not PY3_OR_LATER and cmethod in ('xz', 'lzma'):
+        # Lzma module only available for python >= 3.3
+        msg = "{} compression is only available".format(cmethod)
+        with raises(NotImplementedError) as excinfo:
             numpy_pickle.dump(obj, dump_fname)
-            # Verify the file contains the right magic number
-            with open(dump_fname, 'rb') as f:
-                assert _detect_compressor(f) == cmethod
-            # Verify the reloaded object is correct
-            obj_reloaded = numpy_pickle.load(dump_fname)
-            assert isinstance(obj_reloaded, type(obj))
-            assert obj_reloaded == obj
+        excinfo.match(msg)
+    else:
+        numpy_pickle.dump(obj, dump_fname)
+        # Verify the file contains the right magic number
+        with open(dump_fname, 'rb') as f:
+            assert _detect_compressor(f) == cmethod
+        # Verify the reloaded object is correct
+        obj_reloaded = numpy_pickle.load(dump_fname)
+        assert isinstance(obj_reloaded, type(obj))
+        assert obj_reloaded == obj
 
 
 @with_numpy
@@ -716,81 +711,90 @@ def test_file_handle_persistence_in_memory_mmap():
             'ignored.' % {'mmap_mode': 'r+'})
 
 
-def test_binary_zlibfile(tmpdir):
+@parametrize('data', [b'a little data as bytes.',
+                      # More bytes
+                      10000 * "{}".format(
+                          random.randint(0, 1000) * 1000).encode('latin-1')])
+@parametrize('compress_level', [1, 3, 9])
+def test_binary_zlibfile(tmpdir, data, compress_level):
     filename = tmpdir.join('test.pkl').strpath
-
-    # Test bad compression levels
-    for bad_value in (-1, 10, 15, 'a', (), {}):
-        with raises(ValueError):
-            BinaryZlibFile(filename, 'wb', compresslevel=bad_value)
-
-    # Test invalid modes
-    for bad_mode in ('a', 'x', 'r', 'w', 1, 2):
-        with raises(ValueError):
-            BinaryZlibFile(filename, bad_mode)
-
-    # Test wrong filename type (not a string or a file)
-    for bad_file in (1, (), {}):
-        with raises(TypeError):
-            BinaryZlibFile(bad_file, 'rb')
-
-    for d in (b'a little data as bytes.',
-              # More bytes
-              10000 * "{}"
-              .format(random.randint(0, 1000) * 1000).encode('latin-1')):
-        # Regular cases
-        for compress_level in (1, 3, 9):
-            with open(filename, 'wb') as f:
-                with BinaryZlibFile(f, 'wb',
-                                    compresslevel=compress_level) as fz:
-                    assert fz.writable()
-                    fz.write(d)
-                    assert fz.fileno() == f.fileno()
-                    with raises(io.UnsupportedOperation):
-                        fz._check_can_read()
-
-                    with raises(io.UnsupportedOperation):
-                        fz._check_can_seek()
-                assert fz.closed
-                with raises(ValueError):
-                    fz._check_not_closed()
-
-            with open(filename, 'rb') as f:
-                with BinaryZlibFile(f) as fz:
-                    assert fz.readable()
-                    if PY3_OR_LATER:
-                        assert fz.seekable()
-                    assert fz.fileno() == f.fileno()
-                    assert fz.read() == d
-                    with raises(io.UnsupportedOperation):
-                        fz._check_can_write()
-                    if PY3_OR_LATER:
-                        # io.BufferedIOBase doesn't have seekable() method in
-                        # python 2
-                        assert fz.seekable()
-                        fz.seek(0)
-                        assert fz.tell() == 0
-                assert fz.closed
-
-            # Test with a filename as input
-            with BinaryZlibFile(filename, 'wb',
-                                compresslevel=compress_level) as fz:
-                assert fz.writable()
-                fz.write(d)
-
-            with BinaryZlibFile(filename, 'rb') as fz:
-                assert fz.read() == d
-                assert fz.seekable()
-
-            # Test without context manager
-            fz = BinaryZlibFile(filename, 'wb', compresslevel=compress_level)
+    # Regular cases
+    with open(filename, 'wb') as f:
+        with BinaryZlibFile(f, 'wb',
+                            compresslevel=compress_level) as fz:
             assert fz.writable()
-            fz.write(d)
-            fz.close()
+            fz.write(data)
+            assert fz.fileno() == f.fileno()
+            with raises(io.UnsupportedOperation):
+                fz._check_can_read()
 
-            fz = BinaryZlibFile(filename, 'rb')
-            assert fz.read() == d
-            fz.close()
+            with raises(io.UnsupportedOperation):
+                fz._check_can_seek()
+        assert fz.closed
+        with raises(ValueError):
+            fz._check_not_closed()
+
+    with open(filename, 'rb') as f:
+        with BinaryZlibFile(f) as fz:
+            assert fz.readable()
+            if PY3_OR_LATER:
+                assert fz.seekable()
+            assert fz.fileno() == f.fileno()
+            assert fz.read() == data
+            with raises(io.UnsupportedOperation):
+                fz._check_can_write()
+            if PY3_OR_LATER:
+                # io.BufferedIOBase doesn't have seekable() method in
+                # python 2
+                assert fz.seekable()
+                fz.seek(0)
+                assert fz.tell() == 0
+        assert fz.closed
+
+    # Test with a filename as input
+    with BinaryZlibFile(filename, 'wb',
+                        compresslevel=compress_level) as fz:
+        assert fz.writable()
+        fz.write(data)
+
+    with BinaryZlibFile(filename, 'rb') as fz:
+        assert fz.read() == data
+        assert fz.seekable()
+
+    # Test without context manager
+    fz = BinaryZlibFile(filename, 'wb', compresslevel=compress_level)
+    assert fz.writable()
+    fz.write(data)
+    fz.close()
+
+    fz = BinaryZlibFile(filename, 'rb')
+    assert fz.read() == data
+    fz.close()
+
+
+@parametrize('bad_value', [-1, 10, 15, 'a', (), {}])
+def test_binary_zlibfile_bad_compression_levels(tmpdir, bad_value):
+    filename = tmpdir.join('test.pkl').strpath
+    with raises(ValueError) as excinfo:
+        BinaryZlibFile(filename, 'wb', compresslevel=bad_value)
+    pattern = re.escape("'compresslevel' must be an integer between 1 and 9. "
+                        "You provided 'compresslevel={}'".format(bad_value))
+    excinfo.match(pattern)
+
+
+@parametrize('bad_mode', ['a', 'x', 'r', 'w', 1, 2])
+def test_binary_zlibfile_invalid_modes(tmpdir, bad_mode):
+    filename = tmpdir.join('test.pkl').strpath
+    with raises(ValueError) as excinfo:
+        BinaryZlibFile(filename, bad_mode)
+    excinfo.match("Invalid mode")
+
+
+@parametrize('bad_file', [1, (), {}])
+def test_binary_zlibfile_invalid_filename_type(bad_file):
+    with raises(TypeError) as excinfo:
+        BinaryZlibFile(bad_file, 'rb')
+    excinfo.match("filename must be a str or bytes object, or a file")
 
 
 ###############################################################################
