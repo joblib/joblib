@@ -33,7 +33,7 @@ def test_disk_used(tmpdir):
     assert disk_used(cachedir) < target_size + 12
 
 
-@parametrize('text, value',
+@parametrize('text,value',
              [('80G', 80 * 1024 ** 3),
               ('1.4M', int(1.4 * 1024 ** 2)),
               ('120M', 120 * 1024 ** 2),
@@ -42,7 +42,7 @@ def test_memstr_to_bytes(text, value):
     assert memstr_to_bytes(text) == value
 
 
-@parametrize('text, exception, regex',
+@parametrize('text,exception,regex',
              [('fooG', ValueError, r'Invalid literal for size.*fooG.*'),
               ('1.4N', ValueError, r'Invalid literal for size.*1.4N.*')])
 def test_memstr_to_bytes_exception(text, exception, regex):

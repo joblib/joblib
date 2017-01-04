@@ -495,7 +495,7 @@ def test_compress_tuple_argument(tmpdir, compress_tuple):
         assert _detect_compressor(f) == compress_tuple[0]
 
 
-@parametrize('compress_tuple, message',
+@parametrize('compress_tuple,message',
              [(('zlib', 3, 'extra'),        # wrong compress tuple
                'Compress argument tuple should contain exactly 2 elements'),
               (('wrong', 3),                # wrong compress method
@@ -561,7 +561,7 @@ def _zlib_file_decompress(source_filename, target_filename):
         fo.write(buf)
 
 
-@parametrize('extension, decompress',
+@parametrize('extension,decompress',
              [('.z', _zlib_file_decompress),
               ('.gz', _gzip_file_decompress)])
 def test_load_externally_decompressed_files(tmpdir, extension, decompress):
@@ -582,7 +582,7 @@ def test_load_externally_decompressed_files(tmpdir, extension, decompress):
     assert obj == obj_reloaded
 
 
-@parametrize('extension, cmethod',
+@parametrize('extension,cmethod',
              # valid compressor extensions
              [('.z', 'zlib'),
               ('.gz', 'gzip'),

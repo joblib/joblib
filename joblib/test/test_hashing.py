@@ -342,7 +342,7 @@ def test_dtype():
     assert hash([a, c]) == hash([a, b])
 
 
-@parametrize('to_hash, expected',
+@parametrize('to_hash,expected',
              [('This is a string to hash',
                  {'py2': '80436ada343b0d79a99bfd8883a96e45',
                   'py3': '71b3f47df22cb19431d85d92d0b230b2'}),
