@@ -305,8 +305,8 @@ class BinaryZlibFile(io.BufferedIOBase):
         self._size = -1
 
         if not isinstance(compresslevel, int) or not (1 <= compresslevel <= 9):
-            raise ValueError("compresslevel must be between an integer "
-                             "between 1 and 9, you gave {}"
+            raise ValueError("'compresslevel' must be an integer "
+                             "between 1 and 9. You provided 'compresslevel={}'"
                              .format(compresslevel))
 
         if mode == "rb":
