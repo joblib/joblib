@@ -777,7 +777,8 @@ def test_binary_zlibfile_bad_compression_levels(tmpdir, bad_value):
     filename = tmpdir.join('test.pkl').strpath
     with raises(ValueError) as excinfo:
         BinaryZlibFile(filename, 'wb', compresslevel=bad_value)
-    excinfo.match("compresslevel must be between an integer between 1 and 9")
+    excinfo.match("'compresslevel' must be an integer between 1 and 9. "
+                  "You provided 'compress_level={}'".format(bad_value))
 
 
 @parametrize('bad_mode', ['a', 'x', 'r', 'w', 1, 2])

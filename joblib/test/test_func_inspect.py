@@ -119,7 +119,7 @@ def test_filter_args_2():
 
 
 @parametrize('func,funcname', [(f, 'f'), (g, 'g'),
-                                (cached_func, 'cached_func')])
+                               (cached_func, 'cached_func')])
 def test_func_name(func, funcname):
     # Check that we are not confused by decoration
     # here testcase 'cached_func' is the function itself
