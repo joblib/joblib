@@ -613,9 +613,9 @@ def func_with_signature(a: int, b: float) -> float:
 
 
 def _setup_toy_cache(tmpdir, num_inputs=10):
-    mem = Memory(cachedir=tmpdir.strpath, verbose=0)
+    memory = Memory(cachedir=tmpdir.strpath, verbose=0)
 
-    @mem.cache()
+    @memory.cache()
     def get_1000_bytes(arg):
         return 'a' * 1000
 
@@ -627,7 +627,7 @@ def _setup_toy_cache(tmpdir, num_inputs=10):
 
     full_hashdirs = [os.path.join(get_1000_bytes.cachedir, dirname)
                      for dirname in hash_dirnames]
-    return mem, full_hashdirs, get_1000_bytes
+    return memory, full_hashdirs, get_1000_bytes
 
 
 def test__get_cache_items(tmpdir):
@@ -697,7 +697,7 @@ def test_memory_reduce_size(tmpdir):
     cachedir = memory.cachedir
     ref_cache_items = _get_cache_items(cachedir)
 
-    # By default mem.bytes_limit is None and reduce_size is a noop
+    # By default memory.bytes_limit is None and reduce_size is a noop
     memory.reduce_size()
     cache_items = _get_cache_items(cachedir)
     assert sorted(ref_cache_items) == sorted(cache_items)
