@@ -562,13 +562,6 @@ def test_clear_memory_with_none_cachedir():
     memory.clear()
 
 
-def func_with_kwonly_args(a, b, kw1='kw1', kw2='kw2'):
-    pass
-
-
-def func_with_signature(a, b):
-    pass
-
 if PY3_OR_LATER:
     exec("""
 def func_with_kwonly_args(a, b, *, kw1='kw1', kw2='kw2'):
