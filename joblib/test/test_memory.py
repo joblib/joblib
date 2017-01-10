@@ -20,7 +20,7 @@ from joblib.memory import _get_cache_items, _get_cache_items_to_delete
 from joblib.memory import _load_output, _get_func_fullname
 from joblib.memory import JobLibCollisionWarning
 from joblib.test.common import with_numpy, np
-from joblib.testing import fixture, parametrize, raises, warns
+from joblib.testing import parametrize, raises, warns
 from joblib._compat import PY3_OR_LATER
 
 
@@ -472,7 +472,7 @@ def test_memorized_repr(tmpdir):
     result.get()
 
 
-def test_memory_file_modification(capsys, tmpdir):
+def test_memory_file_modification(capsys, tmpdir, monkeypatch):
     # Test that modifying a Python file after loading it does not lead to
     # Recomputation
     dir_name = tmpdir.mkdir('tmp_import').strpath
@@ -482,7 +482,7 @@ def test_memory_file_modification(capsys, tmpdir):
         module_file.write(content)
 
     # Load the module:
-    sys.path.append(dir_name)
+    monkeypatch.syspath_prepend(dir_name)
     import tmp_joblib_ as tmp
 
     memory = Memory(cachedir=tmpdir.strpath, verbose=0)
@@ -516,7 +516,6 @@ def test_memory_file_modification(capsys, tmpdir):
 
     # Now reload
     sys.stdout.write('Reloading\n')
-    sys.modules.pop('tmp_joblib_')
     import tmp_joblib_ as tmp
     f = memory.cache(tmp.f)
 
