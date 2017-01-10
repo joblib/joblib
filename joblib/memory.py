@@ -84,7 +84,14 @@ def _get_func_fullname(func):
     """
     modules, funcname = get_func_name(func)
     modules.append(funcname)
+    modules.append(hashing.hash(_cached_func_code(func)))
     return os.path.join(*modules)
+
+
+def _cached_func_code(func):
+    """Compute the func code stored in cache."""
+    func_code, _, first_line = get_func_code(func)
+    return u'%s %i\n%s' % (FIRST_LINE_TEXT, first_line, func_code)
 
 
 def _cache_key_to_dir(cachedir, func, argument_hash):
@@ -153,11 +160,9 @@ def _get_cache_items(root_path):
             try:
                 last_access = os.path.getatime(output_filename)
             except OSError:
-                try:
-                    last_access = os.path.getatime(dirpath)
-                except OSError:
-                    # The directory has already been deleted
-                    continue
+                # The directory has already been deleted or is a function
+                # directory
+                continue
 
             last_access = datetime.datetime.fromtimestamp(last_access)
             try:
@@ -603,9 +608,9 @@ class MemorizedFunc(Logger):
         # sometimes have several functions named the same way in a
         # file. This is bad practice, but joblib should be robust to bad
         # practice.
-        func_code = u'%s %i\n%s' % (FIRST_LINE_TEXT, first_line, func_code)
+        cached_func_code = _cached_func_code(self.func)
         with io.open(filename, 'w', encoding="UTF-8") as out:
-            out.write(func_code)
+            out.write(cached_func_code)
         # Also store in the in-memory store of function hashes
         is_named_callable = False
         if PY3_OR_LATER:

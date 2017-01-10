@@ -17,11 +17,11 @@ import datetime
 from joblib.memory import Memory, MemorizedFunc, NotMemorizedFunc
 from joblib.memory import MemorizedResult, NotMemorizedResult, _FUNCTION_HASHES
 from joblib.memory import _get_cache_items, _get_cache_items_to_delete
-from joblib.memory import _load_output, _get_func_fullname
-from joblib.memory import JobLibCollisionWarning
+from joblib.memory import _load_output, _get_func_fullname, _cached_func_code
 from joblib.test.common import with_numpy, np
 from joblib.testing import parametrize, raises, warns
 from joblib._compat import PY3_OR_LATER
+from joblib import hashing
 
 
 ###############################################################################
@@ -161,12 +161,11 @@ def test_memory_name_collision(tmpdir):
 
     b = name_collision
 
-    with warns(JobLibCollisionWarning) as warninfo:
+    with warns(None) as warninfo:
         a(1)
         b(1)
 
-    assert len(warninfo) == 1
-    assert "collision" in str(warninfo[0].message)
+    assert len(warninfo) == 0
 
 
 def test_memory_warning_lambda_collisions(tmpdir):
@@ -177,14 +176,14 @@ def test_memory_warning_lambda_collisions(tmpdir):
     b = lambda x: x + 1
     b = memory.cache(b)
 
-    with warns(JobLibCollisionWarning) as warninfo:
+    with warns(None) as warninfo:
         assert a(0) == 0
         assert b(1) == 2
         assert a(1) == 1
 
     # In recent Python versions, we can retrieve the code of lambdas,
     # thus nothing is raised
-    assert len(warninfo) == 4
+    assert len(warninfo) == 0
 
 
 def test_memory_warning_collision_detection(tmpdir):
@@ -196,13 +195,12 @@ def test_memory_warning_collision_detection(tmpdir):
     b1 = eval('lambda x: x+1')
     b1 = memory.cache(b1)
 
-    with warns(JobLibCollisionWarning) as warninfo:
+    with warns(None) as warninfo:
         a1(1)
         b1(1)
         a1(0)
 
-    assert len(warninfo) == 2
-    assert "cannot detect" in str(warninfo[0].message).lower()
+    assert len(warninfo) == 0
 
 
 def test_memory_partial(tmpdir):
@@ -360,6 +358,7 @@ def test_func_dir(tmpdir):
     memory = Memory(cachedir=tmpdir.strpath, verbose=0)
     path = __name__.split('.')
     path.append('f')
+    path.append(hashing.hash(_cached_func_code(f)))
     path = tmpdir.join('joblib', *path).strpath
 
     g = memory.cache(f)
@@ -550,11 +549,13 @@ def test_memory_in_memory_function_code_change(tmpdir):
     assert f(1, 2) == 3
     assert f(1, 2) == 3
 
-    with warns(JobLibCollisionWarning):
+    with warns(None) as warninfo:
         # Check that inline function modification triggers a cache invalidation
         _function_to_cache.__code__ = _product.__code__
         assert f(1, 2) == 2
         assert f(1, 2) == 2
+
+    assert len(warninfo) == 0
 
 
 def test_clear_memory_with_none_cachedir():
