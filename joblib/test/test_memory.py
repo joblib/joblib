@@ -516,6 +516,7 @@ def test_memory_file_modification(capsys, tmpdir, monkeypatch):
 
     # Now reload
     sys.stdout.write('Reloading\n')
+    sys.modules.pop('tmp_joblib_')
     import tmp_joblib_ as tmp
     f = memory.cache(tmp.f)
 
