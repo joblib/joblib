@@ -181,7 +181,7 @@ class AutoBatchingMixin(object):
             batch_size = max(2 * ideal_batch_size, 1)
             self._effective_batch_size = batch_size
             if self.parallel.verbose >= 10:
-                self.parallel._print(
+                self.parallel._log(
                     "Batch computation too fast (%.4fs.) "
                     "Setting batch_size=%d.", (batch_duration, batch_size))
         elif (batch_duration > self.MAX_IDEAL_BATCH_DURATION and
@@ -194,7 +194,7 @@ class AutoBatchingMixin(object):
             batch_size = old_batch_size // 2
             self._effective_batch_size = batch_size
             if self.parallel.verbose >= 10:
-                self.parallel._print(
+                self.parallel._log(
                     "Batch computation too slow (%.4fs.) "
                     "Setting batch_size=%d.", (batch_duration, batch_size))
         else:

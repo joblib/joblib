@@ -13,6 +13,7 @@ import pickle
 import sys
 import time
 import datetime
+import re
 
 from joblib.memory import Memory, MemorizedFunc, NotMemorizedFunc
 from joblib.memory import MemorizedResult, NotMemorizedResult, _FUNCTION_HASHES
@@ -22,7 +23,7 @@ from joblib.memory import JobLibCollisionWarning
 from joblib.test.common import with_numpy, np
 from joblib.testing import parametrize, raises, warns
 from joblib._compat import PY3_OR_LATER
-
+from joblib import logger
 
 ###############################################################################
 # Module-level variables for the tests
@@ -722,3 +723,29 @@ def test_memory_clear(tmpdir):
     memory.clear()
 
     assert os.listdir(memory.cachedir) == []
+
+
+def custom_log(record):
+    def log(message, file=None):
+        record.append(message)
+    return log
+
+
+def test_memory_log_monkeypatch(tmpdir, monkeypatch, capsys):
+    record = []
+    monkeypatch.setattr(target=logger, name='log',
+                        value=custom_log(record))
+    memory = Memory(cachedir=tmpdir.strpath, verbose=10)
+    f_cached = memory.cache(f)
+    f_cached(0)
+    f_cached(0)
+    memory.clear()
+
+    stdout, stderr = capsys.readouterr()
+    assert not stdout
+    assert not stderr
+
+    logged = ''.join(record)
+    assert re.search(r'\[Memory\] Calling.+joblib.test.test_memory.+'
+                     'f cache loaded.+Flushing completely the cache',
+                     logged, re.DOTALL)

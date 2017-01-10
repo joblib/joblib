@@ -14,10 +14,16 @@ import time
 import sys
 import os
 import shutil
-import logging
 import pprint
 
 from .disk import mkdirp
+
+
+def log(message, file=None):
+    # Late default settings to play nice with doctests
+    if file is None:
+        file = sys.stdout
+    print(message, file=file)
 
 
 def _squeeze_time(t):
@@ -73,18 +79,13 @@ class Logger(object):
         """
         self.depth = depth
 
-    def warn(self, msg):
-        logging.warn("[%s]: %s" % (self, msg))
-
-    def debug(self, msg):
-        # XXX: This conflicts with the debug flag used in children class
-        logging.debug("[%s]: %s" % (self, msg))
-
     def format(self, obj, indent=0):
         """ Return the formated representation of the object.
         """
         return pformat(obj, indent=indent, depth=self.depth)
 
+    def warn(self, msg):
+        log("WARNING [%s]: %s" % (self, msg))
 
 ###############################################################################
 # class `PrintTime`
@@ -142,11 +143,11 @@ class PrintTime(object):
             time_lapse = time.time() - self.start_time
             full_msg = "%s: %.2fs, %.1f min" % (msg, time_lapse,
                                                 time_lapse / 60)
-        print(full_msg, file=sys.stderr)
+        log(full_msg, file=sys.stderr)
         if self.logfile is not None:
             try:
                 with open(self.logfile, 'a') as f:
-                    print(full_msg, file=f)
+                    log(full_msg, file=f)
             except:
                 """ Multiprocessing writing to files can create race
                     conditions. Rather fail silently than crash the

@@ -62,6 +62,8 @@ from .numpy_pickle import load
 from .numpy_pickle import dump
 from .hashing import hash
 from .backports import make_memmap
+from . import logger
+
 # Some system have a ramdisk mounted by default, we can use it instead of /tmp
 # as the default folder to dump big arrays to share with subprocesses
 SYSTEM_SHARED_MEM_FS = '/dev/shm'
@@ -235,8 +237,9 @@ class ArrayMemmapReducer(object):
             # done processing this data.
             if not os.path.exists(filename):
                 if self.verbose > 0:
-                    print("Memmaping (shape=%r, dtype=%s) to new file %s" % (
-                        a.shape, a.dtype, filename))
+                    logger.log(
+                        "Memmaping (shape=%r, dtype=%s) to new file %s" % (
+                            a.shape, a.dtype, filename))
                 for dumped_filename in dump(a, filename):
                     os.chmod(dumped_filename, FILE_PERMISSIONS)
 
@@ -245,7 +248,7 @@ class ArrayMemmapReducer(object):
                     # multiple children processes
                     load(filename, mmap_mode=self._mmap_mode).max()
             elif self.verbose > 1:
-                print("Memmaping (shape=%s, dtype=%s) to old file %s" % (
+                logger.log("Memmaping (shape=%s, dtype=%s) to old file %s" % (
                     a.shape, a.dtype, filename))
 
             # The worker process will use joblib.load to memmap the data
@@ -254,7 +257,7 @@ class ArrayMemmapReducer(object):
             # do not convert a into memmap, let pickler do its usual copy with
             # the default system pickler
             if self.verbose > 1:
-                print("Pickling array (shape=%r, dtype=%s)." % (
+                logger.log("Pickling array (shape=%r, dtype=%s)." % (
                     a.shape, a.dtype))
             return (loads, (dumps(a, protocol=HIGHEST_PROTOCOL),))
 

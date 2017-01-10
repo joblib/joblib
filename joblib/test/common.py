@@ -10,7 +10,7 @@ import gc
 
 from joblib._multiprocessing_helpers import mp
 from joblib.testing import SkipTest, skipif
-
+from joblib import logger
 
 # A decorator to run tests only when numpy is available
 try:
@@ -77,12 +77,12 @@ def setup_autokill(module_name, timeout=30):
 
     def autokill():
         pid = os.getpid()
-        print("Timeout exceeded: terminating stalled process: %d" % pid)
+        logger.log("Timeout exceeded: terminating stalled process: %d" % pid)
         os.kill(pid, signal.SIGTERM)
 
         # If were are still there ask the OS to kill ourself for real
         time.sleep(0.5)
-        print("Timeout exceeded: killing stalled process: %d" % pid)
+        logger.log("Timeout exceeded: killing stalled process: %d" % pid)
         os.kill(pid, signal.SIGKILL)
 
     _KILLER_THREADS[module_name] = t = threading.Timer(timeout, autokill)

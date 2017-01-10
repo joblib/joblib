@@ -35,10 +35,12 @@ from . import hashing
 from .func_inspect import get_func_code, get_func_name, filter_args
 from .func_inspect import format_call
 from ._memory_helpers import open_py_source
+from . import logger
 from .logger import Logger, format_time, pformat
 from . import numpy_pickle
 from .disk import mkdirp, rm_subdirs, memstr_to_bytes
 from ._compat import _basestring, PY3_OR_LATER
+
 
 FIRST_LINE_TEXT = "# first line:"
 
@@ -125,9 +127,9 @@ def _load_output(output_dir, func_name, timestamp=None, metadata=None,
             t = ""
 
         if verbose < 10:
-            print('[Memory]%s: Loading %s...' % (t, str(signature)))
+            logger.log('[Memory]%s: Loading %s...' % (t, str(signature)))
         else:
-            print('[Memory]%s: Loading %s from %s' % (
+            logger.log('[Memory]%s: Loading %s from %s' % (
                     t, str(signature), output_dir))
 
     filename = os.path.join(output_dir, 'output.pkl')
@@ -491,12 +493,12 @@ class MemorizedFunc(Logger):
         metadata = None
         # FIXME: The statements below should be try/excepted
         if not (self._check_previous_func_code(stacklevel=4) and
-                                 os.path.exists(output_dir)):
+                os.path.exists(output_dir)):
             if self._verbose > 10:
                 _, name = get_func_name(self.func)
                 self.warn('Computing func %s, argument hash %s in '
                           'directory %s'
-                        % (name, argument_hash, output_dir))
+                          % (name, argument_hash, output_dir))
             out, metadata = self.call(*args, **kwargs)
             if self.mmap_mode is not None:
                 # Memmap the output at the first call to be consistent with
@@ -516,7 +518,7 @@ class MemorizedFunc(Logger):
                     t = time.time() - t0
                     _, name = get_func_name(self.func)
                     msg = '%s cache loaded - %s' % (name, format_time(t))
-                    print(max(0, (80 - len(msg))) * '_' + msg)
+                    logger.log(max(0, (80 - len(msg))) * '_' + msg)
             except Exception:
                 # XXX: Should use an exception logger
                 self.warn('Exception while loading results for '
@@ -707,7 +709,7 @@ class MemorizedFunc(Logger):
         if self._verbose > 10:
             _, func_name = get_func_name(self.func, resolv_alias=False)
             self.warn("Function %s (stored in %s) has changed." %
-                        (func_name, func_dir))
+                      (func_name, func_dir))
         self.clear(warn=True)
         return False
 
@@ -731,7 +733,7 @@ class MemorizedFunc(Logger):
         start_time = time.time()
         output_dir, _ = self._get_output_dir(*args, **kwargs)
         if self._verbose > 0:
-            print(format_call(self.func, args, kwargs))
+            logger.log(format_call(self.func, args, kwargs))
         output = self.func(*args, **kwargs)
         self._persist_output(output, output_dir)
         duration = time.time() - start_time
@@ -740,7 +742,7 @@ class MemorizedFunc(Logger):
         if self._verbose > 0:
             _, name = get_func_name(self.func)
             msg = '%s - %s' % (name, format_time(duration))
-            print(max(0, (80 - len(msg))) * '_' + msg)
+            logger.log(max(0, (80 - len(msg))) * '_' + msg)
         return output, metadata
 
     # Make public
@@ -752,7 +754,7 @@ class MemorizedFunc(Logger):
             filename = os.path.join(dir, 'output.pkl')
             numpy_pickle.dump(output, filename, compress=self.compress)
             if self._verbose > 10:
-                print('Persisting in %s' % dir)
+                logger.log('Persisting in %s' % dir)
         except OSError:
             " Race condition in the creation of the directory "
 
@@ -944,7 +946,7 @@ class Memory(Logger):
 
             for cache_item in cache_items_to_delete:
                 if self._verbose > 10:
-                    print('Deleting cache item {}'.format(cache_item))
+                    logger.log('Deleting cache item {}'.format(cache_item))
                 try:
                     shutil.rmtree(cache_item.path, ignore_errors=True)
                 except OSError:

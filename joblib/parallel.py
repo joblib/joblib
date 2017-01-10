@@ -25,6 +25,7 @@ except ImportError:
 from ._multiprocessing_helpers import mp
 
 from .format_stack import format_outer_frames
+from . import logger
 from .logger import Logger, short_format_time
 from .my_exceptions import TransportableException, _mk_exception
 from .disk import memstr_to_bytes
@@ -214,7 +215,7 @@ class BatchCompletionCallBack(object):
 
         self.parallel._backend.batch_completed(self.batch_size,
                                                this_batch_duration)
-        self.parallel.print_progress()
+        self.parallel.log_progress()
         if self.parallel._original_iterator is not None:
             self.parallel.dispatch_next()
 
@@ -622,20 +623,17 @@ class Parallel(Logger):
                 self._dispatch(tasks)
                 return True
 
-    def _print(self, msg, msg_args):
+    def _log(self, msg, msg_args):
         """Display the message on stout or stderr depending on verbosity"""
         # XXX: Not using the logger framework: need to
         # learn to use logger better.
         if not self.verbose:
             return
-        if self.verbose < 50:
-            writer = sys.stderr.write
-        else:
-            writer = sys.stdout.write
+        file = sys.stderr if self.verbose < 50 else sys.stdout
         msg = msg % msg_args
-        writer('[%s]: %s\n' % (self, msg))
+        logger.log('[%s]: %s\n' % (self, msg), file=file)
 
-    def print_progress(self):
+    def log_progress(self):
         """Display the process of the parallel execution only a fraction
            of time, controlled by self.verbose.
         """
@@ -651,7 +649,7 @@ class Parallel(Logger):
         if self._original_iterator is not None:
             if _verbosity_filter(self.n_dispatched_batches, self.verbose):
                 return
-            self._print('Done %3i tasks      | elapsed: %s',
+            self._log('Done %3i tasks      | elapsed: %s',
                         (self.n_completed_tasks,
                          short_format_time(elapsed_time), ))
         else:
@@ -671,7 +669,7 @@ class Parallel(Logger):
             remaining_time = (elapsed_time / index) * \
                              (self.n_dispatched_tasks - index * 1.0)
             # only display status if remaining time is greater or equal to 0
-            self._print('Done %3i out of %3i | elapsed: %s remaining: %s',
+            self._log('Done %3i out of %3i | elapsed: %s remaining: %s',
                         (index,
                          total_tasks,
                          short_format_time(elapsed_time),
@@ -786,7 +784,7 @@ Sub-process traceback:
             self.retrieve()
             # Make sure that we get a last message telling us we are done
             elapsed_time = time.time() - self._start_time
-            self._print('Done %3i out of %3i | elapsed: %s finished',
+            self._log('Done %3i out of %3i | elapsed: %s finished',
                         (len(self._output), len(self._output),
                          short_format_time(elapsed_time)))
         finally:

@@ -29,6 +29,8 @@ import time
 import tokenize
 import traceback
 
+from . import logger
+
 try:                           # Python 2
     generate_tokens = tokenize.generate_tokens
 except AttributeError:         # Python 3
@@ -212,7 +214,7 @@ def format_records(records):   # , print_globals=False):
                 # inspect messes up resolving the argument list of view()
                 # and barfs out. At some point I should dig into this one
                 # and file a bug report about it.
-                print("\nJoblib's exception reporting continues...\n")
+                logger.log("\nJoblib's exception reporting continues...\n")
                 call = 'in %s(***failed resolving arguments***)' % func
 
         # Initialize a list of names on the current line, which the
@@ -277,7 +279,7 @@ def format_records(records):   # , print_globals=False):
             _m = ("An unexpected error occurred while tokenizing input file %s\n"
                   "The following traceback may be corrupted or invalid\n"
                   "The error message is: %s\n" % (file, msg))
-            print(_m)
+            logger.log(_m)
 
         # prune names list of duplicates, but keep the right order
         unique_names = uniq_stable(names)

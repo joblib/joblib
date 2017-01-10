@@ -14,6 +14,7 @@ import threading
 from multiprocessing import TimeoutError
 from time import sleep
 import mmap
+import re
 
 from joblib import dump, load
 from joblib import parallel
@@ -23,6 +24,7 @@ from joblib.test.common import with_multiprocessing
 from joblib.testing import (parametrize, raises, check_subprocess_call,
                             SkipTest, warns)
 from joblib._compat import PY3_OR_LATER
+from joblib import logger
 
 try:
     import cPickle as pickle
@@ -761,3 +763,23 @@ def test_warning_about_timeout_not_supported_by_backend():
         "The backend class 'SequentialBackend' does not support timeout. "
         "You have set 'timeout=1' in Parallel but the 'timeout' parameter "
         "will not be used.")
+
+
+def custom_log(record):
+    def log(message, file=None):
+        record.append(message)
+    return log
+
+
+def test_parallel_log_monkeypatch(monkeypatch, capsys):
+    record = []
+    monkeypatch.setattr(target=logger, name='log',
+                        value=custom_log(record))
+    Parallel(n_jobs=2, verbose=1)(
+        delayed(square)(x) for x in range(5))
+    stdout, stderr = capsys.readouterr()
+    assert not stdout
+    assert not stderr
+
+    logged = ''.join(record)
+    assert re.search(r'Parallel\(n_jobs=2\).+Done.+5 out of\s+5', logged)
