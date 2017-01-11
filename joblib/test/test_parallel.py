@@ -350,16 +350,6 @@ def test_error_capture():
         assert not isinstance(ex, JoblibException)
 
 
-class Counter(object):
-    def __init__(self, list1, list2):
-        self.list1 = list1
-        self.list2 = list2
-
-    def __call__(self, i):
-        self.list1.append(i)
-        assert len(self.list1) == len(self.list2)
-
-
 def consumer(queue, item):
     queue.append('Consumed %s' % item)
 
