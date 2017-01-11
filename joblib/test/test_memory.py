@@ -715,3 +715,10 @@ def test_memory_reduce_size(tmpdir):
     memory.reduce_size()
     cache_items = _get_cache_items(cachedir)
     assert cache_items == []
+
+
+def test_memory_clear(tmpdir):
+    memory, _, _ = _setup_toy_cache(tmpdir)
+    memory.clear()
+
+    assert os.listdir(memory.cachedir) == []
