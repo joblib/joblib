@@ -134,15 +134,12 @@ def test_simple_parallel(backend, n_jobs):
                 delayed(square)(x) for x in range(5)))
 
 
-def check_main_thread_renamed_no_warning(backend):
-    with warns(None) as warninfo:
-        results = Parallel(n_jobs=2, backend=backend)(
-            delayed(square)(x) for x in range(3))
-        assert results == [0, 1, 4]
-    # The multiprocessing backend will raise a warning when detecting that is
-    # started from the non-main thread. Let's check that there is no false
-    # positive because of the name change.
-    assert len(warninfo) == 0
+@parametrize('backend', ALL_VALID_BACKENDS)
+@parametrize('n_jobs', [-1, 1, 2, 2])
+@parametrize('verbose', [2, 11, 100])
+def test_simple_parallel_verbose(n_jobs, verbose, backend):
+    Parallel(n_jobs=n_jobs, verbose=verbose, backend=backend)(
+        delayed(square)(x) for x in range(5))
 
 
 @parametrize('backend', ALL_VALID_BACKENDS)
@@ -154,14 +151,14 @@ def test_main_thread_renamed_no_warning(backend, monkeypatch):
     monkeypatch.setattr(target=threading.current_thread(), name='name',
                         value='some_new_name_for_the_main_thread')
 
-    with warns(None) as record:
+    with warns(None) as warninfo:
         results = Parallel(n_jobs=2, backend=backend)(
             delayed(square)(x) for x in range(3))
         assert results == [0, 1, 4]
     # The multiprocessing backend will raise a warning when detecting that is
     # started from the non-main thread. Let's check that there is no false
     # positive because of the name change.
-    assert len(record) == 0
+    assert len(warninfo) == 0
 
 
 def nested_loop(backend):
