@@ -128,18 +128,12 @@ def test_effective_n_jobs():
 
 @parametrize('backend', ALL_VALID_BACKENDS)
 @parametrize('n_jobs', [1, 2, -1, -2])
-def test_simple_parallel(backend, n_jobs):
-    assert ([square(x) for x in range(5)] ==
-            Parallel(n_jobs=n_jobs, backend=backend)(
-                delayed(square)(x) for x in range(5)))
-
-
-@parametrize('backend', ALL_VALID_BACKENDS)
-@parametrize('n_jobs', [-1, 1, 2, 2])
 @parametrize('verbose', [2, 11, 100])
-def test_simple_parallel_verbose(n_jobs, verbose, backend):
-    Parallel(n_jobs=n_jobs, verbose=verbose, backend=backend)(
-        delayed(square)(x) for x in range(5))
+def test_simple_parallel(backend, n_jobs, verbose):
+    assert ([square(x) for x in range(5)] ==
+            Parallel(n_jobs=n_jobs, backend=backend,
+                     verbose=verbose)(
+                delayed(square)(x) for x in range(5)))
 
 
 @parametrize('backend', ALL_VALID_BACKENDS)
