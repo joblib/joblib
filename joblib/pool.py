@@ -61,7 +61,7 @@ except ImportError:
 from .numpy_pickle import load
 from .numpy_pickle import dump
 from .hashing import hash
-
+from .backports import make_memmap
 # Some system have a ramdisk mounted by default, we can use it instead of /tmp
 # as the default folder to dump big arrays to share with subprocesses
 SYSTEM_SHARED_MEM_FS = '/dev/shm'
@@ -107,13 +107,13 @@ def _strided_from_memmap(filename, dtype, mode, offset, order, shape, strides,
 
     if strides is None:
         # Simple, contiguous memmap
-        return np.memmap(filename, dtype=dtype, shape=shape, mode=mode,
-                         offset=offset, order=order)
+        return make_memmap(filename, dtype=dtype, shape=shape, mode=mode,
+                           offset=offset, order=order)
     else:
         # For non-contiguous data, memmap the total enclosing buffer and then
         # extract the non-contiguous view with the stride-tricks API
-        base = np.memmap(filename, dtype=dtype, shape=total_buffer_len,
-                         mode=mode, offset=offset, order=order)
+        base = make_memmap(filename, dtype=dtype, shape=total_buffer_len,
+                           mode=mode, offset=offset, order=order)
         return as_strided(base, shape=shape, strides=strides)
 
 

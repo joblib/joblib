@@ -26,6 +26,7 @@ from .numpy_pickle_compat import NDArrayWrapper
 # which we don't care.
 from .numpy_pickle_compat import ZNDArrayWrapper  # noqa
 from ._compat import _basestring, PY3_OR_LATER
+from .backports import make_memmap
 
 ###############################################################################
 # Utility objects for persistence.
@@ -151,12 +152,12 @@ class NumpyArrayWrapper(object):
         if unpickler.mmap_mode == 'w+':
             unpickler.mmap_mode = 'r+'
 
-        marray = unpickler.np.memmap(unpickler.filename,
-                                     dtype=self.dtype,
-                                     shape=self.shape,
-                                     order=self.order,
-                                     mode=unpickler.mmap_mode,
-                                     offset=offset)
+        marray = make_memmap(unpickler.filename,
+                             dtype=self.dtype,
+                             shape=self.shape,
+                             order=self.order,
+                             mode=unpickler.mmap_mode,
+                             offset=offset)
         # update the offset so that it corresponds to the end of the read array
         unpickler.file_handle.seek(offset + marray.nbytes)
 
