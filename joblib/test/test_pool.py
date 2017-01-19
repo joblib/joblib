@@ -1,4 +1,5 @@
 import os
+import mmap
 
 from joblib.test.common import with_numpy, np
 from joblib.test.common import setup_autokill
@@ -6,14 +7,14 @@ from joblib.test.common import teardown_autokill
 from joblib.test.common import with_multiprocessing
 from joblib.test.common import with_dev_shm
 from joblib.testing import raises
+from joblib.backports import make_memmap
 
-
-from joblib._multiprocessing_helpers import mp
-if mp is not None:
-    from joblib.pool import MemmapingPool
-    from joblib.pool import has_shareable_memory
-    from joblib.pool import ArrayMemmapReducer
-    from joblib.pool import reduce_memmap
+from joblib.pool import MemmapingPool
+from joblib.pool import has_shareable_memory
+from joblib.pool import ArrayMemmapReducer
+from joblib.pool import reduce_memmap
+from joblib.pool import _strided_from_memmap
+from joblib.pool import _get_backing_memmap
 
 
 def setup_module():
@@ -433,3 +434,47 @@ def test_workaround_against_bad_memmap_with_copied_buffers(tmpdir):
     finally:
         p.terminate()
         del p
+
+
+@with_numpy
+def test__strided_from_memmap(tmpdir):
+    fname = tmpdir.join('test.mmap').strpath
+    size = 5 * mmap.ALLOCATIONGRANULARITY
+    offset = mmap.ALLOCATIONGRANULARITY + 1
+    # This line creates the mmap file that is reused later
+    memmap_obj = np.memmap(fname, mode='w+', shape=size + offset)
+    # filename, dtype, mode, offset, order, shape, strides, total_buffer_len
+    memmap_obj = _strided_from_memmap(fname, dtype='uint8', mode='r',
+                                      offset=offset, order='C', shape=size,
+                                      strides=None, total_buffer_len=None)
+    assert isinstance(memmap_obj, np.memmap)
+    assert memmap_obj.offset == offset
+    memmap_backed_obj = _strided_from_memmap(fname, dtype='uint8', mode='r',
+                                             offset=offset, order='C',
+                                             shape=(size // 2,), strides=(2,),
+                                             total_buffer_len=size)
+    assert _get_backing_memmap(memmap_backed_obj).offset == offset
+
+
+def identity(arg):
+    return arg
+
+
+@with_numpy
+@with_multiprocessing
+def test_pool_memmap_with_big_offset(tmpdir):
+    # Test that numpy memmap offset is set correctly if greater than
+    # mmap.ALLOCATIONGRANULARITY, see
+    # https://github.com/joblib/joblib/issues/451 and
+    # https://github.com/numpy/numpy/pull/8443 for more details.
+    fname = tmpdir.join('test.mmap').strpath
+    size = 5 * mmap.ALLOCATIONGRANULARITY
+    offset = mmap.ALLOCATIONGRANULARITY + 1
+    obj = make_memmap(fname, mode='w+', shape=size, dtype='uint8',
+                      offset=offset)
+
+    p = MemmapingPool(2, temp_folder=tmpdir.strpath)
+    result = p.apply_async(identity, args=(obj,)).get()
+    assert isinstance(result, np.memmap)
+    assert result.offset == offset
+    np.testing.assert_array_equal(obj, result)

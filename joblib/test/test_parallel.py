@@ -13,7 +13,9 @@ from math import sqrt
 import threading
 from multiprocessing import TimeoutError
 from time import sleep
+import mmap
 
+from joblib import dump, load
 from joblib import parallel
 
 from joblib.test.common import np, with_numpy
@@ -729,3 +731,21 @@ def test_nested_parallel_warnings(capfd):
                        for _ in range(5))
     out, err = capfd.readouterr()
     assert 'Multiprocessing-backed parallel loops cannot be nested' in err
+
+
+def identity(arg):
+    return arg
+
+
+@with_numpy
+@with_multiprocessing
+def test_memmap_with_big_offset(tmpdir):
+    fname = tmpdir.join('test.mmap').strpath
+    size = mmap.ALLOCATIONGRANULARITY
+    obj = [np.zeros(size, dtype='uint8'), np.ones(size, dtype='uint8')]
+    dump(obj, fname)
+    memmap = load(fname, mmap_mode='r')
+    result, = Parallel(n_jobs=2)(delayed(identity)(memmap) for _ in [0])
+    assert isinstance(memmap[1], np.memmap)
+    assert memmap[1].offset > size
+    np.testing.assert_array_equal(obj, result)

@@ -13,6 +13,7 @@ import bz2
 import pickle
 import socket
 from contextlib import closing
+import mmap
 
 from joblib.test.common import np, with_numpy
 from joblib.test.common import with_memory_profiler, memory_used
@@ -898,3 +899,19 @@ def test_pickle_in_socket():
         array_reloaded = numpy_pickle.load(cf)
 
     np.testing.assert_array_equal(array_reloaded, test_array)
+
+
+@with_numpy
+def test_load_memmap_with_big_offset(tmpdir):
+    # Test that numpy memmap offset is set correctly if greater than
+    # mmap.ALLOCATIONGRANULARITY, see
+    # https://github.com/joblib/joblib/issues/451 and
+    # https://github.com/numpy/numpy/pull/8443 for more details.
+    fname = tmpdir.join('test.mmap').strpath
+    size = mmap.ALLOCATIONGRANULARITY
+    obj = [np.zeros(size, dtype='uint8'), np.ones(size, dtype='uint8')]
+    numpy_pickle.dump(obj, fname)
+    memmaps = numpy_pickle.load(fname, mmap_mode='r')
+    assert isinstance(memmaps[1], np.memmap)
+    assert memmaps[1].offset > size
+    np.testing.assert_array_equal(obj, memmaps)
