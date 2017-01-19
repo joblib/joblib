@@ -9,9 +9,11 @@ try:
 
     def make_memmap(filename, dtype='uint8', mode='r+', offset=0,
                     shape=None, order='C'):
-        """Backport of numpy memmap offset fix
+        """Backport of numpy memmap offset fix.
 
         See https://github.com/numpy/numpy/pull/8443 for more details.
+
+        The numpy fix will be available in numpy 1.13.
         """
         mm = np.memmap(filename, dtype=dtype, mode=mode, offset=offset,
                        shape=shape, order=order)

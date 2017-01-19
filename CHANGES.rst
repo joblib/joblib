@@ -37,6 +37,13 @@ Loïc Estève
     An instance of ``joblib.ParallelBackendBase`` can be passed into
     the ``parallel`` argument in ``joblib.Parallel``.
 
+
+Loïc Estève
+
+    Fix handling of memmap objects with offsets greater than
+    mmap.ALLOCATIONGRANULARITY in ``joblib.Parrallel``. See
+    https://github.com/joblib/joblib/issues/451 for more details.
+
 Release 0.10.3
 --------------
 
