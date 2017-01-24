@@ -30,7 +30,6 @@ from .disk import memstr_to_bytes
 from ._parallel_backends import (FallbackToBackend, MultiprocessingBackend,
                                  ThreadingBackend, SequentialBackend)
 from ._compat import _basestring
-from .func_inspect import getfullargspec
 
 # Make sure that those two classes are part of the public joblib.parallel API
 # so that 3rd party backend implementers can import them from here.
@@ -680,12 +679,13 @@ class Parallel(Logger):
             # the use of the lock
             with self._lock:
                 job = self._jobs.pop(0)
+
             try:
-                # check if timeout supported in backend future implementation
-                if 'timeout' in getfullargspec(job.get).args:
+                if self._backend.supports_timeout:
                     self._output.extend(job.get(timeout=self.timeout))
                 else:
                     self._output.extend(job.get())
+
             except BaseException as exception:
                 # Note: we catch any BaseException instead of just Exception
                 # instances to also include KeyboardInterrupt.
