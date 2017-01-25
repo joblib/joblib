@@ -679,17 +679,29 @@ class MemorizedFunc(Logger):
             _, func_name = get_func_name(self.func, resolv_alias=False)
             self.warn("Function %s (stored in %s) has changed." %
                         (func_name, func_dir))
-        self.clear(warn=True)
+
+        # Keep the current cache directory but clear the previous ones.
+        self.clear(skip_current=True, warn=True)
         return False
 
-    def clear(self, warn=True):
+    def clear(self, skip_current=False, warn=True):
         """ Empty the function's cache.
         """
         func_dir = self._get_func_dir(mkdir=False)
+
         if self._verbose > 0 and warn:
             self.warn("Clearing cache %s" % func_dir)
+
+        # Removing all subdirectories of this function as the source code
+        # changed
         if os.path.exists(func_dir):
-            shutil.rmtree(func_dir, ignore_errors=True)
+            parent_func_dir = os.path.split(func_dir)[0]
+            for d in os.listdir(parent_func_dir):
+                if skip_current and d == self.func_code_hash:
+                    continue
+                if os.path.isdir(os.path.join(parent_func_dir, d)):
+                    shutil.rmtree(func_dir, ignore_errors=True)
+
         mkdirp(func_dir)
         func_code, _, first_line = get_func_code(self.func)
         func_code_file = os.path.join(func_dir, 'func_code.py')
