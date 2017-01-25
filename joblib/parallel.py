@@ -16,6 +16,7 @@ import threading
 import itertools
 from numbers import Integral
 from contextlib import contextmanager
+import warnings
 try:
     import cPickle as pickle
 except ImportError:
@@ -30,7 +31,6 @@ from .disk import memstr_to_bytes
 from ._parallel_backends import (FallbackToBackend, MultiprocessingBackend,
                                  ThreadingBackend, SequentialBackend)
 from ._compat import _basestring
-from .func_inspect import getfullargspec
 
 # Make sure that those two classes are part of the public joblib.parallel API
 # so that 3rd party backend implementers can import them from here.
@@ -540,12 +540,22 @@ class Parallel(Logger):
     def _initialize_backend(self):
         """Build a process or thread pool and return the number of workers"""
         try:
-            return self._backend.configure(n_jobs=self.n_jobs, parallel=self,
-                                           **self._backend_args)
+            n_jobs = self._backend.configure(n_jobs=self.n_jobs, parallel=self,
+                                             **self._backend_args)
+            if self.timeout is not None and not self._backend.supports_timeout:
+                warnings.warn(
+                    'The backend class {!r} does not support timeout. '
+                    "You have set 'timeout={}' in Parallel but "
+                    "the 'timeout' parameter will not be used.".format(
+                        self._backend.__class__.__name__,
+                        self.timeout))
+
         except FallbackToBackend as e:
             # Recursively initialize the backend in case of requested fallback.
             self._backend = e.backend
-            return self._initialize_backend()
+            n_jobs = self._initialize_backend()
+
+        return n_jobs
 
     def _effective_n_jobs(self):
         if self._backend:
@@ -680,12 +690,13 @@ class Parallel(Logger):
             # the use of the lock
             with self._lock:
                 job = self._jobs.pop(0)
+
             try:
-                # check if timeout supported in backend future implementation
-                if 'timeout' in getfullargspec(job.get).args:
+                if getattr(self._backend, 'supports_timeout', False):
                     self._output.extend(job.get(timeout=self.timeout))
                 else:
                     self._output.extend(job.get())
+
             except BaseException as exception:
                 # Note: we catch any BaseException instead of just Exception
                 # instances to also include KeyboardInterrupt.
