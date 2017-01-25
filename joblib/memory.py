@@ -84,7 +84,6 @@ def _get_func_fullname(func):
     """
     modules, funcname = get_func_name(func)
     modules.append(funcname)
-    modules.append(hashing.hash(_cached_func_code(func)))
     return os.path.join(*modules)
 
 
@@ -94,7 +93,7 @@ def _cached_func_code(func):
     return u'%s %i\n%s' % (FIRST_LINE_TEXT, first_line, func_code)
 
 
-def _cache_key_to_dir(cachedir, func, argument_hash):
+def _cache_key_to_dir(cachedir, func, func_code_hash, argument_hash):
     """Compute directory associated with a given cache key.
 
     func can be a function or a string as returned by _get_func_fullname().
@@ -104,6 +103,8 @@ def _cache_key_to_dir(cachedir, func, argument_hash):
         parts.append(func)
     else:
         parts.append(_get_func_fullname(func))
+
+    parts.append(func_code_hash)
 
     if argument_hash is not None:
         parts.append(argument_hash)
@@ -243,19 +244,20 @@ class MemorizedResult(Logger):
     timestamp, metadata: string
         for internal use only
     """
-    def __init__(self, cachedir, func, argument_hash,
+    def __init__(self, cachedir, func, func_code_hash, argument_hash,
                  mmap_mode=None, verbose=0, timestamp=None, metadata=None):
         Logger.__init__(self)
         if isinstance(func, _basestring):
             self.func = func
         else:
             self.func = _get_func_fullname(func)
+        self.func_code_hash = func_code_hash
         self.argument_hash = argument_hash
         self.cachedir = cachedir
         self.mmap_mode = mmap_mode
 
         self._output_dir = _cache_key_to_dir(cachedir, self.func,
-                                             argument_hash)
+                                             func_code_hash, argument_hash)
 
         if metadata is not None:
             self.metadata = metadata
@@ -294,7 +296,8 @@ class MemorizedResult(Logger):
                     ))
 
     def __reduce__(self):
-        return (self.__class__, (self.cachedir, self.func, self.argument_hash),
+        return (self.__class__, (self.cachedir, self.func,
+                                 self.func_code_hash, self.argument_hash),
                 {'mmap_mode': self.mmap_mode})
 
 
@@ -446,6 +449,7 @@ class MemorizedFunc(Logger):
         Logger.__init__(self)
         self.mmap_mode = mmap_mode
         self.func = func
+        self.func_code_hash = hashing.hash(_cached_func_code(self.func))
         if ignore is None:
             ignore = []
         self.ignore = ignore
@@ -551,9 +555,10 @@ class MemorizedFunc(Logger):
         """
         _, argument_hash, metadata = self._cached_call(args, kwargs)
 
-        return MemorizedResult(self.cachedir, self.func, argument_hash,
-            metadata=metadata, verbose=self._verbose - 1,
-            timestamp=self.timestamp)
+        return MemorizedResult(self.cachedir, self.func, self.func_code_hash,
+                               argument_hash, metadata=metadata,
+                               verbose=self._verbose - 1,
+                               timestamp=self.timestamp)
 
     def __call__(self, *args, **kwargs):
         return self._cached_call(args, kwargs)[0]
@@ -590,7 +595,8 @@ class MemorizedFunc(Logger):
         """ Get the directory corresponding to the cache for the
             function.
         """
-        func_dir = _cache_key_to_dir(self.cachedir, self.func, None)
+        func_dir = _cache_key_to_dir(self.cachedir, self.func,
+                                     self.func_code_hash, None)
         if mkdir:
             mkdirp(func_dir)
         return func_dir
@@ -608,9 +614,8 @@ class MemorizedFunc(Logger):
         # sometimes have several functions named the same way in a
         # file. This is bad practice, but joblib should be robust to bad
         # practice.
-        cached_func_code = _cached_func_code(self.func)
         with io.open(filename, 'w', encoding="UTF-8") as out:
-            out.write(cached_func_code)
+            out.write(_cached_func_code(self.func))
         # Also store in the in-memory store of function hashes
         is_named_callable = False
         if PY3_OR_LATER:

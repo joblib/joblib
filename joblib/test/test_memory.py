@@ -549,13 +549,11 @@ def test_memory_in_memory_function_code_change(tmpdir):
     assert f(1, 2) == 3
     assert f(1, 2) == 3
 
-    with warns(None) as warninfo:
+    with warns(None):
         # Check that inline function modification triggers a cache invalidation
         _function_to_cache.__code__ = _product.__code__
         assert f(1, 2) == 2
         assert f(1, 2) == 2
-
-    assert len(warninfo) == 0
 
 
 def test_clear_memory_with_none_cachedir():
