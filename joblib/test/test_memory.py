@@ -21,7 +21,13 @@ from joblib.memory import _load_output, _get_func_fullname
 from joblib.memory import JobLibCollisionWarning
 from joblib.test.common import with_numpy, np
 from joblib.testing import parametrize, raises, warns
+from joblib.testing import skipif, check_subprocess_call
 from joblib._compat import PY3_OR_LATER
+
+try:
+    import posix
+except ImportError:
+    posix = None
 
 
 ###############################################################################
@@ -722,3 +728,32 @@ def test_memory_clear(tmpdir):
     memory.clear()
 
     assert os.listdir(memory.cachedir) == []
+
+
+@skipif(posix is None, reason='Not a Posix platform.')
+@parametrize('subdirs', [['myfunc'], ['myfunc' for _ in range(50)]])
+def test_memory_main(tmpdir, subdirs):
+    cache_dir = os.path.join(tmpdir.strpath, 'cache')
+    func_dir = os.path.join(tmpdir.strpath, *subdirs)
+
+    # Create a simple script using memory to execute from filesystem
+    code = '\n\n'.join([
+        'from joblib import Memory',
+        'mem = Memory(cachedir="{}", verbose=100)'.format(cache_dir),
+        'def myfunc(): return',
+        'myfunc = mem.cache(myfunc)',
+        'myfunc()',
+        'myfunc()'])
+
+    # The script is stored in /tmpdir/func/.../func/test.py
+    # We need to create the full path recursively before writing the content.
+    os.makedirs(func_dir)
+    func_code_filename = os.path.join(func_dir, 'test.py')
+    with open(func_code_filename, 'w') as f:
+        f.write(code)
+
+    # smoke test to verify no error is raised
+    check_subprocess_call([sys.executable, func_code_filename])
+
+    assert os.path.exists(os.path.join(tmpdir.strpath,
+                                       'cache', 'joblib', func_dir))

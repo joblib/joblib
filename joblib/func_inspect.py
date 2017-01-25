@@ -128,10 +128,10 @@ def get_func_name(func, resolv_alias=True, win_characters=True):
                 # will change with every new kernel instance. This hack
                 # always returns the same filename
                 parts[-1] = '__ipython-input__'
-            filename = '-'.join(parts)
+            filename = os.path.join(*parts)
             if filename.endswith('.py'):
                 filename = filename[:-3]
-            module = module + '-' + filename
+            module = os.path.join(module, filename)
     module = module.split('.')
     if hasattr(func, 'func_name'):
         name = func.func_name
