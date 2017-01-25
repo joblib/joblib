@@ -44,6 +44,12 @@ Loïc Estève
     mmap.ALLOCATIONGRANULARITY in ``joblib.Parrallel``. See
     https://github.com/joblib/joblib/issues/451 for more details.
 
+Loïc Estève
+
+    Fix performance regression in ``joblib.Parallel`` with
+    n_jobs=1. See https://github.com/joblib/joblib/issues/483 for more
+    details.
+
 Release 0.10.3
 --------------
 
