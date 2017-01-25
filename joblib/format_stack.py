@@ -350,13 +350,7 @@ def format_exc(etype, evalue, etb, context=5, tb_offset=0):
         pyver)
 
     # Drop topmost frames if requested
-    try:
-        records = _fixed_getframes(etb, context, tb_offset)
-    except:
-        raise
-        print('\nUnfortunately, your original traceback can not be '
-              'constructed.\n')
-        return ''
+    records = _fixed_getframes(etb, context, tb_offset)
 
     # Get (safely) a string form of the exception info
     try:
