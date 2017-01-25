@@ -21,7 +21,7 @@ from joblib.memory import _load_output, _get_func_fullname
 from joblib.memory import JobLibCollisionWarning
 from joblib.test.common import with_numpy, np
 from joblib.testing import parametrize, raises, warns
-from joblib.testing import skipif, check_subprocess_call
+from joblib.testing import check_subprocess_call, SkipTest
 from joblib._compat import PY3_OR_LATER
 
 try:
@@ -730,30 +730,31 @@ def test_memory_clear(tmpdir):
     assert os.listdir(memory.cachedir) == []
 
 
-@skipif(posix is None, reason='Not a Posix platform.')
-@parametrize('subdirs', [['myfunc'], ['myfunc' for _ in range(50)]])
-def test_memory_main(tmpdir, subdirs):
-    cache_dir = os.path.join(tmpdir.strpath, 'cache')
-    func_dir = os.path.join(tmpdir.strpath, *subdirs)
+@parametrize('subdirs', [['subdir'],
+                         # non-regression bug for
+                         # https://github.com/joblib/joblib/issues/482
+                         ['subdir{}'.format(i) for i in range(50)]])
+def test_memory_with_function_defined_in_main(tmpdir, subdirs):
+    cache_dir = tmpdir.join('cache')
+    func_code_filename = tmpdir.join(*subdirs).join('test.py')
 
-    # Create a simple script using memory to execute from filesystem
+    if len(func_code_filename.strpath) > 260 and posix is None:
+        # Test is akward on Windows because of the 260 characters limit for
+        # the full pathname
+        raise SkipTest('Skipping on Windows')
+
     code = '\n\n'.join([
+        # sys.path tweak needed to make sure that test run fine from a
+        # git checkout without installing
+        'import sys; sys.path[:0] = "."',
         'from joblib import Memory',
-        'mem = Memory(cachedir="{}", verbose=100)'.format(cache_dir),
-        'def myfunc(): return',
-        'myfunc = mem.cache(myfunc)',
-        'myfunc()',
-        'myfunc()'])
+        'mem = Memory(cachedir={!r}, verbose=0)'.format(cache_dir.strpath),
+        'def myfunc(): print("executing myfunc")',
+        'myfunc_cached = mem.cache(myfunc)',
+        'myfunc_cached()',
+        'myfunc_cached()'])
 
-    # The script is stored in /tmpdir/func/.../func/test.py
-    # We need to create the full path recursively before writing the content.
-    os.makedirs(func_dir)
-    func_code_filename = os.path.join(func_dir, 'test.py')
-    with open(func_code_filename, 'w') as f:
-        f.write(code)
+    func_code_filename.write(code, ensure=True)
 
-    # smoke test to verify no error is raised
-    check_subprocess_call([sys.executable, func_code_filename])
-
-    assert os.path.exists(os.path.join(tmpdir.strpath,
-                                       'cache', 'joblib', func_dir))
+    check_subprocess_call([sys.executable, func_code_filename.strpath],
+                          stdout_regex='^executing myfunc$')
