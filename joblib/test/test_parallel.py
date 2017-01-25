@@ -749,3 +749,15 @@ def test_memmap_with_big_offset(tmpdir):
     assert isinstance(memmap[1], np.memmap)
     assert memmap[1].offset > size
     np.testing.assert_array_equal(obj, result)
+
+
+def test_warning_about_timeout_not_supported_by_backend():
+    with warns(None) as warninfo:
+        Parallel(timeout=1)(delayed(square)(i) for i in range(10))
+    assert len(warninfo) == 1
+    w = warninfo[0]
+    assert isinstance(w.message, UserWarning)
+    assert str(w.message) == (
+        "The backend class 'SequentialBackend' does not support timeout. "
+        "You have set 'timeout=1' in Parallel but the 'timeout' parameter "
+        "will not be used.")
