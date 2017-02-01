@@ -739,8 +739,8 @@ def test_memory_with_function_defined_in_main(tmpdir, subdirs):
     func_code_filename = tmpdir.join(*subdirs).join('test.py')
 
     if len(func_code_filename.strpath) > 260 and posix is None:
-        # Test is akward on Windows because of the 260 characters limit for
-        # the full pathname
+        # Test is awkward on Windows because of the 260 characters
+        # limit for the full pathname
         raise SkipTest('Skipping on Windows')
 
     code = '\n\n'.join([

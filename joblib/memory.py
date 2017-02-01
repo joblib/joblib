@@ -745,17 +745,18 @@ class MemorizedFunc(Logger):
         return output, metadata
 
     # Make public
-    def _persist_output(self, output, dir):
+    def _persist_output(self, output, output_dir):
         """ Persist the given output tuple in the directory.
         """
         try:
-            mkdirp(dir)
-            filename = os.path.join(dir, 'output.pkl')
+            mkdirp(output_dir)
+            filename = os.path.join(output_dir, 'output.pkl')
             numpy_pickle.dump(output, filename, compress=self.compress)
             if self._verbose > 10:
-                print('Persisting in %s' % dir)
-        except OSError:
-            " Race condition in the creation of the directory "
+                print('Persisting in %s' % output_dir)
+        except OSError as e:
+            " Race condition in the creation of the directory, "
+            "{}".format(e)
 
     def _persist_input(self, output_dir, duration, args, kwargs,
                        this_duration_limit=0.5):
