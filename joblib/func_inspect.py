@@ -83,7 +83,7 @@ def _clean_win_chars(string):
         # In Python 3, quote is elsewhere
         import urllib.parse
         quote = urllib.parse.quote
-    for char in ('<', '>', '!', ':', '\\'):
+    for char in ('<', '>', '!', ':'):
         string = string.replace(char, quote(char))
     return string
 
@@ -128,6 +128,9 @@ def get_func_name(func, resolv_alias=True, win_characters=True):
                 # will change with every new kernel instance. This hack
                 # always returns the same filename
                 parts[-1] = '__ipython-input__'
+            if os.name == 'nt':
+                # Remove ':' from drive letter
+                parts[0] = parts[0][:-1]
             filename = os.path.join(*parts)
             if filename.endswith('.py'):
                 filename = filename[:-3]
