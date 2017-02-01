@@ -15,7 +15,6 @@ import shutil
 import time
 import pydoc
 import re
-import sys
 try:
     import cPickle as pickle
 except ImportError:
@@ -34,7 +33,7 @@ import datetime
 # Local imports
 from . import hashing
 from .func_inspect import get_func_code, get_func_name, filter_args
-from .func_inspect import format_signature, format_call
+from .func_inspect import format_call
 from ._memory_helpers import open_py_source
 from .logger import Logger, format_time, pformat
 from . import numpy_pickle
