@@ -757,4 +757,4 @@ def test_memory_with_function_defined_in_main(tmpdir, subdirs):
     func_code_filename.write(code, ensure=True)
 
     check_subprocess_call([sys.executable, func_code_filename.strpath],
-                          stdout_regex='^executing myfunc$')
+                          stdout_regex='^executing myfunc\s$')
