@@ -9,17 +9,28 @@ Test the memory module.
 import shutil
 import os
 import os.path
-import pickle
 import sys
 import time
 import datetime
+import pickle
+try:
+    # Python 2.7: use the C pickle to speed up
+    # test_concurrency_safe_write which pickles big python objects
+    import cPickle as cpickle
+except ImportError:
+    import pickle as cpickle
+import functools
+
 
 from joblib.memory import Memory, MemorizedFunc, NotMemorizedFunc
 from joblib.memory import MemorizedResult, NotMemorizedResult, _FUNCTION_HASHES
 from joblib.memory import _get_cache_items, _get_cache_items_to_delete
 from joblib.memory import _load_output, _get_func_fullname
 from joblib.memory import JobLibCollisionWarning
+from joblib.memory import concurrency_safe_write
+from joblib.parallel import Parallel, delayed
 from joblib.test.common import with_numpy, np
+from joblib.test.common import with_multiprocessing
 from joblib.testing import parametrize, raises, warns
 from joblib._compat import PY3_OR_LATER
 
@@ -722,3 +733,89 @@ def test_memory_clear(tmpdir):
     memory.clear()
 
     assert os.listdir(memory.cachedir) == []
+
+
+def fast_func_with_complex_output():
+    complex_obj = ['a' * 1000] * 1000
+    return complex_obj
+
+
+def fast_func_with_conditional_complex_output(complex_output=True):
+    complex_obj = {str(i): i for i in range(int(1e5))}
+    return complex_obj if complex_output else 'simple output'
+
+
+@with_multiprocessing
+def test_cached_function_race_condition_when_persisting_output(tmpdir, capfd):
+    # Test race condition where multiple processes are writing into
+    # the same output.pkl. See
+    # https://github.com/joblib/joblib/issues/490 for more details.
+    memory = Memory(cachedir=tmpdir.strpath)
+    func_cached = memory.cache(fast_func_with_complex_output)
+
+    Parallel(n_jobs=2)(delayed(func_cached)() for i in range(3))
+
+    stdout, stderr = capfd.readouterr()
+
+    # Checking both stdout and stderr (ongoing PR #434 may change
+    # logging destination) to make sure there is no exception while
+    # loading the results
+    exception_msg = 'Exception while loading results'
+    assert exception_msg not in stdout
+    assert exception_msg not in stderr
+
+
+@with_multiprocessing
+def test_cached_function_race_condition_when_persisting_output_2(tmpdir,
+                                                                 capfd):
+    # Test race condition in first attempt at solving
+    # https://github.com/joblib/joblib/issues/490. The race condition
+    # was due to the delay between seeing the cache directory created
+    # (interpreted as the result being cached) and the output.pkl being
+    # pickled.
+    memory = Memory(cachedir=tmpdir.strpath)
+    func_cached = memory.cache(fast_func_with_conditional_complex_output)
+
+    Parallel(n_jobs=2)(delayed(func_cached)(True if i % 2 == 0 else False)
+                       for i in range(3))
+
+    stdout, stderr = capfd.readouterr()
+
+    # Checking both stdout and stderr (ongoing PR #434 may change
+    # logging destination) to make sure there is no exception while
+    # loading the results
+    exception_msg = 'Exception while loading results'
+    assert exception_msg not in stdout
+    assert exception_msg not in stderr
+
+
+def write_func(output, filename):
+    with open(filename, 'wb') as f:
+        cpickle.dump(output, f)
+
+
+def load_func(expected, filename):
+    for i in range(10):
+        try:
+            with open(filename, 'rb') as f:
+                reloaded = cpickle.load(f)
+            break
+        except OSError:
+            # On Windows you can have WindowsError ([Error 5] Access
+            # is denied) when reading the file, probably because a
+            # writer process has a lock on the file
+            time.sleep(0.1)
+    else:
+        raise
+    assert expected == reloaded
+
+
+@with_multiprocessing
+@parametrize('backend', ['multiprocessing', 'threading'])
+def test_concurrency_safe_write(tmpdir, backend):
+    filename = tmpdir.join('test.pkl').strpath
+    obj = {str(i): i for i in range(int(1e5))}
+    funcs = [functools.partial(concurrency_safe_write, write_func=write_func)
+             if i % 3 != 2 else load_func for i in range(12)]
+    Parallel(n_jobs=2, backend=backend)(
+        delayed(func)(obj, filename) for func in funcs)
