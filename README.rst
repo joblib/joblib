@@ -50,7 +50,7 @@ Run the test suite using::
 
 from the root of the project.
 
-|Travis| |AppVeyor| |Coveralls|
+|Travis| |AppVeyor| |Coveralls| |Codecov|
 
 .. |Travis| image:: https://travis-ci.org/joblib/joblib.svg?branch=master
    :target: https://travis-ci.org/joblib/joblib
@@ -63,6 +63,10 @@ from the root of the project.
 .. |Coveralls| image:: https://coveralls.io/repos/joblib/joblib/badge.svg?branch=master&service=github
    :target: https://coveralls.io/github/joblib/joblib?branch=master
    :alt: Coveralls coverage
+
+.. |Codecov| image:: https://codecov.io/gh/joblib/joblib/branch/master/graph/badge.svg
+   :target: https://codecov.io/gh/joblib/joblib
+   ::alt: Codecov coverage
 
 Building the docs
 =========================
