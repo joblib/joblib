@@ -62,7 +62,7 @@ from the root of the project.
 
 .. |Codecov| image:: https://codecov.io/gh/joblib/joblib/branch/master/graph/badge.svg
    :target: https://codecov.io/gh/joblib/joblib
-   ::alt: Codecov coverage
+   :alt: Codecov coverage
 
 
 Building the docs
