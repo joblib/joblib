@@ -17,7 +17,7 @@ if [[ "$SKIP_TESTS" != "true" ]]; then
 
     if [ "$COVERAGE" == "true" ]; then
         # Add coverage option to setup.cfg file if current test run
-        # has to generate report for coveralls ...
+        # has to generate report for codecov ...
         export PYTEST_ADDOPTS="--cov=joblib"
     fi
     make
