@@ -14,7 +14,7 @@ env:
     - PYTHON_VERSION="3.5" NUMPY_VERSION="1.10"
     - PYTHON_VERSION="3.6" NUMPY_VERSION="1.11" COVERAGE="true"
     # multiprocesssing disabled via the JOBLIB_MULTIPROCESSING environment variable
-    - PYTHON_VERSION="3.6" NUMPY_VERSION="1.11" JOBLIB_MULTIPROCESSING=0
+    - PYTHON_VERSION="3.6" NUMPY_VERSION="1.11" JOBLIB_MULTIPROCESSING=0 COVERAGE="true"
     # flake8 linting on diff wrt common ancestor with upstream/master
     # flake8 is only available with python 3.5 at the moment.
     - SKIP_TESTS="true" FLAKE8_VERSION="*" PYTHON_VERSION="3.5"
