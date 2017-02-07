@@ -4,4 +4,3 @@
 numpy==1.9.2
 wheel
 pytest
-codecov
