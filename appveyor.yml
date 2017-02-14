@@ -8,8 +8,8 @@ environment:
       PYTHON_VERSION: "2.7.x"
       PYTHON_ARCH: "32"
 
-    - PYTHON: "C:\\Python34-x64"
-      PYTHON_VERSION: "3.4.x"
+    - PYTHON: "C:\\Python35-x64"
+      PYTHON_VERSION: "3.5.x"
       PYTHON_ARCH: "64"
 
 install:
@@ -19,7 +19,7 @@ install:
   - "SET PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%"
 
   # Install the build and runtime dependencies of the project.
-  - "pip install --trusted-host 28daf2247a33ed269873-7b1aad3fab3cc330e1fd9d109892382a.r6.cf2.rackcdn.com -r appveyor/requirements.txt"
+  - "pip install -r appveyor/requirements.txt"
   - "python setup.py bdist_wheel"
   - ps: "ls dist"
 
