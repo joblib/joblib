@@ -28,7 +28,7 @@ from time import sleep
 try:
     WindowsError
 except NameError:
-    WindowsError = None
+    WindowsError = type(None)
 
 from pickle import whichmodule
 try:
@@ -605,11 +605,12 @@ class MemmapingPool(PicklingPool):
             try:
                 super(MemmapingPool, self).terminate()
                 break
-            except WindowsError as e:
-                # Workaround  occasional "[Error 5] Access is denied" issue
-                # when trying to terminate a process under windows.
-                sleep(0.1)
-                if i + 1 == n_retries:
-                    warnings.warn("Failed to terminate worker processes in "
-                                  " multiprocessing pool: %r" % e)
+            except OSError as e:
+                if isinstance(e, WindowsError):
+                    # Workaround  occasional "[Error 5] Access is denied" issue
+                    # when trying to terminate a process under windows.
+                    sleep(0.1)
+                    if i + 1 == n_retries:
+                        warnings.warn("Failed to terminate worker processes in"
+                                      " multiprocessing pool: %r" % e)
         delete_folder(self._temp_folder)
