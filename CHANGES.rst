@@ -50,6 +50,12 @@ Loïc Estève
     n_jobs=1. See https://github.com/joblib/joblib/issues/483 for more
     details.
 
+Loïc Estève
+
+    Fix race condition when a function cached with
+    ``joblib.Memory.cache`` was used inside a ``joblib.Parallel``. See
+    https://github.com/joblib/joblib/issues/490 for more details.
+
 Release 0.10.3
 --------------
 
