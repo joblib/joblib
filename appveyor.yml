@@ -30,14 +30,12 @@ install:
 build: false
 
 test_script:
-  # Change to a non-source folder to make sure we run the tests on the
-  # installed library.
-  - "cd C:\\"
-  - "py.test --pyargs joblib"
+  - powershell ./continuous_integration/appveyor/test.ps1
 
 artifacts:
   # Archive the generated wheel package in the ci.appveyor.com build report.
   - path: dist\*
 
-#on_success:
+on_success:
 #  - TODO: upload the content of dist/*.whl to a public wheelhouse
+  - codecov
