@@ -2,3 +2,4 @@ numpy
 wheel
 pytest
 pytest-cov
+codecov
