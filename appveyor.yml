@@ -33,7 +33,10 @@ test_script:
   # Change to a non-source folder to make sure we run the tests on the
   # installed library.
   - "cd C:\\"
-  - "py.test --pyargs joblib"
+  - "py.test --pyargs joblib --cov=joblib"
+
+after_test:
+  - codecov --root C:\\
 
 artifacts:
   # Archive the generated wheel package in the ci.appveyor.com build report.
