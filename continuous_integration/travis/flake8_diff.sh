@@ -12,8 +12,8 @@
 # Additional features:
 #   - the line numbers in Travis match the local branch on the PR
 #     author machine.
-#   - bash continuous_integration/flake8_diff.sh can be run locally for quick
-#     turn-around
+#   - bash continuous_integration/travis/flake8_diff.sh can be run
+#     locally for quick turn-around
 
 set -e
 # pipefail is necessary to propagate exit codes

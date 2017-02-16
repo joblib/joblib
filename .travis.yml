@@ -22,10 +22,10 @@ env:
     - SKIP_TESTS="true" FLAKE8_VERSION="2.5.1" PYTHON_VERSION="3.5"
 
 install:
-    - source continuous_integration/install.sh
+    - source continuous_integration/travis/install.sh
 
 script:
-    - source continuous_integration/test_script.sh
+    - source continuous_integration/travis/test_script.sh
 
 after_success:
     # Ignore codecov failures because we don't want travis to report a
