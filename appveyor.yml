@@ -15,16 +15,16 @@ environment:
 install:
   # Install Python (from the official .msi of http://python.org) and pip when
   # not already installed.
-  - "powershell ./appveyor/install.ps1"
-  - "SET PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%"
+  - powershell ./continuous_integration/appveyor/install.ps1
+  - SET PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%
 
   # Install the build and runtime dependencies of the project.
-  - "pip install -r appveyor/requirements.txt"
-  - "python setup.py bdist_wheel"
-  - ps: "ls dist"
+  - pip install -r continuous_integration/appveyor/requirements.txt
+  - python setup.py bdist_wheel
+  - ps: ls dist
 
   # Install the generated wheel package to test it
-  - "pip install --pre --no-index --find-links dist/ joblib"
+  - pip install --pre --no-index --find-links dist/ joblib
 
 # Not a .NET project, we build in the install step instead
 build: false
