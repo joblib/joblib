@@ -1,3 +1,22 @@
+|PyPi| |Travis| |AppVeyor| |Codecov|
+
+.. |Travis| image:: https://travis-ci.org/joblib/joblib.svg?branch=master
+   :target: https://travis-ci.org/joblib/joblib
+   :alt: Travis build status
+
+.. |AppVeyor| image:: https://ci.appveyor.com/api/projects/status/github/joblib/joblib?branch=master&svg=true
+   :target: https://ci.appveyor.com/project/joblib-ci/joblib/history
+   :alt: AppVeyor build status
+
+.. |Codecov| image:: https://codecov.io/gh/joblib/joblib/branch/master/graph/badge.svg
+   :target: https://codecov.io/gh/joblib/joblib
+   :alt: Codecov coverage
+
+.. |PyPi| image:: https://badge.fury.io/py/joblib.svg
+   :target: https://badge.fury.io/py/joblib
+   :alt: Joblib version
+
+
 The homepage of joblib with user documentation is located on:
 
 https://pythonhosted.org/joblib/
@@ -49,21 +68,6 @@ Run the test suite using::
     py.test joblib
 
 from the root of the project.
-
-|Travis| |AppVeyor| |Codecov|
-
-.. |Travis| image:: https://travis-ci.org/joblib/joblib.svg?branch=master
-   :target: https://travis-ci.org/joblib/joblib
-   :alt: Travis build status
-
-.. |AppVeyor| image:: https://ci.appveyor.com/api/projects/status/github/joblib/joblib?branch=master&svg=true
-   :target: https://ci.appveyor.com/project/joblib-ci/joblib/history
-   :alt: AppVeyor build status
-
-.. |Codecov| image:: https://codecov.io/gh/joblib/joblib/branch/master/graph/badge.svg
-   :target: https://codecov.io/gh/joblib/joblib
-   :alt: Codecov coverage
-
 
 Building the docs
 =========================
