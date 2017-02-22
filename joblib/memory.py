@@ -528,10 +528,14 @@ class MemorizedFunc(Logger):
                     print(max(0, (80 - len(msg))) * '_' + msg)
             except Exception:
                 # XXX: Should use an exception logger
+                _, func_name = get_func_name(self.func)
+                args_kwargs = 'args=%s, kwargs=%s' % (args, kwargs)
+                if len(args_kwargs) > 100 and self._verbose < 50:
+                    # Truncate huge args_kwargs list
+                    args_kwargs = args_kwargs[: 100] + '...'
                 self.warn('Exception while loading results for '
-                          '(args=%s, kwargs=%s)\n %s' %
-                          (args, kwargs, traceback.format_exc()))
-
+                          '%s (%s)\n %s' %
+                          (func_name, args_kwargs, traceback.format_exc()))
                 out, metadata = self.call(*args, **kwargs)
                 argument_hash = None
         return (out, argument_hash, metadata)
