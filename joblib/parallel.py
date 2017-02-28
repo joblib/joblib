@@ -682,7 +682,8 @@ class Parallel(Logger):
 
     def retrieve(self):
         self._output = list()
-        while self._iterating or len(self._jobs) > 0:
+        while (self._iterating or len(self._jobs) > 0
+                or self._original_iterator is not None):
             if len(self._jobs) == 0:
                 # Wait for an async callback to dispatch new jobs
                 time.sleep(0.01)
