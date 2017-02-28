@@ -3,3 +3,6 @@ wheel
 pytest
 pytest-cov
 codecov
+
+# Temporary debug of loky backend
+https://github.com/tomMoral/loky/archive/master.zip

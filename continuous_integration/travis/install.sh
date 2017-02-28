@@ -84,4 +84,7 @@ if [[ "$COVERAGE" == "true" ]]; then
     pip install pytest-cov codecov
 fi
 
+# Temporary debug of loky backend
+pip install https://github.com/tomMoral/loky/archive/master.zip
+
 python setup.py install
