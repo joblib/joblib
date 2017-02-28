@@ -84,6 +84,9 @@ if [[ "$COVERAGE" == "true" ]]; then
     pip install pytest-cov codecov
 fi
 
+# Install py.test timeout to fasten failure in deadlocking tests
+pip install pytest-timeout
+
 # Temporary debug of loky backend
 pip install https://github.com/tomMoral/loky/archive/master.zip
 

@@ -12,6 +12,10 @@ environment:
       PYTHON_VERSION: "3.5.x"
       PYTHON_ARCH: "64"
 
+matrix:
+    fast_finish: true
+
+
 install:
   # Install Python (from the official .msi of http://python.org) and pip when
   # not already installed.
