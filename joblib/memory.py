@@ -31,6 +31,7 @@ import threading
 from . import hashing
 from .func_inspect import get_func_code, get_func_name, filter_args
 from .func_inspect import format_call
+from .func_inspect import format_signature
 from ._memory_helpers import open_py_source
 from .logger import Logger, format_time, pformat
 from . import numpy_pickle
@@ -528,10 +529,10 @@ class MemorizedFunc(Logger):
                     print(max(0, (80 - len(msg))) * '_' + msg)
             except Exception:
                 # XXX: Should use an exception logger
+                _, signature = format_signature(self.func, *args, **kwargs)
                 self.warn('Exception while loading results for '
-                          '(args=%s, kwargs=%s)\n %s' %
-                          (args, kwargs, traceback.format_exc()))
-
+                          '{}\n {}'.format(
+                              signature, traceback.format_exc()))
                 out, metadata = self.call(*args, **kwargs)
                 argument_hash = None
         return (out, argument_hash, metadata)

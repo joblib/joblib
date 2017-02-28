@@ -819,3 +819,42 @@ def test_concurrency_safe_write(tmpdir, backend):
              if i % 3 != 2 else load_func for i in range(12)]
     Parallel(n_jobs=2, backend=backend)(
         delayed(func)(obj, filename) for func in funcs)
+
+
+def test_memory_recomputes_after_an_error_why_loading_results(tmpdir,
+                                                              monkeypatch):
+    memory = Memory(tmpdir.strpath)
+
+    def func(arg):
+        return arg, time.time()
+
+    cached_func = memory.cache(func)
+    input_arg = 'arg'
+    arg, timestamp = cached_func(input_arg)
+
+    # Make sure the function is correctly cached
+    assert arg == input_arg
+
+    # Corrupting output.pkl to make sure that an error happens when
+    # loading the cached result
+    single_cache_item, = _get_cache_items(memory.cachedir)
+    output_filename = os.path.join(single_cache_item.path, 'output.pkl')
+    with open(output_filename, 'w') as f:
+        f.write('garbage')
+
+    recorded_warnings = []
+
+    def append_to_record(item):
+        recorded_warnings.append(item)
+
+    # Make sure that corrupting the file causes recomputation and that
+    # a warning is issued. Need monkeypatch because pytest does not
+    # capture stdlib logging output (see
+    # https://github.com/pytest-dev/pytest/issues/2079)
+    monkeypatch.setattr(cached_func, 'warn', append_to_record)
+    recomputed_arg, recomputed_timestamp = cached_func(arg)
+    assert len(recorded_warnings) == 1
+    exception_msg = 'Exception while loading results'
+    assert exception_msg in recorded_warnings[0]
+    assert recomputed_arg == arg
+    assert recomputed_timestamp > timestamp

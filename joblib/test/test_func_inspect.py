@@ -222,6 +222,30 @@ def test_format_signature(func, args, kwargs, sgn_expected):
     assert sgn_result == sgn_expected
 
 
+def test_format_signature_long_arguments():
+    shortening_threshold = 1500
+    # shortening gets it down to 700 characters but there is the name
+    # of the function in the signature and a few additional things
+    # like dots for the ellipsis
+    shortening_target = 700 + 10
+
+    arg = 'a' * shortening_threshold
+    _, signature = format_signature(h, arg)
+    assert len(signature) < shortening_target
+
+    nb_args = 5
+    args = [arg for _ in range(nb_args)]
+    _, signature = format_signature(h, *args)
+    assert len(signature) < shortening_target * nb_args
+
+    kwargs = {str(i): arg for i, arg in enumerate(args)}
+    _, signature = format_signature(h, **kwargs)
+    assert len(signature) < shortening_target * nb_args
+
+    _, signature = format_signature(h, *args, **kwargs)
+    assert len(signature) < shortening_target * 2 * nb_args
+
+
 @with_numpy
 def test_format_signature_numpy():
     """ Test the format signature formatting with numpy.
