@@ -682,8 +682,7 @@ class Parallel(Logger):
 
     def retrieve(self):
         self._output = list()
-        while (self._iterating or len(self._jobs) > 0
-                or self._original_iterator is not None):
+        while self._iterating or len(self._jobs) > 0:
             if len(self._jobs) == 0:
                 # Wait for an async callback to dispatch new jobs
                 time.sleep(0.01)
@@ -776,10 +775,9 @@ Sub-process traceback:
             # Only set self._iterating to True if at least a batch
             # was dispatched. In particular this covers the edge
             # case of Parallel used with an exhausted iterator.
+            self._iterating = False
             while self.dispatch_one_batch(iterator):
                 self._iterating = True
-            else:
-                self._iterating = False
 
             if pre_dispatch == "all" or n_jobs == 1:
                 # The iterable was consumed all at once by the above for loop.

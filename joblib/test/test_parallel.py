@@ -501,7 +501,7 @@ def check_backend_context_manager(backend_name):
             assert type(p._backend) == FakeParallelBackend
 
 
-all_backends_for_context_manager = ['multiprocessing', 'threading'] + \
+all_backends_for_context_manager = ['loky', 'multiprocessing', 'threading'] + \
                                    ['test_backend_%d' % i for i in range(3)]
 
 
