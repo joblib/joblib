@@ -135,6 +135,27 @@ class BatchedCalls(object):
     def __len__(self):
         return self._size
 
+    try:
+        # If cloudpickle is available on the system, use it to pickle the
+        # function. This permits to use interactive terminal for parallel
+        # calls.
+        import cloudpickle  # noqa: F401
+
+        def __getstate__(self):
+            from cloudpickle import dumps
+            items = [(dumps(func), args, kwargs)
+                     for func, args, kwargs in self.items]
+            return (items, self._size)
+
+        def __setstate__(self, state):
+            from cloudpickle import loads
+            items, self._size = state
+            self.items = [(loads(func), args, kwargs)
+                          for func, args, kwargs in items]
+
+    except ImportError:
+        pass
+
 
 ###############################################################################
 # CPU count that works also when multiprocessing has been disabled via
