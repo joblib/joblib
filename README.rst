@@ -74,7 +74,8 @@ Building the docs
 
 To build the docs you need to have setuptools and sphinx (>=0.5) installed.
 Run the command::
-  python setup.py build_sphinx
+
+    python setup.py build_sphinx
 
 The docs are built in the build/sphinx/html directory.
 
