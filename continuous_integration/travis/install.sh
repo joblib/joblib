@@ -80,6 +80,12 @@ if [ -n "$NUMPY_VERSION" ]; then
     pip install memory_profiler
 fi
 
+# Install py.test timeout to fasten failure in deadlocking tests
+pip install pytest-timeout
+
+# Temporary debug of loky backend
+pip install https://github.com/tomMoral/loky/archive/master.zip
+
 if [[ "$COVERAGE" == "true" ]]; then
     pip install pytest-cov codecov
 fi
@@ -88,10 +94,5 @@ if [[ "$BUILD_DOC" == "true" ]]; then
     conda install sphinx --yes
     python setup.py build_sphinx
 fi
-# Install py.test timeout to fasten failure in deadlocking tests
-pip install pytest-timeout
-
-# Temporary debug of loky backend
-pip install https://github.com/tomMoral/loky/archive/master.zip
 
 python setup.py install
