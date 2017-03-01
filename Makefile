@@ -3,7 +3,7 @@
 all: test
 
 test:
-	py.test joblib
+	pytest joblib
 
 test-no-multiprocessing:
-	export JOBLIB_MULTIPROCESSING=0 && py.test joblib
+	export JOBLIB_MULTIPROCESSING=0 && pytest joblib
