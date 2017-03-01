@@ -65,7 +65,7 @@ Running the test suite
 To run the test suite, you need the pytest (version >= 3) and coverage modules.
 Run the test suite using::
 
-    py.test joblib
+    pytest joblib
 
 from the root of the project.
 
@@ -74,7 +74,8 @@ Building the docs
 
 To build the docs you need to have setuptools and sphinx (>=0.5) installed.
 Run the command::
-  python setup.py build_sphinx
+
+    python setup.py build_sphinx
 
 The docs are built in the build/sphinx/html directory.
 

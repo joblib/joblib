@@ -28,9 +28,9 @@ Olivier Grisel
 
 Karan Desai
 
-    py.test is used to run the tests instead of nosetests.
-    ``python setup.py test`` or ``python setup.py nosetests`` do not work
-    anymore, run ``py.test joblib`` instead.
+    pytest is used to run the tests instead of nosetests.
+    ``python setup.pytest`` or ``python setup.py nosetests`` do not work
+    anymore, run ``pytest joblib`` instead.
 
 Loïc Estève
 

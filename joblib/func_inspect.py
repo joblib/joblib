@@ -316,6 +316,13 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
     return arg_dict
 
 
+def _format_arg(arg):
+    formatted_arg = pformat(arg, indent=2)
+    if len(formatted_arg) > 1500:
+        formatted_arg = '%s...' % formatted_arg[:700]
+    return formatted_arg
+
+
 def format_signature(func, *args, **kwargs):
     # XXX: Should this use inspect.formatargvalues/formatargspec?
     module, name = get_func_name(func)
@@ -328,14 +335,12 @@ def format_signature(func, *args, **kwargs):
     arg_str = list()
     previous_length = 0
     for arg in args:
-        arg = pformat(arg, indent=2)
-        if len(arg) > 1500:
-            arg = '%s...' % arg[:700]
+        formatted_arg = _format_arg(arg)
         if previous_length > 80:
-            arg = '\n%s' % arg
-        previous_length = len(arg)
-        arg_str.append(arg)
-    arg_str.extend(['%s=%s' % (v, pformat(i)) for v, i in kwargs.items()])
+            formatted_arg = '\n%s' % formatted_arg
+        previous_length = len(formatted_arg)
+        arg_str.append(formatted_arg)
+    arg_str.extend(['%s=%s' % (v, _format_arg(i)) for v, i in kwargs.items()])
     arg_str = ', '.join(arg_str)
 
     signature = '%s(%s)' % (name, arg_str)

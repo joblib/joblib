@@ -181,7 +181,7 @@ argument in its own API.
 ==================================
 
 .. autoclass:: joblib.Parallel
-   :members: auto
+    :noindex:
 
 .. autofunction:: joblib.delayed
 

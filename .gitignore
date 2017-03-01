@@ -35,5 +35,5 @@ doc/README.rst
 # Coverage report
 .coverage
 
-# py.test cache on failure
+# pytest cache on failure
 .cache
