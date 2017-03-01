@@ -154,7 +154,7 @@ def test_main_thread_renamed_no_warning(backend, monkeypatch):
 
     # Due to the default parameters of LokyBackend, there is a change that
     # warninfo catches Warnings from worker timeouts. We remove it if it exists
-    warninfo = [w for w in warninfo.list if "worker timeout" not in w.message]
+    warninfo = [w for w in warninfo if "worker timeout" not in w.message]
 
     # The multiprocessing backend will raise a warning when detecting that is
     # started from the non-main thread. Let's check that there is no false
