@@ -84,4 +84,8 @@ if [[ "$COVERAGE" == "true" ]]; then
     pip install pytest-cov codecov
 fi
 
+if [[ "$BUILD_DOC" == "true" ]]; then
+    python setup.py build_sphinx
+fi
+
 python setup.py install
