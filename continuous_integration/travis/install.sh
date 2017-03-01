@@ -85,6 +85,7 @@ if [[ "$COVERAGE" == "true" ]]; then
 fi
 
 if [[ "$BUILD_DOC" == "true" ]]; then
+    conda install sphinx --yes
     python setup.py build_sphinx
 fi
 
