@@ -237,3 +237,5 @@ except IOError:
     # directory
 
 numpydoc_show_class_members = False
+
+suppress_warnings = ['image.nonlocal_uri']

@@ -84,6 +84,10 @@ if [[ "$COVERAGE" == "true" ]]; then
     pip install pytest-cov codecov
 fi
 
+if [[ "$BUILD_DOC" == "true" ]]; then
+    conda install sphinx --yes
+    python setup.py build_sphinx
+fi
 # Install py.test timeout to fasten failure in deadlocking tests
 pip install pytest-timeout
 
