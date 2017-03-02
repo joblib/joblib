@@ -201,10 +201,7 @@ latex_documents = [
 # If false, no module index is generated.
 #latex_use_modindex = True
 
-# default is used to be compatible with both sphinx 1.2.3 and sphinx
-# 1.3.1. If we want to support only 1.3.1 'classic' can be used
-# instead
-html_theme = 'default'
+html_theme = 'classic'
 
 html_theme_options = {
 #    "bgcolor": "#fff",
