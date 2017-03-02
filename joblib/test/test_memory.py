@@ -826,6 +826,10 @@ def test_memory_recomputes_after_an_error_why_loading_results(tmpdir,
     memory = Memory(tmpdir.strpath)
 
     def func(arg):
+        # This makes sure that the timestamp returned by two calls of
+        # func are different. This is needed on Windows where
+        # time.time resolution may not be accurate enough
+        time.sleep(0.01)
         return arg, time.time()
 
     cached_func = memory.cache(func)
