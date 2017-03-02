@@ -21,6 +21,7 @@ SkipTest = _pytest.runner.Skipped
 skipif = pytest.mark.skipif
 fixture = pytest.fixture
 parametrize = pytest.mark.parametrize
+timeout = pytest.mark.timeout
 
 
 def warnings_to_stdout():

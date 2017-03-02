@@ -31,7 +31,7 @@ from joblib.memory import concurrency_safe_write
 from joblib.parallel import Parallel, delayed
 from joblib.test.common import with_numpy, np
 from joblib.test.common import with_multiprocessing
-from joblib.testing import parametrize, raises, warns
+from joblib.testing import parametrize, raises, warns, timeout
 from joblib._compat import PY3_OR_LATER
 
 
@@ -810,8 +810,9 @@ def load_func(expected, filename):
     assert expected == reloaded
 
 
+@timeout(0)  # No timeout as this test can be long
 @with_multiprocessing
-@parametrize('backend', ['multiprocessing', 'threading'])
+@parametrize('backend', ['multiprocessing', 'loky', 'threading'])
 def test_concurrency_safe_write(tmpdir, backend):
     filename = tmpdir.join('test.pkl').strpath
     obj = {str(i): i for i in range(int(1e5))}
