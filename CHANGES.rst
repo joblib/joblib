@@ -1,8 +1,8 @@
 Latest changes
 ===============
 
-master
-------
+0.11
+----
 
 Alexandre Abadie
 
