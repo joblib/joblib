@@ -59,7 +59,3 @@ def test_mkdirp(tmpdir):
     # Not all OSErrors are ignored
     with raises(OSError):
         mkdirp('')
-
-
-def test_fail():
-    assert 2 == 1
