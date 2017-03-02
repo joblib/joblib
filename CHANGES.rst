@@ -1,8 +1,8 @@
 Latest changes
 ===============
 
-0.11
-----
+Release 0.11
+------------
 
 Alexandre Abadie
 
@@ -29,7 +29,7 @@ Olivier Grisel
 Karan Desai
 
     pytest is used to run the tests instead of nosetests.
-    ``python setup.pytest`` or ``python setup.py nosetests`` do not work
+    ``python setup.py test`` or ``python setup.py nosetests`` do not work
     anymore, run ``pytest joblib`` instead.
 
 Loïc Estève
