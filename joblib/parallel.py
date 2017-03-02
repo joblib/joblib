@@ -617,7 +617,8 @@ class Parallel(Logger):
             # SequentialBackend, we need to reorder the jobs to get the correct
             # order in the result. This can happen when a job is so quick
             # that is callback is immediatly called.
-            if not type(self._backend) is SequentialBackend and cb.done:
+            if (not issubclass(type(self._backend), SequentialBackend)
+                    and cb.done):
                 self._jobs.insert(-1, job)
             else:
                 self._jobs.append(job)
