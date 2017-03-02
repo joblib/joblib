@@ -466,6 +466,7 @@ def test_invalid_backend():
     with raises(ValueError):
         Parallel(backend='unit-testing')
 
+
 @parametrize("backend", ALL_VALID_BACKENDS)
 def test_invalid_njobs(backend):
     with raises(ValueError):
