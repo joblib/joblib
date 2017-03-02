@@ -55,6 +55,7 @@ except ImportError:
 from joblib._parallel_backends import SequentialBackend
 from joblib._parallel_backends import ThreadingBackend
 from joblib._parallel_backends import MultiprocessingBackend
+from joblib._parallel_backends import LokyBackend
 from joblib._parallel_backends import SafeFunction
 from joblib._parallel_backends import WorkerInterrupt
 
@@ -504,6 +505,9 @@ def check_backend_context_manager(backend_name):
         if backend_name == 'multiprocessing':
             assert type(active_backend) == MultiprocessingBackend
             assert type(p._backend) == MultiprocessingBackend
+        elif backend_name == 'loky':
+            assert type(active_backend) == LokyBackend
+            assert type(p._backend) == LokyBackend
         elif backend_name == 'threading':
             assert type(active_backend) == ThreadingBackend
             assert type(p._backend) == ThreadingBackend
@@ -777,12 +781,9 @@ def test_warning_about_timeout_not_supported_by_backend():
 @parametrize('backend', ALL_VALID_BACKENDS)
 @parametrize('n_jobs', [1, 2, -2, -1])
 def test_abort_backend(n_jobs, backend):
-    delays = [-1] + [10] * 100
-    error = ValueError
-    if sys.version_info[:2] == (2, 7):
-        error = IOError
+    delays = ["a"] + [10] * 100
 
-    with raises(error):
+    with raises(TypeError):
         t_start = time.time()
         Parallel(n_jobs=n_jobs, backend=backend)(
             delayed(time.sleep)(i) for i in delays)
