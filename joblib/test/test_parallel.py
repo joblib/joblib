@@ -466,6 +466,11 @@ def test_invalid_backend():
     with raises(ValueError):
         Parallel(backend='unit-testing')
 
+@parametrize("backend", ALL_VALID_BACKENDS)
+def test_invalid_njobs(backend):
+    with raises(ValueError):
+        Parallel(n_jobs=0, backend=backend)._initialize_backend()
+
 
 def test_register_parallel_backend():
     try:
@@ -772,10 +777,13 @@ def test_warning_about_timeout_not_supported_by_backend():
 @parametrize('n_jobs', [1, 2, -2, -1])
 def test_abort_backend(n_jobs, backend):
     delays = [-1] + [10] * 100
+    error = ValueError
+    if sys.version_info[:2] == (2, 7):
+        error = IOError
 
-    with raises(ValueError):
+    with raises(error):
         t_start = time.time()
         Parallel(n_jobs=n_jobs, backend=backend)(
             delayed(time.sleep)(i) for i in delays)
-    dt = time.time()-t_start
+    dt = time.time() - t_start
     assert dt < 3
