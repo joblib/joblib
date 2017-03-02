@@ -230,6 +230,7 @@ class BatchCompletionCallBack(object):
         self.dispatch_timestamp = dispatch_timestamp
         self.batch_size = batch_size
         self.parallel = parallel
+        self.done = False
 
     def __call__(self, out):
         self.parallel.n_completed_tasks += self.batch_size
@@ -238,8 +239,10 @@ class BatchCompletionCallBack(object):
         self.parallel._backend.batch_completed(self.batch_size,
                                                this_batch_duration)
         self.parallel.print_progress()
-        if self.parallel._original_iterator is not None:
-            self.parallel.dispatch_next()
+        with self.parallel._lock:
+            if self.parallel._original_iterator is not None:
+                self.parallel.dispatch_next()
+            self.done = True
 
 
 ###############################################################################
@@ -552,7 +555,7 @@ class Parallel(Logger):
 
         # This lock is used coordinate the main thread of this process with
         # the async callback thread of our the pool.
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
 
     def __enter__(self):
         self._managed_backend = True
@@ -609,7 +612,15 @@ class Parallel(Logger):
         dispatch_timestamp = time.time()
         cb = BatchCompletionCallBack(dispatch_timestamp, len(batch), self)
         job = self._backend.apply_async(batch, callback=cb)
-        self._jobs.append(job)
+        with self._lock:
+            # If the callback is already done and we are not using a
+            # SequentialBackend, we need to reorder the jobs to get the correct
+            # order in the result. This can happen when a job is so quick
+            # that is callback is immediatly called.
+            if self._effective_n_jobs() > 1 and cb.done:
+                self._jobs.insert(-1, job)
+            else:
+                self._jobs.append(job)
 
     def dispatch_next(self):
         """Dispatch more data for parallel processing
@@ -768,6 +779,7 @@ Sub-process traceback:
         # A flag used to abort the dispatching of jobs in case an
         # exception is found
         self._aborting = False
+
         if not self._managed_backend:
             n_jobs = self._initialize_backend()
         else:
@@ -798,16 +810,24 @@ Sub-process traceback:
         try:
             # Only set self._iterating to True if at least a batch
             # was dispatched. In particular this covers the edge
-            # case of Parallel used with an exhausted iterator.
+            # case of Parallel used with an exhausted iterator. If
+            # self._original_iterator is None, then this means either
+            # that pre_dispatch == "all", n_jobs == 1 or that the first batch
+            # was very quick and its callback already dispatched all the
+            # remaining jobs.
             self._iterating = False
+            if self.dispatch_one_batch(iterator):
+                self._iterating = self._original_iterator is not None
+
             while self.dispatch_one_batch(iterator):
-                self._iterating = True
+                pass
 
             if pre_dispatch == "all" or n_jobs == 1:
                 # The iterable was consumed all at once by the above for loop.
                 # No need to wait for async callbacks to trigger to
                 # consumption.
                 self._iterating = False
+
             self.retrieve()
             # Make sure that we get a last message telling us we are done
             elapsed_time = time.time() - self._start_time
