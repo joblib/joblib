@@ -758,7 +758,7 @@ def test_memmap_with_big_offset(tmpdir):
 
 def test_warning_about_timeout_not_supported_by_backend():
     with warns(None) as warninfo:
-        Parallel(timeout=1)(delayed(square)(i) for i in range(10))
+        Parallel(timeout=1)(delayed(square)(i) for i in range(50))
     assert len(warninfo) == 1
     w = warninfo[0]
     assert isinstance(w.message, UserWarning)
@@ -766,3 +766,16 @@ def test_warning_about_timeout_not_supported_by_backend():
         "The backend class 'SequentialBackend' does not support timeout. "
         "You have set 'timeout=1' in Parallel but the 'timeout' parameter "
         "will not be used.")
+
+
+@parametrize('backend', ALL_VALID_BACKENDS)
+@parametrize('n_jobs', [1, 2, -2, -1])
+def test_abort_backend(n_jobs, backend):
+    delays = [-1] + [10] * 100
+
+    with raises(ValueError):
+        t_start = time.time()
+        Parallel(n_jobs=n_jobs, backend=backend)(
+            delayed(time.sleep)(i) for i in delays)
+    dt = time.time()-t_start
+    assert dt < 3

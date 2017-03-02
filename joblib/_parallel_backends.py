@@ -377,9 +377,9 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
 
     def abort_everything(self, ensure_ready=True):
         """Shutdown the pool and restart a new one with the same parameters"""
-        self._executor.shutdown()
+        self._executor.shutdown(kill_workers=True)
         if ensure_ready:
-            self._executor = get_reusable_executor(self._n_jobs)
+            self.configure(n_jobs=self.parallel.n_jobs, parallel=self.parallel)
 
 
 class ImmediateResult(object):
