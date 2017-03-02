@@ -99,7 +99,8 @@ Making a release and uploading it to PyPI
 This command is only run by project manager, to make a release, and
 upload in to PyPI::
 
-    python setup.py sdist bdist_egg bdist_wheel register upload
+    python setup.py sdist bdist_wheel upload_docs --upload-dir build/sphinx/html
+    twine upload dist/*
 
 Updating the changelog
 ========================
