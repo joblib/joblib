@@ -5,7 +5,6 @@ Backends for embarrassingly parallel code.
 import gc
 import os
 import sys
-import random
 import warnings
 import threading
 from abc import ABCMeta, abstractmethod

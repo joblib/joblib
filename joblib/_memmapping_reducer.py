@@ -2,7 +2,7 @@
 # @Author: Olivier Grisel
 # @Date:   2017-03-09 14:00:40
 # @Last Modified by:   Thomas Moreau
-# @Last Modified time: 2017-03-09 18:00:49
+# @Last Modified time: 2017-03-09 18:20:14
 
 from mmap import mmap
 import errno
@@ -184,9 +184,8 @@ class ArrayMemmapReducer(object):
             # a is already backed by a memmap file, let's reuse it directly
             return _reduce_memmap_backed(a, m)
 
-        if (not a.dtype.hasobject
-                and self._max_nbytes is not None
-                and a.nbytes > self._max_nbytes):
+        if (not a.dtype.hasobject and self._max_nbytes is not None and
+                a.nbytes > self._max_nbytes):
             # check that the folder exists (lazily create the pool temp folder
             # if required)
             try:
