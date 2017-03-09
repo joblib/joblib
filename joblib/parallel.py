@@ -352,7 +352,7 @@ class Parallel(Logger):
             very little overhead and using larger batch size has not proved to
             bring any gain in that case.
         temp_folder: str, optional
-            Folder to be used by the pool for memmaping large arrays
+            Folder to be used by the pool for memmapping large arrays
             for sharing memory with worker processes. If None, this will try in
             order:
 
@@ -370,7 +370,7 @@ class Parallel(Logger):
             Threshold on the size of arrays passed to the workers that
             triggers automated memory mapping in temp_folder. Can be an int
             in Bytes, or a human-readable string, e.g., '1M' for 1 megabyte.
-            Use None to disable memmaping of large arrays.
+            Use None to disable memmapping of large arrays.
             Only active when backend="multiprocessing".
         mmap_mode: {None, 'r+', 'r', 'w+', 'c'}
             Memmapping mode for numpy arrays passed to workers.

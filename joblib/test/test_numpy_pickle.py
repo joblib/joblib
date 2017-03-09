@@ -231,7 +231,7 @@ def test_memmap_persistence(tmpdir):
     np.testing.assert_array_equal(obj_loaded.array_obj,
                                   obj.array_obj)
 
-    # Test we can write in memmaped arrays
+    # Test we can write in memmapped arrays
     obj_loaded = numpy_pickle.load(filename, mmap_mode='r+')
     assert obj_loaded.array_float.flags.writeable
     obj_loaded.array_float[0:10] = 10.0
@@ -255,7 +255,7 @@ def test_memmap_persistence(tmpdir):
 @with_numpy
 def test_memmap_persistence_mixed_dtypes(tmpdir):
     # loading datastructures that have sub-arrays with dtype=object
-    # should not prevent memmaping on fixed size dtype sub-arrays.
+    # should not prevent memmapping on fixed size dtype sub-arrays.
     rnd = np.random.RandomState(0)
     a = rnd.random_sample(10)
     b = np.array([1, 'b'], dtype=object)

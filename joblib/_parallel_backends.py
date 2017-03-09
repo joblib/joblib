@@ -5,6 +5,7 @@ Backends for embarrassingly parallel code.
 import gc
 import os
 import sys
+import random
 import warnings
 import threading
 from abc import ABCMeta, abstractmethod
@@ -14,9 +15,9 @@ from .my_exceptions import WorkerInterrupt, TransportableException
 from ._multiprocessing_helpers import mp
 from ._compat import with_metaclass
 if mp is not None:
-    from .pool import MemmapingPool
+    from .pool import MemmappingPool
     from multiprocessing.pool import ThreadPool
-    from loky.reusable_executor import get_reusable_executor
+    from .executor import get_memmapping_executor
 
 
 class ParallelBackendBase(with_metaclass(ABCMeta)):
@@ -315,7 +316,7 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
 
         # Make sure to free as much memory as possible before forking
         gc.collect()
-        self._pool = MemmapingPool(n_jobs, **backend_args)
+        self._pool = MemmappingPool(n_jobs, **backend_args)
         self.parallel = parallel
         return n_jobs
 
@@ -337,7 +338,8 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
 
         # TODO: enable automatic memory mapping of large numpy arrays
         self.parallel = parallel
-        self._executor = get_reusable_executor(n_jobs)
+
+        self._executor = get_memmapping_executor(n_jobs, **backend_args)
         return n_jobs
 
     def effective_n_jobs(self, n_jobs):
