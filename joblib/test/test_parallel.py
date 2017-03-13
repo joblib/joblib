@@ -797,12 +797,13 @@ def test_abort_backend(n_jobs, backend):
 def test_memmapping_leaks(backend, tmpdir):
     # Non-regression test for memmapping backends. Ensure that the data
     # does not stay too long in memory
+    tmpdir = tmpdir.strpath
 
     # Use max_nbytes=1 to force the use of memory-mapping even for small
     # arrays
     with Parallel(n_jobs=2, max_nbytes=1, backend=backend,
                   temp_folder=tmpdir) as p:
-        p(delayed(check_memmap)(a) for a in [np.random.random(10)]*2)
+        p(delayed(check_memmap)(a) for a in [np.random.random(10)] * 2)
 
         # The memmap folder should not be clean in the context scope
         assert len(os.listdir(tmpdir)) > 0
@@ -813,6 +814,6 @@ def test_memmapping_leaks(backend, tmpdir):
 
     # Make sure that the shared memory is cleaned at the end of a call
     p = Parallel(n_jobs=2, max_nbytes=1, backend=backend)
-    p(delayed(check_memmap)(a) for a in [np.random.random(10)]*2)
+    p(delayed(check_memmap)(a) for a in [np.random.random(10)] * 2)
 
     assert len(os.listdir(tmpdir)) == 0
