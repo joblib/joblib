@@ -376,6 +376,10 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
             future.add_done_callback(callback)
         return future
 
+    def terminate(self):
+        from ._memmapping_reducer import delete_folder
+        delete_folder(self._executor._temp_folder)
+
     def abort_everything(self, ensure_ready=True):
         """Shutdown the pool and restart a new one with the same parameters"""
         self._executor.shutdown(kill_workers=True)

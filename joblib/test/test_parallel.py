@@ -789,3 +789,30 @@ def test_abort_backend(n_jobs, backend):
             delayed(time.sleep)(i) for i in delays)
     dt = time.time() - t_start
     assert dt < 3
+
+
+@with_numpy
+@with_multiprocessing
+@parametrize("backend", ["loky", "multiprocessing"])
+def test_memmapping_leaks(backend, tmpdir):
+    # Non-regression test for memmapping backends. Ensure that the data
+    # does not stay too long in memory
+
+    # Use max_nbytes=1 to force the use of memory-mapping even for small
+    # arrays
+    with Parallel(n_jobs=2, max_nbytes=1, backend=backend,
+                  temp_folder=tmpdir) as p:
+        p(delayed(check_memmap)(a) for a in [np.random.random(10)]*2)
+
+        # The memmap folder should not be clean in the context scope
+        assert len(os.listdir(tmpdir)) > 0
+
+    # Make sure that the shared memory is cleaned at the end when we exit
+    # the context
+    assert len(os.listdir(tmpdir)) == 0
+
+    # Make sure that the shared memory is cleaned at the end of a call
+    p = Parallel(n_jobs=2, max_nbytes=1, backend=backend)
+    p(delayed(check_memmap)(a) for a in [np.random.random(10)]*2)
+
+    assert len(os.listdir(tmpdir)) == 0

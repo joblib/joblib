@@ -2,7 +2,7 @@
 # @Author: Olivier Grisel
 # @Date:   2017-03-09 14:00:40
 # @Last Modified by:   Thomas Moreau
-# @Last Modified time: 2017-03-09 18:20:14
+# @Last Modified time: 2017-03-13 13:27:05
 
 from mmap import mmap
 import errno
@@ -255,7 +255,7 @@ def get_memmapping_reducers(
     # pool instance (do not create in advance to spare FS write access if
     # no array is to be dumped):
     use_shared_mem = False
-    pool_folder_name = "joblib_memmapping_pool_%d_%d" % (
+    pool_folder_name = "joblib_memmapping_folder_%d_%d" % (
         os.getpid(), pool_id)
     if temp_folder is None:
         temp_folder = os.environ.get('JOBLIB_TEMP_FOLDER', None)
