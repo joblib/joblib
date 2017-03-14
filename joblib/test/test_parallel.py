@@ -410,6 +410,7 @@ def test_batching_auto_threading():
         assert p._backend.compute_batch_size() == 1
 
 
+@with_multiprocessing
 @parametrize('backend', PROCESS_BACKENDS)
 def test_batching_auto_subprocesses(backend):
     with Parallel(n_jobs=2, batch_size='auto', backend=backend) as p:
@@ -666,8 +667,8 @@ def test_default_mp_context():
         assert context is None
 
 
-@with_multiprocessing
 @with_numpy
+@with_multiprocessing
 @parametrize('backend', PROCESS_BACKENDS)
 def test_no_blas_crash_or_freeze_with_subprocesses(backend):
     if backend == 'multiprocessing':
@@ -695,7 +696,10 @@ def test_no_blas_crash_or_freeze_with_subprocesses(backend):
         delayed(np.dot)(a, a.T) for i in range(2))
 
 
-@parametrize('backend', PROCESS_BACKENDS + [mp.get_context('spawn')])
+@with_multiprocessing
+@parametrize('backend', PROCESS_BACKENDS +
+             ([] if sys.version_info[:2] < (3, 4)
+              else [mp.get_context('spawn')]))
 def test_parallel_with_interactively_defined_functions(backend):
     # When functions are defined interactively in a python/IPython
     # session, we want to be able to use them with joblib.Parallel
