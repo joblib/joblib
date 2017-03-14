@@ -47,7 +47,7 @@ BACKENDS = {
 
 # name of the backend used by default by Parallel outside of any context
 # managed by ``parallel_backend``.
-DEFAULT_BACKEND = 'multiprocessing'
+DEFAULT_BACKEND = 'loky'
 DEFAULT_N_JOBS = 1
 
 # Thread local value that can be overriden by the ``parallel_backend`` context

@@ -7,6 +7,7 @@ import os
 import sys
 import warnings
 import threading
+import functools
 from abc import ABCMeta, abstractmethod
 
 from .format_stack import format_exc
@@ -17,6 +18,10 @@ if mp is not None:
     from .pool import MemmappingPool
     from multiprocessing.pool import ThreadPool
     from .executor import get_memmapping_executor
+
+    # Compat between concurrent.furture and multiprocessing TimeoutError
+    from multiprocessing import TimeoutError
+    from loky._base import TimeoutError as LokyTimeoutError
 
 
 class ParallelBackendBase(with_metaclass(ABCMeta)):
@@ -286,10 +291,11 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
 
         if not isinstance(threading.current_thread(), threading._MainThread):
             # Prevent posix fork inside in non-main posix threads
-            warnings.warn(
-                'Multiprocessing-backed parallel loops cannot be nested'
-                ' below threads, setting n_jobs=1',
-                stacklevel=3)
+            if n_jobs != 1:
+                warnings.warn(
+                    'Multiprocessing-backed parallel loops cannot be nested'
+                    ' below threads, setting n_jobs=1',
+                    stacklevel=3)
             return 1
 
         return super(MultiprocessingBackend, self).effective_n_jobs(n_jobs)
@@ -329,6 +335,8 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
 class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
     """Managing pool of workers with loky instead of multiprocessing."""
 
+    supports_timeout = True
+
     def configure(self, n_jobs=1, parallel=None, **backend_args):
         """Build a process or thread pool and return the number of workers"""
         n_jobs = self.effective_n_jobs(n_jobs)
@@ -338,7 +346,8 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
         # TODO: enable automatic memory mapping of large numpy arrays
         self.parallel = parallel
 
-        self._executor = get_memmapping_executor(n_jobs, **backend_args)
+        # TODO: Change the name?
+        self._pool = get_memmapping_executor(n_jobs, **backend_args)
         return n_jobs
 
     def effective_n_jobs(self, n_jobs):
@@ -359,10 +368,11 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
             return 1
         elif not isinstance(threading.current_thread(), threading._MainThread):
             # Prevent posix fork inside in non-main posix threads
-            warnings.warn(
-                'Loky-backed parallel loops cannot be nested below threads,'
-                ' setting n_jobs=1',
-                stacklevel=3)
+            if n_jobs != 1:
+                warnings.warn(
+                    'Loky-backed parallel loops cannot be nested below '
+                    'threads, setting n_jobs=1',
+                    stacklevel=3)
             return 1
         elif n_jobs < 0:
             n_jobs = max(mp.cpu_count() + 1 + n_jobs, 1)
@@ -370,19 +380,29 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
 
     def apply_async(self, func, callback=None):
         """Schedule a func to be run"""
-        future = self._executor.submit(SafeFunction(func))
-        future.get = future.result
+        future = self._pool.submit(SafeFunction(func))
+        future.get = functools.partial(self.wrap_future_result, future)
         if callback is not None:
             future.add_done_callback(callback)
         return future
 
+    @staticmethod
+    def wrap_future_result(future, timeout=None):
+        """Wrapper for Future.result to implement the same behaviour as
+        AsyncResults.get from multiprocessing."""
+        try:
+            return future.result(timeout=timeout)
+        except LokyTimeoutError:
+            raise TimeoutError()
+
     def terminate(self):
         from ._memmapping_reducer import delete_folder
-        delete_folder(self._executor._temp_folder)
+        delete_folder(self._pool._temp_folder)
+        self._pool = None
 
     def abort_everything(self, ensure_ready=True):
         """Shutdown the pool and restart a new one with the same parameters"""
-        self._executor.shutdown(kill_workers=True)
+        self._pool.shutdown(kill_workers=True)
         if ensure_ready:
             self.configure(n_jobs=self.parallel.n_jobs, parallel=self.parallel)
 
