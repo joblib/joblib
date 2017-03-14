@@ -208,7 +208,7 @@ def test_parallel_as_context_manager(backend):
         managed_backend = p._backend
         if mp is not None:
             assert managed_backend is not None
-            assert managed_backend._pool is not None
+            assert managed_backend._worker_processes is not None
 
         # We make call with the managed parallel object several times inside
         # the managed block:
@@ -217,17 +217,18 @@ def test_parallel_as_context_manager(backend):
 
         # Those calls have all used the same pool instance:
         if mp is not None:
-            assert managed_backend._pool is p._backend._pool
+            assert managed_backend._worker_processes is \
+                p._backend._worker_processes
 
     # As soon as we exit the context manager block, the pool is terminated and
     # no longer referenced from the parallel object:
     if mp is not None:
-        assert p._backend._pool is None
+        assert p._backend._worker_processes is None
 
     # It's still possible to use the parallel instance in non-managed mode:
     assert expected == p(delayed(f)(x, y=1) for x in lst)
     if mp is not None:
-        assert p._backend._pool is None
+        assert p._backend._worker_processes is None
 
 
 def test_parallel_pickling():
@@ -283,8 +284,8 @@ def test_error_capture(backend):
 
         # Try again with the context manager API
         with Parallel(n_jobs=2, backend=backend) as parallel:
-            assert parallel._backend._pool is not None
-            original_pool = parallel._backend._pool
+            assert parallel._backend._worker_processes is not None
+            original_workers = parallel._backend._worker_processes
 
             with raises(JoblibException):
                 parallel([delayed(division)(x, y)
@@ -292,30 +293,30 @@ def test_error_capture(backend):
 
             # The managed pool should still be available and be in a working
             # state despite the previously raised (and caught) exception
-            assert parallel._backend._pool is not None
+            assert parallel._backend._worker_processes is not None
 
             # The pool should have been interrupted and restarted:
-            assert parallel._backend._pool is not original_pool
+            assert parallel._backend._worker_processes is not original_workers
 
             assert ([f(x, y=1) for x in range(10)] ==
                     parallel(delayed(f)(x, y=1) for x in range(10)))
 
-            original_pool = parallel._backend._pool
+            original_workers = parallel._backend._worker_processes
             with raises(WorkerInterrupt):
                 parallel([delayed(interrupt_raiser)(x) for x in (1, 0)])
 
             # The pool should still be available despite the exception
-            assert parallel._backend._pool is not None
+            assert parallel._backend._worker_processes is not None
 
             # The pool should have been interrupted and restarted:
-            assert parallel._backend._pool is not original_pool
+            assert parallel._backend._worker_processes is not original_workers
 
             assert ([f(x, y=1) for x in range(10)] ==
                     parallel(delayed(f)(x, y=1) for x in range(10)))
 
         # Check that the inner pool has been terminated when exiting the
         # context manager
-        assert parallel._backend._pool is None
+        assert parallel._backend._worker_processes is None
     else:
         with raises(KeyboardInterrupt):
             Parallel(n_jobs=2)(
@@ -743,7 +744,7 @@ def test_auto_memmap_on_arrays_from_generator(backend):
     # TODO: This should be fixed in loky
     if backend == 'loky':
         with Parallel(n_jobs=2, backend=backend) as p:
-            p._backend._pool.shutdown()
+            p._backend._worker_processes.shutdown()
 
     # Non-regression test for a problem with a bad interaction between the
     # GC collecting arrays recently created during iteration inside the
