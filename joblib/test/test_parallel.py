@@ -695,17 +695,23 @@ def test_no_blas_crash_or_freeze_with_subprocesses(backend):
         delayed(np.dot)(a, a.T) for i in range(2))
 
 
-def test_parallel_with_interactively_defined_functions():
+@parametrize('backend', PROCESS_BACKENDS + [mp.get_context('spawn')])
+def test_parallel_with_interactively_defined_functions(backend):
     # When functions are defined interactively in a python/IPython
     # session, we want to be able to use them with joblib.Parallel
-    if posix is None:
-        # This test pass only when fork is the process start method
-        raise SkipTest('Not a POSIX platform')
+    if posix is None or backend != 'multiprocessing':
+        try:
+            import cloudpickle  # noqa
+        except ImportError:
+            # This test pass only when fork is the process start method or
+            # cloudpickle is present on the system.
+            raise SkipTest('Not a POSIX platform')
 
     code = '\n\n'.join([
         'from joblib import Parallel, delayed',
         'def square(x): return x**2',
-        'print(Parallel(n_jobs=2)(delayed(square)(i) for i in range(5)))'])
+        'print(Parallel(n_jobs=2, backend="multiprocessing")('
+        '    delayed(square)(i) for i in range(5)))'])
 
     check_subprocess_call([sys.executable, '-c', code],
                           stdout_regex=r'\[0, 1, 4, 9, 16\]')
