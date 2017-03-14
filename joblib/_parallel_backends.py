@@ -343,11 +343,9 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
         if n_jobs == 1:
             raise FallbackToBackend(SequentialBackend())
 
-        # TODO: enable automatic memory mapping of large numpy arrays
-        self.parallel = parallel
-
         # TODO: Change the name?
         self._pool = get_memmapping_executor(n_jobs, **backend_args)
+        self.parallel = parallel
         return n_jobs
 
     def effective_n_jobs(self, n_jobs):
@@ -367,6 +365,7 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
                     stacklevel=3)
             return 1
         elif not isinstance(threading.current_thread(), threading._MainThread):
+
             # Prevent posix fork inside in non-main posix threads
             if n_jobs != 1:
                 warnings.warn(

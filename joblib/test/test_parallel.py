@@ -6,14 +6,15 @@ Test the parallel module.
 # Copyright (c) 2010-2011 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
-import time
-import sys
 import os
-from math import sqrt
-import threading
-from multiprocessing import TimeoutError
-from time import sleep
+import sys
+import time
 import mmap
+import warnings
+import threading
+from math import sqrt
+from time import sleep
+from multiprocessing import TimeoutError
 
 from joblib import dump, load
 from joblib import parallel
@@ -698,7 +699,7 @@ def test_no_blas_crash_or_freeze_with_subprocesses(backend):
 
 @with_multiprocessing
 @parametrize('backend', PROCESS_BACKENDS +
-             ([] if sys.version_info[:2] < (3, 4)
+             ([] if sys.version_info[:2] < (3, 4) or mp is None
               else [mp.get_context('spawn')]))
 def test_parallel_with_interactively_defined_functions(backend):
     # When functions are defined interactively in a python/IPython
@@ -776,6 +777,7 @@ def test_nested_parallel_warnings(parent_backend, child_backend, capfd):
     assert err == ''
 
     #  warnings if inner_n_jobs != 1
+    warnings.simplefilter("always")
     Parallel(n_jobs=2, backend=parent_backend)(
         delayed(parallel_func)(backend=child_backend, inner_n_jobs=2)
         for _ in range(5))
