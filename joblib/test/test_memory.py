@@ -800,10 +800,10 @@ def load_func(expected, filename):
             with open(filename, 'rb') as f:
                 reloaded = cpickle.load(f)
             break
-        except OSError:
+        except (OSError, IOError):
             # On Windows you can have WindowsError ([Error 5] Access
-            # is denied) when reading the file, probably because a
-            # writer process has a lock on the file
+            # is denied or [Error 13] Permission denied) when reading the file,
+            # probably because a writer process has a lock on the file
             time.sleep(0.1)
     else:
         raise

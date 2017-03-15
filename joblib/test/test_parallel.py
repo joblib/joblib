@@ -642,7 +642,7 @@ def test_dispatch_race_condition(n_tasks, n_jobs, pre_dispatch, batch_size):
     # iterable generator that is not thread-safe natively.
     # This is a non-regression test for the "Pool seems closed" class of error
     params = {'n_jobs': n_jobs, 'pre_dispatch': pre_dispatch,
-              'batch_size': batch_size}
+              'batch_size': batch_size, 'verbose': 100}
     expected = [square(i) for i in range(n_tasks)]
     results = Parallel(**params)(delayed(square)(i) for i in range(n_tasks))
     assert results == expected
