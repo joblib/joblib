@@ -62,7 +62,7 @@ class ParallelBackendBase(with_metaclass(ABCMeta)):
         return self.effective_n_jobs(n_jobs)
 
     def terminate(self):
-        """Shutdown the process or thread pool"""
+        """Shutdown the workers and free the shared memory"""
 
     def compute_batch_size(self):
         """Determine the optimal batch size"""
@@ -93,7 +93,7 @@ class ParallelBackendBase(with_metaclass(ABCMeta)):
         Setting ensure_ready to False is an optimization that can be leveraged
         when aborting tasks via killing processes from a local process pool
         managed by the backend it-self: if we expect no new tasks, there is no
-        point in re-creating a new working pool.
+        point in re-creating new workers.
         """
         # Does nothing by default: to be overriden in subclasses when canceling
         # tasks is possible.
@@ -339,7 +339,7 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
     supports_timeout = True
 
     def configure(self, n_jobs=1, parallel=None, **backend_args):
-        """Build a process or thread pool and return the number of workers"""
+        """Build a process executor and return the number of workers"""
         n_jobs = self.effective_n_jobs(n_jobs)
         if n_jobs == 1:
             raise FallbackToBackend(SequentialBackend())
@@ -396,11 +396,15 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
 
     def terminate(self):
         if self._workers is not None:
+            # Terminate does not shutdown the workers as we want to reuse them
+            # in latter calls but we free as much memory as we can by deleting
+            # the shared memory
             delete_folder(self._workers._temp_folder)
             self._workers = None
 
     def abort_everything(self, ensure_ready=True):
-        """Shutdown the pool and restart a new one with the same parameters"""
+        """Shutdown the workers and restart a new one with the same parameters
+        """
         self._workers.shutdown(kill_workers=True)
         delete_folder(self._workers._temp_folder)
         self._workers = None

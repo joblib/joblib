@@ -170,6 +170,34 @@ def test_main_thread_renamed_no_warning(backend, monkeypatch):
     assert len(warninfo) == 0
 
 
+# TODO: The Loky backend can be nested. Do we want that?
+@with_multiprocessing
+@parametrize('child_backend', PROCESS_BACKENDS)
+@parametrize('parent_backend', ['multiprocessing', 'threading'])
+def test_nested_parallel_warnings(parent_backend, child_backend, capfd):
+    if posix is None:
+        # This test pass only when fork is the process start method
+        raise SkipTest('Not a POSIX platform')
+
+    # Makes sure the warnings are always printed
+    warnings.resetwarnings()
+    warnings.simplefilter("always")
+
+    # no warnings if inner_n_jobs=1
+    Parallel(n_jobs=2, backend=parent_backend)(
+        delayed(parallel_func)(backend=child_backend, inner_n_jobs=1)
+        for _ in range(5))
+    out, err = capfd.readouterr()
+    assert err == ''
+
+    #  warnings if inner_n_jobs != 1
+    Parallel(n_jobs=2, backend=parent_backend)(
+        delayed(parallel_func)(backend=child_backend, inner_n_jobs=2)
+        for _ in range(5))
+    out, err = capfd.readouterr()
+    assert '-backed parallel loops cannot be ' in err
+
+
 def nested_loop(backend):
     Parallel(n_jobs=2, backend=backend)(
         delayed(square)(.01) for _ in range(2))
@@ -761,31 +789,6 @@ def test_auto_memmap_on_arrays_from_generator(backend):
         np.testing.assert_array_equal(expected, result)
 
 
-# TODO: The Loky backend can be nested. Do we want that?
-@with_multiprocessing
-@parametrize('child_backend', PROCESS_BACKENDS)
-@parametrize('parent_backend', ['multiprocessing', 'threading'])
-def test_nested_parallel_warnings(parent_backend, child_backend, capfd):
-    if posix is None:
-        # This test pass only when fork is the process start method
-        raise SkipTest('Not a POSIX platform')
-
-    # no warnings if inner_n_jobs=1
-    Parallel(n_jobs=2, backend=parent_backend)(
-        delayed(parallel_func)(backend=child_backend, inner_n_jobs=1)
-        for _ in range(5))
-    out, err = capfd.readouterr()
-    assert err == ''
-
-    #  warnings if inner_n_jobs != 1
-    warnings.simplefilter("always")
-    Parallel(n_jobs=2, backend=parent_backend)(
-        delayed(parallel_func)(backend=child_backend, inner_n_jobs=2)
-        for _ in range(5))
-    out, err = capfd.readouterr()
-    assert '-backed parallel loops cannot be ' in err
-
-
 def identity(arg):
     return arg
 
@@ -833,6 +836,13 @@ def test_abort_backend(n_jobs, backend):
 @with_multiprocessing
 @parametrize('backend', PROCESS_BACKENDS)
 def test_memmapping_leaks(backend, tmpdir):
+    # For loky backend, we have to force the creation of a new Exectuor to make
+    # sure that the reducers are properly sets with max_nbytes.
+    # TODO: This should be fixed in loky
+    if backend == 'loky':
+        with Parallel(n_jobs=2, backend=backend) as p:
+            p._backend._workers.shutdown()
+
     # Non-regression test for memmapping backends. Ensure that the data
     # does not stay too long in memory
     tmpdir = tmpdir.strpath
