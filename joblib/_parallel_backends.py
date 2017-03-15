@@ -138,15 +138,14 @@ class PoolManagerMixin(object):
 
     def terminate(self):
         """Shutdown the process or thread pool"""
-        if self._worker_processes is not None:
-            self._worker_processes.close()
-            self._worker_processes.terminate()  # terminate does a join()
-            self._worker_processes = None
+        if self._workers is not None:
+            self._workers.close()
+            self._workers.terminate()  # terminate does a join()
+            self._workers = None
 
     def apply_async(self, func, callback=None):
         """Schedule a func to be run"""
-        return self._worker_processes.apply_async(SafeFunction(func),
-                                                  callback=callback)
+        return self._workers.apply_async(SafeFunction(func), callback=callback)
 
     def abort_everything(self, ensure_ready=True):
         """Shutdown the pool and restart a new one with the same parameters"""
@@ -255,7 +254,7 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
             # Avoid unnecessary overhead and use sequential backend instead.
             raise FallbackToBackend(SequentialBackend())
         self.parallel = parallel
-        self._worker_processes = ThreadPool(n_jobs)
+        self._workers = ThreadPool(n_jobs)
         return n_jobs
 
 
@@ -323,7 +322,7 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
 
         # Make sure to free as much memory as possible before forking
         gc.collect()
-        self._worker_processes = MemmappingPool(n_jobs, **backend_args)
+        self._workers = MemmappingPool(n_jobs, **backend_args)
         self.parallel = parallel
         return n_jobs
 
@@ -345,8 +344,7 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
         if n_jobs == 1:
             raise FallbackToBackend(SequentialBackend())
 
-        self._worker_processes = get_memmapping_executor(n_jobs,
-                                                         **backend_args)
+        self._workers = get_memmapping_executor(n_jobs, **backend_args)
         self.parallel = parallel
         return n_jobs
 
@@ -381,7 +379,7 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
 
     def apply_async(self, func, callback=None):
         """Schedule a func to be run"""
-        future = self._worker_processes.submit(SafeFunction(func))
+        future = self._workers.submit(SafeFunction(func))
         future.get = functools.partial(self.wrap_future_result, future)
         if callback is not None:
             future.add_done_callback(callback)
@@ -397,15 +395,15 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
             raise TimeoutError()
 
     def terminate(self):
-        if self._worker_processes is not None:
-            delete_folder(self._worker_processes._temp_folder)
-            self._worker_processes = None
+        if self._workers is not None:
+            delete_folder(self._workers._temp_folder)
+            self._workers = None
 
     def abort_everything(self, ensure_ready=True):
         """Shutdown the pool and restart a new one with the same parameters"""
-        self._worker_processes.shutdown(kill_workers=True)
-        delete_folder(self._worker_processes._temp_folder)
-        self._worker_processes = None
+        self._workers.shutdown(kill_workers=True)
+        delete_folder(self._workers._temp_folder)
+        self._workers = None
         if ensure_ready:
             self.configure(n_jobs=self.parallel.n_jobs, parallel=self.parallel)
 
