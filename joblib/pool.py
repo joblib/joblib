@@ -96,11 +96,6 @@ def _get_backing_memmap(a):
 def _get_temp_dir(pool_folder_name, temp_folder=None):
     """Get the full path to a subfolder inside the temporary folder.
 
-    This function is originally used in joblib.pool.MemmapingPool, but
-    it could also be used in combination with joblib.Memory, provided
-    that the produced cache folders are manually cleaned to avoid
-    running out of memory.
-
     Parameters
     ----------
     pool_folder_name : str
