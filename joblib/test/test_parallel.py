@@ -767,13 +767,6 @@ def check_memmap(a):
 @with_multiprocessing
 @parametrize('backend', PROCESS_BACKENDS)
 def test_auto_memmap_on_arrays_from_generator(backend):
-    # For loky backend, we have to force the creation of a new Exectuor to make
-    # sure that the reducers are properly sets.
-    # TODO: This should be fixed in loky
-    if backend == 'loky':
-        with Parallel(n_jobs=2, backend=backend) as p:
-            p._backend._workers.shutdown()
-
     # Non-regression test for a problem with a bad interaction between the
     # GC collecting arrays recently created during iteration inside the
     # parallel dispatch loop and the auto-memmap feature of Parallel.
@@ -836,13 +829,6 @@ def test_abort_backend(n_jobs, backend):
 @with_multiprocessing
 @parametrize('backend', PROCESS_BACKENDS)
 def test_memmapping_leaks(backend, tmpdir):
-    # For loky backend, we have to force the creation of a new Exectuor to make
-    # sure that the reducers are properly sets with max_nbytes.
-    # TODO: This should be fixed in loky
-    if backend == 'loky':
-        with Parallel(n_jobs=2, backend=backend) as p:
-            p._backend._workers.shutdown()
-
     # Non-regression test for memmapping backends. Ensure that the data
     # does not stay too long in memory
     tmpdir = tmpdir.strpath

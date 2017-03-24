@@ -122,6 +122,15 @@ else:
     DEFAULT_MP_CONTEXT = None
 
 
+def _find_pickler_func(func):
+    import pkgutil
+    import importlib
+    for lib in ["cloudpickle", "dill"]:
+        if pkgutil.find_loader(lib) is not None:
+            return getattr(importlib.import_module(lib), func)
+    return None
+
+
 class BatchedCalls(object):
     """Wrap a sequence of (func, args, kwargs) tuples as a single callable"""
 
@@ -135,26 +144,22 @@ class BatchedCalls(object):
     def __len__(self):
         return self._size
 
-    try:
-        # If cloudpickle is available on the system, use it to pickle the
-        # function. This permits to use interactive terminal for parallel
+    if _find_pickler_func("dumps") is None:
+        # If cloudpickle or dill are available on the system, use it to pickle
+        # the function. This permits to use interactive terminal for parallel
         # calls.
-        import cloudpickle  # noqa: F401
 
         def __getstate__(self):
-            from cloudpickle import dumps
+            dumps = _find_pickler_func("dumps")
             items = [(dumps(func), args, kwargs)
                      for func, args, kwargs in self.items]
             return (items, self._size)
 
         def __setstate__(self, state):
-            from cloudpickle import loads
+            loads = _find_pickler_func("loads")
             items, self._size = state
             self.items = [(loads(func), args, kwargs)
                           for func, args, kwargs in items]
-
-    except ImportError:
-        pass
 
 
 ###############################################################################
@@ -164,6 +169,7 @@ def cpu_count():
     """Return the number of CPUs."""
     if mp is None:
         return 1
+
     return mp.cpu_count()
 
 
