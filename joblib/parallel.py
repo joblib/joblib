@@ -144,7 +144,7 @@ class BatchedCalls(object):
     def __len__(self):
         return self._size
 
-    if _find_pickler_func("dumps") is None:
+    if _find_pickler_func("dumps") is not None:
         # If cloudpickle or dill are available on the system, use it to pickle
         # the function. This permits to use interactive terminal for parallel
         # calls.
