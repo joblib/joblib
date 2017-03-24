@@ -80,6 +80,18 @@ if [ -n "$NUMPY_VERSION" ]; then
     pip install memory_profiler
 fi
 
+if [[ "$CLOUDPICKLE" == "true" ]]; then
+    # We want to ensure that pickling functions with cloudpickle does not
+    # break the tests.
+    pip install cloudpickle
+fi
+
+# Install py.test timeout to fasten failure in deadlocking tests
+pip install pytest-timeout
+
+# Temporary debug of loky backend
+pip install https://github.com/tomMoral/loky/archive/master.zip
+
 if [[ "$COVERAGE" == "true" ]]; then
     pip install pytest-cov codecov
 fi
