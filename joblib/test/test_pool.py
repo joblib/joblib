@@ -1,5 +1,6 @@
 import os
 import mmap
+import sys
 
 from joblib.test.common import with_numpy, np
 from joblib.test.common import setup_autokill
@@ -15,6 +16,7 @@ from joblib.pool import ArrayMemmapReducer
 from joblib.pool import reduce_memmap
 from joblib.pool import _strided_from_memmap
 from joblib.pool import _get_backing_memmap
+from joblib.pool import _get_temp_dir
 
 
 def setup_module():
@@ -478,3 +480,15 @@ def test_pool_memmap_with_big_offset(tmpdir):
     assert isinstance(result, np.memmap)
     assert result.offset == offset
     np.testing.assert_array_equal(obj, result)
+
+
+def test_pool_get_temp_dir(tmpdir):
+    pool_folder_name = 'test.tmpdir'
+    pool_folder, shared_mem = _get_temp_dir(pool_folder_name, tmpdir.strpath)
+    assert shared_mem is False
+    assert pool_folder == tmpdir.join('test.tmpdir').strpath
+
+    pool_folder, shared_mem = _get_temp_dir(pool_folder_name, temp_folder=None)
+    if sys.platform.startswith('win'):
+        assert shared_mem is False
+    assert pool_folder.endswith(pool_folder_name)
