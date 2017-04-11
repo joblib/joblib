@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright: 2017, Loic Esteve
+# License: BSD 3 clause
 
 # This script is used in Travis to check that PRs do not add obvious
 # flake8 violations. It relies on two things:
