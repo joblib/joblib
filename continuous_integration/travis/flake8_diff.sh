@@ -95,12 +95,13 @@ if [[ -z "$COMMIT_RANGE" ]]; then
     echo -e '\nRunning flake8 on the diff in the range'\
          "$DIFF_RANGE ($(git rev-list $REV_RANGE | wc -l) commit(s)):"
     echo '--------------------------------------------------------------------------------'
-
-    if [[ -n "$TMP_REMOTE" ]]; then
-        git remote remove $TMP_REMOTE
-    fi
 else
     echo "Got the commit range from Travis: $COMMIT_RANGE"
+fi
+
+#Remove temporary remote only if it was previously added.
+if [[ -n "$TMP_REMOTE" ]]; then
+    git remote remove $TMP_REMOTE
 fi
 
 # We ignore files from doc/sphintext. Unfortunately there is no
