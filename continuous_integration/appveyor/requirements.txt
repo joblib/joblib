@@ -2,4 +2,8 @@ numpy
 wheel
 pytest
 pytest-cov
+pytest-timeout
 codecov
+
+# Temporary debug of loky backend
+https://github.com/tomMoral/loky/archive/master.zip

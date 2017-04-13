@@ -6,14 +6,15 @@ Test the parallel module.
 # Copyright (c) 2010-2011 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
-import time
-import sys
 import os
-from math import sqrt
-import threading
-from multiprocessing import TimeoutError
-from time import sleep
+import sys
+import time
 import mmap
+import warnings
+import threading
+from math import sqrt
+from time import sleep
+from multiprocessing import TimeoutError
 
 from joblib import dump, load
 from joblib import parallel
@@ -55,23 +56,33 @@ except ImportError:
 from joblib._parallel_backends import SequentialBackend
 from joblib._parallel_backends import ThreadingBackend
 from joblib._parallel_backends import MultiprocessingBackend
+from joblib._parallel_backends import LokyBackend
 from joblib._parallel_backends import SafeFunction
 from joblib._parallel_backends import WorkerInterrupt
 
 from joblib.parallel import Parallel, delayed
 from joblib.parallel import register_parallel_backend, parallel_backend
+from joblib.parallel import effective_n_jobs, cpu_count
 
-from joblib.parallel import mp, cpu_count, BACKENDS, effective_n_jobs
+from joblib.parallel import mp, BACKENDS, DEFAULT_BACKEND
 from joblib.my_exceptions import JoblibException
 
 
 ALL_VALID_BACKENDS = [None] + sorted(BACKENDS.keys())
 # Add instances of backend classes deriving from ParallelBackendBase
 ALL_VALID_BACKENDS += [BACKENDS[backend_str]() for backend_str in BACKENDS]
+PROCESS_BACKENDS = ['multiprocessing', 'loky']
+PARALLEL_BACKENDS = PROCESS_BACKENDS + ['threading']
 
 if hasattr(mp, 'get_context'):
     # Custom multiprocessing context in Python 3.4+
     ALL_VALID_BACKENDS.append(mp.get_context('spawn'))
+
+DefaultBackend = BACKENDS[DEFAULT_BACKEND]
+
+
+def get_workers(backend):
+    return getattr(backend, '_pool', getattr(backend, '_workers', None))
 
 
 def division(x, y):
@@ -112,8 +123,9 @@ def _active_backend_type():
     return type(parallel.get_active_backend()[0])
 
 
-def parallel_func(inner_n_jobs):
-    return Parallel(n_jobs=inner_n_jobs)(delayed(square)(i) for i in range(3))
+def parallel_func(inner_n_jobs, backend):
+    return Parallel(n_jobs=inner_n_jobs, backend=backend)(
+        delayed(square)(i) for i in range(3))
 
 
 ###############################################################################
@@ -151,10 +163,43 @@ def test_main_thread_renamed_no_warning(backend, monkeypatch):
         results = Parallel(n_jobs=2, backend=backend)(
             delayed(square)(x) for x in range(3))
         assert results == [0, 1, 4]
+
+    # Due to the default parameters of LokyBackend, there is a change that
+    # warninfo catches Warnings from worker timeouts. We remove it if it exists
+    warninfo = [w for w in warninfo if "worker timeout" not in str(w.message)]
+
     # The multiprocessing backend will raise a warning when detecting that is
     # started from the non-main thread. Let's check that there is no false
     # positive because of the name change.
     assert len(warninfo) == 0
+
+
+# TODO: The Loky backend can be nested. Do we want that?
+@with_multiprocessing
+@parametrize('child_backend', PROCESS_BACKENDS)
+@parametrize('parent_backend', ['multiprocessing', 'threading'])
+def test_nested_parallel_warnings(parent_backend, child_backend, capfd):
+    if posix is None:
+        # This test pass only when fork is the process start method
+        raise SkipTest('Not a POSIX platform')
+
+    # Makes sure the warnings are always printed
+    warnings.resetwarnings()
+    warnings.simplefilter("always")
+
+    # no warnings if inner_n_jobs=1
+    Parallel(n_jobs=2, backend=parent_backend)(
+        delayed(parallel_func)(backend=child_backend, inner_n_jobs=1)
+        for _ in range(5))
+    out, err = capfd.readouterr()
+    assert err == ''
+
+    #  warnings if inner_n_jobs != 1
+    Parallel(n_jobs=2, backend=parent_backend)(
+        delayed(parallel_func)(backend=child_backend, inner_n_jobs=2)
+        for _ in range(5))
+    out, err = capfd.readouterr()
+    assert '-backed parallel loops cannot be ' in err
 
 
 def nested_loop(backend):
@@ -162,8 +207,8 @@ def nested_loop(backend):
         delayed(square)(.01) for _ in range(2))
 
 
-@parametrize('parent_backend', BACKENDS)
 @parametrize('child_backend', BACKENDS)
+@parametrize('parent_backend', BACKENDS)
 def test_nested_loop(parent_backend, child_backend):
     Parallel(n_jobs=2, backend=parent_backend)(
         delayed(nested_loop)(child_backend) for _ in range(2))
@@ -185,17 +230,18 @@ def test_parallel_kwargs(n_jobs):
             Parallel(n_jobs=n_jobs)(delayed(f)(x, y=1) for x in lst))
 
 
-@parametrize('backend', ['multiprocessing', 'threading'])
+@parametrize('backend', PARALLEL_BACKENDS)
 def test_parallel_as_context_manager(backend):
     lst = range(10)
     expected = [f(x, y=1) for x in lst]
+
     with Parallel(n_jobs=4, backend=backend) as p:
         # Internally a pool instance has been eagerly created and is managed
         # via the context manager protocol
         managed_backend = p._backend
         if mp is not None:
             assert managed_backend is not None
-            assert managed_backend._pool is not None
+            assert get_workers(managed_backend) is not None
 
         # We make call with the managed parallel object several times inside
         # the managed block:
@@ -204,17 +250,17 @@ def test_parallel_as_context_manager(backend):
 
         # Those calls have all used the same pool instance:
         if mp is not None:
-            assert managed_backend._pool is p._backend._pool
+            assert get_workers(managed_backend) is get_workers(p._backend)
 
     # As soon as we exit the context manager block, the pool is terminated and
     # no longer referenced from the parallel object:
     if mp is not None:
-        assert p._backend._pool is None
+        assert get_workers(p._backend) is None
 
     # It's still possible to use the parallel instance in non-managed mode:
     assert expected == p(delayed(f)(x, y=1) for x in lst)
     if mp is not None:
-        assert p._backend._pool is None
+        assert get_workers(p._backend) is None
 
 
 def test_parallel_pickling():
@@ -236,7 +282,7 @@ def test_parallel_pickling():
         Parallel()(delayed(g)(x) for x in range(10))
 
 
-@parametrize('backend', ['multiprocessing', 'threading'])
+@parametrize('backend', PARALLEL_BACKENDS)
 def test_parallel_timeout_success(backend):
     # Check that timeout isn't thrown when function is fast enough
     assert len(Parallel(n_jobs=2, backend=backend, timeout=10)(
@@ -244,7 +290,7 @@ def test_parallel_timeout_success(backend):
 
 
 @with_multiprocessing
-@parametrize('backend', ['multiprocessing', 'threading'])
+@parametrize('backend', PARALLEL_BACKENDS)
 def test_parallel_timeout_fail(backend):
     # Check that timeout properly fails when function is too slow
     with raises(TimeoutError):
@@ -252,24 +298,26 @@ def test_parallel_timeout_fail(backend):
             delayed(sleep)(10) for x in range(10))
 
 
-def test_error_capture():
+@with_multiprocessing
+@parametrize('backend', PROCESS_BACKENDS)
+def test_error_capture(backend):
     # Check that error are captured, and that correct exceptions
     # are raised.
     if mp is not None:
         # A JoblibException will be raised only if there is indeed
         # multiprocessing
         with raises(JoblibException):
-            Parallel(n_jobs=2)(
+            Parallel(n_jobs=2, backend=backend)(
                 [delayed(division)(x, y)
                     for x, y in zip((0, 1), (1, 0))])
         with raises(WorkerInterrupt):
-            Parallel(n_jobs=2)(
+            Parallel(n_jobs=2, backend=backend)(
                 [delayed(interrupt_raiser)(x) for x in (1, 0)])
 
         # Try again with the context manager API
-        with Parallel(n_jobs=2) as parallel:
-            assert parallel._backend._pool is not None
-            original_pool = parallel._backend._pool
+        with Parallel(n_jobs=2, backend=backend) as parallel:
+            assert get_workers(parallel._backend) is not None
+            original_workers = get_workers(parallel._backend)
 
             with raises(JoblibException):
                 parallel([delayed(division)(x, y)
@@ -277,30 +325,30 @@ def test_error_capture():
 
             # The managed pool should still be available and be in a working
             # state despite the previously raised (and caught) exception
-            assert parallel._backend._pool is not None
+            assert get_workers(parallel._backend) is not None
 
             # The pool should have been interrupted and restarted:
-            assert parallel._backend._pool is not original_pool
+            assert get_workers(parallel._backend) is not original_workers
 
             assert ([f(x, y=1) for x in range(10)] ==
                     parallel(delayed(f)(x, y=1) for x in range(10)))
 
-            original_pool = parallel._backend._pool
+            original_workers = get_workers(parallel._backend)
             with raises(WorkerInterrupt):
                 parallel([delayed(interrupt_raiser)(x) for x in (1, 0)])
 
             # The pool should still be available despite the exception
-            assert parallel._backend._pool is not None
+            assert get_workers(parallel._backend) is not None
 
             # The pool should have been interrupted and restarted:
-            assert parallel._backend._pool is not original_pool
+            assert get_workers(parallel._backend) is not original_workers
 
             assert ([f(x, y=1) for x in range(10)] ==
                     parallel(delayed(f)(x, y=1) for x in range(10)))
 
         # Check that the inner pool has been terminated when exiting the
         # context manager
-        assert parallel._backend._pool is None
+        assert get_workers(parallel._backend) is None
     else:
         with raises(KeyboardInterrupt):
             Parallel(n_jobs=2)(
@@ -360,7 +408,7 @@ def test_dispatch_one_job(backend, batch_size, expected_queue):
 
 
 @with_multiprocessing
-@parametrize('backend', ['multiprocessing', 'threading'])
+@parametrize('backend', PARALLEL_BACKENDS)
 def test_dispatch_multiprocessing(backend):
     """ Check that using pre_dispatch Parallel does indeed dispatch items
         lazily.
@@ -396,8 +444,10 @@ def test_batching_auto_threading():
         assert p._backend.compute_batch_size() == 1
 
 
-def test_batching_auto_multiprocessing():
-    with Parallel(n_jobs=2, batch_size='auto', backend='multiprocessing') as p:
+@with_multiprocessing
+@parametrize('backend', PROCESS_BACKENDS)
+def test_batching_auto_subprocesses(backend):
+    with Parallel(n_jobs=2, batch_size='auto', backend=backend) as p:
         p(delayed(id)(i) for i in range(5000))  # many very fast tasks
 
         # It should be strictly larger than 1 but as we don't want heisen
@@ -407,15 +457,15 @@ def test_batching_auto_multiprocessing():
 
 
 def test_exception_dispatch():
-    "Make sure that exception raised during dispatch are indeed captured"
+    """Make sure that exception raised during dispatch are indeed captured"""
     with raises(ValueError):
         Parallel(n_jobs=2, pre_dispatch=16, verbose=0)(
             delayed(exception_raiser)(i) for i in range(30))
 
 
 def test_nested_exception_dispatch():
-    # Ensure TransportableException objects for nested joblib cases gets
-    # propagated.
+    """Ensure TransportableException objects for nested joblib cases gets
+    propagated."""
     with raises(JoblibException):
         Parallel(n_jobs=2, pre_dispatch=16, verbose=0)(
             delayed(SafeFunction(exception_raiser))(i) for i in range(30))
@@ -462,6 +512,12 @@ def test_invalid_backend():
         Parallel(backend='unit-testing')
 
 
+@parametrize('backend', ALL_VALID_BACKENDS)
+def test_invalid_njobs(backend):
+    with raises(ValueError):
+        Parallel(n_jobs=0, backend=backend)._initialize_backend()
+
+
 def test_register_parallel_backend():
     try:
         register_parallel_backend("test_backend", FakeParallelBackend)
@@ -472,15 +528,15 @@ def test_register_parallel_backend():
 
 
 def test_overwrite_default_backend():
-    assert _active_backend_type() == MultiprocessingBackend
+    assert _active_backend_type() == DefaultBackend
     try:
         register_parallel_backend("threading", BACKENDS["threading"],
                                   make_default=True)
         assert _active_backend_type() == ThreadingBackend
     finally:
         # Restore the global default manually
-        parallel.DEFAULT_BACKEND = 'multiprocessing'
-    assert _active_backend_type() == MultiprocessingBackend
+        parallel.DEFAULT_BACKEND = DEFAULT_BACKEND
+    assert _active_backend_type() == DefaultBackend
 
 
 def check_backend_context_manager(backend_name):
@@ -493,6 +549,9 @@ def check_backend_context_manager(backend_name):
         if backend_name == 'multiprocessing':
             assert type(active_backend) == MultiprocessingBackend
             assert type(p._backend) == MultiprocessingBackend
+        elif backend_name == 'loky':
+            assert type(active_backend) == LokyBackend
+            assert type(p._backend) == LokyBackend
         elif backend_name == 'threading':
             assert type(active_backend) == ThreadingBackend
             assert type(p._backend) == ThreadingBackend
@@ -501,8 +560,10 @@ def check_backend_context_manager(backend_name):
             assert type(p._backend) == FakeParallelBackend
 
 
-all_backends_for_context_manager = ['multiprocessing', 'threading'] + \
-                                   ['test_backend_%d' % i for i in range(3)]
+all_backends_for_context_manager = PARALLEL_BACKENDS[:]
+all_backends_for_context_manager.extend(
+    ['test_backend_%d' % i for i in range(3)]
+)
 
 
 @with_multiprocessing
@@ -511,12 +572,12 @@ def test_backend_context_manager(monkeypatch, backend):
     if backend not in BACKENDS:
         monkeypatch.setitem(BACKENDS, backend, FakeParallelBackend)
 
-    assert _active_backend_type() == MultiprocessingBackend
+    assert _active_backend_type() == DefaultBackend
     # check that this possible to switch parallel backends sequentially
     check_backend_context_manager(backend)
 
     # The default backend is retored
-    assert _active_backend_type() == MultiprocessingBackend
+    assert _active_backend_type() == DefaultBackend
 
     # Check that context manager switching is thread safe:
     Parallel(n_jobs=2, backend='threading')(
@@ -524,7 +585,7 @@ def test_backend_context_manager(monkeypatch, backend):
         for b in all_backends_for_context_manager if not b)
 
     # The default backend is again retored
-    assert _active_backend_type() == MultiprocessingBackend
+    assert _active_backend_type() == DefaultBackend
 
 
 class ParameterizedParallelBackend(SequentialBackend):
@@ -539,7 +600,7 @@ class ParameterizedParallelBackend(SequentialBackend):
 def test_parameterized_backend_context_manager(monkeypatch):
     monkeypatch.setitem(BACKENDS, 'param_backend',
                         ParameterizedParallelBackend)
-    assert _active_backend_type() == MultiprocessingBackend
+    assert _active_backend_type() == DefaultBackend
 
     with parallel_backend('param_backend', param=42, n_jobs=3):
         active_backend, active_n_jobs = parallel.get_active_backend()
@@ -553,11 +614,11 @@ def test_parameterized_backend_context_manager(monkeypatch):
     assert results == [sqrt(i) for i in range(5)]
 
     # The default backend is again restored
-    assert _active_backend_type() == MultiprocessingBackend
+    assert _active_backend_type() == DefaultBackend
 
 
 def test_direct_parameterized_backend_context_manager():
-    assert _active_backend_type() == MultiprocessingBackend
+    assert _active_backend_type() == DefaultBackend
 
     # Check that it's possible to pass a backend instance directly,
     # without registration
@@ -573,7 +634,7 @@ def test_direct_parameterized_backend_context_manager():
     assert results == [sqrt(i) for i in range(5)]
 
     # The default backend is again retored
-    assert _active_backend_type() == MultiprocessingBackend
+    assert _active_backend_type() == DefaultBackend
 
 
 ###############################################################################
@@ -615,7 +676,7 @@ def test_dispatch_race_condition(n_tasks, n_jobs, pre_dispatch, batch_size):
     # iterable generator that is not thread-safe natively.
     # This is a non-regression test for the "Pool seems closed" class of error
     params = {'n_jobs': n_jobs, 'pre_dispatch': pre_dispatch,
-              'batch_size': batch_size}
+              'batch_size': batch_size, 'verbose': 100}
     expected = [square(i) for i in range(n_tasks)]
     results = Parallel(**params)(delayed(square)(i) for i in range(n_tasks))
     assert results == expected
@@ -642,14 +703,17 @@ def test_default_mp_context():
         assert context is None
 
 
-@with_multiprocessing
 @with_numpy
-def test_no_blas_crash_or_freeze_with_multiprocessing():
-    if sys.version_info < (3, 4):
-        raise SkipTest('multiprocessing can cause BLAS freeze on old Python')
-
-    # Use the spawn backend that is both robust and available on all platforms
-    spawn_backend = mp.get_context('spawn')
+@with_multiprocessing
+@parametrize('backend', PROCESS_BACKENDS)
+def test_no_blas_crash_or_freeze_with_subprocesses(backend):
+    if backend == 'multiprocessing':
+        if sys.version_info < (3, 4):
+            raise SkipTest('multiprocessing can cause BLAS freeze on old '
+                           'Python that relies on fork.')
+        # Use the spawn backend that is both robust and available on all
+        # platforms
+        backend = mp.get_context('spawn')
 
     # Check that on recent Python version, the 'spawn' start method can make
     # it possible to use multiprocessing in conjunction of any BLAS
@@ -664,21 +728,30 @@ def test_no_blas_crash_or_freeze_with_multiprocessing():
 
     # check that the internal BLAS thread-pool is not in an inconsistent state
     # in the worker processes managed by multiprocessing
-    Parallel(n_jobs=2, backend=spawn_backend)(
+    Parallel(n_jobs=2, backend=backend)(
         delayed(np.dot)(a, a.T) for i in range(2))
 
 
-def test_parallel_with_interactively_defined_functions():
+@with_multiprocessing
+@parametrize('backend', PROCESS_BACKENDS +
+             ([] if sys.version_info[:2] < (3, 4) or mp is None
+              else [mp.get_context('spawn')]))
+def test_parallel_with_interactively_defined_functions(backend):
     # When functions are defined interactively in a python/IPython
     # session, we want to be able to use them with joblib.Parallel
-    if posix is None:
-        # This test pass only when fork is the process start method
-        raise SkipTest('Not a POSIX platform')
+    if posix is None or backend != 'multiprocessing':
+        try:
+            import cloudpickle  # noqa
+        except ImportError:
+            # This test pass only when fork is the process start method or
+            # cloudpickle is present on the system.
+            raise SkipTest('Not a POSIX platform')
 
     code = '\n\n'.join([
         'from joblib import Parallel, delayed',
         'def square(x): return x**2',
-        'print(Parallel(n_jobs=2)(delayed(square)(i) for i in range(5)))'])
+        'print(Parallel(n_jobs=2, backend="multiprocessing")('
+        '    delayed(square)(i) for i in range(5)))'])
 
     check_subprocess_call([sys.executable, '-c', code],
                           stdout_regex=r'\[0, 1, 4, 9, 16\]')
@@ -698,7 +771,8 @@ def check_memmap(a):
 
 @with_numpy
 @with_multiprocessing
-def test_auto_memmap_on_arrays_from_generator():
+@parametrize('backend', PROCESS_BACKENDS)
+def test_auto_memmap_on_arrays_from_generator(backend):
     # Non-regression test for a problem with a bad interaction between the
     # GC collecting arrays recently created during iteration inside the
     # parallel dispatch loop and the auto-memmap feature of Parallel.
@@ -708,29 +782,10 @@ def test_auto_memmap_on_arrays_from_generator():
             yield np.ones(10, dtype=np.float32) * i
     # Use max_nbytes=1 to force the use of memory-mapping even for small
     # arrays
-    results = Parallel(n_jobs=2, max_nbytes=1)(
+    results = Parallel(n_jobs=2, max_nbytes=1, backend=backend)(
         delayed(check_memmap)(a) for a in generate_arrays(100))
     for result, expected in zip(results, generate_arrays(len(results))):
         np.testing.assert_array_equal(expected, result)
-
-
-@with_multiprocessing
-def test_nested_parallel_warnings(capfd):
-    if posix is None:
-        # This test pass only when fork is the process start method
-        raise SkipTest('Not a POSIX platform')
-
-    # no warnings if inner_n_jobs=1
-    Parallel(n_jobs=2)(delayed(parallel_func)(inner_n_jobs=1)
-                       for _ in range(5))
-    out, err = capfd.readouterr()
-    assert err == ''
-
-    #  warnings if inner_n_jobs != 1
-    Parallel(n_jobs=2)(delayed(parallel_func)(inner_n_jobs=2)
-                       for _ in range(5))
-    out, err = capfd.readouterr()
-    assert 'Multiprocessing-backed parallel loops cannot be nested' in err
 
 
 def identity(arg):
@@ -753,7 +808,7 @@ def test_memmap_with_big_offset(tmpdir):
 
 def test_warning_about_timeout_not_supported_by_backend():
     with warns(None) as warninfo:
-        Parallel(timeout=1)(delayed(square)(i) for i in range(10))
+        Parallel(timeout=1)(delayed(square)(i) for i in range(50))
     assert len(warninfo) == 1
     w = warninfo[0]
     assert isinstance(w.message, UserWarning)
@@ -761,3 +816,44 @@ def test_warning_about_timeout_not_supported_by_backend():
         "The backend class 'SequentialBackend' does not support timeout. "
         "You have set 'timeout=1' in Parallel but the 'timeout' parameter "
         "will not be used.")
+
+
+@parametrize('backend', ALL_VALID_BACKENDS)
+@parametrize('n_jobs', [1, 2, -2, -1])
+def test_abort_backend(n_jobs, backend):
+    delays = ["a"] + [10] * 100
+
+    with raises(TypeError):
+        t_start = time.time()
+        Parallel(n_jobs=n_jobs, backend=backend)(
+            delayed(time.sleep)(i) for i in delays)
+    dt = time.time() - t_start
+    assert dt < 3
+
+
+@with_numpy
+@with_multiprocessing
+@parametrize('backend', PROCESS_BACKENDS)
+def test_memmapping_leaks(backend, tmpdir):
+    # Non-regression test for memmapping backends. Ensure that the data
+    # does not stay too long in memory
+    tmpdir = tmpdir.strpath
+
+    # Use max_nbytes=1 to force the use of memory-mapping even for small
+    # arrays
+    with Parallel(n_jobs=2, max_nbytes=1, backend=backend,
+                  temp_folder=tmpdir) as p:
+        p(delayed(check_memmap)(a) for a in [np.random.random(10)] * 2)
+
+        # The memmap folder should not be clean in the context scope
+        assert len(os.listdir(tmpdir)) > 0
+
+    # Make sure that the shared memory is cleaned at the end when we exit
+    # the context
+    assert len(os.listdir(tmpdir)) == 0
+
+    # Make sure that the shared memory is cleaned at the end of a call
+    p = Parallel(n_jobs=2, max_nbytes=1, backend=backend)
+    p(delayed(check_memmap)(a) for a in [np.random.random(10)] * 2)
+
+    assert len(os.listdir(tmpdir)) == 0

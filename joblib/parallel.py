@@ -29,7 +29,8 @@ from .logger import Logger, short_format_time
 from .my_exceptions import TransportableException, _mk_exception
 from .disk import memstr_to_bytes
 from ._parallel_backends import (FallbackToBackend, MultiprocessingBackend,
-                                 ThreadingBackend, SequentialBackend)
+                                 ThreadingBackend, SequentialBackend,
+                                 LokyBackend)
 from ._compat import _basestring
 
 # Make sure that those two classes are part of the public joblib.parallel API
@@ -41,11 +42,12 @@ BACKENDS = {
     'multiprocessing': MultiprocessingBackend,
     'threading': ThreadingBackend,
     'sequential': SequentialBackend,
+    'loky': LokyBackend,
 }
 
 # name of the backend used by default by Parallel outside of any context
 # managed by ``parallel_backend``.
-DEFAULT_BACKEND = 'multiprocessing'
+DEFAULT_BACKEND = 'loky'
 DEFAULT_N_JOBS = 1
 
 # Thread local value that can be overriden by the ``parallel_backend`` context
@@ -120,6 +122,15 @@ else:
     DEFAULT_MP_CONTEXT = None
 
 
+def _find_pickler_func(func):
+    import pkgutil
+    import importlib
+    for lib in ["cloudpickle", "dill"]:
+        if pkgutil.find_loader(lib) is not None:
+            return getattr(importlib.import_module(lib), func)
+    return None
+
+
 class BatchedCalls(object):
     """Wrap a sequence of (func, args, kwargs) tuples as a single callable"""
 
@@ -133,6 +144,23 @@ class BatchedCalls(object):
     def __len__(self):
         return self._size
 
+    if _find_pickler_func("dumps") is not None:
+        # If cloudpickle or dill are available on the system, use it to pickle
+        # the function. This permits to use interactive terminal for parallel
+        # calls.
+
+        def __getstate__(self):
+            dumps = _find_pickler_func("dumps")
+            items = [(dumps(func), args, kwargs)
+                     for func, args, kwargs in self.items]
+            return (items, self._size)
+
+        def __setstate__(self, state):
+            loads = _find_pickler_func("loads")
+            items, self._size = state
+            self.items = [(loads(func), args, kwargs)
+                          for func, args, kwargs in items]
+
 
 ###############################################################################
 # CPU count that works also when multiprocessing has been disabled via
@@ -141,6 +169,7 @@ def cpu_count():
     """Return the number of CPUs."""
     if mp is None:
         return 1
+
     return mp.cpu_count()
 
 
@@ -207,6 +236,7 @@ class BatchCompletionCallBack(object):
         self.dispatch_timestamp = dispatch_timestamp
         self.batch_size = batch_size
         self.parallel = parallel
+        self.done = False
 
     def __call__(self, out):
         self.parallel.n_completed_tasks += self.batch_size
@@ -215,8 +245,10 @@ class BatchCompletionCallBack(object):
         self.parallel._backend.batch_completed(self.batch_size,
                                                this_batch_duration)
         self.parallel.print_progress()
-        if self.parallel._original_iterator is not None:
-            self.parallel.dispatch_next()
+        with self.parallel._lock:
+            if self.parallel._original_iterator is not None:
+                self.parallel.dispatch_next()
+            self.done = True
 
 
 ###############################################################################
@@ -326,7 +358,7 @@ class Parallel(Logger):
             very little overhead and using larger batch size has not proved to
             bring any gain in that case.
         temp_folder: str, optional
-            Folder to be used by the pool for memmaping large arrays
+            Folder to be used by the pool for memmapping large arrays
             for sharing memory with worker processes. If None, this will try in
             order:
 
@@ -344,7 +376,7 @@ class Parallel(Logger):
             Threshold on the size of arrays passed to the workers that
             triggers automated memory mapping in temp_folder. Can be an int
             in Bytes, or a human-readable string, e.g., '1M' for 1 megabyte.
-            Use None to disable memmaping of large arrays.
+            Use None to disable memmapping of large arrays.
             Only active when backend="multiprocessing".
         mmap_mode: {None, 'r+', 'r', 'w+', 'c'}
             Memmapping mode for numpy arrays passed to workers.
@@ -529,7 +561,7 @@ class Parallel(Logger):
 
         # This lock is used coordinate the main thread of this process with
         # the async callback thread of our the pool.
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
 
     def __enter__(self):
         self._managed_backend = True
@@ -585,8 +617,17 @@ class Parallel(Logger):
 
         dispatch_timestamp = time.time()
         cb = BatchCompletionCallBack(dispatch_timestamp, len(batch), self)
-        job = self._backend.apply_async(batch, callback=cb)
-        self._jobs.append(job)
+        with self._lock:
+            job = self._backend.apply_async(batch, callback=cb)
+            # If the callback is already done and we are not using a
+            # SequentialBackend, we need to reorder the jobs to get the correct
+            # order in the result. This can happen when a job is so quick
+            # that its callback is called before we get here.
+            if (not issubclass(type(self._backend), SequentialBackend) and
+                    cb.done):
+                self._jobs.insert(-1, job)
+            else:
+                self._jobs.append(job)
 
     def dispatch_next(self):
         """Dispatch more data for parallel processing
@@ -745,6 +786,7 @@ Sub-process traceback:
         # A flag used to abort the dispatching of jobs in case an
         # exception is found
         self._aborting = False
+
         if not self._managed_backend:
             n_jobs = self._initialize_backend()
         else:
@@ -775,17 +817,24 @@ Sub-process traceback:
         try:
             # Only set self._iterating to True if at least a batch
             # was dispatched. In particular this covers the edge
-            # case of Parallel used with an exhausted iterator.
+            # case of Parallel used with an exhausted iterator. If
+            # self._original_iterator is None, then this means either
+            # that pre_dispatch == "all", n_jobs == 1 or that the first batch
+            # was very quick and its callback already dispatched all the
+            # remaining jobs.
+            self._iterating = False
+            if self.dispatch_one_batch(iterator):
+                self._iterating = self._original_iterator is not None
+
             while self.dispatch_one_batch(iterator):
-                self._iterating = True
-            else:
-                self._iterating = False
+                pass
 
             if pre_dispatch == "all" or n_jobs == 1:
                 # The iterable was consumed all at once by the above for loop.
                 # No need to wait for async callbacks to trigger to
                 # consumption.
                 self._iterating = False
+
             self.retrieve()
             # Make sure that we get a last message telling us we are done
             elapsed_time = time.time() - self._start_time
