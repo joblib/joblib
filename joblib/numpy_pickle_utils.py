@@ -7,18 +7,16 @@
 import pickle
 import sys
 import io
-import zlib
-import gzip
 import warnings
 import contextlib
 from contextlib import closing
 
-from ._compat import PY3_OR_LATER, PY27, _basestring
-
-try:
-    from threading import RLock
-except ImportError:
-    from dummy_threading import RLock
+from ._compat import PY3_OR_LATER, PY27
+from .compressor import BinaryGzipFile, BinaryZlibFile
+from .compressor import _EXTRA_COMPRESSORS, _PREFIXES_MAX_LEN
+from .compressor import (_ZFILE_PREFIX, _ZLIB_PREFIX, _GZIP_PREFIX,
+                         _BZ2_PREFIX, _XZ_PREFIX, _LZMA_PREFIX, _LZ4_PREFIX)
+from .compressor import register_compressor
 
 if PY3_OR_LATER:
     Unpickler = pickle._Unpickler
@@ -38,7 +36,6 @@ try:
 except ImportError:
     lzma = None
 
-
 try:
     # The python standard library can be built without bz2 so we make bz2
     # usage optional.
@@ -48,29 +45,20 @@ try:
 except ImportError:
     bz2 = None
 
+try:
+    import lz4
+except ImportError:
+    lz4 = None
 
-# Magic numbers of supported compression file formats.        '
-_ZFILE_PREFIX = b'ZF'  # used with pickle files created before 0.9.3.
-_ZLIB_PREFIX = b'\x78'
-_GZIP_PREFIX = b'\x1f\x8b'
-_BZ2_PREFIX = b'BZ'
-_XZ_PREFIX = b'\xfd\x37\x7a\x58\x5a'
-_LZMA_PREFIX = b'\x5d\x00'
-
-# Supported compressors
-_COMPRESSORS = ('zlib', 'bz2', 'lzma', 'xz', 'gzip')
-_COMPRESSOR_CLASSES = [gzip.GzipFile]
-
-if bz2 is not None:
-    _COMPRESSOR_CLASSES.append(bz2.BZ2File)
-
-if lzma is not None:
-    _COMPRESSOR_CLASSES.append(lzma.LZMAFile)
-
-# The max magic number length of supported compression file types.
-_MAX_PREFIX_LEN = max(len(prefix)
-                      for prefix in (_ZFILE_PREFIX, _GZIP_PREFIX, _BZ2_PREFIX,
-                                     _XZ_PREFIX, _LZMA_PREFIX))
+if PY3_OR_LATER and lz4 is not None:
+    if not tuple(map(int, lz4.__version__.split('.')[:-1])) >= (0, 19):
+        # lz4 can only be used starting from version 0.19.
+        lz4 = None
+    else:
+        import lz4.frame
+        register_compressor('lz4', _LZ4_PREFIX, lz4.frame.LZ4FrameFile)
+else:
+    lz4 = None
 
 # Buffer size used in io.BufferedReader and io.BufferedWriter
 _IO_BUFFER_SIZE = 1024 ** 2
@@ -83,6 +71,16 @@ def _is_raw_file(fileobj):
         return isinstance(fileobj, io.FileIO)
     else:
         return isinstance(fileobj, file)  # noqa
+
+
+def _get_prefixes_max_len():
+    # Compute the max prefix len of extra registered compression formats.
+    extra_max_prefix_len = 0
+    if _EXTRA_COMPRESSORS:
+        extra_max_prefix_len = max(len(obj.prefix)
+                                   for obj in _EXTRA_COMPRESSORS.values())
+
+    return max(_PREFIXES_MAX_LEN, extra_max_prefix_len)
 
 
 ###############################################################################
@@ -99,13 +97,14 @@ def _detect_compressor(fileobj):
     str in {'zlib', 'gzip', 'bz2', 'lzma', 'xz', 'compat', 'not-compressed'}
     """
     # Read the magic number in the first bytes of the file.
+    max_prefix_len = _get_prefixes_max_len()
     if hasattr(fileobj, 'peek'):
         # Peek allows to read those bytes without moving the cursor in the
         # file whic.
-        first_bytes = fileobj.peek(_MAX_PREFIX_LEN)
+        first_bytes = fileobj.peek(max_prefix_len)
     else:
         # Fallback to seek if the fileobject is not peekable.
-        first_bytes = fileobj.read(_MAX_PREFIX_LEN)
+        first_bytes = fileobj.read(max_prefix_len)
         fileobj.seek(0)
 
     if first_bytes.startswith(_ZLIB_PREFIX):
@@ -120,6 +119,9 @@ def _detect_compressor(fileobj):
         return "xz"
     elif first_bytes.startswith(_ZFILE_PREFIX):
         return "compat"
+    for name, compressor in _EXTRA_COMPRESSORS.items():
+        if first_bytes.startswith(compressor.prefix):
+            return name
 
     return "not-compressed"
 
@@ -214,6 +216,13 @@ def _read_fileobject(fileobj, filename, mmap_mode=None):
                                           "python ({}.{})"
                                           .format(sys.version_info[0],
                                                   sys.version_info[1]))
+        else:
+            for name, compressor_type in _EXTRA_COMPRESSORS.items():
+                if compressor == name:
+                    obj = compressor_type.object
+                    fileobj = _buffered_read_file(obj(filename, 'rb'))
+                    break
+
         # Checking if incompatible load parameters with the type of file:
         # mmap_mode cannot be used with compressed file or in memory buffers
         # such as io.BytesIO.
@@ -254,350 +263,13 @@ def _write_fileobject(filename, compress=("zlib", 3)):
         return _buffered_write_file(lzma.LZMAFile(filename, 'wb',
                                                   preset=compresslevel,
                                                   format=lzma.FORMAT_ALONE))
+    elif compressmethod in _EXTRA_COMPRESSORS.keys():
+        file_objet = _EXTRA_COMPRESSORS[compressmethod].object
+        return _buffered_write_file(file_objet(filename, 'wb'))
     else:
         return _buffered_write_file(BinaryZlibFile(filename, 'wb',
                                     compresslevel=compresslevel))
 
-
-###############################################################################
-#  Joblib zlib compression file object definition
-
-_MODE_CLOSED = 0
-_MODE_READ = 1
-_MODE_READ_EOF = 2
-_MODE_WRITE = 3
-_BUFFER_SIZE = 8192
-
-
-class BinaryZlibFile(io.BufferedIOBase):
-    """A file object providing transparent zlib (de)compression.
-
-    A BinaryZlibFile can act as a wrapper for an existing file object, or refer
-    directly to a named file on disk.
-
-    Note that BinaryZlibFile provides only a *binary* file interface: data read
-    is returned as bytes, and data to be written should be given as bytes.
-
-    This object is an adaptation of the BZ2File object and is compatible with
-    versions of python >= 2.7.
-
-    If filename is a str or bytes object, it gives the name
-    of the file to be opened. Otherwise, it should be a file object,
-    which will be used to read or write the compressed data.
-
-    mode can be 'rb' for reading (default) or 'wb' for (over)writing
-
-    If mode is 'wb', compresslevel can be a number between 1
-    and 9 specifying the level of compression: 1 produces the least
-    compression, and 9 (default) produces the most compression.
-    """
-
-    wbits = zlib.MAX_WBITS
-
-    def __init__(self, filename, mode="rb", compresslevel=9):
-        # This lock must be recursive, so that BufferedIOBase's
-        # readline(), readlines() and writelines() don't deadlock.
-        self._lock = RLock()
-        self._fp = None
-        self._closefp = False
-        self._mode = _MODE_CLOSED
-        self._pos = 0
-        self._size = -1
-
-        if not isinstance(compresslevel, int) or not (1 <= compresslevel <= 9):
-            raise ValueError("'compresslevel' must be an integer "
-                             "between 1 and 9. You provided 'compresslevel={}'"
-                             .format(compresslevel))
-
-        if mode == "rb":
-            mode_code = _MODE_READ
-            self._decompressor = zlib.decompressobj(self.wbits)
-            self._buffer = b""
-            self._buffer_offset = 0
-        elif mode == "wb":
-            mode_code = _MODE_WRITE
-            self._compressor = zlib.compressobj(compresslevel,
-                                                zlib.DEFLATED,
-                                                self.wbits,
-                                                zlib.DEF_MEM_LEVEL,
-                                                0)
-        else:
-            raise ValueError("Invalid mode: %r" % (mode,))
-
-        if isinstance(filename, _basestring):
-            self._fp = io.open(filename, mode)
-            self._closefp = True
-            self._mode = mode_code
-        elif hasattr(filename, "read") or hasattr(filename, "write"):
-            self._fp = filename
-            self._mode = mode_code
-        else:
-            raise TypeError("filename must be a str or bytes object, "
-                            "or a file")
-
-    def close(self):
-        """Flush and close the file.
-
-        May be called more than once without error. Once the file is
-        closed, any other operation on it will raise a ValueError.
-        """
-        with self._lock:
-            if self._mode == _MODE_CLOSED:
-                return
-            try:
-                if self._mode in (_MODE_READ, _MODE_READ_EOF):
-                    self._decompressor = None
-                elif self._mode == _MODE_WRITE:
-                    self._fp.write(self._compressor.flush())
-                    self._compressor = None
-            finally:
-                try:
-                    if self._closefp:
-                        self._fp.close()
-                finally:
-                    self._fp = None
-                    self._closefp = False
-                    self._mode = _MODE_CLOSED
-                    self._buffer = b""
-                    self._buffer_offset = 0
-
-    @property
-    def closed(self):
-        """True if this file is closed."""
-        return self._mode == _MODE_CLOSED
-
-    def fileno(self):
-        """Return the file descriptor for the underlying file."""
-        self._check_not_closed()
-        return self._fp.fileno()
-
-    def seekable(self):
-        """Return whether the file supports seeking."""
-        return self.readable() and self._fp.seekable()
-
-    def readable(self):
-        """Return whether the file was opened for reading."""
-        self._check_not_closed()
-        return self._mode in (_MODE_READ, _MODE_READ_EOF)
-
-    def writable(self):
-        """Return whether the file was opened for writing."""
-        self._check_not_closed()
-        return self._mode == _MODE_WRITE
-
-    # Mode-checking helper functions.
-
-    def _check_not_closed(self):
-        if self.closed:
-            fname = getattr(self._fp, 'name', None)
-            msg = "I/O operation on closed file"
-            if fname is not None:
-                msg += " {}".format(fname)
-            msg += "."
-            raise ValueError(msg)
-
-    def _check_can_read(self):
-        if self._mode not in (_MODE_READ, _MODE_READ_EOF):
-            self._check_not_closed()
-            raise io.UnsupportedOperation("File not open for reading")
-
-    def _check_can_write(self):
-        if self._mode != _MODE_WRITE:
-            self._check_not_closed()
-            raise io.UnsupportedOperation("File not open for writing")
-
-    def _check_can_seek(self):
-        if self._mode not in (_MODE_READ, _MODE_READ_EOF):
-            self._check_not_closed()
-            raise io.UnsupportedOperation("Seeking is only supported "
-                                          "on files open for reading")
-        if not self._fp.seekable():
-            raise io.UnsupportedOperation("The underlying file object "
-                                          "does not support seeking")
-
-    # Fill the readahead buffer if it is empty. Returns False on EOF.
-    def _fill_buffer(self):
-        if self._mode == _MODE_READ_EOF:
-            return False
-        # Depending on the input data, our call to the decompressor may not
-        # return any data. In this case, try again after reading another block.
-        while self._buffer_offset == len(self._buffer):
-            try:
-                rawblock = (self._decompressor.unused_data or
-                            self._fp.read(_BUFFER_SIZE))
-
-                if not rawblock:
-                    raise EOFError
-            except EOFError:
-                # End-of-stream marker and end of file. We're good.
-                self._mode = _MODE_READ_EOF
-                self._size = self._pos
-                return False
-            else:
-                self._buffer = self._decompressor.decompress(rawblock)
-            self._buffer_offset = 0
-        return True
-
-    # Read data until EOF.
-    # If return_data is false, consume the data without returning it.
-    def _read_all(self, return_data=True):
-        # The loop assumes that _buffer_offset is 0. Ensure that this is true.
-        self._buffer = self._buffer[self._buffer_offset:]
-        self._buffer_offset = 0
-
-        blocks = []
-        while self._fill_buffer():
-            if return_data:
-                blocks.append(self._buffer)
-            self._pos += len(self._buffer)
-            self._buffer = b""
-        if return_data:
-            return b"".join(blocks)
-
-    # Read a block of up to n bytes.
-    # If return_data is false, consume the data without returning it.
-    def _read_block(self, n_bytes, return_data=True):
-        # If we have enough data buffered, return immediately.
-        end = self._buffer_offset + n_bytes
-        if end <= len(self._buffer):
-            data = self._buffer[self._buffer_offset: end]
-            self._buffer_offset = end
-            self._pos += len(data)
-            return data if return_data else None
-
-        # The loop assumes that _buffer_offset is 0. Ensure that this is true.
-        self._buffer = self._buffer[self._buffer_offset:]
-        self._buffer_offset = 0
-
-        blocks = []
-        while n_bytes > 0 and self._fill_buffer():
-            if n_bytes < len(self._buffer):
-                data = self._buffer[:n_bytes]
-                self._buffer_offset = n_bytes
-            else:
-                data = self._buffer
-                self._buffer = b""
-            if return_data:
-                blocks.append(data)
-            self._pos += len(data)
-            n_bytes -= len(data)
-        if return_data:
-            return b"".join(blocks)
-
-    def read(self, size=-1):
-        """Read up to size uncompressed bytes from the file.
-
-        If size is negative or omitted, read until EOF is reached.
-        Returns b'' if the file is already at EOF.
-        """
-        with self._lock:
-            self._check_can_read()
-            if size == 0:
-                return b""
-            elif size < 0:
-                return self._read_all()
-            else:
-                return self._read_block(size)
-
-    def readinto(self, b):
-        """Read up to len(b) bytes into b.
-
-        Returns the number of bytes read (0 for EOF).
-        """
-        with self._lock:
-            return io.BufferedIOBase.readinto(self, b)
-
-    def write(self, data):
-        """Write a byte string to the file.
-
-        Returns the number of uncompressed bytes written, which is
-        always len(data). Note that due to buffering, the file on disk
-        may not reflect the data written until close() is called.
-        """
-        with self._lock:
-            self._check_can_write()
-            # Convert data type if called by io.BufferedWriter.
-            if isinstance(data, memoryview):
-                data = data.tobytes()
-
-            compressed = self._compressor.compress(data)
-            self._fp.write(compressed)
-            self._pos += len(data)
-            return len(data)
-
-    # Rewind the file to the beginning of the data stream.
-    def _rewind(self):
-        self._fp.seek(0, 0)
-        self._mode = _MODE_READ
-        self._pos = 0
-        self._decompressor = zlib.decompressobj(self.wbits)
-        self._buffer = b""
-        self._buffer_offset = 0
-
-    def seek(self, offset, whence=0):
-        """Change the file position.
-
-        The new position is specified by offset, relative to the
-        position indicated by whence. Values for whence are:
-
-            0: start of stream (default); offset must not be negative
-            1: current stream position
-            2: end of stream; offset must not be positive
-
-        Returns the new file position.
-
-        Note that seeking is emulated, so depending on the parameters,
-        this operation may be extremely slow.
-        """
-        with self._lock:
-            self._check_can_seek()
-
-            # Recalculate offset as an absolute file position.
-            if whence == 0:
-                pass
-            elif whence == 1:
-                offset = self._pos + offset
-            elif whence == 2:
-                # Seeking relative to EOF - we need to know the file's size.
-                if self._size < 0:
-                    self._read_all(return_data=False)
-                offset = self._size + offset
-            else:
-                raise ValueError("Invalid value for whence: %s" % (whence,))
-
-            # Make it so that offset is the number of bytes to skip forward.
-            if offset < self._pos:
-                self._rewind()
-            else:
-                offset -= self._pos
-
-            # Read and discard data until we reach the desired position.
-            self._read_block(offset, return_data=False)
-
-            return self._pos
-
-    def tell(self):
-        """Return the current file position."""
-        with self._lock:
-            self._check_not_closed()
-            return self._pos
-
-
-class BinaryGzipFile(BinaryZlibFile):
-    """A file object providing transparent gzip (de)compression.
-
-    If filename is a str or bytes object, it gives the name
-    of the file to be opened. Otherwise, it should be a file object,
-    which will be used to read or write the compressed data.
-
-    mode can be 'rb' for reading (default) or 'wb' for (over)writing
-
-    If mode is 'wb', compresslevel can be a number between 1
-    and 9 specifying the level of compression: 1 produces the least
-    compression, and 9 (default) produces the most compression.
-    """
-
-    wbits = 31  # zlib compressor/decompressor wbits value for gzip format.
 
 
 # Utility functions/variables from numpy required for writing arrays.

@@ -13,11 +13,10 @@ try:
 except ImportError:
     Path = None
 
-from .numpy_pickle_utils import _COMPRESSORS
-from .numpy_pickle_utils import BinaryZlibFile
+from .compressor import _COMPRESSORS, BinaryZlibFile
 from .numpy_pickle_utils import Unpickler, Pickler
 from .numpy_pickle_utils import _read_fileobject, _write_fileobject
-from .numpy_pickle_utils import _read_bytes, BUFFER_SIZE
+from .numpy_pickle_utils import _read_bytes, BUFFER_SIZE, lz4
 from .numpy_pickle_compat import load_compatibility
 from .numpy_pickle_compat import NDArrayWrapper
 # For compatibility with old versions of joblib, we need ZNDArrayWrapper
@@ -27,6 +26,9 @@ from .numpy_pickle_compat import NDArrayWrapper
 from .numpy_pickle_compat import ZNDArrayWrapper  # noqa
 from ._compat import _basestring, PY3_OR_LATER
 from .backports import make_memmap
+
+LZ4_NOT_INSTALLED_ERROR = ('LZ4 in not installed. Consider installing it '
+                           'with pip: http://python-lz4.readthedocs.io/')
 
 ###############################################################################
 # Utility objects for persistence.
@@ -416,8 +418,15 @@ def dump(value, filename, compress=0, protocol=None, cache_size=None):
                 '(compress method, compress level), you passed {}'
                 .format(compress))
         compress_method, compress_level = compress
+    elif isinstance(compress, _basestring):
+        compress_method = compress
+        compress_level = 3  # Use default compress level
+        compress = (compress_method, compress_level)
     else:
         compress_level = compress
+
+    if compress_method == 'lz4' and lz4 is None:
+        raise ValueError(LZ4_NOT_INSTALLED_ERROR)
 
     if compress_level is not False and compress_level not in range(10):
         # Raising an error if a non valid compress level is given.
@@ -454,10 +463,15 @@ def dump(value, filename, compress=0, protocol=None, cache_size=None):
             compress_method = 'lzma'
         elif filename.endswith('.xz'):
             compress_method = 'xz'
+        elif filename.endswith('.lz4'):
+            compress_method = 'lz4'
         else:
             # no matching compression method found, we unset the variable to
             # be sure no compression level is set afterwards.
             compress_method = None
+
+        if compress_method == 'lz4' and lz4 is None:
+            raise ValueError(LZ4_NOT_INSTALLED_ERROR)
 
         if compress_method in _COMPRESSORS and compress_level == 0:
             # we choose a default compress_level of 3 in case it was not given

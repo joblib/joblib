@@ -44,9 +44,22 @@ from any directory or::
 
 from the source directory.
 
-Joblib has no other mandatory dependency than Python (supported
-versions are 2.7+ and 3.4+). Numpy (at least version 1.6.1) is an
-optional dependency for array manipulation.
+Dependencies
+============
+
+- Joblib has no mandatory dependencies besides Python (supported versions are
+  2.7+ and 3.4+).
+- Joblib has an optional dependency on Numpy (at least version 1.6.1) for array
+  manipulation.
+- Joblib includes its own vendored copy of
+  `loky <https://github.com/tomMoral/loky>`_ for process management.
+- Joblib can efficiently dump and load numpy arrays but does not require numpy
+  to be installed.
+- Joblib has an optional dependency on
+  `python-lz4 <https://pypi.python.org/pypi/lz4>`_ as a faster alternative to
+  zlib and gzip for compressed serialization.
+- Some examples require external dependencies such as pandas. See the
+  instructions in the `Building the docs`_ section for details.
 
 Workflow to contribute
 ======================

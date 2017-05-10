@@ -76,7 +76,7 @@ if __name__ == '__main__':
     parser.add_argument('--compress', action="store_true",
                         help="Generate compress pickles.")
     parser.add_argument('--method', type=str, default='zlib',
-                        choices=['zlib', 'gzip', 'bz2', 'xz', 'lzma'],
+                        choices=['zlib', 'gzip', 'bz2', 'xz', 'lzma', 'lz4'],
                         help="Set compression method.")
     # We need to be specific about dtypes in particular endianness
     # because the pickles can be generated on one architecture and

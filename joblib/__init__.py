@@ -109,6 +109,7 @@ Main features
 __version__ = '0.11.1.dev0'
 
 
+from .compressor import register_compressor
 from .memory import Memory, MemorizedResult, register_store_backend
 from .logger import PrintTime
 from .logger import Logger
@@ -126,4 +127,4 @@ from .parallel import effective_n_jobs
 __all__ = ['Memory', 'MemorizedResult', 'PrintTime', 'Logger', 'hash', 'dump',
            'load', 'Parallel', 'delayed', 'cpu_count', 'effective_n_jobs',
            'register_parallel_backend', 'parallel_backend',
-           'register_store_backend']
+           'register_store_backend', 'register_compressor']
