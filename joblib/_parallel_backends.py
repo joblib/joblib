@@ -15,14 +15,14 @@ from .my_exceptions import WorkerInterrupt, TransportableException
 from ._multiprocessing_helpers import mp
 from ._compat import with_metaclass
 if mp is not None:
+    from .disk import delete_folder
     from .pool import MemmappingPool
     from multiprocessing.pool import ThreadPool
     from .executor import get_memmapping_executor
-    from ._memmapping_reducer import delete_folder
 
     # Compat between concurrent.furture and multiprocessing TimeoutError
     from multiprocessing import TimeoutError
-    from loky._base import TimeoutError as LokyTimeoutError
+    from .externals.loky._base import TimeoutError as LokyTimeoutError
 
 
 class ParallelBackendBase(with_metaclass(ABCMeta)):
@@ -62,7 +62,7 @@ class ParallelBackendBase(with_metaclass(ABCMeta)):
         return self.effective_n_jobs(n_jobs)
 
     def terminate(self):
-        """Shutdown the workers and free the shared memory"""
+        """Shutdown the workers and free the shared memory."""
 
     def compute_batch_size(self):
         """Determine the optimal batch size"""

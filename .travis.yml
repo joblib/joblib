@@ -13,8 +13,6 @@ env:
     - PYTHON_VERSION="3.4" COVERAGE="true"
     - PYTHON_VERSION="3.5" NUMPY_VERSION="1.10"
     - PYTHON_VERSION="3.6" NUMPY_VERSION="1.11" COVERAGE="true" BUILD_DOC="true"
-    # cloudpickle used to pickle functions
-    - PYTHON_VERSION="3.6" NUMPY_VERSION="1.11" COVERAGE="true" CLOUDPICKLE="true"
     # multiprocesssing disabled via the JOBLIB_MULTIPROCESSING environment variable
     - PYTHON_VERSION="3.6" NUMPY_VERSION="1.11" JOBLIB_MULTIPROCESSING=0 COVERAGE="true"
     # flake8 linting on diff wrt common ancestor with upstream/master

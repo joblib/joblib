@@ -47,6 +47,7 @@ def check_subprocess_call(cmd, timeout=1, stdout_regex=None,
                             stderr=subprocess.PIPE)
 
     def kill_process():
+        warnings.warn("Timeout running {}".format(cmd))
         proc.kill()
 
     timer = threading.Timer(timeout, kill_process)

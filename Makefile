@@ -3,7 +3,6 @@
 all: test
 
 test:
-
 	pytest joblib --timeout 15 -vl
 
 test-no-multiprocessing:

@@ -4,5 +4,5 @@ echo "joblib found in: $installed_joblib_folder"
 # --pyargs argument is used to make sure we run the tests on the
 # installed package rather than on the local folder
 
-pytest --pyargs joblib --cov $installed_joblib_folder -l --timeout 15
+pytest --pyargs joblib --cov $installed_joblib_folder -l --timeout 15 --ignore $installed_joblib_folder/externals
 exit $LastExitCode

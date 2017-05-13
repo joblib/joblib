@@ -164,7 +164,7 @@ def test_main_thread_renamed_no_warning(backend, monkeypatch):
             delayed(square)(x) for x in range(3))
         assert results == [0, 1, 4]
 
-    # Due to the default parameters of LokyBackend, there is a change that
+    # Due to the default parameters of LokyBackend, there is a chance that
     # warninfo catches Warnings from worker timeouts. We remove it if it exists
     warninfo = [w for w in warninfo if "worker timeout" not in str(w.message)]
 
@@ -180,7 +180,7 @@ def test_main_thread_renamed_no_warning(backend, monkeypatch):
 @parametrize('parent_backend', ['multiprocessing', 'threading'])
 def test_nested_parallel_warnings(parent_backend, child_backend, capfd):
     if posix is None:
-        # This test pass only when fork is the process start method
+        # This test passes only when fork is the process start method
         raise SkipTest('Not a POSIX platform')
 
     # Makes sure the warnings are always printed
@@ -263,23 +263,17 @@ def test_parallel_as_context_manager(backend):
         assert get_workers(p._backend) is None
 
 
+@with_multiprocessing
 def test_parallel_pickling():
     """ Check that pmap captures the errors when it is passed an object
         that cannot be pickled.
     """
-    def g(x):
-        return x ** 2
+    class UnpicklableObject:
+        def __reduce__(self):
+            raise RuntimeError()
 
-    try:
-        # pickling a local function always fail but the exception
-        # raised is a PickleError for python <= 3.4 and AttributeError
-        # for python >= 3.5
-        pickle.dumps(g)
-    except Exception as exc:
-        exception_class = exc.__class__
-
-    with raises(exception_class):
-        Parallel()(delayed(g)(x) for x in range(10))
+    with raises(RuntimeError):
+        Parallel(n_jobs=2)(delayed(id)(UnpicklableObject()) for _ in range(10))
 
 
 @parametrize('backend', PARALLEL_BACKENDS)
@@ -676,7 +670,7 @@ def test_dispatch_race_condition(n_tasks, n_jobs, pre_dispatch, batch_size):
     # iterable generator that is not thread-safe natively.
     # This is a non-regression test for the "Pool seems closed" class of error
     params = {'n_jobs': n_jobs, 'pre_dispatch': pre_dispatch,
-              'batch_size': batch_size, 'verbose': 100}
+              'batch_size': batch_size}
     expected = [square(i) for i in range(n_tasks)]
     results = Parallel(**params)(delayed(square)(i) for i in range(n_tasks))
     assert results == expected
@@ -735,26 +729,21 @@ def test_no_blas_crash_or_freeze_with_subprocesses(backend):
 @with_multiprocessing
 @parametrize('backend', PROCESS_BACKENDS +
              ([] if sys.version_info[:2] < (3, 4) or mp is None
-              else [mp.get_context('spawn')]))
+              else ['spawn']))
 def test_parallel_with_interactively_defined_functions(backend):
-    # When functions are defined interactively in a python/IPython
-    # session, we want to be able to use them with joblib.Parallel
-    if posix is None or backend != 'multiprocessing':
-        try:
-            import cloudpickle  # noqa
-        except ImportError:
-            # This test pass only when fork is the process start method or
-            # cloudpickle is present on the system.
-            raise SkipTest('Not a POSIX platform')
-
     code = '\n\n'.join([
         'from joblib import Parallel, delayed',
         'def square(x): return x**2',
-        'print(Parallel(n_jobs=2, backend="multiprocessing")('
-        '    delayed(square)(i) for i in range(5)))'])
+        'backend="{}"'.format(backend),
+        'if backend == "spawn":',
+        '    from multiprocessing import get_context',
+        '    backend = get_context(backend)',
+        'with Parallel(n_jobs=2, backend=backend) as p:'
+        '    print(p(delayed(square)(i) for i in range(5)))'])
 
     check_subprocess_call([sys.executable, '-c', code],
-                          stdout_regex=r'\[0, 1, 4, 9, 16\]')
+                          stdout_regex=r'\[0, 1, 4, 9, 16\]',
+                          timeout=2)
 
 
 def test_parallel_with_exhausted_iterator():
@@ -850,10 +839,10 @@ def test_memmapping_leaks(backend, tmpdir):
 
     # Make sure that the shared memory is cleaned at the end when we exit
     # the context
-    assert len(os.listdir(tmpdir)) == 0
+    assert not os.listdir(tmpdir)
 
     # Make sure that the shared memory is cleaned at the end of a call
     p = Parallel(n_jobs=2, max_nbytes=1, backend=backend)
     p(delayed(check_memmap)(a) for a in [np.random.random(10)] * 2)
 
-    assert len(os.listdir(tmpdir)) == 0
+    assert not os.listdir(tmpdir)

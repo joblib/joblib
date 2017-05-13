@@ -1,6 +1,7 @@
 [run]
 omit =
   joblib/test/data/*
+  */joblib/externals/*
 
 [report]
 show_missing = True

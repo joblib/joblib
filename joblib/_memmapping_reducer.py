@@ -1,8 +1,9 @@
-# -*- coding: utf-8 -*-
-# @Author: Olivier Grisel
-# @Date:   2017-03-09 14:00:40
-# @Last Modified by:   Thomas Moreau
-# @Last Modified time: 2017-03-13 13:27:05
+"""
+Reducer using memory mapping for numpy arrays
+"""
+# Author: Thomas Moreau <thomas.moreau.2010@gmail.com>
+# Copyright: 2017, Thomas Moreau
+# License: BSD 3 clause
 
 from mmap import mmap
 import errno
@@ -11,7 +12,6 @@ import stat
 import threading
 import atexit
 import tempfile
-import shutil
 import warnings
 
 try:
@@ -40,6 +40,7 @@ from .numpy_pickle import load
 from .numpy_pickle import dump
 from .hashing import hash
 from .backports import make_memmap
+from .disk import delete_folder
 
 # Some system have a ramdisk mounted by default, we can use it instead of /tmp
 # as the default folder to dump big arrays to share with subprocesses
@@ -249,7 +250,7 @@ class ArrayMemmapReducer(object):
 
             # Find a unique, concurrent safe filename for writing the
             # content of this array only once.
-            basename = "%d-%d-%s.pkl" % (
+            basename = "{}-{}-{}.pkl".format(
                 os.getpid(), id(threading.current_thread()), hash(a))
             filename = os.path.join(self._temp_folder, basename)
 
@@ -261,18 +262,21 @@ class ArrayMemmapReducer(object):
             # done processing this data.
             if not os.path.exists(filename):
                 if self.verbose > 0:
-                    print("Memmapping (shape=%r, dtype=%s) to new file %s" % (
-                        a.shape, a.dtype, filename))
+                    print("Memmapping (shape={}, dtype={}) to new file {}"
+                          .format(a.shape, a.dtype, filename))
                 for dumped_filename in dump(a, filename):
                     os.chmod(dumped_filename, FILE_PERMISSIONS)
 
                 if self._prewarm:
-                    # Warm up the data to avoid concurrent disk access in
-                    # multiple children processes
+                    # Warm up the data by accessing it. This operation ensures
+                    # that the disk access required to create the memmapping
+                    # file are performed in the reducing process and avoids
+                    # concurrent memmap creation in multiple children
+                    # processes.
                     load(filename, mmap_mode=self._mmap_mode).max()
             elif self.verbose > 1:
-                print("Memmapping (shape=%s, dtype=%s) to old file %s" % (
-                    a.shape, a.dtype, filename))
+                print("Memmapping (shape={}, dtype={}) to old file {}"
+                      .format(a.shape, a.dtype, filename))
 
             # The worker process will use joblib.load to memmap the data
             return (load, (filename, self._mmap_mode))
@@ -280,24 +284,21 @@ class ArrayMemmapReducer(object):
             # do not convert a into memmap, let pickler do its usual copy with
             # the default system pickler
             if self.verbose > 1:
-                print("Pickling array (shape=%r, dtype=%s)." % (
-                    a.shape, a.dtype))
+                print("Pickling array (shape={}, dtype={})."
+                      .format(a.shape, a.dtype))
             return (loads, (dumps(a, protocol=HIGHEST_PROTOCOL),))
-
-
-def delete_folder(folder_path):
-    """Utility function to cleanup a temporary folder if still existing."""
-    try:
-        if os.path.exists(folder_path):
-            shutil.rmtree(folder_path)
-    except WindowsError:
-        warnings.warn("Failed to clean temporary folder: %s" % folder_path)
 
 
 def get_memmapping_reducers(
         pool_id, forward_reducers=None, backward_reducers=None,
         temp_folder=None, max_nbytes=1e6, mmap_mode='r', verbose=0,
         prewarm=False, **kwargs):
+    """Construct a pair of memmapping reducer linked to a tmpdir.
+
+    This function manage the creation and the clean up of the temporary folders
+    underlying the memory maps and should be use to get the reducers necessary
+    to construct joblib pool or executor.
+    """
     if forward_reducers is None:
         forward_reducers = dict()
     if backward_reducers is None:
@@ -306,7 +307,7 @@ def get_memmapping_reducers(
     # Prepare a sub-folder name for the serialization of this particular
     # pool instance (do not create in advance to spare FS write access if
     # no array is to be dumped):
-    pool_folder_name = "joblib_memmapping_folder_%d_%d" % (
+    pool_folder_name = "joblib_memmapping_folder_{}_{}".format(
         os.getpid(), pool_id)
     pool_folder, use_shared_mem = _get_temp_dir(pool_folder_name,
                                                 temp_folder)
@@ -329,13 +330,17 @@ def get_memmapping_reducers(
         # easy vendoring.
         delete_folder = __import__(
             pool_module_name, fromlist=['delete_folder']).delete_folder
-        delete_folder(pool_folder)
+        try:
+            delete_folder(pool_folder)
+        except WindowsError:
+            warnings.warn("Failed to clean temporary folder: {}"
+                          .format(pool_folder))
 
     atexit.register(_cleanup)
 
     if np is not None:
         # Register smart numpy.ndarray reducers that detects memmap backed
-        # arrays and that is alse able to dump to memmap large in-memory
+        # arrays and that is also able to dump to memmap large in-memory
         # arrays over the max_nbytes threshold
         if prewarm == "auto":
             prewarm = not use_shared_mem

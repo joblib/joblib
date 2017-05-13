@@ -17,10 +17,6 @@ import itertools
 from numbers import Integral
 from contextlib import contextmanager
 import warnings
-try:
-    import cPickle as pickle
-except ImportError:
-    import pickle
 
 from ._multiprocessing_helpers import mp
 
@@ -32,6 +28,7 @@ from ._parallel_backends import (FallbackToBackend, MultiprocessingBackend,
                                  ThreadingBackend, SequentialBackend,
                                  LokyBackend)
 from ._compat import _basestring
+from .externals.cloudpickle import dumps, loads
 
 # Make sure that those two classes are part of the public joblib.parallel API
 # so that 3rd party backend implementers can import them from here.
@@ -122,15 +119,6 @@ else:
     DEFAULT_MP_CONTEXT = None
 
 
-def _find_pickler_func(func):
-    import pkgutil
-    import importlib
-    for lib in ["cloudpickle", "dill"]:
-        if pkgutil.find_loader(lib) is not None:
-            return getattr(importlib.import_module(lib), func)
-    return None
-
-
 class BatchedCalls(object):
     """Wrap a sequence of (func, args, kwargs) tuples as a single callable"""
 
@@ -144,22 +132,15 @@ class BatchedCalls(object):
     def __len__(self):
         return self._size
 
-    if _find_pickler_func("dumps") is not None:
-        # If cloudpickle or dill are available on the system, use it to pickle
-        # the function. This permits to use interactive terminal for parallel
-        # calls.
+    def __getstate__(self):
+        items = [(dumps(func), args, kwargs)
+                 for func, args, kwargs in self.items]
+        return (items, self._size)
 
-        def __getstate__(self):
-            dumps = _find_pickler_func("dumps")
-            items = [(dumps(func), args, kwargs)
-                     for func, args, kwargs in self.items]
-            return (items, self._size)
-
-        def __setstate__(self, state):
-            loads = _find_pickler_func("loads")
-            items, self._size = state
-            self.items = [(loads(func), args, kwargs)
-                          for func, args, kwargs in items]
+    def __setstate__(self, state):
+        items, self._size = state
+        self.items = [(loads(func), args, kwargs)
+                      for func, args, kwargs in items]
 
 
 ###############################################################################
@@ -209,7 +190,7 @@ def delayed(function, check_pickle=True):
     # Try to pickle the input function, to catch the problems early when
     # using with multiprocessing:
     if check_pickle:
-        pickle.dumps(function)
+        dumps(function)
 
     def delayed_function(*args, **kwargs):
         return function, args, kwargs

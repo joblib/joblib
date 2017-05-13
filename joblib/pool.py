@@ -29,8 +29,9 @@ from pickle import Pickler
 from pickle import HIGHEST_PROTOCOL
 from io import BytesIO
 
+from .disk import delete_folder
+from ._memmapping_reducer import get_memmapping_reducers
 from ._multiprocessing_helpers import mp, assert_spawning
-from ._memmapping_reducer import get_memmapping_reducers, delete_folder
 
 # We need the class definition to derive from it, not the multiprocessing.Pool
 # factory function
