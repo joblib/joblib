@@ -576,6 +576,40 @@ def test_direct_parameterized_backend_context_manager():
     assert _active_backend_type() == MultiprocessingBackend
 
 
+def test_backend_allow_override(monkeypatch):
+    backend = 'test_backend'
+    if backend not in BACKENDS:
+        monkeypatch.setitem(BACKENDS, backend, FakeParallelBackend)
+
+    for default in ['threading', None]:
+        with parallel_backend(backend, n_jobs=5):
+            # If n_jobs specified in Parallel, use that
+            p = Parallel(n_jobs=2, backend=default, allow_override=True)
+            assert type(p._backend) == FakeParallelBackend
+            assert p.n_jobs == 2
+            # Not specified, use global default
+            p = Parallel(backend=default, allow_override=True)
+            assert type(p._backend) == FakeParallelBackend
+            assert p.n_jobs == 5
+
+    with parallel_backend(backend, n_jobs=2):
+        # n_jobs not specified, fallback to 1
+        p = Parallel(backend='threading', allow_override=False)
+        assert type(p._backend) == ThreadingBackend
+        assert p.n_jobs == 1
+
+
+@with_multiprocessing
+def test_n_jobs_defaults():
+    # n_jobs specified, use that
+    p = Parallel(n_jobs=1)
+    assert p.n_jobs == 1
+
+    # Backend specified, use the default of 1
+    p = Parallel(backend='threading')
+    assert p.n_jobs == 1
+
+
 ###############################################################################
 # Test helpers
 def test_joblib_exception():
