@@ -63,7 +63,7 @@ def test_check_subprocess_call_timeout():
         'sys.stdout.flush()'])
 
     pattern = re.compile('Non-zero return code:.+'
-                         'Stdout:\nbefore sleep on stdout\s+'
+                         'Stdout:\nbefore sleep on stdout\\s+'
                          'Stderr:\nbefore sleep on stderr',
                          re.DOTALL)
 
