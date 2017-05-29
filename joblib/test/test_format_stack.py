@@ -63,7 +63,7 @@ def test_format_records():
 
         # Check exception stack
         arrow_regex = r'^-+>\s+\d+\s+'
-        assert re.search(arrow_regex + "_raise_exception\('a', 42\)",
+        assert re.search(arrow_regex + r"_raise_exception\('a', 42\)",
                          formatted_records[0],
                          re.MULTILINE)
         assert re.search(arrow_regex + r'helper\(a, b\)',
@@ -72,7 +72,7 @@ def test_format_records():
         assert "a = 'a'" in formatted_records[1]
         assert 'b = 42' in formatted_records[1]
         assert re.search(arrow_regex +
-                         "raise ValueError\('Nope, this can not work'\)",
+                         r"raise ValueError\('Nope, this can not work'\)",
                          formatted_records[2],
                          re.MULTILINE)
 
@@ -121,5 +121,5 @@ def test_format_exc_with_compiled_code():
                                    exc_traceback, context=10)
         # The name of the extension can be something like
         # mtrand.cpython-33m.so
-        pattern = 'mtrand[a-z0-9._-]*\.(so|pyd)'
+        pattern = r'mtrand[a-z0-9._-]*\.(so|pyd)'
         assert re.search(pattern, formatted_exc)
