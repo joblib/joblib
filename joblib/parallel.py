@@ -91,7 +91,8 @@ def parallel_backend(backend, n_jobs=None, **backend_params):
 
     >>> from operator import neg
     >>> with parallel_backend('threading'):
-    ...     print(Parallel(allow_override=True)(delayed(neg)(i + 1) for i in range(5)))
+    ...     print(Parallel(allow_override=True)(
+    ...           delayed(neg)(i + 1) for i in range(5)))
     ...
     [-1, -2, -3, -4, -5]
 
