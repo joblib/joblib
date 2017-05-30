@@ -488,7 +488,7 @@ def check_backend_context_manager(backend_name):
         active_backend, active_n_jobs = parallel.get_active_backend()
         assert active_n_jobs == 3
         assert effective_n_jobs(3) == 3
-        p = Parallel()
+        p = Parallel(allow_override=True)
         assert p.n_jobs == 3
         if backend_name == 'multiprocessing':
             assert type(active_backend) == MultiprocessingBackend
@@ -515,7 +515,7 @@ def test_backend_context_manager(monkeypatch, backend):
     # check that this possible to switch parallel backends sequentially
     check_backend_context_manager(backend)
 
-    # The default backend is retored
+    # The default backend is restored
     assert _active_backend_type() == MultiprocessingBackend
 
     # Check that context manager switching is thread safe:
@@ -523,7 +523,7 @@ def test_backend_context_manager(monkeypatch, backend):
         delayed(check_backend_context_manager)(b)
         for b in all_backends_for_context_manager if not b)
 
-    # The default backend is again retored
+    # The default backend is again restored
     assert _active_backend_type() == MultiprocessingBackend
 
 
@@ -546,7 +546,7 @@ def test_parameterized_backend_context_manager(monkeypatch):
         assert type(active_backend) == ParameterizedParallelBackend
         assert active_backend.param == 42
         assert active_n_jobs == 3
-        p = Parallel()
+        p = Parallel(allow_override=True)
         assert p.n_jobs == 3
         assert p._backend is active_backend
         results = p(delayed(sqrt)(i) for i in range(5))
@@ -566,13 +566,13 @@ def test_direct_parameterized_backend_context_manager():
         assert type(active_backend) == ParameterizedParallelBackend
         assert active_backend.param == 43
         assert active_n_jobs == 5
-        p = Parallel()
+        p = Parallel(allow_override=True)
         assert p.n_jobs == 5
         assert p._backend is active_backend
         results = p(delayed(sqrt)(i) for i in range(5))
     assert results == [sqrt(i) for i in range(5)]
 
-    # The default backend is again retored
+    # The default backend is again restored
     assert _active_backend_type() == MultiprocessingBackend
 
 
@@ -583,14 +583,16 @@ def test_backend_allow_override(monkeypatch):
 
     for default in ['threading', None]:
         with parallel_backend(backend, n_jobs=5):
-            # If n_jobs specified in Parallel, use that
+            # If n_jobs specified in parallel_backend, use that
             p = Parallel(n_jobs=2, backend=default, allow_override=True)
             assert type(p._backend) == FakeParallelBackend
-            assert p.n_jobs == 2
-            # Not specified, use global default
-            p = Parallel(backend=default, allow_override=True)
-            assert type(p._backend) == FakeParallelBackend
             assert p.n_jobs == 5
+
+        with parallel_backend(backend):
+            # n_jobs not specified, fallback to Parallel
+            p = Parallel(backend=default, allow_override=True, n_jobs=2)
+            assert type(p._backend) == FakeParallelBackend
+            assert p.n_jobs == 2
 
     with parallel_backend(backend, n_jobs=2):
         # n_jobs not specified, fallback to 1

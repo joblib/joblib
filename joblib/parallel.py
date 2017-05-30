@@ -55,8 +55,7 @@ _backend = threading.local()
 
 def has_active_backend():
     """Returns True if an active backend is registered"""
-    active_backend_and_jobs = getattr(_backend, 'backend_and_jobs', None)
-    return active_backend_and_jobs is not None
+    return getattr(_backend, 'backend_and_jobs', None) is not None
 
 
 def get_active_backend():
@@ -71,16 +70,19 @@ def get_active_backend():
 
 
 @contextmanager
-def parallel_backend(backend, n_jobs=-1, **backend_params):
+def parallel_backend(backend, n_jobs=None, **backend_params):
     """Change the default backend used by Parallel inside a with block.
+
+    Note that this contextmanager is ignored unless the call to ``Parallel``
+    sets ``allow_override=True``.
 
     If ``backend`` is a string it must match a previously registered
     implementation using the ``register_parallel_backend`` function.
 
     Alternatively backend can be passed directly as an instance.
 
-    By default all available workers will be used (``n_jobs=-1``) unless the
-    caller passes an explicit value for the ``n_jobs`` parameter.
+    If ``n_jobs`` is provided the ``n_jobs`` parameter passed to ``Parallel``
+    will also be overridden.
 
     This is an alternative to passing a ``backend='backend_name'`` argument to
     the ``Parallel`` class constructor. It is particularly useful when calling
@@ -89,7 +91,7 @@ def parallel_backend(backend, n_jobs=-1, **backend_params):
 
     >>> from operator import neg
     >>> with parallel_backend('threading'):
-    ...     print(Parallel()(delayed(neg)(i + 1) for i in range(5)))
+    ...     print(Parallel(allow_override=True)(delayed(neg)(i + 1) for i in range(5)))
     ...
     [-1, -2, -3, -4, -5]
 
@@ -108,7 +110,7 @@ def parallel_backend(backend, n_jobs=-1, **backend_params):
         yield backend, n_jobs
     finally:
         if old_backend_and_jobs is None:
-            if getattr(_backend, 'backend_and_jobs', None) is not None:
+            if has_active_backend():
                 del _backend.backend_and_jobs
         else:
             _backend.backend_and_jobs = old_backend_and_jobs
@@ -307,11 +309,11 @@ class Parallel(Logger):
               register_parallel_backend. This will allow you to implement
               a backend of your liking.
         allow_override: bool, optional
-            Whether the specified backend should be overridden if enclosed in a
-            ``parallel_backend`` contextmanager. If False [default] the
-            specified backend will be used even if enclosed in a
-            ``parallel_backend`` contextmanager. Otherwise the current active
-            backend will be used.
+            Whether the specified backend and n_jobs should be overridden if
+            enclosed in a ``parallel_backend`` contextmanager. If False
+            [default] the specified backend and n_jobs will be used even if
+            enclosed in a ``parallel_backend`` contextmanager. Otherwise the
+            current active backend will be used.
         verbose: int, optional
             The verbosity level: if non zero, progress messages are
             printed. Above 50, the output is sent to stdout.
@@ -498,11 +500,13 @@ class Parallel(Logger):
         if DEFAULT_MP_CONTEXT is not None:
             self._backend_args['context'] = DEFAULT_MP_CONTEXT
 
-        if backend is None or allow_override and has_active_backend():
+        if allow_override and has_active_backend():
             backend, default_n_jobs = get_active_backend()
-            if n_jobs is None:
-                # If not specified in `Parallel`, use the global default
+            # Only override n_jobs if set in parallel_backend
+            if default_n_jobs is not None:
                 n_jobs = default_n_jobs
+        elif backend is None:
+            backend = BACKENDS[DEFAULT_BACKEND]()
         elif isinstance(backend, ParallelBackendBase):
             # Use provided backend as is
             pass
