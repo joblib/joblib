@@ -193,7 +193,7 @@ def test_bound_methods():
 @parametrize('exception,regex,func,args',
              [(ValueError, 'ignore_lst must be a list of parameters to ignore',
                f, ['bar', (None, )]),
-              (ValueError, 'Ignore list: argument \'(.*)\' is not defined',
+              (ValueError, r'Ignore list: argument \'(.*)\' is not defined',
                g, [['bar'], (None, )]),
               (ValueError, 'Wrong number of arguments',
                h, [[]])])
