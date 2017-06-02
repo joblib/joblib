@@ -599,6 +599,7 @@ class Parallel(Logger):
         dispatch_timestamp = time.time()
         cb = BatchCompletionCallBack(dispatch_timestamp, len(batch), self)
         with self._lock:
+            job_idx = len(self._jobs)
             job = self._backend.apply_async(batch, callback=cb)
             # If the callback is already done and we are not using a
             # SequentialBackend, we need to reorder the jobs to get the correct
@@ -606,7 +607,7 @@ class Parallel(Logger):
             # that its callback is called before we get here.
             if (not issubclass(type(self._backend), SequentialBackend) and
                     cb.done):
-                self._jobs.insert(-1, job)
+                self._jobs.insert(job_idx, job)
             else:
                 self._jobs.append(job)
 
