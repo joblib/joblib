@@ -661,10 +661,11 @@ def test_invalid_batch_size(batch_size):
               (517, 2, 'n_jobs', 'auto'),
               (10, 2, 'n_jobs', 'auto'),
               (10, 4, 'n_jobs', 'auto'),
-              (25, 4, '2 * n_jobs', 1),
-              (25, 4, 'all', 1),
-              (25, 4, '2 * n_jobs', 7),
-              (10, 4, '2 * n_jobs', 'auto')])
+              (200, 12, 'n_jobs', 'auto'),
+              (25, 12, '2 * n_jobs', 1),
+              (250, 12, 'all', 1),
+              (250, 12, '2 * n_jobs', 7),
+              (200, 12, '2 * n_jobs', 'auto')])
 def test_dispatch_race_condition(n_tasks, n_jobs, pre_dispatch, batch_size):
     # Check that using (async-)dispatch does not yield a race condition on the
     # iterable generator that is not thread-safe natively.
