@@ -174,7 +174,6 @@ def test_main_thread_renamed_no_warning(backend, monkeypatch):
     assert len(warninfo) == 0
 
 
-# TODO: The Loky backend can be nested. Do we want that?
 @with_multiprocessing
 @parametrize('child_backend', PROCESS_BACKENDS)
 @parametrize('parent_backend', ['multiprocessing', 'threading'])
@@ -200,6 +199,20 @@ def test_nested_parallel_warnings(parent_backend, child_backend, capfd):
         for _ in range(5))
     out, err = capfd.readouterr()
     assert '-backed parallel loops cannot be ' in err
+
+
+@with_multiprocessing
+def test_nested_parallel_loky_nowarning(capfd):
+    # Makes sure the warnings are always printed
+    warnings.resetwarnings()
+    warnings.simplefilter("always")
+
+    # no warnings if with nested loky
+    Parallel(n_jobs=2, backend='loky')(
+        delayed(parallel_func)(backend='loky', inner_n_jobs=2)
+        for _ in range(5))
+    out, err = capfd.readouterr()
+    assert err == ''
 
 
 def nested_loop(backend):
