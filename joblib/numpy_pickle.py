@@ -537,7 +537,7 @@ def load(filename, mmap_mode=None):
     mmap_mode: {None, 'r+', 'r', 'w+', 'c'}, optional
         If not None, the arrays are memory-mapped from the disk. This
         mode has no effect for compressed files. Note that in this
-        case the reconstructed object might not longer match exactly
+        case the reconstructed object might no longer match exactly
         the originally pickled object.
 
     Returns
