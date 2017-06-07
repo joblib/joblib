@@ -53,6 +53,11 @@ DEFAULT_N_JOBS = 1
 _backend = threading.local()
 
 
+def has_active_backend():
+    """Returns True if an active backend is registered"""
+    return getattr(_backend, 'backend_and_jobs', None) is not None
+
+
 def get_active_backend():
     """Return the active default backend"""
     active_backend_and_jobs = getattr(_backend, 'backend_and_jobs', None)
@@ -65,16 +70,19 @@ def get_active_backend():
 
 
 @contextmanager
-def parallel_backend(backend, n_jobs=-1, **backend_params):
+def parallel_backend(backend, n_jobs=None, **backend_params):
     """Change the default backend used by Parallel inside a with block.
+
+    Note that this contextmanager is ignored unless the call to ``Parallel``
+    sets ``allow_override=True``.
 
     If ``backend`` is a string it must match a previously registered
     implementation using the ``register_parallel_backend`` function.
 
     Alternatively backend can be passed directly as an instance.
 
-    By default all available workers will be used (``n_jobs=-1``) unless the
-    caller passes an explicit value for the ``n_jobs`` parameter.
+    If ``n_jobs`` is provided the ``n_jobs`` parameter passed to ``Parallel``
+    will also be overridden.
 
     This is an alternative to passing a ``backend='backend_name'`` argument to
     the ``Parallel`` class constructor. It is particularly useful when calling
@@ -83,7 +91,8 @@ def parallel_backend(backend, n_jobs=-1, **backend_params):
 
     >>> from operator import neg
     >>> with parallel_backend('threading'):
-    ...     print(Parallel()(delayed(neg)(i + 1) for i in range(5)))
+    ...     print(Parallel(allow_override=True)(
+    ...           delayed(neg)(i + 1) for i in range(5)))
     ...
     [-1, -2, -3, -4, -5]
 
@@ -102,7 +111,7 @@ def parallel_backend(backend, n_jobs=-1, **backend_params):
         yield backend, n_jobs
     finally:
         if old_backend_and_jobs is None:
-            if getattr(_backend, 'backend_and_jobs', None) is not None:
+            if has_active_backend():
                 del _backend.backend_and_jobs
         else:
             _backend.backend_and_jobs = old_backend_and_jobs
@@ -300,6 +309,12 @@ class Parallel(Logger):
             - finally, you can register backends by calling
               register_parallel_backend. This will allow you to implement
               a backend of your liking.
+        allow_override: bool, optional
+            Whether the specified backend and n_jobs should be overridden if
+            enclosed in a ``parallel_backend`` contextmanager. If False
+            [default] the specified backend and n_jobs will be used even if
+            enclosed in a ``parallel_backend`` contextmanager. Otherwise the
+            current active backend will be used.
         verbose: int, optional
             The verbosity level: if non zero, progress messages are
             printed. Above 50, the output is sent to stdout.
@@ -470,19 +485,10 @@ class Parallel(Logger):
         [Parallel(n_jobs=2)]: Done 6 out of 6 | elapsed:  0.0s finished
 
     '''
-    def __init__(self, n_jobs=1, backend=None, verbose=0, timeout=None,
-                 pre_dispatch='2 * n_jobs', batch_size='auto',
-                 temp_folder=None, max_nbytes='1M', mmap_mode='r'):
-        active_backend, default_n_jobs = get_active_backend()
-        if backend is None and n_jobs == 1:
-            # If we are under a parallel_backend context manager, look up
-            # the default number of jobs and use that instead:
-            n_jobs = default_n_jobs
-        self.n_jobs = n_jobs
-        self.verbose = verbose
-        self.timeout = timeout
-        self.pre_dispatch = pre_dispatch
-
+    def __init__(self, n_jobs=None, backend=None, allow_override=False,
+                 verbose=0, timeout=None, pre_dispatch='2 * n_jobs',
+                 batch_size='auto', temp_folder=None, max_nbytes='1M',
+                 mmap_mode='r'):
         if isinstance(max_nbytes, _basestring):
             max_nbytes = memstr_to_bytes(max_nbytes)
 
@@ -490,13 +496,18 @@ class Parallel(Logger):
             max_nbytes=max_nbytes,
             mmap_mode=mmap_mode,
             temp_folder=temp_folder,
-            verbose=max(0, self.verbose - 50),
+            verbose=max(0, verbose - 50),
         )
         if DEFAULT_MP_CONTEXT is not None:
             self._backend_args['context'] = DEFAULT_MP_CONTEXT
 
-        if backend is None:
-            backend = active_backend
+        if allow_override and has_active_backend():
+            backend, default_n_jobs = get_active_backend()
+            # Only override n_jobs if set in parallel_backend
+            if default_n_jobs is not None:
+                n_jobs = default_n_jobs
+        elif backend is None:
+            backend = BACKENDS[DEFAULT_BACKEND]()
         elif isinstance(backend, ParallelBackendBase):
             # Use provided backend as is
             pass
@@ -514,13 +525,22 @@ class Parallel(Logger):
                                  % (backend, sorted(BACKENDS.keys())))
             backend = backend_factory()
 
-        if (batch_size == 'auto' or isinstance(batch_size, Integral) and
+        if n_jobs is None:
+            # If not specified, fallback to 1
+            n_jobs = 1
+
+        if not (batch_size == 'auto' or isinstance(batch_size, Integral) and
                 batch_size > 0):
-            self.batch_size = batch_size
-        else:
             raise ValueError(
                 "batch_size must be 'auto' or a positive integer, got: %r"
                 % batch_size)
+
+        self.batch_size = batch_size
+        self.allow_override = allow_override
+        self.n_jobs = n_jobs
+        self.verbose = verbose
+        self.timeout = timeout
+        self.pre_dispatch = pre_dispatch
 
         self._backend = backend
         self._output = None
