@@ -835,6 +835,11 @@ def test_warning_about_timeout_not_supported_by_backend():
 def test_abort_backend(n_jobs, backend):
     delays = ["a"] + [10] * 100
 
+    if os.environ.get("TRAVIS_OS_NAME") is not None and n_jobs < 0:
+        # Use only up to 8 cpu in travis as cpu_count return 32 whereas we
+        # only access 2 cores.
+        n_jobs += 8
+
     with raises(TypeError):
         t_start = time.time()
         Parallel(n_jobs=n_jobs, backend=backend)(
