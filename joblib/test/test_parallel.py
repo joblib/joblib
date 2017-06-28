@@ -748,13 +748,14 @@ def test_no_blas_crash_or_freeze_with_subprocesses(backend):
 def test_parallel_with_interactively_defined_functions(backend):
     code = '\n'.join([
         'from joblib import Parallel, delayed',
-        'def square(x): return x**2',
-        'backend="{}"'.format(backend),
-        'if backend == "spawn":',
-        '    from multiprocessing import get_context',
-        '    backend = get_context(backend)',
-        'print(Parallel(n_jobs=2, backend="loky")(',
-        '   delayed(square)(i) for i in range(5)))'])
+        'if __name__ == "__main__":',
+        '    def square(x): return x**2',
+        '    backend="{}"'.format(backend),
+        '    if backend == "spawn":',
+        '        from multiprocessing import get_context',
+        '        backend = get_context(backend)',
+        '    print(Parallel(n_jobs=2, backend=backend)(',
+        '          delayed(square)(i) for i in range(5)))'])
 
     fid, filename = mkstemp(suffix="_joblib.py")
     os.close(fid)
