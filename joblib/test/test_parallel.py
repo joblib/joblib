@@ -15,6 +15,7 @@ import threading
 from math import sqrt
 from time import sleep
 from multiprocessing import TimeoutError
+from tempfile import mkstemp
 
 from joblib import dump, load
 from joblib import parallel
@@ -745,19 +746,26 @@ def test_no_blas_crash_or_freeze_with_subprocesses(backend):
              ([] if sys.version_info[:2] < (3, 4) or mp is None
               else ['spawn']))
 def test_parallel_with_interactively_defined_functions(backend):
-    code = '\n\n'.join([
+    code = '\n'.join([
         'from joblib import Parallel, delayed',
         'def square(x): return x**2',
         'backend="{}"'.format(backend),
         'if backend == "spawn":',
         '    from multiprocessing import get_context',
         '    backend = get_context(backend)',
-        'with Parallel(n_jobs=2, backend=backend) as p:'
-        '    print(p(delayed(square)(i) for i in range(5)))'])
+        'print(Parallel(n_jobs=2, backend="loky")(',
+        '   delayed(square)(i) for i in range(5)))'])
 
-    check_subprocess_call([sys.executable, '-c', code],
-                          stdout_regex=r'\[0, 1, 4, 9, 16\]',
-                          timeout=2)
+    fid, filename = mkstemp(suffix="_joblib.py")
+    os.close(fid)
+    try:
+        with open(filename, mode='wb') as f:
+            f.write(code.encode('ascii'))
+        check_subprocess_call([sys.executable, filename],
+                              stdout_regex=r'\[0, 1, 4, 9, 16\]',
+                              timeout=2)
+    finally:
+        os.unlink(filename)
 
 
 def test_parallel_with_exhausted_iterator():
