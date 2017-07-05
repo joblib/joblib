@@ -26,6 +26,8 @@ import operator
 import collections
 import datetime
 import threading
+from multiprocessing import Manager
+import gc
 
 # Local imports
 from . import hashing
@@ -38,6 +40,7 @@ from . import numpy_pickle
 from .disk import mkdirp, rm_subdirs, memstr_to_bytes
 from ._compat import _basestring, PY3_OR_LATER
 from .backports import concurrency_safe_rename
+
 
 FIRST_LINE_TEXT = "# first line:"
 
@@ -1002,3 +1005,486 @@ class Memory(Logger):
         cachedir = self.cachedir[:-7] if self.cachedir is not None else None
         return (self.__class__, (cachedir,
                 self.mmap_mode, self.compress, self._verbose))
+#%%
+_FUNCTION_HASHES_RAM = weakref.WeakKeyDictionary() # similar to _FUNCTION_HASHES
+
+# Define shared global dict used to store all cached objects
+global_dict_manager=multiprocessing.Manager()
+_RAM_CACHE=global_dict_manager.dict([])
+# A multiprocessing.Manager().dict() need to be used if the cache is shared
+# between several processed (e.g when using joblib.Parallel in multiprocessing mode)
+# however a regular dict is enough for a single process (or when using joblib.Parallel
+# in multithreading mode ?)
+# Ideally the user should be able to choose the type of store, e.g this function
+# could be used in the beginning of a user script:
+def init_ram_cache(mode='multiprocessing'):
+    global _RAM_CACHE
+    if mode=='multiprocessing':
+        _RAM_CACHE=global_dict_manager.dict([])
+    else:
+        _RAM_CACHE=dict()
+
+class MemorizedFuncRAM(MemorizedFunc):
+  
+    """ Callable object decorating a function for caching its return value
+        each time it is called.
+        All values are cached in _RAM_CACHE which is indexed by strings
+        representing paths in a deep directory structure. Methods are provided 
+        to inspect the cache or clean it.
+        Attributes
+        ----------
+        func: callable
+            The original, undecorated, function.
+        ignore: list or None
+            List of variable names to ignore when choosing whether to
+            recompute.
+        verbose: int, optional
+            The verbosity flag, controls messages that are issued as
+            the function is evaluated.
+    """
+
+    # An in-memory store to avoid looking at the disk-based function
+    # source code to check if a function definition has changed
+
+    #-------------------------------------------------------------------------
+    # Public interface
+    #-------------------------------------------------------------------------
+
+    def __init__(self, func, ignore=None, verbose=1, timestamp=None):
+ 
+        """
+            Parameters
+            ----------
+            func: callable
+                The function to decorate
+            ignore: list or None
+                List of variable names to ignore.
+
+            verbose: int, optional
+                Verbosity flag, controls the debug messages that are issued
+                as functions are evaluated. The higher, the more verbose
+            timestamp: float, optional
+                The reference time from which times in tracing messages
+                are reported.
+        """
+        MemorizedFunc.__init__(self, func, cachedir=os.curdir, ignore=ignore, mmap_mode=None,
+                               verbose=verbose, timestamp=timestamp)
+
+    def _cached_call(self, args, kwargs):
+        """Call wrapped function and cache result, or read cache if available.
+        This function returns the wrapped function output and some metadata.
+        Returns
+        -------
+        output: value or tuple
+            what is returned by wrapped function
+        argument_hash: string
+            hash of function arguments
+        metadata: dict
+            some metadata about wrapped function call (see _persist_input())
+        """
+        # Compare the function code with the previous to see if the
+        # function code has changed
+        output_dir, argument_hash = self._get_output_dir(*args, **kwargs)
+        metadata = None
+        output_pickle_path = os.path.join(output_dir, 'output.pkl')
+        # FIXME: The statements below should be try/excepted
+        if not (self._check_previous_func_code(stacklevel=4) and (
+                output_pickle_path in _RAM_CACHE)):
+            if self._verbose > 10:
+                _, name = get_func_name(self.func)
+                self.warn('Computing func %s, argument hash %s in '
+                          'directory %s'
+                        % (name, argument_hash, output_dir))
+            out, metadata = self.call(*args, **kwargs)
+        else:
+            try:
+                t0 = time.time()
+                out = _load_output_ram(output_dir, 
+                                   _get_func_fullname(self.func),
+                                   timestamp=self.timestamp,
+                                   metadata=metadata, mmap_mode=self.mmap_mode,
+                                   verbose=self._verbose)
+                if self._verbose > 4:
+                    t = time.time() - t0
+                    _, name = get_func_name(self.func)
+                    msg = '%s cache loaded - %s' % (name, format_time(t))
+                    print(max(0, (80 - len(msg))) * '_' + msg)
+            except Exception:
+                # XXX: Should use an exception logger
+                _, signature = format_signature(self.func, *args, **kwargs)
+                self.warn('Exception while loading results for '
+                          '{}\n {}'.format(
+                              signature, traceback.format_exc()))
+                out, metadata = self.call(*args, **kwargs)
+                argument_hash = None
+        return (out, argument_hash, metadata)
+
+    def __reduce__(self):
+        """ We don't store the timestamp when pickling, to avoid the hash
+            depending from it.
+            In addition, when unpickling, we run the __init__
+        """
+        return (self.__class__, (self.func, self.cachedir, 
+                                 self.ignore, self.mmap_mode, self.compress, 
+                                 self._verbose))
+
+    def _check_previous_func_code(self, stacklevel=2):
+        """
+            stacklevel is the depth a which this function is called, to
+            issue useful warnings to the user.
+        """
+        # First check if our function is in the in-memory store.
+        # Using the in-memory store not only makes things faster, but it
+        # also renders us robust to variations of the files when the
+        # in-memory version of the code does not vary
+        try:
+            if self.func in _FUNCTION_HASHES_RAM:
+                # We use as an identifier the id of the function and its
+                # hash. This is more likely to falsely change than have hash
+                # collisions, thus we are on the safe side.
+                func_hash = self._hash_func()
+                if func_hash == _FUNCTION_HASHES_RAM[self.func]:
+                    return True
+        except TypeError:
+            # Some callables are not hashable
+            pass
+
+        # Here, we go through some effort to be robust to dynamically
+        # changing code and collision. We cannot inspect.getsource
+        # because it is not reliable when using IPython's magic "%run".
+        func_code, source_file, first_line =get_func_code(self.func)
+        func_dir = self._get_func_dir(mkdir=False)
+        func_code_file = os.path.join(func_dir, 'func_code.py')
+
+        try:
+            old_func_code, old_first_line=  extract_first_line(
+                           _RAM_CACHE[func_code_file])
+        except KeyError:
+                self._write_func_code(func_code_file, func_code, first_line)
+                return False
+        if old_func_code == func_code:
+            return True
+
+        # We have differing code, is this because we are referring to
+        # different functions, or because the function we are referring to has
+        # changed?
+
+        _, func_name = get_func_name(self.func, resolv_alias=False,
+                                     win_characters=False)
+        if old_first_line == first_line == -1 or func_name == '<lambda>':
+            if not first_line == -1:
+                func_description = '%s (%s:%i)' % (func_name,
+                                                source_file, first_line)
+            else:
+                func_description = func_name
+            warnings.warn(JobLibCollisionWarning(
+                "Cannot detect name collisions for function '%s'"
+                        % func_description), stacklevel=stacklevel)
+
+        # Fetch the code at the old location and compare it. If it is the
+        # same than the code store, we have a collision: the code in the
+        # file has not changed, but the name we have is pointing to a new
+        # code block.
+        if not old_first_line == first_line and source_file is not None:
+            possible_collision = False
+            if os.path.exists(source_file):
+                _, func_name = get_func_name(self.func, resolv_alias=False)
+                num_lines = len(func_code.split('\n'))
+                with open_py_source(source_file) as f:
+                    on_disk_func_code = f.readlines()[
+                        old_first_line - 1:old_first_line - 1 + num_lines - 1]
+                on_disk_func_code = ''.join(on_disk_func_code)
+                possible_collision = (on_disk_func_code.rstrip()
+                                      == old_func_code.rstrip())
+            else:
+                possible_collision = source_file.startswith('<doctest ')
+            if possible_collision:
+                warnings.warn(JobLibCollisionWarning(
+                        'Possible name collisions between functions '
+                        "'%s' (%s:%i) and '%s' (%s:%i)" %
+                        (func_name, source_file, old_first_line,
+                        func_name, source_file, first_line)),
+                                stacklevel=stacklevel)
+
+        # The function has changed, wipe the cache directory.
+        # XXX: Should be using warnings, and giving stacklevel
+        if self._verbose > 10:
+            _, func_name = get_func_name(self.func, resolv_alias=False)
+            self.warn("Function %s (stored in %s) has changed." %
+                        (func_name, func_dir))
+        self.clear(warn=True)
+        return False
+
+    def _write_func_code(self, filename, func_code, first_line):
+        """ Store the function code and the filename in _RAM_CACHE
+        """
+        # We store the first line because the filename and the function
+        # name is not always enough to identify a function: people
+        # sometimes have several functions named the same way in a
+        # file. This is bad practice, but joblib should be robust to bad
+        # practice.
+        func_code = u'%s %i\n%s' % (FIRST_LINE_TEXT, first_line, func_code)
+        _RAM_CACHE[filename]=func_code
+
+        # Also store in the in-memory store of function hashes
+        is_named_callable = False
+        if PY3_OR_LATER:
+            is_named_callable = (hasattr(self.func, '__name__')
+                                 and self.func.__name__ != '<lambda>')
+        else:
+            is_named_callable = (hasattr(self.func, 'func_name')
+                                 and self.func.func_name != '<lambda>')
+        if is_named_callable:
+            # Don't do this for lambda functions or strange callable
+            # objects, as it ends up being too fragile
+            func_hash = self._hash_func()
+            try:
+                _FUNCTION_HASHES_RAM[self.func] = func_hash
+            except TypeError:
+                # Some callable are not hashable
+                pass
+            
+    def call(self, *args, **kwargs):
+        """ Force the execution of the function with the given arguments and
+            persist the output values.
+        """
+        start_time = time.time()
+        output_dir, _ = self._get_output_dir(*args, **kwargs)
+        if self._verbose > 0:
+            print(format_call(self.func, args, kwargs))
+        output = self.func(*args, **kwargs)
+        self._persist_output(output, output_dir)
+        duration = time.time() - start_time
+        metadata = self._persist_input(output_dir, duration, args, kwargs)
+
+        if self._verbose > 0:
+            _, name = get_func_name(self.func)
+            msg = '%s - %s' % (name, format_time(duration))
+            print(max(0, (80 - len(msg))) * '_' + msg)
+        return output, metadata
+
+
+    def _persist_output(self, output, dir):
+        """ Persist the given output tuple in the _RAM_CACHE.
+        """
+        filename = os.path.join(dir, 'output.pkl')
+        _RAM_CACHE[filename]=output
+        if self._verbose > 10:
+            print('Persisting in %s' % dir)
+
+    def _persist_input(self, output_dir, duration, args, kwargs,
+                       this_duration_limit=0.5):
+        """ Save a small summary of the call using json format in _RAM_CACHE.
+            output_dir: string, key in _RAM_CACHE to store de metadata
+            duration: float
+                time taken by hashing input arguments, calling the wrapped
+                function and persisting its output.
+            args, kwargs: list and dict
+                input arguments for wrapped function
+            this_duration_limit: float
+                Max execution time for this function before issuing a warning.
+        """
+        start_time = time.time()
+        argument_dict = filter_args(self.func, self.ignore,
+                                    args, kwargs)
+
+        input_repr = [(k, repr(v)) for k, v in argument_dict.items()]
+        # This can fail due to race-conditions with multiple
+        # concurrent joblibs removing the file or the directory
+        metadata = ({"duration": duration, "input_args": input_repr}).items()
+        try:
+            filename = os.path.join(output_dir, 'metadata.json')
+            _RAM_CACHE[filename]=metadata
+
+        except Exception:
+            pass
+
+        this_duration = time.time() - start_time
+        if this_duration > this_duration_limit:
+            # This persistence should be fast. It will not be if repr() takes
+            # time and its output is large, because json.dump will have to
+            # write a large file. This should not be an issue with numpy arrays
+            # for which repr() always output a short representation, but can
+            # be with complex dictionaries. Fixing the problem should be a
+            # matter of replacing repr() above by something smarter.
+            warnings.warn("Persisting input arguments took %.2fs to run.\n"
+                          "If this happens often in your code, it can cause "
+                          "performance problems \n"
+                          "(results will be correct in all cases). \n"
+                          "The reason for this is probably some large input "
+                          "arguments for a wrapped\n"
+                          " function (e.g. large strings).\n"
+                          "THIS IS A JOBLIB ISSUE. If you can, kindly provide "
+                          "the joblib's team with an\n"
+                          " example so that they can fix the problem."
+                          % this_duration, stacklevel=5)
+        return metadata
+    
+    def clear(self, warn=True):
+        """ Empty the function's cache.
+        """
+        func_dir = self._get_func_dir(mkdir=False)
+        if self._verbose > 0 and warn:
+            self.warn("Clearing cache %s" % func_dir)
+        if func_dir in _RAM_CACHE:
+            del _RAM_CACHE[func_dir]
+        func_code, _, first_line = get_func_code(self.func)
+        func_code_file = os.path.join(func_dir, 'func_code.py')
+        self._write_func_code(func_code_file, func_code, first_line)
+
+
+def _load_output_ram(output_dir, func_name, timestamp=None, metadata=None,
+                 mmap_mode=None, verbose=0):
+    """Load output of a computation."""
+    if verbose > 1:
+        signature = ""
+        try:
+            if metadata is not None:
+                metadata=dict(metadata)
+                args = ", ".join(['%s=%s' % (name, value)
+                                  for name, value
+                                  in metadata['input_args']])
+                signature = "%s(%s)" % (os.path.basename(func_name),
+                                             args)
+            else:
+                signature = os.path.basename(func_name)
+        except KeyError:
+            pass
+
+        if timestamp is not None:
+            t = "% 16s" % format_time(time.time() - timestamp)
+        else:
+            t = ""
+
+        if verbose < 10:
+            print('[Memory]%s: Loading %s...' % (t, str(signature)))
+        else:
+            print('[Memory]%s: Loading %s from %s' % (
+                    t, str(signature), output_dir))
+
+    filename = os.path.join(output_dir, 'output.pkl')
+    if filename not in _RAM_CACHE:
+        raise KeyError(
+            "Non-existing cache value (may have been cleared).\n"
+            "File %s does not exist" % filename)
+
+    result = _RAM_CACHE[filename]
+
+    return result
+
+#%%
+class MemoryRAM(Memory):
+
+    """ A context object for caching a function's return value each time it
+        is called with the same input arguments.
+        All values are cached in _RAM_CACHE which is indexed by strings
+        representing paths in a deep directory structure.
+        see :ref:`memory_reference`
+    """
+
+    #-------------------------------------------------------------------------
+    # Public interface
+    #-------------------------------------------------------------------------
+
+    def __init__(self, ram_limit=None, verbose=1):
+        
+        """
+            Parameters
+            ----------
+            verbose: int, optional
+                Verbosity flag, controls the debug messages that are issued
+                as functions are evaluated.
+            ram_limit: int, optional
+                Amount of RAM than should be kept free in RAM, e.g if 
+                ram_limit = 10GB then the cache will empty everytime
+                the remaining available memory is less than 10GB.
+        """
+
+        Memory.__init__(self, cachedir=os.curdir, mmap_mode=None, verbose=verbose,
+                        bytes_limit=ram_limit)
+
+    def cache(self, func=None, ignore=None, verbose=None,
+                        mmap_mode=False):
+        """ Decorates the given function func to only compute its return
+            value for input arguments not cached on disk.
+            Parameters
+            ----------
+            func: callable, optional
+                The function to be decorated
+            ignore: list of strings
+                A list of arguments name to ignore in the hashing
+            verbose: integer, optional
+                The verbosity mode of the function. By default that
+                of the memory object is usd.
+
+            Returns
+            -------
+            decorated_func: MemorizedFunc object
+                The returned object is a MemorizedFunc object, that is
+                callable (behaves like a function), but offers extra
+                methods for cache lookup and management. See the
+                documentation for :class:`joblib.memory.MemorizedFunc`.
+        """
+        if func is None:
+            # Partial application, to be able to specify extra keyword
+            # arguments in decorators
+            return functools.partial(self.cache, ignore=ignore,
+                                     verbose=verbose, mmap_mode=mmap_mode)
+        if verbose is None:
+            verbose = self._verbose
+        if mmap_mode is False:
+            mmap_mode = self.mmap_mode
+        if isinstance(func, MemorizedFuncRAM):
+            func = func.func
+        return MemorizedFuncRAM(func,
+                                   ignore=ignore,
+                                   verbose=verbose,
+                                   timestamp=self.timestamp)
+
+    def clear(self, warn=True):
+        """ Erase the complete cache directory.
+        """
+        if warn:
+            self.warn('Flushing completely the cache')
+        if self.cachedir is not None:
+            _RAM_CACHE.clear()
+
+    def eval(self, func, *args, **kwargs):
+        """ Eval function func with arguments `*args` and `**kwargs`,
+            in the context of the memory.
+            This method works similarly to the builtin `apply`, except
+            that the function is called only if the cache is not
+            up to date.
+        """
+        if self.cachedir is None:
+            return func(*args, **kwargs)
+        return self.cache(func)(*args, **kwargs)
+
+    #-------------------------------------------------------------------------
+    # Private `object` interface
+    #-------------------------------------------------------------------------
+
+    def __repr__(self):
+        return '%s(cachedir=%s)' % (
+                    self.__class__.__name__,
+                    repr(self.cachedir),
+                    )
+
+    def __reduce__(self):
+        """ We don't store the timestamp when pickling, to avoid the hash
+            depending from it.
+            In addition, when unpickling, we run the __init__
+        """
+        # We need to remove 'joblib' from the end of cachedir
+        cachedir = self.cachedir[:-7] if self.cachedir is not None else None
+        return (self.__class__, (cachedir,
+                    self.mmap_mode, self.compress, self._verbose))
+
+
+    def reduce_size(self):
+        """Remove cache to make cache size fit in ``bytes_limit``."""
+        if self.bytes_limit is not None:
+            mem_available=psutil.virtual_memory().available
+            if mem_available < self.bytes_limit:
+                self.clear()
+                gc.collect()
