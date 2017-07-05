@@ -26,7 +26,7 @@ import operator
 import collections
 import datetime
 import threading
-from multiprocessing import Manager
+import multiprocessing
 import gc
 
 # Local imports
