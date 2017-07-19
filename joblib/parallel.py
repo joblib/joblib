@@ -572,9 +572,10 @@ class Parallel(Logger):
         elif DEFAULT_MP_CONTEXT is not None:
             self._backend_args['context'] = DEFAULT_MP_CONTEXT
 
-        backend, n_jobs = choose_backend_and_n_jobs(backend, n_jobs,
-                prefer_processes=prefer_processes,
-                require_shared_memory=require_shared_memory)
+        backend, n_jobs = choose_backend_and_n_jobs(
+            backend, n_jobs,
+            prefer_processes=prefer_processes,
+            require_shared_memory=require_shared_memory)
 
         if (batch_size != 'auto' and not
                 (isinstance(batch_size, Integral) and batch_size > 0)):
