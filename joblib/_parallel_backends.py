@@ -99,6 +99,7 @@ class SequentialBackend(ParallelBackendBase):
     Does not use/create any threading objects, and hence has minimal
     overhead. Used when n_jobs == 1.
     """
+    uses_processes = False
 
     def effective_n_jobs(self, n_jobs):
         """Determine the number of jobs which are going to run in parallel"""
@@ -239,6 +240,7 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
     """
 
     supports_timeout = True
+    uses_processes = False
 
     def configure(self, n_jobs=1, parallel=None, **backend_args):
         """Build a process or thread pool and return the number of workers"""
@@ -264,6 +266,7 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
     JOBLIB_SPAWNED_PROCESS = "__JOBLIB_SPAWNED_PARALLEL__"
 
     supports_timeout = True
+    uses_processes = True
 
     def effective_n_jobs(self, n_jobs):
         """Determine the number of jobs which are going to run in parallel.
