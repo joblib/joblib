@@ -360,7 +360,7 @@ def _process_worker(call_queue, result_queue, processes_management_lock,
             traceback.print_exc()
             sys.exit(1)
         if call_item is None:
-            # Notifiy queue management thread about clean worker shutdown
+            # Notify queue management thread about clean worker shutdown
             result_queue.put(os.getpid())
             return
         try:
@@ -621,7 +621,6 @@ def _queue_management_worker(executor_reference,
         elif executor_flags.broken:
             return
         executor = None
-        flag_current_thread_clean_exit()
 
 
 def _management_worker(executor_reference, executor_flags,
@@ -673,7 +672,6 @@ def _management_worker(executor_reference, executor_flags,
             _shutdown_crash(executor_flags, processes, pending_work_items,
                             call_queue, cause_msg)
             return
-        executor = executor_reference()
         if (is_shutting_down() and
                 getattr(queue_management_thread, "_clean_exit", False)):
             mp.util.debug("shutting down")
@@ -681,6 +679,7 @@ def _management_worker(executor_reference, executor_flags,
 
         # Detect if all the worker timed out while a new job was submitted and
         # launch new workers if it is the case.
+        executor = executor_reference()
         if (executor is not None and len(processes) == 0 and
                 len(executor._pending_work_items) > 0):
             executor._adjust_process_count()
@@ -726,7 +725,7 @@ def _check_system_limits():
         # sysconf not available or setting not available
         return
     if nsems_max == -1:
-        # indetermined limit, assume that limit is determined
+        # undetermined limit, assume that limit is determined
         # by available memory only
         return
     if nsems_max >= 256:
@@ -882,7 +881,7 @@ class ProcessPoolExecutor(_base.Executor):
             self._queue_management_thread.daemon = True
             self._queue_management_thread.start()
 
-            # register this executor in a mecanism that ensures it will wakeup
+            # register this executor in a mechanism that ensures it will wakeup
             # when the interpreter is exiting.
             _threads_wakeup[self._queue_management_thread] = self._wakeup
 

@@ -160,7 +160,7 @@ def prepare(data):
         process.ORIGINAL_DIR = data['orig_dir']
 
     if hasattr(mp, 'set_start_method'):
-        mp.set_start_method('loky')
+        mp.set_start_method('loky', force=True)
 
     if 'init_main_from_name' in data:
         _fixup_main_from_name(data['init_main_from_name'])

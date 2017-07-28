@@ -124,8 +124,6 @@ def get_reusable_executor(max_workers=None, context=None, timeout=10,
 class ReusablePoolExecutor(ProcessPoolExecutor):
     def __init__(self, max_workers=None, context=None, timeout=None,
                  executor_id=0, job_reducers=None, result_reducers=None):
-        if context is None and sys.version_info[:2] > (3, 3):
-            context = mp.get_context('spawn')
         super(ReusablePoolExecutor, self).__init__(
             max_workers=max_workers, context=context, timeout=timeout,
             job_reducers=job_reducers,
