@@ -11,7 +11,7 @@ from io import BytesIO
 
 from . import reduction, spawn
 from .context import get_spawning_popen, set_spawning_popen
-from multiprocessing import util
+from multiprocessing import util, process
 
 if sys.version_info[:2] < (3, 3):
     ProcessLookupError = OSError
@@ -128,7 +128,8 @@ class Popen(object):
         fp = BytesIO()
         set_spawning_popen(self)
         try:
-            prep_data = spawn.get_preparation_data(process_obj._name)
+            prep_data = spawn.get_preparation_data(
+                process_obj._name, process_obj.init_main_module)
             reduction.dump(prep_data, fp)
             reduction.dump(process_obj, fp)
 
@@ -141,7 +142,8 @@ class Popen(object):
             # for fd in self._fds:
             #     _mk_inheritable(fd)
 
-            cmd_python = [sys.executable, '-m', 'joblib.externals.loky.backend.popen_loky']
+            cmd_python = [sys.executable]
+            cmd_python += ['-m', 'joblib.externals.loky.backend.popen_loky_posix']
             cmd_python += ['--name-process', str(process_obj.name)]
             cmd_python += ['--pipe',
                            str(reduction._mk_inheritable(child_r))]
@@ -195,13 +197,17 @@ if __name__ == '__main__':
         semaphore_tracker._semaphore_tracker._fd = args.semaphore
 
     exitcode = 1
+
     try:
-        from_parent = os.fdopen(r, 'rb')
-        prep_data = pickle.load(from_parent)
-        spawn.prepare(prep_data)
-        process_obj = pickle.load(from_parent)
-        from_parent.close()
-        from_parent = None
+        with os.fdopen(r, 'rb') as from_parent:
+            process.current_process()._inheriting = True
+            try:
+                prep_data = pickle.load(from_parent)
+                spawn.prepare(prep_data)
+                process_obj = pickle.load(from_parent)
+            finally:
+                del process.current_process()._inheriting
+
         exitcode = process_obj._bootstrap()
     except Exception as e:
         print('\n\n' + '-' * 80)

@@ -8,24 +8,30 @@
 #  * Create a context ensuring loky uses only objects that are compatible
 #  * Add LokyContext to the list of context of multiprocessing so loky can be
 #    used with multiprocessing.set_start_method
-#  * Add some compat function for python2.7 and 3.3. 
+#  * Add some compat function for python2.7 and 3.3.
 #
 
 import sys
+import warnings
 import multiprocessing as mp
 
 
-if sys.platform == "win32":
-    from multiprocessing import Process
-else:
-    from .process import PosixLokyProcess as Process
+from .process import LokyProcess
 
-if sys.version_info > (3, 4):
-    from multiprocessing import get_context
+if sys.version_info[:2] >= (3, 4):
+    from multiprocessing import get_context as get_mp_context
     from multiprocessing.context import assert_spawning, set_spawning_popen
     from multiprocessing.context import get_spawning_popen, BaseContext
 
+    def get_context(method="loky"):
+        if method == "fork":
+            warnings.warn("`fork` start method should not be used with `loky` "
+                          "as it does not respect POSIX. Try using `spawn` or "
+                          "`loky` instead.", UserWarning)
+        return get_mp_context(method)
+
 else:
+    METHODS = ['loky', 'loky_init_main']
     if sys.platform != 'win32':
         import threading
         # Mecanism to check that the current thread is spawning a child process
@@ -52,13 +58,19 @@ else:
             )
 
     def get_context(method="loky"):
-        return LokyContext()
+        if method == "loky":
+            return LokyContext()
+        elif method == "loky_init_main":
+            return LokyInitMainContext()
+        else:
+            raise ValueError("Method {} is not implemented. The available "
+                             "methods are {}".format(method, METHODS))
 
 
 class LokyContext(BaseContext):
     """Context relying on the LokyProcess."""
     _name = 'loky'
-    Process = Process
+    Process = LokyProcess
 
     def Queue(self, maxsize=0, reducers=None):
         '''Returns a queue object'''
@@ -141,6 +153,26 @@ class LokyContext(BaseContext):
             return Event()
 
 
+class LokyInitMainContext(LokyContext):
+    """Extra context with LokyProcess, which does load the main module
+
+    This context is used for compatibility in the case ``cloudpickle`` is not 
+    present on the running system. This permits to load functions defined in
+    the ``main`` module, using proper safeguards. The declaration of the
+    ``executor`` should be protected by ``if __name__ == "__main__":`` and the
+    functions and variable used from main should be out of this block.
+
+    This mimics the default behavior of multiprocessing under Windows and the
+    behavior of the ``spawn`` start method on a posix system for python3.4+.
+    For more details, see the end of the following section of python doc
+    https://docs.python.org/3/library/multiprocessing.html#multiprocessing-programming
+    """
+    def Process(self, *args, **kwargs):
+        kwargs.pop('init_main_module', True)
+        return LokyProcess(*args, init_main_module=True, **kwargs)
+
+
 if sys.version_info > (3, 4):
     """Register loky context so it works with multiprocessing.get_context"""
     mp.context._concrete_contexts['loky'] = LokyContext()
+    mp.context._concrete_contexts['loky_init_main'] = LokyInitMainContext()

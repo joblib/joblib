@@ -13,4 +13,4 @@ rm -rf $INSTALL_FOLDER
 find loky -name "*.py" | xargs sed -i.bak "s/from loky/from joblib.externals.loky/"
 find loky -name "*.bak" | xargs rm
 
-sed -i "s/loky.backend.popen_loky/joblib.externals.loky.backend.popen_loky/" loky/backend/popen_loky.py
+sed -i "s/loky.backend.popen_loky/joblib.externals.loky.backend.popen_loky/" loky/backend/popen_loky_posix.py

@@ -27,7 +27,6 @@ import signal
 import sys
 import threading
 import warnings
-import _multiprocessing
 
 from . import spawn
 from multiprocessing import util
@@ -73,11 +72,13 @@ class SemaphoreTracker(object):
                 # process will out live us, so no need to wait on pid
                 exe = spawn.get_executable()
                 args = [exe] + util._args_from_interpreter_flags()
-                if len(args[-1]) > 100:  # pragma: no cover
-                    warnings.warn(
-                        "args_from_flag returned -R+ -> why??", RuntimeWarning)
+                # In python 3.3, there is a bug which put `-RRRRR..` instead of
+                # `-R` in args. Replace it to get the correct flags.
+                # See https://github.com/python/cpython/blob/3.3/Lib/subprocess.py#L488
+                if sys.version_info[:2] <= (3, 3):
                     import re
-                    args[-1] = re.sub("-R+", "-R", args[-1])
+                    for i in range(1, len(args)):
+                        args[i] = re.sub("-R+", "-R", args[i])
                 args += ['-c', cmd % r]
                 util.debug("launching Semaphore tracker: {}".format(args))
                 spawnv_passfds(exe, args, fds_to_pass)

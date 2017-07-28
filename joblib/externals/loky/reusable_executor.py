@@ -10,10 +10,14 @@ import threading
 import multiprocessing as mp
 
 from .process_executor import ProcessPoolExecutor, EXTRA_QUEUED_CALLS
-from .backend.queues import Queue, SimpleQueue
+from .process_executor import _SafeQueue
+from .backend.queues import SimpleQueue
+from .backend import get_context
 
 __all__ = ['get_reusable_executor']
 
+# Python 2 compat helper
+STRING_TYPE = type("")
 
 # Singleton executor and id management
 _executor_id_lock = threading.Lock()
@@ -65,13 +69,15 @@ def get_reusable_executor(max_workers=None, context=None, timeout=10,
     previously spawned jobs to get a new instance of the reusable executor
     with new constructor argument values.
 
-    The job_reducers and result_reducers are used to customize the pickling
-    of tasks and results send to the executor.
+    The ``job_reducers`` and ``result_reducers`` are used to customize the
+    pickling of tasks and results send to the executor.
     """
     global _executor, _executor_args
     executor = _executor
     args = dict(context=context, timeout=timeout, job_reducers=job_reducers,
                 result_reducers=result_reducers)
+    if isinstance(context, STRING_TYPE):
+        context = get_context(context)
     if context is not None and context.get_start_method() == "fork":
         raise ValueError("Cannot use reusable executor with the 'fork' "
                          "context")
@@ -164,9 +170,6 @@ class ReusablePoolExecutor(ProcessPoolExecutor):
     def _setup_queue(self, job_reducers, result_reducers):
         # As this executor can be resized, use a large queue size to avoid
         # underestimating capacity and introducing overhead
-        self._call_queue = Queue(2 * mp.cpu_count() + EXTRA_QUEUED_CALLS,
-                                 reducers=job_reducers, ctx=self._ctx)
-        self._call_queue._ignore_epipe = True
-
-        self._result_queue = SimpleQueue(reducers=result_reducers,
-                                         ctx=self._ctx)
+        queue_size = 2 * mp.cpu_count() + EXTRA_QUEUED_CALLS
+        super(ReusablePoolExecutor, self)._setup_queue(
+            job_reducers, result_reducers, queue_size=queue_size)

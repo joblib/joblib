@@ -49,14 +49,11 @@ if sys.version_info[:2] >= (3, 4):
             finally:
                 _winapi.CloseHandle(proc)
 
-
     def reduce_pipe_connection(conn):
         access = ((_winapi.FILE_GENERIC_READ if conn.readable else 0) |
                   (_winapi.FILE_GENERIC_WRITE if conn.writable else 0))
-        print(access)
         dh = DupHandle(conn.fileno(), access)
         return rebuild_pipe_connection, (dh, conn.readable, conn.writable)
-
 
     def rebuild_pipe_connection(dh, readable, writable):
         from multiprocessing.connection import PipeConnection

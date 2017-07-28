@@ -1,5 +1,5 @@
 ###############################################################################
-# PosixLokyProcess implementation
+# LokyProcess implementation
 #
 # authors: Thomas Moreau and Olivier Grisel
 #
@@ -8,18 +8,32 @@
 #
 import os
 import sys
-if sys.version_info >= (3, 4):
-    from multiprocessing.process import BaseProcess
-else:
-    from multiprocessing.process import Process as BaseProcess
+from .compat import BaseProcess
 
 
-class PosixLokyProcess(BaseProcess):
+class LokyProcess(BaseProcess):
     _start_method = 'loky'
+
+    def __init__(self, group=None, target=None, name=None, args=(),
+                 kwargs={}, daemon=None, init_main_module=False):
+        if sys.version_info < (3, 3):
+            super(LokyProcess, self).__init__(
+                group=group, target=target, name=name, args=args,
+                kwargs=kwargs)
+            self.daemon = daemon
+        else:
+            super(LokyProcess, self).__init__(
+                group=group, target=target, name=name, args=args,
+                kwargs=kwargs, daemon=daemon)
+        self.authkey = self.authkey
+        self.init_main_module = init_main_module
 
     @staticmethod
     def _Popen(process_obj):
-        from .popen_loky import Popen
+        if sys.platform == "win32":
+            from .popen_loky_win32 import Popen
+        else:
+            from .popen_loky_posix import Popen
         return Popen(process_obj)
 
     if sys.version_info < (3, 3):
@@ -48,19 +62,6 @@ class PosixLokyProcess(BaseProcess):
                 raise ValueError("process not started")
 
     if sys.version_info < (3, 4):
-        def __init__(self, group=None, target=None, name=None, args=(),
-                     kwargs={}, daemon=None):
-            if sys.version_info < (3, 3):
-                super(PosixLokyProcess, self).__init__(
-                    group=group, target=target, name=name, args=args,
-                    kwargs=kwargs)
-                self.daemon = daemon
-            else:
-                super(PosixLokyProcess, self).__init__(
-                    group=group, target=target, name=name, args=args,
-                    kwargs=kwargs, daemon=daemon)
-            self.authkey = self.authkey
-
         @property
         def authkey(self):
             return self._authkey

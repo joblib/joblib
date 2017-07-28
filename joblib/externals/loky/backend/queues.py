@@ -23,6 +23,7 @@ from multiprocessing.queues import SimpleQueue as mp_SimpleQueue
 
 from .reduction import CustomizableLokyPickler
 from .context import assert_spawning, get_context
+from .utils import flag_current_thread_clean_exit
 
 
 __all__ = ['Queue', 'SimpleQueue']
@@ -83,7 +84,7 @@ class Queue(mp_Queue):
             target=Queue._feed,
             args=(self._buffer, self._notempty, self._send_bytes,
                   self._wlock, self._writer.close, self._reducers,
-                  self._ignore_epipe),
+                  self._ignore_epipe, self._on_queue_feeder_error),
             name='QueueFeederThread'
         )
         self._thread.daemon = True
@@ -116,7 +117,7 @@ class Queue(mp_Queue):
     # Overload the _feed methods to use our custom pickling strategy.
     @staticmethod
     def _feed(buffer, notempty, send_bytes, writelock, close, reducers,
-              ignore_epipe):
+              ignore_epipe, onerror):
         util.debug('starting thread to feed data to pipe')
         nacquire = notempty.acquire
         nrelease = notempty.release
@@ -129,8 +130,8 @@ class Queue(mp_Queue):
         else:
             wacquire = None
 
-        try:
-            while 1:
+        while 1:
+            try:
                 nacquire()
                 try:
                     if not buffer:
@@ -143,6 +144,7 @@ class Queue(mp_Queue):
                         if obj is sentinel:
                             util.debug('feeder thread got sentinel -- exiting')
                             close()
+                            flag_current_thread_clean_exit()
                             return
 
                         # serialize the data before acquiring the lock
@@ -158,21 +160,26 @@ class Queue(mp_Queue):
                                 wrelease()
                 except IndexError:
                     pass
-        except Exception as e:
-            if ignore_epipe and getattr(e, 'errno', 0) == errno.EPIPE:
-                return
-            # Since this runs in a daemon thread the resources it uses
-            # may be become unusable while the process is cleaning up.
-            # We ignore errors which happen after the process has
-            # started to cleanup.
-            try:
+            except Exception as e:
+                if ignore_epipe and getattr(e, 'errno', 0) == errno.EPIPE:
+                    return
+                # Since this runs in a daemon thread the resources it uses
+                # may be become unusable while the process is cleaning up.
+                # We ignore errors which happen after the process has
+                # started to cleanup.
                 if util.is_exiting():
                     util.info('error in queue thread: %s', e)
+                    return
                 else:
-                    import traceback
-                    traceback.print_exc()
-            except Exception:
-                pass
+                    onerror(e, obj)
+
+    def _on_queue_feeder_error(self, e, obj):
+        """
+        Private API hook called when feeding data in the background thread
+        raises an exception.  For overriding by concurrent.futures.
+        """
+        import traceback
+        traceback.print_exc()
 
     if sys.version_info[:2] < (3, 4):
         # Compat for python2.7/3.3 that use _send instead of _send_bytes

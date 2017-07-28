@@ -20,6 +20,12 @@ except ImportError:
     from pickle import loads
     import copyreg
 
+if sys.platform == "win32":
+    if sys.version_info[:2] > (3, 3):
+        from multiprocessing.reduction import duplicate
+    else:
+        from multiprocessing.forking import duplicate
+
 from pickle import HIGHEST_PROTOCOL
 from . import LOKY_PICKLER
 

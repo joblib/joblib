@@ -9,6 +9,7 @@
 import os
 import sys
 import socket
+import _socket
 
 from .reduction import register
 from .context import get_spawning_popen
@@ -40,9 +41,9 @@ def DupFd(fd):
         return resource_sharer.DupFd(fd)
     else:
         raise TypeError(
-                'Cannot pickle connection object. This object can only be '
-                'passed when spawning a new process'
-            )
+            'Cannot pickle connection object. This object can only be '
+            'passed when spawning a new process'
+        )
 
 
 if sys.version_info[:2] != (3, 3):
@@ -58,7 +59,6 @@ else:
 
 
 register(socket.socket, _reduce_socket)
-import _socket
 register(_socket.socket, _reduce_socket)
 
 

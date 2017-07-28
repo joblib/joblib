@@ -8,7 +8,7 @@
 #    semaphore management.
 #  * For OSX, as no sem_getvalue is not implemented, Semaphore with value > 1
 #    are not guaranteed to work.
-#  * Only work with PosixLokyProcess
+#  * Only work with LokyProcess on posix
 #
 import os
 import sys
@@ -209,7 +209,7 @@ class SemLock(object):
                             raiseFromErrno()
                         else:
                             raise ValueError(
-                                "semaphore or lock realeased too many times")
+                                "semaphore or lock released too many times")
                 else:
                     import warnings
                     warnings.warn("semaphore are broken on OSX, release might "
@@ -218,7 +218,7 @@ class SemLock(object):
                 value = self._get_value()
                 if value >= self.maxvalue:
                     raise ValueError(
-                        "semaphore or lock realeased too many times")
+                        "semaphore or lock released too many times")
 
         if pthread.sem_post(self.handle) < 0:
             raiseFromErrno()

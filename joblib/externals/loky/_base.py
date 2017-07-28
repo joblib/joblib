@@ -180,7 +180,8 @@ def _create_and_install_waiters(fs, return_when):
         if return_when == FIRST_EXCEPTION:
             waiter = _AllCompletedWaiter(pending_count, stop_on_exception=True)
         elif return_when == ALL_COMPLETED:
-            waiter = _AllCompletedWaiter(pending_count, stop_on_exception=False)
+            waiter = _AllCompletedWaiter(pending_count,
+                                         stop_on_exception=False)
         else:
             raise ValueError("Invalid return condition: %r" % return_when)
 
@@ -247,6 +248,7 @@ def as_completed(fs, timeout=None):
         for f in fs:
             with f._condition:
                 f._waiters.remove(waiter)
+
 
 DoneAndNotDoneFutures = collections.namedtuple(
         'DoneAndNotDoneFutures', 'done not_done')
@@ -386,14 +388,15 @@ class Future(object):
 
         Args:
             fn: A callable that will be called with this future as its only
-                argument when the future completes or is cancelled. The callable
-                will always be called by a thread in the same process in which
-                it was added. If the future has already completed or been
-                cancelled then the callable will be called immediately. These
-                callables are called in the order that they were added.
+                argument when the future completes or is cancelled. The
+                callable will always be called by a thread in the same process
+                in which it was added. If the future has already completed or
+                been cancelled then the callable will be called immediately.
+                These callables are called in the order that they were added.
         """
         with self._condition:
-            if self._state not in [CANCELLED, CANCELLED_AND_NOTIFIED, FINISHED]:
+            if self._state not in [CANCELLED, CANCELLED_AND_NOTIFIED,
+                                   FINISHED]:
                 self._done_callbacks.append(fn)
                 return
         fn(self)
@@ -410,8 +413,8 @@ class Future(object):
 
         Raises:
             CancelledError: If the future was cancelled.
-            TimeoutError: If the future didn't finish executing before the given
-                timeout.
+            TimeoutError: If the future didn't finish executing before the
+                given timeout.
             Exception: If the call raised then that exception will be raised.
         """
         with self._condition:
@@ -443,8 +446,8 @@ class Future(object):
 
         Raises:
             CancelledError: If the future was cancelled.
-            TimeoutError: If the future didn't finish executing before the given
-                timeout.
+            TimeoutError: If the future didn't finish executing before the
+                given timeout.
         """
 
         with self._condition:

@@ -63,7 +63,7 @@ class SemLock(object):
 
     def __init__(self, kind, value, maxvalue):
         # unlink_now is only used on win32 or when we are using fork.
-        unlink_now = False 
+        unlink_now = False
         for i in range(100):
             try:
                 self._semlock = _SemLock(
@@ -136,6 +136,8 @@ class Semaphore(SemLock):
         SemLock.__init__(self, SEMAPHORE, value, SEM_VALUE_MAX)
 
     def get_value(self):
+        if sys.platform == 'darwin':
+            raise NotImplementedError("OSX does not implement sem_getvalue")
         return self._semlock._get_value()
 
     def __repr__(self):
@@ -292,9 +294,9 @@ class Condition(object):
             res = self._sleeping_count.acquire(False)
             assert res
 
-        if self._sleeping_count.acquire(False): # try grabbing a sleeper
-            self._wait_semaphore.release()      # wake up one sleeper
-            self._woken_count.acquire()         # wait for the sleeper to wake
+        if self._sleeping_count.acquire(False):  # try grabbing a sleeper
+            self._wait_semaphore.release()       # wake up one sleeper
+            self._woken_count.acquire()          # wait for the sleeper to wake
 
             # rezero _wait_semaphore in case a timeout just happened
             self._wait_semaphore.acquire(False)

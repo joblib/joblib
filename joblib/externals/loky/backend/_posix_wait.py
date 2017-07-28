@@ -58,7 +58,7 @@ elif SYSTEM == 'Linux' and ctypes is not None:
             errno_ = ctypes.get_errno()
             raise OSError(errno_, os.strerror(errno_))
         return t.tv_sec + t.tv_nsec * 1e-9
-else:
+else:  # pragma: no cover
     from time import time as monotonic
 
 
@@ -76,7 +76,7 @@ if hasattr(select, 'poll'):
                 fd_map[fd] = fd
         ls = []
         for fd, event in pollster.poll(timeout):
-            if event & select.POLLNVAL:
+            if event & select.POLLNVAL:  # pragma: no cover
                 raise ValueError('invalid file descriptor %i' % fd)
             ls.append(fd_map[fd])
         return ls
@@ -98,7 +98,7 @@ def wait(object_list, timeout=None):
     while True:
         try:
             return _poll(object_list, timeout)
-        except (OSError, IOError, socket.error) as e:
+        except (OSError, IOError, socket.error) as e:  # pragma: no cover
             if e.errno != errno.EINTR:
                 raise
         if timeout is not None:

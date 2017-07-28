@@ -7,8 +7,10 @@
 #  * Backport wait function to python2.7
 #
 
-from time import sleep
 import ctypes
+from time import sleep
+from _subprocess import WaitForSingleObject, WAIT_OBJECT_0
+
 try:
     from time import monotonic
 except ImportError:
@@ -25,12 +27,12 @@ except ImportError:
         return GetTickCount64() / 1000.0
 
 
-def wait(connections, timeout=None):
+def wait(handles, timeout=None):
     """Backward compat for python2.7
 
     This function wait for either:
     * one connection is ready for read,
-    * one process has exited or got killed,
+    * one process handle has exited or got killed,
     * timeout is reached. Note that this function has a precision of 2 msec.
     """
     if timeout is not None:
@@ -38,7 +40,13 @@ def wait(connections, timeout=None):
 
     while True:
         # We cannot use select as in windows it only support sockets
-        ready = [c for c in connections if c.poll(0)]
+        ready = []
+        for h in handles:
+            if type(h) == int:
+                if WaitForSingleObject(h, 0) == WAIT_OBJECT_0:
+                    ready += [h]
+            elif h.poll(0):
+                ready.append(h)
         if len(ready) > 0:
             return ready
         sleep(.001)

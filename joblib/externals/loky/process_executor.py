@@ -72,18 +72,13 @@ from functools import partial
 
 from . import _base
 from .backend import get_context
-from .backend.connection import wait
+from .backend.compat import queue
+from .backend.compat import wait, PicklingError
 from .backend.queues import Queue, SimpleQueue
+from .backend.utils import flag_current_thread_clean_exit
 
 # Compatibility for python2.7
-if sys.version_info[:2] > (2, 7):
-    import queue
-    from queue import Empty
-    from _pickle import PicklingError
-else:
-    import Queue as queue
-    from Queue import Empty
-    from pickle import PicklingError
+if sys.version_info[0] == 2:
     ProcessLookupError = OSError
 
 
@@ -278,6 +273,30 @@ class _CallItem(object):
         pass
 
 
+class _SafeQueue(Queue):
+    """Safe Queue set exception to the future object linked to a job"""
+    def __init__(self, max_size=0, ctx=None, pending_work_items=None,
+                 wakeup=None, reducers=None):
+        self.wakeup = wakeup
+        self.pending_work_items = pending_work_items
+        super(_SafeQueue, self).__init__(max_size, reducers=reducers, ctx=ctx)
+
+    def _on_queue_feeder_error(self, e, obj):
+        if isinstance(obj, _CallItem):
+            # fromat traceback only on python3
+            tb = traceback.format_exception(
+                type(e), e, getattr(e, "__traceback__", None))
+            e.__cause__ = _RemoteTraceback('\n"""\n{}"""'.format(''.join(tb)))
+            work_item = self.pending_work_items.pop(obj.work_id, None)
+            # work_item can be None if another process terminated (see above)
+            if work_item is not None:
+                work_item.future.set_exception(e)
+                del work_item
+            self.wakeup.set()
+        else:
+            super()._on_queue_feeder_error(e, obj)
+
+
 def _get_chunks(chunksize, *iterables):
     """ Iterates over zip()ed iterables in chunks. """
     if sys.version_info < (3, 3):
@@ -329,7 +348,7 @@ def _process_worker(call_queue, result_queue, processes_management_lock,
             call_item = call_queue.get(block=True, timeout=timeout)
             if call_item is None:
                 mp.util.info("shutting down worker on sentinel")
-        except Empty:
+        except queue.Empty:
             mp.util.info("shutting down worker after timeout %0.3fs"
                          % timeout)
             if processes_management_lock.acquire(block=False):
@@ -388,7 +407,7 @@ def _add_call_item_to_queue(pending_work_items,
             return
         try:
             work_id = work_ids.get(block=False)
-        except Empty:
+        except queue.Empty:
             return
         else:
             work_item = pending_work_items[work_id]
@@ -483,30 +502,12 @@ def _queue_management_worker(executor_reference,
                                 call_queue)
         # Wait for a result to be ready in the result_queue while checking
         # that worker process are still running. If a worker process
-        count = 0
         while not wakeup.get_and_unset():
-            if sys.platform == "win32" and sys.version_info < (3, 3):
-                # Process objects do not have a builtin sentinel attribute that
-                # can be passed directly to the 'wait' function (which does a
-                # 'select' under the hood). Instead we check for dead processes
-                # manually from time to time.
-                count += 1
-                ready = []
-                if count == 10:
-                    count = 0
-                    # materialize values quickly to avoid concurrent dictionary
-                    # mutation
-                    ready += [p for p in list(processes.values())
-                              if not p.is_alive()]
-
-                # If a process timed out, it should have written in the queue,
-                # so it is important to select the queue after processes
-                # introspection
-                ready += wait([result_reader], timeout=_poll_timeout)
-            else:
-                worker_sentinels = [p.sentinel for p in processes.values()]
-                ready = wait([result_reader] + worker_sentinels,
-                             timeout=_poll_timeout)
+            worker_sentinels = [p.sentinel for p in processes.values()]
+            if len(worker_sentinels) == 0:
+                wakeup.set()
+            ready = wait([result_reader] + worker_sentinels,
+                         timeout=_poll_timeout)
             if len(ready) > 0:
                 break
         else:
@@ -549,10 +550,11 @@ def _queue_management_worker(executor_reference,
                 try:
                     p.terminate()
                     p.join()
-                except ProcessLookupError:
+                except ProcessLookupError:  # pragma: no cover
                     pass
 
             shutdown_all_workers()
+            flag_current_thread_clean_exit()
             return
         if isinstance(result_item, int):
             # Clean shutdown of a worker using its PID, either on request
@@ -565,13 +567,13 @@ def _queue_management_worker(executor_reference,
             if p is not None:
                 p.join()
 
-            # Make sure the executor have the right number of worker, even if
-            # a worker timeout while some jobs were submitted. If some work is
-            # pending or there is less processes than runnin items, we need to
+            # Make sure the executor have the right number of worker, even if a
+            # worker timeout while some jobs were submitted. If some work is
+            # pending or there is less processes than running items, we need to
             # start a new Process and raise a warning.
             if ((len(pending_work_items) > 0
                 or len(running_work_items) > len(processes))
-               and not is_shutting_down()):
+               and not is_shutting_down()):  # pragma: no cover
                 warnings.warn("A worker timeout while some jobs were given to "
                               "the executor. You might want to use a longer "
                               "timeout for the executor.", UserWarning)
@@ -608,15 +610,18 @@ def _queue_management_worker(executor_reference,
                     p.terminate()
                     p.join()
                 shutdown_all_workers()
+                flag_current_thread_clean_exit()
                 return
             # Since no new work items can be added, it is safe to shutdown
             # this thread if there are no pending work items.
             if not pending_work_items:
                 shutdown_all_workers()
+                flag_current_thread_clean_exit()
                 return
         elif executor_flags.broken:
             return
         executor = None
+        flag_current_thread_clean_exit()
 
 
 def _management_worker(executor_reference, executor_flags,
@@ -646,7 +651,7 @@ def _management_worker(executor_reference, executor_flags,
                 (executor is None and not queue_management_thread.is_alive()))
 
     while True:
-        broken_qm = not queue_management_thread.is_alive()
+        broken_qm = _is_crashed(queue_management_thread)
 
         if broken_qm:
             broken = (call_queue._thread is not None and
@@ -660,12 +665,8 @@ def _management_worker(executor_reference, executor_flags,
                 _shutdown_crash(executor_flags, processes,
                                 pending_work_items, call_queue, cause_msg)
             return
-        elif _is_crashed(call_queue._thread):
-            executor = executor_reference()
-            if is_shutting_down():
-                mp.util.debug("shutting down")
-                return
-            executor = None
+        elif (_is_crashed(call_queue._thread) and
+              not getattr(call_queue._thread, "_clean_exit", False)):
             cause_msg = ("The QueueFeederThread was terminated abruptly "
                          "while feeding a new job. This can be due to "
                          "a job pickling error.")
@@ -673,7 +674,8 @@ def _management_worker(executor_reference, executor_flags,
                             call_queue, cause_msg)
             return
         executor = executor_reference()
-        if is_shutting_down():
+        if (is_shutting_down() and
+                getattr(queue_management_thread, "_clean_exit", False)):
             mp.util.debug("shutting down")
             return
 
@@ -692,17 +694,19 @@ def _shutdown_crash(executor_flags, processes, pending_work_items,
                  "worker processes. " + cause_msg)
     executor_flags.flag_as_broken()
     call_queue.close()
+    # All futures in flight must be marked failed. We do that before killing
+    # the processes so that when process get killed, queue_manager_thread is
+    # woken up and realises it can shutdown
+    for work_id, work_item in pending_work_items.items():
+        work_item.future.set_exception(BrokenExecutor(cause_msg))
+        # Delete references to object. See issue16284
+        del work_item
     # Terminate remaining workers forcibly: the queues or their
     # locks may be in a dirty state and block forever.
     while processes:
         _, p = processes.popitem()
         p.terminate()
         p.join()
-    # All futures in flight must be marked failed
-    for work_id, work_item in pending_work_items.items():
-        work_item.future.set_exception(BrokenExecutor(cause_msg))
-        # Delete references to object. See issue16284
-        del work_item
     pending_work_items.clear()
 
 
@@ -734,7 +738,7 @@ def _check_system_limits():
     raise NotImplementedError(_system_limited)
 
 
-def _check_max_detph(context):
+def _check_max_depth(context):
     # Limit the maxmal recursion level
     global _CURRENT_DEPTH
     if context.get_start_method() == "fork" and _CURRENT_DEPTH > 0:
@@ -797,7 +801,7 @@ class ProcessPoolExecutor(_base.Executor):
         _check_system_limits()
 
         if max_workers is None:
-            self._max_workers = os.cpu_count() or 1
+            self._max_workers = mp.cpu_count() or 1
         else:
             if max_workers <= 0:
                 raise ValueError("max_workers must be greater than 0")
@@ -809,18 +813,14 @@ class ProcessPoolExecutor(_base.Executor):
 
         # Parameters of this executor
         if context is None:
-            if sys.version_info[:2] > (3, 3):
-                context = mp.get_context('spawn')
-            else:
-                context = get_context('loky')
+            context = get_context()
         self._ctx = context
         mp.util.debug("using context {}".format(self._ctx))
-        _check_max_detph(self._ctx)
+        _check_max_depth(self._ctx)
 
         # Timeout and its lock.
         self._timeout = timeout
 
-        self._setup_queue(job_reducers, result_reducers)
         # Connection to wakeup QueueManagerThread
         self._wakeup = _Sentinel()
         self._work_ids = queue.Queue()
@@ -837,12 +837,18 @@ class ProcessPoolExecutor(_base.Executor):
         self._pending_work_items = {}
         mp.util.debug('ProcessPoolExecutor is setup')
 
-    def _setup_queue(self, job_reducers, result_reducers):
+        # Finally setup the queue for interprocess communication
+        self._setup_queue(job_reducers, result_reducers)
+
+    def _setup_queue(self, job_reducers, result_reducers, queue_size=None):
         # Make the call queue slightly larger than the number of processes to
         # prevent the worker processes from idling. But don't make it too big
         # because futures in the call queue cannot be cancelled.
-        self._call_queue = Queue(2 * self._max_workers + EXTRA_QUEUED_CALLS,
-                                 reducers=job_reducers, ctx=self._ctx)
+        if queue_size is None:
+            queue_size = 2 * self._max_workers + EXTRA_QUEUED_CALLS
+        self._call_queue = _SafeQueue(
+            max_size=queue_size, pending_work_items=self._pending_work_items,
+            wakeup=self._wakeup, reducers=job_reducers, ctx=self._ctx)
         # Killed worker processes can produce spurious "broken pipe"
         # tracebacks in the queue's own worker thread. But we detect killed
         # processes anyway, so silence the tracebacks.
