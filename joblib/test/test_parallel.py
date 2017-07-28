@@ -769,6 +769,29 @@ def test_parallel_with_interactively_defined_functions(backend):
         os.unlink(filename)
 
 
+@with_multiprocessing
+def test_parallel_with_interactively_defined_functions_default_backend():
+    # The default backend does not require if __name__ == '__main__'
+    code = """if True:
+    from joblib import Parallel, delayed
+
+    def square(x):
+        return x ** 2
+
+    print(Parallel(n_jobs=2)(delayed(square)(i) for i in range(5)))
+    """
+    fid, filename = mkstemp(suffix="_joblib.py")
+    os.close(fid)
+    try:
+        with open(filename, mode='wb') as f:
+            f.write(code.encode('ascii'))
+        check_subprocess_call([sys.executable, filename],
+                              stdout_regex=r'\[0, 1, 4, 9, 16\]',
+                              timeout=2)
+    finally:
+        os.unlink(filename)
+
+
 def test_parallel_with_exhausted_iterator():
     exhausted_iterator = iter([])
     assert Parallel(n_jobs=2)(exhausted_iterator) == []
