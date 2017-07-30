@@ -184,11 +184,13 @@ def _assert_warning_nested(backend, inner_n_jobs, expected):
         parallel_func(backend=backend, inner_n_jobs=inner_n_jobs)
 
     if expected:
-        assert len(records) == 1, records
-        w_msg = records[0].message.args[0]
-        assert '-backed parallel loops cannot be ' in w_msg, w_msg
+        # with threading, we might see more that one records
+        if len(records) > 0:
+            return 'backed parallel loops cannot' in records[0].message.args[0]
+        return False
     else:
         assert len(records) == 0
+        return True
 
 
 @with_multiprocessing
@@ -209,11 +211,18 @@ def test_nested_parallel_warnings(parent_backend, child_backend, expected):
         for _ in range(5))
 
     #  warnings if inner_n_jobs != 1 and expected
-    Parallel(n_jobs=2, backend=parent_backend)(
+    res = Parallel(n_jobs=2, backend=parent_backend)(
         delayed(_assert_warning_nested)(
             backend=child_backend, inner_n_jobs=2,
             expected=expected)
         for _ in range(5))
+
+    # warning handeling is not thread safe. One thread might see multiple
+    # warning or no warning at all.
+    if parent_backend == "threading":
+        assert any(res)
+    else:
+        assert all(res)
 
 
 def nested_loop(backend):
