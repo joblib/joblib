@@ -20,9 +20,10 @@ if mp is not None:
     from multiprocessing.pool import ThreadPool
     from .executor import get_memmapping_executor
 
-    # Compat between concurrent.furture and multiprocessing TimeoutError
+    # Compat between concurrent.futures and multiprocessing TimeoutError
     from multiprocessing import TimeoutError
     from .externals.loky._base import TimeoutError as LokyTimeoutError
+    from .externals.loky import process_executor
 
 
 class ParallelBackendBase(with_metaclass(ABCMeta)):
@@ -287,6 +288,15 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
                 warnings.warn(
                     'Multiprocessing-backed parallel loops cannot be nested,'
                     ' setting n_jobs=1',
+                    stacklevel=3)
+            return 1
+
+        if process_executor._CURRENT_DEPTH > 0:
+            # Mixing loky and multiprocessing in nested loop is not supported
+            if n_jobs != 1:
+                warnings.warn(
+                    'Multiprocessing-backed parallel loops cannot be nested,'
+                    ' below loky, setting n_jobs=1',
                     stacklevel=3)
             return 1
 
