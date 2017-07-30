@@ -175,45 +175,45 @@ def test_main_thread_renamed_no_warning(backend, monkeypatch):
     assert len(warninfo) == 0
 
 
-@with_multiprocessing
-@parametrize('child_backend', PROCESS_BACKENDS)
-@parametrize('parent_backend', ['multiprocessing', 'threading'])
-def test_nested_parallel_warnings(parent_backend, child_backend, capfd):
-    if posix is None:
-        # This test passes only when fork is the process start method
-        raise SkipTest('Not a POSIX platform')
-
-    # Makes sure the warnings are always printed
+def _assert_warning_nested(backend, inner_n_jobs, expected):
+    # Makes sure the warnings are always thrown
     warnings.resetwarnings()
     warnings.simplefilter("always")
+
+    with warns(None) as records:
+        parallel_func(backend=backend, inner_n_jobs=inner_n_jobs)
+
+    if expected:
+        assert len(records) == 1, records
+        w_msg = records[0].message.args[0]
+        assert '-backed parallel loops cannot be ' in w_msg, w_msg
+    else:
+        assert len(records) == 0
+
+
+@with_multiprocessing
+@parametrize('parent_backend,child_backend,expected', [
+    ('loky', 'multiprocessing', True), ('loky', 'loky', False),
+    ('multiprocessing', 'multiprocessing', True),
+    ('multiprocessing', 'loky', True),
+    ('threading', 'multiprocessing', True),
+    ('threading', 'loky', True),
+])
+def test_nested_parallel_warnings(parent_backend, child_backend, expected):
 
     # no warnings if inner_n_jobs=1
     Parallel(n_jobs=2, backend=parent_backend)(
-        delayed(parallel_func)(backend=child_backend, inner_n_jobs=1)
+        delayed(_assert_warning_nested)(
+            backend=child_backend, inner_n_jobs=1,
+            expected=False)
         for _ in range(5))
-    out, err = capfd.readouterr()
-    assert err == ''
 
-    #  warnings if inner_n_jobs != 1
+    #  warnings if inner_n_jobs != 1 and expected
     Parallel(n_jobs=2, backend=parent_backend)(
-        delayed(parallel_func)(backend=child_backend, inner_n_jobs=2)
+        delayed(_assert_warning_nested)(
+            backend=child_backend, inner_n_jobs=2,
+            expected=expected)
         for _ in range(5))
-    out, err = capfd.readouterr()
-    assert '-backed parallel loops cannot be ' in err
-
-
-@with_multiprocessing
-def test_nested_parallel_loky_nowarning(capfd):
-    # Makes sure the warnings are always printed
-    warnings.resetwarnings()
-    warnings.simplefilter("always")
-
-    # no warnings if with nested loky
-    Parallel(n_jobs=2, backend='loky')(
-        delayed(parallel_func)(backend='loky', inner_n_jobs=2)
-        for _ in range(5))
-    out, err = capfd.readouterr()
-    assert err == ''
 
 
 def nested_loop(backend):
