@@ -1,9 +1,17 @@
 #!/bin/sh
 # Script to do a local install of loky
+set +x
 export LC_ALL=C
 INSTALL_FOLDER=tmp/loky_install
 rm -rf loky $INSTALL_FOLDER 2> /dev/null
-pip install loky --target $INSTALL_FOLDER
+if [ -z "$1" ]
+then
+    # Grab the latest stable release from PyPI
+    LOKY=loky
+else
+    LOKY=$1
+fi
+pip install $LOKY --target $INSTALL_FOLDER
 cp -r $INSTALL_FOLDER/loky .
 rm -rf $INSTALL_FOLDER
 
