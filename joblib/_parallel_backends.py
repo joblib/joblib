@@ -100,6 +100,13 @@ class ParallelBackendBase(with_metaclass(ABCMeta)):
         # tasks is possible.
         pass
 
+    def get_nested_backend(self):
+        """Backend instance to be used by nested Parallel calls.
+
+        By default a thread-based backend is used.
+        """
+        return ThreadingBackend()
+
 
 class SequentialBackend(ParallelBackendBase):
     """A ParallelBackend which will execute all batches sequentially.
@@ -121,9 +128,14 @@ class SequentialBackend(ParallelBackendBase):
             callback(result)
         return result
 
+    def get_nested_backend(self):
+        return self
+
 
 class PoolManagerMixin(object):
     """A helper class for managing pool of workers."""
+
+    _pool = None
 
     def effective_n_jobs(self, n_jobs):
         """Determine the number of jobs which are going to run in parallel"""
@@ -144,9 +156,14 @@ class PoolManagerMixin(object):
             self._pool.terminate()  # terminate does a join()
             self._pool = None
 
+    def _get_pool(self):
+        """Used by apply_async to make it possible to implement lazy init"""
+        return self._pool
+
     def apply_async(self, func, callback=None):
         """Schedule a func to be run"""
-        return self._pool.apply_async(SafeFunction(func), callback=callback)
+        return self._get_pool().apply_async(
+            SafeFunction(func), callback=callback)
 
     def abort_everything(self, ensure_ready=True):
         """Shutdown the pool and restart a new one with the same parameters"""
@@ -256,8 +273,13 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
     This is a low-overhead backend but it suffers from the Python Global
     Interpreter Lock if the called function relies a lot on Python objects.
     Mostly useful when the execution bottleneck is a compiled extension that
-    explicitly releases the GIL (for instance a Cython loop wrapped in a
-    "with nogil" block or an expensive call to a library such as NumPy).
+    explicitly releases the GIL (for instance a Cython loop wrapped in a "with
+    nogil" block or an expensive call to a library such as NumPy).
+
+    The actual thread pool is lazily initialized: the actual thread pool
+    construction is delayed to the first call to apply_async.
+
+    ThreadingBackend is used as the default backend for nested calls.
     """
 
     supports_timeout = True
@@ -269,8 +291,18 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
             # Avoid unnecessary overhead and use sequential backend instead.
             raise FallbackToBackend(SequentialBackend())
         self.parallel = parallel
-        self._pool = ThreadPool(n_jobs)
+        self._n_jobs = n_jobs
         return n_jobs
+
+    def _get_pool(self):
+        """Lazily initialize the thread pool
+
+        The actual pool of worker threads is only initialized at the first
+        call to apply_async.
+        """
+        if self._pool is None:
+            self._pool = ThreadPool(self._n_jobs)
+        return self._pool
 
 
 class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
