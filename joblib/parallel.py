@@ -122,12 +122,15 @@ else:
 class BatchedCalls(object):
     """Wrap a sequence of (func, args, kwargs) tuples as a single callable"""
 
-    def __init__(self, iterator_slice):
+    def __init__(self, iterator_slice, backend):
         self.items = list(iterator_slice)
         self._size = len(self.items)
+        self._backend = backend
 
     def __call__(self):
-        return [func(*args, **kwargs) for func, args, kwargs in self.items]
+        with parallel_backend(self._backend):
+            return [func(*args, **kwargs)
+                    for func, args, kwargs in self.items]
 
     def __len__(self):
         return self._size
@@ -135,10 +138,10 @@ class BatchedCalls(object):
     def __getstate__(self):
         items = [(dumps(func), args, kwargs)
                  for func, args, kwargs in self.items]
-        return (items, self._size)
+        return (items, self._size, self._backend)
 
     def __setstate__(self, state):
-        items, self._size = state
+        items, self._size, self._backend = state
         self.items = [(loads(func), args, kwargs)
                       for func, args, kwargs in items]
 
@@ -631,7 +634,8 @@ class Parallel(Logger):
             batch_size = self.batch_size
 
         with self._lock:
-            tasks = BatchedCalls(itertools.islice(iterator, batch_size))
+            tasks = BatchedCalls(itertools.islice(iterator, batch_size),
+                                 self._backend.get_nested_backend())
             if len(tasks) == 0:
                 # No more tasks available in the iterator: tell caller to stop.
                 return False
