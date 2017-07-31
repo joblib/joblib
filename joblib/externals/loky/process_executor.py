@@ -75,7 +75,7 @@ from .backend import get_context
 from .backend.compat import queue
 from .backend.compat import wait, PicklingError
 from .backend.queues import Queue, SimpleQueue
-from .backend.utils import flag_current_thread_clean_exit
+from .backend.utils import flag_current_thread_clean_exit, is_crashed
 
 # Compatibility for python2.7
 if sys.version_info[0] == 2:
@@ -145,16 +145,6 @@ class _ExecutorFlags(object):
         with self.shutdown_lock:
             self.shutdown = True
             self.broken = True
-
-
-def _is_crashed(thread):
-    """helper to check if a thread is started for any version of python"""
-    if thread is None:
-        return False
-    if hasattr(thread, "_started"):
-        return thread._started.is_set() and not thread.is_alive()
-    # Backward compat for python 2.7
-    return thread._Thread__started.is_set() and not thread.is_alive()
 
 
 def _clear_list(ll):
@@ -643,37 +633,25 @@ def _management_worker(executor_reference, executor_flags,
         call_queue: A ctx.Queue that will be filled with _CallItems
             derived from _WorkItems for processing by the process workers.
     """
-    executor = None
-
-    def is_shutting_down():
-        return (_global_shutdown or executor_flags.shutdown or
-                (executor is None and not queue_management_thread.is_alive()))
-
     while True:
-        broken_qm = _is_crashed(queue_management_thread)
 
-        if broken_qm:
-            broken = (call_queue._thread is not None and
-                      not call_queue._thread.is_alive())
-            broken |= any([p.exitcode for p in processes.values()])
-            if not broken:
-                cause_msg = ("The QueueManagerThread was terminated "
-                             "abruptly while the future was running or "
-                             "pending. This can be caused by an "
-                             "unpickling error of a result.")
-                _shutdown_crash(executor_flags, processes,
-                                pending_work_items, call_queue, cause_msg)
+        if is_crashed(queue_management_thread):
+            cause_msg = ("The QueueManagerThread was terminated "
+                         "abruptly while the future was running or "
+                         "pending. This can be caused by an "
+                         "unpickling error of a result.")
+            _shutdown_crash(executor_flags, processes,
+                            pending_work_items, call_queue, cause_msg)
             return
-        elif (_is_crashed(call_queue._thread) and
-              not getattr(call_queue._thread, "_clean_exit", False)):
+
+        elif is_crashed(call_queue._thread):
             cause_msg = ("The QueueFeederThread was terminated abruptly "
                          "while feeding a new job. This can be due to "
                          "a job pickling error.")
             _shutdown_crash(executor_flags, processes, pending_work_items,
                             call_queue, cause_msg)
             return
-        if (is_shutting_down() and
-                getattr(queue_management_thread, "_clean_exit", False)):
+        if getattr(queue_management_thread, "_clean_exit", False):
             mp.util.debug("shutting down")
             return
 
@@ -682,6 +660,7 @@ def _management_worker(executor_reference, executor_flags,
         executor = executor_reference()
         if (executor is not None and len(processes) == 0 and
                 len(executor._pending_work_items) > 0):
+            mp.util.debug("All workers timed out. Adjusting process count.")
             executor._adjust_process_count()
         executor = None
         time.sleep(.1)
@@ -695,7 +674,7 @@ def _shutdown_crash(executor_flags, processes, pending_work_items,
     call_queue.close()
     # All futures in flight must be marked failed. We do that before killing
     # the processes so that when process get killed, queue_manager_thread is
-    # woken up and realises it can shutdown
+    # woken up and realizes it can shutdown
     for work_id, work_item in pending_work_items.items():
         work_item.future.set_exception(BrokenExecutor(cause_msg))
         # Delete references to object. See issue16284

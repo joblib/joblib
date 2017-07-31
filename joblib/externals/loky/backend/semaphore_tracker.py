@@ -64,8 +64,8 @@ class SemaphoreTracker(object):
                 fds_to_pass.append(sys.stderr.fileno())
             except Exception:
                 pass
-            cmd = ('from joblib.externals.loky.backend.semaphore_tracker import main;'
-                   'main(%d)')
+
+            cmd = 'from {} import main; main(%d)'.format(main.__module__)
             r, w = os.pipe()
             try:
                 fds_to_pass.append(r)
