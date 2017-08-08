@@ -11,16 +11,16 @@ import sys
 import socket
 from .reduction import register
 
-# Windows
-if sys.version_info[:2] < (3, 3):
-    from _multiprocessing import PipeConnection
-else:
-    import _winapi
 
-    from multiprocessing.connection import PipeConnection
+if sys.platform == 'win32':
+    if sys.version_info[:2] < (3, 3):
+        from _multiprocessing import PipeConnection
+    else:
+        import _winapi
+        from multiprocessing.connection import PipeConnection
 
-if sys.version_info[:2] >= (3, 4):
 
+if sys.version_info[:2] >= (3, 4) and sys.platform == 'win32':
     class DupHandle(object):
         def __init__(self, handle, access, pid=None):
             # duplicate handle for process with given pid
@@ -61,12 +61,13 @@ if sys.version_info[:2] >= (3, 4):
         return PipeConnection(handle, readable, writable)
     register(PipeConnection, reduce_pipe_connection)
 
-else:
+elif sys.platform == 'win32':
+    # Older Python versions
     from multiprocessing.reduction import reduce_pipe_connection
     register(PipeConnection, reduce_pipe_connection)
 
 
-if sys.version_info[:2] < (3, 3):
+if sys.version_info[:2] < (3, 3) and sys.platform == 'win32':
     from _multiprocessing import win32
     from multiprocessing.reduction import reduce_handle, rebuild_handle
     close = win32.CloseHandle

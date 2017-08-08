@@ -39,17 +39,18 @@ class timespec(ctypes.Structure):
     _fields_ = [("tv_sec", ctypes.c_long), ("tv_nsec", ctypes.c_long)]
 
 
-pthread = ctypes.CDLL(find_library('pthread'), use_errno=True)
-pthread.sem_open.restype = ctypes.c_void_p
-pthread.sem_close.argtypes = [ctypes.c_void_p]
-pthread.sem_wait.argtypes = [ctypes.c_void_p]
-pthread.sem_trywait.argtypes = [ctypes.c_void_p]
-pthread.sem_post.argtypes = [ctypes.c_void_p]
-pthread.sem_getvalue.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
-pthread.sem_unlink.argtypes = [ctypes.c_char_p]
-if sys.platform != "darwin":
-    pthread.sem_timedwait.argtypes = [ctypes.c_void_p,
-                                      ctypes.POINTER(timespec)]
+if sys.platform != 'win32':
+    pthread = ctypes.CDLL(find_library('pthread'), use_errno=True)
+    pthread.sem_open.restype = ctypes.c_void_p
+    pthread.sem_close.argtypes = [ctypes.c_void_p]
+    pthread.sem_wait.argtypes = [ctypes.c_void_p]
+    pthread.sem_trywait.argtypes = [ctypes.c_void_p]
+    pthread.sem_post.argtypes = [ctypes.c_void_p]
+    pthread.sem_getvalue.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+    pthread.sem_unlink.argtypes = [ctypes.c_char_p]
+    if sys.platform != "darwin":
+        pthread.sem_timedwait.argtypes = [ctypes.c_void_p,
+                                          ctypes.POINTER(timespec)]
 
 try:
     from threading import get_ident

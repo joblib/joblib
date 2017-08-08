@@ -1,13 +1,19 @@
 import os
 import sys
-import msvcrt
 
 from .context import get_spawning_popen, set_spawning_popen
 from . import spawn
 from . import reduction
 from multiprocessing import util
-from .compat_win32 import _winapi
-from .compat_win32 import Popen as _Popen
+
+if sys.platform == "win32":
+    # Avoid import error by code introspection tools such as test runners
+    # trying to import this module while running on non-Windows systems.
+    import msvcrt
+    from .compat_win32 import _winapi
+    from .compat_win32 import Popen as _Popen
+else:
+    _Popen = object
 
 if sys.version_info[:2] < (3, 3):
     from os import fdopen as open

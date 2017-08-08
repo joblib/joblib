@@ -345,6 +345,7 @@ def _process_worker(call_queue, result_queue, processes_management_lock,
                 processes_management_lock.release()
                 call_item = None
             else:
+                mp.util.info("Could not acquire processes_management_lock")
                 continue
         except BaseException as e:
             traceback.print_exc()
@@ -465,7 +466,8 @@ def _queue_management_worker(executor_reference,
         executor_flags.flag_as_shutting_down()
         # This is an upper bound
         with processes_management_lock:
-            nb_children_alive = sum(p.is_alive() for p in processes.values())
+            nb_children_alive = sum(p.is_alive()
+                                    for p in list(processes.values()))
         for i in range(0, nb_children_alive):
             call_queue.put(None)
 
@@ -480,7 +482,7 @@ def _queue_management_worker(executor_reference,
             _, p = processes.popitem()
             p.join()
         mp.util.debug("queue management thread clean shutdown of worker "
-                      "processes: {}".format(processes))
+                      "processes: {}".format(list(processes)))
 
     result_reader = result_queue._reader
     _poll_timeout = .001
@@ -491,10 +493,18 @@ def _queue_management_worker(executor_reference,
                                 work_ids_queue,
                                 call_queue)
         # Wait for a result to be ready in the result_queue while checking
-        # that worker process are still running. If a worker process
+        # that worker process are still running.
         while not wakeup.get_and_unset():
-            worker_sentinels = [p.sentinel for p in processes.values()]
+            # Force cast long to int when running 64-bit Python 2.7 under
+            # Windows
+            sentinel_map = {int(p.sentinel): p
+                            for p in list(processes.values())}
+            worker_sentinels = list(sentinel_map.keys())
             if len(worker_sentinels) == 0:
+                # The processes dict is empty, let's get out of the wait loop
+                # even if there is no result or worker sentinel event so
+                # as to check whether the executor was terminated and shutdown
+                # the QueueManager thread accordingly.
                 wakeup.set()
             ready = wait([result_reader] + worker_sentinels,
                          timeout=_poll_timeout)
@@ -519,7 +529,8 @@ def _queue_management_worker(executor_reference,
             # Mark the process pool broken so that submits fail right now.
             executor_flags.flag_as_broken()
             mp.util.debug('The executor is broken as at least one process '
-                          'terminated abruptly')
+                          'terminated abruptly. Workers: %s'
+                          % ", ".join(str(sentinel_map[s]) for s in ready))
 
             # All futures in flight must be marked failed
             for work_id, work_item in pending_work_items.items():
@@ -770,8 +781,8 @@ class ProcessPoolExecutor(_base.Executor):
                 will use the same reducers
             timeout: int, optional (default: None)
                 Idle workers exit after timeout seconds. If a new job is
-                submitted after the timeout, the executor will launch enough
-                job to make sure the pool of worker is full.
+                submitted after the timeout, the executor will start enough
+                new Python processes to make sure the pool of workers is full.
             context: A multiprocessing context to launch the workers. This
                 object should provide SimpleQueue, Queue and Process.
 
@@ -796,7 +807,7 @@ class ProcessPoolExecutor(_base.Executor):
         mp.util.debug("using context {}".format(self._ctx))
         _check_max_depth(self._ctx)
 
-        # Timeout and its lock.
+        # Timeout
         self._timeout = timeout
 
         # Connection to wakeup QueueManagerThread
@@ -842,6 +853,8 @@ class ProcessPoolExecutor(_base.Executor):
             # When the executor gets lost, the weakref callback will wake up
             # the queue management thread.
             def weakref_cb(_, wakeup=self._wakeup):
+                mp.util.debug('Executor collected: triggering callback for'
+                              ' QueueManager wakeup')
                 wakeup.set()
 
             # Start the processes so that their sentinels are known.
