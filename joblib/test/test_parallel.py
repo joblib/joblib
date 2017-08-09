@@ -217,7 +217,7 @@ def test_nested_parallel_warnings(parent_backend, child_backend, expected):
             expected=expected)
         for _ in range(5))
 
-    # warning handeling is not thread safe. One thread might see multiple
+    # warning handling is not thread safe. One thread might see multiple
     # warning or no warning at all.
     if parent_backend == "threading":
         assert any(res)
