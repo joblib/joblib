@@ -604,10 +604,7 @@ class Parallel(Logger):
             # If the callback is already done we need to reorder the jobs to
             # get the correct order in the result. This can happen when a job
             # is so quick that its callback is called before we get here.
-            if cb.done:
-                self._jobs.insert(job_idx, job)
-            else:
-                self._jobs.append(job)
+            self._jobs.insert(job_idx, job)
 
     def dispatch_next(self):
         """Dispatch more data for parallel processing
