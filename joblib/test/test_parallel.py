@@ -15,7 +15,6 @@ import threading
 from math import sqrt
 from time import sleep
 from multiprocessing import TimeoutError
-from tempfile import mkstemp
 
 from joblib import dump, load
 from joblib import parallel
@@ -36,12 +35,6 @@ except ImportError:
 
 if PY3_OR_LATER:
     PickleError = pickle.PicklingError
-
-try:
-    # Python 2/Python 3 compat
-    unicode('str')
-except NameError:
-    unicode = lambda s: s
 
 try:
     from queue import Queue
