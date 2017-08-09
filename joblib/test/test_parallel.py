@@ -750,55 +750,56 @@ def test_no_blas_crash_or_freeze_with_subprocesses(backend):
         delayed(np.dot)(a, a.T) for i in range(2))
 
 
+CUSTOM_BACKEND_SCRIPT_TEMPLATE = """\
+from joblib import Parallel, delayed
+
+def square(x):
+    return x**2
+
+backend = "{}"
+if backend == "spawn":
+    from multiprocessing import get_context
+    backend = get_context(backend)
+
+print(Parallel(n_jobs=2, backend=backend)(
+        delayed(square)(i) for i in range(5)))
+"""
+
+
 @with_multiprocessing
 @parametrize('backend', PROCESS_BACKENDS +
              ([] if sys.version_info[:2] < (3, 4) or mp is None
               else ['spawn']))
 def test_parallel_with_interactively_defined_functions(backend):
-    code = '\n'.join([
-        'from joblib import Parallel, delayed',
-        'if __name__ == "__main__":',
-        '    def square(x): return x**2',
-        '    backend="{}"'.format(backend),
-        '    if backend == "spawn":',
-        '        from multiprocessing import get_context',
-        '        backend = get_context(backend)',
-        '    print(Parallel(n_jobs=2, backend=backend)(',
-        '          delayed(square)(i) for i in range(5)))'])
+    # When using the "-c" flag, interactive functions defined in __main__
+    # should work with any backend.
+    code = CUSTOM_BACKEND_SCRIPT_TEMPLATE.format(backend)
+    check_subprocess_call([sys.executable, '-c', code],
+                          stdout_regex=r'\[0, 1, 4, 9, 16\]',
+                          timeout=2)
 
-    fid, filename = mkstemp(suffix="_joblib.py")
-    os.close(fid)
-    try:
-        with open(filename, mode='wb') as f:
-            f.write(code.encode('ascii'))
-        check_subprocess_call([sys.executable, filename],
-                              stdout_regex=r'\[0, 1, 4, 9, 16\]',
-                              timeout=2)
-    finally:
-        os.unlink(filename)
+
+DEFAULT_BACKEND_SCRIPT_CONTENT = """\
+from joblib import Parallel, delayed
+
+def square(x):
+    return x ** 2
+
+print(Parallel(n_jobs=2)(delayed(square)(i) for i in range(5)))
+"""
 
 
 @with_multiprocessing
-def test_parallel_with_interactively_defined_functions_default_backend():
-    # The default backend does not require if __name__ == '__main__'
-    code = """if True:
-    from joblib import Parallel, delayed
-
-    def square(x):
-        return x ** 2
-
-    print(Parallel(n_jobs=2)(delayed(square)(i) for i in range(5)))
-    """
-    fid, filename = mkstemp(suffix="_joblib.py")
-    os.close(fid)
-    try:
-        with open(filename, mode='wb') as f:
-            f.write(code.encode('ascii'))
-        check_subprocess_call([sys.executable, filename],
-                              stdout_regex=r'\[0, 1, 4, 9, 16\]',
-                              timeout=2)
-    finally:
-        os.unlink(filename)
+def test_parallel_with_interactively_defined_functions_default_backend(tmpdir):
+    # The default backend (loky) accepts interactive functions defined in
+    # __main__ and does not require if __name__ == '__main__' even when
+    # the __main__ module is defined by the result of the execution of a
+    # filesystem script.
+    script = tmpdir.join('joblib_default_backend_script.py')
+    script.write(DEFAULT_BACKEND_SCRIPT_CONTENT)
+    check_subprocess_call([sys.executable, script.strpath],
+                          stdout_regex=r'\[0, 1, 4, 9, 16\]',
+                          timeout=2)
 
 
 def test_parallel_with_exhausted_iterator():
