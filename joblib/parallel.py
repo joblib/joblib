@@ -47,7 +47,7 @@ BACKENDS = {
 DEFAULT_BACKEND = 'loky'
 DEFAULT_N_JOBS = 1
 
-# Thread local value that can be overriden by the ``parallel_backend`` context
+# Thread local value that can be overridden by the ``parallel_backend`` context
 # manager
 _backend = threading.local()
 
@@ -346,7 +346,7 @@ class Parallel(Logger):
             - a folder pointed by the JOBLIB_TEMP_FOLDER environment
               variable,
             - /dev/shm if the folder exists and is writable: this is a
-              RAMdisk filesystem available by default on modern Linux
+              RAM disk filesystem available by default on modern Linux
               distributions,
             - the default system temporary folder that can be
               overridden with TMP, TMPDIR or TEMP environment
@@ -601,12 +601,10 @@ class Parallel(Logger):
         with self._lock:
             job_idx = len(self._jobs)
             job = self._backend.apply_async(batch, callback=cb)
-            # If the callback is already done and we are not using a
-            # SequentialBackend, we need to reorder the jobs to get the correct
-            # order in the result. This can happen when a job is so quick
-            # that its callback is called before we get here.
-            if (not issubclass(type(self._backend), SequentialBackend) and
-                    cb.done):
+            # If the callback is already done we need to reorder the jobs to
+            # get the correct order in the result. This can happen when a job
+            # is so quick that its callback is called before we get here.
+            if cb.done:
                 self._jobs.insert(job_idx, job)
             else:
                 self._jobs.append(job)
