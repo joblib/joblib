@@ -100,7 +100,8 @@ def _get_temp_dir(pool_folder_name, temp_folder=None):
     pool_folder : str
        full path to the temporary folder
     use_shared_mem : bool
-       whether the temporary folder is written to tmpfs
+       whether the temporary folder is written to the system shared memory
+       folder or some other temporary folder.
     """
     use_shared_mem = False
     if temp_folder is None:
