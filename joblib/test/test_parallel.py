@@ -524,8 +524,9 @@ def test_invalid_backend():
 
 @parametrize('backend', ALL_VALID_BACKENDS)
 def test_invalid_njobs(backend):
-    with raises(ValueError):
+    with raises(ValueError) as excinfo:
         Parallel(n_jobs=0, backend=backend)._initialize_backend()
+    assert "n_jobs == 0 in Parallel has no meaning" in str(excinfo.value)
 
 
 def test_register_parallel_backend():
