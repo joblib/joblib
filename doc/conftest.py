@@ -6,7 +6,7 @@ from joblib.testing import skipif, fixture
 @fixture(scope='module')
 @skipif(np is None or mp is None, 'Numpy or Multiprocessing not available')
 def parallel_numpy_fixture(request):
-    """Fixture to skip memmaping test if numpy is not installed"""
+    """Fixture to skip memmapping test if numpy is not installed"""
     def setup(module):
         setup_autokill(module.__name__, timeout=300)
 

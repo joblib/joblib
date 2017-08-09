@@ -82,7 +82,7 @@ def _get_temp_dir(pool_folder_name, temp_folder=None):
         Sub-folder name used for the serialization of a pool instance.
 
     temp_folder: str, optional
-        Folder to be used by the pool for memmaping large arrays
+        Folder to be used by the pool for memmapping large arrays
         for sharing memory with worker processes. If None, this will try in
         order:
 
