@@ -375,7 +375,6 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
                     stacklevel=3)
             return 1
         elif not isinstance(threading.current_thread(), threading._MainThread):
-
             # Prevent posix fork inside in non-main posix threads
             if n_jobs != 1:
                 warnings.warn(
