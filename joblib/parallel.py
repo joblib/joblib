@@ -217,7 +217,6 @@ class BatchCompletionCallBack(object):
         self.dispatch_timestamp = dispatch_timestamp
         self.batch_size = batch_size
         self.parallel = parallel
-        self.done = False
 
     def __call__(self, out):
         self.parallel.n_completed_tasks += self.batch_size
@@ -229,7 +228,6 @@ class BatchCompletionCallBack(object):
         with self.parallel._lock:
             if self.parallel._original_iterator is not None:
                 self.parallel.dispatch_next()
-            self.done = True
 
 
 ###############################################################################
