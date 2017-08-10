@@ -16,6 +16,7 @@ from math import sqrt
 from time import sleep
 from multiprocessing import TimeoutError
 
+import joblib
 from joblib import dump, load
 from joblib import parallel
 
@@ -774,13 +775,20 @@ def test_parallel_with_interactively_defined_functions(backend):
 
 
 DEFAULT_BACKEND_SCRIPT_CONTENT = """\
+import sys
+# Make sure that joblib is importable in the subprocess launching this
+# script. This is needed in case we run the tests from the joblib root
+# folder without having installed joblib
+sys.path.insert(0, {joblib_root_folder!r})
+
 from joblib import Parallel, delayed
+
 
 def square(x):
     return x ** 2
-
 print(Parallel(n_jobs=2)(delayed(square)(i) for i in range(5)))
-"""
+""".format(joblib_root_folder=os.path.dirname(
+    os.path.dirname(joblib.__file__)))
 
 
 @with_multiprocessing
