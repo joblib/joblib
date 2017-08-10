@@ -599,9 +599,10 @@ class Parallel(Logger):
         with self._lock:
             job_idx = len(self._jobs)
             job = self._backend.apply_async(batch, callback=cb)
-            # If the callback is already done we need to reorder the jobs to
-            # get the correct order in the result. This can happen when a job
-            # is so quick that its callback is called before we get here.
+            # A job can complete so quickly than its callback is
+            # called before we get here, causing self._jobs to
+            # grow. To ensure correct results ordering, .insert is
+            # used (rather than .append) in the following line
             self._jobs.insert(job_idx, job)
 
     def dispatch_next(self):
