@@ -121,7 +121,6 @@ if [[ "$MODIFIED_FILES" == "no_match" ]]; then
 else
     # Conservative approach: diff without context so that code that
     # was not changed does not create failures
-    git diff --unified=0 $DIFF_RANGE -- $MODIFIED_FILES | \
-        flake8 --diff --show-source
+    git diff --unified=0 $DIFF_RANGE -- $MODIFIED_FILES | flake8 --diff --show-source
 fi
 echo -e "No problem detected by flake8\n"
