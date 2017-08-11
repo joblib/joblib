@@ -1,6 +1,15 @@
 Latest changes
 ===============
 
+Development
+-----------
+
+Olivier Grisel
+
+    Make Memory.cache robust to PermissionError (errno 13) under Windows
+    when run in combination with Parallel.
+
+
 Release 0.11
 ------------
 
