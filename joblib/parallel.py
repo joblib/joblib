@@ -53,6 +53,11 @@ DEFAULT_N_JOBS = 1
 _backend = threading.local()
 
 
+def has_active_backend():
+    """Returns True if an active backend is registered"""
+    return getattr(_backend, 'backend_and_jobs', None) is not None
+
+
 def get_active_backend():
     """Return the active default backend"""
     active_backend_and_jobs = getattr(_backend, 'backend_and_jobs', None)
@@ -102,7 +107,7 @@ def parallel_backend(backend, n_jobs=-1, **backend_params):
         yield backend, n_jobs
     finally:
         if old_backend_and_jobs is None:
-            if getattr(_backend, 'backend_and_jobs', None) is not None:
+            if has_active_backend():
                 del _backend.backend_and_jobs
         else:
             _backend.backend_and_jobs = old_backend_and_jobs
@@ -268,6 +273,72 @@ def effective_n_jobs(n_jobs=-1):
     return backend.effective_n_jobs(n_jobs=n_jobs)
 
 
+def choose_backend_and_n_jobs(backend, n_jobs, prefer_processes=True,
+                              require_shared_memory=False):
+    """Determine the backend and n_jobs to use for a ``Parallel`` call.
+
+    Parameters
+    ----------
+    backend : str, ParallelBackendBase instance or None
+        The backend specified in the call to Parallel, if any
+    n_jobs : int
+        The number of jobs specified in the call to Parallel, if any
+    prefer_processes : bool, optional
+        If true, backends using multiple processes are prefered to single
+        process backends (e.g. threading). This is useful if the function
+        being applied doesn't release the global interpretter lock (GIL).
+    require_shared_memory : bool, optional
+        If true, a backend supporting shared memory (e.g. a single process) is
+        required. If no valid backend option exists, a ``ValueError`` will be
+        raised.
+
+    Returns
+    -------
+    backend : ParallelBackendBase
+        The backend to use
+    """
+    # Check for compatible preferences and requiremements
+    if require_shared_memory and prefer_processes:
+        raise ValueError("Backends with multiple processes cannot have "
+                         "shared memory")
+
+    # Determine the specified backend in the call to `Parallel`
+    if backend is None:
+        default_backend = BACKENDS[DEFAULT_BACKEND]()
+    elif isinstance(backend, ParallelBackendBase):
+        default_backend = backend
+    else:
+        try:
+            backend_factory = BACKENDS[backend]
+        except KeyError:
+            raise ValueError("Invalid backend: %s, expected one of %r"
+                             % (backend, sorted(BACKENDS.keys())))
+        default_backend = backend_factory()
+
+    # If there is an active backend, prefer that
+    if has_active_backend():
+        backend_and_n_jobs = [get_active_backend(), (default_backend, n_jobs)]
+    else:
+        backend_and_n_jobs = [(default_backend, n_jobs)]
+
+    # If shared memory is required, use the first backend that supports it
+    if require_shared_memory:
+        for backend, n_jobs in backend_and_n_jobs:
+            if getattr(backend, 'uses_processes', None) is False:
+                return backend, n_jobs
+        raise ValueError("Unable to satisfy shared memory requirement "
+                         "with either the specified or active backend")
+
+    # If processes are prefered, use the first backend that uses them
+    if prefer_processes:
+        for backend, n_jobs in backend_and_n_jobs:
+            if getattr(backend, 'uses_processes', None) is True:
+                return backend, n_jobs
+
+    # No preferences or requirements, use the highest priority backend
+    return backend_and_n_jobs[0]
+
+
 ###############################################################################
 class Parallel(Logger):
     ''' Helper class for readable parallel mapping.
@@ -300,6 +371,14 @@ class Parallel(Logger):
             - finally, you can register backends by calling
               register_parallel_backend. This will allow you to implement
               a backend of your liking.
+        prefer_processes : bool, optional
+            If true, backends using multiple processes are prefered to single
+            process backends (e.g. threading). This is useful if the function
+            being applied doesn't release the global interpretter lock (GIL).
+        require_shared_memory : bool, optional
+            If true, a backend supporting shared memory (e.g. a single process)
+            is required. If no valid backend option exists, a ``ValueError``
+            will be raised.
         verbose: int, optional
             The verbosity level: if non zero, progress messages are
             printed. Above 50, the output is sent to stdout.
@@ -470,18 +549,10 @@ class Parallel(Logger):
         [Parallel(n_jobs=2)]: Done 6 out of 6 | elapsed:  0.0s finished
 
     '''
-    def __init__(self, n_jobs=1, backend=None, verbose=0, timeout=None,
+    def __init__(self, n_jobs=1, backend=None, prefer_processes=True,
+                 require_shared_memory=False, verbose=0, timeout=None,
                  pre_dispatch='2 * n_jobs', batch_size='auto',
                  temp_folder=None, max_nbytes='1M', mmap_mode='r'):
-        active_backend, default_n_jobs = get_active_backend()
-        if backend is None and n_jobs == 1:
-            # If we are under a parallel_backend context manager, look up
-            # the default number of jobs and use that instead:
-            n_jobs = default_n_jobs
-        self.n_jobs = n_jobs
-        self.verbose = verbose
-        self.timeout = timeout
-        self.pre_dispatch = pre_dispatch
 
         if isinstance(max_nbytes, _basestring):
             max_nbytes = memstr_to_bytes(max_nbytes)
@@ -490,37 +561,34 @@ class Parallel(Logger):
             max_nbytes=max_nbytes,
             mmap_mode=mmap_mode,
             temp_folder=temp_folder,
-            verbose=max(0, self.verbose - 50),
+            verbose=max(0, verbose - 50),
         )
-        if DEFAULT_MP_CONTEXT is not None:
-            self._backend_args['context'] = DEFAULT_MP_CONTEXT
-
-        if backend is None:
-            backend = active_backend
-        elif isinstance(backend, ParallelBackendBase):
-            # Use provided backend as is
-            pass
-        elif hasattr(backend, 'Pool') and hasattr(backend, 'Lock'):
+        if hasattr(backend, 'Pool') and hasattr(backend, 'Lock'):
             # Make it possible to pass a custom multiprocessing context as
             # backend to change the start method to forkserver or spawn or
             # preload modules on the forkserver helper process.
             self._backend_args['context'] = backend
             backend = MultiprocessingBackend()
-        else:
-            try:
-                backend_factory = BACKENDS[backend]
-            except KeyError:
-                raise ValueError("Invalid backend: %s, expected one of %r"
-                                 % (backend, sorted(BACKENDS.keys())))
-            backend = backend_factory()
+        elif DEFAULT_MP_CONTEXT is not None:
+            self._backend_args['context'] = DEFAULT_MP_CONTEXT
 
-        if (batch_size == 'auto' or isinstance(batch_size, Integral) and
-                batch_size > 0):
-            self.batch_size = batch_size
-        else:
-            raise ValueError(
-                "batch_size must be 'auto' or a positive integer, got: %r"
-                % batch_size)
+        backend, n_jobs = choose_backend_and_n_jobs(
+            backend, n_jobs,
+            prefer_processes=prefer_processes,
+            require_shared_memory=require_shared_memory)
+
+        if (batch_size != 'auto' and not
+                (isinstance(batch_size, Integral) and batch_size > 0)):
+            raise ValueError("batch_size must be 'auto' or a positive "
+                             "integer, got: %r" % batch_size)
+
+        self.prefer_processes = prefer_processes
+        self.require_shared_memory = require_shared_memory
+        self.batch_size = batch_size
+        self.n_jobs = n_jobs
+        self.verbose = verbose
+        self.timeout = timeout
+        self.pre_dispatch = pre_dispatch
 
         self._backend = backend
         self._output = None

@@ -58,10 +58,9 @@ from joblib._parallel_backends import MultiprocessingBackend
 from joblib._parallel_backends import SafeFunction
 from joblib._parallel_backends import WorkerInterrupt
 
-from joblib.parallel import Parallel, delayed
-from joblib.parallel import register_parallel_backend, parallel_backend
-
-from joblib.parallel import mp, cpu_count, BACKENDS, effective_n_jobs
+from joblib.parallel import (Parallel, delayed, register_parallel_backend,
+                             parallel_backend, mp, cpu_count, BACKENDS,
+                             effective_n_jobs, choose_backend_and_n_jobs)
 from joblib.my_exceptions import JoblibException
 
 
@@ -183,6 +182,62 @@ def test_parallel_kwargs(n_jobs):
     lst = range(10)
     assert ([f(x, y=1) for x in lst] ==
             Parallel(n_jobs=n_jobs)(delayed(f)(x, y=1) for x in lst))
+
+
+def test_choose_backend_and_n_jobs():
+    backends = [('threading', ThreadingBackend),
+                ('multiprocessing', MultiprocessingBackend),
+                ('sequential', SequentialBackend),
+                (None, MultiprocessingBackend),
+                (ThreadingBackend(), ThreadingBackend)]
+
+    for backend, backend_type in backends:
+        b, n = choose_backend_and_n_jobs(backend, 10)
+        assert isinstance(b, backend_type)
+        assert n == 10
+
+    # Prefer processes chooses multiprocessing
+    with parallel_backend('multiprocessing', n_jobs=10):
+        b, n = choose_backend_and_n_jobs('threading', 5)
+        assert isinstance(b, MultiprocessingBackend)
+        assert n == 10
+
+    with parallel_backend('threading', n_jobs=10):
+        b, n = choose_backend_and_n_jobs('multiprocessing', 5)
+        assert isinstance(b, MultiprocessingBackend)
+        assert n == 5
+
+    # Prefer processes falls back to active_backend
+    with parallel_backend('threading', n_jobs=10):
+        b, n = choose_backend_and_n_jobs('sequential', 5)
+        assert isinstance(b, ThreadingBackend)
+        assert n == 10
+
+    # With no preferences, choose active_backend
+    with parallel_backend('threading', n_jobs=10):
+        b, n = choose_backend_and_n_jobs('multiprocessing', 5,
+                                         prefer_processes=False)
+        assert isinstance(b, ThreadingBackend)
+        assert n == 10
+
+    # Shared memory chooses threading
+    with parallel_backend('multiprocessing', n_jobs=10):
+        b, n = choose_backend_and_n_jobs('threading', 5,
+                                         prefer_processes=False,
+                                         require_shared_memory=True)
+        assert isinstance(b, ThreadingBackend)
+        assert n == 5
+
+    # No satisfiable backend
+    with raises(ValueError):
+        with parallel_backend('multiprocessing', n_jobs=10):
+            choose_backend_and_n_jobs('multiprocessing', 5,
+                                      require_shared_memory=True)
+
+    # Invalid set of requirements and preferences
+    with raises(ValueError):
+        choose_backend_and_n_jobs(None, 1, prefer_processes=True,
+                                  require_shared_memory=True)
 
 
 @parametrize('backend', ['multiprocessing', 'threading'])
@@ -488,7 +543,7 @@ def check_backend_context_manager(backend_name):
         active_backend, active_n_jobs = parallel.get_active_backend()
         assert active_n_jobs == 3
         assert effective_n_jobs(3) == 3
-        p = Parallel()
+        p = Parallel(prefer_processes=False)
         assert p.n_jobs == 3
         if backend_name == 'multiprocessing':
             assert type(active_backend) == MultiprocessingBackend
@@ -515,7 +570,7 @@ def test_backend_context_manager(monkeypatch, backend):
     # check that this possible to switch parallel backends sequentially
     check_backend_context_manager(backend)
 
-    # The default backend is retored
+    # The default backend is restored
     assert _active_backend_type() == MultiprocessingBackend
 
     # Check that context manager switching is thread safe:
@@ -523,7 +578,7 @@ def test_backend_context_manager(monkeypatch, backend):
         delayed(check_backend_context_manager)(b)
         for b in all_backends_for_context_manager if not b)
 
-    # The default backend is again retored
+    # The default backend is again restored
     assert _active_backend_type() == MultiprocessingBackend
 
 
@@ -546,7 +601,7 @@ def test_parameterized_backend_context_manager(monkeypatch):
         assert type(active_backend) == ParameterizedParallelBackend
         assert active_backend.param == 42
         assert active_n_jobs == 3
-        p = Parallel()
+        p = Parallel(prefer_processes=False)
         assert p.n_jobs == 3
         assert p._backend is active_backend
         results = p(delayed(sqrt)(i) for i in range(5))
@@ -566,13 +621,13 @@ def test_direct_parameterized_backend_context_manager():
         assert type(active_backend) == ParameterizedParallelBackend
         assert active_backend.param == 43
         assert active_n_jobs == 5
-        p = Parallel()
+        p = Parallel(prefer_processes=False)
         assert p.n_jobs == 5
         assert p._backend is active_backend
         results = p(delayed(sqrt)(i) for i in range(5))
     assert results == [sqrt(i) for i in range(5)]
 
-    # The default backend is again retored
+    # The default backend is again restored
     assert _active_backend_type() == MultiprocessingBackend
 
 
