@@ -16,7 +16,8 @@ def test_memmap(tmpdir):
 
 
 @parametrize('dst_content', [None, 'dst content'])
-def test_concurrency_safe_rename(tmpdir, dst_content):
+@parametrize('backend', [None, 'threading'])
+def test_concurrency_safe_rename(tmpdir, dst_content, backend):
     src_paths = [tmpdir.join('src_%d' % i) for i in range(4)]
     for src_path in src_paths:
         src_path.write('src content')
@@ -24,7 +25,7 @@ def test_concurrency_safe_rename(tmpdir, dst_content):
     if dst_content is not None:
         dst_path.write(dst_content)
 
-    Parallel(n_jobs=4)(
+    Parallel(n_jobs=4, backend=backend)(
         delayed(concurrency_safe_rename)(src_path.strpath, dst_path.strpath)
         for src_path in src_paths
     )
