@@ -10,7 +10,6 @@ import os
 import sys
 import time
 import mmap
-import warnings
 import threading
 from math import sqrt
 from time import sleep
@@ -170,10 +169,6 @@ def test_main_thread_renamed_no_warning(backend, monkeypatch):
 
 
 def _assert_warning_nested(backend, inner_n_jobs, expected):
-    # Makes sure the warnings are always thrown
-    warnings.resetwarnings()
-    warnings.simplefilter("always")
-
     with warns(None) as records:
         parallel_func(backend=backend, inner_n_jobs=inner_n_jobs)
 
