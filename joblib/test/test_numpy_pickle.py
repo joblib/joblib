@@ -712,12 +712,17 @@ def test_file_handle_persistence_in_memory_mmap():
             'ignored.' % {'mmap_mode': 'r+'})
 
 
-@parametrize('data', [b'a little data as bytes.',
-                      # More bytes
-                      10000 * "{}".format(
-                          random.randint(0, 1000) * 1000).encode('latin-1')])
+TEST_DATA_STORE = {
+    'small': b'a little data as bytes.',
+    'medium': 10000 * "{}".format(
+        random.randint(0, 1000) * 1000).encode('latin-1'),
+}
+
+
+@parametrize('data', ['small', 'medium'])
 @parametrize('compress_level', [1, 3, 9])
 def test_binary_zlibfile(tmpdir, data, compress_level):
+    data = TEST_DATA_STORE[data]
     filename = tmpdir.join('test.pkl').strpath
     # Regular cases
     with open(filename, 'wb') as f:
