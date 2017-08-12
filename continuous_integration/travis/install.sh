@@ -81,6 +81,9 @@ if [ -n "$NUMPY_VERSION" ]; then
     pip install memory_profiler
 fi
 
+# Install py.test timeout to fasten failure in deadlocking tests
+pip install pytest-timeout
+
 if [[ "$COVERAGE" == "true" ]]; then
     pip install pytest-cov codecov
 fi

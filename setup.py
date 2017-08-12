@@ -52,5 +52,7 @@ if __name__ == '__main__':
                                         'data/*.pkl',
                                         'data/*.npy',
                                         'data/*.npy.z']},
-          packages=['joblib', 'joblib.test', 'joblib.test.data'],
+          packages=['joblib', 'joblib.test', 'joblib.test.data',
+                    'joblib.externals', 'joblib.externals.cloudpickle',
+                    'joblib.externals.loky', 'joblib.externals.loky.backend'],
           **extra_setuptools_args)

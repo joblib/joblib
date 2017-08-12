@@ -21,6 +21,7 @@ SkipTest = _pytest.runner.Skipped
 skipif = pytest.mark.skipif
 fixture = pytest.fixture
 parametrize = pytest.mark.parametrize
+timeout = pytest.mark.timeout
 
 
 def warnings_to_stdout():
@@ -46,6 +47,7 @@ def check_subprocess_call(cmd, timeout=1, stdout_regex=None,
                             stderr=subprocess.PIPE)
 
     def kill_process():
+        warnings.warn("Timeout running {}".format(cmd))
         proc.kill()
 
     timer = threading.Timer(timeout, kill_process)
