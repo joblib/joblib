@@ -396,7 +396,7 @@ def run(args):
         # 2 big arrays with one big dict
         name = '% 5s' % 'Dict/arrays'
         array_shape = tuple(args.valuearrayshape)
-        for compress in compress_levels:
+        for compress_level in compress_levels:
             obj = [rnd.random_sample(a1_shape),
                    generate_rand_dict(container_size,
                                       with_arrays=args.valuearray,
