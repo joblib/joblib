@@ -156,7 +156,10 @@ def get_func_name(func, resolv_alias=True, win_characters=True):
         module = [_clean_win_chars(s) for s in module]
     return module, name
 
-
+import collections
+tuple_fields = ('args varargs varkw defaults kwonlyargs '
+                'kwonlydefaults annotations')
+tuple_type = collections.namedtuple('FullArgSpec', tuple_fields)
 def getfullargspec(func):
     """Compatibility function to provide inspect.getfullargspec in Python 2
 
@@ -169,11 +172,6 @@ def getfullargspec(func):
         return inspect.getfullargspec(func)
     except AttributeError:
         arg_spec = inspect.getargspec(func)
-        import collections
-        tuple_fields = ('args varargs varkw defaults kwonlyargs '
-                        'kwonlydefaults annotations')
-        tuple_type = collections.namedtuple('FullArgSpec', tuple_fields)
-
         return tuple_type(args=arg_spec.args,
                           varargs=arg_spec.varargs,
                           varkw=arg_spec.keywords,
