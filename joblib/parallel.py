@@ -294,13 +294,15 @@ class Parallel(Logger):
             (n_cpus + 1 + n_jobs) are used. Thus for n_jobs = -2, all
             CPUs but one are used.
         backend: str, ParallelBackendBase instance or None, \
-                default: 'multiprocessing'
+                default: 'loky'
             Specify the parallelization backend implementation.
             Supported backends are:
 
-            - "multiprocessing" used by default, can induce some
+            - "loky" used by default, can induce some
               communication and memory overhead when exchanging input and
               output data with the worker Python processes.
+            - "multiprocessing" previous process-based backend based on
+              `multiprocessing.Pool`. Less robust than `loky`.
             - "threading" is a very low-overhead backend but it suffers
               from the Python Global Interpreter Lock if the called function
               relies a lot on Python objects. "threading" is mostly useful
@@ -322,12 +324,13 @@ class Parallel(Logger):
         pre_dispatch: {'all', integer, or expression, as in '3*n_jobs'}
             The number of batches (of tasks) to be pre-dispatched.
             Default is '2*n_jobs'. When batch_size="auto" this is reasonable
-            default and the multiprocessing workers should never starve.
+            default and the workers should never starve.
         batch_size: int or 'auto', default: 'auto'
             The number of atomic tasks to dispatch at once to each
-            worker. When individual evaluations are very fast, multiprocessing
-            can be slower than sequential computation because of the overhead.
-            Batching fast computations together can mitigate this.
+            worker. When individual evaluations are very fast, dispatching
+            calls to workers can be slower than sequential computation because
+            of the overhead. Batching fast computations together can mitigate
+            this.
             The ``'auto'`` strategy keeps track of the time it takes for a batch
             to complete, and dynamically adjusts the batch size to keep the time
             on the order of half a second, using a heuristic. The initial batch
@@ -350,13 +353,13 @@ class Parallel(Logger):
               overridden with TMP, TMPDIR or TEMP environment
               variables, typically /tmp under Unix operating systems.
 
-            Only active when backend="multiprocessing".
+            Only active when backend="loky" or "multiprocessing".
         max_nbytes int, str, or None, optional, 1M by default
             Threshold on the size of arrays passed to the workers that
             triggers automated memory mapping in temp_folder. Can be an int
             in Bytes, or a human-readable string, e.g., '1M' for 1 megabyte.
             Use None to disable memmapping of large arrays.
-            Only active when backend="multiprocessing".
+            Only active when backend="loky" or "multiprocessing".
         mmap_mode: {None, 'r+', 'r', 'w+', 'c'}
             Memmapping mode for numpy arrays passed to workers.
             See 'max_nbytes' parameter documentation for more details.
@@ -364,10 +367,10 @@ class Parallel(Logger):
         Notes
         -----
 
-        This object uses the multiprocessing module to compute in
-        parallel the application of a function to many different
-        arguments. The main functionality it brings in addition to
-        using the raw multiprocessing API are (see examples for details):
+        This object uses workers to compute in parallel the application of a
+        function to many different arguments. The main functionality it brings
+        in addition to using the raw multiprocessing or concurrent.futures API
+        are (see examples for details):
 
         * More readable code, in particular since it avoids
           constructing list of arguments.

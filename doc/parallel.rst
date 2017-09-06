@@ -21,17 +21,29 @@ can be spread over 2 CPUs using the following::
     >>> Parallel(n_jobs=2)(delayed(sqrt)(i ** 2) for i in range(10))
     [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
 
-Under the hood, the :class:`Parallel` object create a multiprocessing
-`pool` that forks the Python interpreter in multiple processes to execute
-each of the items of the list. The `delayed` function is a simple trick
-to be able to create a tuple `(function, args, kwargs)` with a
-function-call syntax.
+By default joblib uses the ``'loky'`` backend to safely and efficiently
+use a pool of worker Python processes to executed the delayed functions
+on each set of arguments in the comprehension.
+
+
+Old multiprocessing backend
+===========================
+
+Prior to version 0.12, joblib used the ``'multiprocessing'`` backend as
+default backend instead of ``'loky'``.
+
+Under the hood, the :class:`Parallel` object would create an instance of
+`multiprocessing.Pool` that forks the Python interpreter in multiple
+processes to execute each of the items of the list. The `delayed`
+function is a simple trick to be able to create a tuple `(function,
+args, kwargs)` with a function-call syntax.
 
 .. warning::
 
-   Under Windows, it is important to protect the main loop of code to
-   avoid recursive spawning of subprocesses when using joblib.Parallel.
-   In other words, you should be writing code like this:
+   Under Windows, the use of ``multiprocessing.Pool`` requires to
+   protect the main loop of code to avoid recursive spawning of
+   subprocesses when using joblib.Parallel. In other words, you should
+   be writing code like this:
 
    .. code-block:: python
 
@@ -51,15 +63,18 @@ function-call syntax.
    **No** code should *run* outside of the "if __name__ == '__main__'"
    blocks, only imports and definitions.
 
+   The ``'loky'`` backend used by default in joblib 0.12 and later does
+   not impose this anymore.
+
 
 Using the threading backend
 ===========================
 
-By default :class:`Parallel` uses the Python ``multiprocessing`` module to fork
-separate Python worker processes to execute tasks concurrently on separate
-CPUs. This is a reasonable default for generic Python programs but it induces
-some overhead as the input and output data need to be serialized in a queue for
-communication with the worker processes.
+By default :class:`Parallel` uses the``'loky'`` backend module to start
+separate Python worker processes to execute tasks concurrently on
+separate CPUs. This is a reasonable default for generic Python programs
+but it induces some overhead as the input and output data need to be
+serialized in a queue for communication with the worker processes.
 
 If you know that the function you are calling is based on a compiled extension
 that releases the Python Global Interpreter Lock (GIL) during most of its
@@ -75,6 +90,13 @@ parameter of the :class:`Parallel` constructor:
 
     >>> Parallel(n_jobs=2, backend="threading")(
     ...     delayed(sqrt)(i ** 2) for i in range(10))
+    [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
+
+or alternatively using a context manager:
+
+    >>> from joblib import parallel_backend
+    >>> with parallel_backend('threading'):
+    ...    Parallel(n_jobs=2)(delayed(sqrt)(i ** 2) for i in range(10))
     [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
 
 
@@ -105,16 +127,24 @@ the ``Parallel`` object::
 
 .. include:: parallel_numpy.rst
 
+Note that the ``'loky'`` backend now used by default for process-based
+parallelism automatically tries to maintain and reuse a pool of workers
+by it-self.
+
 
 Bad interaction of multiprocessing and third-party libraries
 ============================================================
+
+Joblib version 0.12 and later are no longer subject to this problem
+thanks to the use of `loky <https://github.com/tomMoral/loky>`_ as the
+new default backend for process-based parallelism.
 
 Prior to Python 3.4 the ``'multiprocessing'`` backend of joblib can only use
 the ``fork`` strategy to create worker processes under non-Windows systems.
 This can cause some third-party libraries to crash or freeze. Such libraries
 include as Apple vecLib / Accelerate (used by NumPy under OSX), some old
 version of OpenBLAS (prior to 0.2.10) or the OpenMP runtime implementation from
-GCC.
+GCC used internally by third-party libraries such as XGBoost, spaCy, OpenCV...
 
 To avoid this problem ``joblib.Parallel`` can be configured to use the
 ``'forkserver'`` start method on Python 3.4 and later. The start method has to
@@ -138,11 +168,11 @@ Custom backend API (experimental)
 .. warning:: The custom backend API is experimental and subject to change
     without going through a deprecation cycle.
 
-User can provide their own implementation of a parallel processing backend in
-addition to the ``'multiprocessing'`` and ``'threading'`` backends provided by
-default. A backend is registered with the
-:func:`joblib.register_parallel_backend` function by passing a name and a
-backend factory.
+User can provide their own implementation of a parallel processing
+backend in addition to the ``'loky'``, ``'threading'``,
+``'multiprocessing'`` backends provided by default. A backend is
+registered with the :func:`joblib.register_parallel_backend` function by
+passing a name and a backend factory.
 
 The backend factory can be any callable that returns an instance of
 ``ParallelBackendBase``. Please refer to the `default backends source code`_ as
