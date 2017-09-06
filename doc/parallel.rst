@@ -32,11 +32,11 @@ Old multiprocessing backend
 Prior to version 0.12, joblib used the ``'multiprocessing'`` backend as
 default backend instead of ``'loky'``.
 
-Under the hood, the :class:`Parallel` object would create an instance of
-`multiprocessing.Pool` that forks the Python interpreter in multiple
-processes to execute each of the items of the list. The `delayed`
-function is a simple trick to be able to create a tuple `(function,
-args, kwargs)` with a function-call syntax.
+This backend creates an instance of `multiprocessing.Pool` that forks
+the Python interpreter in multiple processes to execute each of the
+items of the list. The `delayed` function is a simple trick to be able
+to create a tuple `(function, args, kwargs)` with a function-call
+syntax.
 
 .. warning::
 
