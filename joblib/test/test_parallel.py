@@ -583,7 +583,7 @@ def test_backend_context_manager(monkeypatch, backend):
     # check that this possible to switch parallel backends sequentially
     check_backend_context_manager(backend)
 
-    # The default backend is retored
+    # The default backend is restored
     assert _active_backend_type() == DefaultBackend
 
     # Check that context manager switching is thread safe:
@@ -591,7 +591,7 @@ def test_backend_context_manager(monkeypatch, backend):
         delayed(check_backend_context_manager)(b)
         for b in all_backends_for_context_manager if not b)
 
-    # The default backend is again retored
+    # The default backend is again restored
     assert _active_backend_type() == DefaultBackend
 
 
@@ -640,7 +640,7 @@ def test_direct_parameterized_backend_context_manager():
         results = p(delayed(sqrt)(i) for i in range(5))
     assert results == [sqrt(i) for i in range(5)]
 
-    # The default backend is again retored
+    # The default backend is again restored
     assert _active_backend_type() == DefaultBackend
 
 
