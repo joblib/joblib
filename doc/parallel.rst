@@ -130,11 +130,16 @@ the ``Parallel`` object::
 
 Note that the ``'loky'`` backend now used by default for process-based
 parallelism automatically tries to maintain and reuse a pool of workers
-by it-self.
+by it-self even for calls without the context manager.
 
 
 Bad interaction of multiprocessing and third-party libraries
 ============================================================
+
+Using the ``'multiprocessing'`` backend can cause a crash when using
+third party libraries that manage their own native thread-pool if the
+library is first used in the main process and subsequently called again
+in a worker process (inside the ``Parallel`` call).
 
 Joblib version 0.12 and later are no longer subject to this problem
 thanks to the use of `loky <https://github.com/tomMoral/loky>`_ as the
@@ -143,17 +148,20 @@ new default backend for process-based parallelism.
 Prior to Python 3.4 the ``'multiprocessing'`` backend of joblib can only
 use the ``fork`` strategy to create worker processes under non-Windows
 systems. This can cause some third-party libraries to crash or freeze.
-Such libraries include as Apple vecLib / Accelerate (used by NumPy under
+Such libraries include Apple vecLib / Accelerate (used by NumPy under
 OSX), some old version of OpenBLAS (prior to 0.2.10) or the OpenMP
 runtime implementation from GCC which is used internally by third-party
 libraries such as XGBoost, spaCy, OpenCV...
 
-To avoid this problem ``joblib.Parallel`` can be configured to use the
-``'forkserver'`` start method on Python 3.4 and later. The start method has to
-be configured by setting the ``JOBLIB_START_METHOD`` environment variable to
-``'forkserver'`` instead of the default ``'fork'`` start method. However the
-user should be aware that using the ``'forkserver'`` method prevents
-``joblib.Parallel`` to call function interactively defined in a shell session.
+The best way to avoid this problem is to use the ``'loky'`` backend
+instead of the ``multiprocessing`` backend. Prior to joblib 0.12, it is
+also possible  to get ``joblib.Parallel`` configured to use the
+``'forkserver'`` start method on Python 3.4 and later. The start method
+has to be configured by setting the ``JOBLIB_START_METHOD`` environment
+variable to ``'forkserver'`` instead of the default ``'fork'`` start
+method. However the user should be aware that using the ``'forkserver'``
+method prevents ``joblib.Parallel`` to call function interactively
+defined in a shell session.
 
 You can read more on this topic in the `multiprocessing documentation
 <https://docs.python.org/3/library/multiprocessing.html#contexts-and-start-methods>`_.
