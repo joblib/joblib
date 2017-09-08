@@ -230,7 +230,7 @@ def test_mutate_input_with_threads():
     """Input is mutable when using the threading backend"""
     q = Queue(maxsize=5)
     Parallel(n_jobs=2, backend="threading")(
-        delayed(q.put, check_pickle=False)(1) for _ in range(5))
+        delayed(q.put)(1) for _ in range(5))
     assert q.full()
 
 
@@ -904,3 +904,39 @@ def test_memmapping_leaks(backend, tmpdir):
     p(delayed(check_memmap)(a) for a in [np.random.random(10)] * 2)
 
     assert not os.listdir(tmpdir)
+
+
+def test_lambda_expression():
+    # cloudpickle is used to pickle delayed callables
+    for backend in ALL_VALID_BACKENDS:
+        results = Parallel(n_jobs=2, backend=backend)(
+            delayed(lambda x: x ** 2)(i) for i in range(10))
+        assert results == [i ** 2 for i in range(10)]
+
+
+def test_delayed_check_pickle_deprecated():
+
+    class UnpicklableCallable(object):
+
+        def __call__(self, *args, **kwargs):
+            return 42
+
+        def __reduce__(self):
+            raise ValueError()
+
+    with warns(DeprecationWarning):
+        f, args, kwargs = delayed(lambda x: 42, check_pickle=False)('a')
+    assert f('a') == 42
+    assert args == ('a',)
+    assert kwargs == dict()
+
+    with warns(DeprecationWarning):
+        f, args, kwargs = delayed(UnpicklableCallable(),
+                                  check_pickle=False)('a', option='b')
+        assert f('a', option='b') == 42
+        assert args == ('a',)
+        assert kwargs == dict(option='b')
+
+    with warns(DeprecationWarning):
+        with raises(ValueError):
+            delayed(UnpicklableCallable(), check_pickle=True)

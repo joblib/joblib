@@ -176,17 +176,11 @@ def _verbosity_filter(index, verbose):
 
 
 ###############################################################################
-def delayed(function, check_pickle=True):
-    """Decorator used to capture the arguments of a function.
-
-    Pass `check_pickle=False` when:
-
-    - performing a possibly repeated check is too costly and has been done
-      already once outside of the call to delayed.
-
-    - when used in conjunction `Parallel(backend='threading')`.
-
-    """
+def delayed(function, check_pickle=None):
+    """Decorator used to capture the arguments of a function."""
+    if check_pickle is not None:
+        warnings.warn('check_pickle is deprecated in joblib 0.12 and will be'
+                      ' removed in 0.13', DeprecationWarning)
     # Try to pickle the input function, to catch the problems early when
     # using with multiprocessing:
     if check_pickle:
