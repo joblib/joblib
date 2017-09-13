@@ -16,6 +16,12 @@ import shutil
 import warnings
 
 
+try:
+    WindowsError
+except NameError:
+    WindowsError = OSError
+
+
 def disk_used(path):
     """ Return the disk usage in a directory."""
     size = 0
@@ -108,7 +114,7 @@ def delete_folder(folder_path, onerror=None):
                 try:
                     shutil.rmtree(folder_path, False, None)
                     break
-                except OSError:
+                except (OSError, WindowsError):
                     err_count += 1
                     if err_count > RM_SUBDIRS_N_RETRY:
                         warnings.warn(
