@@ -357,10 +357,11 @@ def dump(value, filename, compress=0, protocol=None, cache_size=None):
     -----------
     value: any Python object
         The object to store to disk.
-    filename: str or pathlib.Path
-        The path of the file in which it is to be stored. The compression
-        method corresponding to one of the supported filename extensions ('.z',
-        '.gz', '.bz2', '.xz' or '.lzma') will be used automatically.
+    filename: str, pathlib.Path, or file object.
+        The file object or path of the file in which it is to be stored. 
+        The compression method corresponding to one of the supported filename 
+        extensions ('.z', '.gz', '.bz2', '.xz' or '.lzma') will be used 
+        automatically.
     compress: int from 0 to 9 or bool or 2-tuple, optional
         Optional compression level for the data. 0 or False is no compression.
         Higher value means more compression, but also slower read and
