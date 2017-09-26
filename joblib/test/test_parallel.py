@@ -940,3 +940,42 @@ def test_delayed_check_pickle_deprecated():
     with warns(DeprecationWarning):
         with raises(ValueError):
             delayed(UnpicklableCallable(), check_pickle=True)
+
+
+@with_multiprocessing
+@parametrize('backend', ['multiprocessing', 'loky'])
+def test_backend_batch_statistics_reset(backend):
+    """Test that a parallel backend correctly resets its batch statistics."""
+
+    # let's tolerate 20% error between compuration times to avoid random
+    # failures because of variable available ressources on CIs.
+    error = 0.2
+    n_jobs = 2
+    n_inputs = 500
+    task_time = 2. / n_inputs
+
+    p = Parallel(verbose=10, n_jobs=n_jobs, backend=backend)
+    start_time = time.time()
+    p(delayed(time.sleep)(task_time) for i in range(n_inputs))
+    ref_time = time.time() - start_time
+    assert p._backend._effective_batch_size == p._backend._initial_batch_size
+    assert (p._backend._smoothed_batch_duration ==
+            p._backend._initial_smoothed_batch_duration)
+
+    start_time = time.time()
+    p(delayed(time.sleep)(task_time) for i in range(n_inputs))
+    test_time = time.time() - start_time
+    assert p._backend._effective_batch_size == p._backend._initial_batch_size
+    assert (p._backend._smoothed_batch_duration ==
+            p._backend._initial_smoothed_batch_duration)
+
+    assert (
+        # With loky backend, the test run is a lot faster (it exceeds the 20%
+        # error tolerance) than the reference run because it reuses previously
+        # created workers. Having test_time smaller than reference time is ok
+        # for both multiprocessing and loky backends.
+        test_time < ref_time or
+        # With multiprocessing the computation times are similar but can
+        # be slightly higher sometimes. Ensuring relative error is
+        # reasonable is ok in this case.
+        abs(test_time - ref_time) / ref_time <= error)
