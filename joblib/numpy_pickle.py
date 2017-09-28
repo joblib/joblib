@@ -533,8 +533,8 @@ def load(filename, mmap_mode=None):
 
     Parameters
     -----------
-    filename: str or pathlib.Path
-        The path of the file from which to load the object
+    filename: str, pathlib.Path, or file object.
+        The file object or path of the file from which to load the object
     mmap_mode: {None, 'r+', 'r', 'w+', 'c'}, optional
         If not None, the arrays are memory-mapped from the disk. This
         mode has no effect for compressed files. Note that in this
