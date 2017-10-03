@@ -170,7 +170,7 @@ class AutoBatchingMixin(object):
     MAX_IDEAL_BATCH_DURATION = 2
 
     # Batching counters
-    _effective_batch_size = _initial_batch_size = 1
+    _effective_batch_size = _initial_effective_batch_size = 1
     _smoothed_batch_duration = _initial_smoothed_batch_duration = 0.0
 
     def compute_batch_size(self):
@@ -241,7 +241,7 @@ class AutoBatchingMixin(object):
 
         This avoids interferences with future jobs.
         """
-        self._effective_batch_size = self._initial_batch_size
+        self._effective_batch_size = self._initial_effective_batch_size
         self._smoothed_batch_duration = self._initial_smoothed_batch_duration
 
 

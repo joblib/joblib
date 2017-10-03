@@ -958,14 +958,16 @@ def test_backend_batch_statistics_reset(backend):
     start_time = time.time()
     p(delayed(time.sleep)(task_time) for i in range(n_inputs))
     ref_time = time.time() - start_time
-    assert p._backend._effective_batch_size == p._backend._initial_batch_size
+    assert p._backend._effective_batch_size == \
+        p._backend._initial_effective_batch_size
     assert (p._backend._smoothed_batch_duration ==
             p._backend._initial_smoothed_batch_duration)
 
     start_time = time.time()
     p(delayed(time.sleep)(task_time) for i in range(n_inputs))
     test_time = time.time() - start_time
-    assert p._backend._effective_batch_size == p._backend._initial_batch_size
+    assert p._backend._effective_batch_size == \
+        p._backend._initial_effective_batch_size
     assert (p._backend._smoothed_batch_duration ==
             p._backend._initial_smoothed_batch_duration)
 
