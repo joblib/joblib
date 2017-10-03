@@ -969,13 +969,4 @@ def test_backend_batch_statistics_reset(backend):
     assert (p._backend._smoothed_batch_duration ==
             p._backend._initial_smoothed_batch_duration)
 
-    assert (
-        # With loky backend, the test run is a lot faster (it exceeds the 20%
-        # error tolerance) than the reference run because it reuses previously
-        # created workers. Having test_time smaller than reference time is ok
-        # for both multiprocessing and loky backends.
-        test_time < ref_time or
-        # With multiprocessing the computation times are similar but can
-        # be slightly higher sometimes. Ensuring relative error is
-        # reasonable is ok in this case.
-        abs(test_time - ref_time) / ref_time <= error)
+    assert (test_time / ref_time) <= (1 + error)
