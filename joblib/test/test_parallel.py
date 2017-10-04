@@ -951,24 +951,24 @@ def test_backend_batch_statistics_reset(backend):
     # failures because of variable available ressources on CIs.
     error = 0.2
     n_jobs = 2
-    n_inputs = 500
-    task_time = 2. / n_inputs
+    n_inputs = 1000
+    task_time = 1. / n_inputs
 
     p = Parallel(verbose=10, n_jobs=n_jobs, backend=backend)
     start_time = time.time()
     p(delayed(time.sleep)(task_time) for i in range(n_inputs))
     ref_time = time.time() - start_time
     assert p._backend._effective_batch_size == \
-        p._backend._initial_effective_batch_size
+        p._backend.DEFAULT_EFFECTIVE_BATCH_SIZE
     assert (p._backend._smoothed_batch_duration ==
-            p._backend._initial_smoothed_batch_duration)
+            p._backend.DEFAULT_SMOOTHED_BATCH_DURATION)
 
     start_time = time.time()
     p(delayed(time.sleep)(task_time) for i in range(n_inputs))
     test_time = time.time() - start_time
     assert p._backend._effective_batch_size == \
-        p._backend._initial_effective_batch_size
+        p._backend.DEFAULT_EFFECTIVE_BATCH_SIZE
     assert (p._backend._smoothed_batch_duration ==
-            p._backend._initial_smoothed_batch_duration)
+            p._backend.DEFAULT_SMOOTHED_BATCH_DURATION)
 
     assert (test_time / ref_time) <= (1 + error)
