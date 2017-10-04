@@ -170,14 +170,14 @@ class AutoBatchingMixin(object):
     MAX_IDEAL_BATCH_DURATION = 2
 
     # Batching counters default values
-    DEFAULT_EFFECTIVE_BATCH_SIZE = 1
-    DEFAULT_SMOOTHED_BATCH_DURATION = 0.0
+    _DEFAULT_EFFECTIVE_BATCH_SIZE = 1
+    _DEFAULT_SMOOTHED_BATCH_DURATION = 0.0
 
     def __init__(self):
         """Constructor"""
         # Batching counters
-        self._effective_batch_size = self.DEFAULT_EFFECTIVE_BATCH_SIZE
-        self._smoothed_batch_duration = self.DEFAULT_SMOOTHED_BATCH_DURATION
+        self._effective_batch_size = self._DEFAULT_EFFECTIVE_BATCH_SIZE
+        self._smoothed_batch_duration = self._DEFAULT_SMOOTHED_BATCH_DURATION
 
 
     def compute_batch_size(self):
@@ -223,7 +223,7 @@ class AutoBatchingMixin(object):
             # we need to reset the estimate whenever we re-tune the batch
             # size.
             self._smoothed_batch_duration = \
-                self.DEFAULT_SMOOTHED_BATCH_DURATION
+                self._DEFAULT_SMOOTHED_BATCH_DURATION
 
         return batch_size
 
@@ -233,7 +233,7 @@ class AutoBatchingMixin(object):
             # Update the smoothed streaming estimate of the duration of a batch
             # from dispatch to completion
             old_duration = self._smoothed_batch_duration
-            if old_duration == self.DEFAULT_SMOOTHED_BATCH_DURATION:
+            if old_duration == self._DEFAULT_SMOOTHED_BATCH_DURATION:
                 # First record of duration for this batch size after the last
                 # reset.
                 new_duration = duration
@@ -248,8 +248,8 @@ class AutoBatchingMixin(object):
 
         This avoids interferences with future jobs.
         """
-        self._effective_batch_size = self.DEFAULT_EFFECTIVE_BATCH_SIZE
-        self._smoothed_batch_duration = self.DEFAULT_SMOOTHED_BATCH_DURATION
+        self._effective_batch_size = self._DEFAULT_EFFECTIVE_BATCH_SIZE
+        self._smoothed_batch_duration = self._DEFAULT_SMOOTHED_BATCH_DURATION
 
 
 class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
