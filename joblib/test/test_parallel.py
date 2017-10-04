@@ -946,10 +946,7 @@ def test_delayed_check_pickle_deprecated():
 @parametrize('backend', ['multiprocessing', 'loky'])
 def test_backend_batch_statistics_reset(backend):
     """Test that a parallel backend correctly resets its batch statistics."""
-
-    # let's tolerate 20% error between compuration times to avoid random
-    # failures because of variable available ressources on CIs.
-    error = 0.2
+    relative_tolerance = 0.2
     n_jobs = 2
     n_inputs = 500
     task_time = 2. / n_inputs
@@ -971,4 +968,5 @@ def test_backend_batch_statistics_reset(backend):
     assert (p._backend._smoothed_batch_duration ==
             p._backend._DEFAULT_SMOOTHED_BATCH_DURATION)
 
-    assert (test_time / ref_time) <= (1 + error)
+    # Tolerance in the timing comparison to avoid random failures on CIs
+    assert test_time / ref_time <= 1 + relative_tolerance
