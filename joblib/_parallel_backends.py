@@ -174,8 +174,6 @@ class AutoBatchingMixin(object):
     _DEFAULT_SMOOTHED_BATCH_DURATION = 0.0
 
     def __init__(self):
-        """Constructor"""
-        # Batching counters
         self._effective_batch_size = self._DEFAULT_EFFECTIVE_BATCH_SIZE
         self._smoothed_batch_duration = self._DEFAULT_SMOOTHED_BATCH_DURATION
 
