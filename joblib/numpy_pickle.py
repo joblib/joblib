@@ -209,7 +209,7 @@ class NumpyPickler(Pickler):
     ----------
     fp: file
         File object handle used for serializing the input object.
-    protocol: int
+    protocol: int, optional
         Pickle protocol used. Default is pickle.DEFAULT_PROTOCOL under
         python 3, pickle.HIGHEST_PROTOCOL otherwise.
     """
@@ -372,7 +372,7 @@ def dump(value, filename, compress=0, protocol=None, cache_size=None):
         between supported compressors (e.g 'zlib', 'gzip', 'bz2', 'lzma'
         'xz'), the second element must be an integer from 0 to 9, corresponding
         to the compression level.
-    protocol: positive int
+    protocol: int, optional
         Pickle protocol, see pickle.dump documentation for more details.
     cache_size: positive int, optional
         This option is deprecated in 0.10 and has no effect.
