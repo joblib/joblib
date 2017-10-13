@@ -481,10 +481,20 @@ def _queue_management_worker(executor_reference,
         # Create a list to avoid RuntimeError due to concurrent modification of
         # processe. nb_children_alive is thus an upper bound
         with processes_management_lock:
-            nb_children_alive = sum(p.is_alive()
-                                    for p in list(processes.values()))
-        for i in range(0, nb_children_alive):
-            call_queue.put(None)
+            n_alive_workers = sum(p.is_alive()
+                                  for p in list(processes.values()))
+        n_workers_to_stop = n_alive_workers
+        n_sentinels_sent = 0
+        while n_sentinels_sent < n_workers_to_stop and n_alive_workers > 0:
+            for i in range(n_workers_to_stop - n_sentinels_sent):
+                try:
+                    call_queue.put_nowait(None)
+                except Queue.Full:
+                    break
+                n_sentinels_sent += 1
+            with processes_management_lock:
+                n_alive_workers = sum(p.is_alive()
+                                      for p in list(processes.values()))
 
         # Release the queue's resources as soon as possible. Flag the feeder
         # thread for clean exit to avoid having the crash detection thread flag
