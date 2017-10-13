@@ -169,9 +169,14 @@ class AutoBatchingMixin(object):
     # on a single worker while other workers have no work to process any more.
     MAX_IDEAL_BATCH_DURATION = 2
 
-    # Batching counters
-    _effective_batch_size = 1
-    _smoothed_batch_duration = 0.0
+    # Batching counters default values
+    _DEFAULT_EFFECTIVE_BATCH_SIZE = 1
+    _DEFAULT_SMOOTHED_BATCH_DURATION = 0.0
+
+    def __init__(self):
+        self._effective_batch_size = self._DEFAULT_EFFECTIVE_BATCH_SIZE
+        self._smoothed_batch_duration = self._DEFAULT_SMOOTHED_BATCH_DURATION
+
 
     def compute_batch_size(self):
         """Determine the optimal batch size"""
@@ -215,7 +220,8 @@ class AutoBatchingMixin(object):
             # CallBack as long as the batch_size is constant. Therefore
             # we need to reset the estimate whenever we re-tune the batch
             # size.
-            self._smoothed_batch_duration = 0
+            self._smoothed_batch_duration = \
+                self._DEFAULT_SMOOTHED_BATCH_DURATION
 
         return batch_size
 
@@ -225,7 +231,7 @@ class AutoBatchingMixin(object):
             # Update the smoothed streaming estimate of the duration of a batch
             # from dispatch to completion
             old_duration = self._smoothed_batch_duration
-            if old_duration == 0:
+            if old_duration == self._DEFAULT_SMOOTHED_BATCH_DURATION:
                 # First record of duration for this batch size after the last
                 # reset.
                 new_duration = duration
@@ -234,6 +240,14 @@ class AutoBatchingMixin(object):
                 # batch for the current effective size.
                 new_duration = 0.8 * old_duration + 0.2 * duration
             self._smoothed_batch_duration = new_duration
+
+    def reset_batch_stats(self):
+        """Reset batch statistics to default values.
+
+        This avoids interferences with future jobs.
+        """
+        self._effective_batch_size = self._DEFAULT_EFFECTIVE_BATCH_SIZE
+        self._smoothed_batch_duration = self._DEFAULT_SMOOTHED_BATCH_DURATION
 
 
 class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
@@ -342,6 +356,8 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
         if self.JOBLIB_SPAWNED_PROCESS in os.environ:
             del os.environ[self.JOBLIB_SPAWNED_PROCESS]
 
+        self.reset_batch_stats()
+
 
 class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
     """Managing pool of workers with loky instead of multiprocessing."""
@@ -410,6 +426,8 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
             # the shared memory
             delete_folder(self._workers._temp_folder)
             self._workers = None
+
+        self.reset_batch_stats()
 
     def abort_everything(self, ensure_ready=True):
         """Shutdown the workers and restart a new one with the same parameters
