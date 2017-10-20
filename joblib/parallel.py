@@ -413,12 +413,10 @@ class Parallel(Logger):
 
         >>> from time import sleep
         >>> from joblib import Parallel, delayed
-        >>> r = Parallel(n_jobs=2, verbose=5)(delayed(sleep)(.1) for _ in range(10)) #doctest: +SKIP
-        [Parallel(n_jobs=2)]: Done   1 out of  10 | elapsed:    0.1s remaining:    0.9s
-        [Parallel(n_jobs=2)]: Done   3 out of  10 | elapsed:    0.2s remaining:    0.5s
-        [Parallel(n_jobs=2)]: Done   6 out of  10 | elapsed:    0.3s remaining:    0.2s
-        [Parallel(n_jobs=2)]: Done   9 out of  10 | elapsed:    0.5s remaining:    0.1s
-        [Parallel(n_jobs=2)]: Done  10 out of  10 | elapsed:    0.5s finished
+        >>> r = Parallel(n_jobs=2, verbose=10)(delayed(sleep)(.2) for _ in range(10)) #doctest: +SKIP
+        [Parallel(n_jobs=2)]: Done   1 tasks      | elapsed:    0.6s
+        [Parallel(n_jobs=2)]: Done   4 tasks      | elapsed:    0.8s
+        [Parallel(n_jobs=2)]: Done  10 out of  10 | elapsed:    1.4s finished
 
         Traceback example, note how the line of the error is indicated
         as well as the values of the parameter passed to the function that
@@ -453,8 +451,7 @@ class Parallel(Logger):
         Using pre_dispatch in a producer/consumer situation, where the
         data is generated on the fly. Note how the producer is first
         called 3 times before the parallel loop is initiated, and then
-        called to generate new data on the fly. In this case the total
-        number of iterations cannot be reported in the progress messages:
+        called to generate new data on the fly:
 
         >>> from math import sqrt
         >>> from joblib import Parallel, delayed
@@ -474,7 +471,7 @@ class Parallel(Logger):
         [Parallel(n_jobs=2)]: Done 3 jobs     | elapsed:  0.0s
         Produced 5
         [Parallel(n_jobs=2)]: Done 4 jobs     | elapsed:  0.0s
-        [Parallel(n_jobs=2)]: Done 5 out of 6 | elapsed:  0.0s remaining: 0.0s
+        [Parallel(n_jobs=2)]: Done 6 out of 6 | elapsed:  0.0s remaining: 0.0s
         [Parallel(n_jobs=2)]: Done 6 out of 6 | elapsed:  0.0s finished
 
     '''
