@@ -413,12 +413,10 @@ class Parallel(Logger):
 
         >>> from time import sleep
         >>> from joblib import Parallel, delayed
-        >>> r = Parallel(n_jobs=2, verbose=5)(delayed(sleep)(.1) for _ in range(10)) #doctest: +SKIP
-        [Parallel(n_jobs=2)]: Done   1 tasks      | elapsed:    0.1s
-        [Parallel(n_jobs=2)]: Done   3 tasks      | elapsed:    0.2s
-        [Parallel(n_jobs=2)]: Done   6 tasks      | elapsed:    0.3s
-        [Parallel(n_jobs=2)]: Done   9 tasks      | elapsed:    0.5s
-        [Parallel(n_jobs=2)]: Done  10 out of  10 | elapsed:    0.5s finished
+        >>> r = Parallel(n_jobs=2, verbose=10)(delayed(sleep)(.2) for _ in range(10)) #doctest: +SKIP
+        [Parallel(n_jobs=2)]: Done   1 tasks      | elapsed:    0.6s
+        [Parallel(n_jobs=2)]: Done   4 tasks      | elapsed:    0.8s
+        [Parallel(n_jobs=2)]: Done  10 out of  10 | elapsed:    1.4s finished
 
         Traceback example, note how the line of the error is indicated
         as well as the values of the parameter passed to the function that
