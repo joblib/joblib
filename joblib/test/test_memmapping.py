@@ -9,6 +9,7 @@ from joblib.test.common import with_multiprocessing
 from joblib.test.common import with_dev_shm
 from joblib.testing import raises, parametrize
 from joblib.backports import make_memmap
+from joblib.parallel import Parallel, delayed
 
 from joblib.pool import MemmappingPool
 from joblib.executor import _TestingMemmappingExecutor
@@ -509,3 +510,16 @@ def test_pool_get_temp_dir(tmpdir):
     if sys.platform.startswith('win'):
         assert shared_mem is False
     assert pool_folder.endswith(pool_folder_name)
+
+
+def test_numpy_arrays_use_different_memory():
+    def func(arr, value):
+        arr[:] = value
+        return arr
+
+    arrays = [np.zeros((10, 10), dtype='float64') for i in range(10)]
+
+    results = Parallel(mmap_mode='w+', max_nbytes=0, n_jobs=2)(
+        delayed(func)(arr, i) for i, arr in enumerate(arrays))
+    rmax = [r.max() for r in results]
+    assert len(rmax) == len(set(rmax))

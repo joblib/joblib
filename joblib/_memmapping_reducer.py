@@ -251,8 +251,8 @@ class ArrayMemmapReducer(object):
 
             # Find a unique, concurrent safe filename for writing the
             # content of this array only once.
-            basename = "{}-{}-{}.pkl".format(
-                os.getpid(), id(threading.current_thread()), hash(a))
+            basename = "{}-{}-{}-{}.pkl".format(
+                os.getpid(), id(threading.current_thread()), hash(a), id(a))
             filename = os.path.join(self._temp_folder, basename)
 
             # In case the same array with the same content is passed several
