@@ -521,5 +521,5 @@ def test_numpy_arrays_use_different_memory():
 
     results = Parallel(mmap_mode='w+', max_nbytes=0, n_jobs=2)(
         delayed(func)(arr, i) for i, arr in enumerate(arrays))
-    rmax = [r.max() for r in results]
-    assert len(rmax) == len(set(rmax))
+    for i, arr in enumerate(results):
+        np.testing.assert_array_equal(arr, i)
