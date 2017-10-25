@@ -512,6 +512,7 @@ def test_pool_get_temp_dir(tmpdir):
     assert pool_folder.endswith(pool_folder_name)
 
 
+@with_numpy
 def test_numpy_arrays_use_different_memory():
     def func(arr, value):
         arr[:] = value
