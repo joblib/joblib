@@ -59,7 +59,9 @@ Main features
    computation to disk and rerun it only if necessary::
 
       >>> from joblib import Memory
-      >>> mem = Memory(cachedir='/tmp/joblib')
+      >>> import tempfile
+      >>> cachedir = tempfile.mkdtemp(prefix='tmp-joblib')
+      >>> mem = Memory(cachedir=cachedir)
       >>> import numpy as np
       >>> a = np.vander(np.arange(3)).astype(np.float)
       >>> square = mem.cache(np.square)
@@ -95,7 +97,7 @@ Main features
    *joblib.dump* & *joblib.load* ).
 
 ..
-    >>> import shutil ; shutil.rmtree('/tmp/joblib/')
+    >>> import shutil ; shutil.rmtree(cachedir)
 
 """
 
