@@ -8,6 +8,7 @@ import pickle
 import os
 import sys
 import warnings
+import io
 try:
     from pathlib import Path
 except ImportError:
@@ -27,6 +28,9 @@ from .numpy_pickle_compat import NDArrayWrapper
 from .numpy_pickle_compat import ZNDArrayWrapper  # noqa
 from ._compat import _basestring, PY3_OR_LATER
 from .backports import make_memmap
+
+
+NUMPY_ARRAY_ALIGN = 64
 
 ###############################################################################
 # Utility objects for persistence.
@@ -62,13 +66,19 @@ class NumpyArrayWrapper(object):
         Default: False.
     """
 
-    def __init__(self, subclass, shape, order, dtype, allow_mmap=False):
+    def __init__(self, subclass, shape, order, dtype,
+                 alignment_padding=0, allow_mmap=False):
         """Constructor. Store the useful information for later."""
         self.subclass = subclass
         self.shape = shape
         self.order = order
         self.dtype = dtype
         self.allow_mmap = allow_mmap
+        try:
+            import numpy as np
+            self.alignment_padding = np.int8(alignment_padding)
+        except ImportError:
+            self.alignment_padding = alignment_padding
 
     def write_array(self, array, pickler):
         """Write array bytes to pickler file handle.
@@ -84,6 +94,7 @@ class NumpyArrayWrapper(object):
             # pickle protocol.
             pickle.dump(array, pickler.file_handle, protocol=2)
         else:
+            pickler.file_handle.write(b' ' * self.alignment_padding)
             for chunk in pickler.np.nditer(array,
                                            flags=['external_loop',
                                                   'buffered',
@@ -107,6 +118,9 @@ class NumpyArrayWrapper(object):
             # The array contained Python objects. We need to unpickle the data.
             array = pickle.load(unpickler.file_handle)
         else:
+            if hasattr(self, "alignment_padding"):
+                unpickler.file_handle.read(int(self.alignment_padding))
+
             if (not PY3_OR_LATER and
                     unpickler.np.compat.isfileobj(unpickler.file_handle)):
                 # In python 2, gzip.GzipFile is considered as a file so one
@@ -149,6 +163,9 @@ class NumpyArrayWrapper(object):
     def read_mmap(self, unpickler):
         """Read an array using numpy memmap."""
         offset = unpickler.file_handle.tell()
+        if hasattr(self, "alignment_padding"):
+            offset += self.alignment_padding
+
         if unpickler.mmap_mode == 'w+':
             unpickler.mmap_mode = 'r+'
 
@@ -198,6 +215,33 @@ class NumpyArrayWrapper(object):
 # Pickler classes
 
 
+class NumpyArrayWrapperPickler(Pickler):
+    """A pickler for getting the size of a pickled NumpyArrayWrapper.
+
+    With this pickler, the pickle stream of a NumpyArrayWrapper is stored
+    in the pickle_len attribute.
+
+    For internal use only."""
+
+    dispatch = Pickler.dispatch.copy()
+
+    def __init__(self, protocol=None):
+        self.buffer = io.BytesIO()
+        self.header_size = 0
+        Pickler.__init__(self, self.buffer, protocol=protocol)
+
+    def save(self, obj):
+        """Subclass the Pickler `save` method to determine the pickle size."""
+        if type(obj) == NumpyArrayWrapper:
+            begin_pos = self.buffer.tell()
+            Pickler.save(self, obj)
+            end_pos = self.buffer.tell()
+            self.pickle_len = end_pos - begin_pos
+            return
+
+        Pickler.save(self, obj)
+
+
 class NumpyPickler(Pickler):
     """A pickler to persist big data efficiently.
 
@@ -226,6 +270,8 @@ class NumpyPickler(Pickler):
             protocol = (pickle.DEFAULT_PROTOCOL if PY3_OR_LATER
                         else pickle.HIGHEST_PROTOCOL)
 
+        self.protocol = protocol
+
         Pickler.__init__(self, self.file_handle, protocol=protocol)
         # delayed import of numpy, to avoid tight coupling
         try:
@@ -239,8 +285,22 @@ class NumpyPickler(Pickler):
         order = 'F' if (array.flags.f_contiguous and
                         not array.flags.c_contiguous) else 'C'
         allow_mmap = not self.buffered and not array.dtype.hasobject
+        alignment_padding = self.np.int8(0)
+        try:
+            wrapper_pickler = NumpyArrayWrapperPickler(protocol=self.protocol)
+            wrapper_pickler.dump(NumpyArrayWrapper(type(array), array.shape,
+                                                   order, array.dtype))
+            pos_in_file = self.file_handle.tell()
+            array_pos_in_file = pos_in_file + wrapper_pickler.pickle_len
+            alignment_padding = self.np.int8(
+                NUMPY_ARRAY_ALIGN - (array_pos_in_file % NUMPY_ARRAY_ALIGN))
+        except io.UnsupportedOperation:
+            # Use empty alignment padding if file handle cannot seek
+            pass
+
         wrapper = NumpyArrayWrapper(type(array),
                                     array.shape, order, array.dtype,
+                                    alignment_padding=alignment_padding,
                                     allow_mmap=allow_mmap)
 
         return wrapper
@@ -264,7 +324,13 @@ class NumpyPickler(Pickler):
 
             # The array wrapper is pickled instead of the real array.
             wrapper = self._create_array_wrapper(obj)
+
             Pickler.save(self, wrapper)
+
+            # This is ugly but it avoids pickle to reuse the references of
+            # previously pickled NumpyArrayWrapper. This way, pickled numpy
+            # arrays can be memapped aligned in memory
+            self.clear_memo()
 
             # A framer was introduced with pickle protocol 4 and we want to
             # ensure the wrapper object is written before the numpy array

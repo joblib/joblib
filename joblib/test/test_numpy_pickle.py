@@ -916,3 +916,21 @@ def test_load_memmap_with_big_offset(tmpdir):
     assert isinstance(memmaps[1], np.memmap)
     assert memmaps[1].offset > size
     np.testing.assert_array_equal(obj, memmaps)
+
+
+@with_numpy
+def test_memmap_alignment_padding(tmpdir):
+    # Test that memmaped arrays returned by numpy.load are correctly aligned
+
+    fname = tmpdir.join('test.mmap').strpath
+    arr = np.random.randn(2)
+
+    l = [arr, arr, arr, arr]
+
+    numpy_pickle.dump(l, fname)
+    l_reloaded = numpy_pickle.load(fname, mmap_mode='r')
+
+    for memmap in l_reloaded:
+        assert isinstance(memmap, np.memmap)
+        np.testing.assert_array_equal(arr, memmap)
+        assert memmap.ctypes.data % 8 == 0
