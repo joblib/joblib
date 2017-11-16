@@ -934,3 +934,4 @@ def test_memmap_alignment_padding(tmpdir):
         assert isinstance(memmap, np.memmap)
         np.testing.assert_array_equal(arr, memmap)
         assert memmap.ctypes.data % 8 == 0
+        assert memmap.flags.aligned
