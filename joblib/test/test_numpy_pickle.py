@@ -919,7 +919,8 @@ def test_load_memmap_with_big_offset(tmpdir):
 
 
 @with_numpy
-def test_memmap_alignment_padding(tmpdir):
+@parametrize('protocol', range(pickle.HIGHEST_PROTOCOL + 1))
+def test_memmap_alignment_padding(tmpdir, protocol):
     # Test that memmaped arrays returned by numpy.load are correctly aligned
 
     fname = tmpdir.join('test.mmap').strpath
@@ -927,7 +928,7 @@ def test_memmap_alignment_padding(tmpdir):
 
     l = [arr, arr, arr, arr]
 
-    numpy_pickle.dump(l, fname)
+    numpy_pickle.dump(l, fname, protocol=protocol)
     l_reloaded = numpy_pickle.load(fname, mmap_mode='r')
 
     for memmap in l_reloaded:

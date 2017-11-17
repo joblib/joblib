@@ -325,12 +325,12 @@ class NumpyPickler(Pickler):
             # The array wrapper is pickled instead of the real array.
             wrapper = self._create_array_wrapper(obj)
 
-            Pickler.save(self, wrapper)
-
             # This is ugly but it avoids pickle to reuse the references of
             # previously pickled NumpyArrayWrapper. This way, pickled numpy
             # arrays can be memapped aligned in memory
             self.clear_memo()
+
+            Pickler.save(self, wrapper)
 
             # A framer was introduced with pickle protocol 4 and we want to
             # ensure the wrapper object is written before the numpy array
