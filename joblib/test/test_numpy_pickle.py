@@ -919,20 +919,40 @@ def test_load_memmap_with_big_offset(tmpdir):
 
 
 @with_numpy
-@parametrize('protocol', range(pickle.HIGHEST_PROTOCOL + 1))
+@parametrize('protocol', range(1, pickle.HIGHEST_PROTOCOL + 1))
 def test_memmap_alignment_padding(tmpdir, protocol):
     # Test that memmaped arrays returned by numpy.load are correctly aligned
-
     fname = tmpdir.join('test.mmap').strpath
-    arr = np.random.randn(2)
 
-    l = [arr, arr, arr, arr]
+    a = np.random.randn(2)
+    numpy_pickle.dump(a, fname, protocol=protocol)
+    memmap = numpy_pickle.load(fname, mmap_mode='r')
+    assert isinstance(memmap, np.memmap)
+    np.testing.assert_array_equal(a, memmap)
+    assert memmap.ctypes.data % 8 == 0
+    assert memmap.flags.aligned
+
+    l = [np.random.randn(200), np.random.randn(300)]
 
     numpy_pickle.dump(l, fname, protocol=protocol)
     l_reloaded = numpy_pickle.load(fname, mmap_mode='r')
 
-    for memmap in l_reloaded:
+    for idx, memmap in enumerate(l_reloaded):
         assert isinstance(memmap, np.memmap)
-        np.testing.assert_array_equal(arr, memmap)
+        np.testing.assert_array_equal(l[idx], memmap)
+        assert memmap.ctypes.data % 8 == 0
+        assert memmap.flags.aligned
+
+    d = {'a1': np.random.randn(100),
+         'a2': np.random.randn(200),
+         'a3': np.random.randn(300),
+         'a4': np.random.randn(400)}
+
+    numpy_pickle.dump(d, fname, protocol=protocol)
+    d_reloaded = numpy_pickle.load(fname, mmap_mode='r')
+
+    for key, memmap in d_reloaded.items():
+        assert isinstance(memmap, np.memmap)
+        np.testing.assert_array_equal(d[key], memmap)
         assert memmap.ctypes.data % 8 == 0
         assert memmap.flags.aligned

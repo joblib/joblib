@@ -235,6 +235,8 @@ class NumpyArrayWrapperPickler(Pickler):
         if type(obj) == NumpyArrayWrapper:
             begin_pos = self.buffer.tell()
             Pickler.save(self, obj)
+            if self.proto >= 4:
+                self.framer.commit_frame(force=True)
             end_pos = self.buffer.tell()
             self.pickle_len = end_pos - begin_pos
             return
@@ -288,10 +290,12 @@ class NumpyPickler(Pickler):
         alignment_padding = self.np.int8(0)
         try:
             wrapper_pickler = NumpyArrayWrapperPickler(protocol=self.protocol)
+            wrapper_pickler.memo = self.memo.copy()
             wrapper_pickler.dump(NumpyArrayWrapper(type(array), array.shape,
                                                    order, array.dtype))
             pos_in_file = self.file_handle.tell()
             array_pos_in_file = pos_in_file + wrapper_pickler.pickle_len
+
             alignment_padding = self.np.int8(
                 NUMPY_ARRAY_ALIGN - (array_pos_in_file % NUMPY_ARRAY_ALIGN))
         except io.UnsupportedOperation:
@@ -302,7 +306,6 @@ class NumpyPickler(Pickler):
                                     array.shape, order, array.dtype,
                                     alignment_padding=alignment_padding,
                                     allow_mmap=allow_mmap)
-
         return wrapper
 
     def save(self, obj):
@@ -322,13 +325,16 @@ class NumpyPickler(Pickler):
                 # Pickling doesn't work with memmapped arrays
                 obj = self.np.asanyarray(obj)
 
+            # A framer was introduced with pickle protocol 4 and we want to
+            # ensure every buffered data are written before pickling the
+            # wrapper object. This way we are sure of the starting position
+            # of the array bytes and we can compute the padding that is
+            # necessary for the numpy array bytes.
+            if self.proto >= 4:
+                self.framer.commit_frame(force=True)
+
             # The array wrapper is pickled instead of the real array.
             wrapper = self._create_array_wrapper(obj)
-
-            # This is ugly but it avoids pickle to reuse the references of
-            # previously pickled NumpyArrayWrapper. This way, pickled numpy
-            # arrays can be memapped aligned in memory
-            self.clear_memo()
 
             Pickler.save(self, wrapper)
 
