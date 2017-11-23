@@ -430,13 +430,17 @@ def test_dispatch_multiprocessing(backend):
     Parallel(n_jobs=2, batch_size=1, pre_dispatch=3, backend=backend)(
         delayed(consumer)(queue, 'any') for _ in producer())
 
-    # Only 3 tasks are dispatched out of 6. The 4th task is dispatched only
+    queue_contents = list(queue)
+    assert queue_contents[0] == 'Produced 0'
+
+    # Only 3 tasks are pre-dispatched out of 6. The 4th task is dispatched only
     # after any of the first 3 jobs have completed.
-    first_four = list(queue)[:4]
-    # The the first consumption event can sometimes happen before the end of
-    # the dispatching, hence, pop it before introspecting the "Produced" events
-    first_four.remove('Consumed any')
-    assert first_four == ['Produced 0', 'Produced 1', 'Produced 2']
+    first_consumption_index = queue_contents[:4].index('Consumed any')
+    assert first_consumption_index > -1
+
+    produced_3_index = queue_contents.index('Produced 3')  # 4th task produced
+    assert produced_3_index > first_consumption_index
+
     assert len(queue) == 12
 
 
