@@ -16,10 +16,7 @@ env:
     # multiprocesssing disabled via the JOBLIB_MULTIPROCESSING environment variable
     - PYTHON_VERSION="3.6" NUMPY_VERSION="1.11" JOBLIB_MULTIPROCESSING=0 COVERAGE="true"
     # flake8 linting on diff wrt common ancestor with upstream/master
-    # flake8 is only available with python 3.5 at the moment.
-    # flake8 version is temporarily set to 2.5.1 because the next version
-    # available on conda (3.3.0) has a bug that checks non python file
-    - SKIP_TESTS="true" FLAKE8_VERSION="2.5.1" PYTHON_VERSION="3.5"
+    - SKIP_TESTS="true" FLAKE8_VERSION="3.5" PYTHON_VERSION="3.6"
 
 install:
     - source continuous_integration/travis/install.sh
