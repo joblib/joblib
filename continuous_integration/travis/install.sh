@@ -65,7 +65,6 @@ create_new_conda_env() {
         conda remove --yes --features mkl || echo "MKL not installed"
     fi
 
-    # Install pytest with pip to make sure we have pytest >= 3.3.
     pip install pytest
 }
 
