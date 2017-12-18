@@ -7,7 +7,7 @@ from joblib.test.common import setup_autokill
 from joblib.test.common import teardown_autokill
 from joblib.test.common import with_multiprocessing
 from joblib.test.common import with_dev_shm
-from joblib.testing import raises, parametrize
+from joblib.testing import raises, parametrize, skipif
 from joblib.backports import make_memmap
 from joblib.parallel import Parallel, delayed
 
@@ -513,6 +513,8 @@ def test_pool_get_temp_dir(tmpdir):
 
 
 @with_numpy
+@skipif(sys.platform == 'win32', reason='This test is not stable under windows'
+                                        ' for some reason')
 def test_numpy_arrays_use_different_memory():
     def func(arr, value):
         arr[:] = value
