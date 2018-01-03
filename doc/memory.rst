@@ -71,6 +71,10 @@ A simple example:
     Running f(2)
     2
 
+  For persistence across Python sessions, a permanent cache directory
+  should be used instead of a temporary one such as created by
+  ``tempfile.mkdtemp``.
+
 Comparison with `memoize`
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
