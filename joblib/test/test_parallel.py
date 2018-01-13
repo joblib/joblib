@@ -9,6 +9,7 @@ Test the parallel module.
 import os
 import sys
 import time
+import random
 import mmap
 import threading
 from math import sqrt
@@ -974,3 +975,46 @@ def test_backend_batch_statistics_reset(backend):
 
     # Tolerance in the timing comparison to avoid random failures on CIs
     assert test_time / ref_time <= 1 + relative_tolerance
+
+
+@with_multiprocessing
+@parametrize('backend', ['multiprocessing', 'loky'])
+def test_read_output_from_task_generator(backend):
+    """Check that the task generator can read the flow of outputs."""
+
+    def some_function(i):
+        time.sleep(0.001 * random.randint(1, 100))
+        return (i + 1)
+
+    def task_generator(pool, pre_dispatch, batch_size, n_jobs, n_iter):
+        # pre-computed tasks must be ready for pre-dispatch
+        x = -1
+        for i in range(batch_size * eval(pre_dispatch)):
+            x += 1
+            time.sleep(0.001 * random.randint(1, 100))
+            yield 10**(x)
+
+        # now, new tasks can be created from outputs
+        i = 0
+        while i < n_iter:
+            time.sleep(0.01 * random.randint(1, 100))
+            next_element = pool.last_async_output.result()
+            for e in next_element:
+                if i < n_iter:
+                    time.sleep(0.001 * random.randint(1, 100))
+                    i += 1
+                    yield e
+
+    pre_dispatch = '2*n_jobs'
+    batch_size = 3  # batch_size != 'auto'
+    n_jobs = 3
+    n_iter = 20
+
+    pool = Parallel(n_jobs=n_jobs, pre_dispatch=pre_dispatch,
+                    batch_size=batch_size, verbose=0)
+
+    output = pool(delayed(some_function)(i) for i in
+                  task_generator(pool, pre_dispatch, batch_size,
+                                 n_jobs, n_iter))
+
+    assert(len(output) == (n_iter + (batch_size * eval(pre_dispatch))))
