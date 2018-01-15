@@ -357,6 +357,8 @@ class Parallel(Logger):
         mmap_mode: {None, 'r+', 'r', 'w+', 'c'}
             Memmapping mode for numpy arrays passed to workers.
             See 'max_nbytes' parameter documentation for more details.
+        as_generator: bool
+            If True, calls to this instance will return a generator.
 
         Notes
         -----
@@ -477,7 +479,8 @@ class Parallel(Logger):
     '''
     def __init__(self, n_jobs=1, backend=None, verbose=0, timeout=None,
                  pre_dispatch='2 * n_jobs', batch_size='auto',
-                 temp_folder=None, max_nbytes='1M', mmap_mode='r'):
+                 temp_folder=None, max_nbytes='1M', mmap_mode='r',
+                 as_generator=False):
         active_backend, default_n_jobs = get_active_backend()
         if backend is None and n_jobs == 1:
             # If we are under a parallel_backend context manager, look up
@@ -487,6 +490,7 @@ class Parallel(Logger):
         self.verbose = verbose
         self.timeout = timeout
         self.pre_dispatch = pre_dispatch
+        self.as_generator = as_generator
 
         if isinstance(max_nbytes, _basestring):
             max_nbytes = memstr_to_bytes(max_nbytes)
@@ -528,7 +532,6 @@ class Parallel(Logger):
                 % batch_size)
 
         self._backend = backend
-        self._output = None
         self._jobs = list()
         self._managed_backend = False
 
@@ -693,7 +696,7 @@ class Parallel(Logger):
                          ))
 
     def retrieve(self):
-        self._output = list()
+
         while self._iterating or len(self._jobs) > 0:
             if len(self._jobs) == 0:
                 # Wait for an async callback to dispatch new jobs
@@ -707,9 +710,11 @@ class Parallel(Logger):
 
             try:
                 if getattr(self._backend, 'supports_timeout', False):
-                    self._output.extend(job.get(timeout=self.timeout))
+                    res_batch = job.get(timeout=self.timeout)
                 else:
-                    self._output.extend(job.get())
+                    res_batch = job.get()
+                for res in res_batch:
+                    yield res
 
             except BaseException as exception:
                 # Note: we catch any BaseException instead of just Exception
@@ -750,7 +755,7 @@ Sub-process traceback:
 
                     raise exception
 
-    def __call__(self, iterable):
+    def _gen_results(self, iterable):
         if self._jobs:
             raise ValueError('This Parallel instance is already running')
         # A flag used to abort the dispatching of jobs in case an
@@ -805,19 +810,21 @@ Sub-process traceback:
                 # consumption.
                 self._iterating = False
 
-            self.retrieve()
+            for res in self.retrieve():
+                yield res
             # Make sure that we get a last message telling us we are done
             elapsed_time = time.time() - self._start_time
             self._print('Done %3i out of %3i | elapsed: %s finished',
-                        (len(self._output), len(self._output),
+                        (self.n_completed_tasks, self.n_completed_tasks,
                          short_format_time(elapsed_time)))
         finally:
             if not self._managed_backend:
                 self._terminate_backend()
             self._jobs = list()
-        output = self._output
-        self._output = None
-        return output
+
+    def __call__(self, iterable):
+        output = self._gen_results(iterable)
+        return output if self.as_generator else list(output)
 
     def __repr__(self):
         return '%s(n_jobs=%s)' % (self.__class__.__name__, self.n_jobs)
