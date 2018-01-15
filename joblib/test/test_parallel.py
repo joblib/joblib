@@ -978,7 +978,7 @@ def test_backend_batch_statistics_reset(backend):
 
 
 @with_multiprocessing
-@parametrize('backend', ['multiprocessing', 'loky'])
+@parametrize('backend', PARALLEL_BACKENDS)
 def test_read_output_from_task_generator(backend):
     """Check that the task generator can read the flow of outputs."""
 
@@ -998,7 +998,9 @@ def test_read_output_from_task_generator(backend):
         i = 0
         while i < n_iter:
             time.sleep(0.01 * random.randint(1, 100))
-            next_element = pool.last_async_output.result()
+            next_element = pool.last_async_output
+            if hasattr(next_element, 'result'):
+                next_element = next_element.result()
             for e in next_element:
                 if i < n_iter:
                     time.sleep(0.001 * random.randint(1, 100))
@@ -1011,7 +1013,8 @@ def test_read_output_from_task_generator(backend):
     n_iter = 20
 
     pool = Parallel(n_jobs=n_jobs, pre_dispatch=pre_dispatch,
-                    batch_size=batch_size, verbose=0)
+                    batch_size=batch_size, verbose=0,
+                    backend=backend)
 
     output = pool(delayed(some_function)(i) for i in
                   task_generator(pool, pre_dispatch, batch_size,
