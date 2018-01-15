@@ -6,14 +6,14 @@ language: python
 env:
   matrix:
     - PYTHON_VERSION="2.7" NUMPY_VERSION="1.6"
-    - PYTHON_VERSION="2.7" NUMPY_VERSION="1.7" COVERAGE="true"
-    - PYTHON_VERSION="3.4" NUMPY_VERSION="1.9"
+    - PYTHON_VERSION="2.7" NUMPY_VERSION="1.8" COVERAGE="true"
+    - PYTHON_VERSION="3.4" NUMPY_VERSION="1.10"
     # NUMPY_VERSION not set means numpy is not installed
     - PYTHON_VERSION="3.4" COVERAGE="true"
-    - PYTHON_VERSION="3.5" NUMPY_VERSION="1.10"
-    - PYTHON_VERSION="3.6" NUMPY_VERSION="1.11" COVERAGE="true" BUILD_DOC="true"
+    - PYTHON_VERSION="3.5" NUMPY_VERSION="1.12"
+    - PYTHON_VERSION="3.6" NUMPY_VERSION="1.14" COVERAGE="true" BUILD_DOC="true"
     # multiprocesssing disabled via the JOBLIB_MULTIPROCESSING environment variable
-    - PYTHON_VERSION="3.6" NUMPY_VERSION="1.11" JOBLIB_MULTIPROCESSING=0 COVERAGE="true"
+    - PYTHON_VERSION="3.6" NUMPY_VERSION="1.14" JOBLIB_MULTIPROCESSING=0 COVERAGE="true"
     # flake8 linting on diff wrt common ancestor with upstream/master
     - SKIP_TESTS="true" FLAKE8_VERSION="3.5" PYTHON_VERSION="3.6"
 
