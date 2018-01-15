@@ -213,7 +213,7 @@ class BatchCompletionCallBack(object):
         self.parallel = parallel
 
     def __call__(self, out):
-        self.parallel.async_outputs.append(out)
+        self.parallel._async_outputs.append(out)
         self.parallel.n_completed_tasks += self.batch_size
         this_batch_duration = time.time() - self.dispatch_timestamp
 
@@ -533,7 +533,7 @@ class Parallel(Logger):
                 % batch_size)
 
         self._backend = backend
-        self.async_outputs = None
+        self._async_outputs = None
         self._jobs = list()
         self._managed_backend = False
 
@@ -799,7 +799,7 @@ Sub-process traceback:
             # that pre_dispatch == "all", n_jobs == 1 or that the first batch
             # was very quick and its callback already dispatched all the
             # remaining jobs.
-            self.async_outputs = list()
+            self._async_outputs = list()
             self._iterating = False
             if self.dispatch_one_batch(iterator):
                 self._iterating = self._original_iterator is not None
@@ -824,7 +824,10 @@ Sub-process traceback:
             if not self._managed_backend:
                 self._terminate_backend()
             self._jobs = list()
-            self.async_outputs = None
+            self._async_outputs = None
+
+    def get_current_async_results(self):
+        return self._async_outputs
 
     def __call__(self, iterable):
         output = self._gen_results(iterable)

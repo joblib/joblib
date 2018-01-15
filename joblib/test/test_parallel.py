@@ -998,7 +998,7 @@ def test_read_output_from_task_generator(backend):
         i = 0
         while i < n_iter:
             time.sleep(0.01 * random.randint(1, 100))
-            next_element = pool.async_outputs[-1]
+            next_element = pool.get_current_async_results()[-1]
             if hasattr(next_element, 'result'):
                 next_element = next_element.result()
             for e in next_element:
