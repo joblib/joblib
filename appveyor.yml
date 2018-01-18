@@ -42,16 +42,10 @@ artifacts:
 
 on_success:
   # - TODO: upload the content of dist/*.whl to a public wheelhouse
-  # - ps: ls .coverage*
-  # running joblib tests with coverage enabled produces empty .coverage.* files
+  - ps: ls .coverage*
+  # Running joblib tests with coverage enabled produces empty .coverage.* files
   # when starting subprocesses. They prevent proper combinations of .coverage.*
-  # files through "coverage combine" (run under the hood by codecov >= 2.0.13)
+  # files through "coverage combine" (run under the hood by codecov >= 2.0.13).
   # The next line cleans up empty .coverage.* files
   - ps: Get-ChildItem -Path .coverage.* | where {$_.length -eq 0} | remove-Item
-  # - ps: ls .coverage*
-  # - coverage report
-  # explicitly run coverage combine -a otherwise codecov runs coverage combine
-  # and overrides .coverage
-  - coverage combine -a
-  # - coverage report
   - codecov
