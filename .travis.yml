@@ -30,15 +30,11 @@ after_success:
     - |
       if [[ "$COVERAGE" == "true" ]]; then
           ls -ltrh .coverage*
-          # running joblib tests with coverage enabled produces empty .coverage.*
-          # files when starting subprocesses. They prevent proper combinations of
-          # .coverage.* files through "coverage combine" (run under the hood by
-          # codecov >= 2.0.13) The next line cleans up empty .coverage.* files
+          # Running joblib tests with coverage enabled produces empty
+          # .coverage.* files when starting subprocesses. They prevent proper
+          # combinations of .coverage.* files through "coverage combine" (run
+          # under the hood by codecov >= 2.0.13). The next line cleans up empty
+          # .coverage.* files
           find -name '.coverage.*' -size 0 -delete
-          # coverage report || true
-          # explicitly run coverage combine -a otherwise codecov runs coverage
-          # combine and overrides .coverage
-          coverage combine -a || true
-          # coverage report || true
           codecov
       fi
