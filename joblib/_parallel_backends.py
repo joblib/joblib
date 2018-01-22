@@ -133,6 +133,9 @@ class SequentialBackend(ParallelBackendBase):
     overhead. Used when n_jobs == 1.
     """
 
+    use_threads = True
+    supports_sharedmem = True
+
     def effective_n_jobs(self, n_jobs):
         """Determine the number of jobs which are going to run in parallel"""
         if n_jobs == 0:
@@ -211,7 +214,6 @@ class AutoBatchingMixin(object):
     def __init__(self):
         self._effective_batch_size = self._DEFAULT_EFFECTIVE_BATCH_SIZE
         self._smoothed_batch_duration = self._DEFAULT_SMOOTHED_BATCH_DURATION
-
 
     def compute_batch_size(self):
         """Determine the optimal batch size"""
@@ -301,6 +303,8 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
     """
 
     supports_timeout = True
+    use_threads = True
+    supports_sharedmem = True
 
     def configure(self, n_jobs=1, parallel=None, **backend_args):
         """Build a process or thread pool and return the number of workers"""

@@ -50,6 +50,7 @@ except ImportError:
 from joblib._parallel_backends import SequentialBackend
 from joblib._parallel_backends import ThreadingBackend
 from joblib._parallel_backends import MultiprocessingBackend
+from joblib._parallel_backends import ParallelBackendBase
 from joblib._parallel_backends import LokyBackend
 from joblib._parallel_backends import SafeFunction
 from joblib._parallel_backends import WorkerInterrupt
@@ -1015,3 +1016,66 @@ def test_backend_batch_statistics_reset(backend):
 
     # Tolerance in the timing comparison to avoid random failures on CIs
     assert test_time / ref_time <= 1 + relative_tolerance
+
+
+def test_backend_hinting_and_constraints():
+    for n_jobs in [1, 2, -1]:
+        assert type(Parallel(n_jobs=n_jobs)._backend) == LokyBackend
+
+        p = Parallel(n_jobs=n_jobs, prefer_threads=True)
+        assert type(p._backend) == ThreadingBackend
+
+        p = Parallel(n_jobs=n_jobs, prefer_threads=False)
+        assert type(p._backend) == LokyBackend
+
+        p = Parallel(n_jobs=n_jobs, require_sharedmem=True)
+        assert type(p._backend) == ThreadingBackend
+
+    with raises(ValueError):
+        # It is inconsistent to prefer process-based parallelism while
+        # requiring shared memory semantics.
+        Parallel(prefer_threads=False, require_sharedmem=True)
+
+    # It is inconsistent to ask explictly for a process-based parallelism
+    # while requiring shared memory semantics.
+    with raises(ValueError):
+        Parallel(backend='loky', require_sharedmem=True)
+    with raises(ValueError):
+        Parallel(backend='multiprocessing', require_sharedmem=True)
+
+    # Explicit backend selection can override backend hinting although it
+    # is useless to pass a hint when selecting a backend.
+    p = Parallel(n_jobs=2, backend='loky', prefer_threads=True)
+    assert type(p._backend) == LokyBackend
+
+    with parallel_backend('loky'):
+        # Explicit backend selection by the user with the context manager
+        # should be respected when combined with backend hints only.
+        p = Parallel(n_jobs=2, prefer_threads=True)
+        assert type(p._backend) == LokyBackend
+
+    with parallel_backend('loky'):
+        # Explicit backend selection by the user with the context manager
+        # should be ignored when the Parallel call has hard constraints.
+        # In this case
+        p = Parallel(n_jobs=2, require_sharedmem=True)
+        assert type(p._backend) == ThreadingBackend
+
+    # Custom backends can declare that they use threads and have shared memory
+    # semantics:
+    class MyCustomBackend(ParallelBackendBase):
+        supports_sharedmem = True
+        use_threads = True
+
+        def apply_async(self):
+            pass
+
+        def effective_n_jobs(self, n_jobs):
+            return n_jobs
+
+    with parallel_backend(MyCustomBackend()):
+        p = Parallel(n_jobs=2, prefer_threads=False)
+        assert type(p._backend) == MyCustomBackend
+
+        p = Parallel(n_jobs=2, require_sharedmem=True)
+        assert type(p._backend) == MyCustomBackend
