@@ -59,8 +59,7 @@ Main features
    computation to disk and rerun it only if necessary::
 
       >>> from joblib import Memory
-      >>> import tempfile
-      >>> cachedir = tempfile.mkdtemp(prefix='tmp-joblib')
+      >>> cachedir = 'your_cache_dir_goes_here'
       >>> mem = Memory(cachedir=cachedir)
       >>> import numpy as np
       >>> a = np.vander(np.arange(3)).astype(np.float)
