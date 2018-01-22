@@ -23,6 +23,7 @@ def sum_row(input, output, i):
     print("[Worker %d] Sum for row %d is %f" % (os.getpid(), i, sum_))
     output[i] = sum_
 
+
 # trick such that we can pickle this function when building the doc with
 # sphinx-gallery. Note that this line is not required when running this
 # file as a script
