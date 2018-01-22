@@ -59,16 +59,18 @@ Main features
    computation to disk and rerun it only if necessary::
 
       >>> from joblib import Memory
-      >>> mem = Memory(cachedir='/tmp/joblib')
+      >>> import tempfile
+      >>> cachedir = tempfile.mkdtemp(prefix='tmp-joblib')
+      >>> mem = Memory(cachedir=cachedir)
       >>> import numpy as np
       >>> a = np.vander(np.arange(3)).astype(np.float)
       >>> square = mem.cache(np.square)
       >>> b = square(a)                                   # doctest: +ELLIPSIS
       ________________________________________________________________________________
       [Memory] Calling square...
-      square(array([[ 0.,  0.,  1.],
-             [ 1.,  1.,  1.],
-             [ 4.,  2.,  1.]]))
+      square(array([[0., 0., 1.],
+             [1., 1., 1.],
+             [4., 2., 1.]]))
       ___________________________________________________________square - 0...s, 0.0min
 
       >>> c = square(a)
@@ -95,7 +97,7 @@ Main features
    *joblib.dump* & *joblib.load* ).
 
 ..
-    >>> import shutil ; shutil.rmtree('/tmp/joblib/')
+    >>> import shutil ; shutil.rmtree(cachedir)
 
 """
 

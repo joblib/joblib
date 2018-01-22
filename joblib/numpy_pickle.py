@@ -209,7 +209,7 @@ class NumpyPickler(Pickler):
     ----------
     fp: file
         File object handle used for serializing the input object.
-    protocol: int
+    protocol: int, optional
         Pickle protocol used. Default is pickle.DEFAULT_PROTOCOL under
         python 3, pickle.HIGHEST_PROTOCOL otherwise.
     """
@@ -357,10 +357,11 @@ def dump(value, filename, compress=0, protocol=None, cache_size=None):
     -----------
     value: any Python object
         The object to store to disk.
-    filename: str or pathlib.Path
-        The path of the file in which it is to be stored. The compression
-        method corresponding to one of the supported filename extensions ('.z',
-        '.gz', '.bz2', '.xz' or '.lzma') will be used automatically.
+    filename: str, pathlib.Path, or file object.
+        The file object or path of the file in which it is to be stored.
+        The compression method corresponding to one of the supported filename
+        extensions ('.z', '.gz', '.bz2', '.xz' or '.lzma') will be used
+        automatically.
     compress: int from 0 to 9 or bool or 2-tuple, optional
         Optional compression level for the data. 0 or False is no compression.
         Higher value means more compression, but also slower read and
@@ -371,7 +372,7 @@ def dump(value, filename, compress=0, protocol=None, cache_size=None):
         between supported compressors (e.g 'zlib', 'gzip', 'bz2', 'lzma'
         'xz'), the second element must be an integer from 0 to 9, corresponding
         to the compression level.
-    protocol: positive int
+    protocol: int, optional
         Pickle protocol, see pickle.dump documentation for more details.
     cache_size: positive int, optional
         This option is deprecated in 0.10 and has no effect.
@@ -532,8 +533,8 @@ def load(filename, mmap_mode=None):
 
     Parameters
     -----------
-    filename: str or pathlib.Path
-        The path of the file from which to load the object
+    filename: str, pathlib.Path, or file object.
+        The file object or path of the file from which to load the object
     mmap_mode: {None, 'r+', 'r', 'w+', 'c'}, optional
         If not None, the arrays are memory-mapped from the disk. This
         mode has no effect for compressed files. Note that in this

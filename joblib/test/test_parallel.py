@@ -427,13 +427,17 @@ def test_dispatch_multiprocessing(backend):
     Parallel(n_jobs=2, batch_size=1, pre_dispatch=3, backend=backend)(
         delayed(consumer)(queue, 'any') for _ in producer())
 
-    # Only 3 tasks are dispatched out of 6. The 4th task is dispatched only
+    queue_contents = list(queue)
+    assert queue_contents[0] == 'Produced 0'
+
+    # Only 3 tasks are pre-dispatched out of 6. The 4th task is dispatched only
     # after any of the first 3 jobs have completed.
-    first_four = list(queue)[:4]
-    # The the first consumption event can sometimes happen before the end of
-    # the dispatching, hence, pop it before introspecting the "Produced" events
-    first_four.remove('Consumed any')
-    assert first_four == ['Produced 0', 'Produced 1', 'Produced 2']
+    first_consumption_index = queue_contents[:4].index('Consumed any')
+    assert first_consumption_index > -1
+
+    produced_3_index = queue_contents.index('Produced 3')  # 4th task produced
+    assert produced_3_index > first_consumption_index
+
     assert len(queue) == 12
 
 
@@ -956,3 +960,33 @@ def test_delayed_check_pickle_deprecated():
     with warns(DeprecationWarning):
         with raises(ValueError):
             delayed(UnpicklableCallable(), check_pickle=True)
+
+
+@with_multiprocessing
+@parametrize('backend', ['multiprocessing', 'loky'])
+def test_backend_batch_statistics_reset(backend):
+    """Test that a parallel backend correctly resets its batch statistics."""
+    relative_tolerance = 0.2
+    n_jobs = 2
+    n_inputs = 500
+    task_time = 2. / n_inputs
+
+    p = Parallel(verbose=10, n_jobs=n_jobs, backend=backend)
+    start_time = time.time()
+    p(delayed(time.sleep)(task_time) for i in range(n_inputs))
+    ref_time = time.time() - start_time
+    assert (p._backend._effective_batch_size ==
+            p._backend._DEFAULT_EFFECTIVE_BATCH_SIZE)
+    assert (p._backend._smoothed_batch_duration ==
+            p._backend._DEFAULT_SMOOTHED_BATCH_DURATION)
+
+    start_time = time.time()
+    p(delayed(time.sleep)(task_time) for i in range(n_inputs))
+    test_time = time.time() - start_time
+    assert (p._backend._effective_batch_size ==
+            p._backend._DEFAULT_EFFECTIVE_BATCH_SIZE)
+    assert (p._backend._smoothed_batch_duration ==
+            p._backend._DEFAULT_SMOOTHED_BATCH_DURATION)
+
+    # Tolerance in the timing comparison to avoid random failures on CIs
+    assert test_time / ref_time <= 1 + relative_tolerance

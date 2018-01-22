@@ -6,20 +6,16 @@ language: python
 env:
   matrix:
     - PYTHON_VERSION="2.7" NUMPY_VERSION="1.6"
-    - PYTHON_VERSION="2.7" NUMPY_VERSION="1.7" COVERAGE="true"
-    - PYTHON_VERSION="3.3" NUMPY_VERSION="1.8"
-    - PYTHON_VERSION="3.4" NUMPY_VERSION="1.9"
+    - PYTHON_VERSION="2.7" NUMPY_VERSION="1.8" COVERAGE="true"
+    - PYTHON_VERSION="3.4" NUMPY_VERSION="1.10"
     # NUMPY_VERSION not set means numpy is not installed
     - PYTHON_VERSION="3.4" COVERAGE="true"
-    - PYTHON_VERSION="3.5" NUMPY_VERSION="1.10"
-    - PYTHON_VERSION="3.6" NUMPY_VERSION="1.11" COVERAGE="true" BUILD_DOC="true"
+    - PYTHON_VERSION="3.5" NUMPY_VERSION="1.12"
+    - PYTHON_VERSION="3.6" NUMPY_VERSION="1.14" COVERAGE="true" BUILD_DOC="true"
     # multiprocesssing disabled via the JOBLIB_MULTIPROCESSING environment variable
-    - PYTHON_VERSION="3.6" NUMPY_VERSION="1.11" JOBLIB_MULTIPROCESSING=0 COVERAGE="true"
+    - PYTHON_VERSION="3.6" NUMPY_VERSION="1.14" JOBLIB_MULTIPROCESSING=0 COVERAGE="true"
     # flake8 linting on diff wrt common ancestor with upstream/master
-    # flake8 is only available with python 3.5 at the moment.
-    # flake8 version is temporarily set to 2.5.1 because the next version
-    # available on conda (3.3.0) has a bug that checks non python file
-    - SKIP_TESTS="true" FLAKE8_VERSION="2.5.1" PYTHON_VERSION="3.5"
+    - SKIP_TESTS="true" FLAKE8_VERSION="3.5" PYTHON_VERSION="3.6"
 
 install:
     - source continuous_integration/travis/install.sh
@@ -31,4 +27,14 @@ after_success:
     # Ignore codecov failures because we don't want travis to report a
     # failure in the github UI just because the coverage report failed
     # to be published.
-    - if [[ "$COVERAGE" == "true" ]]; then codecov || echo "failed"; fi
+    - |
+      if [[ "$COVERAGE" == "true" ]]; then
+          ls -ltrh .coverage*
+          # Running joblib tests with coverage enabled produces empty
+          # .coverage.* files when starting subprocesses. They prevent proper
+          # combinations of .coverage.* files through "coverage combine" (run
+          # under the hood by codecov >= 2.0.13). The next line cleans up empty
+          # .coverage.* files
+          find -name '.coverage.*' -size 0 -delete
+          codecov
+      fi
