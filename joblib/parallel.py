@@ -53,17 +53,17 @@ DEFAULT_THREAD_BACKEND = 'threading'
 _backend = threading.local()
 
 
-def get_active_backend(prefer_threads=None, require_sharedmem=False):
+def get_active_backend(prefer=None, require=None):
     """Return the active default backend"""
-    if prefer_threads is False and require_sharedmem:
-        raise ValueError("prefer_threads=False and require_sharedmem=True"
+    if prefer == 'processes' and require == 'sharedmem':
+        raise ValueError("prefer == 'processes' and require == 'sharedmem'"
                          " are inconsistent settings")
     backend_and_jobs = getattr(_backend, 'backend_and_jobs', None)
     if backend_and_jobs is not None:
         # Try to use the backend set by the user with the context manager.
         backend, n_jobs = backend_and_jobs
         supports_sharedmem = getattr(backend, 'supports_sharedmem', False)
-        if require_sharedmem and not supports_sharedmem:
+        if require == 'sharedmem' and not supports_sharedmem:
             # This backend does not match the shared memory constraint:
             # fallback to the default thead-based backend.
             backend = BACKENDS[DEFAULT_THREAD_BACKEND]()
@@ -76,8 +76,8 @@ def get_active_backend(prefer_threads=None, require_sharedmem=False):
     backend = BACKENDS[DEFAULT_BACKEND]()
     supports_sharedmem = getattr(backend, 'supports_sharedmem', False)
     use_threads = getattr(backend, 'use_threads', False)
-    if ((require_sharedmem and not supports_sharedmem) or
-            (prefer_threads and not use_threads)):
+    if ((require == 'sharedmem' and not supports_sharedmem) or
+            (prefer == 'threads' and not use_threads)):
         # Make sure the selected default backend match the soft hints and
         # hard constraints:
         backend = BACKENDS[DEFAULT_THREAD_BACKEND]()
@@ -502,10 +502,9 @@ class Parallel(Logger):
     def __init__(self, n_jobs=1, backend=None, verbose=0, timeout=None,
                  pre_dispatch='2 * n_jobs', batch_size='auto',
                  temp_folder=None, max_nbytes='1M', mmap_mode='r',
-                 prefer_threads=None, require_sharedmem=False):
+                 prefer=None, require=False):
         active_backend, default_n_jobs = get_active_backend(
-            prefer_threads=prefer_threads,
-            require_sharedmem=require_sharedmem)
+            prefer=prefer, require=require)
         if backend is None and n_jobs == 1:
             # If we are under a parallel_backend context manager, look up
             # the default number of jobs and use that instead:
@@ -546,7 +545,7 @@ class Parallel(Logger):
                                  % (backend, sorted(BACKENDS.keys())))
             backend = backend_factory()
 
-        if (require_sharedmem and
+        if (require == 'sharedmem' and
                 not getattr(backend, 'supports_sharedmem', False)):
             raise ValueError("Backend %s does not support shared memory"
                              % backend)
