@@ -54,7 +54,8 @@ class ParallelBackendBase(with_metaclass(ABCMeta)):
     def apply_async(self, func, callback=None):
         """Schedule a func to be run"""
 
-    def configure(self, n_jobs=1, parallel=None, **backend_args):
+    def configure(self, n_jobs=1, parallel=None, prefer=None, require=None,
+                  **backend_args):
         """Reconfigure the backend and return the number of workers.
 
         This makes it possible to reuse an existing backend instance for
@@ -132,6 +133,9 @@ class SequentialBackend(ParallelBackendBase):
     Does not use/create any threading objects, and hence has minimal
     overhead. Used when n_jobs == 1.
     """
+
+    use_threads = True
+    supports_sharedmem = True
 
     def effective_n_jobs(self, n_jobs):
         """Determine the number of jobs which are going to run in parallel"""
@@ -211,7 +215,6 @@ class AutoBatchingMixin(object):
     def __init__(self):
         self._effective_batch_size = self._DEFAULT_EFFECTIVE_BATCH_SIZE
         self._smoothed_batch_duration = self._DEFAULT_SMOOTHED_BATCH_DURATION
-
 
     def compute_batch_size(self):
         """Determine the optimal batch size"""
@@ -301,6 +304,8 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
     """
 
     supports_timeout = True
+    use_threads = True
+    supports_sharedmem = True
 
     def configure(self, n_jobs=1, parallel=None, **backend_args):
         """Build a process or thread pool and return the number of workers"""
@@ -375,7 +380,8 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
 
         return super(MultiprocessingBackend, self).effective_n_jobs(n_jobs)
 
-    def configure(self, n_jobs=1, parallel=None, **backend_args):
+    def configure(self, n_jobs=1, parallel=None, prefer=None, require=None,
+                  **memmappingpool_args):
         """Build a process or thread pool and return the number of workers"""
         n_jobs = self.effective_n_jobs(n_jobs)
         if n_jobs == 1:
@@ -396,7 +402,7 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
 
         # Make sure to free as much memory as possible before forking
         gc.collect()
-        self._pool = MemmappingPool(n_jobs, **backend_args)
+        self._pool = MemmappingPool(n_jobs, **memmappingpool_args)
         self.parallel = parallel
         return n_jobs
 
@@ -414,13 +420,15 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
 
     supports_timeout = True
 
-    def configure(self, n_jobs=1, parallel=None, **backend_args):
+    def configure(self, n_jobs=1, parallel=None, prefer=None, require=None,
+                  **memmappingexecutor_args):
         """Build a process executor and return the number of workers"""
         n_jobs = self.effective_n_jobs(n_jobs)
         if n_jobs == 1:
             raise FallbackToBackend(SequentialBackend())
 
-        self._workers = get_memmapping_executor(n_jobs, **backend_args)
+        self._workers = get_memmapping_executor(
+            n_jobs, **memmappingexecutor_args)
         self.parallel = parallel
         return n_jobs
 

@@ -22,6 +22,10 @@ Olivier Grisel
     docker containers ``/dev/shm`` is only 64 MB by default which would cause
     frequent failures when running joblib in Docker containers.
 
+    Make it possible to hint for thread-based parallelism with
+    ``prefer='threads'`` or enforce shared-memory semantics with
+    ``require='sharedmem'``.
+
 
 Release 0.11
 ------------
