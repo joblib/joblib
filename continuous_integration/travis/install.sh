@@ -85,6 +85,7 @@ fi
 
 if [[ "$BUILD_DOC" == "true" ]]; then
     conda install sphinx --yes
+    pip install sphinx-gallery
     python setup.py build_sphinx
 fi
 
