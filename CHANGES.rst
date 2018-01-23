@@ -9,6 +9,10 @@ Olivier Grisel
     Make Memory.cache robust to PermissionError (errno 13) under Windows
     when run in combination with Parallel.
 
+    Make it possible to hint for thread-based parallelism with
+    ``prefer='threads'`` or enforce shared-memory semantics with
+    ``require='sharedmem'``.
+
 
 Release 0.11
 ------------
