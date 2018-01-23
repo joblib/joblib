@@ -5,7 +5,7 @@ machine:
 
 dependencies:
   override:
-    - ./build_tools/circle/build_doc.sh:
+    - ./continuous_integration/circle/build_doc.sh:
         timeout: 3600 # seconds
 test:
   override:
