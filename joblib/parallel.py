@@ -56,7 +56,7 @@ VALID_BACKEND_HINTS = ('processes', 'threads', None)
 VALID_BACKEND_CONSTRAINTS = ('sharedmem', None)
 
 
-def get_active_backend(prefer=None, require=None):
+def get_active_backend(prefer=None, require=None, verbose=0):
     """Return the active default backend"""
     if prefer not in VALID_BACKEND_HINTS:
         raise ValueError("prefer=%r is not a valid backend hint, "
@@ -77,8 +77,12 @@ def get_active_backend(prefer=None, require=None):
         if require == 'sharedmem' and not supports_sharedmem:
             # This backend does not match the shared memory constraint:
             # fallback to the default thead-based backend.
-            backend = BACKENDS[DEFAULT_THREAD_BACKEND]()
-            return backend, n_jobs
+            sharedmem_backend = BACKENDS[DEFAULT_THREAD_BACKEND]()
+            if verbose >= 10:
+                print("Using %s as joblib.Parallel backend instead of %s "
+                      "as the latter does not provide shared memory semantics."
+                      % (sharedmem_backend, backend))
+            return sharedmem_backend, n_jobs
         else:
             return backend_and_jobs
 
@@ -532,7 +536,7 @@ class Parallel(Logger):
                  temp_folder=None, max_nbytes='1M', mmap_mode='r',
                  prefer=None, require=None):
         active_backend, default_n_jobs = get_active_backend(
-            prefer=prefer, require=require)
+            prefer=prefer, require=require, verbose=verbose)
         if backend is None and n_jobs == 1:
             # If we are under a parallel_backend context manager, look up
             # the default number of jobs and use that instead:
