@@ -15,15 +15,6 @@ location of the signal.
 """
 from __future__ import division
 
-import os
-import time
-import gc
-import numpy as np
-from memory_profiler import memory_usage
-
-import joblib
-from joblib import Parallel, delayed
-
 print(__doc__)
 
 ###############################################################################
@@ -31,6 +22,9 @@ print(__doc__)
 # extensively later on. The former function allows to track the memory
 # consumption during the call of a function while the latter output profiling
 # information.
+
+import gc
+from memory_profiler import memory_usage
 
 
 def memory_used(func, *args, **kwargs):
@@ -41,12 +35,9 @@ def memory_used(func, *args, **kwargs):
 
 
 def print_info(mem_used_avg, elapsed_time):
-    print('-' * 79)
     print('Memory used by cropping the signal in the parent'
           ' function: {:.2f} MiB'.format(mem_used_avg))
-    print('Elasped processing time: {:.2f} s'.format(elapsed_time))
-    print('-' * 79)
-    print('\n')
+    print('Elasped processing time: {:.2f} s\n'.format(elapsed_time))
 
 
 ###############################################################################
@@ -55,6 +46,7 @@ def print_info(mem_used_avg, elapsed_time):
 # using a specific window size (i.e. `window_size`). To speed-up the execution,
 # we under-sample the number of slices to evaluate.
 
+import numpy as np
 
 signal = np.random.random((10000000,))
 window_size = 500000
@@ -70,6 +62,9 @@ n_iter = 10
 # array passed as argument. Therefore, all arrays passed to the
 # `moving_average` function will always be different and it will not be able to
 # share memory between the workers.
+
+import time
+from joblib import Parallel, delayed
 
 
 def process_cropping(signal, window_size, slices):
@@ -118,6 +113,9 @@ print_info(np.mean(mem_used), (toc - tic) / n_iter)
 # shared. However, computing an hash on large amount of data is costly. The
 # solution to avoid such checking is to manually memmap the input data and give
 # directly it directly to :class:`joblib.Parallel`.
+
+import os
+import joblib
 
 filename_memmap = 'signal.pkl'
 joblib.dump(signal, filename_memmap)
