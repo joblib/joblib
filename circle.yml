@@ -1,0 +1,17 @@
+machine:
+  environment:
+    MINICONDA_PATH: $HOME/miniconda
+    CONDA_ENV_NAME: testenv
+
+dependencies:
+  override:
+    - ./continuous_integration/circle/build_doc.sh:
+        timeout: 3600 # seconds
+test:
+  override:
+    - cat ~/log.txt && if grep -q "Traceback (most recent call last):" ~/log.txt; then false; else true; fi
+
+general:
+  artifacts:
+    - "build/sphinx/html"
+    - "~/log.txt"
