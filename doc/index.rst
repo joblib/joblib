@@ -47,6 +47,7 @@ User manual
     memory.rst
     parallel.rst
     persistence.rst
+    auto_examples/index
     developing.rst
 
 Module reference

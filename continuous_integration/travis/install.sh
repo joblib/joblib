@@ -83,9 +83,10 @@ if [[ "$COVERAGE" == "true" ]]; then
     pip install pytest-cov codecov
 fi
 
+python setup.py install
+
 if [[ "$BUILD_DOC" == "true" ]]; then
-    conda install sphinx --yes
+    conda install sphinx matplotlib pillow --yes
+    pip install sphinx-gallery
     python setup.py build_sphinx
 fi
-
-python setup.py install

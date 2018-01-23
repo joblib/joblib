@@ -32,9 +32,27 @@ sys.path.append(os.path.abspath('./sphinxext'))
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 
 extensions = ['sphinx.ext.autodoc', 'sphinx.ext.imgmath', 'numpydoc',
-              'sphinx.ext.autosummary', 'sphinx.ext.coverage']
+              'sphinx.ext.autosummary', 'sphinx.ext.coverage',
+              'sphinx.ext.intersphinx', 'sphinx_gallery.gen_gallery']
 
 autosummary_generate = True
+
+# intersphinx configuration
+intersphinx_mapping = {
+    'python': ('https://docs.python.org/{.major}'.format(
+        sys.version_info), None),
+    'numpy': ('https://docs.scipy.org/doc/numpy/', None),
+    'scipy': ('https://docs.scipy.org/doc/scipy/reference', None),
+}
+
+# sphinx-gallery configuration
+sphinx_gallery_conf = {
+    'doc_module': 'joblib',
+    'filename_pattern': '',
+    'backreferences_dir': os.path.join('generated'),
+    'reference_url': {
+        'joblib': None}
+}
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -221,6 +239,7 @@ html_theme_options = {
     "headtextcolor": "#643200",
     "codebgcolor": "#f5efe7",
 }
+
 
 ##############################################################################
 # Hack to copy the CHANGES.rst file

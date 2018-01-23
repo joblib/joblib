@@ -133,11 +133,8 @@ its results directly to the original data, alleviating the need of the
 serialization to send back the results to the parent process.
 
 Here is an example script on parallel processing with preallocated
-``numpy.memmap`` datastructures:
-
-.. literalinclude:: ../examples/parallel_memmap.py
-   :language: python
-   :linenos:
+``numpy.memmap`` datastructures
+:ref:`sphx_glr_auto_examples_parallel_memmap.py`.
 
 .. warning::
 
