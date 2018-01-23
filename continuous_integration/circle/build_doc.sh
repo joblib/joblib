@@ -16,7 +16,7 @@ conda update --yes --quiet conda
 conda create -n $CONDA_ENV_NAME --yes --quiet python=3
 source activate $CONDA_ENV_NAME
 
-conda install --yes pip numpy sphinx matplotlib pillow
+conda install --yes --quiet pip numpy sphinx matplotlib pillow memory_profiler
 pip install sphinx-gallery
 
 cd "$HOME/$CIRCLE_PROJECT_REPONAME"
