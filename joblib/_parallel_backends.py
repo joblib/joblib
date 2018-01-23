@@ -380,7 +380,8 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
 
         return super(MultiprocessingBackend, self).effective_n_jobs(n_jobs)
 
-    def configure(self, n_jobs=1, parallel=None, **backend_args):
+    def configure(self, n_jobs=1, parallel=None, prefer=None, require=None,
+                  **memmappingpool_args):
         """Build a process or thread pool and return the number of workers"""
         n_jobs = self.effective_n_jobs(n_jobs)
         if n_jobs == 1:
@@ -401,7 +402,7 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
 
         # Make sure to free as much memory as possible before forking
         gc.collect()
-        self._pool = MemmappingPool(n_jobs, **backend_args)
+        self._pool = MemmappingPool(n_jobs, **memmappingpool_args)
         self.parallel = parallel
         return n_jobs
 
@@ -419,13 +420,15 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
 
     supports_timeout = True
 
-    def configure(self, n_jobs=1, parallel=None, **backend_args):
+    def configure(self, n_jobs=1, parallel=None, prefer=None, require=None,
+                  **memmappingexecutor_args):
         """Build a process executor and return the number of workers"""
         n_jobs = self.effective_n_jobs(n_jobs)
         if n_jobs == 1:
             raise FallbackToBackend(SequentialBackend())
 
-        self._workers = get_memmapping_executor(n_jobs, **backend_args)
+        self._workers = get_memmapping_executor(
+            n_jobs, **memmappingexecutor_args)
         self.parallel = parallel
         return n_jobs
 
