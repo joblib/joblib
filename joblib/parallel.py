@@ -52,9 +52,20 @@ DEFAULT_THREAD_BACKEND = 'threading'
 # manager
 _backend = threading.local()
 
+VALID_BACKEND_HINTS = ('processes', 'threads', None)
+VALID_BACKEND_CONSTRAINTS = ('sharedmem', None)
+
 
 def get_active_backend(prefer=None, require=None):
     """Return the active default backend"""
+    if prefer not in VALID_BACKEND_HINTS:
+        raise ValueError("prefer=%r is not a valid backend hint, "
+                         "expected one of %r" % (prefer, VALID_BACKEND_HINTS))
+    if require not in VALID_BACKEND_CONSTRAINTS:
+        raise ValueError("require=%r is not a valid backend constraint, "
+                         "expected one of %r"
+                         % (require, VALID_BACKEND_CONSTRAINTS))
+
     if prefer == 'processes' and require == 'sharedmem':
         raise ValueError("prefer == 'processes' and require == 'sharedmem'"
                          " are inconsistent settings")
@@ -518,7 +529,7 @@ class Parallel(Logger):
     def __init__(self, n_jobs=1, backend=None, verbose=0, timeout=None,
                  pre_dispatch='2 * n_jobs', batch_size='auto',
                  temp_folder=None, max_nbytes='1M', mmap_mode='r',
-                 prefer=None, require=False):
+                 prefer=None, require=None):
         active_backend, default_n_jobs = get_active_backend(
             prefer=prefer, require=require)
         if backend is None and n_jobs == 1:

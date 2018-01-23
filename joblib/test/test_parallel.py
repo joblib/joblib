@@ -1031,18 +1031,6 @@ def test_backend_hinting_and_constraints():
         p = Parallel(n_jobs=n_jobs, require='sharedmem')
         assert type(p._backend) == ThreadingBackend
 
-    with raises(ValueError):
-        # It is inconsistent to prefer process-based parallelism while
-        # requiring shared memory semantics.
-        Parallel(prefer='processes', require='sharedmem')
-
-    # It is inconsistent to ask explictly for a process-based parallelism
-    # while requiring shared memory semantics.
-    with raises(ValueError):
-        Parallel(backend='loky', require='sharedmem')
-    with raises(ValueError):
-        Parallel(backend='multiprocessing', require='sharedmem')
-
     # Explicit backend selection can override backend hinting although it
     # is useless to pass a hint when selecting a backend.
     p = Parallel(n_jobs=2, backend='loky', prefer='threads')
@@ -1061,6 +1049,8 @@ def test_backend_hinting_and_constraints():
         p = Parallel(n_jobs=2, require='sharedmem')
         assert type(p._backend) == ThreadingBackend
 
+
+def test_backend_hinting_and_constraints_with_custom_backends():
     # Custom backends can declare that they use threads and have shared memory
     # semantics:
     class MyCustomThreadingBackend(ParallelBackendBase):
@@ -1099,3 +1089,23 @@ def test_backend_hinting_and_constraints():
 
     with raises(ValueError):
         Parallel(backend=MyCustomProcessingBackend(), require='sharedmem')
+
+
+def test_invalid_backend_hinting_and_constraints():
+    with raises(ValueError):
+        Parallel(prefer='invalid')
+
+    with raises(ValueError):
+        Parallel(require='invalid')
+
+    with raises(ValueError):
+        # It is inconsistent to prefer process-based parallelism while
+        # requiring shared memory semantics.
+        Parallel(prefer='processes', require='sharedmem')
+
+    # It is inconsistent to ask explictly for a process-based parallelism
+    # while requiring shared memory semantics.
+    with raises(ValueError):
+        Parallel(backend='loky', require='sharedmem')
+    with raises(ValueError):
+        Parallel(backend='multiprocessing', require='sharedmem')
