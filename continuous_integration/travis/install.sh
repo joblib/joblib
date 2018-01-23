@@ -84,7 +84,7 @@ if [[ "$COVERAGE" == "true" ]]; then
 fi
 
 if [[ "$BUILD_DOC" == "true" ]]; then
-    conda install sphinx --yes
+    conda install sphinx matplotlib pillow --yes
     pip install sphinx-gallery
     python setup.py build_sphinx
 fi
