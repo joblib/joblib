@@ -54,7 +54,8 @@ class ParallelBackendBase(with_metaclass(ABCMeta)):
     def apply_async(self, func, callback=None):
         """Schedule a func to be run"""
 
-    def configure(self, n_jobs=1, parallel=None, **backend_args):
+    def configure(self, n_jobs=1, parallel=None, prefer=None, require=None,
+                  **backend_args):
         """Reconfigure the backend and return the number of workers.
 
         This makes it possible to reuse an existing backend instance for

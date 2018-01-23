@@ -311,8 +311,7 @@ class Parallel(Logger):
             is used at all, which is useful for debugging. For n_jobs below -1,
             (n_cpus + 1 + n_jobs) are used. Thus for n_jobs = -2, all
             CPUs but one are used.
-        backend: str, ParallelBackendBase instance or None, \
-                default: 'loky'
+        backend: str, ParallelBackendBase instance or None, default: 'loky'
             Specify the parallelization backend implementation.
             Supported backends are:
 
@@ -331,6 +330,23 @@ class Parallel(Logger):
             - finally, you can register backends by calling
               register_parallel_backend. This will allow you to implement
               a backend of your liking.
+            It is not recommended to hard-code the backend name in a call to
+            Parallel in a library. Instead it is recommended to set soft hints
+            (prefer) or hard constraints (require) so as to make it possible
+            for library users to change the backend from the outside using the
+            parallel_backend context manager.
+        prefer: str in {'processes', 'threads'} or None, default: None
+            Soft hint to choose the default backend if no specific backend
+            was selected with the parallel_backend context manager. The
+            default process-based backend is 'loky' and the default
+            thread-based backend is 'threading'.
+        require: 'sharedmem' or None, default None
+            Hard constraint to select the backend. If set to 'sharedmem',
+            the selected backend will be single-host and thread-based even
+            if the user asked for a non-thread based backend with the
+            parallel_backend this constraint ensures that this choice will
+            be locally overriden by the default thread-based backend:
+            'threading'.
         verbose: int, optional
             The verbosity level: if non zero, progress messages are
             printed. Above 50, the output is sent to stdout.
@@ -559,6 +575,10 @@ class Parallel(Logger):
                 % batch_size)
 
         self._backend = backend
+        # Store backend hints and constraints on the parallel instance to make
+        # them available to the backend itself.
+        self._require = require
+        self._prefer = prefer
         self._output = None
         self._jobs = list()
         self._managed_backend = False
@@ -580,6 +600,8 @@ class Parallel(Logger):
         """Build a process or thread pool and return the number of workers"""
         try:
             n_jobs = self._backend.configure(n_jobs=self.n_jobs, parallel=self,
+                                             prefer=self._prefer,
+                                             require=self._require,
                                              **self._backend_args)
             if self.timeout is not None and not self._backend.supports_timeout:
                 warnings.warn(
