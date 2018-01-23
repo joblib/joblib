@@ -8,6 +8,7 @@ import sys
 import warnings
 import threading
 import functools
+import contextlib
 from abc import ABCMeta, abstractmethod
 
 from .format_stack import format_exc
@@ -106,6 +107,23 @@ class ParallelBackendBase(with_metaclass(ABCMeta)):
         By default a thread-based backend is used.
         """
         return ThreadingBackend()
+
+    @contextlib.contextmanager
+    def retrieval_context(self):
+        """Context manager to manage an execution context.
+
+        Calls to Parallel.retrieve will be made inside this context.
+
+        By default, this does nothing. It may be useful for subclasses to
+        handle nested parallelism. In particular, it may be required to avoid
+        deadlocks if a backend manages a fixed number of workers, when those
+        workers may be asked to do nested Parallel calls. Without
+        'retrieval_context' this could lead to deadlock, as all the workers
+        managed by the backend may be "busy" waiting for the nested parallel
+        calls to finish, but the backend has no free workers to execute those
+        tasks.
+        """
+        yield
 
 
 class SequentialBackend(ParallelBackendBase):

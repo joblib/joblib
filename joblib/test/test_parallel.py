@@ -664,6 +664,31 @@ def test_nested_backend_context_manager():
                 assert len(set(pid_group)) == 1
 
 
+@with_multiprocessing
+def test_retrieval_context():
+    import contextlib
+
+    class MyBackend(ThreadingBackend):
+        i = 0
+
+        @contextlib.contextmanager
+        def retrieval_context(self):
+            self.i += 1
+            yield
+
+    register_parallel_backend("retrieval", MyBackend)
+
+    def nested_call(n):
+        return Parallel(n_jobs=2)(delayed(id)(i) for i in range(n))
+
+    with parallel_backend("retrieval") as (ba, _):
+        Parallel(n_jobs=2)(
+            delayed(nested_call, check_pickle=False)(i)
+            for i in range(5)
+        )
+        assert ba.i == 1
+
+
 ###############################################################################
 # Test helpers
 def test_joblib_exception():

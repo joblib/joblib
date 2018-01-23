@@ -809,7 +809,8 @@ Sub-process traceback:
                 # consumption.
                 self._iterating = False
 
-            self.retrieve()
+            with self._backend.retrieval_context():
+                self.retrieve()
             # Make sure that we get a last message telling us we are done
             elapsed_time = time.time() - self._start_time
             self._print('Done %3i out of %3i | elapsed: %s finished',
