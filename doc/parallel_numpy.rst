@@ -26,9 +26,17 @@ worker processes.
 
 .. note::
 
-  The following only applies with the default ``"multiprocessing"`` backend. If
-  your code can release the GIL, then using ``backend="threading"`` is even
-  more efficient.
+  The following only applies with the ``"loky"` and
+  ``'multiprocessing'`` process-backends. If your code can release the
+  GIL, then using a thread-based backend backend by passing
+  ``prefer='threads'`` is even more efficient because it makes it
+  possible to avoid the communication overhead of process-based
+  parallelism.
+
+  Scientific Python libraries such as numpy, scipy, pandas and
+  scikit-learn often release the GIL in performance critical code paths.
+  It is therefore advised to always measure the speed of thread-based
+  parallelism and use it when the scalability is not limited by the GIL.
 
 
 Automated array to memmap conversion

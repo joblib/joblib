@@ -77,28 +77,46 @@ separate CPUs. This is a reasonable default for generic Python programs
 but it induces some overhead as the input and output data need to be
 serialized in a queue for communication with the worker processes.
 
-If you know that the function you are calling is based on a compiled extension
-that releases the Python Global Interpreter Lock (GIL) during most of its
-computation then it might be more efficient to use threads instead of Python
-processes as concurrent workers. For instance this is the case if you write the
-CPU intensive part of your code inside a `with nogil`_ block of a Cython
-function.
+If you know that the function you are calling is based on a compiled
+extension that releases the Python Global Interpreter Lock (GIL) during
+most of its computation then it is more efficient (no communication
+overhead) to use threads instead of Python processes as concurrent
+workers. For instance this is the case if you write the CPU intensive
+part of your code inside a `with nogil`_ block of a Cython function.
 
 .. _`with nogil`: http://docs.cython.org/src/userguide/external_C_code.html#acquiring-and-releasing-the-gil
 
-To use the threads, just pass ``"threading"`` as the value of the ``backend``
-parameter of the :class:`Parallel` constructor:
+To use the threads, just pass ``prefer="threads"`` as parameter of the
+:class:`Parallel` constructor:
 
-    >>> Parallel(n_jobs=2, backend="threading")(
+    >>> Parallel(n_jobs=2, prefer="threads")(
     ...     delayed(sqrt)(i ** 2) for i in range(10))
     [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
 
-or alternatively using a context manager:
+If your code relies on the shared memory semantics of threads to execute
+correctly, you should make this explicit with ``require='sharedmem'``:
+
+    >>> shared_set = set()
+    >>> def collect(x):
+    ...    shared_set.add(x)
+    ...
+    >>> Parallel(n_jobs=2, require='sharedmem')(
+    ...     delayed(collect)(i) for i in range(5))
+    [None, None, None, None, None]
+    >>> sorted(shared_set)
+    [0, 1, 2, 3, 4]
+
+Finally you can also manually select a specific backend implementation
+with the help of a context manager:
 
     >>> from joblib import parallel_backend
     >>> with parallel_backend('threading'):
     ...    Parallel(n_jobs=2)(delayed(sqrt)(i ** 2) for i in range(10))
     [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
+
+The latter is especially useful when calling a library that uses
+``joblib.Parallel`` internally without exposing backend selection as
+part of its public API.
 
 
 Reusing a pool of workers
