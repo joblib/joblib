@@ -341,6 +341,7 @@ class Parallel(Logger):
             - finally, you can register backends by calling
               register_parallel_backend. This will allow you to implement
               a backend of your liking.
+
             It is not recommended to hard-code the backend name in a call to
             Parallel in a library. Instead it is recommended to set soft hints
             (prefer) or hard constraints (require) so as to make it possible
