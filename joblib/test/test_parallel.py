@@ -657,7 +657,7 @@ def test_nested_backend_context_manager():
     for backend in ['threading', 'loky', 'multiprocessing']:
         with parallel_backend(backend):
             pid_groups = Parallel(n_jobs=2)(
-                delayed(get_nested_pids, check_pickle=False)()
+                delayed(get_nested_pids)()
                 for _ in range(10)
             )
             for pid_group in pid_groups:
