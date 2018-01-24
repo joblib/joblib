@@ -227,14 +227,14 @@ html_theme_options = {
     'fixed_sidebar': 'true',
     'link': '#aa560c',
     'show_powered_by': 'false',
-#    "relbarbgcolor": "#333",
-#    "sidebarlinkcolor": "#e15617",
-#    "sidebarbgcolor": "#000",
-#    "sidebartextcolor": "#333",
-#    "footerbgcolor": "#111",
-#    "linkcolor": "#aa560c",
-#    "headtextcolor": "#643200",
-#    "codebgcolor": "#f5efe7",
+    # "relbarbgcolor": "#333",
+    # "sidebarlinkcolor": "#e15617",
+    # "sidebarbgcolor": "#000",
+    # "sidebartextcolor": "#333",
+    # "footerbgcolor": "#111",
+    # "linkcolor": "#aa560c",
+    # "headtextcolor": "#643200",
+    # "codebgcolor": "#f5efe7",
 }
 
 
