@@ -219,25 +219,17 @@ latex_documents = [
 # If false, no module index is generated.
 #latex_use_modindex = True
 
-html_theme = 'classic'
+html_theme = 'alabaster'
 
 html_theme_options = {
-#    "bgcolor": "#fff",
-#    "footertextcolor": "#666",
-    "relbarbgcolor": "#333",
-#    "relbarlinkcolor": "#445481",
-#    "relbartextcolor": "#445481",
-    "sidebarlinkcolor": "#e15617",
-    "sidebarbgcolor": "#000",
+#    "relbarbgcolor": "#333",
+#    "sidebarlinkcolor": "#e15617",
+#    "sidebarbgcolor": "#000",
 #    "sidebartextcolor": "#333",
-    "footerbgcolor": "#111",
-    "linkcolor": "#aa560c",
-#    "bodyfont": '"Lucida Grande",Verdana,Lucida,Helvetica,Arial,sans-serif',
-#    "headfont": "georgia, 'bitstream vera sans serif', 'lucida grande',
-#                       helvetica, verdana, sans-serif",
-#    "headbgcolor": "#F5F5F5",
-    "headtextcolor": "#643200",
-    "codebgcolor": "#f5efe7",
+#    "footerbgcolor": "#111",
+#    "linkcolor": "#aa560c",
+#    "headtextcolor": "#643200",
+#    "codebgcolor": "#f5efe7",
 }
 
 
