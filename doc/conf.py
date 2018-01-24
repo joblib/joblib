@@ -68,7 +68,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'joblib'
-copyright = '2008-2009, Gael Varoquaux'
+copyright = '2008-2018, Joblib developers'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -144,7 +144,7 @@ trim_doctest_flags = True
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-# html_static_path = ['_static']
+html_static_path = ['_static']
 
 # If not '', a 'Last updated on:' timestamp is inserted at every page bottom,
 # using the given strftime format.
@@ -219,25 +219,22 @@ latex_documents = [
 # If false, no module index is generated.
 #latex_use_modindex = True
 
-html_theme = 'classic'
+html_theme = 'alabaster'
 
 html_theme_options = {
-#    "bgcolor": "#fff",
-#    "footertextcolor": "#666",
-    "relbarbgcolor": "#333",
-#    "relbarlinkcolor": "#445481",
-#    "relbartextcolor": "#445481",
-    "sidebarlinkcolor": "#e15617",
-    "sidebarbgcolor": "#000",
-#    "sidebartextcolor": "#333",
-    "footerbgcolor": "#111",
-    "linkcolor": "#aa560c",
-#    "bodyfont": '"Lucida Grande",Verdana,Lucida,Helvetica,Arial,sans-serif',
-#    "headfont": "georgia, 'bitstream vera sans serif', 'lucida grande',
-#                       helvetica, verdana, sans-serif",
-#    "headbgcolor": "#F5F5F5",
-    "headtextcolor": "#643200",
-    "codebgcolor": "#f5efe7",
+    'github_repo': 'joblib/joblib',
+    'github_button': 'true',
+    'fixed_sidebar': 'true',
+    'link': '#aa560c',
+    'show_powered_by': 'false',
+    # "relbarbgcolor": "#333",
+    # "sidebarlinkcolor": "#e15617",
+    # "sidebarbgcolor": "#000",
+    # "sidebartextcolor": "#333",
+    # "footerbgcolor": "#111",
+    # "linkcolor": "#aa560c",
+    # "headtextcolor": "#643200",
+    # "codebgcolor": "#f5efe7",
 }
 
 
