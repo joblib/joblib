@@ -163,6 +163,6 @@ os.remove(filename_memmap)
 ###############################################################################
 # The trend regarding the memory consumption is similar to the previous
 # case. However, the computation time is largely reduced due to the usage of
-# the memmap. In addition, the memory usage is decreasing by dumping the data
+# the memmap. In addition, the memory usage decreased by dumping the data
 # array into a memmap before to pass it to :class:`Parallel`, avoiding to make
 # an unnecessary copy of the array.
