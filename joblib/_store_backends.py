@@ -37,11 +37,7 @@ class StoreBackendBase(with_metaclass(ABCMeta)):
 
     @abstractmethod
     def _open_item(self, *args, **kwargs):
-        """Open an item on store
-
-        The signature of this function should be compatible with the builtin
-        open function and accept file-like object as input.
-        """
+        """Open an item on store and return a file-like object."""
 
     @abstractmethod
     def item_exists(self, location):
@@ -73,13 +69,9 @@ class StoreBackendMixin(object):
 
     The StoreBackend subclass has to implement 3 methods: create_location,
     clear_location and configure. The StoreBackend also has to provide
-    open_object and object_exists methods by monkey patching them
-    in the configure method. The open_object method has to return a file-like
-    object.
-
-    All values are stored on a filesystem-like backend, in a deep directory
-    structure.
-
+    a private _open_item, item_exists and move_item methods by monkey
+    patching them in the configure method. The _open_item method has to have
+    the same signature as the builtin open and return a file-like object.
     """
 
     def load_item(self, path, verbose=1, msg=None):
