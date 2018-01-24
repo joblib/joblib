@@ -81,7 +81,8 @@ def get_active_backend(prefer=None, require=None, verbose=0):
             if verbose >= 10:
                 print("Using %s as joblib.Parallel backend instead of %s "
                       "as the latter does not provide shared memory semantics."
-                      % (sharedmem_backend, backend))
+                      % (sharedmem_backend.__class__.__name__,
+                         backend.__class__.__name__))
             return sharedmem_backend, n_jobs
         else:
             return backend_and_jobs

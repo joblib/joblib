@@ -1050,7 +1050,7 @@ def test_backend_hinting_and_constraints():
         assert type(p._backend) == ThreadingBackend
 
 
-def test_backend_hinting_and_constraints_with_custom_backends():
+def test_backend_hinting_and_constraints_with_custom_backends(capsys):
     # Custom backends can declare that they use threads and have shared memory
     # semantics:
     class MyCustomThreadingBackend(ParallelBackendBase):
@@ -1084,8 +1084,19 @@ def test_backend_hinting_and_constraints_with_custom_backends():
         p = Parallel(n_jobs=2, prefer='processes')
         assert type(p._backend) == MyCustomProcessingBackend
 
-        p = Parallel(n_jobs=2, require='sharedmem')
+        out, err = capsys.readouterr()
+        assert out == ""
+        assert err == ""
+
+        p = Parallel(n_jobs=2, require='sharedmem', verbose=10)
         assert type(p._backend) == ThreadingBackend
+
+        out, err = capsys.readouterr()
+        expected = ("Using ThreadingBackend as joblib.Parallel backend "
+                    "instead of MyCustomProcessingBackend as the latter "
+                    "does not provide shared memory semantics.")
+        assert out.strip() == expected
+        assert err == ""
 
     with raises(ValueError):
         Parallel(backend=MyCustomProcessingBackend(), require='sharedmem')
