@@ -13,25 +13,56 @@ computed. Therefore, the average can be computed in parallel at different
 location of the signal.
 
 """
-from __future__ import division
-
-print(__doc__)
 
 ###############################################################################
-# `memory_used` and `print_info` are two helper functions being used
+# `time_memory_profiling` and `print_info` are two helper functions being used
 # extensively later on. The former function allows to track the memory
-# consumption during the call of a function while the latter output profiling
-# information.
+# consumption and computation time during the call of a function while the
+# latter output profiling information. To have a more accurate estimate of
+# those statistics, the given function is executed several time.
 
 import gc
+import time
 from memory_profiler import memory_usage
 
 
-def memory_used(func, *args, **kwargs):
+def time_memory_profiling(func, *args, **kwargs):
+    """Helper function to profile computation time and memory usage.
+
+    `func` is executed for `n_iter` and the average memory consumption and
+    elapsed time are returned.
+
+    Parameters
+    ----------
+    func : callable
+        The function to profile.
+
+    args : args
+        The arguments used in `func`.
+
+    kwargs : kwargs
+        The keywords arguments used in `func`.
+
+    Returns
+    -------
+    memory_used : float
+        The average memory used by `func` across the iterations in MiB.
+
+    elapsed_time : float
+        The average elapsed time to execute `func` across the iterations in
+        seconds.
+
+    """
     gc.collect()
-    mem_use = memory_usage((func, args, kwargs), interval=.00001,
-                           multiprocess=True, include_children=True)
-    return max(mem_use) - min(mem_use)
+    n_iter = 3
+    tic = time.time()
+    mem_use = [memory_usage((func, args, kwargs), interval=.00001,
+                            multiprocess=True, include_children=True)
+               for _ in range(n_iter)]
+    toc = time.time()
+    return (np.mean([max(mem_use_it) - min(mem_use_it)
+                     for mem_use_it in mem_use]),
+            (toc - tic) / n_iter)
 
 
 def print_info(mem_used_avg, elapsed_time):
@@ -52,7 +83,6 @@ signal = np.random.random((10000000,))
 window_size = 500000
 slices = [slice(start, start + window_size)
           for start in range(0, signal.size - window_size, 50000)]
-n_iter = 10
 
 
 ###############################################################################
@@ -63,7 +93,6 @@ n_iter = 10
 # `moving_average` function will always be different and it will not be able to
 # share memory between the workers.
 
-import time
 from joblib import Parallel, delayed
 
 
@@ -71,15 +100,13 @@ def process_cropping(signal, window_size, slices):
     def moving_average(signal):
         return signal.sum()
 
-    Parallel(n_jobs=4, max_nbytes=0)(delayed(
+    Parallel(n_jobs=2, max_nbytes=0)(delayed(
         moving_average)(signal[sl]) for sl in slices)
 
 
-tic = time.time()
-mem_used = [memory_used(process_cropping, signal, window_size, slices)
-            for _ in range(n_iter)]
-toc = time.time()
-print_info(np.mean(mem_used), (toc - tic) / n_iter)
+mem_used, elapsed_time = time_memory_profiling(process_cropping, signal,
+                                               window_size, slices)
+print_info(mem_used, elapsed_time)
 
 
 ###############################################################################
@@ -94,15 +121,13 @@ def process_slicing(signal, window_size, slices):
     def moving_average(signal, sl):
         return signal[sl].sum()
 
-    Parallel(n_jobs=4, max_nbytes=0)(delayed(
+    Parallel(n_jobs=2, max_nbytes=0)(delayed(
         moving_average)(signal, sl) for sl in slices)
 
 
-tic = time.time()
-mem_used = [memory_used(process_slicing, signal, window_size, slices)
-            for _ in range(n_iter)]
-toc = time.time()
-print_info(np.mean(mem_used), (toc - tic) / n_iter)
+mem_used, elapsed_time = time_memory_profiling(process_slicing, signal,
+                                               window_size, slices)
+print_info(mem_used, elapsed_time)
 
 ###############################################################################
 # As a conclusion, the amount of memory used is reduced by passing the large
@@ -121,18 +146,15 @@ filename_memmap = 'signal.pkl'
 joblib.dump(signal, filename_memmap)
 signal = joblib.load(filename_memmap, mmap_mode='r')
 
-tic = time.time()
-mem_used = [memory_used(process_cropping, signal, window_size, slices)
-            for _ in range(n_iter)]
-toc = time.time()
-print_info(np.mean(mem_used), (toc - tic) / n_iter)
+mem_used, elapsed_time = time_memory_profiling(process_cropping, signal,
+                                               window_size, slices)
+print_info(mem_used, elapsed_time)
 
+###############################################################################
 
-tic = time.time()
-mem_used = [memory_used(process_slicing, signal, window_size, slices)
-            for _ in range(n_iter)]
-toc = time.time()
-print_info(np.mean(mem_used), (toc - tic) / n_iter)
+mem_used, elapsed_time = time_memory_profiling(process_slicing, signal,
+                                               window_size, slices)
+print_info(mem_used, elapsed_time)
 
 os.remove(filename_memmap)
 
