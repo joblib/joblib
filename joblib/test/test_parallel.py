@@ -1058,10 +1058,10 @@ def test_backend_hinting_and_constraints_with_custom_backends(capsys):
         use_threads = True
 
         def apply_async(self):
-            pass
+            pass  # noqa
 
         def effective_n_jobs(self, n_jobs):
-            return n_jobs
+            return n_jobs  # noqa
 
     with parallel_backend(MyCustomThreadingBackend()):
         p = Parallel(n_jobs=2, prefer='processes')  # ignored
@@ -1075,10 +1075,10 @@ def test_backend_hinting_and_constraints_with_custom_backends(capsys):
         use_threads = False
 
         def apply_async(self):
-            pass
+            pass  # noqa
 
         def effective_n_jobs(self, n_jobs):
-            return n_jobs
+            return n_jobs  # noqa
 
     with parallel_backend(MyCustomProcessingBackend()):
         p = Parallel(n_jobs=2, prefer='processes')
