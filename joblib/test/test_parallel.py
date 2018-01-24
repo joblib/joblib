@@ -251,9 +251,6 @@ def test_parallel_as_context_manager(backend):
         # Internally a pool instance has been eagerly created and is managed
         # via the context manager protocol
         managed_backend = p._backend
-        if mp is not None:
-            assert managed_backend is not None
-            assert get_workers(managed_backend) is not None
 
         # We make call with the managed parallel object several times inside
         # the managed block:
@@ -646,6 +643,50 @@ def test_direct_parameterized_backend_context_manager():
 
     # The default backend is again restored
     assert _active_backend_type() == DefaultBackend
+
+
+@with_multiprocessing
+def test_nested_backend_context_manager():
+    # Check that by default, nested parallel calls will always use the
+    # ThreadingBackend
+
+    def get_nested_pids():
+        assert _active_backend_type() == ThreadingBackend
+        return Parallel(n_jobs=2)(delayed(os.getpid)() for _ in range(2))
+
+    for backend in ['threading', 'loky', 'multiprocessing']:
+        with parallel_backend(backend):
+            pid_groups = Parallel(n_jobs=2)(
+                delayed(get_nested_pids)()
+                for _ in range(10)
+            )
+            for pid_group in pid_groups:
+                assert len(set(pid_group)) == 1
+
+
+@with_multiprocessing
+def test_retrieval_context():
+    import contextlib
+
+    class MyBackend(ThreadingBackend):
+        i = 0
+
+        @contextlib.contextmanager
+        def retrieval_context(self):
+            self.i += 1
+            yield
+
+    register_parallel_backend("retrieval", MyBackend)
+
+    def nested_call(n):
+        return Parallel(n_jobs=2)(delayed(id)(i) for i in range(n))
+
+    with parallel_backend("retrieval") as (ba, _):
+        Parallel(n_jobs=2)(
+            delayed(nested_call, check_pickle=False)(i)
+            for i in range(5)
+        )
+        assert ba.i == 1
 
 
 ###############################################################################
