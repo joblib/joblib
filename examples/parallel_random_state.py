@@ -92,6 +92,10 @@ random_vector = Parallel(n_jobs=2, backend=backend)(delayed(
 print_vector(random_vector, backend)
 
 ###############################################################################
+# Fixing the random state
+###############################################################################
+
+###############################################################################
 # The pattern of ``stochastic_function_seeded`` has another advantage: it
 # allows to control the random_state by passing a known seed. So for instance,
 # we can replicate the same generation of vectors by passing a fixed state as
