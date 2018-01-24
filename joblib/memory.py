@@ -822,6 +822,9 @@ class Memory(Logger):
                               "cachedir value will be ignored.",
                               DeprecationWarning, stacklevel=2)
 
+        if isinstance(location, _basestring):
+            location = os.path.join(location, 'joblib')
+
         self.store_backend = _store_backend_factory(
             backend, location, verbose=self._verbose,
             store_options=dict(compress=compress,

@@ -321,7 +321,7 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
         """
 
         # setup locationdir
-        self._location = os.path.join(location, 'joblib')
+        self._location = location
         if not os.path.exists(self._location):
             mkdirp(self._location)
 
