@@ -11,7 +11,7 @@ env:
     # NUMPY_VERSION not set means numpy is not installed
     - PYTHON_VERSION="3.4" COVERAGE="true"
     - PYTHON_VERSION="3.5" NUMPY_VERSION="1.12"
-    - PYTHON_VERSION="3.6" NUMPY_VERSION="1.14" COVERAGE="true" BUILD_DOC="true"
+    - PYTHON_VERSION="3.6" NUMPY_VERSION="1.14" COVERAGE="true"
     # multiprocesssing disabled via the JOBLIB_MULTIPROCESSING environment variable
     - PYTHON_VERSION="3.6" NUMPY_VERSION="1.14" JOBLIB_MULTIPROCESSING=0 COVERAGE="true"
     # flake8 linting on diff wrt common ancestor with upstream/master
