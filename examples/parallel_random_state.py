@@ -3,16 +3,20 @@
 Random state within joblib.Parallel
 ===================================
 
-This example focuses on processes relaying on random state executed in
-parallel. We will illustrate the difference between each backend and give the
-code pattern to use to achieve the desired results.
+Randomness is affected by parallel execution differently by the different
+backends.
 
+In particular, when using multiple processes, the random sequence can be
+the same in all processes. This example illustrates the problem and shows
+how to work around it.
 """
 
 import numpy as np
 from joblib import Parallel, delayed
 
 
+###############################################################################
+# A utility function for the example
 def print_vector(vector, backend):
     """Helper function to print the generated vector with a given backend."""
     print('\nThe different generated vectors using the {} backend are:\n {}'
@@ -23,10 +27,11 @@ def print_vector(vector, backend):
 # Sequential behavior
 ###############################################################################
 #
-# ``stochastic_function`` will generate five random integers. If calling the
-# function several times, we are expecting to obtain different vectors. For
-# instance, we will call the function five times in a sequential manner, we can
-# check that the generated vectors are all different.
+# ``stochastic_function`` will generate five random integers. When
+# calling the function several times, we are expecting to obtain
+# different vectors. For instance, we will call the function five times
+# in a sequential manner, we can check that the generated vectors are all
+# different.
 
 
 def stochastic_function(max_value):
@@ -69,11 +74,14 @@ random_vector = Parallel(n_jobs=2, backend=backend)(delayed(
 print_vector(random_vector, backend)
 
 ###############################################################################
-# It can be seen that there redundant generated vectors. Indeed, each forked
-# Python process will share the same random seed. As a results, we obtain twice
-# the same randomly generated vectors because we are using ``n_jobs=2``. A
-# solution is to set/reset the random state within the function which is passed
-# to :class:`joblib.Parallel`.
+# Some of the generated vectors are exactly the same, which can be a
+# problem for the application.
+
+# Technically, the reason is that all forked Python processes share the
+# same exact random seed. As a results, we obtain twice the same randomly
+# generated vectors because we are using ``n_jobs=2``. A solution is to
+# set the random state within the function which is passed to
+# :class:`joblib.Parallel`.
 
 
 def stochastic_function_seeded(max_value, random_state):
