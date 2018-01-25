@@ -14,7 +14,7 @@ data and has specific optimizations for `numpy` arrays. It is
 
 
     ========================= ================================================
-    **User documentation:**        http://pythonhosted.org/joblib
+    **Documentation:**             http://pythonhosted.org/joblib
 
     **Download packages:**         http://pypi.python.org/pypi/joblib#downloads
 
@@ -43,9 +43,8 @@ reproducibility when working with long running jobs.
     good for resuming an application status or computational job, eg
     after a crash.
 
-Joblib strives to address these problems while **leaving your code and
-your flow control as unmodified as possible** (no framework, no new
-paradigms).
+Joblib addresses these problems while **leaving your code and your flow
+control as unmodified as possible** (no framework, no new paradigms).
 
 Main features
 ------------------
