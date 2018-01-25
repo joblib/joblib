@@ -266,7 +266,8 @@ class ArrayMemmapReducer(object):
                     os.getpid(), id(threading.current_thread()), hash(a))
             else:
                 basename = "{}-{}-{}-{}.pkl".format(
-                    os.getpid(), id(threading.current_thread()), hash(a), id(a))
+                    os.getpid(), id(threading.current_thread()),
+                    hash(a), id(a))
             filename = os.path.join(self._temp_folder, basename)
 
             # In case the same array with the same content is passed several
