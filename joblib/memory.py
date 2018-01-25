@@ -827,9 +827,8 @@ class Memory(Logger):
 
         self.store_backend = _store_backend_factory(
             backend, location, verbose=self._verbose,
-            store_options=dict(compress=compress,
-                               mmap_mode=mmap_mode,
-                               store_options=store_options))
+            store_options=dict(compress=compress, mmap_mode=mmap_mode,
+                               **store_options))
 
     def cache(self, func=None, ignore=None, verbose=None, mmap_mode=False):
         """ Decorates the given function func to only compute its return

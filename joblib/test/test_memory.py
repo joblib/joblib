@@ -910,11 +910,11 @@ class DummyStoreBackend(StoreBackendBase):
         """Open an item on store."""
         "Does nothing"
 
-    def item_exists(self, location):
+    def _item_exists(self, location):
         """Check if an item location exists."""
         "Does nothing"
 
-    def move_item(self, src, dst):
+    def _move_item(self, src, dst):
         """Move an item from src to dst in store."""
         "Does nothing"
 

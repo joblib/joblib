@@ -36,32 +36,102 @@ class StoreBackendBase(with_metaclass(ABCMeta)):
        a StorageBackend must implement."""
 
     @abstractmethod
-    def _open_item(self, *args, **kwargs):
-        """Open an item on store and return a file-like object."""
+    def _open_item(self, f, mode):
+        """Opens an item on the store and return a file-like object.
+
+        This method is private and only used by the StoreBackendMixin object.
+
+        Parameters
+        ----------
+        f: a file-like object
+            The file-like object where an item is stored and retrieved
+        mode: string, optional
+            the mode in which the file-like object is opened allowed valued are
+            'rb', 'wb'
+
+        Returns
+        -------
+        a file-like object
+        """
 
     @abstractmethod
-    def item_exists(self, location):
-        """Check if an item location exists."""
+    def _item_exists(self, location):
+        """Checks if an item location exists in the store.
+
+        This method is private and only used by the StoreBackendMixin object.
+
+        Parameters
+        ----------
+        location: string
+            The location of an item. On a filesystem, this corresponds to the
+            absolute path, including the filename, of a file.
+
+        Returns
+        -------
+        True if the item exists, False otherwise
+        """
 
     @abstractmethod
-    def move_item(self, src, dst):
-        """Move an item from src to dst in store."""
+    def _move_item(self, src, dst):
+        """Moves an item from src to dst in the store.
+
+        This method is private and only used by the StoreBackendMixin object.
+
+        Parameters
+        ----------
+        src: string
+            The source location of an item
+        dst: string
+            The destination location of an item
+        """
 
     @abstractmethod
     def create_location(self, location):
-        """Create location on store."""
+        """Creates a location on the store.
+
+        Parameters
+        ----------
+        location: string
+            The location in the store. On a filesystem, this corresponds to a
+            directory.
+        """
 
     @abstractmethod
     def clear_location(self, location):
-        """Clear location on store."""
+        """Clears a location on the store.
+
+        Parameters
+        ----------
+        location: string
+            The location in the store. On a filesystem, this corresponds to a
+            directory or a filename absolute path
+        """
 
     @abstractmethod
     def get_items(self):
-        """Returns the whole list of items available in store."""
+        """Returns the whole list of items available in the store.
+
+        Returns
+        -------
+        The list of items identified by their ids (e.g filename in a
+        filesystem).
+        """
 
     @abstractmethod
     def configure(self, location, verbose=0, store_options=dict()):
-        """Configure the store"""
+        """Configures the store.
+
+        Parameters
+        ----------
+        location: string
+            The base location used by the store. On a filesystem, this
+            corresponds to a directory.
+        verbose: int
+            The level of verbosity of the store
+        store_options: dict
+            Contains a dictionnary of named paremeters used to configure the
+            store backend.
+        """
 
 
 class StoreBackendMixin(object):
@@ -69,9 +139,9 @@ class StoreBackendMixin(object):
 
     The StoreBackend subclass has to implement 3 methods: create_location,
     clear_location and configure. The StoreBackend also has to provide
-    a private _open_item, item_exists and move_item methods by monkey
-    patching them in the configure method. The _open_item method has to have
-    the same signature as the builtin open and return a file-like object.
+    a private _open_item, _item_exists and _move_item methods. The _open_item
+    method has to have the same signature as the builtin open and return a
+    file-like object.
     """
 
     def load_item(self, path, verbose=1, msg=None):
@@ -89,7 +159,7 @@ class StoreBackendMixin(object):
                      else self.mmap_mode)
 
         filename = os.path.join(full_path, 'output.pkl')
-        if not self.item_exists(filename):
+        if not self._item_exists(filename):
             raise KeyError("Non-existing item (may have been "
                            "cleared).\nFile %s does not exist" % filename)
 
@@ -106,7 +176,7 @@ class StoreBackendMixin(object):
            strings."""
         try:
             item_path = os.path.join(self._location, *path)
-            if not self.item_exists(item_path):
+            if not self._item_exists(item_path):
                 self.create_location(item_path)
             filename = os.path.join(item_path, 'output.pkl')
             if verbose > 10:
@@ -124,7 +194,7 @@ class StoreBackendMixin(object):
     def clear_item(self, path):
         """Clear the item at the path, given as a list of strings."""
         item_path = os.path.join(self._location, *path)
-        if self.item_exists(item_path):
+        if self._item_exists(item_path):
             self.clear_location(item_path)
 
     def contains_item(self, path):
@@ -133,7 +203,7 @@ class StoreBackendMixin(object):
         item_path = os.path.join(self._location, *path)
         filename = os.path.join(item_path, 'output.pkl')
 
-        return self.item_exists(filename)
+        return self._item_exists(filename)
 
     def get_item_info(self, path):
         """Return information about item."""
@@ -173,13 +243,13 @@ class StoreBackendMixin(object):
     def clear_path(self, path):
         """Clear all items with a common path in the store."""
         func_path = os.path.join(self._location, *path)
-        if self.item_exists(func_path):
+        if self._item_exists(func_path):
             self.clear_location(func_path)
 
     def store_cached_func_code(self, path, func_code=None):
         """Store the code of the cached function."""
         func_path = os.path.join(self._location, *path)
-        if not self.item_exists(func_path):
+        if not self._item_exists(func_path):
             self.create_location(func_path)
 
         if func_code is not None:
@@ -253,7 +323,7 @@ class StoreBackendMixin(object):
         """Writes an object into a file in a concurrency-safe way."""
         temporary_filename = concurrency_safe_write(to_write,
                                                     filename, write_func)
-        self.move_item(temporary_filename, filename)
+        self._move_item(temporary_filename, filename)
 
     def __repr__(self):
         """Printable representation of the store location."""
@@ -264,8 +334,8 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
     """A StoreBackend used with local or network file systems."""
 
     _open_item = staticmethod(open)
-    item_exists = staticmethod(os.path.exists)
-    move_item = staticmethod(concurrency_safe_rename)
+    _item_exists = staticmethod(os.path.exists)
+    _move_item = staticmethod(concurrency_safe_rename)
 
     def clear_location(self, location):
         """Delete location on store."""
