@@ -22,8 +22,7 @@ def print_vector(vector, backend):
 ###############################################################################
 # Sequential behavior
 ###############################################################################
-
-###############################################################################
+#
 # ``stochastic_function`` will generate five random integers. If calling the
 # function several times, we are expecting to obtain different vectors. For
 # instance, we will call the function five times in a sequential manner, we can
@@ -43,8 +42,7 @@ print('\nThe different generated vectors in a sequential manner are:\n {}'
 ###############################################################################
 # Parallel behavior
 ###############################################################################
-
-###############################################################################
+#
 # Joblib provides three different backend: loky (default), threading, and
 # multiprocessing.
 
@@ -95,14 +93,13 @@ print_vector(random_vector, backend)
 ###############################################################################
 # Fixing the random state to obtain deterministic results
 ###############################################################################
-
-###############################################################################
+#
 # The pattern of ``stochastic_function_seeded`` has another advantage: it
 # allows to control the random_state by passing a known seed. So for instance,
 # we can replicate the same generation of vectors by passing a fixed state as
 # follows.
 
-random_state = np.arange(n_vectors)
+random_state = np.random.randint(np.iinfo(np.int32).max, size=n_vectors)
 
 random_vector = Parallel(n_jobs=2, backend=backend)(delayed(
     stochastic_function_seeded)(10, rng) for rng in random_state)
