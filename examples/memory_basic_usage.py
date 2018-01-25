@@ -3,15 +3,15 @@
 How to use joblib.Memory
 ========================
 
-This example illustrates the usage of :class:`joblib.Memory`.
+This example illustrates the usage of :class:`joblib.Memory`. We illustrate
+usages with a function and a method.
 
 """
 
 ###############################################################################
 # Utilities
 ###############################################################################
-
-###############################################################################
+#
 # The function ``timeit`` will print information regarding the elapsed time
 # spent inside a specific method or function. We will use it as a decorator
 # (i.e. ``@timeit``) in the remaining of this example.
@@ -35,8 +35,7 @@ def timeit(method):
 ###############################################################################
 # Processing without using :class:`joblib.Memory`
 ###############################################################################
-
-###############################################################################
+#
 # To show the benefit of using :class:`joblib.Memory`, we will reduce the
 # dimension of some data using a principal components analysis (i.e. ``pca``).
 # Indeed, this example will greatly benefit from caching since the internal
@@ -80,8 +79,7 @@ print('\nThe transformed data are:\n {}'.format(data_trans))
 ###############################################################################
 # Caching the result of a function avoiding recomputing
 ###############################################################################
-
-###############################################################################
+#
 # In the case that we would need to call ``pca`` function several time with
 # the same input data, it is beneficial to avoid recomputing the same results
 # over and over since that this function is time consuming. We can use
@@ -119,6 +117,70 @@ print('\nThe transformed data are:\n {}'.format(data_trans))
 # At the second call, the computation time is largely reduced since that the
 # results are obtained by loading the data previously dumped on the disk
 # instead of recomputing the results.
+
+###############################################################################
+# Using :class:`joblib.Memory` with a method
+###############################################################################
+#
+# :class:`joblib.Memory` is designed to work with pure functions. When you want
+# to cache a method within a class, you need to create and cache a pure
+# function and use it inside the class. Note that you can use the decorator in
+# this case.
+
+
+@timeit
+@memory.cache
+def _pca_cached(data, n_components):
+    data_centered = data - np.mean(data, axis=0)
+    U, S, V = np.linalg.svd(data_centered, full_matrices=False)
+    U = U[:, :n_components]
+    U *= np.sqrt(data_centered.shape[0] - 1)
+    return U
+
+
+class PCA(object):
+    """Principal components analysis.
+
+    Parameters
+    ----------
+    n_components : int, default=2
+        The number of components to keep.
+
+    """
+
+    def __init__(self, n_components=2):
+        self.n_components = n_components
+
+    def transform(self, data):
+        """Transform the data.
+
+        Parameters
+        ----------
+        data : ndarray
+            The data to decompose.
+
+        Return
+        ------
+        data_transformed : ndarray
+            The original data projected on the `n_components` principal
+            components.
+
+        """
+        return _pca_cached(data, self.n_components)
+
+
+transformer = PCA()
+data_trans = transformer.transform(data)
+print('\nThe transformed data are:\n {}'.format(data_trans))
+
+###############################################################################
+
+data_trans = transformer.transform(data)
+print('\nThe transformed data are:\n {}'.format(data_trans))
+
+###############################################################################
+# As expected, the second call to the ``transform`` method load the results
+# which have been cached.
 
 import shutil
 try:
