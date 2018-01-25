@@ -35,6 +35,10 @@ samples = rng.normal(size=(10, int(1e6)))
 import os
 
 folder = './joblib_memmap'
+try:
+    os.mkdir(folder)
+except FileExistsError:
+    pass
 samples_name = os.path.join(folder, 'samples')
 sums_name = os.path.join(folder, 'sums')
 
