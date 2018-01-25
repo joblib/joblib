@@ -9,44 +9,19 @@ usages with a function and a method.
 """
 
 ###############################################################################
-# Utilities
+# Without :class:`joblib.Memory`
 ###############################################################################
-#
-# The function ``timeit`` will print information regarding the elapsed time
-# spent inside a specific method or function. We will use it as a decorator
-# (i.e. ``@timeit``) in the remaining of this example.
-
-
-import time
-
-
-def timeit(method):
-    def timed(*args, **kw):
-        tic = time.time()
-        result = method(*args, **kw)
-        toc = time.time()
-        print('\n"{}" function {:.2f} s to compute.'
-              .format(method.__name__, (toc - tic)))
-        return result
-
-    return timed
-
-
-###############################################################################
-# Processing without using :class:`joblib.Memory`
-###############################################################################
-#
+# 
 # To show the benefit of using :class:`joblib.Memory`, we will reduce the
 # dimension of some data using a principal components analysis (i.e. ``pca``).
 # Indeed, this example will greatly benefit from caching since the internal
 # computation in ``pca`` is expensive. First, we will check the time required
 # to perform the decomposition on a large array of data.
 
-
+import time
 import numpy as np
 
 
-@timeit
 def pca(data, n_components=2):
     """Principal components analysis.
 
@@ -72,14 +47,18 @@ def pca(data, n_components=2):
 
 
 rng = np.random.RandomState(42)
-data = rng.randn(10000000, 10)
+data = rng.randn(int(1e8), 10)
+tic = time.time()
 data_trans = pca(data)
+toc = time.time()
+
+print('\nPCA took {:.2f} s to compute.'.format(toc - tic))
 print('\nThe transformed data are:\n {}'.format(data_trans))
 
 ###############################################################################
 # Caching the result of a function avoiding recomputing
 ###############################################################################
-#
+# 
 # In the case that we would need to call ``pca`` function several time with
 # the same input data, it is beneficial to avoid recomputing the same results
 # over and over since that this function is time consuming. We can use
@@ -92,8 +71,6 @@ cachedir = './pca_caching'
 memory = Memory(cachedir=cachedir, verbose=0)
 
 
-@timeit
-@memory.cache
 def pca_cached(data, n_components=2):
     data_centered = data - np.mean(data, axis=0)
     U, S, V = np.linalg.svd(data_centered, full_matrices=False)
@@ -102,7 +79,12 @@ def pca_cached(data, n_components=2):
     return U
 
 
+pca_cached = memory.cache(pca_cached)
+tic = time.time()
 data_trans = pca_cached(data)
+toc = time.time()
+
+print('\nPCA took {:.2f} s to compute.'.format(toc - tic))
 print('\nThe transformed data are:\n {}'.format(data_trans))
 
 ###############################################################################
@@ -110,7 +92,11 @@ print('\nThe transformed data are:\n {}'.format(data_trans))
 # time correspond to the time to compute the results plus the time to dump the
 # results into the disk.
 
+tic = time.time()
 data_trans = pca_cached(data)
+toc = time.time()
+
+print('\nPCA took {:.2f} s to compute.'.format(toc - tic))
 print('\nThe transformed data are:\n {}'.format(data_trans))
 
 ###############################################################################
@@ -121,15 +107,12 @@ print('\nThe transformed data are:\n {}'.format(data_trans))
 ###############################################################################
 # Using :class:`joblib.Memory` with a method
 ###############################################################################
-#
+# 
 # :class:`joblib.Memory` is designed to work with pure functions. When you want
 # to cache a method within a class, you need to create and cache a pure
-# function and use it inside the class. Note that you can use the decorator in
-# this case.
+# function and use it inside the class.
 
 
-@timeit
-@memory.cache
 def _pca_cached(data, n_components):
     data_centered = data - np.mean(data, axis=0)
     U, S, V = np.linalg.svd(data_centered, full_matrices=False)
@@ -166,21 +149,34 @@ class PCA(object):
             components.
 
         """
-        return _pca_cached(data, self.n_components)
+        pca_cached = memory.cache(_pca_cached)
+        return pca_cached(data, self.n_components)
 
 
 transformer = PCA()
+tic = time.time()
 data_trans = transformer.transform(data)
+toc = time.time()
+
+print('\nPCA took {:.2f} s to compute.'.format(toc - tic))
 print('\nThe transformed data are:\n {}'.format(data_trans))
 
 ###############################################################################
 
+tic = time.time()
 data_trans = transformer.transform(data)
+toc = time.time()
+
+print('\nPCA took {:.2f} s to compute.'.format(toc - tic))
 print('\nThe transformed data are:\n {}'.format(data_trans))
 
 ###############################################################################
 # As expected, the second call to the ``transform`` method load the results
 # which have been cached.
+
+###############################################################################
+# Clean up cache directory
+###############################################################################
 
 import shutil
 try:
