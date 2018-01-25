@@ -18,6 +18,7 @@ from joblib._memmapping_reducer import reduce_memmap
 from joblib._memmapping_reducer import _strided_from_memmap
 from joblib._memmapping_reducer import _get_backing_memmap
 from joblib._memmapping_reducer import _get_temp_dir
+import joblib._memmapping_reducer as jmr
 
 
 def setup_module():
@@ -375,7 +376,7 @@ def test_memmapping_pool_for_large_arrays_disabled(factory, tmpdir):
 @with_dev_shm
 @parametrize("factory", [MemmappingPool, _TestingMemmappingExecutor],
              ids=["multiprocessing", "loky"])
-def test_memmapping_on_dev_shm(factory):
+def test_memmapping_on_large_dev_shm(factory):
     """Check that memmapping uses /dev/shm when possible"""
     p = factory(3, max_nbytes=10)
     try:
@@ -402,14 +403,41 @@ def test_memmapping_on_dev_shm(factory):
         p.map(id, [b] * 10)
         # A copy of both a and b are now stored in the shared memory folder
         assert len(os.listdir(pool_temp_folder)) == 2
-
     finally:
         # Cleanup open file descriptors
         p.terminate()
         del p
-
     # The temp folder is cleaned up upon pool termination
     assert not os.path.exists(pool_temp_folder)
+
+
+@with_numpy
+@with_multiprocessing
+@with_dev_shm
+@parametrize("factory", [MemmappingPool, _TestingMemmappingExecutor],
+             ids=["multiprocessing", "loky"])
+def test_memmapping_on_small_dev_shm(factory):
+    orig_size = jmr.SYSTEM_SHARED_MEM_FS_MIN_SIZE
+    try:
+        # Make joblib believe that it cannot use /dev/shm unless there is
+        # 42 exabytes of available shared memory in /dev/shm
+        jmr.SYSTEM_SHARED_MEM_FS_MIN_SIZE = int(42e18)
+
+        p = factory(3, max_nbytes=10)
+        try:
+            # Check that the pool has correctly detected the presence of the
+            # shared memory filesystem.
+            pool_temp_folder = p._temp_folder
+            assert not pool_temp_folder.startswith('/dev/shm')
+        finally:
+            # Cleanup open file descriptors
+            p.terminate()
+            del p
+
+        # The temp folder is cleaned up upon pool termination
+        assert not os.path.exists(pool_temp_folder)
+    finally:
+        jmr.SYSTEM_SHARED_MEM_FS_MIN_SIZE = orig_size
 
 
 @with_numpy
