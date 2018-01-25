@@ -127,7 +127,7 @@ the number of memory copies.
 Writing parallel computation results in shared memory
 -----------------------------------------------------
 
-If a data is opened using the ``w+`` or ``r+`` mode in the main program, the
+If data are opened using the ``w+`` or ``r+`` mode in the main program, the
 worker will get ``r+`` mode access. Thus the worker will be able to write
 its results directly to the original data, alleviating the need of the
 serialization to send back the results to the parent process.
