@@ -1,7 +1,7 @@
 """Joblib is a set of tools to provide **lightweight pipelining in
 Python**. In particular:
 
-1. transparent disk-caching of the output values and lazy re-evaluation
+1. transparent disk-caching of functions and lazy re-evaluation
    (memoize pattern)
 
 2. easy simple parallel computing
