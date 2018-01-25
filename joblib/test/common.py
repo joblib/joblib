@@ -9,6 +9,7 @@ import sys
 import gc
 
 from joblib._multiprocessing_helpers import mp
+from joblib._memmapping_reducer import SYSTEM_SHARED_MEM_FS_MIN_SIZE
 from joblib.testing import SkipTest, skipif
 
 
@@ -99,6 +100,16 @@ def teardown_autokill(module_name):
 with_multiprocessing = skipif(
     mp is None, reason='Needs multiprocessing to run.')
 
+
+def _has_big_dev_shm():
+    dev_shm = '/dev/shm'
+    if not os.path.exists(dev_shm):
+        return False
+    shm_stats = os.statvfs(dev_shm)
+    available_nbytes = shm_stats.f_bsize * shm_stats.f_bavail
+    return available_nbytes > SYSTEM_SHARED_MEM_FS_MIN_SIZE
+
+
 with_dev_shm = skipif(
-    not os.path.exists('/dev/shm'),
-    reason='This test requires the /dev/shm shared memory fs.')
+    not _has_big_dev_shm(),
+    reason='This test requires a large /dev/shm shared memory fs.')
