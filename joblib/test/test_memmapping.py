@@ -515,14 +515,16 @@ def test_pool_get_temp_dir(tmpdir):
 @with_numpy
 @skipif(sys.platform == 'win32', reason='This test fails with a '
         'PermissionError on Windows')
-def test_numpy_arrays_use_different_memory():
+@parametrize("mmap_mode", ["r+", "w+"])
+def test_numpy_arrays_use_different_memory(mmap_mode):
     def func(arr, value):
         arr[:] = value
         return arr
 
     arrays = [np.zeros((10, 10), dtype='float64') for i in range(10)]
 
-    results = Parallel(mmap_mode='w+', max_nbytes=0, n_jobs=2)(
+    results = Parallel(mmap_mode=mmap_mode, max_nbytes=0, n_jobs=2)(
         delayed(func)(arr, i) for i, arr in enumerate(arrays))
+
     for i, arr in enumerate(results):
         np.testing.assert_array_equal(arr, i)
