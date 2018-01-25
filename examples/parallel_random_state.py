@@ -1,12 +1,11 @@
 """
-================================================
-Dealing with random state within joblib.Parallel
-================================================
+===================================
+Random state within joblib.Parallel
+===================================
 
-The backend used in :class:`joblib.Parallel` will influence some behaviors due
-of implementation differences. This example focuses on processes relaying on
-random state executed in parallel. We will illustrate the difference between
-each backend and give the code pattern to use to achieve the desired results.
+This example focuses on processes relaying on random state executed in
+parallel. We will illustrate the difference between each backend and give the
+code pattern to use to achieve the desired results.
 
 """
 
@@ -46,13 +45,15 @@ print('\nThe different generated vectors in a sequential manner are:\n {}'
 ###############################################################################
 
 ###############################################################################
-# Currently, joblib provides three different backend: loky (default),
-# threading, and multiprocessing.
+# Joblib provides three different backend: loky (default), threading, and
+# multiprocessing.
 
 backend = 'loky'
 random_vector = Parallel(n_jobs=2, backend=backend)(delayed(
     stochastic_function)(10) for _ in range(n_vectors))
 print_vector(random_vector, backend)
+
+###############################################################################
 
 backend = 'threading'
 random_vector = Parallel(n_jobs=2, backend=backend)(delayed(
@@ -92,7 +93,7 @@ random_vector = Parallel(n_jobs=2, backend=backend)(delayed(
 print_vector(random_vector, backend)
 
 ###############################################################################
-# Fixing the random state
+# Fixing the random state to obtain deterministic results
 ###############################################################################
 
 ###############################################################################
