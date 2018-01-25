@@ -3,7 +3,14 @@
 export LC_ALL=C
 INSTALL_FOLDER=tmp/cloudpickle_install
 rm -rf cloudpickle $INSTALL_FOLDER 2> /dev/null
-pip install cloudpickle --target $INSTALL_FOLDER
+if [ -z "$1" ]
+then
+    # Grab the latest stable release from PyPI
+    CLOUDPICKLE=cloudpickle
+else
+    CLOUDPICKLE=$1
+fi
+pip install $CLOUDPICKLE --target $INSTALL_FOLDER
 cp -r $INSTALL_FOLDER/cloudpickle .
 rm -rf $INSTALL_FOLDER
 

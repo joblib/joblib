@@ -251,9 +251,6 @@ def test_parallel_as_context_manager(backend):
         # Internally a pool instance has been eagerly created and is managed
         # via the context manager protocol
         managed_backend = p._backend
-        if mp is not None:
-            assert managed_backend is not None
-            assert get_workers(managed_backend) is not None
 
         # We make call with the managed parallel object several times inside
         # the managed block:
@@ -430,13 +427,17 @@ def test_dispatch_multiprocessing(backend):
     Parallel(n_jobs=2, batch_size=1, pre_dispatch=3, backend=backend)(
         delayed(consumer)(queue, 'any') for _ in producer())
 
-    # Only 3 tasks are dispatched out of 6. The 4th task is dispatched only
+    queue_contents = list(queue)
+    assert queue_contents[0] == 'Produced 0'
+
+    # Only 3 tasks are pre-dispatched out of 6. The 4th task is dispatched only
     # after any of the first 3 jobs have completed.
-    first_four = list(queue)[:4]
-    # The the first consumption event can sometimes happen before the end of
-    # the dispatching, hence, pop it before introspecting the "Produced" events
-    first_four.remove('Consumed any')
-    assert first_four == ['Produced 0', 'Produced 1', 'Produced 2']
+    first_consumption_index = queue_contents[:4].index('Consumed any')
+    assert first_consumption_index > -1
+
+    produced_3_index = queue_contents.index('Produced 3')  # 4th task produced
+    assert produced_3_index > first_consumption_index
+
     assert len(queue) == 12
 
 
@@ -642,6 +643,50 @@ def test_direct_parameterized_backend_context_manager():
 
     # The default backend is again restored
     assert _active_backend_type() == DefaultBackend
+
+
+@with_multiprocessing
+def test_nested_backend_context_manager():
+    # Check that by default, nested parallel calls will always use the
+    # ThreadingBackend
+
+    def get_nested_pids():
+        assert _active_backend_type() == ThreadingBackend
+        return Parallel(n_jobs=2)(delayed(os.getpid)() for _ in range(2))
+
+    for backend in ['threading', 'loky', 'multiprocessing']:
+        with parallel_backend(backend):
+            pid_groups = Parallel(n_jobs=2)(
+                delayed(get_nested_pids)()
+                for _ in range(10)
+            )
+            for pid_group in pid_groups:
+                assert len(set(pid_group)) == 1
+
+
+@with_multiprocessing
+def test_retrieval_context():
+    import contextlib
+
+    class MyBackend(ThreadingBackend):
+        i = 0
+
+        @contextlib.contextmanager
+        def retrieval_context(self):
+            self.i += 1
+            yield
+
+    register_parallel_backend("retrieval", MyBackend)
+
+    def nested_call(n):
+        return Parallel(n_jobs=2)(delayed(id)(i) for i in range(n))
+
+    with parallel_backend("retrieval") as (ba, _):
+        Parallel(n_jobs=2)(
+            delayed(nested_call, check_pickle=False)(i)
+            for i in range(5)
+        )
+        assert ba.i == 1
 
 
 ###############################################################################

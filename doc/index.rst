@@ -1,18 +1,18 @@
 .. raw:: html
 
   <style type="text/css">
-    li.toctree-l1 {
+    div.body li.toctree-l1 {
         padding: 0.5em 0 1em 0 ;
         list-style-type: none;
         font-size: 150% ;
         }
 
-    li.toctree-l2 {
+    div.body li.toctree-l2 {
         font-size: 70% ;
         list-style-type: square;
         }
 
-    li.toctree-l3 {
+    div.body li.toctree-l3 {
         font-size: 85% ;
         list-style-type: circle;
         }
@@ -24,11 +24,8 @@
   </style>
 
 
-.. raw:: html
-
-    <h1 style='text-align: center; font-size: 270%;'>
-    Joblib: running Python functions as pipeline jobs
-    </h1>
+Joblib: running Python functions as pipeline jobs
+=================================================
 
 Introduction
 ------------
@@ -47,6 +44,7 @@ User manual
     memory.rst
     parallel.rst
     persistence.rst
+    auto_examples/index
     developing.rst
 
 Module reference

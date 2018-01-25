@@ -1,3 +1,6 @@
 # rtd comes with sphinx 1.3.5 and we need sphinx>=1.4 for sphinx.ext.imgmath
 sphinx>=1.4
 numpy
+matplotlib
+pillow
+sphinx-gallery

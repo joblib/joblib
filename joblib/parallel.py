@@ -122,12 +122,15 @@ else:
 class BatchedCalls(object):
     """Wrap a sequence of (func, args, kwargs) tuples as a single callable"""
 
-    def __init__(self, iterator_slice):
+    def __init__(self, iterator_slice, backend):
         self.items = list(iterator_slice)
         self._size = len(self.items)
+        self._backend = backend
 
     def __call__(self):
-        return [func(*args, **kwargs) for func, args, kwargs in self.items]
+        with parallel_backend(self._backend):
+            return [func(*args, **kwargs)
+                    for func, args, kwargs in self.items]
 
     def __len__(self):
         return self._size
@@ -135,10 +138,10 @@ class BatchedCalls(object):
     def __getstate__(self):
         items = [(dumps(func), args, kwargs)
                  for func, args, kwargs in self.items]
-        return (items, self._size)
+        return (items, self._size, self._backend)
 
     def __setstate__(self, state):
-        items, self._size = state
+        items, self._size, self._backend = state
         self.items = [(loads(func), args, kwargs)
                       for func, args, kwargs in items]
 
@@ -413,12 +416,10 @@ class Parallel(Logger):
 
         >>> from time import sleep
         >>> from joblib import Parallel, delayed
-        >>> r = Parallel(n_jobs=2, verbose=5)(delayed(sleep)(.1) for _ in range(10)) #doctest: +SKIP
-        [Parallel(n_jobs=2)]: Done   1 out of  10 | elapsed:    0.1s remaining:    0.9s
-        [Parallel(n_jobs=2)]: Done   3 out of  10 | elapsed:    0.2s remaining:    0.5s
-        [Parallel(n_jobs=2)]: Done   6 out of  10 | elapsed:    0.3s remaining:    0.2s
-        [Parallel(n_jobs=2)]: Done   9 out of  10 | elapsed:    0.5s remaining:    0.1s
-        [Parallel(n_jobs=2)]: Done  10 out of  10 | elapsed:    0.5s finished
+        >>> r = Parallel(n_jobs=2, verbose=10)(delayed(sleep)(.2) for _ in range(10)) #doctest: +SKIP
+        [Parallel(n_jobs=2)]: Done   1 tasks      | elapsed:    0.6s
+        [Parallel(n_jobs=2)]: Done   4 tasks      | elapsed:    0.8s
+        [Parallel(n_jobs=2)]: Done  10 out of  10 | elapsed:    1.4s finished
 
         Traceback example, note how the line of the error is indicated
         as well as the values of the parameter passed to the function that
@@ -453,8 +454,7 @@ class Parallel(Logger):
         Using pre_dispatch in a producer/consumer situation, where the
         data is generated on the fly. Note how the producer is first
         called 3 times before the parallel loop is initiated, and then
-        called to generate new data on the fly. In this case the total
-        number of iterations cannot be reported in the progress messages:
+        called to generate new data on the fly:
 
         >>> from math import sqrt
         >>> from joblib import Parallel, delayed
@@ -474,7 +474,7 @@ class Parallel(Logger):
         [Parallel(n_jobs=2)]: Done 3 jobs     | elapsed:  0.0s
         Produced 5
         [Parallel(n_jobs=2)]: Done 4 jobs     | elapsed:  0.0s
-        [Parallel(n_jobs=2)]: Done 5 out of 6 | elapsed:  0.0s remaining: 0.0s
+        [Parallel(n_jobs=2)]: Done 6 out of 6 | elapsed:  0.0s remaining: 0.0s
         [Parallel(n_jobs=2)]: Done 6 out of 6 | elapsed:  0.0s finished
 
     '''
@@ -631,7 +631,8 @@ class Parallel(Logger):
             batch_size = self.batch_size
 
         with self._lock:
-            tasks = BatchedCalls(itertools.islice(iterator, batch_size))
+            tasks = BatchedCalls(itertools.islice(iterator, batch_size),
+                                 self._backend.get_nested_backend())
             if len(tasks) == 0:
                 # No more tasks available in the iterator: tell caller to stop.
                 return False
@@ -808,7 +809,8 @@ Sub-process traceback:
                 # consumption.
                 self._iterating = False
 
-            self.retrieve()
+            with self._backend.retrieval_context():
+                self.retrieve()
             # Make sure that we get a last message telling us we are done
             elapsed_time = time.time() - self._start_time
             self._print('Done %3i out of %3i | elapsed: %s finished',

@@ -37,10 +37,9 @@ such as numpy arrays.
 A simple example:
 ~~~~~~~~~~~~~~~~~
 
-  First we create a temporary directory, for the cache::
+  First we define the cache directory::
 
-    >>> from tempfile import mkdtemp
-    >>> cachedir = mkdtemp()
+    >>> cachedir = 'your_cache_dir_goes_here'
 
   We can instantiate a memory context, using this cache directory::
 
@@ -142,7 +141,7 @@ Using memmapping
 To speed up cache looking of large numpy arrays, you can load them
 using memmapping (memory mapping)::
 
-    >>> cachedir2 = mkdtemp()
+    >>> cachedir2 = 'your_cachedir2_goes_here
     >>> memory2 = Memory(cachedir=cachedir2, mmap_mode='r')
     >>> square = memory2.cache(np.square)
     >>> a = np.vander(np.arange(3)).astype(np.float)
@@ -416,7 +415,7 @@ objects that, in addition of behaving like normal functions, expose
 methods useful for cache exploration and management.
 
 .. autoclass:: MemorizedFunc
-    :members: __init__, call, clear, get_output_dir
+    :members: __init__, call, clear
 
 
 ..
