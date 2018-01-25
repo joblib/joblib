@@ -60,3 +60,5 @@ Module reference
    dump
    load
    hash
+   shelve
+   shelve_mmap

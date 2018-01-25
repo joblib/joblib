@@ -741,15 +741,8 @@ class MemorizedFunc(Logger):
                                                      self.store_backend,))
 
 
-###############################################################################
-# class `Memory`
-###############################################################################
-class Memory(Logger):
-    """ A context object for caching a function's return value each time it
-        is called with the same input arguments.
-
-        All values are cached on the filesystem, in a deep directory
-        structure.
+class StoreBase(Logger):
+    """ Base class for context caching objects.
 
         Read more in the :ref:`User Guide <memory>`.
     """
@@ -831,12 +824,8 @@ class Memory(Logger):
                 DeprecationWarning, stacklevel=2)
             location = cachedir
 
-        self.location = location
-        if isinstance(location, _basestring):
-            location = os.path.join(location, 'joblib')
-
         self.store_backend = _store_backend_factory(
-            backend, location, verbose=self._verbose,
+            backend, self._location(location), verbose=self._verbose,
             backend_options=dict(compress=compress, mmap_mode=mmap_mode,
                                  **backend_options))
 
@@ -850,6 +839,60 @@ class Memory(Logger):
         if self.location is None:
             return None
         return os.path.join(self.location, 'joblib')
+
+    # ------------------------------------------------------------------------
+    # Public interface
+    # ------------------------------------------------------------------------
+
+    def clear(self, warn=True):
+        """Erase the complete cache directory."""
+        if warn:
+            self.warn('Flushing completely the cache')
+        if self.store_backend is not None:
+            self.store_backend.clear()
+
+    # ------------------------------------------------------------------------
+    # Private `object` interface
+    # ------------------------------------------------------------------------
+
+    def __repr__(self):
+        return '{0}(location={1})'.format(
+            self.__class__.__name__, (repr(None) if self.store_backend is None
+                                      else repr(self.store_backend)))
+
+    def __reduce__(self):
+        """ We don't store the timestamp when pickling, to avoid the hash
+            depending from it.
+            In addition, when unpickling, we run the __init__
+        """
+        # We need to remove 'joblib' from the end of cachedir
+        location = (repr(self.store_backend)[:-7]
+                    if self.store_backend is not None else None)
+        compress = self.store_backend.compress \
+            if self.store_backend is not None else False
+        return (self.__class__, (location, self.backend, self.mmap_mode,
+                                 compress, self._verbose))
+
+    def _location(self, location):
+        if isinstance(location, _basestring):
+            return os.path.join(location, self._root)
+        return location
+
+
+###############################################################################
+# class `Memory`
+###############################################################################
+class Memory(StoreBase):
+    """ A context object for caching a function's return value each time it
+        is called with the same input arguments.
+
+        All values are cached on the filesystem, in a deep directory
+        structure.
+
+        see :ref:`memory_reference`
+    """
+
+    _root = 'joblib'  # We don't want to break existing memory cache
 
     def cache(self, func=None, ignore=None, verbose=None, mmap_mode=False):
         """ Decorates the given function func to only compute its return
@@ -894,19 +937,6 @@ class Memory(Logger):
                              ignore=ignore, verbose=verbose,
                              timestamp=self.timestamp)
 
-    def clear(self, warn=True):
-        """ Erase the complete cache directory.
-        """
-        if warn:
-            self.warn('Flushing completely the cache')
-        if self.store_backend is not None:
-            self.store_backend.clear()
-
-    def reduce_size(self):
-        """Remove cache elements to make cache size fit in ``bytes_limit``."""
-        if self.bytes_limit is not None and self.store_backend is not None:
-            self.store_backend.reduce_store_size(self.bytes_limit)
-
     def eval(self, func, *args, **kwargs):
         """ Eval function func with arguments `*args` and `**kwargs`,
             in the context of the memory.
@@ -920,24 +950,7 @@ class Memory(Logger):
             return func(*args, **kwargs)
         return self.cache(func)(*args, **kwargs)
 
-    # ------------------------------------------------------------------------
-    # Private `object` interface
-    # ------------------------------------------------------------------------
-
-    def __repr__(self):
-        return '{0}(location={1})'.format(
-            self.__class__.__name__, (repr(None) if self.store_backend is None
-                                      else repr(self.store_backend)))
-
-    def __reduce__(self):
-        """ We don't store the timestamp when pickling, to avoid the hash
-            depending from it.
-            In addition, when unpickling, we run the __init__
-        """
-        # We need to remove 'joblib' from the end of cachedir
-        location = (repr(self.store_backend)[:-7]
-                    if self.store_backend is not None else None)
-        compress = self.store_backend.compress \
-            if self.store_backend is not None else False
-        return (self.__class__, (location, self.backend, self.mmap_mode,
-                                 compress, self._verbose))
+    def reduce_size(self):
+        """Remove cache elements to make cache size fit in ``bytes_limit``."""
+        if self.bytes_limit is not None and self.store_backend is not None:
+            self.store_backend.reduce_store_size(self.bytes_limit)
