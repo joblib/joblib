@@ -234,7 +234,6 @@ html_theme_options = {
     'github_button': 'true',
     'link': '#aa560c',
     'show_powered_by': 'false',
-    # 'gray_1': '#643200'
     # "relbarbgcolor": "#333",
     # "sidebarlinkcolor": "#e15617",
     # "sidebarbgcolor": "#000",
