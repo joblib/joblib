@@ -76,7 +76,7 @@ print_vector(random_vector, backend)
 ###############################################################################
 # Some of the generated vectors are exactly the same, which can be a
 # problem for the application.
-
+#
 # Technically, the reason is that all forked Python processes share the
 # same exact random seed. As a results, we obtain twice the same randomly
 # generated vectors because we are using ``n_jobs=2``. A solution is to
