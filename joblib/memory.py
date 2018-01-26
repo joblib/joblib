@@ -96,7 +96,7 @@ def register_store_backend(backend_name, backend):
     _STORE_BACKENDS[backend_name] = backend
 
 
-def _store_backend_factory(backend, location, verbose=0, store_options={}):
+def _store_backend_factory(backend, location, verbose=0, backend_options={}):
     """Return the correct store object for the given location."""
     if isinstance(location, StoreBackendBase):
         return location
@@ -118,7 +118,8 @@ def _store_backend_factory(backend, location, verbose=0, store_options={}):
 
         # The store backend is configured with the extra named parameters,
         # some of them are specific to the underlying store backend.
-        obj.configure(location, verbose=verbose, store_options=store_options)
+        obj.configure(location, verbose=verbose,
+                      backend_options=backend_options)
         return obj
 
     return None
@@ -385,7 +386,7 @@ class MemorizedFunc(Logger):
         # retrieve store object from backend type and location.
         self.store_backend = _store_backend_factory(backend, location,
                                                     verbose=verbose,
-                                                    store_options=dict(
+                                                    backend_options=dict(
                                                         compress=compress,
                                                         mmap_mode=mmap_mode),
                                                     )
@@ -758,7 +759,7 @@ class Memory(Logger):
 
     def __init__(self, location=None, backend='local', cachedir=None,
                  mmap_mode=None, compress=False, verbose=1, bytes_limit=None,
-                 store_options={}):
+                 backend_options={}):
         """
             Parameters
             ----------
@@ -770,7 +771,9 @@ class Memory(Logger):
 
             backend: str or 'local'
                 Type of store backend for reading/writing cache files.
-                Default is 'local'.
+                Default is 'local'. The 'local' backend is using regular
+                filesystem operations to manipulate data (open, mv, etc) in the
+                backend.
 
             cachedir: str or None
                 cachedir is deprecated since version 0.11 and will be
@@ -796,6 +799,10 @@ class Memory(Logger):
 
             bytes_limit: int, optional
                 Limit in bytes of the size of the cache.
+
+            backend_options: dict, optional
+                Contains a dictionnary of named parameters used to configure
+                the store backend.
 
         """
         # XXX: Bad explanation of the None value of cachedir
@@ -827,8 +834,8 @@ class Memory(Logger):
 
         self.store_backend = _store_backend_factory(
             backend, location, verbose=self._verbose,
-            store_options=dict(compress=compress, mmap_mode=mmap_mode,
-                               **store_options))
+            backend_options=dict(compress=compress, mmap_mode=mmap_mode,
+                                 **backend_options))
 
     def cache(self, func=None, ignore=None, verbose=None, mmap_mode=False):
         """ Decorates the given function func to only compute its return

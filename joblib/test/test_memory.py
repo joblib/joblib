@@ -380,7 +380,7 @@ def test_func_dir(tmpdir):
     g = memory.cache(f)
     # Test that the function directory is created on demand
     func_id = _build_func_identifier(f)
-    location = os.path.join(g.store_backend._location, func_id)
+    location = os.path.join(g.store_backend.location, func_id)
     assert location == path
     assert os.path.exists(path)
 
@@ -394,7 +394,7 @@ def test_func_dir(tmpdir):
 
     # Test the robustness to failure of loading previous results.
     func_id, args_id = g._get_output_idendifiers(1)
-    output_dir = os.path.join(g.store_backend._location, func_id, args_id)
+    output_dir = os.path.join(g.store_backend.location, func_id, args_id)
     a = g(1)
     assert os.path.exists(output_dir)
     os.remove(os.path.join(output_dir, 'output.pkl'))
@@ -410,11 +410,11 @@ def test_persistence(tmpdir):
     h = pickle.loads(pickle.dumps(g))
 
     func_id, args_id = h._get_output_idendifiers(1)
-    output_dir = os.path.join(h.store_backend._location, func_id, args_id)
+    output_dir = os.path.join(h.store_backend.location, func_id, args_id)
     assert os.path.exists(output_dir)
     assert output == h.store_backend.load_item([func_id, args_id])
     memory2 = pickle.loads(pickle.dumps(memory))
-    assert memory.store_backend._location == memory2.store_backend._location
+    assert memory.store_backend.location == memory2.store_backend.location
 
     # Smoke test that pickling a memory with location=None works
     memory = Memory(location=None, verbose=0)
@@ -638,7 +638,7 @@ def _setup_toy_cache(tmpdir, num_inputs=10):
     hash_dirnames = [get_1000_bytes._get_output_idendifiers(arg)[1]
                      for arg in inputs]
 
-    full_hashdirs = [os.path.join(get_1000_bytes.store_backend._location,
+    full_hashdirs = [os.path.join(get_1000_bytes.store_backend.location,
                                   func_id, dirname)
                      for dirname in hash_dirnames]
     return memory, full_hashdirs, get_1000_bytes
@@ -738,7 +738,7 @@ def test_memory_clear(tmpdir):
     memory, _, _ = _setup_toy_cache(tmpdir)
     memory.clear()
 
-    assert os.listdir(memory.store_backend._location) == []
+    assert os.listdir(memory.store_backend.location) == []
 
 
 def fast_func_with_complex_output():
@@ -885,14 +885,14 @@ def test_cachedir_deprecation_warning(tmpdir):
     # option instead of new location parameter.
     with warns(None) as w:
         memory = Memory(location=tmpdir.strpath, cachedir=tmpdir, verbose=0)
-        assert memory.store_backend._location.startswith(tmpdir.strpath)
+        assert memory.store_backend.location.startswith(tmpdir.strpath)
 
     assert len(w) == 1
     assert "You set both location and cachedir options" in str(w[-1].message)
 
     with warns(None) as w:
         memory = Memory(cachedir=tmpdir.strpath, verbose=0)
-        assert memory.store_backend._location.startswith(tmpdir.strpath)
+        assert memory.store_backend.location.startswith(tmpdir.strpath)
 
     assert len(w) == 1
     assert "cachedir option is deprecated since version" in str(w[-1].message)
