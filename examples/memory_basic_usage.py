@@ -3,8 +3,8 @@
 How to use joblib.Memory
 ========================
 
-This example illustrates the usage of :class:`joblib.Memory`. We illustrate
-usages with a function and a method.
+This example illustrates the usage of :class:`joblib.Memory` with both
+functions and methods.
 
 """
 
@@ -12,26 +12,28 @@ usages with a function and a method.
 # Without :class:`joblib.Memory`
 ###############################################################################
 # 
-# To show the benefit of using :class:`joblib.Memory`, we will implement a
-# function which is computationally expensive to execute. First, we will check
-# the time required to perform the decomposition on a large array of data.
+# ``costly_compute`` emulates a computationally expensive process which later
+# will benefit from caching using :class:`joblib.Memory`.
 
 import time
 import numpy as np
 
 
-def expensive_computation(data, column_index=0):
+def costly_compute(data, column_index=0):
     """Simulate an expensive computation"""
     time.sleep(5)
     return data[column_index]
 
 
-# to hit the cache between Python session, be sure to set the random seed to
-# generate deterministic data.
+###############################################################################
+# Be sure to set the random seed to generate deterministic data. Indeed, if the
+# data is not deterministic, the :class:`joblib.Memory` instance will not be
+# able to reuse the cache from one run to another.
+
 rng = np.random.RandomState(42)
 data = rng.randn(int(1e5), 10)
 start = time.time()
-data_trans = expensive_computation(data)
+data_trans = costly_compute(data)
 end = time.time()
 
 print('\nThe function took {:.2f} s to compute.'.format(end - start))
@@ -43,24 +45,23 @@ print('\nThe transformed data are:\n {}'.format(data_trans))
 # 
 # If we need to call our function several time with the same input data, it is
 # beneficial to avoid recomputing the same results over and over since it is
-# expensive. We can use :class:`joblib.Memory` to avoid such recomputing. A
-# :class:`joblib.Memory` instance can be created by passing a directory in
-# which we want to store the results.
+# expensive. :class:`joblib.Memory` enables to cache results from a function
+# into a specific location.
 
 from joblib import Memory
 location = './cachedir'
 memory = Memory(location=location, verbose=0)
 
 
-def expensive_computation_cached(data, column_index=0):
+def costly_compute_cached(data, column_index=0):
     """Simulate an expensive computation"""
     time.sleep(5)
     return data[column_index]
 
 
-expensive_computation_cached = memory.cache(expensive_computation_cached)
+costly_compute_cached = memory.cache(costly_compute_cached)
 start = time.time()
-data_trans = expensive_computation_cached(data)
+data_trans = costly_compute_cached(data)
 end = time.time()
 
 print('\nThe function took {:.2f} s to compute.'.format(end - start))
@@ -72,7 +73,7 @@ print('\nThe transformed data are:\n {}'.format(data_trans))
 # results into the disk.
 
 start = time.time()
-data_trans = expensive_computation_cached(data)
+data_trans = costly_compute_cached(data)
 end = time.time()
 
 print('\nThe function took {:.2f} s to compute.'.format(end - start))
@@ -88,11 +89,11 @@ print('\nThe transformed data are:\n {}'.format(data_trans))
 ###############################################################################
 # 
 # :class:`joblib.Memory` is designed to work with functions with no side
-# effects. When you want to cache a method within a class, you need to create
-# and cache a function and use it inside the class.
+# effects. When dealing with class, the computationally expensive part of a
+# method has to be moved to a function and decorated in the class method.
 
 
-def _expensive_computation_cached(data, column):
+def _costly_compute_cached(data, column):
     time.sleep(5)
     return data[column]
 
@@ -104,8 +105,8 @@ class Algorithm(object):
         self.column = column
 
     def transform(self, data):
-        expensive_computation = memory.cache(_expensive_computation_cached)
-        return expensive_computation(data, self.column)
+        costly_compute = memory.cache(_costly_compute_cached)
+        return costly_compute(data, self.column)
 
 
 transformer = Algorithm()
