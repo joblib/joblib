@@ -32,7 +32,7 @@ def long_running_function(i):
 
 with joblib.parallel_backend('dask.distributed',
                              scheduler_host=client.scheduler.address):
-    joblib.Parallel(n_jobs=2, verbose=10)(
+    joblib.Parallel(n_jobs=2, verbose=100)(
         joblib.delayed(long_running_function)(i)
         for i in range(10))
     # We can check that joblib is indeed using the dask.distributed
