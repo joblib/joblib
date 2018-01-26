@@ -159,6 +159,9 @@ print("\nActual sums computed by the worker processes:\n {}"
 ###############################################################################
 # Clean-up the memmap
 ###############################################################################
+#
+# Remove the different memmap that we created. It might failed in Windows due
+# to file permissions.
 
 import shutil
 import os
