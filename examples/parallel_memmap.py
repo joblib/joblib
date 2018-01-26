@@ -12,7 +12,7 @@ original data.
 """
 
 ##############################################################################
-# Speed-up processing with large data array
+# Speed up processing of a large data array
 ##############################################################################
 # 
 # We create a large data array for which the average is computed for several
@@ -122,7 +122,7 @@ output = np.memmap(output_filename_memmap, dtype=data.dtype,
                    shape=len(slices), mode='w+')
 
 ###############################################################################
-# We replace ``data`` by its memory mapped version. Note that the buffer as
+# ``data`` is replaced by its memory mapped version. Note that the buffer as
 # already been dumped in the previous section.
 
 data = load(data_filename_memmap, mmap_mode='r')
