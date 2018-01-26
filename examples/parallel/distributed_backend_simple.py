@@ -29,7 +29,7 @@ client = Client()
 address = client.scheduler_info()['address']
 
 # This import registers the dask backend for joblib
-import distributed.joblib
+import distributed.joblib  # noqa
 
 ###############################################################################
 # Run parallel computation using dask.distributed
@@ -38,9 +38,11 @@ import distributed.joblib
 import time
 import joblib
 
+
 def long_running_function(i):
     time.sleep(.1)
     return i
+
 
 with joblib.parallel_backend('dask.distributed', scheduler_host=address):
     joblib.Parallel(n_jobs=2, verbose=100)(
