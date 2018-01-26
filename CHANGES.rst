@@ -4,10 +4,20 @@ Latest changes
 Development
 -----------
 
+Elizabeth Sander
+    Prevent numpy arrays with the same shape and data from hashing to
+    the same memmap, to prevent jobs with preallocated arrays from
+    writing over each other.
+
 Olivier Grisel
 
-    Make Memory.cache robust to PermissionError (errno 13) under Windows
-    when run in combination with Parallel.
+    Make ``Memory.cache`` robust to ``PermissionError (errno 13)`` under
+    Windows when run in combination with ``Parallel``.
+
+    The automatic array memory mapping feature of ``Parallel`` does no longer
+    use ``/dev/shm`` if it is too small (less than 2 GB). In particular in
+    docker containers ``/dev/shm`` is only 64 MB by default which would cause
+    frequent failures when running joblib in Docker containers.
 
 
 Release 0.11

@@ -7,8 +7,9 @@ from joblib.test.common import setup_autokill
 from joblib.test.common import teardown_autokill
 from joblib.test.common import with_multiprocessing
 from joblib.test.common import with_dev_shm
-from joblib.testing import raises, parametrize
+from joblib.testing import raises, parametrize, skipif
 from joblib.backports import make_memmap
+from joblib.parallel import Parallel, delayed
 
 from joblib.pool import MemmappingPool
 from joblib.executor import _TestingMemmappingExecutor
@@ -18,6 +19,7 @@ from joblib._memmapping_reducer import reduce_memmap
 from joblib._memmapping_reducer import _strided_from_memmap
 from joblib._memmapping_reducer import _get_backing_memmap
 from joblib._memmapping_reducer import _get_temp_dir
+import joblib._memmapping_reducer as jmr
 
 
 def setup_module():
@@ -375,41 +377,76 @@ def test_memmapping_pool_for_large_arrays_disabled(factory, tmpdir):
 @with_dev_shm
 @parametrize("factory", [MemmappingPool, _TestingMemmappingExecutor],
              ids=["multiprocessing", "loky"])
-def test_memmapping_on_dev_shm(factory):
+def test_memmapping_on_large_enough_dev_shm(factory):
     """Check that memmapping uses /dev/shm when possible"""
-    p = factory(3, max_nbytes=10)
+    orig_size = jmr.SYSTEM_SHARED_MEM_FS_MIN_SIZE
     try:
-        # Check that the pool has correctly detected the presence of the
-        # shared memory filesystem.
-        pool_temp_folder = p._temp_folder
-        folder_prefix = '/dev/shm/joblib_memmapping_folder_'
-        assert pool_temp_folder.startswith(folder_prefix)
-        assert os.path.exists(pool_temp_folder)
+        # Make joblib believe that it can use /dev/shm even when running on a
+        # CI container where the size of the /dev/shm is not very large (that
+        # is at least 32 MB instead of 2 GB by default).
+        jmr.SYSTEM_SHARED_MEM_FS_MIN_SIZE = int(32e6)
+        p = factory(3, max_nbytes=10)
+        try:
+            # Check that the pool has correctly detected the presence of the
+            # shared memory filesystem.
+            pool_temp_folder = p._temp_folder
+            folder_prefix = '/dev/shm/joblib_memmapping_folder_'
+            assert pool_temp_folder.startswith(folder_prefix)
+            assert os.path.exists(pool_temp_folder)
 
-        # Try with a file larger than the memmap threshold of 10 bytes
-        a = np.ones(100, dtype=np.float64)
-        assert a.nbytes == 800
-        p.map(id, [a] * 10)
-        # a should have been memmapped to the pool temp folder: the joblib
-        # pickling procedure generate one .pkl file:
-        assert len(os.listdir(pool_temp_folder)) == 1
+            # Try with a file larger than the memmap threshold of 10 bytes
+            a = np.ones(100, dtype=np.float64)
+            assert a.nbytes == 800
+            p.map(id, [a] * 10)
+            # a should have been memmapped to the pool temp folder: the joblib
+            # pickling procedure generate one .pkl file:
+            assert len(os.listdir(pool_temp_folder)) == 1
 
-        # create a new array with content that is different from 'a' so that
-        # it is mapped to a different file in the temporary folder of the
-        # pool.
-        b = np.ones(100, dtype=np.float64) * 2
-        assert b.nbytes == 800
-        p.map(id, [b] * 10)
-        # A copy of both a and b are now stored in the shared memory folder
-        assert len(os.listdir(pool_temp_folder)) == 2
-
+            # create a new array with content that is different from 'a' so
+            # that it is mapped to a different file in the temporary folder of
+            # the pool.
+            b = np.ones(100, dtype=np.float64) * 2
+            assert b.nbytes == 800
+            p.map(id, [b] * 10)
+            # A copy of both a and b are now stored in the shared memory folder
+            assert len(os.listdir(pool_temp_folder)) == 2
+        finally:
+            # Cleanup open file descriptors
+            p.terminate()
+            del p
+        # The temp folder is cleaned up upon pool termination
+        assert not os.path.exists(pool_temp_folder)
     finally:
-        # Cleanup open file descriptors
-        p.terminate()
-        del p
+        jmr.SYSTEM_SHARED_MEM_FS_MIN_SIZE = orig_size
 
-    # The temp folder is cleaned up upon pool termination
-    assert not os.path.exists(pool_temp_folder)
+
+@with_numpy
+@with_multiprocessing
+@with_dev_shm
+@parametrize("factory", [MemmappingPool, _TestingMemmappingExecutor],
+             ids=["multiprocessing", "loky"])
+def test_memmapping_on_too_small_dev_shm(factory):
+    orig_size = jmr.SYSTEM_SHARED_MEM_FS_MIN_SIZE
+    try:
+        # Make joblib believe that it cannot use /dev/shm unless there is
+        # 42 exabytes of available shared memory in /dev/shm
+        jmr.SYSTEM_SHARED_MEM_FS_MIN_SIZE = int(42e18)
+
+        p = factory(3, max_nbytes=10)
+        try:
+            # Check that the pool has correctly detected the presence of the
+            # shared memory filesystem.
+            pool_temp_folder = p._temp_folder
+            assert not pool_temp_folder.startswith('/dev/shm')
+        finally:
+            # Cleanup open file descriptors
+            p.terminate()
+            del p
+
+        # The temp folder is cleaned up upon pool termination
+        assert not os.path.exists(pool_temp_folder)
+    finally:
+        jmr.SYSTEM_SHARED_MEM_FS_MIN_SIZE = orig_size
 
 
 @with_numpy
@@ -509,3 +546,21 @@ def test_pool_get_temp_dir(tmpdir):
     if sys.platform.startswith('win'):
         assert shared_mem is False
     assert pool_folder.endswith(pool_folder_name)
+
+
+@with_numpy
+@skipif(sys.platform == 'win32', reason='This test fails with a '
+        'PermissionError on Windows')
+@parametrize("mmap_mode", ["r+", "w+"])
+def test_numpy_arrays_use_different_memory(mmap_mode):
+    def func(arr, value):
+        arr[:] = value
+        return arr
+
+    arrays = [np.zeros((10, 10), dtype='float64') for i in range(10)]
+
+    results = Parallel(mmap_mode=mmap_mode, max_nbytes=0, n_jobs=2)(
+        delayed(func)(arr, i) for i, arr in enumerate(arrays))
+
+    for i, arr in enumerate(results):
+        np.testing.assert_array_equal(arr, i)

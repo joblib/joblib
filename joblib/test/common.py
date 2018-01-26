@@ -99,6 +99,7 @@ def teardown_autokill(module_name):
 with_multiprocessing = skipif(
     mp is None, reason='Needs multiprocessing to run.')
 
+
 with_dev_shm = skipif(
     not os.path.exists('/dev/shm'),
-    reason='This test requires the /dev/shm shared memory fs.')
+    reason='This test requires a large /dev/shm shared memory fs.')

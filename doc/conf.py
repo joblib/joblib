@@ -47,6 +47,7 @@ intersphinx_mapping = {
 
 # sphinx-gallery configuration
 sphinx_gallery_conf = {
+    'default_thumb_file': 'doc/_static/joblib_logo_examples.png',
     'doc_module': 'joblib',
     'filename_pattern': '',
     'backreferences_dir': os.path.join('generated'),
@@ -68,7 +69,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'joblib'
-copyright = '2008-2009, Gael Varoquaux'
+copyright = '2008-2018, Joblib developers'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -139,12 +140,12 @@ trim_doctest_flags = True
 # The name of an image file (within the static path) to use as favicon of the
 # docs.  This file should be a Windows icon file (.ico) being 16x16 or 32x32
 # pixels large.
-#html_favicon = None
+html_favicon = '_static/favicon.ico'
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-# html_static_path = ['_static']
+html_static_path = ['_static']
 
 # If not '', a 'Last updated on:' timestamp is inserted at every page bottom,
 # using the given strftime format.
@@ -155,7 +156,13 @@ trim_doctest_flags = True
 #html_use_smartypants = True
 
 # Custom sidebar templates, maps document names to template names.
-#html_sidebars = {}
+html_sidebars = {
+    '**': [
+        'about.html',
+        'navigation.html',
+    ]
+}
+
 
 # Additional templates that should be rendered to pages, maps page names to
 # template names.
@@ -219,25 +226,22 @@ latex_documents = [
 # If false, no module index is generated.
 #latex_use_modindex = True
 
-html_theme = 'classic'
+html_theme = 'alabaster'
 
 html_theme_options = {
-#    "bgcolor": "#fff",
-#    "footertextcolor": "#666",
-    "relbarbgcolor": "#333",
-#    "relbarlinkcolor": "#445481",
-#    "relbartextcolor": "#445481",
-    "sidebarlinkcolor": "#e15617",
-    "sidebarbgcolor": "#000",
-#    "sidebartextcolor": "#333",
-    "footerbgcolor": "#111",
-    "linkcolor": "#aa560c",
-#    "bodyfont": '"Lucida Grande",Verdana,Lucida,Helvetica,Arial,sans-serif',
-#    "headfont": "georgia, 'bitstream vera sans serif', 'lucida grande',
-#                       helvetica, verdana, sans-serif",
-#    "headbgcolor": "#F5F5F5",
-    "headtextcolor": "#643200",
-    "codebgcolor": "#f5efe7",
+    'logo': 'joblib_logo.svg',
+    'github_repo': 'joblib/joblib',
+    'github_button': 'true',
+    'link': '#aa560c',
+    'show_powered_by': 'false',
+    # "relbarbgcolor": "#333",
+    # "sidebarlinkcolor": "#e15617",
+    # "sidebarbgcolor": "#000",
+    # "sidebartextcolor": "#333",
+    # "footerbgcolor": "#111",
+    # "linkcolor": "#aa560c",
+    # "headtextcolor": "#643200",
+    # "codebgcolor": "#f5efe7",
 }
 
 

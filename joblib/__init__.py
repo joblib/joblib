@@ -1,7 +1,7 @@
 """Joblib is a set of tools to provide **lightweight pipelining in
-Python**. In particular, joblib offers:
+Python**. In particular:
 
-1. transparent disk-caching of the output values and lazy re-evaluation
+1. transparent disk-caching of functions and lazy re-evaluation
    (memoize pattern)
 
 2. easy simple parallel computing
@@ -13,15 +13,15 @@ data and has specific optimizations for `numpy` arrays. It is
 **BSD-licensed**.
 
 
-    ========================= ================================================
-    **User documentation:**        http://pythonhosted.org/joblib
+    ==================== ===============================================
+    **Documentation:**       http://pythonhosted.org/joblib
 
-    **Download packages:**         http://pypi.python.org/pypi/joblib#downloads
+    **Download:**            http://pypi.python.org/pypi/joblib#downloads
 
-    **Source code:**               http://github.com/joblib/joblib
+    **Source code:**         http://github.com/joblib/joblib
 
-    **Report issues:**             http://github.com/joblib/joblib/issues
-    ========================= ================================================
+    **Report issues:**       http://github.com/joblib/joblib/issues
+    ==================== ===============================================
 
 
 Vision
@@ -43,9 +43,8 @@ reproducibility when working with long running jobs.
     good for resuming an application status or computational job, eg
     after a crash.
 
-Joblib strives to address these problems while **leaving your code and
-your flow control as unmodified as possible** (no framework, no new
-paradigms).
+Joblib addresses these problems while **leaving your code and your flow
+control as unmodified as possible** (no framework, no new paradigms).
 
 Main features
 ------------------
@@ -119,7 +118,7 @@ Main features
 __version__ = '0.11.1.dev0'
 
 
-from .memory import Memory, MemorizedResult
+from .memory import Memory, MemorizedResult, register_store_backend
 from .logger import PrintTime
 from .logger import Logger
 from .hashing import hash
@@ -135,4 +134,5 @@ from .parallel import effective_n_jobs
 
 __all__ = ['Memory', 'MemorizedResult', 'PrintTime', 'Logger', 'hash', 'dump',
            'load', 'Parallel', 'delayed', 'cpu_count', 'effective_n_jobs',
-           'register_parallel_backend', 'parallel_backend']
+           'register_parallel_backend', 'parallel_backend',
+           'register_store_backend']
