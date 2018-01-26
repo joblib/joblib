@@ -35,7 +35,7 @@ import time
 
 
 def slow_mean(data, sl):
-    """Simulate a larger processing"""
+    """Simulate a time consuming processing."""
     time.sleep(0.005)
     return data[sl].mean()
 
@@ -102,8 +102,8 @@ print('\nElapsed time computing the average of couple of slices {:.2f} s\n'
 
 
 def slow_mean_write_output(data, sl, output, idx):
-    """Simulate a larger processing
-    time""".sleep(0.005)
+    """Simulate a time consuming processing."""
+    time.sleep(0.005)
     res_ = data[sl].mean()
     print("[Worker %d] Mean for slice %d is %f" % (os.getpid(), idx, res_))
     output[idx] = res_
