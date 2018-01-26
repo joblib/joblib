@@ -93,35 +93,37 @@ print('\nElapsed time computing the average of couple of slices {:.2f} s\n'
 # removing some overhead.
 
 ###############################################################################
-# Output write access within :class:`joblib.Parallel`
+# Writable memmap for shared memory :class:`joblib.Parallel`
 ###############################################################################
+# 
+# ``slow_mean_write_output`` will compute the mean for some given slices as in
+# the previous example. However, the resulting mean will be directly written on
+# the output array.
 
 
 def slow_mean_write_output(data, sl, output, idx):
-    """Simulate a larger processing"""
-    time.sleep(0.005)
+    """Simulate a larger processing
+    time""".sleep(0.005)
     res_ = data[sl].mean()
     print("[Worker %d] Mean for slice %d is %f" % (os.getpid(), idx, res_))
     output[idx] = res_
 
-    
+
 ###############################################################################
 # Prepare the folder where the memmap will be dumped.
 
 output_filename_memmap = os.path.join(folder, 'output_memmap')
 
 ###############################################################################
-# Pre-allocate a writeable shared memory map as a container for the results of
-# the parallel computation and dump the samples buffer.
+# Pre-allocate a writable shared memory map as a container for the results of
+# the parallel computation.
 
 output = np.memmap(output_filename_memmap, dtype=data.dtype,
                    shape=len(slices), mode='w+')
 
 ###############################################################################
-# Release the reference to the original in memory array and replace it by a
-# reference to the memmap array so that the garbage collector can release the
-# memory before forking. gc.collect() is internally called in Parallel just
-# before forking.
+# We replace ``data`` by its memory mapped version. Note that the buffer as
+# already been dumped in the previous section.
 
 data = load(data_filename_memmap, mmap_mode='r')
 
@@ -142,7 +144,7 @@ print("\nActual means computed by the worker processes:\n {}"
 ###############################################################################
 # Clean-up the memmap
 ###############################################################################
-#
+# 
 # Remove the different memmap that we created. It might fail in Windows due
 # to file permissions.
 
