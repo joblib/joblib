@@ -5,7 +5,7 @@ NumPy memmap in joblib.Parallel
 
 This example illustrates some features enabled by using :class:`numpy.memmap`
 within :class:`joblib.Parallel`. First, we show that dumping a huge data array
-ahead of passing it to :class:`joblib.Parallel` speed-up computation. Then, we
+ahead of passing it to :class:`joblib.Parallel` speeds up computation. Then, we
 show the possibility to provide write access to original data.
 
 """
@@ -14,7 +14,7 @@ show the possibility to provide write access to original data.
 # Speed-up processing with large data array
 ##############################################################################
 # 
-# We create a large data array from which an average is computed for several
+# We create a large data array for which the average is computed for several
 # slices.
 
 import numpy as np
@@ -25,7 +25,7 @@ slices = [slice(start, start + window_size)
           for start in range(0, data.size - window_size, int(1e5))]
 
 ###############################################################################
-# The ``slow_mean`` function introduce a :func:`time.sleep` call to simulate a
+# The ``slow_mean`` function introduces a :func:`time.sleep` call to simulate a
 # more expensive computation cost for which parallel computing is beneficial.
 # Otherwise, for very fast sequential processing, parallel processing is not
 # adapted due some extra overheads (workers creations, communication, etc.).
@@ -45,11 +45,11 @@ def slow_mean(data, sl):
 tic = time.time()
 results = [slow_mean(data, sl) for sl in slices]
 toc = time.time()
-print('\nElapsed time computing the average on couple of slices {:.2f} s'
+print('\nElapsed time computing the average of couple of slices {:.2f} s'
       .format(toc - tic))
 
 ###############################################################################
-# :class:`joblib.Parallel` is used to compute in parallel the average on each
+# :class:`joblib.Parallel` is used to compute in parallel the average of all
 # slices using 2 workers.
 
 from joblib import Parallel, delayed
@@ -58,7 +58,7 @@ from joblib import Parallel, delayed
 tic = time.time()
 results = Parallel(n_jobs=2)(delayed(slow_mean)(data, sl) for sl in slices)
 toc = time.time()
-print('\nElapsed time computing the average on couple of slices {:.2f} s'
+print('\nElapsed time computing the average of couple of slices {:.2f} s'
       .format(toc - tic))
 
 ###############################################################################
@@ -76,13 +76,13 @@ data = load(filename_memmap, mmap_mode='r')
 tic = time.time()
 results = Parallel(n_jobs=2)(delayed(slow_mean)(data, sl) for sl in slices)
 toc = time.time()
-print('\nElapsed time computing the average on couple of slices {:.2f} s\n'
+print('\nElapsed time computing the average of couple of slices {:.2f} s\n'
       .format(toc - tic))
 
 ###############################################################################
 # Therefore, dumping large ``data`` array ahead of calling
-# :class:`joblib.Parallel` can speed-up significantly the processing by
-# removing some overheads.
+# :class:`joblib.Parallel` can speed up significantly the processing by
+# removing some overhead.
 
 ###############################################################################
 # Output write access within :class:`joblib.Parallel`
@@ -131,7 +131,7 @@ sums = np.memmap(sums_name, dtype=samples.dtype,
 dump(samples, samples_name)
 
 ###############################################################################
-# Release the reference on the original in memory array and replace it by a
+# Release the reference to the original in memory array and replace it by a
 # reference to the memmap array so that the garbage collector can release the
 # memory before forking. gc.collect() is internally called in Parallel just
 # before forking.
@@ -160,7 +160,7 @@ print("\nActual sums computed by the worker processes:\n {}"
 # Clean-up the memmap
 ###############################################################################
 #
-# Remove the different memmap that we created. It might failed in Windows due
+# Remove the different memmap that we created. It might fail in Windows due
 # to file permissions.
 
 import shutil
