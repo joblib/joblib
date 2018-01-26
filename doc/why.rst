@@ -18,8 +18,8 @@ Data-flow programming for performance
   to deduce which operations can be run in parallel (it is equivalent to
   purely functional programming).
 
-Provenance tracking for understanding the code
-..............................................
+Provenance tracking to understand the code
+..........................................
 
 * **Tracking of data and computations:** This allows the reproducibility of a
   computational experiment.
