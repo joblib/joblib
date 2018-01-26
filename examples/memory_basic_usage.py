@@ -26,7 +26,10 @@ def expensive_computation(data, column_index=0):
     return data[column_index]
 
 
-data = np.random.randn(int(1e5), 10)
+# to hit the cache between Python session, be sure to set the random seed to
+# generate deterministic data.
+rng = np.random.RandomState(42)
+data = rng.randn(int(1e5), 10)
 start = time.time()
 data_trans = expensive_computation(data)
 end = time.time()
