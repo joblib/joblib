@@ -21,7 +21,7 @@ Data-flow programming for performance
 Provenance tracking to understand the code
 ..........................................
 
-* **Tracking of data and computations:** This allows the reproducibility of a
+* **Tracking of data and computations:** This enables the reproducibility of a
   computational experiment.
 
 * **Inspecting data flow:** Inspecting intermediate results helps
