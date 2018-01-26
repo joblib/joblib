@@ -147,7 +147,7 @@ class StoreBackendMixin(object):
     def load_item(self, path, verbose=1, msg=None):
         """Load an item from the store given its path as a list of
            strings."""
-        full_path = os.path.join(self._location, *path)
+        full_path = os.path.join(self.location, *path)
 
         if verbose > 1:
             if verbose < 10:
@@ -175,7 +175,7 @@ class StoreBackendMixin(object):
         """Dump an item in the store at the path given as a list of
            strings."""
         try:
-            item_path = os.path.join(self._location, *path)
+            item_path = os.path.join(self.location, *path)
             if not self._item_exists(item_path):
                 self.create_location(item_path)
             filename = os.path.join(item_path, 'output.pkl')
@@ -193,27 +193,27 @@ class StoreBackendMixin(object):
 
     def clear_item(self, path):
         """Clear the item at the path, given as a list of strings."""
-        item_path = os.path.join(self._location, *path)
+        item_path = os.path.join(self.location, *path)
         if self._item_exists(item_path):
             self.clear_location(item_path)
 
     def contains_item(self, path):
         """Check if there is an item at the path, given as a list of
            strings"""
-        item_path = os.path.join(self._location, *path)
+        item_path = os.path.join(self.location, *path)
         filename = os.path.join(item_path, 'output.pkl')
 
         return self._item_exists(filename)
 
     def get_item_info(self, path):
         """Return information about item."""
-        return {'location': os.path.join(self._location,
+        return {'location': os.path.join(self.location,
                                          *path)}
 
     def get_metadata(self, path):
         """Return actual metadata of an item."""
         try:
-            item_path = os.path.join(self._location, *path)
+            item_path = os.path.join(self.location, *path)
             filename = os.path.join(item_path, 'metadata.json')
             with self._open_item(filename, 'rb') as f:
                 return json.loads(f.read().decode('utf-8'))
@@ -223,7 +223,7 @@ class StoreBackendMixin(object):
     def store_metadata(self, path, metadata):
         """Store metadata of a computation."""
         try:
-            item_path = os.path.join(self._location, *path)
+            item_path = os.path.join(self.location, *path)
             self.create_location(item_path)
             filename = os.path.join(item_path, 'metadata.json')
 
@@ -237,18 +237,18 @@ class StoreBackendMixin(object):
 
     def contains_path(self, path):
         """Check cached function is available in store."""
-        func_path = os.path.join(self._location, *path)
+        func_path = os.path.join(self.location, *path)
         return self.object_exists(func_path)
 
     def clear_path(self, path):
         """Clear all items with a common path in the store."""
-        func_path = os.path.join(self._location, *path)
+        func_path = os.path.join(self.location, *path)
         if self._item_exists(func_path):
             self.clear_location(func_path)
 
     def store_cached_func_code(self, path, func_code=None):
         """Store the code of the cached function."""
-        func_path = os.path.join(self._location, *path)
+        func_path = os.path.join(self.location, *path)
         if not self._item_exists(func_path):
             self.create_location(func_path)
 
@@ -260,7 +260,7 @@ class StoreBackendMixin(object):
     def get_cached_func_code(self, path):
         """Store the code of the cached function."""
         path += ['func_code.py', ]
-        filename = os.path.join(self._location, *path)
+        filename = os.path.join(self.location, *path)
         try:
             with self._open_item(filename, 'rb') as f:
                 return f.read().decode('utf-8')
@@ -269,11 +269,11 @@ class StoreBackendMixin(object):
 
     def get_cached_func_info(self, path):
         """Return information related to the cached function if it exists."""
-        return {'location': os.path.join(self._location, *path)}
+        return {'location': os.path.join(self.location, *path)}
 
     def clear(self):
         """Clear the whole store content."""
-        self.clear_location(self._location)
+        self.clear_location(self.location)
 
     def reduce_store_size(self, bytes_limit):
         """Reduce store size to keep it under the given bytes limit."""
@@ -327,7 +327,7 @@ class StoreBackendMixin(object):
 
     def __repr__(self):
         """Printable representation of the store location."""
-        return self._location
+        return self.location
 
 
 class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
@@ -339,7 +339,7 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
 
     def clear_location(self, location):
         """Delete location on store."""
-        if (location == self._location):
+        if (location == self.location):
             rm_subdirs(location)
         else:
             shutil.rmtree(location, ignore_errors=True)
@@ -352,7 +352,7 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
         """Returns the whole list of items available in the store."""
         items = []
 
-        for dirpath, _, filenames in os.walk(self._location):
+        for dirpath, _, filenames in os.walk(self.location):
             is_cache_hash_dir = re.match('[a-f0-9]{32}',
                                          os.path.basename(dirpath))
 
@@ -390,10 +390,10 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
         For this backend, valid store options are 'compress' and 'mmap_mode'
         """
 
-        # setup locationdir
-        self._location = location
-        if not os.path.exists(self._location):
-            mkdirp(self._location)
+        # setup location directory
+        self.location = location
+        if not os.path.exists(self.location):
+            mkdirp(self.location)
 
         # item can be stored compressed for faster I/O
         self.compress = backend_options['compress']
