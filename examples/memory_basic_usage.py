@@ -130,8 +130,4 @@ print('\nThe transformed data are:\n {}'.format(data_trans))
 # Clean up cache directory
 ###############################################################################
 
-import shutil
-try:
-    shutil.rmtree(cachedir)
-except:  # noqa
-    print('We could not remove the folder containing the cached data.')
+memory.clear()
