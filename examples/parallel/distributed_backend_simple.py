@@ -2,9 +2,18 @@
 Using distributed for single_machine parallel computing
 ========================================================
 
-Realistic usage scenario: combining dask code with joblib code, for
-instance using dask for preprocessing data, and scikit-learn for machine
-learning.
+This example shows the simplest usage of the dask `distributed
+<https://distributed.readthedocs.io>`__ backend, on the local computer.
+
+This is useful for prototyping a solution, to later be run on a truly
+distributed cluster, as the only change to be made is the address of the
+scheduler.
+
+Another realistic usage scenario: combining dask code with joblib code,
+for instance using dask for preprocessing data, and scikit-learn for
+machine learning. In such a setting, it may be interesting to use
+distributed as a backend scheduler for both dask and joblib, to
+orchestrate well the computation.
 
 """
 
@@ -15,6 +24,9 @@ from distributed import Client
 # Typically, to execute on a remote machine, the address of the scheduler
 # would go there
 client = Client()
+
+# Recover the address
+address = client.scheduler_info()['address']
 
 # This import registers the dask backend for joblib
 import distributed.joblib
@@ -30,8 +42,7 @@ def long_running_function(i):
     time.sleep(.1)
     return i
 
-with joblib.parallel_backend('dask.distributed',
-                             scheduler_host=client.scheduler.address):
+with joblib.parallel_backend('dask.distributed', scheduler_host=address):
     joblib.Parallel(n_jobs=2, verbose=100)(
         joblib.delayed(long_running_function)(i)
         for i in range(10))
