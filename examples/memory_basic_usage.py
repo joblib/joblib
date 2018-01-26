@@ -45,8 +45,8 @@ print('\nThe transformed data are:\n {}'.format(data_trans))
 # which we want to store the results.
 
 from joblib import Memory
-cachedir = './cachedir'
-memory = Memory(cachedir=cachedir, verbose=0)
+location = './cachedir'
+memory = Memory(location=location, verbose=0)
 
 
 def expensive_computation_cached(data, column_index=0):
