@@ -118,7 +118,7 @@ class StoreBackendBase(with_metaclass(ABCMeta)):
         """
 
     @abstractmethod
-    def configure(self, location, verbose=0, store_options=dict()):
+    def configure(self, location, verbose=0, backend_options=dict()):
         """Configures the store.
 
         Parameters
@@ -128,7 +128,7 @@ class StoreBackendBase(with_metaclass(ABCMeta)):
             corresponds to a directory.
         verbose: int
             The level of verbosity of the store
-        store_options: dict
+        backend_options: dict
             Contains a dictionnary of named paremeters used to configure the
             store backend.
         """
@@ -384,7 +384,7 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
 
         return items
 
-    def configure(self, location, verbose=1, store_options={}):
+    def configure(self, location, verbose=1, backend_options={}):
         """Configure the store backend.
 
         For this backend, valid store options are 'compress' and 'mmap_mode'
@@ -396,14 +396,13 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
             mkdirp(self._location)
 
         # item can be stored compressed for faster I/O
-        self.compress = (False if 'compress' not in store_options
-                         else store_options['compress'])
+        self.compress = backend_options['compress']
 
         # FileSystemStoreBackend can be used with mmap_mode options under
         # certain conditions.
         mmap_mode = None
-        if 'mmap_mode' in store_options:
-            mmap_mode = store_options['mmap_mode']
+        if 'mmap_mode' in backend_options:
+            mmap_mode = backend_options['mmap_mode']
             if self.compress and mmap_mode is not None:
                 warnings.warn('Compressed items cannot be memmapped in a '
                               'filesystem store. Option will be ignored.',
