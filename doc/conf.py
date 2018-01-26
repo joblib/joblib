@@ -47,6 +47,7 @@ intersphinx_mapping = {
 
 # sphinx-gallery configuration
 sphinx_gallery_conf = {
+    'default_thumb_file': 'doc/_static/joblib_logo_examples.png',
     'doc_module': 'joblib',
     'filename_pattern': '',
     'backreferences_dir': os.path.join('generated'),
@@ -139,7 +140,7 @@ trim_doctest_flags = True
 # The name of an image file (within the static path) to use as favicon of the
 # docs.  This file should be a Windows icon file (.ico) being 16x16 or 32x32
 # pixels large.
-#html_favicon = None
+html_favicon = '_static/favicon.ico'
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
@@ -155,7 +156,13 @@ html_static_path = ['_static']
 #html_use_smartypants = True
 
 # Custom sidebar templates, maps document names to template names.
-#html_sidebars = {}
+html_sidebars = {
+    '**': [
+        'about.html',
+        'navigation.html',
+    ]
+}
+
 
 # Additional templates that should be rendered to pages, maps page names to
 # template names.
@@ -222,9 +229,9 @@ latex_documents = [
 html_theme = 'alabaster'
 
 html_theme_options = {
+    'logo': 'joblib_logo.svg',
     'github_repo': 'joblib/joblib',
     'github_button': 'true',
-    'fixed_sidebar': 'true',
     'link': '#aa560c',
     'show_powered_by': 'false',
     # "relbarbgcolor": "#333",

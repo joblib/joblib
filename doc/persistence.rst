@@ -13,35 +13,35 @@ Persistence
 
 .. currentmodule:: joblib.numpy_pickle
 
-Usecase
-=======
+Use case
+========
 
 :func:`joblib.dump` and :func:`joblib.load` provide a replacement for
-pickle to work efficiently on Python objects containing large data, in
-particular large numpy arrays.
+pickle to work efficiently on arbitrary Python objects containing large data,
+in particular large numpy arrays.
 
 A simple example
 ================
 
-First we create a temporary directory::
+First create a temporary directory::
 
   >>> from tempfile import mkdtemp
   >>> savedir = mkdtemp()
   >>> import os
   >>> filename = os.path.join(savedir, 'test.pkl')
 
-Then we create an object to be persisted::
+Then create an object to be persisted::
 
   >>> import numpy as np
   >>> to_persist = [('a', [1, 2, 3]), ('b', np.arange(10))]
 
-which we save into `savedir`::
+which is saved into `filename`::
 
   >>> import joblib
   >>> joblib.dump(to_persist, filename)  # doctest: +ELLIPSIS
   ['...test.pkl']
 
-We can then load the object from the file::
+The object can then be reloaded from the file::
 
   >>> joblib.load(filename)
   [('a', [1, 2, 3]), ('b', array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]))]
