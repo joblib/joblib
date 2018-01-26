@@ -47,10 +47,10 @@ threshold on the size of the array::
   [False, False, True]
 
 By default the data is dumped to the ``/dev/shm`` shared-memory partition if it
-exists and writeable (typically the case under Linux). Otherwise the operating
-system's temporary folder is used. The location of the temporary data files can
-be customized by passing a ``temp_folder`` argument to the ``Parallel``
-constructor.
+exists and is writable (typically the case under Linux). Otherwise the
+operating system's temporary folder is used. The location of the temporary data
+files can be customized by passing a ``temp_folder`` argument to the
+``Parallel`` constructor.
 
 Passing ``max_nbytes=None`` makes it possible to disable the automated array to
 memmap conversion.
@@ -60,7 +60,7 @@ Manual management of memmaped input data
 ----------------------------------------
 
 For even finer tuning of the memory usage it is also possible to
-dump the array as an memmap directly from the parent process to
+dump the array as a memmap directly from the parent process to
 free the memory before forking the worker processes. For instance
 let's allocate a large array in the memory of the parent process::
 
@@ -87,7 +87,7 @@ instance::
   >>> np.allclose(large_array, large_memmap)
   True
 
-We can free the original array from the main process memory::
+The original array can be freed from the main process memory::
 
   >>> del large_array
   >>> import gc
@@ -99,8 +99,8 @@ It is possible to slice ``large_memmap`` into a smaller memmap::
   >>> small_memmap.__class__.__name__, small_memmap.nbytes, small_memmap.shape
   ('memmap', 24, (3,))
 
-Finally we can also take a ``np.ndarray`` view backed on that same
-memory mapped file::
+Finally a ``np.ndarray`` view backed on that same memory mapped file can be
+used::
 
   >>> small_array = np.asarray(small_memmap)
   >>> small_array.__class__.__name__, small_array.nbytes, small_array.shape
@@ -115,7 +115,7 @@ of a ``Parallel`` call::
   ...     for a in [large_memmap, small_memmap, small_array])
   [True, True, True]
 
-Note that here we used ``max_nbytes=None`` to disable the auto-dumping
+Note that here ``max_nbytes=None`` is used to disable the auto-dumping
 feature of ``Parallel``. ``small_array`` is still in shared memory in the
 worker processes because it was already backed by shared memory in the
 parent process.
@@ -127,7 +127,7 @@ the number of memory copies.
 Writing parallel computation results in shared memory
 -----------------------------------------------------
 
-If you open your data using the ``w+`` or ``r+`` mode in the main program, the
+If data are opened using the ``w+`` or ``r+`` mode in the main program, the
 worker will get ``r+`` mode access. Thus the worker will be able to write
 its results directly to the original data, alleviating the need of the
 serialization to send back the results to the parent process.
