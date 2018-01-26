@@ -26,24 +26,23 @@ def expensive_computation(data, column_index=0):
     return data[column_index]
 
 
-rng = np.random.RandomState(42)
-data = rng.randn(int(1e5), 10)
-tic = time.time()
+data = np.random.randn(int(1e5), 10)
+start = time.time()
 data_trans = expensive_computation(data)
-toc = time.time()
+end = time.time()
 
-print('\nOur function took {:.2f} s to compute.'.format(toc - tic))
+print('\nThe function took {:.2f} s to compute.'.format(end - start))
 print('\nThe transformed data are:\n {}'.format(data_trans))
 
 ###############################################################################
-# Caching the result of a function avoiding recomputing
+# Caching the result of a function to avoid recomputing
 ###############################################################################
 # 
-# In the case that we would need to call our function several time with the
-# same input data, it is beneficial to avoid recomputing the same results over
-# and over since it is expensive. We can use :class:`joblib.Memory` to avoid
-# such recomputing. A :class:`joblib.Memory` instance can be created by passing
-# a directory in which we want to store the results.
+# If we need to call our function several time with the same input data, it is
+# beneficial to avoid recomputing the same results over and over since it is
+# expensive. We can use :class:`joblib.Memory` to avoid such recomputing. A
+# :class:`joblib.Memory` instance can be created by passing a directory in
+# which we want to store the results.
 
 from joblib import Memory
 cachedir = './cachedir'
@@ -57,37 +56,37 @@ def expensive_computation_cached(data, column_index=0):
 
 
 expensive_computation_cached = memory.cache(expensive_computation_cached)
-tic = time.time()
+start = time.time()
 data_trans = expensive_computation_cached(data)
-toc = time.time()
+end = time.time()
 
-print('\nOur function took {:.2f} s to compute.'.format(toc - tic))
+print('\nThe function took {:.2f} s to compute.'.format(end - start))
 print('\nThe transformed data are:\n {}'.format(data_trans))
 
 ###############################################################################
 # At the first call, the results will be cached. Therefore, the computation
-# time correspond to the time to compute the results plus the time to dump the
+# time corresponds to the time to compute the results plus the time to dump the
 # results into the disk.
 
-tic = time.time()
+start = time.time()
 data_trans = expensive_computation_cached(data)
-toc = time.time()
+end = time.time()
 
-print('\nOur function took {:.2f} s to compute.'.format(toc - tic))
+print('\nThe function took {:.2f} s to compute.'.format(end - start))
 print('\nThe transformed data are:\n {}'.format(data_trans))
 
 ###############################################################################
-# At the second call, the computation time is largely reduced since that the
-# results are obtained by loading the data previously dumped on the disk
-# instead of recomputing the results.
+# At the second call, the computation time is largely reduced since the results
+# are obtained by loading the data previously dumped to the disk instead of
+# recomputing the results.
 
 ###############################################################################
 # Using :class:`joblib.Memory` with a method
 ###############################################################################
 # 
-# :class:`joblib.Memory` is designed to work with pure functions. When you want
-# to cache a method within a class, you need to create and cache a pure
-# function and use it inside the class.
+# :class:`joblib.Memory` is designed to work with functions with no side
+# effects. When you want to cache a method within a class, you need to create
+# and cache a function and use it inside the class.
 
 
 def _expensive_computation_cached(data, column):
@@ -96,7 +95,7 @@ def _expensive_computation_cached(data, column):
 
 
 class Algorithm(object):
-    """A class which is using our pure function."""
+    """A class which is using the previous function."""
 
     def __init__(self, column=0):
         self.column = column
@@ -107,20 +106,20 @@ class Algorithm(object):
 
 
 transformer = Algorithm()
-tic = time.time()
+start = time.time()
 data_trans = transformer.transform(data)
-toc = time.time()
+end = time.time()
 
-print('\nOur function took {:.2f} s to compute.'.format(toc - tic))
+print('\nThe function took {:.2f} s to compute.'.format(end - start))
 print('\nThe transformed data are:\n {}'.format(data_trans))
 
 ###############################################################################
 
-tic = time.time()
+start = time.time()
 data_trans = transformer.transform(data)
-toc = time.time()
+end = time.time()
 
-print('\nOur function took {:.2f} s to compute.'.format(toc - tic))
+print('\nThe function took {:.2f} s to compute.'.format(end - start))
 print('\nThe transformed data are:\n {}'.format(data_trans))
 
 ###############################################################################
