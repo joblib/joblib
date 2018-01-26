@@ -1,16 +1,16 @@
 
 Why joblib: project goals
-===========================
+=========================
 
 What pipelines bring us
---------------------------
+-----------------------
 
 Pipeline processing systems can provide a set of useful features:
 
 Data-flow programming for performance
-......................................
+.....................................
 
-* **On-demand computing:** in pipeline systems such as labView, or VTK
+* **On-demand computing:** in pipeline systems such as labView or VTK,
   calculations are performed as needed by the outputs and only when
   inputs change.
 
@@ -19,11 +19,10 @@ Data-flow programming for performance
   purely functional programming).
 
 Provenance tracking for understanding the code
-...............................................
+..............................................
 
-* **Tracking of data and computations:** to be able to fully reproduce a
-  computational experiment: requires tracking of the data and operation
-  implemented.
+* **Tracking of data and computations:** This allows the reproducibility of a
+  computational experiment.
 
 * **Inspecting data flow:** Inspecting intermediate results helps
   debugging and understanding.
@@ -31,21 +30,21 @@ Provenance tracking for understanding the code
 .. topic:: But pipeline frameworks can get in the way
     :class: warning
 
-    We want our code to look like the underlying algorithm,
-    not like a software framework.
+    Joblib's philosophy is to keep the underlying algorithm code unchanged,
+    avoiding framework-style modifications.
 
 Joblib's approach
---------------------
+-----------------
 
-Functions are the simplest abstraction used by everyone. Our pipeline
-jobs (or tasks) are made of decorated functions.
+Functions are the simplest abstraction used by everyone. Pipeline
+jobs (or tasks) in Joblib are made of decorated functions.
 
 Tracking of parameters in a meaningful way requires specification of
-data model. We give up on that and use hashing for performance and
+data model. Joblib gives up on that and uses hashing for performance and
 robustness.
 
 Design choices
----------------
+--------------
 
 * No dependencies other than Python
 
