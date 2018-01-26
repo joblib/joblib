@@ -3,7 +3,7 @@
 Checkpoint using joblib.Memory and joblib.Parallel
 ==================================================
 
-We illustrate how to cache intermediate computing results using
+This example illustrates how to cache intermediate computing results using
 :class:`joblib.Memory` within :class:`joblib.Parallel`.
 
 """
@@ -13,7 +13,7 @@ We illustrate how to cache intermediate computing results using
 ###############################################################################
 # 
 # It is possible to cache a computationally expensive function executing during
-# a parallel process. ``costly_column`` will emulate such function.
+# a parallel process. ``costly_column`` emulates such time consuming function.
 
 import time
 
@@ -30,7 +30,7 @@ def data_processing_mean(data, column):
 
 
 ###############################################################################
-# Create some data. We fixed the random seed to generate deterministic data
+# Create some data. The random seed is fixed to generate deterministic data
 # across Python session. Note that this is not necessary for this specific
 # example since the memory cache is cleared at the end of the session.
 
@@ -77,10 +77,10 @@ print('Elapsed time for the entire processing: {:.2f} s'
       .format(stop - start))
 
 ###############################################################################
-# By using 2 workers, we get a x2 speed-up compare to the sequential case. By
-# executing again the same process, the intermediate results obtained by
-# calling ``costly_compute_cached`` will be loaded from the cache instead of
-# executing the function.
+# By using 2 workers, the parallel processing gives a x2 speed-up compared to
+# the sequential case. By executing again the same process, the intermediate
+# results obtained by calling ``costly_compute_cached`` will be loaded from the
+# cache instead of executing the function.
 
 start = time.time()
 results = Parallel(n_jobs=2)(delayed(
@@ -96,8 +96,8 @@ print('Elapsed time for the entire processing: {:.2f} s'
 ###############################################################################
 # 
 # Having cached the intermediate results of the ``costly_compute_cached``
-# function, we are able to easily reuse them by calling the function. We define
-# a new processing which will take the maximum of the array returned by
+# function, they are reusable by calling the function. We define a new
+# processing which will take the maximum of the array returned by
 # ``costly_compute_cached`` instead of previously the mean.
 
 
