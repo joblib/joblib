@@ -2,8 +2,8 @@
 Why joblib: project goals
 =========================
 
-What pipelines bring us
------------------------
+Benefits of pipelines
+---------------------
 
 Pipeline processing systems can provide a set of useful features:
 
