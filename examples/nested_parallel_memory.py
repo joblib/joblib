@@ -44,7 +44,7 @@ results = [data_processing_mean(data, col) for col in range(data.shape[1])]
 stop = time.time()
 
 print('\nSequential processing')
-print('\nElapsed time for the entire processing: {:.2f} s'
+print('Elapsed time for the entire processing: {:.2f} s'
       .format(stop - start))
 
 ###############################################################################
