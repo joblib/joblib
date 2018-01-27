@@ -40,3 +40,8 @@ div.body table.docutils tr:nth-child(even){
 div.body table.docutils td{
     border: none;
 }
+
+/* Move the ads down in read the docs */
+div.sphinxsidebarwrapper ul:last-of-type {
+    margin-bottom: 100px;
+}
