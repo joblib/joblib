@@ -6,8 +6,6 @@ Python**. In particular:
 
 2. easy simple parallel computing
 
-3. logging and tracing of the execution
-
 Joblib is optimized to be **fast** and **robust** in particular on large
 data and has specific optimizations for `numpy` arrays. It is
 **BSD-licensed**.
@@ -83,14 +81,7 @@ Main features
       [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
 
 
-3) **Logging/tracing:** The different functionalities will
-   progressively acquire better logging mechanism to help track what
-   has been ran, and capture I/O easily. In addition, Joblib will
-   provide a few I/O primitives, to easily define logging and
-   display streams, and provide a way of compiling a report.
-   We want to be able to quickly inspect what has been run.
-
-4) **Fast compressed Persistence**: a replacement for pickle to work
+3) **Fast compressed Persistence**: a replacement for pickle to work
    efficiently on Python objects containing large data (
    *joblib.dump* & *joblib.load* ).
 
