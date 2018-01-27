@@ -47,7 +47,7 @@ intersphinx_mapping = {
 
 # sphinx-gallery configuration
 sphinx_gallery_conf = {
-    'default_thumb_file': 'doc/_static/joblib_logo_examples.png',
+    'default_thumb_file': '_static/joblib_logo_examples.png',
     'doc_module': 'joblib',
     'filename_pattern': '',
     'backreferences_dir': os.path.join('generated'),

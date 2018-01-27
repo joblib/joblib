@@ -24,7 +24,7 @@ ls -l
 python setup.py develop
 
 # The pipefail is requested to propagate exit code
-set -o pipefail && python setup.py build_sphinx 2>&1 | tee ~/log.txt
+set -o pipefail && make doc-html 2>&1 | tee ~/log.txt
 
 cd -
 set +o pipefail

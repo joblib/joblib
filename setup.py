@@ -8,7 +8,7 @@ import joblib
 # For some commands, use setuptools
 if len(set(('develop', 'sdist', 'release', 'bdist', 'bdist_egg', 'bdist_dumb',
             'bdist_rpm', 'bdist_wheel', 'bdist_wininst', 'install_egg_info',
-            'build_sphinx', 'egg_info', 'easy_install', 'upload',
+            'egg_info', 'easy_install', 'upload',
             )).intersection(sys.argv)) > 0:
     import setuptools
 
