@@ -4,7 +4,7 @@ Installing joblib
 Using `pip`
 ------------
 
-You can use `pip` to install joblib::
+You can use `pip` to install joblib:
 
 * For installing for all users, you need to run::
 
