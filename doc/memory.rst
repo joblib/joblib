@@ -37,25 +37,26 @@ such as numpy arrays.
 A simple example:
 ~~~~~~~~~~~~~~~~~
 
-  First define the cache directory::
+  First, define the cache directory::
 
     >>> cachedir = 'your_cache_location_directory'
 
-  A memory context must first be instanciated, using this cache directory::
+  Then, instanciate a memory context that uses this cache directory::
 
     >>> from joblib import Memory
     >>> memory = Memory(location=cachedir, verbose=0)
 
-  Then a function can decorated to be cached in this context::
+  After these initial steps, just decorate a function to cache its output in
+  this context::
 
     >>> @memory.cache
     ... def f(x):
     ...     print('Running f(%s)' % x)
     ...     return x
 
-  When the function is called twice with the same argument, it does not
-  get executed the second time, and the output gets loaded from the pickle
-  file::
+  Calling this function twice with the same argument does not execute it the
+  second time, the output is just reloaded from a pickle file in the cache
+  directory::
 
     >>> print(f(1))
     Running f(1)
@@ -63,8 +64,8 @@ A simple example:
     >>> print(f(1))
     1
 
-  However, when the functions is called a third time, with a different
-  argument, the output gets recomputed::
+  However, calling the function with a different parameter executes it and
+  recomputes the output::
 
     >>> print(f(2))
     Running f(2)
@@ -99,7 +100,7 @@ hashing of the input arguments to check if they have been computed;
 An example
 ~~~~~~~~~~
 
-  Define two functions, the first with a number as an argument,
+  Define two functions: the first with a number as an argument,
   outputting an array, used by the second one. Both functions are decorated
   with `Memory.cache`::
 
@@ -115,8 +116,8 @@ An example
     ...     print('A second long-running calculation, using g(x)')
     ...     return np.vander(x)
 
-  If the function h is called with the array created by the same call to g,
-  h is not re-run::
+  If the function `h` is called with the array created by the same call to `g`,
+  `h` is not re-run::
 
     >>> a = g(3)
     A long-running calculation, with parameter 3
@@ -138,8 +139,8 @@ An example
 Using memmapping
 ~~~~~~~~~~~~~~~~
 
-Large numpy arrays can be loaded using memmapping (memory mapping) to speed up
-cache looking::
+Memmapping (memory mapping) speeds up cache looking when reloading large numpy
+arrays::
 
     >>> cachedir2 = 'your_cachedir2_location'
     >>> memory2 = Memory(location=cachedir2, mmap_mode='r')
@@ -244,8 +245,8 @@ Gotchas
 --------
 
 * **Across sessions, function cache is identified by the function's name**.
-  Thus if the same name is assigned to different functions, their cache will
-  override each-others (e.g there are 'name collisions'), and unwanted re-run
+  Thus assigning the same name to different functions, their cache will
+  override each-others (e.g. there are 'name collisions'), and unwanted re-run
   will happen::
 
     >>> @memory.cache
