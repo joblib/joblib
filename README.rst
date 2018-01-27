@@ -76,7 +76,7 @@ To build the docs you need to have setuptools and sphinx (>=0.5) installed.
 Run the command::
 
     pip install -U -r .readthedocs-requirements.txt
-    python setup.py build_sphinx
+    make doc-html
 
 The docs are built in the ``build/sphinx/html`` directory.
 
