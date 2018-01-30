@@ -134,7 +134,7 @@ class SequentialBackend(ParallelBackendBase):
     overhead. Used when n_jobs == 1.
     """
 
-    use_threads = True
+    uses_threads = True
     supports_sharedmem = True
 
     def effective_n_jobs(self, n_jobs):
@@ -304,7 +304,7 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
     """
 
     supports_timeout = True
-    use_threads = True
+    uses_threads = True
     supports_sharedmem = True
 
     def configure(self, n_jobs=1, parallel=None, **backend_args):

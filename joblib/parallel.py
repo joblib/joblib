@@ -91,9 +91,9 @@ def get_active_backend(prefer=None, require=None, verbose=0):
     # create the default backend instance now.
     backend = BACKENDS[DEFAULT_BACKEND]()
     supports_sharedmem = getattr(backend, 'supports_sharedmem', False)
-    use_threads = getattr(backend, 'use_threads', False)
+    uses_threads = getattr(backend, 'uses_threads', False)
     if ((require == 'sharedmem' and not supports_sharedmem) or
-            (prefer == 'threads' and not use_threads)):
+            (prefer == 'threads' and not uses_threads)):
         # Make sure the selected default backend match the soft hints and
         # hard constraints:
         backend = BACKENDS[DEFAULT_THREAD_BACKEND]()
