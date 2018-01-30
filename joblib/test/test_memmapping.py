@@ -1,6 +1,8 @@
 import os
 import mmap
 import sys
+import platform
+import gc
 
 from joblib.test.common import with_numpy, np
 from joblib.test.common import setup_autokill
@@ -19,6 +21,7 @@ from joblib._memmapping_reducer import reduce_memmap
 from joblib._memmapping_reducer import _strided_from_memmap
 from joblib._memmapping_reducer import _get_backing_memmap
 from joblib._memmapping_reducer import _get_temp_dir
+from joblib._memmapping_reducer import _WeakArrayKeyMap
 import joblib._memmapping_reducer as jmr
 
 
@@ -564,3 +567,49 @@ def test_numpy_arrays_use_different_memory(mmap_mode):
 
     for i, arr in enumerate(results):
         np.testing.assert_array_equal(arr, i)
+
+
+@with_numpy
+def test_weak_array_key_map():
+    a = np.ones(42)
+    m = _WeakArrayKeyMap()
+    m.set(a, 42)
+    assert m.get(a) == 42
+
+    b = a
+    assert m.get(b) == 42
+    m.set(b, -42)
+    assert m.get(a) == -42
+
+    del a
+    gc.collect()
+    assert len(m._data) == 1
+    assert m.get(b) == -42
+
+    del b
+    gc.collect()
+    assert len(m._data) == 0
+
+    m.set(np.ones(42), 42)
+    with raises(KeyError):
+        m.get(np.ones(42))
+    gc.collect()
+    assert len(m._data) == 0
+
+    # Check that creating and dropping numpy arrays with potentially the same
+    # object id will not cause the map to get confused.
+    def get_set_get_collect(m, i):
+        a = np.ones(42)
+        with raises(KeyError):
+            m.get(a)
+        m.set(a, i)
+        assert m.get(a) == i
+        return id(a)
+
+    unique_ids = set([get_set_get_collect(m, i) for i in range(1000)])
+    if platform.python_implementation() == 'CPython':
+        # On CPython (at least) the same id has been reused for all the the
+        # temporary arrays created under the local scope of the
+        # get_set_get_collect function without causing any spurious lookups /
+        # insertions.
+        assert len(unique_ids) == 1
