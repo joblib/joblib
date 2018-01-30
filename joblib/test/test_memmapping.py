@@ -608,8 +608,8 @@ def test_weak_array_key_map():
 
     unique_ids = set([get_set_get_collect(m, i) for i in range(1000)])
     if platform.python_implementation() == 'CPython':
-        # On CPython (at least) the same id has been reused for all the the
+        # On CPython (at least) the same id is often reused many times for the
         # temporary arrays created under the local scope of the
         # get_set_get_collect function without causing any spurious lookups /
-        # insertions.
-        assert len(unique_ids) == 1
+        # insertions in the map.
+        assert len(unique_ids) < 100
