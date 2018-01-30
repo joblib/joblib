@@ -72,7 +72,8 @@ class _WeakArrayKeyMap:
     def get(self, obj):
         ref, val = self._data[id(obj)]
         if ref() is not obj:
-            # In case of race condition with on_destroy.
+            # In case of race condition with on_destroy: could never be
+            # triggered by the joblib tests with CPython.
             raise KeyError(obj)
         return val
 
@@ -81,9 +82,13 @@ class _WeakArrayKeyMap:
         try:
             ref, _ = self._data[key]
             if ref() is not obj:
-                # In case of race condition with on_destroy
+                # In case of race condition with on_destroy: could never be
+                # triggered by the joblib tests with CPython.
                 raise KeyError(obj)
         except KeyError:
+            # Insert the new entry in the mapping along with a weakref
+            # callback to automatically delete the entry from the mapping
+            # as soon as the object used as key is garbage collected.
             def on_destroy(_):
                 del self._data[key]
             ref = weakref.ref(obj, on_destroy)

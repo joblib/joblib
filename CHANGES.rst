@@ -11,6 +11,9 @@ Elizabeth Sander
 
 Olivier Grisel
 
+    Reduce overhead of automatic memmap by removing the need to hash the
+    array.
+
     Make ``Memory.cache`` robust to ``PermissionError (errno 13)`` under
     Windows when run in combination with ``Parallel``.
 
