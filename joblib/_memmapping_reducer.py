@@ -13,6 +13,8 @@ import threading
 import atexit
 import tempfile
 import warnings
+import weakref
+from uuid import uuid4
 
 try:
     WindowsError
@@ -38,7 +40,6 @@ except ImportError:
 
 from .numpy_pickle import load
 from .numpy_pickle import dump
-from .hashing import hash
 from .backports import make_memmap
 from .disk import delete_folder
 
@@ -55,6 +56,44 @@ SYSTEM_SHARED_MEM_FS_MIN_SIZE = int(2e9)
 # temporary files and folder.
 FOLDER_PERMISSIONS = stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR
 FILE_PERMISSIONS = stat.S_IRUSR | stat.S_IWUSR
+
+
+class _WeakArrayKeyMap:
+    """A variant of weakref.WeakKeyDictionary for unhashable numpy arrays.
+
+    This datastructure will be used with numpy arrays as obj keys, therefore we
+    do not use the __get__ / __set__ methods to avoid any conflict with the
+    numpy fancy indexing syntax.
+    """
+
+    def __init__(self):
+        self._data = {}
+
+    def get(self, obj):
+        ref, val = self._data[id(obj)]
+        if ref() is not obj:
+            # In case of race condition with on_destroy: could never be
+            # triggered by the joblib tests with CPython.
+            raise KeyError(obj)
+        return val
+
+    def set(self, obj, value):
+        key = id(obj)
+        try:
+            ref, _ = self._data[key]
+            if ref() is not obj:
+                # In case of race condition with on_destroy: could never be
+                # triggered by the joblib tests with CPython.
+                raise KeyError(obj)
+        except KeyError:
+            # Insert the new entry in the mapping along with a weakref
+            # callback to automatically delete the entry from the mapping
+            # as soon as the object used as key is garbage collected.
+            def on_destroy(_):
+                del self._data[key]
+            ref = weakref.ref(obj, on_destroy)
+        self._data[key] = ref, value
+
 
 ###############################################################################
 # Support for efficient transient pickling of numpy data structures
@@ -241,6 +280,7 @@ class ArrayMemmapReducer(object):
         self._mmap_mode = mmap_mode
         self.verbose = int(verbose)
         self._prewarm = prewarm
+        self._memmaped_arrays = _WeakArrayKeyMap()
 
     def __call__(self, a):
         m = _get_backing_memmap(a)
@@ -259,15 +299,16 @@ class ArrayMemmapReducer(object):
                 if e.errno != errno.EEXIST:
                     raise e
 
-            # Find a unique, concurrent safe filename for writing the
-            # content of this array only once.
-            if self._mmap_mode in ['r', 'c']:
+            try:
+                basename = self._memmaped_arrays.get(a)
+            except KeyError:
+                # Generate a new unique random filename. The process and thread
+                # ids are only useful for debugging purpose and to make it
+                # easier to cleanup orphaned files in case of hard process
+                # kill (e.g. by "kill -9" or segfault).
                 basename = "{}-{}-{}.pkl".format(
-                    os.getpid(), id(threading.current_thread()), hash(a))
-            else:
-                basename = "{}-{}-{}-{}.pkl".format(
-                    os.getpid(), id(threading.current_thread()),
-                    hash(a), id(a))
+                    os.getpid(), id(threading.current_thread()), uuid4().hex)
+                self._memmaped_arrays.set(a, basename)
             filename = os.path.join(self._temp_folder, basename)
 
             # In case the same array with the same content is passed several
