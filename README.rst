@@ -1,4 +1,4 @@
-|PyPi| |Travis| |AppVeyor| |Codecov|
+|PyPi| |Travis| |AppVeyor| |Codecov| |ReadTheDocs|
 
 .. |Travis| image:: https://travis-ci.org/joblib/joblib.svg?branch=master
    :target: https://travis-ci.org/joblib/joblib
@@ -16,10 +16,13 @@
    :target: https://badge.fury.io/py/joblib
    :alt: Joblib version
 
-
+.. |ReadTheDocs| image:: https://readthedocs.org/projects/joblib/badge/?version=latest
+   :target: http://joblib.readthedocs.io/en/latest/?badge=latest
+   :alt: Documentation Status
+         
 The homepage of joblib with user documentation is located on:
 
-https://pythonhosted.org/joblib/
+https://joblib.readthedocs.io
 
 Getting the latest code
 =======================
