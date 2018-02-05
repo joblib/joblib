@@ -36,7 +36,7 @@ import time
 
 def slow_mean(data, sl):
     """Simulate a time consuming processing."""
-    time.sleep(0.005)
+    time.sleep(0.01)
     return data[sl].mean()
 
 
@@ -63,10 +63,9 @@ print('\nElapsed time computing the average of couple of slices {:.2f} s'
       .format(toc - tic))
 
 ###############################################################################
-# Here, the parallel processing is slower than the sequential
-# processing. Indeed, ``data`` is hashed at each call of ``slow_mean``, leading
-# to an important time overhead. A solution is to dump this array to a memmap
-# and pass the memmap to :class:`joblib.Parallel`.
+# Parallel processing is already faster than the sequential processing. It is
+# also possible to remove a bit of overhead by dumping the ``data`` array to a
+# memmap and pass the memmap to :class:`joblib.Parallel`.
 
 import os
 from joblib import dump, load
@@ -89,8 +88,8 @@ print('\nElapsed time computing the average of couple of slices {:.2f} s\n'
 
 ###############################################################################
 # Therefore, dumping large ``data`` array ahead of calling
-# :class:`joblib.Parallel` can speed up significantly the processing by
-# removing some overhead.
+# :class:`joblib.Parallel` can speed up the processing by removing some
+# overhead.
 
 ###############################################################################
 # Writable memmap for shared memory :class:`joblib.Parallel`
