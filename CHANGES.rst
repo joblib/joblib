@@ -5,6 +5,7 @@ Development
 -----------
 
 Elizabeth Sander
+
     Prevent numpy arrays with the same shape and data from hashing to
     the same memmap, to prevent jobs with preallocated arrays from
     writing over each other.
