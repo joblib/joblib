@@ -5,6 +5,7 @@ Development
 -----------
 
 Elizabeth Sander
+
     Prevent numpy arrays with the same shape and data from hashing to
     the same memmap, to prevent jobs with preallocated arrays from
     writing over each other.
@@ -21,6 +22,10 @@ Olivier Grisel
     use ``/dev/shm`` if it is too small (less than 2 GB). In particular in
     docker containers ``/dev/shm`` is only 64 MB by default which would cause
     frequent failures when running joblib in Docker containers.
+
+    Make it possible to hint for thread-based parallelism with
+    ``prefer='threads'`` or enforce shared-memory semantics with
+    ``require='sharedmem'``.
 
 
 Release 0.11
