@@ -834,6 +834,8 @@ Sub-process traceback:
             n_jobs = self._initialize_backend()
         else:
             n_jobs = self._effective_n_jobs()
+        self._print("Using backend %s with %d concurrent workers.",
+                    (self._backend.__class__.__name__, n_jobs))
 
         iterator = iter(iterable)
         pre_dispatch = self.pre_dispatch
