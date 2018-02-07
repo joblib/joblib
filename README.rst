@@ -72,13 +72,16 @@ from the root of the project.
 Building the docs
 =================
 
-To build the docs you need to have setuptools and sphinx (>=0.5) installed.
-Run the command::
+To build the docs you need to have sphinx (>=0.5) and some dependencies
+installed::
 
     pip install -U -r .readthedocs-requirements.txt
+
+The docs can then be built with the following command::
+
     make doc-html
 
-The docs are built in the ``build/sphinx/html`` directory.
+The html docs are located in the ``build/sphinx/html`` directory.
 
 
 Making a source tarball
