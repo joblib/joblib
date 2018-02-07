@@ -53,8 +53,8 @@ It is also possible to manually select a specific backend implementation
 with the help of a context manager:
 
     >>> from joblib import parallel_backend
-    >>> with parallel_backend('threading'):
-    ...    Parallel(n_jobs=2)(delayed(sqrt)(i ** 2) for i in range(10))
+    >>> with parallel_backend('threading', n_jobs=2):
+    ...    Parallel()(delayed(sqrt)(i ** 2) for i in range(10))
     [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
 
 The latter is especially useful when calling a library that uses
