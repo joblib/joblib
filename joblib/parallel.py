@@ -83,7 +83,7 @@ def get_active_backend(prefer=None, require=None, verbose=0):
                       "as the latter does not provide shared memory semantics."
                       % (sharedmem_backend.__class__.__name__,
                          backend.__class__.__name__))
-            return sharedmem_backend, n_jobs
+            return sharedmem_backend, DEFAULT_N_JOBS
         else:
             return backend_and_jobs
 
@@ -319,7 +319,7 @@ class Parallel(Logger):
 
         Parameters
         -----------
-        n_jobs: int, default: 1
+        n_jobs: int, default: None
             The maximum number of concurrently running jobs, such as the number
             of Python worker processes when backend="multiprocessing"
             or the size of the thread-pool when backend="threading".
@@ -327,6 +327,10 @@ class Parallel(Logger):
             is used at all, which is useful for debugging. For n_jobs below -1,
             (n_cpus + 1 + n_jobs) are used. Thus for n_jobs = -2, all
             CPUs but one are used.
+            None is a marker for 'unset' that will be interpreted as n_jobs=1
+            (sequential execution) unless the call is performed under a
+            parallel_backend context manager that sets another value for
+            n_jobs.
         backend: str, ParallelBackendBase instance or None, default: 'loky'
             Specify the parallelization backend implementation.
             Supported backends are:
@@ -530,16 +534,20 @@ class Parallel(Logger):
         [Parallel(n_jobs=2)]: Done 6 out of 6 | elapsed:  0.0s finished
 
     '''
-    def __init__(self, n_jobs=1, backend=None, verbose=0, timeout=None,
+    def __init__(self, n_jobs=None, backend=None, verbose=0, timeout=None,
                  pre_dispatch='2 * n_jobs', batch_size='auto',
                  temp_folder=None, max_nbytes='1M', mmap_mode='r',
                  prefer=None, require=None):
-        active_backend, default_n_jobs = get_active_backend(
+        active_backend, context_n_jobs = get_active_backend(
             prefer=prefer, require=require, verbose=verbose)
-        if backend is None and n_jobs == 1:
+        if backend is None and n_jobs is None:
             # If we are under a parallel_backend context manager, look up
             # the default number of jobs and use that instead:
-            n_jobs = default_n_jobs
+            n_jobs = context_n_jobs
+        if n_jobs is None:
+            # No specific context override and no specific value request:
+            # default to 1.
+            n_jobs = 1
         self.n_jobs = n_jobs
         self.verbose = verbose
         self.timeout = timeout

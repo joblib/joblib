@@ -1036,18 +1036,32 @@ def test_backend_hinting_and_constraints():
     p = Parallel(n_jobs=2, backend='loky', prefer='threads')
     assert type(p._backend) == LokyBackend
 
-    with parallel_backend('loky'):
+    with parallel_backend('loky', n_jobs=2):
         # Explicit backend selection by the user with the context manager
         # should be respected when combined with backend hints only.
-        p = Parallel(n_jobs=2, prefer='threads')
+        p = Parallel(prefer='threads')
         assert type(p._backend) == LokyBackend
+        assert p.n_jobs == 2
 
-    with parallel_backend('loky'):
+    with parallel_backend('loky', n_jobs=2):
+        # Locally hard-coded n_jobs value is respected.
+        p = Parallel(n_jobs=3, prefer='threads')
+        assert type(p._backend) == LokyBackend
+        assert p.n_jobs == 3
+
+    with parallel_backend('loky', n_jobs=2):
         # Explicit backend selection by the user with the context manager
         # should be ignored when the Parallel call has hard constraints.
-        # In this case
-        p = Parallel(n_jobs=2, require='sharedmem')
+        # In this case, the default backend that supports shared mem is
+        # used an the default number of processes is used.
+        p = Parallel(require='sharedmem')
         assert type(p._backend) == ThreadingBackend
+        assert p.n_jobs == 1
+
+    with parallel_backend('loky', n_jobs=2):
+        p = Parallel(n_jobs=3, require='sharedmem')
+        assert type(p._backend) == ThreadingBackend
+        assert p.n_jobs == 3
 
 
 def test_backend_hinting_and_constraints_with_custom_backends(capsys):
