@@ -72,7 +72,7 @@ from the root of the project.
 Building the docs
 =================
 
-To build the docs you need to have sphinx (>=0.5) and some dependencies
+To build the docs you need to have sphinx (>=1.4) and some dependencies
 installed::
 
     pip install -U -r .readthedocs-requirements.txt
