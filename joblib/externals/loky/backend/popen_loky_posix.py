@@ -17,10 +17,7 @@ if sys.version_info[:2] < (3, 3):
     ProcessLookupError = OSError
 
 if sys.platform != "win32":
-    if sys.version_info[:2] > (3, 3):
-        from multiprocessing import semaphore_tracker
-    else:
-        from . import semaphore_tracker
+    from . import semaphore_tracker
 
 
 __all__ = []
