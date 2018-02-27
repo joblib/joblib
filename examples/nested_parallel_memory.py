@@ -124,4 +124,4 @@ print('Elapsed time for the entire processing: {:.2f} s'
 # Clean-up the cache folder
 ###############################################################################
 
-memory.clear()
+memory.clear(warn=False)

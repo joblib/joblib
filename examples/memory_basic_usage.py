@@ -134,4 +134,4 @@ print('\nThe transformed data are:\n {}'.format(data_trans))
 # Clean up cache directory
 ###############################################################################
 
-memory.clear()
+memory.clear(warn=False)
