@@ -496,8 +496,6 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
         if ensure_ready:
             self.configure(n_jobs=self.parallel.n_jobs, parallel=self.parallel)
 
-    def __reduce__(self):
-        raise ValueError("LokyBackend cannot be pickled.")
 
 class ImmediateResult(object):
     def __init__(self, batch):
