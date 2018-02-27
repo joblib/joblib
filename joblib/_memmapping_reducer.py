@@ -286,12 +286,11 @@ class ArrayMemmapReducer(object):
         self._memmaped_arrays = _WeakArrayKeyMap()
 
     def __reduce__(self):
-        # The ArrayMemmapReducer is passed to the children processes: it need
+        # The ArrayMemmapReducer is passed to the children processes: it needs
         # to be pickled but the _WeakArrayKeyMap need to be skipped as it's
         # only guaranteed to be consistent with the parent process memory
         # garbage collection.
-        args = (self._max_nbytes, self._temp_folder,
-                self._mmap_mode)
+        args = (self._max_nbytes, self._temp_folder, self._mmap_mode)
         kwargs = {
             'verbose': self.verbose,
             'prewarm': self._prewarm,

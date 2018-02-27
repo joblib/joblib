@@ -876,7 +876,8 @@ def test_auto_memmap_on_arrays_from_generator(backend):
         np.testing.assert_array_equal(expected, result)
 
     # Second call to force loky to adapt the executor by growing the number
-    # of worker processes. This is a non regression test for: #629.
+    # of worker processes. This is a non-regression test for:
+    # https://github.com/joblib/joblib/issues/629.
     results = Parallel(n_jobs=4, max_nbytes=1, backend=backend)(
         delayed(check_memmap)(a) for a in generate_arrays(100))
     for result, expected in zip(results, generate_arrays(len(results))):
