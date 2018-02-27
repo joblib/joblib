@@ -46,6 +46,7 @@ class SemaphoreTracker(object):
     def __init__(self):
         self._lock = threading.Lock()
         self._fd = None
+        self._pid = None
 
     def getfd(self):
         self.ensure_running()
@@ -58,7 +59,18 @@ class SemaphoreTracker(object):
         the semaphore created by its parent.'''
         with self._lock:
             if self._fd is not None:
-                return
+                # semaphore tracker was launched before, is it still running?
+                if self._check_alive():
+                    # => still alive
+                    return
+                # => dead, launch it again
+                os.close(self._fd)
+                self._fd = None
+                self._pid = None
+
+                warnings.warn('semaphore_tracker: process died unexpectedly, '
+                              'relaunching.  Some semaphores might leak.')
+
             fds_to_pass = []
             try:
                 fds_to_pass.append(sys.stderr.fileno())
@@ -81,25 +93,36 @@ class SemaphoreTracker(object):
                         args[i] = re.sub("-R+", "-R", args[i])
                 args += ['-c', cmd % r]
                 util.debug("launching Semaphore tracker: {}".format(args))
-                spawnv_passfds(exe, args, fds_to_pass)
-            except:
+                pid = spawnv_passfds(exe, args, fds_to_pass)
+            except BaseException:
                 os.close(w)
                 raise
             else:
                 self._fd = w
+                self._pid = pid
             finally:
                 os.close(r)
 
+    def _check_alive(self):
+        '''Check for the existence of the semaphore tracker process.'''
+        try:
+            self._send('PROBE', '')
+        except BrokenPipeError:
+            return False
+        else:
+            return True
+
     def register(self, name):
         '''Register name of semaphore with semaphore tracker.'''
+        self.ensure_running()
         self._send('REGISTER', name)
 
     def unregister(self, name):
         '''Unregister name of semaphore with semaphore tracker.'''
+        self.ensure_running()
         self._send('UNREGISTER', name)
 
     def _send(self, cmd, name):
-        self.ensure_running()
         msg = '{0}:{1}\n'.format(cmd, name).encode('ascii')
         if len(name) > 512:
             # posix guarantees that writes to a pipe of less than PIPE_BUF
@@ -154,12 +177,14 @@ def main(fd):
                                              ": cache({})\n"
                                              .format(name, len(cache)))
                             sys.stderr.flush()
+                    elif cmd == b'PROBE':
+                        pass
                     else:
                         raise RuntimeError('unrecognized command %r' % cmd)
-                except Exception:
+                except BaseException:
                     try:
                         sys.excepthook(*sys.exc_info())
-                    except:
+                    except BaseException:
                         pass
     finally:
         # all processes have terminated; cleanup any remaining semaphores
@@ -183,7 +208,7 @@ def main(fd):
                                          .format(name))
                         sys.stderr.flush()
                 except Exception as e:
-                    warnings.warn('semaphore_tracker: %r: %s' % (name, e))
+                    warnings.warn('semaphore_tracker: %r: %r' % (name, e))
             finally:
                 pass
 
@@ -200,19 +225,12 @@ def spawnv_passfds(path, args, passfds):
     passfds = sorted(passfds)
     errpipe_read, errpipe_write = os.pipe()
     try:
-        if sys.version_info >= (3, 3):
-            import _posixsubprocess
-            return _posixsubprocess.fork_exec(
-                args, [os.fsencode(path)], True, passfds, None, None,
-                -1, -1, -1, -1, -1, -1, errpipe_read, errpipe_write,
-                False, False, None)
-        else:
-            from .reduction import _mk_inheritable
-            _pass = []
-            for fd in passfds:
-                _pass += [_mk_inheritable(fd)]
-            from .fork_exec import fork_exec
-            fork_exec(args, _pass)
+        from .reduction import _mk_inheritable
+        _pass = []
+        for fd in passfds:
+            _pass += [_mk_inheritable(fd)]
+        from .fork_exec import fork_exec
+        return fork_exec(args, _pass)
     finally:
         os.close(errpipe_read)
         os.close(errpipe_write)

@@ -74,7 +74,7 @@ from . import _base
 from .backend import get_context
 from .backend.compat import queue
 from .backend.compat import wait, PicklingError
-from .backend.queues import Queue, SimpleQueue
+from .backend.queues import Queue, SimpleQueue, Full
 from .backend.utils import _flag_current_thread_clean_exit, _is_crashed
 
 try:
@@ -489,7 +489,7 @@ def _queue_management_worker(executor_reference,
             for i in range(n_workers_to_stop - n_sentinels_sent):
                 try:
                     call_queue.put_nowait(None)
-                except Queue.Full:
+                except Full:
                     break
                 n_sentinels_sent += 1
             with processes_management_lock:

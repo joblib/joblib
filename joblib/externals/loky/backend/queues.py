@@ -18,6 +18,7 @@ import threading
 from multiprocessing import util
 from multiprocessing import connection
 from multiprocessing.synchronize import SEM_VALUE_MAX
+from multiprocessing.queues import Full
 from multiprocessing.queues import _sentinel, Queue as mp_Queue
 from multiprocessing.queues import SimpleQueue as mp_SimpleQueue
 
@@ -25,7 +26,7 @@ from .reduction import CustomizableLokyPickler
 from .context import assert_spawning, get_context
 
 
-__all__ = ['Queue', 'SimpleQueue']
+__all__ = ['Queue', 'SimpleQueue', 'Full']
 
 
 class Queue(mp_Queue):
