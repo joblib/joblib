@@ -30,7 +30,7 @@ except ImportError:
     from pickle import loads
     from pickle import dumps
 
-from pickle import HIGHEST_PROTOCOL
+from pickle import HIGHEST_PROTOCOL, PicklingError
 
 try:
     import numpy as np
@@ -93,6 +93,9 @@ class _WeakArrayKeyMap:
                 del self._data[key]
             ref = weakref.ref(obj, on_destroy)
         self._data[key] = ref, value
+
+    def __getstate__(self):
+        raise PicklingError("_WeakArrayKeyMap is not pickleable")
 
 
 ###############################################################################
@@ -281,6 +284,18 @@ class ArrayMemmapReducer(object):
         self.verbose = int(verbose)
         self._prewarm = prewarm
         self._memmaped_arrays = _WeakArrayKeyMap()
+
+    def __reduce__(self):
+        # The ArrayMemmapReducer is passed to the children processes: it needs
+        # to be pickled but the _WeakArrayKeyMap need to be skipped as it's
+        # only guaranteed to be consistent with the parent process memory
+        # garbage collection.
+        args = (self._max_nbytes, self._temp_folder, self._mmap_mode)
+        kwargs = {
+            'verbose': self.verbose,
+            'prewarm': self._prewarm,
+        }
+        return ArrayMemmapReducer, args, kwargs
 
     def __call__(self, a):
         m = _get_backing_memmap(a)
