@@ -10,8 +10,8 @@ test-no-multiprocessing:
 
 # generate html documentation with warning as errors
 doc-html:
-	@cd doc && sphinx-build -W -b html . ../build/sphinx/html/
+	cd doc && sphinx-build -W -b html . ./build/sphinx/html/
 
 # remove generated sphinx gallery examples and sphinx documentation
 doc-clean:
-	@rm -rf doc/auto_examples && rm -rf doc/generated && rm -rf build
+	rm -rf doc/auto_examples && rm -rf doc/generated && rm -rf doc/build
