@@ -383,6 +383,8 @@ def test_func_dir(tmpdir):
     location = os.path.join(g.store_backend.location, func_id)
     assert location == path
     assert os.path.exists(path)
+    assert memory.cachedir == os.path.dirname(g.store_backend.location)
+    assert memory.location == os.path.dirname(g.store_backend.location)
 
     # Test that the code is stored.
     # For the following test to be robust to previous execution, we clear
