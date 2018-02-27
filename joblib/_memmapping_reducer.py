@@ -94,7 +94,7 @@ class _WeakArrayKeyMap:
             ref = weakref.ref(obj, on_destroy)
         self._data[key] = ref, value
 
-    def __reduce__(self):
+    def __getstate__(self):
         raise PicklingError("_WeakArrayKeyMap is not pickleable")
 
 
