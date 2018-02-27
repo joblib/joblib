@@ -4,7 +4,6 @@ import sys
 import platform
 import gc
 import pickle
-import pytest
 
 from joblib.test.common import with_numpy, np
 from joblib.test.common import setup_autokill
@@ -619,5 +618,5 @@ def test_weak_array_key_map():
 
 def test_weak_array_key_map_no_pickling():
     m = _WeakArrayKeyMap()
-    with pytest.raises(pickle.PicklingError):
+    with raises(pickle.PicklingError):
         pickle.dumps(m)
