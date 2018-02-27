@@ -38,6 +38,9 @@ Alexandre Abadie
     used by default with Memory. This default store backend is named 'local'
     and corresponds to the local filesystem.
 
+    The store backend API is experimental and thus is subject to change in the
+    future without deprecation.
+
     The ``cachedir`` parameter of ``Memory`` is now marked as deprecated, use
     ``location`` instead.
 
