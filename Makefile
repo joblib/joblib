@@ -1,4 +1,4 @@
-.PHONY: all test test-no-multiprocessing doc-html doc-clean
+.PHONY: all test test-no-multiprocessing doc doc-clean
 
 all: test
 
@@ -8,10 +8,10 @@ test:
 test-no-multiprocessing:
 	export JOBLIB_MULTIPROCESSING=0 && pytest joblib
 
-# generate html documentation with warning as errors
-doc-html:
-	cd doc && sphinx-build -W -b html . ./build/sphinx/html/
+# generate html documentation using sphinx
+doc:
+	make -C doc
 
-# remove generated sphinx gallery examples and sphinx documentation
+# clean documentation
 doc-clean:
-	rm -rf doc/auto_examples && rm -rf doc/generated && rm -rf doc/build
+	make -C doc clean

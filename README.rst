@@ -79,9 +79,9 @@ installed::
 
 The docs can then be built with the following command::
 
-    make doc-html
+    make doc
 
-The html docs are located in the ``build/sphinx/html`` directory.
+The html docs are located in the ``doc/_build/sphinx/html`` directory.
 
 
 Making a source tarball
