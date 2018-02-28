@@ -13,5 +13,5 @@ test:
 
 general:
   artifacts:
-    - "doc/_build/sphinx/html"
+    - "doc/_build/html"
     - "~/log.txt"

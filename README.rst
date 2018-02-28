@@ -81,7 +81,7 @@ The docs can then be built with the following command::
 
     make doc
 
-The html docs are located in the ``doc/_build/sphinx/html`` directory.
+The html docs are located in the ``doc/_build/html`` directory.
 
 
 Making a source tarball
@@ -103,7 +103,7 @@ Making a release and uploading it to PyPI
 This command is only run by project manager, to make a release, and
 upload in to PyPI::
 
-    python setup.py sdist bdist_wheel upload_docs --upload-dir build/sphinx/html
+    python setup.py sdist bdist_wheel upload_docs --upload-dir doc/_build/html
     twine upload dist/*
 
 Updating the changelog

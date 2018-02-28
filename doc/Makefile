@@ -1,10 +1,10 @@
-.PHONY: all doc clean
+.PHONY: all html clean
 
-all: doc
+all: html
 
 # generate html documentation with warning as errors
-doc:
-	sphinx-build -W -b html . ./_build/sphinx/html/
+html:
+	sphinx-build -W -b html . ./_build/html/
 
 # remove generated sphinx gallery examples and sphinx documentation
 clean:
