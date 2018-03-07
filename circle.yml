@@ -1,17 +1,16 @@
-machine:
-  environment:
-    MINICONDA_PATH: $HOME/miniconda
-    CONDA_ENV_NAME: testenv
+version: 2
 
-dependencies:
-  override:
-    - ./continuous_integration/circle/build_doc.sh:
-        timeout: 3600 # seconds
-test:
-  override:
-    - cat ~/log.txt && if grep -q "Traceback (most recent call last):" ~/log.txt; then false; else true; fi
-
-general:
-  artifacts:
-    - "doc/_build/html"
-    - "~/log.txt"
+jobs:
+  build:
+    docker:
+      - image: circleci/python:3.6.2
+    steps:
+      - checkout
+      - run:
+          command: ./continuous_integration/circle/build_doc.sh
+          environment:
+            MINICONDA_PATH: ~/miniconda
+            CONDA_ENV_NAME: testenv
+      - store_artifacts:
+          path: doc/_build/html
+          destination: doc

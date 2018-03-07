@@ -19,12 +19,6 @@ source activate $CONDA_ENV_NAME
 conda install --yes --quiet pip numpy sphinx=1.6.3 matplotlib pillow
 pip install sphinx-gallery
 
-cd "$HOME/$CIRCLE_PROJECT_REPONAME"
-ls -l
 python setup.py develop
 
-# The pipefail is requested to propagate exit code
-set -o pipefail && make doc 2>&1 | tee ~/log.txt
-
-cd -
-set +o pipefail
+make doc 2>&1
