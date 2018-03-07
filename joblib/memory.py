@@ -830,7 +830,6 @@ class Memory(Logger):
                               DeprecationWarning, stacklevel=2)
 
         self.location = location
-        self.cachedir = location
         if isinstance(location, _basestring):
             location = os.path.join(location, 'joblib')
 
@@ -838,6 +837,14 @@ class Memory(Logger):
             backend, location, verbose=self._verbose,
             backend_options=dict(compress=compress, mmap_mode=mmap_mode,
                                  **backend_options))
+
+    @property
+    def cachedir(self):
+        warnings.warn("cachedir option is deprecated since version "
+                      "0.10 and will be removed after version 0.12.\n"
+                      "Use option location=<store location> "
+                      "instead.", DeprecationWarning, stacklevel=2)
+        return self.location
 
     def cache(self, func=None, ignore=None, verbose=None, mmap_mode=False):
         """ Decorates the given function func to only compute its return
