@@ -23,5 +23,5 @@ ls -l
 python setup.py develop
 
 # The pipefail is requested to propagate exit code
-set -o pipefail && make doc 2>&1 | tee log.txt
+set -o pipefail && make doc 2>&1
 set +o pipefail
