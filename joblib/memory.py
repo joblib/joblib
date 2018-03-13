@@ -767,7 +767,7 @@ class Memory(Logger):
                 The path of the base directory to use as a data store
                 or None. If None is given, no caching is done and
                 the Memory object is completely transparent. This option
-                replaces cachedir since version 0.11.
+                replaces cachedir since version 0.12.
 
             backend: str or 'local'
                 Type of store backend for reading/writing cache files.
@@ -776,8 +776,8 @@ class Memory(Logger):
                 backend.
 
             cachedir: str or None
-                cachedir is deprecated since version 0.11 and will be
-                removed in 0.13. Please consider using location option instead.
+                cachedir is deprecated since version 0.12 and will be
+                removed in 0.14. Please consider using location option instead.
                 The path of the base directory to use as a data store
                 or None. If None is given, no caching is done and
                 the Memory object is completely transparent.
@@ -818,17 +818,18 @@ class Memory(Logger):
         if cachedir is not None:
             if location is None:
                 warnings.warn("cachedir option is deprecated since version "
-                              "0.10 and will be removed after version 0.12.\n"
+                              "0.12 and will be removed in version 0.14.\n"
                               "Use option location=<store location> "
                               "instead.", DeprecationWarning, stacklevel=2)
                 location = cachedir
             else:
                 warnings.warn("You set both location and cachedir options."
                               "cachedir is deprecated since version "
-                              "0.10 and will be removed after version 0.12.\n"
+                              "0.12 and will be removed in version 0.14.\n"
                               "cachedir value will be ignored.",
                               DeprecationWarning, stacklevel=2)
 
+        self.location = location
         if isinstance(location, _basestring):
             location = os.path.join(location, 'joblib')
 
@@ -836,6 +837,14 @@ class Memory(Logger):
             backend, location, verbose=self._verbose,
             backend_options=dict(compress=compress, mmap_mode=mmap_mode,
                                  **backend_options))
+
+    @property
+    def cachedir(self):
+        warnings.warn("cachedir option is deprecated since version "
+                      "0.12 and will be removed in version 0.14.\n"
+                      "Use option location=<store location> "
+                      "instead.", DeprecationWarning, stacklevel=2)
+        return self.location
 
     def cache(self, func=None, ignore=None, verbose=None, mmap_mode=False):
         """ Decorates the given function func to only compute its return
