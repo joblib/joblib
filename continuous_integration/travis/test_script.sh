@@ -16,12 +16,11 @@ if [[ "$SKIP_TESTS" != "true" ]]; then
 fi
 
 if [[ "$SKLEARN_TESTS" == "true" ]]; then
-    export BUILD_ROOT="$HOME/build"
-    conda install --yes numpy scipy cython
-    git clone --depth=1 https://github.com/scikit-learn/scikit-learn.git \
-        $BUILD_ROOT/scikit-learn/scikit-learn
-    cd $BUILD_ROOT/scikit-learn/scikit-learn/sklearn/externals
-    bash copy_joblib.sh $BUILD_ROOT/joblib/joblib
-    cd $BUILD_ROOT/scikit-learn/scikit-learn
-    make
+    # Install scikit-learn from conda, patch it to use this version of joblib
+    # and run the scikit-learn tests with pytest.
+    conda install --yes scikit-learn
+    export SKLEARN_EXTERNAL=`python -c "from sklearn import externals; print(externals.__path__[0])"`
+    cp continuous_integration/travis/copy_joblib.sh $SKLEARN_EXTERNAL
+    (cd $SKLEARN_EXTERNAL && bash copy_joblib.sh $TRAVIS_BUILD_DIR)
+    pytest --showlocals -v --pyargs sklearn
 fi
