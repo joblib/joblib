@@ -56,7 +56,7 @@ class LZMACompressorWrapper(CompressorWrapper):
 
     def compressor_file(self, fileobj, compresslevel=None):
         """Returns an instance of a compressor file object."""
-        if compresslevel == None:
+        if compresslevel is None:
             return self.obj(fileobj, 'wb', format=lzma.FORMAT_ALONE)
         else:
             return self.obj(fileobj, 'wb', format=lzma.FORMAT_ALONE,
@@ -94,7 +94,7 @@ class XZCompressorWrapper(LZMACompressorWrapper):
 
     def compressor_file(self, fileobj, compresslevel=None):
         """Returns an instance of a compressor file object."""
-        if compresslevel == None:
+        if compresslevel is None:
             return self.obj(fileobj, 'wb', check=lzma.CHECK_NONE)
         else:
             return self.obj(fileobj, 'wb', check=lzma.CHECK_NONE,
@@ -131,7 +131,7 @@ class BZ2CompressorWrapper(CompressorWrapper):
     def compressor_file(self, fileobj, compresslevel=None):
         """Returns an instance of a compressor file object."""
         self._check_versions()
-        if compresslevel == None:
+        if compresslevel is None:
             return self.obj(fileobj, 'wb')
         else:
             return self.obj(fileobj, 'wb', compresslevel=compresslevel)
@@ -182,7 +182,7 @@ class LZ4CompressorWrapper(CompressorWrapper):
     def compressor_file(self, fileobj, compresslevel=None):
         """Returns an instance of a compressor file object."""
         self._check_versions()
-        if compresslevel == None:
+        if compresslevel is None:
             return self.obj(fileobj, 'wb')
         else:
             return self.obj(fileobj, 'wb', compression_level=compresslevel)

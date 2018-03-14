@@ -110,14 +110,15 @@ print("Zlib load duration: %0.3fs" % zlib_load_duration)
 #
 # LZMA compression method has a very good compression rate but at the cost
 # of being very slow.
-# In this example, the default compression level, e.g. 3, is used.
+# In this example, a light compression level, e.g. 3, is used to speed up a
+# bit the dump/load cycle.
 
 ###############################################################################
 # Start by measuring the time spent for dumping the lzma data:
 
 start = time.time()
 with open(pickle_file, 'wb') as f:
-    dump(data, f, compress='lzma')
+    dump(data, f, compress=('lzma', 3))
 lzma_dump_duration = time.time() - start
 print("LZMA dump duration: %0.3fs" % lzma_dump_duration)
 

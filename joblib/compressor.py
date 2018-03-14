@@ -38,7 +38,7 @@ class CompressorWrapper():
 
     def compressor_file(self, fileobj, compresslevel=None):
         """Returns an instance of a compressor file object."""
-        if compresslevel == None:
+        if compresslevel is None:
             return self.obj(fileobj, 'wb')
         else:
             return self.obj(fileobj, 'wb', compresslevel=compresslevel)
