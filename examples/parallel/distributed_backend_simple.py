@@ -44,13 +44,13 @@ def long_running_function(i):
     return i
 
 
+###############################################################################
+# The verbose messages below show that the backend is indeed the
+# dask.distributed one
 with joblib.parallel_backend('dask.distributed', scheduler_host=address):
     joblib.Parallel(n_jobs=2, verbose=100)(
         joblib.delayed(long_running_function)(i)
         for i in range(10))
-    # Check that joblib is indeed using the dask.distributed
-    # backend
-    print(joblib.Parallel(n_jobs=1)._backend)
 
 ###############################################################################
 # Progress in computation can be followed on the distributed web
