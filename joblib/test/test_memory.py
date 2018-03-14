@@ -385,7 +385,7 @@ def test_func_dir(tmpdir):
     assert os.path.exists(path)
     assert memory.location == os.path.dirname(g.store_backend.location)
     with warns(DeprecationWarning) as w:
-        assert memory.cachedir == os.path.dirname(g.store_backend.location)
+        assert memory.cachedir == g.store_backend.location
     assert len(w) == 1
     assert "The 'cachedir' attribute has been deprecated" in str(w[-1].message)
 

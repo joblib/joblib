@@ -846,7 +846,7 @@ class Memory(Logger):
             "and will be removed in version 0.14.\n"
             "Use the 'location' attribute instead.",
             DeprecationWarning, stacklevel=2)
-        return self.location
+        return os.path.join(self.location, 'joblib')
 
     def cache(self, func=None, ignore=None, verbose=None, mmap_mode=False):
         """ Decorates the given function func to only compute its return
