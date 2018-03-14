@@ -158,7 +158,7 @@ class LZ4CompressorWrapper(CompressorWrapper):
     def __init__(self):
         self.prefix = _LZ4_PREFIX
         self.extension = '.lz4'
-        if lz4 is not None:
+        if PY3_OR_LATER and lz4 is not None:
             self.obj = lz4.frame.LZ4FrameFile
         else:
             self.obj = None
