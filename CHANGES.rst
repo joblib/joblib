@@ -27,6 +27,22 @@ Olivier Grisel
     ``prefer='threads'`` or enforce shared-memory semantics with
     ``require='sharedmem'``.
 
+Alexandre Abadie
+
+    Introduce the concept of 'store' and refactor the ``Memory`` internal
+    storage implementation to make it accept extra store backends for caching
+    results. ``backend`` and ``backend_options`` are the new options added to
+    ``Memory`` to specify and configure a store backend.
+
+    Add the ``register_store_backend`` function to extend the store backend
+    used by default with Memory. This default store backend is named 'local'
+    and corresponds to the local filesystem.
+
+    The store backend API is experimental and thus is subject to change in the
+    future without deprecation.
+
+    The ``cachedir`` parameter of ``Memory`` is now marked as deprecated, use
+    ``location`` instead.
 
 Release 0.11
 ------------
