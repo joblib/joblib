@@ -14,10 +14,10 @@ except ImportError:
     Path = None
 
 from .compressor import BinaryZlibFile, _COMPRESSORS
+from .compressor import lz4, LZ4_NOT_INSTALLED_ERROR
 from .numpy_pickle_utils import Unpickler, Pickler
 from .numpy_pickle_utils import _read_fileobject, _write_fileobject
 from .numpy_pickle_utils import _read_bytes, BUFFER_SIZE
-from .numpy_pickle_utils import lz4, LZ4_NOT_INSTALLED_ERROR
 from .numpy_pickle_compat import load_compatibility
 from .numpy_pickle_compat import NDArrayWrapper
 # For compatibility with old versions of joblib, we need ZNDArrayWrapper
