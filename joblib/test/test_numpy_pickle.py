@@ -537,7 +537,7 @@ def test_joblib_compression_formats(tmpdir, compress, cmethod):
 
     dump_filename = filename + "." + cmethod
     for obj in objects:
-        if not PY3_OR_LATER and cmethod in ('xz', 'lzma'):
+        if not PY3_OR_LATER and cmethod in ('xz', 'lzma', 'lz4'):
             # Lzma module only available for python >= 3.3
             msg = "{} compression is only available".format(cmethod)
             with raises(NotImplementedError) as excinfo:

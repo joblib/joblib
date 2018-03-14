@@ -164,9 +164,9 @@ class LZ4CompressorWrapper(CompressorWrapper):
             self.obj = None
 
     def _check_versions(self):
-        # if not PY3_OR_LATER:
-        #     raise ValueError('LZ4 compression is not supported with '
-        #                      'python < 3.')
+        if not PY3_OR_LATER:
+            raise ValueError('LZ4 compression is only available with '
+                             'python < 3.')
 
         if lz4 is None or LooseVersion(lz4.__version__) < LooseVersion('0.19'):
             raise ValueError(LZ4_NOT_INSTALLED_ERROR)
