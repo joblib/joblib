@@ -842,8 +842,8 @@ class Memory(Logger):
     def cachedir(self):
         warnings.warn("cachedir option is deprecated since version "
                       "0.12 and will be removed in version 0.14.\n"
-                      "Use option location=<store location> "
-                      "instead.", DeprecationWarning, stacklevel=2)
+                      "Use 'location' attribute instead.",
+                      DeprecationWarning, stacklevel=2)
         return self.location
 
     def cache(self, func=None, ignore=None, verbose=None, mmap_mode=False):
