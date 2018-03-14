@@ -1,4 +1,4 @@
-"""Utilities for compressing data using file-like objects."""
+"""Compressor classes and functions."""
 
 import sys
 import io
@@ -43,6 +43,176 @@ _BZ2_PREFIX = b'BZ'
 _XZ_PREFIX = b'\xfd\x37\x7a\x58\x5a'
 _LZMA_PREFIX = b'\x5d\x00'
 _LZ4_PREFIX = b'\x04\x22\x4D\x18'
+
+
+class CompressorWrapper():
+    """A wrapper around a compressor file object."""
+
+    def __init__(self, obj, prefix='', extension=''):
+        self.obj = obj
+        self.prefix = prefix
+        self.extension = extension
+
+    def compressor_file(self, fileobj, compresslevel=None):
+        """Returns an instance of a compressor file object."""
+        if compresslevel is None:
+            return self.obj(fileobj, 'wb')
+        else:
+            return self.obj(fileobj, 'wb', compresslevel=compresslevel)
+
+    def decompressor_file(self, fileobj):
+        """Returns an instance of a decompressor file object."""
+        return self.obj(fileobj, 'rb')
+
+
+class BZ2CompressorWrapper(CompressorWrapper):
+
+    def __init__(self):
+        self.prefix = _BZ2_PREFIX
+        self.extension = '.bz2'
+        if bz2 is not None:
+            self.obj = bz2.BZ2File
+        else:
+            self.obj = None
+
+    def _check_versions(self):
+        if bz2 is None:
+            raise ValueError('bz2 module is not compiled on your python '
+                             'standard library.')
+
+    def compressor_file(self, fileobj, compresslevel=None):
+        """Returns an instance of a compressor file object."""
+        self._check_versions()
+        if compresslevel is None:
+            return self.obj(fileobj, 'wb')
+        else:
+            return self.obj(fileobj, 'wb', compresslevel=compresslevel)
+
+    def decompressor_file(self, fileobj):
+        """Returns an instance of a decompressor file object."""
+        self._check_versions()
+        if PY3_OR_LATER:
+            fileobj = self.obj(fileobj, 'rb')
+        else:
+            # In python 2, BZ2File doesn't support a fileobj opened in
+            # binary mode. In this case, we pass the filename.
+            fileobj = self.obj(fileobj.name, 'rb')
+        return fileobj
+
+
+class LZMACompressorWrapper(CompressorWrapper):
+
+    def __init__(self):
+        self.prefix = _LZMA_PREFIX
+        self.extension = '.lzma'
+        if lzma is not None:
+            self.obj = lzma.LZMAFile
+        else:
+            self.obj = None
+
+    def compressor_file(self, fileobj, compresslevel=None):
+        """Returns an instance of a compressor file object."""
+        if compresslevel is None:
+            return self.obj(fileobj, 'wb', format=lzma.FORMAT_ALONE)
+        else:
+            return self.obj(fileobj, 'wb', format=lzma.FORMAT_ALONE,
+                            preset=compresslevel)
+
+    def decompressor_file(self, fileobj):
+        """Returns an instance of a decompressor file object."""
+        if PY3_OR_LATER and lzma is not None:
+            # We support lzma only in python 3 because in python 2 users
+            # may have installed the pyliblzma package, which also provides
+            # the lzma module, but that unfortunately doesn't fully support
+            # the buffer interface required by joblib.
+            # See https://github.com/joblib/joblib/issues/403 for details.
+            return lzma.LZMAFile(fileobj, 'rb')
+        else:
+            raise NotImplementedError("Lzma decompression is not "
+                                      "supported for this version of "
+                                      "python ({}.{})"
+                                      .format(sys.version_info[0],
+                                              sys.version_info[1]))
+
+
+class XZCompressorWrapper(LZMACompressorWrapper):
+
+    def __init__(self):
+        self.prefix = _XZ_PREFIX
+        self.extension = '.xz'
+        if lzma is not None:
+            self.obj = lzma.LZMAFile
+        else:
+            self.obj = None
+
+    def compressor_file(self, fileobj, compresslevel=None):
+        """Returns an instance of a compressor file object."""
+        if compresslevel is None:
+            return self.obj(fileobj, 'wb', check=lzma.CHECK_NONE)
+        else:
+            return self.obj(fileobj, 'wb', check=lzma.CHECK_NONE,
+                            preset=compresslevel)
+
+
+class LZ4CompressorWrapper(CompressorWrapper):
+
+    def __init__(self):
+        self.prefix = _LZ4_PREFIX
+        self.extension = '.lz4'
+        if PY3_OR_LATER and lz4 is not None:
+            self.obj = lz4.frame.LZ4FrameFile
+        else:
+            self.obj = None
+
+    def _check_versions(self):
+        if not PY3_OR_LATER:
+            raise ValueError('lz4 compression is only available with '
+                             'python < 3.')
+
+        if lz4 is None or LooseVersion(lz4.__version__) < LooseVersion('0.19'):
+            raise ValueError(LZ4_NOT_INSTALLED_ERROR)
+
+    def compressor_file(self, fileobj, compresslevel=None):
+        """Returns an instance of a compressor file object."""
+        self._check_versions()
+        if compresslevel is None:
+            return self.obj(fileobj, 'wb')
+        else:
+            return self.obj(fileobj, 'wb', compression_level=compresslevel)
+
+    def decompressor_file(self, fileobj):
+        """Returns an instance of a decompressor file object."""
+        self._check_versions()
+        return self.obj(fileobj, 'rb')
+
+
+def register_compressor(compressor_name, compressor,
+                        force=False):
+    """Register a compressor implementing the Python file object interface."""
+    global _COMPRESSORS
+    if not isinstance(compressor_name, _basestring):
+        raise ValueError("Compressor name should be a string, "
+                         "'{}' given.".format(compressor_name))
+
+    if not isinstance(compressor, CompressorWrapper):
+        raise ValueError("Compressor should implement the CompressorWrapper "
+                         "interface, '{}' given.".format(compressor))
+
+    if (compressor.obj is not None and
+            (not hasattr(compressor.obj, 'read') or
+             not hasattr(compressor.obj, 'write') or
+             not hasattr(compressor.obj, 'seek') or
+             not hasattr(compressor.obj, 'tell'))):
+        raise ValueError("Compressor 'obj' attribute should implement the "
+                         "file object interface, '{}' given."
+                         .format(compressor.obj))
+
+    if compressor_name in _COMPRESSORS and not force:
+        raise ValueError("Compressor '{}' already registered."
+                         .format(compressor_name))
+
+    _COMPRESSORS[compressor_name] = compressor
+
 
 ###############################################################################
 #  base file compression/decompression object definition
@@ -378,172 +548,3 @@ class BinaryGzipFile(BinaryZlibFile):
     """
 
     wbits = 31  # zlib compressor/decompressor wbits value for gzip format.
-
-
-class CompressorWrapper():
-    """A wrapper around a compressor file object."""
-
-    def __init__(self, obj, prefix='', extension=''):
-        self.obj = obj
-        self.prefix = prefix
-        self.extension = extension
-
-    def compressor_file(self, fileobj, compresslevel=None):
-        """Returns an instance of a compressor file object."""
-        if compresslevel is None:
-            return self.obj(fileobj, 'wb')
-        else:
-            return self.obj(fileobj, 'wb', compresslevel=compresslevel)
-
-    def decompressor_file(self, fileobj):
-        """Returns an instance of a decompressor file object."""
-        return self.obj(fileobj, 'rb')
-
-
-class LZMACompressorWrapper(CompressorWrapper):
-
-    def __init__(self):
-        self.prefix = _LZMA_PREFIX
-        self.extension = '.lzma'
-        if lzma is not None:
-            self.obj = lzma.LZMAFile
-        else:
-            self.obj = None
-
-    def compressor_file(self, fileobj, compresslevel=None):
-        """Returns an instance of a compressor file object."""
-        if compresslevel is None:
-            return self.obj(fileobj, 'wb', format=lzma.FORMAT_ALONE)
-        else:
-            return self.obj(fileobj, 'wb', format=lzma.FORMAT_ALONE,
-                            preset=compresslevel)
-
-    def decompressor_file(self, fileobj):
-        """Returns an instance of a decompressor file object."""
-        if PY3_OR_LATER and lzma is not None:
-            # We support lzma only in python 3 because in python 2 users
-            # may have installed the pyliblzma package, which also provides
-            # the lzma module, but that unfortunately doesn't fully support
-            # the buffer interface required by joblib.
-            # See https://github.com/joblib/joblib/issues/403 for details.
-            return lzma.LZMAFile(fileobj, 'rb')
-        else:
-            raise NotImplementedError("Lzma decompression is not "
-                                      "supported for this version of "
-                                      "python ({}.{})"
-                                      .format(sys.version_info[0],
-                                              sys.version_info[1]))
-
-
-class XZCompressorWrapper(LZMACompressorWrapper):
-
-    def __init__(self):
-        self.prefix = _XZ_PREFIX
-        self.extension = '.xz'
-        if lzma is not None:
-            self.obj = lzma.LZMAFile
-        else:
-            self.obj = None
-
-    def compressor_file(self, fileobj, compresslevel=None):
-        """Returns an instance of a compressor file object."""
-        if compresslevel is None:
-            return self.obj(fileobj, 'wb', check=lzma.CHECK_NONE)
-        else:
-            return self.obj(fileobj, 'wb', check=lzma.CHECK_NONE,
-                            preset=compresslevel)
-
-
-class BZ2CompressorWrapper(CompressorWrapper):
-
-    def __init__(self):
-        self.prefix = _BZ2_PREFIX
-        self.extension = '.bz2'
-        if bz2 is not None:
-            self.obj = bz2.BZ2File
-        else:
-            self.obj = None
-
-    def _check_versions(self):
-        if bz2 is None:
-            raise ValueError('bz2 module is not compiled on your python '
-                             'standard library.')
-
-    def compressor_file(self, fileobj, compresslevel=None):
-        """Returns an instance of a compressor file object."""
-        self._check_versions()
-        if compresslevel is None:
-            return self.obj(fileobj, 'wb')
-        else:
-            return self.obj(fileobj, 'wb', compresslevel=compresslevel)
-
-    def decompressor_file(self, fileobj):
-        """Returns an instance of a decompressor file object."""
-        self._check_versions()
-        if PY3_OR_LATER:
-            fileobj = self.obj(fileobj, 'rb')
-        else:
-            # In python 2, BZ2File doesn't support a fileobj opened in
-            # binary mode. In this case, we pass the filename.
-            fileobj = self.obj(fileobj.name, 'rb')
-        return fileobj
-
-
-class LZ4CompressorWrapper(CompressorWrapper):
-
-    def __init__(self):
-        self.prefix = _LZ4_PREFIX
-        self.extension = '.lz4'
-        if PY3_OR_LATER and lz4 is not None:
-            self.obj = lz4.frame.LZ4FrameFile
-        else:
-            self.obj = None
-
-    def _check_versions(self):
-        if not PY3_OR_LATER:
-            raise ValueError('lz4 compression is only available with '
-                             'python < 3.')
-
-        if lz4 is None or LooseVersion(lz4.__version__) < LooseVersion('0.19'):
-            raise ValueError(LZ4_NOT_INSTALLED_ERROR)
-
-    def compressor_file(self, fileobj, compresslevel=None):
-        """Returns an instance of a compressor file object."""
-        self._check_versions()
-        if compresslevel is None:
-            return self.obj(fileobj, 'wb')
-        else:
-            return self.obj(fileobj, 'wb', compression_level=compresslevel)
-
-    def decompressor_file(self, fileobj):
-        """Returns an instance of a decompressor file object."""
-        self._check_versions()
-        return self.obj(fileobj, 'rb')
-
-
-def register_compressor(compressor_name, compressor,
-                        force=False):
-    """Register a compressor implementing the Python file object interface."""
-    global _COMPRESSORS
-    if not isinstance(compressor_name, _basestring):
-        raise ValueError("Compressor name should be a string, "
-                         "'{}' given.".format(compressor_name))
-
-    if not isinstance(compressor, CompressorWrapper):
-        raise ValueError("Compressor should implement the CompressorWrapper "
-                         "interface, '{}' given.".format(compressor))
-
-    if (compressor.obj is not None and
-            (not hasattr(compressor.obj, 'read') or
-             not hasattr(compressor.obj, 'write') or
-             not hasattr(compressor.obj, 'seek') or
-             not hasattr(compressor.obj, 'tell'))):
-        raise ValueError("Compressor 'obj' attribute should implement the "
-                         "file object interface, '{}' given."
-                         .format(compressor.obj))
-
-    if compressor_name in _COMPRESSORS and not force:
-        raise ValueError("Compressor '{}' already registered."
-                         .format(compressor_name))
-
-    _COMPRESSORS[compressor_name] = compressor
