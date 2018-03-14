@@ -22,6 +22,6 @@ if [[ "$SKLEARN_TESTS" == "true" ]]; then
     export SKLEARN=`python -c "import sklearn; print(sklearn.__path__[0])"`
     cp $TRAVIS_BUILD_DIR/continuous_integration/travis/copy_joblib.sh $SKLEARN/externals
     (cd $SKLEARN/externals && bash copy_joblib.sh $TRAVIS_BUILD_DIR)
-    cp $TRAVIS_BUILD_DIR/continuous_integration/travis/conftest.py $SKLEARN
-    pytest -vl --pyargs sklearn
+    cp $TRAVIS_BUILD_DIR/continuous_integration/travis/conftest.py $SKLEARN/..
+    pytest -vl --ignore $SKLEARN/externals --pyargs sklearn
 fi
