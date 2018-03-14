@@ -777,7 +777,8 @@ class Memory(Logger):
 
             cachedir: str or None
                 cachedir is deprecated since version 0.12 and will be
-                removed in 0.14. Please consider using location option instead.
+                removed in 0.14. Please consider using 'location' option
+                instead.
                 The path of the base directory to use as a data store
                 or None. If None is given, no caching is done and
                 the Memory object is completely transparent.
@@ -819,7 +820,7 @@ class Memory(Logger):
             if location is None:
                 warnings.warn("cachedir option is deprecated since version "
                               "0.12 and will be removed in version 0.14.\n"
-                              "Use option location=<store location> "
+                              "Use option location='store location' "
                               "instead.", DeprecationWarning, stacklevel=2)
                 location = cachedir
             else:
