@@ -492,7 +492,7 @@ class MemorizedFunc(Logger):
         cached_result: MemorizedResult or NotMemorizedResult
             reference to the value returned by the wrapped function. The
             class "NotMemorizedResult" is used when there is no cache
-            activated (e.g. cachedir=None in Memory).
+            activated (e.g. location=None in Memory).
         """
         _, args_id, metadata = self._cached_call(args, kwargs)
         return MemorizedResult(self.store_backend, self.func, args_id,
@@ -844,9 +844,11 @@ class Memory(Logger):
         warnings.warn(
             "The 'cachedir' attribute has been deprecated in version 0.12 "
             "and will be removed in version 0.14.\n"
-            "Use the 'location' attribute instead.",
+            "Use os.path.join(memory.location, 'joblib') attribute instead.",
             DeprecationWarning, stacklevel=2)
-        return self.location
+        if self.location is None:
+            return None
+        return os.path.join(self.location, 'joblib')
 
     def cache(self, func=None, ignore=None, verbose=None, mmap_mode=False):
         """ Decorates the given function func to only compute its return
