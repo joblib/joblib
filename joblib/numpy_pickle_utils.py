@@ -5,7 +5,6 @@
 # License: BSD Style, 3 clauses.
 
 import pickle
-import sys
 import io
 import warnings
 import contextlib
@@ -13,8 +12,7 @@ from contextlib import closing
 
 from ._compat import PY3_OR_LATER, PY27
 from .compressor import BinaryGzipFile, BinaryZlibFile
-from .compressor import (_ZFILE_PREFIX, _ZLIB_PREFIX, _GZIP_PREFIX,
-                         _BZ2_PREFIX, _XZ_PREFIX, _LZMA_PREFIX, _LZ4_PREFIX)
+from .compressor import (_ZFILE_PREFIX, _ZLIB_PREFIX, _GZIP_PREFIX)
 from .compressor import register_compressor, CompressorWrapper, _COMPRESSORS
 from .compressor import (BZ2CompressorWrapper, LZMACompressorWrapper,
                          XZCompressorWrapper, LZ4CompressorWrapper)

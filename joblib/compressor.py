@@ -1,5 +1,6 @@
 """Utilities for compressing data using file-like objects."""
 
+import sys
 import io
 import zlib
 from distutils.version import LooseVersion
@@ -10,6 +11,26 @@ try:
     from threading import RLock
 except ImportError:
     from dummy_threading import RLock
+
+try:
+    import bz2
+except ImportError:
+    bz2 = None
+
+try:
+    import lzma
+except ImportError:
+    lzma = None
+
+try:
+    import lz4
+    if PY3_OR_LATER:
+        import lz4.frame
+except ImportError:
+    lz4 = None
+
+LZ4_NOT_INSTALLED_ERROR = ('LZ4 in not installed. Install it with pip: '
+                           'http://python-lz4.readthedocs.io/')
 
 # Registered compressors
 _COMPRESSORS = {}
@@ -384,12 +405,6 @@ class CompressorWrapper():
         return self.obj(fileobj, 'rb')
 
 
-try:
-    import lzma
-except ImportError:
-    lzma = None
-
-
 class LZMACompressorWrapper(CompressorWrapper):
 
     def __init__(self):
@@ -444,12 +459,6 @@ class XZCompressorWrapper(LZMACompressorWrapper):
                             preset=compresslevel)
 
 
-try:
-    import bz2
-except ImportError:
-    bz2 = None
-
-
 class BZ2CompressorWrapper(CompressorWrapper):
 
     def __init__(self):
@@ -483,17 +492,6 @@ class BZ2CompressorWrapper(CompressorWrapper):
             # binary mode. In this case, we pass the filename.
             fileobj = self.obj(fileobj.name, 'rb')
         return fileobj
-
-
-try:
-    import lz4
-    if PY3_OR_LATER:
-        import lz4.frame
-except ImportError:
-    lz4 = None
-
-LZ4_NOT_INSTALLED_ERROR = ('LZ4 in not installed. Install it with pip: '
-                           'http://python-lz4.readthedocs.io/')
 
 
 class LZ4CompressorWrapper(CompressorWrapper):
