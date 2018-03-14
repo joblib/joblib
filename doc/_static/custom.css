@@ -45,3 +45,8 @@ div.body table.docutils td{
 div.sphinxsidebarwrapper ul:last-of-type {
     margin-bottom: 100px;
 }
+
+/* But don't apply this to nested ul */
+div.sphinxsidebarwrapper ul ul:last-of-type {
+    margin-bottom: 20px;
+}
