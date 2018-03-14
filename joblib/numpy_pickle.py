@@ -407,7 +407,7 @@ def dump(value, filename, compress=0, protocol=None, cache_size=None):
     compress_method = 'zlib'  # zlib is the default compression method.
     if compress is True:
         # By default, if compress is enabled, we want to be using 3 by default
-        compress_level = 3
+        compress_level = None
     elif isinstance(compress, tuple):
         # a 2-tuple was set in compress
         if len(compress) != 2:
@@ -418,7 +418,7 @@ def dump(value, filename, compress=0, protocol=None, cache_size=None):
         compress_method, compress_level = compress
     elif isinstance(compress, _basestring):
         compress_method = compress
-        compress_level = 3  # Use default compress level
+        compress_level = None  # Use default compress level
         compress = (compress_method, compress_level)
     else:
         compress_level = compress
@@ -426,7 +426,9 @@ def dump(value, filename, compress=0, protocol=None, cache_size=None):
     if compress_method == 'lz4' and lz4 is None:
         raise ValueError(LZ4_NOT_INSTALLED_ERROR)
 
-    if compress_level is not False and compress_level not in range(10):
+    if (compress_level is not None and
+            compress_level is not False and
+            compress_level not in range(10)):
         # Raising an error if a non valid compress level is given.
         raise ValueError(
             'Non valid compress level given: "{}". Possible values are '

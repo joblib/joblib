@@ -36,9 +36,12 @@ class CompressorWrapper():
         self.prefix = prefix
         self.extension = extension
 
-    def compressor_file(self, fileobj, compresslevel):
+    def compressor_file(self, fileobj, compresslevel=None):
         """Returns an instance of a compressor file object."""
-        return self.obj(fileobj, 'wb', compresslevel=compresslevel)
+        if compresslevel == None:
+            return self.obj(fileobj, 'wb')
+        else:
+            return self.obj(fileobj, 'wb', compresslevel=compresslevel)
 
     def decompressor_file(self, fileobj):
         """Returns an instance of a decompressor file object."""

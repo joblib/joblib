@@ -54,10 +54,13 @@ class LZMACompressorWrapper(CompressorWrapper):
         else:
             self.obj = None
 
-    def compressor_file(self, fileobj, compresslevel):
+    def compressor_file(self, fileobj, compresslevel=None):
         """Returns an instance of a compressor file object."""
-        return self.obj(fileobj, 'wb', preset=compresslevel,
-                        format=lzma.FORMAT_ALONE)
+        if compresslevel == None:
+            return self.obj(fileobj, 'wb', format=lzma.FORMAT_ALONE)
+        else:
+            return self.obj(fileobj, 'wb', format=lzma.FORMAT_ALONE,
+                            preset=compresslevel)
 
     def decompressor_file(self, fileobj):
         """Returns an instance of a decompressor file object."""
@@ -89,10 +92,13 @@ class XZCompressorWrapper(LZMACompressorWrapper):
         else:
             self.obj = None
 
-    def compressor_file(self, fileobj, compresslevel):
+    def compressor_file(self, fileobj, compresslevel=None):
         """Returns an instance of a compressor file object."""
-        return self.obj(fileobj, 'wb', check=lzma.CHECK_NONE,
-                        preset=compresslevel)
+        if compresslevel == None:
+            return self.obj(fileobj, 'wb', check=lzma.CHECK_NONE)
+        else:
+            return self.obj(fileobj, 'wb', check=lzma.CHECK_NONE,
+                            preset=compresslevel)
 
 
 register_compressor('xz', XZCompressorWrapper())
@@ -122,10 +128,13 @@ class BZ2CompressorWrapper(CompressorWrapper):
             raise ValueError('bz2 module is not compiled on your python '
                              'standard library.')
 
-    def compressor_file(self, fileobj, compresslevel):
+    def compressor_file(self, fileobj, compresslevel=None):
         """Returns an instance of a compressor file object."""
         self._check_versions()
-        return self.obj(fileobj, 'wb', compresslevel=compresslevel)
+        if compresslevel == None:
+            return self.obj(fileobj, 'wb')
+        else:
+            return self.obj(fileobj, 'wb', compresslevel=compresslevel)
 
     def decompressor_file(self, fileobj):
         """Returns an instance of a decompressor file object."""
@@ -170,10 +179,13 @@ class LZ4CompressorWrapper(CompressorWrapper):
         if lz4 is None or LooseVersion(lz4.__version__) < LooseVersion('0.19'):
             raise ValueError(LZ4_NOT_INSTALLED_ERROR)
 
-    def compressor_file(self, fileobj, compresslevel):
+    def compressor_file(self, fileobj, compresslevel=None):
         """Returns an instance of a compressor file object."""
         self._check_versions()
-        return self.obj(fileobj, 'wb', compression_level=compresslevel)
+        if compresslevel == None:
+            return self.obj(fileobj, 'wb')
+        else:
+            return self.obj(fileobj, 'wb', compression_level=compresslevel)
 
     def decompressor_file(self, fileobj):
         """Returns an instance of a decompressor file object."""
@@ -337,11 +349,11 @@ def _write_fileobject(filename, compress=("zlib", 3)):
 
     if compressmethod in _COMPRESSORS.keys():
         file_instance = _COMPRESSORS[compressmethod].compressor_file(
-            filename, compresslevel)
+            filename, compresslevel=compresslevel)
         return _buffered_write_file(file_instance)
     else:
         file_instance = _COMPRESSORS['zlib'].compressor_file(
-            filename, compresslevel)
+            filename, compresslevel=compresslevel)
         return _buffered_write_file(file_instance)
 
 
