@@ -819,8 +819,8 @@ class Memory(Logger):
                 warnings.warn(
                     "The 'cachedir' parameter has been deprecated in version "
                     "0.12 and will be removed in version 0.14.\n"
-                    "You provided 'cachedir={!r}', "
-                    "use 'location={!r}' instead.".format(cachedir, location),
+                    'You provided "cachedir={!r}", '
+                    'use "location={!r}" instead.'.format(cachedir, location),
                     DeprecationWarning, stacklevel=2)
                 location = cachedir
             else:

@@ -387,7 +387,7 @@ def test_func_dir(tmpdir):
     with warns(DeprecationWarning) as w:
         assert memory.cachedir == os.path.dirname(g.store_backend.location)
     assert len(w) == 1
-    assert "cachedir option is deprecated since version" in str(w[-1].message)
+    assert "The 'cachedir' attribute has been deprecated" in str(w[-1].message)
 
     # Test that the code is stored.
     # For the following test to be robust to previous execution, we clear
@@ -900,7 +900,7 @@ def test_cachedir_deprecation_warning(tmpdir):
         assert memory.store_backend.location.startswith(tmpdir.strpath)
 
     assert len(w) == 1
-    assert "cachedir option is deprecated since version" in str(w[-1].message)
+    assert "The 'cachedir' parameter has been deprecated" in str(w[-1].message)
 
 
 class IncompleteStoreBackend(StoreBackendBase):
