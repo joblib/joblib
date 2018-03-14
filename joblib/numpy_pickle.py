@@ -406,7 +406,8 @@ def dump(value, filename, compress=0, protocol=None, cache_size=None):
 
     compress_method = 'zlib'  # zlib is the default compression method.
     if compress is True:
-        # By default, if compress is enabled, we want to be using 3 by default
+        # By default, if compress is enabled, we want the default compress
+        # level of the compressor.
         compress_level = None
     elif isinstance(compress, tuple):
         # a 2-tuple was set in compress
@@ -461,9 +462,9 @@ def dump(value, filename, compress=0, protocol=None, cache_size=None):
                 compress_method = name
 
         if compress_method in _COMPRESSORS and compress_level == 0:
-            # we choose a default compress_level of 3 in case it was not given
+            # we choose the default compress_level in case it was not given
             # as an argument (using compress).
-            compress_level = 3
+            compress_level = None
 
     if not PY3_OR_LATER and compress_method in ('lzma', 'xz'):
         raise NotImplementedError("{} compression is only available for "
