@@ -537,10 +537,13 @@ def test_joblib_compression_formats(tmpdir, compress, cmethod):
 
     dump_filename = filename + "." + cmethod
     for obj in objects:
-        if not PY3_OR_LATER and cmethod in ('xz', 'lzma', 'lz4'):
+        if not PY3_OR_LATER and cmethod in ('lzma', 'xz', 'lz4'):
             # Lzma module only available for python >= 3.3
             msg = "{} compression is only available".format(cmethod)
-            with raises(NotImplementedError) as excinfo:
+            error = NotImplementedError
+            if cmethod == 'lz4':
+                error = ValueError
+            with raises(error) as excinfo:
                 numpy_pickle.dump(obj, dump_filename,
                                   compress=(cmethod, compress))
             excinfo.match(msg)
