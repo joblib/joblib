@@ -40,6 +40,11 @@ intersphinx_mapping = {
     'python': ('https://docs.python.org/{.major}'.format(
         sys.version_info), None),
     'numpy': ('https://docs.scipy.org/doc/numpy/', None),
+<<<<<<< HEAD
+=======
+    'scipy': ('https://docs.scipy.org/doc/scipy/reference', None),
+    'distributed': ('https://distributed.readthedocs.io/en/latest/', None),
+>>>>>>> Address coments
 }
 
 # sphinx-gallery configuration

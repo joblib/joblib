@@ -1,6 +1,6 @@
 """
-Using distributed for single_machine parallel computing
-========================================================
+Using dask distributed for single-machine parallel computing
+=============================================================
 
 This example shows the simplest usage of the dask `distributed
 <https://distributed.readthedocs.io>`__ backend, on the local computer.
@@ -28,7 +28,7 @@ client = Client()
 # Recover the address
 address = client.scheduler_info()['address']
 
-# This import registers the dask backend for joblib
+# This import registers the dask.distributed backend for joblib
 import distributed.joblib  # noqa
 
 ###############################################################################
@@ -48,7 +48,7 @@ with joblib.parallel_backend('dask.distributed', scheduler_host=address):
     joblib.Parallel(n_jobs=2, verbose=100)(
         joblib.delayed(long_running_function)(i)
         for i in range(10))
-    # We can check that joblib is indeed using the dask.distributed
+    # Check that joblib is indeed using the dask.distributed
     # backend
     print(joblib.Parallel(n_jobs=1)._backend)
 
