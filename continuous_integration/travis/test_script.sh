@@ -20,7 +20,7 @@ if [[ "$SKLEARN_TESTS" == "true" ]]; then
     # and run the scikit-learn tests with pytest.
     conda install --yes scikit-learn nose
     export SKLEARN_EXTERNAL=`python -c "from sklearn import externals; print(externals.__path__[0])"`
-    cp continuous_integration/travis/copy_joblib.sh $SKLEARN_EXTERNAL
+    cp $TRAVIS_BUILD_DIR/continuous_integration/travis/copy_joblib.sh $SKLEARN_EXTERNAL
     (cd $SKLEARN_EXTERNAL && bash copy_joblib.sh $TRAVIS_BUILD_DIR)
-    pytest --showlocals -v --pyargs sklearn
+    pytest -c $TRAVIS_BUILD_DIR/continuous_integration/travis/conftest.py -vl --pyargs sklearn
 fi
