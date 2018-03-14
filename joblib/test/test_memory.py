@@ -902,6 +902,13 @@ def test_cachedir_deprecation_warning(tmpdir):
     assert len(w) == 1
     assert "The 'cachedir' parameter has been deprecated" in str(w[-1].message)
 
+    with warns(None) as w:
+        memory = Memory()
+        assert memory.cachedir is None
+
+    assert len(w) == 1
+    assert "The 'cachedir' attribute has been deprecated" in str(w[-1].message)
+
 
 class IncompleteStoreBackend(StoreBackendBase):
     """This backend cannot be instanciated and should raise a TypeError."""
