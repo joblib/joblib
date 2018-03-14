@@ -818,10 +818,12 @@ class Memory(Logger):
                           stacklevel=2)
         if cachedir is not None:
             if location is None:
-                warnings.warn("cachedir option is deprecated since version "
-                              "0.12 and will be removed in version 0.14.\n"
-                              "Use option location='store location' "
-                              "instead.", DeprecationWarning, stacklevel=2)
+                warnings.warn(
+                    "The 'cachedir' parameter is deprecated since version "
+                    "0.12 and will be removed in version 0.14.\n"
+                    "You provided 'cachedir={!r}', "
+                    "use 'location={!r}' instead.".format(cachedir, location),
+                    DeprecationWarning, stacklevel=2)
                 location = cachedir
             else:
                 warnings.warn("You set both location and cachedir options."
@@ -841,9 +843,9 @@ class Memory(Logger):
 
     @property
     def cachedir(self):
-        warnings.warn("cachedir option is deprecated since version "
+        warnings.warn("The 'cachedir' attribute is deprecated since version "
                       "0.12 and will be removed in version 0.14.\n"
-                      "Use 'location' attribute instead.",
+                      "Use the 'location' attribute instead.",
                       DeprecationWarning, stacklevel=2)
         return self.location
 
