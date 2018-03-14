@@ -37,6 +37,7 @@ doc/README.rst
 
 # pytest cache on failure
 .cache
+.pytest_cache
 
 # Generated ctags
 tags
