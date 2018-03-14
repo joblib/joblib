@@ -776,12 +776,10 @@ class Memory(Logger):
                 backend.
 
             cachedir: str or None
-                cachedir is deprecated since version 0.12 and will be
-                removed in 0.14. Please consider using 'location' option
-                instead.
-                The path of the base directory to use as a data store
-                or None. If None is given, no caching is done and
-                the Memory object is completely transparent.
+
+                .. deprecated: 0.12
+                    'cachedir' has been deprecated in 0.12 and will be
+                    removed in 0.14. Use the 'location' parameter instead.
 
             mmap_mode: {None, 'r+', 'r', 'w+', 'c'}, optional
                 The memmapping mode used when loading from cache
@@ -819,7 +817,7 @@ class Memory(Logger):
         if cachedir is not None:
             if location is None:
                 warnings.warn(
-                    "The 'cachedir' parameter is deprecated since version "
+                    "The 'cachedir' parameter has been deprecated in version "
                     "0.12 and will be removed in version 0.14.\n"
                     "You provided 'cachedir={!r}', "
                     "use 'location={!r}' instead.".format(cachedir, location),
@@ -843,10 +841,11 @@ class Memory(Logger):
 
     @property
     def cachedir(self):
-        warnings.warn("The 'cachedir' attribute is deprecated since version "
-                      "0.12 and will be removed in version 0.14.\n"
-                      "Use the 'location' attribute instead.",
-                      DeprecationWarning, stacklevel=2)
+        warnings.warn(
+            "The 'cachedir' attribute has been deprecated in version 0.12 "
+            "and will be removed in version 0.14.\n"
+            "Use the 'location' attribute instead.",
+            DeprecationWarning, stacklevel=2)
         return self.location
 
     def cache(self, func=None, ignore=None, verbose=None, mmap_mode=False):
