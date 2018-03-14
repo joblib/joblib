@@ -50,7 +50,10 @@ class LZMACompressorWrapper(CompressorWrapper):
     def __init__(self):
         self.prefix = _LZMA_PREFIX
         self.extension = '.lzma'
-        self.obj = lzma.LZMAFile
+        if lzma is not None:
+            self.obj = lzma.LZMAFile
+        else:
+            self.obj = None
 
     def compressor_file(self, fileobj, compresslevel):
         """Returns an instance of a compressor file object."""
@@ -82,7 +85,10 @@ class XZCompressorWrapper(LZMACompressorWrapper):
     def __init__(self):
         self.prefix = _XZ_PREFIX
         self.extension = '.xz'
-        self.obj = lzma.LZMAFile
+        if lzma is not None:
+            self.obj = lzma.LZMAFile
+        else:
+            self.obj = None
 
     def compressor_file(self, fileobj, compresslevel):
         """Returns an instance of a compressor file object."""
@@ -107,7 +113,10 @@ class BZ2CompressorWrapper(CompressorWrapper):
     def __init__(self):
         self.prefix = _BZ2_PREFIX
         self.extension = '.bz2'
-        self.obj = bz2.BZ2File
+        if bz2 is not None:
+            self.obj = bz2.BZ2File
+        else:
+            self.obj = None
 
     def _check_versions(self):
         if bz2 is None:
@@ -149,7 +158,10 @@ class LZ4CompressorWrapper(CompressorWrapper):
     def __init__(self):
         self.prefix = _LZ4_PREFIX
         self.extension = '.lz4'
-        self.obj = lz4.frame.LZ4FrameFile
+        if lz4 is not None:
+            self.obj = lz4.frame.LZ4FrameFile
+        else:
+            self.obj = None
 
     def _check_versions(self):
         if not PY3_OR_LATER:
