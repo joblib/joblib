@@ -2,7 +2,6 @@
 
 import io
 import zlib
-from collections import namedtuple
 
 from ._compat import _basestring
 

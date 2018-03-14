@@ -58,7 +58,7 @@ class LZMACompressorWrapper(CompressorWrapper):
     def compressor_file(self, fileobj, compresslevel):
         """Returns an instance of a compressor file object."""
         return self.obj(fileobj, 'wb', preset=compresslevel,
-                             format=lzma.FORMAT_ALONE)
+                        format=lzma.FORMAT_ALONE)
 
     def decompressor_file(self, fileobj):
         """Returns an instance of a decompressor file object."""
@@ -93,7 +93,7 @@ class XZCompressorWrapper(LZMACompressorWrapper):
     def compressor_file(self, fileobj, compresslevel):
         """Returns an instance of a compressor file object."""
         return self.obj(fileobj, 'wb', check=lzma.CHECK_NONE,
-                             preset=compresslevel)
+                        preset=compresslevel)
 
 
 register_compressor('xz', XZCompressorWrapper())
@@ -174,8 +174,7 @@ class LZ4CompressorWrapper(CompressorWrapper):
     def compressor_file(self, fileobj, compresslevel):
         """Returns an instance of a compressor file object."""
         self._check_versions()
-        return self.obj(fileobj, 'wb',
-                                      compression_level=compresslevel)
+        return self.obj(fileobj, 'wb', compression_level=compresslevel)
 
     def decompressor_file(self, fileobj):
         """Returns an instance of a decompressor file object."""

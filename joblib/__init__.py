@@ -115,7 +115,7 @@ from .logger import Logger
 from .hashing import hash
 from .numpy_pickle import dump
 from .numpy_pickle import load
-from .numpy_pickle import register_compressor
+from .compressor import register_compressor
 from .parallel import Parallel
 from .parallel import delayed
 from .parallel import cpu_count

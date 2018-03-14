@@ -21,11 +21,11 @@ from joblib.testing import parametrize, raises, SkipTest, warns
 
 # numpy_pickle is not a drop-in replacement of pickle, as it takes
 # filenames instead of open files as arguments.
-from joblib import numpy_pickle
+from joblib import numpy_pickle, register_compressor
 from joblib.test import data
 
 from joblib._compat import PY3_OR_LATER
-from joblib.numpy_pickle import LZ4_NOT_INSTALLED_ERROR, register_compressor
+from joblib.numpy_pickle import LZ4_NOT_INSTALLED_ERROR
 from joblib.numpy_pickle_utils import _IO_BUFFER_SIZE, BinaryZlibFile
 from joblib.numpy_pickle_utils import _detect_compressor
 from joblib.compressor import _COMPRESSORS, _LZ4_PREFIX, CompressorWrapper

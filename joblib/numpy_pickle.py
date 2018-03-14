@@ -13,7 +13,7 @@ try:
 except ImportError:
     Path = None
 
-from .compressor import BinaryZlibFile, _COMPRESSORS, register_compressor
+from .compressor import BinaryZlibFile, _COMPRESSORS
 from .numpy_pickle_utils import Unpickler, Pickler
 from .numpy_pickle_utils import _read_fileobject, _write_fileobject
 from .numpy_pickle_utils import _read_bytes, BUFFER_SIZE
