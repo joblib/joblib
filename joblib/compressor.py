@@ -1,4 +1,4 @@
-"""Compressor classes and functions."""
+"""Classes and functions for managing compressors."""
 
 import sys
 import io
@@ -45,10 +45,59 @@ _LZMA_PREFIX = b'\x5d\x00'
 _LZ4_PREFIX = b'\x04\x22\x4D\x18'
 
 
-class CompressorWrapper():
-    """A wrapper around a compressor file object."""
+def register_compressor(compressor_name, compressor,
+                        force=False):
+    """Register a new compressor.
 
-    def __init__(self, obj, prefix='', extension=''):
+    Parameters
+    -----------
+    compressor_name: str.
+        The name of the compressor.
+    compressor: CompressorWrapper
+        An instance of a 'CompressorWrapper'.
+    """
+    global _COMPRESSORS
+    if not isinstance(compressor_name, _basestring):
+        raise ValueError("Compressor name should be a string, "
+                         "'{}' given.".format(compressor_name))
+
+    if not isinstance(compressor, CompressorWrapper):
+        raise ValueError("Compressor should implement the CompressorWrapper "
+                         "interface, '{}' given.".format(compressor))
+
+    if (compressor.obj is not None and
+            (not hasattr(compressor.obj, 'read') or
+             not hasattr(compressor.obj, 'write') or
+             not hasattr(compressor.obj, 'seek') or
+             not hasattr(compressor.obj, 'tell'))):
+        raise ValueError("Compressor 'obj' attribute should implement the "
+                         "file object interface, '{}' given."
+                         .format(compressor.obj))
+
+    if compressor_name in _COMPRESSORS and not force:
+        raise ValueError("Compressor '{}' already registered."
+                         .format(compressor_name))
+
+    _COMPRESSORS[compressor_name] = compressor
+
+
+class CompressorWrapper():
+    """A wrapper around a compressor file object.
+
+    Attributes
+    ----------
+    obj: a file-like object
+        The object must implement the buffer interface and will be used
+        internally to compress/decompress the data.
+    prefix: bytestring
+        A bytestring corresponding to the magic number that identifies the
+        file format associated to the compressor.
+    extention: str
+        The file extension used to automatically select this compressor during
+        a dump to a file.
+    """
+
+    def __init__(self, obj, prefix=b'', extension=''):
         self.obj = obj
         self.prefix = prefix
         self.extension = extension
@@ -184,34 +233,6 @@ class LZ4CompressorWrapper(CompressorWrapper):
         """Returns an instance of a decompressor file object."""
         self._check_versions()
         return self.obj(fileobj, 'rb')
-
-
-def register_compressor(compressor_name, compressor,
-                        force=False):
-    """Register a compressor implementing the Python file object interface."""
-    global _COMPRESSORS
-    if not isinstance(compressor_name, _basestring):
-        raise ValueError("Compressor name should be a string, "
-                         "'{}' given.".format(compressor_name))
-
-    if not isinstance(compressor, CompressorWrapper):
-        raise ValueError("Compressor should implement the CompressorWrapper "
-                         "interface, '{}' given.".format(compressor))
-
-    if (compressor.obj is not None and
-            (not hasattr(compressor.obj, 'read') or
-             not hasattr(compressor.obj, 'write') or
-             not hasattr(compressor.obj, 'seek') or
-             not hasattr(compressor.obj, 'tell'))):
-        raise ValueError("Compressor 'obj' attribute should implement the "
-                         "file object interface, '{}' given."
-                         .format(compressor.obj))
-
-    if compressor_name in _COMPRESSORS and not force:
-        raise ValueError("Compressor '{}' already registered."
-                         .format(compressor_name))
-
-    _COMPRESSORS[compressor_name] = compressor
 
 
 ###############################################################################
