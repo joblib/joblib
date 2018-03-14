@@ -44,11 +44,6 @@ _XZ_PREFIX = b'\xfd\x37\x7a\x58\x5a'
 _LZMA_PREFIX = b'\x5d\x00'
 _LZ4_PREFIX = b'\x04\x22\x4D\x18'
 
-_PREFIXES_MAX_LEN = max(len(prefix) for prefix in (_ZFILE_PREFIX, _ZLIB_PREFIX,
-                                                   _GZIP_PREFIX, _BZ2_PREFIX,
-                                                   _XZ_PREFIX, _LZMA_PREFIX,
-                                                   _LZ4_PREFIX))
-
 ###############################################################################
 #  base file compression/decompression object definition
 _MODE_CLOSED = 0
