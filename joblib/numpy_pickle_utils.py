@@ -14,10 +14,9 @@ from distutils.version import LooseVersion
 
 from ._compat import PY3_OR_LATER, PY27
 from .compressor import BinaryGzipFile, BinaryZlibFile
-from .compressor import _COMPRESSORS, _PREFIXES_MAX_LEN
 from .compressor import (_ZFILE_PREFIX, _ZLIB_PREFIX, _GZIP_PREFIX,
                          _BZ2_PREFIX, _XZ_PREFIX, _LZMA_PREFIX, _LZ4_PREFIX)
-from .compressor import register_compressor, CompressorWrapper
+from .compressor import register_compressor, CompressorWrapper, _COMPRESSORS
 
 if PY3_OR_LATER:
     Unpickler = pickle._Unpickler
@@ -199,7 +198,9 @@ def _is_raw_file(fileobj):
 
 def _get_prefixes_max_len():
     # Compute the max prefix len of registered compressors.
-    return max(len(compressor.prefix) for compressor in _COMPRESSORS.values())
+    prefixes = [len(compressor.prefix) for compressor in _COMPRESSORS.values()]
+    prefixes += [len(_ZFILE_PREFIX)]
+    return max(prefixes)
 
 
 ###############################################################################
