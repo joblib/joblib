@@ -13,6 +13,8 @@ if [[ "$SKIP_TESTS" != "true" ]]; then
         export PYTEST_ADDOPTS="--cov=joblib"
     fi
     make
+
+    make test-doc
 fi
 
 if [[ "$SKLEARN_TESTS" == "true" ]]; then

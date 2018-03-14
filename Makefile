@@ -8,6 +8,9 @@ test:
 test-no-multiprocessing:
 	export JOBLIB_MULTIPROCESSING=0 && pytest joblib
 
+test-doc:
+	pytest $(shell find doc -name '*.rst' | sort)
+
 # generate html documentation using sphinx
 doc:
 	make -C doc
