@@ -47,7 +47,7 @@ threshold on the size of the array::
 
   >>> import numpy as np
   >>> from joblib import Parallel, delayed
-  >>> from joblib.pool import has_shareable_memory
+  >>> from joblib._memmapping_reducer import has_shareable_memory
 
   >>> Parallel(n_jobs=2, max_nbytes=1e6)(
   ...     delayed(has_shareable_memory)(np.ones(int(i)))
