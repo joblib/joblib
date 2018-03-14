@@ -11,14 +11,8 @@ try:
 except ImportError:
     from dummy_threading import RLock
 
-# Supported compressors
-_COMPRESSORS = ['zlib', 'bz2', 'lzma', 'xz', 'gzip']
-
-# Extra compressors that can be registered
-_EXTRA_COMPRESSORS = {}
-
-# define a wrapper for compressor file
-Compressor = namedtuple('Compressor', ['object', 'prefix'])
+# Registered compressors
+_COMPRESSORS = {}
 
 # Magic numbers of supported compression file formats.
 _ZFILE_PREFIX = b'ZF'  # used with pickle files created before 0.9.3.
@@ -34,14 +28,31 @@ _PREFIXES_MAX_LEN = max(len(prefix) for prefix in (_ZFILE_PREFIX, _ZLIB_PREFIX,
                                                    _XZ_PREFIX, _LZMA_PREFIX,
                                                    _LZ4_PREFIX))
 
+
+class CompressorWrapper():
+    """A wrapper around a compressor file object."""
+
+    def __init__(self, obj, prefix='', extension=''):
+        self.obj = obj
+        self.prefix = prefix
+        self.extension = extension
+
+    def compressor_file(self, fileobj, compresslevel):
+        """Returns an instance of a compressor file object."""
+        return self.obj(fileobj, 'wb', compresslevel=compresslevel)
+
+    def decompressor_file(self, fileobj):
+        """Returns an instance of a decompressor file object."""
+        return self.obj(fileobj, 'rb')
+
+
+###############################################################################
+#  base file compression/decompression object definition
 _MODE_CLOSED = 0
 _MODE_READ = 1
 _MODE_READ_EOF = 2
 _MODE_WRITE = 3
 _BUFFER_SIZE = 8192
-
-###############################################################################
-#  base file compression/decompression object definition
 
 
 class BinaryZlibFile(io.BufferedIOBase):
@@ -371,35 +382,31 @@ class BinaryGzipFile(BinaryZlibFile):
     wbits = 31  # zlib compressor/decompressor wbits value for gzip format.
 
 
-def _is_valid_compressor(compressor):
-    """Check the given compressor is valid.
-
-    e.g. verify that it immplements a file object interface."""
-    if (hasattr(compressor, 'read') and hasattr(compressor, 'write') and
-            hasattr(compressor, 'seek') and hasattr(compressor, 'tell')):
-        return True
-
-    return False
-
-
-def register_compressor(compressor_name, file_prefix, compressor,
+def register_compressor(compressor_name, compressor,
                         force=False):
     """Register a compressor implementing the Python file object interface."""
-    global _COMPRESSORS, _EXTRA_COMPRESSORS
+    global _COMPRESSORS
     if not isinstance(compressor_name, _basestring):
         raise ValueError("Compressor name should be a string, "
                          "'{}' given.".format(compressor_name))
 
-    if compressor is None or not _is_valid_compressor(compressor):
-        raise ValueError("Compressor should implement the file object "
+    if (not hasattr(compressor, 'obj') or
+            not hasattr(compressor, 'prefix') or
+            not hasattr(compressor, 'extension')):
+        raise ValueError("Compressor should implement the CompressorWrapper "
                          "interface, '{}' given.".format(compressor))
 
+    if (compressor.obj is not None and
+            (not hasattr(compressor.obj, 'read') or
+             not hasattr(compressor.obj, 'write') or
+             not hasattr(compressor.obj, 'seek') or
+             not hasattr(compressor.obj, 'tell'))):
+        raise ValueError("Compressor 'obj' attribute should implement the "
+                         "file object interface, '{}' given."
+                         .format(compressor.obj))
+
     if compressor_name in _COMPRESSORS and not force:
-        raise ValueError("Compressor '{}'already registered."
+        raise ValueError("Compressor '{}' already registered."
                          .format(compressor_name))
 
-    if compressor_name not in _COMPRESSORS:
-        _COMPRESSORS += [compressor_name]
-
-    _EXTRA_COMPRESSORS[compressor_name] = Compressor(object=compressor,
-                                                     prefix=file_prefix)
+    _COMPRESSORS[compressor_name] = compressor

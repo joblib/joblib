@@ -109,13 +109,13 @@ Main features
 __version__ = '0.11.1.dev0'
 
 
-from .compressor import register_compressor
 from .memory import Memory, MemorizedResult, register_store_backend
 from .logger import PrintTime
 from .logger import Logger
 from .hashing import hash
 from .numpy_pickle import dump
 from .numpy_pickle import load
+from .numpy_pickle import register_compressor
 from .parallel import Parallel
 from .parallel import delayed
 from .parallel import cpu_count

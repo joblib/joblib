@@ -25,11 +25,10 @@ from joblib import numpy_pickle
 from joblib.test import data
 
 from joblib._compat import PY3_OR_LATER
-from joblib.numpy_pickle import LZ4_NOT_INSTALLED_ERROR
+from joblib.numpy_pickle import LZ4_NOT_INSTALLED_ERROR, register_compressor
 from joblib.numpy_pickle_utils import _IO_BUFFER_SIZE, BinaryZlibFile
 from joblib.numpy_pickle_utils import _detect_compressor
-from joblib.compressor import _COMPRESSORS, _EXTRA_COMPRESSORS, _LZ4_PREFIX
-from joblib.compressor import register_compressor
+from joblib.compressor import _COMPRESSORS, _LZ4_PREFIX, CompressorWrapper
 
 ###############################################################################
 # Define a list of standard types.
@@ -943,23 +942,24 @@ def test_register_compressor(tmpdir):
     compressor_name = 'test-name'
     compressor_prefix = 'test-prefix'
 
-    register_compressor(compressor_name, compressor_prefix,
-                        BinaryCompressorTestFile)
+    register_compressor(compressor_name,
+                        CompressorWrapper(obj=BinaryCompressorTestFile,
+                                          prefix=compressor_prefix))
 
-    assert (_EXTRA_COMPRESSORS[compressor_name].object ==
+    assert (_COMPRESSORS[compressor_name].obj ==
             BinaryCompressorTestFile)
-    assert _EXTRA_COMPRESSORS[compressor_name].prefix == compressor_prefix
+    assert _COMPRESSORS[compressor_name].prefix == compressor_prefix
 
     # Remove this dummy compressor file from extra compressors because other
     # tests might fail because of this
-    _EXTRA_COMPRESSORS.pop(compressor_name)
+    _COMPRESSORS.pop(compressor_name)
 
 
 @parametrize('invalid_name', [1, (), {}])
 def test_register_compressor_invalid_name(invalid_name):
     # Test that registering an invalid compressor name is not allowed.
     with raises(ValueError) as excinfo:
-        register_compressor(invalid_name, b'prefix', None)
+        register_compressor(invalid_name, None)
     excinfo.match("Compressor name should be a string")
 
 
@@ -967,29 +967,37 @@ class InvalidFileObject():
     pass
 
 
-@parametrize('invalid_fileobj', [None, InvalidFileObject])
+@parametrize('invalid_fileobj', [InvalidFileObject])
 def test_register_compressor_invalid_fileobj(invalid_fileobj):
     # Test that registering an invalid file object is not allowed.
     with raises(ValueError) as excinfo:
-        register_compressor('invalid', b'prefix', invalid_fileobj)
-    excinfo.match("Compressor should implement the file object interface")
+        register_compressor(
+            'invalid',
+            CompressorWrapper(obj=invalid_fileobj, prefix=b'prefix'))
+    excinfo.match("Compressor 'obj' attribute should implement the file "
+                  "object interface")
 
 
 def test_register_compressor_already_registered():
     # Test registration of existing compressor files.
     compressor_name = 'gzip'
     with raises(ValueError) as excinfo:
-        register_compressor(compressor_name, b'prefix', BinaryZlibFile)
-    excinfo.match("Compressor '{}'already registered.".format(compressor_name))
+        register_compressor(
+            compressor_name,
+            CompressorWrapper(obj=BinaryZlibFile, prefix=b'prefix'))
+    excinfo.match("Compressor '{}' already registered."
+                  .format(compressor_name))
 
-    register_compressor('gzip', b'prefix', gzip.GzipFile, force=True)
+    register_compressor('gzip',
+                        CompressorWrapper(obj=gzip.GzipFile, prefix=b'prefix'),
+                        force=True)
 
-    assert compressor_name in _EXTRA_COMPRESSORS
-    assert _EXTRA_COMPRESSORS[compressor_name].object == gzip.GzipFile
+    assert compressor_name in _COMPRESSORS
+    assert _COMPRESSORS[compressor_name].obj == gzip.GzipFile
 
     # Remove this dummy compressor file from extra compressors because other
     # tests might fail because of this
-    _EXTRA_COMPRESSORS.pop(compressor_name)
+    _COMPRESSORS.pop(compressor_name)
 
 
 @with_lz4
@@ -998,8 +1006,7 @@ def test_lz4_compression(tmpdir):
     import lz4.frame
     compressor = 'lz4'
     assert compressor in _COMPRESSORS
-    assert compressor in _EXTRA_COMPRESSORS
-    assert _EXTRA_COMPRESSORS[compressor].object == lz4.frame.LZ4FrameFile
+    assert _COMPRESSORS[compressor].obj == lz4.frame.LZ4FrameFile
 
     fname = tmpdir.join('test.pkl').strpath
     data = 'test data'

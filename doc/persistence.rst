@@ -43,7 +43,8 @@ The object can then be reloaded from the file::
 Persistence in file objects
 ===========================
 
-Instead of filenames, `dump` and `load` functions also accept file objects:
+Instead of filenames, :func:`joblib.dump` and :func:`joblib.load` functions
+also accept file objects:
 
   >>> with open(filename, 'wb') as fo:  # doctest: +ELLIPSIS
   ...    joblib.dump(to_persist, fo)
@@ -67,9 +68,9 @@ methods, the compressor will be used automatically:
   >>> joblib.dump(to_persist, filename + '.z')  # doctest: +ELLIPSIS
   ['...test.pkl.z']
 
-By default, `joblib.dump` uses the zlib compression method as it gives the best
-tradeoff between speed and disk space. The other supported compression methods
-are 'gzip', 'bz2', 'lzma' and 'xz':
+By default, :func:`joblib.dump` uses the zlib compression method as it gives
+the best tradeoff between speed and disk space. The other supported compression
+methods are 'gzip', 'bz2', 'lzma' and 'xz':
 
   >>> # Dumping in a gzip compressed file using a compress level of 3.
   >>> joblib.dump(to_persist, filename + '.gz', compress=('gzip', 3))  # doctest: +ELLIPSIS
@@ -121,8 +122,8 @@ More details can be found in the :func:`joblib.dump` and
 Registering extra compressors
 -----------------------------
 
-Joblib provides the ``register_compressor`` function in order to extend the
-list of default compressors available.
+Joblib provides :func:`joblib.register_compressor` in order to extend the list
+of default compressors available.
 To fit with Joblib internal implementation and features, such as
 :func:`joblib.load` and :class:`joblib.Memory`, the registered compressor
 should implement the Python file object interface.
