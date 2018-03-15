@@ -1,4 +1,4 @@
-.PHONY: all test test-no-multiprocessing doc doc-clean
+.PHONY: all test test-no-multiprocessing test-doc doc doc-clean
 
 all: test
 
@@ -7,6 +7,9 @@ test:
 
 test-no-multiprocessing:
 	export JOBLIB_MULTIPROCESSING=0 && pytest joblib
+
+test-doc:
+	pytest $(shell find doc -name '*.rst' | sort)
 
 # generate html documentation using sphinx
 doc:

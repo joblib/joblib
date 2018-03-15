@@ -1,10 +1,3 @@
-..
-    For doctests:
-
-    >>> from joblib.testing import warnings_to_stdout
-    >>> warnings_to_stdout()
-    >>> fixture = getfixture('persistence_fixture')
-
 .. _persistence:
 
 ===========

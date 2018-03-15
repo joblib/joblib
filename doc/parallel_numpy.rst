@@ -47,10 +47,11 @@ threshold on the size of the array::
 
   >>> import numpy as np
   >>> from joblib import Parallel, delayed
-  >>> from joblib.pool import has_shareable_memory
+  >>> def is_memmap(obj):
+  ...     return isinstance(obj, np.memmap)
 
   >>> Parallel(n_jobs=2, max_nbytes=1e6)(
-  ...     delayed(has_shareable_memory)(np.ones(int(i)))
+  ...     delayed(is_memmap)(np.ones(int(i)))
   ...     for i in [1e2, 1e4, 1e6])
   [False, False, True]
 
@@ -119,7 +120,7 @@ this same buffer will also be reused directly by the worker processes
 of a ``Parallel`` call::
 
   >>> Parallel(n_jobs=2, max_nbytes=None)(
-  ...     delayed(has_shareable_memory)(a)
+  ...     delayed(is_memmap)(a)
   ...     for a in [large_memmap, small_memmap, small_array])
   [True, True, True]
 
