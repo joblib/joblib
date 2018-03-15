@@ -24,7 +24,7 @@ if mp is not None:
     # Compat between concurrent.futures and multiprocessing TimeoutError
     from multiprocessing import TimeoutError
     from .externals.loky._base import TimeoutError as LokyTimeoutError
-    from .externals.loky import process_executor
+    from .externals.loky import process_executor, cpu_count
 
 
 class ParallelBackendBase(with_metaclass(ABCMeta)):
@@ -168,7 +168,7 @@ class PoolManagerMixin(object):
             # to sequential mode
             return 1
         elif n_jobs < 0:
-            n_jobs = max(mp.cpu_count() + 1 + n_jobs, 1)
+            n_jobs = max(cpu_count() + 1 + n_jobs, 1)
         return n_jobs
 
     def terminate(self):
@@ -457,7 +457,7 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
                     stacklevel=3)
             return 1
         elif n_jobs < 0:
-            n_jobs = max(mp.cpu_count() + 1 + n_jobs, 1)
+            n_jobs = max(cpu_count() + 1 + n_jobs, 1)
         return n_jobs
 
     def apply_async(self, func, callback=None):

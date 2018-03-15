@@ -163,16 +163,16 @@ def main(fd):
                 try:
                     cmd, name = line.strip().split(b':')
                     if cmd == b'REGISTER':
+                        name = name.decode('ascii')
                         cache.add(name)
                         if VERBOSE:  # pragma: no cover
-                            name = name.decode('ascii')
                             sys.stderr.write("[SemaphoreTracker] register {}\n"
                                              .format(name))
                             sys.stderr.flush()
                     elif cmd == b'UNREGISTER':
+                        name = name.decode('ascii')
                         cache.remove(name)
                         if VERBOSE:  # pragma: no cover
-                            name = name.decode('ascii')
                             sys.stderr.write("[SemaphoreTracker] unregister {}"
                                              ": cache({})\n"
                                              .format(name, len(cache)))
@@ -204,7 +204,7 @@ def main(fd):
                     sem_unlink(name)
                     if VERBOSE:  # pragma: no cover
                         name = name.decode('ascii')
-                        sys.stderr.write("[SemaphoreTracker] unregister {}\n"
+                        sys.stderr.write("[SemaphoreTracker] unlink {}\n"
                                          .format(name))
                         sys.stderr.flush()
                 except Exception as e:
