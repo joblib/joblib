@@ -1,4 +1,4 @@
-.PHONY: all test test-no-multiprocessing doc doc-clean
+.PHONY: all test test-no-multiprocessing test-doc doc doc-clean
 
 all: test
 
