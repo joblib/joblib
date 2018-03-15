@@ -29,6 +29,7 @@ from ._parallel_backends import (FallbackToBackend, MultiprocessingBackend,
                                  LokyBackend)
 from ._compat import _basestring
 from .externals.cloudpickle import dumps, loads
+from .externals import loky
 
 # Make sure that those two classes are part of the public joblib.parallel API
 # so that 3rd party backend implementers can import them from here.
@@ -191,7 +192,7 @@ def cpu_count():
     if mp is None:
         return 1
 
-    return mp.cpu_count()
+    return loky.cpu_count()
 
 
 ###############################################################################
