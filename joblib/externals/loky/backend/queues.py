@@ -84,7 +84,7 @@ class Queue(mp_Queue):
             target=Queue._feed,
             args=(self._buffer, self._notempty, self._send_bytes,
                   self._wlock, self._writer.close, self._reducers,
-                  self._ignore_epipe, self._on_queue_feeder_error),
+                  self._ignore_epipe, self._on_queue_feeder_error, self._sem),
             name='QueueFeederThread'
         )
         self._thread.daemon = True
@@ -117,7 +117,7 @@ class Queue(mp_Queue):
     # Overload the _feed methods to use our custom pickling strategy.
     @staticmethod
     def _feed(buffer, notempty, send_bytes, writelock, close, reducers,
-              ignore_epipe, onerror):
+              ignore_epipe, onerror, queue_sem):
         util.debug('starting thread to feed data to pipe')
         nacquire = notempty.acquire
         nrelease = notempty.release
@@ -159,7 +159,7 @@ class Queue(mp_Queue):
                                 wrelease()
                 except IndexError:
                     pass
-            except Exception as e:
+            except BaseException as e:
                 if ignore_epipe and getattr(e, 'errno', 0) == errno.EPIPE:
                     return
                 # Since this runs in a daemon thread the resources it uses
@@ -170,6 +170,7 @@ class Queue(mp_Queue):
                     util.info('error in queue thread: %s', e)
                     return
                 else:
+                    queue_sem.release()
                     onerror(e, obj)
 
     def _on_queue_feeder_error(self, e, obj):

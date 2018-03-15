@@ -3,15 +3,13 @@
 #
 # author: Thomas Moreau and Olivier Grisel
 #
-import sys
 import time
 import warnings
 import threading
 import multiprocessing as mp
 
 from .process_executor import ProcessPoolExecutor, EXTRA_QUEUED_CALLS
-from .process_executor import _SafeQueue
-from .backend.queues import SimpleQueue
+from .backend.context import cpu_count
 from .backend import get_context
 
 __all__ = ['get_reusable_executor']
@@ -168,6 +166,6 @@ class ReusablePoolExecutor(ProcessPoolExecutor):
     def _setup_queue(self, job_reducers, result_reducers):
         # As this executor can be resized, use a large queue size to avoid
         # underestimating capacity and introducing overhead
-        queue_size = 2 * mp.cpu_count() + EXTRA_QUEUED_CALLS
+        queue_size = 2 * cpu_count() + EXTRA_QUEUED_CALLS
         super(ReusablePoolExecutor, self)._setup_queue(
             job_reducers, result_reducers, queue_size=queue_size)

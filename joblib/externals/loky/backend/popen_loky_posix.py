@@ -202,7 +202,7 @@ if __name__ == '__main__':
         exitcode = process_obj._bootstrap()
     except Exception as e:
         print('\n\n' + '-' * 80)
-        print('Process failed with traceback: ')
+        print('{} failed with traceback: '.format(args.name_process))
         print('-' * 80)
         import traceback
         print(traceback.format_exc())
