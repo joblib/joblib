@@ -48,6 +48,7 @@ Matthew Rocklin
 
     Allow ``parallel_backend`` to be used globally instead of only as a context
     manager.
+    Support lazy registration of external parallel backends
 
 Release 0.11
 ------------
