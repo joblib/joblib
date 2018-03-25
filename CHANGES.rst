@@ -44,6 +44,11 @@ Alexandre Abadie
     The ``cachedir`` parameter of ``Memory`` is now marked as deprecated, use
     ``location`` instead.
 
+Matthew Rocklin
+
+    Allow ``parallel_backend`` to be used globally instead of only as a context
+    manager.
+
 Release 0.11
 ------------
 
