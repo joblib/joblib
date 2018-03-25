@@ -141,6 +141,9 @@ class parallel_backend(object):
         return self.new_backend_and_jobs
 
     def __exit__(self, type, value, traceback):
+        self.unregister()
+
+    def unregister(self):
         if self.old_backend_and_jobs is None:
             if getattr(_backend, 'backend_and_jobs', None) is not None:
                 del _backend.backend_and_jobs
