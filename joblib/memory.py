@@ -815,20 +815,21 @@ class Memory(Logger):
             warnings.warn('Compressed results cannot be memmapped',
                           stacklevel=2)
         if cachedir is not None:
-            if location is None:
-                warnings.warn(
-                    "The 'cachedir' parameter has been deprecated in version "
+            if location is not None:
+                raise ValueError(
+                    'You set both "location={0!r} and "cachedir={1!r}". '
+                    "'cachedir' has been deprecated in version "
                     "0.12 and will be removed in version 0.14.\n"
-                    'You provided "cachedir={!r}", '
-                    'use "location={!r}" instead.'.format(cachedir, location),
-                    DeprecationWarning, stacklevel=2)
-                location = cachedir
-            else:
-                warnings.warn("You set both location and cachedir options."
-                              "cachedir is deprecated since version "
-                              "0.12 and will be removed in version 0.14.\n"
-                              "cachedir value will be ignored.",
-                              DeprecationWarning, stacklevel=2)
+                    'Please only set "location={0!r}"'.format(
+                        location, cachedir))
+
+            warnings.warn(
+                "The 'cachedir' parameter has been deprecated in version "
+                "0.12 and will be removed in version 0.14.\n"
+                'You provided "cachedir={!r}", '
+                'use "location={!r}" instead.'.format(cachedir, location),
+                DeprecationWarning, stacklevel=2)
+            location = cachedir
 
         self.location = location
         if isinstance(location, _basestring):

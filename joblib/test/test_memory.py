@@ -885,16 +885,9 @@ def test_memory_recomputes_after_an_error_why_loading_results(tmpdir,
     assert recomputed_timestamp > timestamp
 
 
-def test_cachedir_deprecation_warning(tmpdir):
+def test_deprecated_cachedir_behaviour(tmpdir):
     # verify the right deprecation warnings are raised when using cachedir
     # option instead of new location parameter.
-    with warns(None) as w:
-        memory = Memory(location=tmpdir.strpath, cachedir=tmpdir, verbose=0)
-        assert memory.store_backend.location.startswith(tmpdir.strpath)
-
-    assert len(w) == 1
-    assert "You set both location and cachedir options" in str(w[-1].message)
-
     with warns(None) as w:
         memory = Memory(cachedir=tmpdir.strpath, verbose=0)
         assert memory.store_backend.location.startswith(tmpdir.strpath)
@@ -908,6 +901,11 @@ def test_cachedir_deprecation_warning(tmpdir):
 
     assert len(w) == 1
     assert "The 'cachedir' attribute has been deprecated" in str(w[-1].message)
+
+    error_regex = """You set both "location='.+ and "cachedir='.+"""
+    with raises(ValueError, match=error_regex):
+        memory = Memory(location=tmpdir.strpath, cachedir=tmpdir.strpath,
+                        verbose=0)
 
 
 class IncompleteStoreBackend(StoreBackendBase):
