@@ -1142,3 +1142,13 @@ def test_invalid_backend_hinting_and_constraints():
         Parallel(backend='loky', require='sharedmem')
     with raises(ValueError):
         Parallel(backend='multiprocessing', require='sharedmem')
+
+
+def test_global_parallel_backend():
+    default = Parallel()._backend
+
+    pb = parallel_backend('threading')
+    assert isinstance(Parallel()._backend, ThreadingBackend)
+
+    pb.unregister()
+    assert type(Parallel()._backend) is type(default)

@@ -15,7 +15,6 @@ import time
 import threading
 import itertools
 from numbers import Integral
-from contextlib import contextmanager
 import warnings
 
 from ._multiprocessing_helpers import mp
@@ -101,8 +100,7 @@ def get_active_backend(prefer=None, require=None, verbose=0):
     return backend, DEFAULT_N_JOBS
 
 
-@contextmanager
-def parallel_backend(backend, n_jobs=-1, **backend_params):
+class parallel_backend(object):
     """Change the default backend used by Parallel inside a with block.
 
     If ``backend`` is a string it must match a previously registered
@@ -130,19 +128,27 @@ def parallel_backend(backend, n_jobs=-1, **backend_params):
     .. versionadded:: 0.10
 
     """
-    if isinstance(backend, _basestring):
-        backend = BACKENDS[backend](**backend_params)
-    old_backend_and_jobs = getattr(_backend, 'backend_and_jobs', None)
-    try:
+    def __init__(self, backend, n_jobs=-1, **backend_params):
+        if isinstance(backend, _basestring):
+            backend = BACKENDS[backend](**backend_params)
+
+        self.old_backend_and_jobs = getattr(_backend, 'backend_and_jobs', None)
+        self.new_backend_and_jobs = (backend, n_jobs)
+
         _backend.backend_and_jobs = (backend, n_jobs)
-        # return the backend instance to make it easier to write tests
-        yield backend, n_jobs
-    finally:
-        if old_backend_and_jobs is None:
+
+    def __enter__(self):
+        return self.new_backend_and_jobs
+
+    def __exit__(self, type, value, traceback):
+        self.unregister()
+
+    def unregister(self):
+        if self.old_backend_and_jobs is None:
             if getattr(_backend, 'backend_and_jobs', None) is not None:
                 del _backend.backend_and_jobs
         else:
-            _backend.backend_and_jobs = old_backend_and_jobs
+            _backend.backend_and_jobs = self.old_backend_and_jobs
 
 
 # Under Linux or OS X the default start method of multiprocessing
