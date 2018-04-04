@@ -105,7 +105,7 @@ print('Elapsed time for the entire processing: {:.2f} s'
 ###############################################################################
 # Reuse intermediate checkpoints
 ###############################################################################
-#
+# 
 # Having cached the intermediate results of the ``costly_compute_cached``
 # function, they are reusable by calling the function. We define a new
 # processing which will take the maximum of the array returned by
