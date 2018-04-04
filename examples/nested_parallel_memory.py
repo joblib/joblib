@@ -11,7 +11,7 @@ This example illustrates how to cache intermediate computing results using
 ###############################################################################
 # Embed caching within parallel processing
 ###############################################################################
-#
+# 
 # It is possible to cache a computationally expensive function executed during
 # a parallel process. ``costly_compute`` emulates such time consuming function.
 
