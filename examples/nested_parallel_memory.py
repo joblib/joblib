@@ -63,7 +63,8 @@ costly_compute_cached = memory.cache(costly_compute)
 
 
 ###############################################################################
-# Now, we define ``data_processing_mean`` using the cached function
+# Now, we define ``data_processing_mean_using_cache`` which benefits from the
+# cache by calling ``costly_compute_cached``
 
 def data_processing_mean_using_cache(data, column):
     """Compute the mean of a column."""
@@ -77,8 +78,8 @@ def data_processing_mean_using_cache(data, column):
 from joblib import Parallel, delayed
 
 start = time.time()
-results = Parallel(n_jobs=2)(delayed(
-    data_processing_mean_using_cache)(data, col)
+results = Parallel(n_jobs=2)(
+    delayed(data_processing_mean_using_cache)(data, col)
     for col in range(data.shape[1]))
 stop = time.time()
 
@@ -93,8 +94,8 @@ print('Elapsed time for the entire processing: {:.2f} s'
 # cache instead of executing the function.
 
 start = time.time()
-results = Parallel(n_jobs=2)(delayed(
-    data_processing_mean_using_cache)(data, col)
+results = Parallel(n_jobs=2)(
+    delayed(data_processing_mean_using_cache)(data, col)
     for col in range(data.shape[1]))
 stop = time.time()
 
@@ -112,14 +113,15 @@ print('Elapsed time for the entire processing: {:.2f} s'
 # ``costly_compute_cached`` instead of previously the mean.
 
 
-def data_processing_max(data, column):
+def data_processing_max_using_cache(data, column):
     """Compute the max of a column."""
     return costly_compute_cached(data, column).max()
 
 
 start = time.time()
-results = Parallel(n_jobs=2)(delayed(
-    data_processing_max)(data, col) for col in range(data.shape[1]))
+results = Parallel(n_jobs=2)(
+    delayed(data_processing_max_using_cache)(data, col)
+    for col in range(data.shape[1]))
 stop = time.time()
 
 print('\nReusing intermediate checkpoints')
