@@ -63,7 +63,7 @@ costly_compute_cached = memory.cache(costly_compute)
 
 
 ###############################################################################
-# Now, we define ``data_processing_mean`` using the cached function
+# Now, we define ``data_processing_mean``  using the cached function
 
 def data_processing_mean_using_cache(data, column):
     """Compute the mean of a column."""
