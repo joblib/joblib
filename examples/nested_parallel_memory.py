@@ -11,7 +11,7 @@ This example illustrates how to cache intermediate computing results using
 ###############################################################################
 # Embed caching within parallel processing
 ###############################################################################
-# 
+#
 # It is possible to cache a computationally expensive function executed during
 # a parallel process. ``costly_compute`` emulates such time consuming function.
 
@@ -61,6 +61,15 @@ location = './cachedir'
 memory = Memory(location=location, verbose=0)
 costly_compute_cached = memory.cache(costly_compute)
 
+
+###############################################################################
+# Now, we define ``data_processing_mean`̀  using the cached function
+
+def data_processing_mean_using_cache(data, column):
+    """Compute the mean of a column."""
+    return costly_compute_cached(data, column).mean()
+
+
 ###############################################################################
 # Then, we execute the same processing in parallel and caching the intermediate
 # results.
@@ -69,7 +78,8 @@ from joblib import Parallel, delayed
 
 start = time.time()
 results = Parallel(n_jobs=2)(delayed(
-    data_processing_mean)(data, col) for col in range(data.shape[1]))
+    data_processing_mean_using_cache)(data, col)
+    for col in range(data.shape[1]))
 stop = time.time()
 
 print('\nFirst round - caching the data')
@@ -84,7 +94,8 @@ print('Elapsed time for the entire processing: {:.2f} s'
 
 start = time.time()
 results = Parallel(n_jobs=2)(delayed(
-    data_processing_mean)(data, col) for col in range(data.shape[1]))
+    data_processing_mean_using_cache)(data, col)
+    for col in range(data.shape[1]))
 stop = time.time()
 
 print('\nSecond round - reloading from the cache')
@@ -94,7 +105,7 @@ print('Elapsed time for the entire processing: {:.2f} s'
 ###############################################################################
 # Reuse intermediate checkpoints
 ###############################################################################
-# 
+#
 # Having cached the intermediate results of the ``costly_compute_cached``
 # function, they are reusable by calling the function. We define a new
 # processing which will take the maximum of the array returned by
