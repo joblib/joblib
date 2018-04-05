@@ -557,9 +557,8 @@ class BinaryZlibFile(io.BufferedIOBase):
 class ZlibCompressorWrapper(CompressorWrapper):
 
     def __init__(self):
-        super(ZlibCompressorWrapper, self).__init__(BinaryZlibFile,
-                                                    prefix=_ZLIB_PREFIX,
-                                                    extension='.z')
+        CompressorWrapper.__init__(self, obj=BinaryZlibFile,
+                                   prefix=_ZLIB_PREFIX, extension='.z')
 
 
 class BinaryGzipFile(BinaryZlibFile):
@@ -582,6 +581,5 @@ class BinaryGzipFile(BinaryZlibFile):
 class GzipCompressorWrapper(CompressorWrapper):
 
     def __init__(self):
-        super(GzipCompressorWrapper, self).__init__(BinaryGzipFile,
-                                                    prefix=_GZIP_PREFIX,
-                                                    extension='.gz')
+        CompressorWrapper.__init__(self, obj=BinaryGzipFile,
+                                   prefix=_GZIP_PREFIX, extension='.gz')

@@ -936,18 +936,24 @@ def test_load_memmap_with_big_offset(tmpdir):
     np.testing.assert_array_equal(obj, memmaps)
 
 
-class BinaryCompressorTestFile(io.BufferedIOBase):
-    pass
-
-
 def test_register_compressor(tmpdir):
     # Check that registering compressor file works.
     compressor_name = 'test-name'
     compressor_prefix = 'test-prefix'
 
-    register_compressor(compressor_name,
-                        CompressorWrapper(obj=BinaryCompressorTestFile,
-                                          prefix=compressor_prefix))
+
+    class BinaryCompressorTestFile(io.BufferedIOBase):
+        pass
+
+
+    class BinaryCompressorTestWrapper(CompressorWrapper):
+
+        def __init__(self):
+            CompressorWrapper.__init__(obj=BinaryCompressorTestFile,
+                                       prefix=compressor_prefix)
+
+
+    register_compressor(compressor_name, BinaryCompressorTestWrapper())
 
     assert (_COMPRESSORS[compressor_name].obj ==
             BinaryCompressorTestFile)
@@ -966,19 +972,36 @@ def test_register_compressor_invalid_name(invalid_name):
     excinfo.match("Compressor name should be a string")
 
 
-class InvalidFileObject():
-    pass
-
-
-@parametrize('invalid_fileobj', [InvalidFileObject])
-def test_register_compressor_invalid_fileobj(invalid_fileobj):
+def test_register_compressor_invalid_fileobj():
     # Test that registering an invalid file object is not allowed.
+
+
+    class InvalidFileObject():
+        pass
+
+
+    class InvalidFileObjectWrapper(CompressorWrapper):
+        def __init__(self):
+            CompressorWrapper.__init__(obj=InvalidFileObject, prefix=b'prefix')
+
+
     with raises(ValueError) as excinfo:
-        register_compressor(
-            'invalid',
-            CompressorWrapper(obj=invalid_fileobj, prefix=b'prefix'))
+        register_compressor('invalid', InvalidFileObjectWrapper())
+
     excinfo.match("Compressor 'obj' attribute should implement the file "
                   "object interface")
+
+
+class AnotherZlibCompressorWrapper(CompressorWrapper):
+
+    def __init__(self):
+        CompressorWrapper.__init__(self, obj=BinaryZlibFile, prefix=b'prefix')
+
+
+class StandardLibGzipCompressorWrapper(CompressorWrapper):
+
+    def __init__(self):
+        CompressorWrapper.__init__(self, obj=gzip.GzipFile, prefix=b'prefix')
 
 
 def test_register_compressor_already_registered():
@@ -986,19 +1009,15 @@ def test_register_compressor_already_registered():
     compressor_name = 'test-name'
 
     # register a test compressor
-    register_compressor(compressor_name,
-                        CompressorWrapper(obj=BinaryZlibFile,
-                                          prefix=b'prefix'))
+    register_compressor(compressor_name, AnotherZlibCompressorWrapper())
 
     with raises(ValueError) as excinfo:
         register_compressor(compressor_name,
-                            CompressorWrapper(obj=gzip.GzipFile,
-                                              prefix=b'prefix'))
+                            StandardLibGzipCompressorWrapper())
     excinfo.match("Compressor '{}' already registered."
                   .format(compressor_name))
 
-    register_compressor(compressor_name,
-                        CompressorWrapper(obj=gzip.GzipFile, prefix=b'prefix'),
+    register_compressor(compressor_name, StandardLibGzipCompressorWrapper(),
                         force=True)
 
     assert compressor_name in _COMPRESSORS

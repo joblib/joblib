@@ -14,8 +14,7 @@ except ImportError:
     Path = None
 
 from .compressor import lz4, LZ4_NOT_INSTALLED_ERROR
-from .compressor import _ZLIB_PREFIX, _GZIP_PREFIX
-from .compressor import _COMPRESSORS, register_compressor, CompressorWrapper
+from .compressor import _COMPRESSORS, register_compressor
 from .compressor import BinaryZlibFile, BinaryGzipFile
 from .compressor import (ZlibCompressorWrapper, GzipCompressorWrapper,
                          BZ2CompressorWrapper, LZMACompressorWrapper,
