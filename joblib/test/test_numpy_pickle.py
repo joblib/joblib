@@ -983,15 +983,21 @@ def test_register_compressor_invalid_fileobj(invalid_fileobj):
 
 def test_register_compressor_already_registered():
     # Test registration of existing compressor files.
-    compressor_name = 'gzip'
+    compressor_name = 'test-name'
+
+    # register a test compressor
+    register_compressor(compressor_name,
+                        CompressorWrapper(obj=BinaryZlibFile,
+                                          prefix=b'prefix'))
+
     with raises(ValueError) as excinfo:
-        register_compressor(
-            compressor_name,
-            CompressorWrapper(obj=BinaryZlibFile, prefix=b'prefix'))
+        register_compressor(compressor_name,
+                            CompressorWrapper(obj=gzip.GzipFile,
+                                              prefix=b'prefix'))
     excinfo.match("Compressor '{}' already registered."
                   .format(compressor_name))
 
-    register_compressor('gzip',
+    register_compressor(compressor_name,
                         CompressorWrapper(obj=gzip.GzipFile, prefix=b'prefix'),
                         force=True)
 

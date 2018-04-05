@@ -169,13 +169,12 @@ def _read_fileobject(fileobj, filename, mmap_mode=None):
                       DeprecationWarning, stacklevel=2)
         yield filename
     else:
-        # based on the compressor detected in the file, we open the
-        # correct decompressor file object, wrapped in a buffer.
-        for name, compressor_wrapper in _COMPRESSORS.items():
-            if compressor == name:
-                inst = compressor_wrapper.decompressor_file(fileobj)
-                fileobj = _buffered_read_file(inst)
-                break
+        if compressor in _COMPRESSORS:
+            # based on the compressor detected in the file, we open the
+            # correct decompressor file object, wrapped in a buffer.
+            compressor_wrapper = _COMPRESSORS[compressor]
+            inst = compressor_wrapper.decompressor_file(fileobj)
+            fileobj = _buffered_read_file(inst)
 
         # Checking if incompatible load parameters with the type of file:
         # mmap_mode cannot be used with compressed file or in memory buffers
