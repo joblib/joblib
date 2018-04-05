@@ -554,6 +554,14 @@ class BinaryZlibFile(io.BufferedIOBase):
             return self._pos
 
 
+class ZlibCompressorWrapper(CompressorWrapper):
+
+    def __init__(self):
+        super(ZlibCompressorWrapper, self).__init__(BinaryZlibFile,
+                                                    prefix=_ZLIB_PREFIX,
+                                                    extension='.z')
+
+
 class BinaryGzipFile(BinaryZlibFile):
     """A file object providing transparent gzip (de)compression.
 
@@ -569,3 +577,11 @@ class BinaryGzipFile(BinaryZlibFile):
     """
 
     wbits = 31  # zlib compressor/decompressor wbits value for gzip format.
+
+
+class GzipCompressorWrapper(CompressorWrapper):
+
+    def __init__(self):
+        super(GzipCompressorWrapper, self).__init__(BinaryGzipFile,
+                                                    prefix=_GZIP_PREFIX,
+                                                    extension='.gz')
