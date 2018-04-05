@@ -25,10 +25,10 @@ from joblib import numpy_pickle, register_compressor
 from joblib.test import data
 
 from joblib._compat import PY3_OR_LATER
-from joblib.numpy_pickle_utils import _IO_BUFFER_SIZE, BinaryZlibFile
+from joblib.numpy_pickle_utils import _IO_BUFFER_SIZE
 from joblib.numpy_pickle_utils import _detect_compressor
 from joblib.compressor import (_COMPRESSORS, _LZ4_PREFIX, CompressorWrapper,
-                               LZ4_NOT_INSTALLED_ERROR)
+                               LZ4_NOT_INSTALLED_ERROR, BinaryZlibFile)
 
 ###############################################################################
 # Define a list of standard types.

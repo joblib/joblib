@@ -13,8 +13,12 @@ try:
 except ImportError:
     Path = None
 
-from .compressor import BinaryZlibFile, _COMPRESSORS
 from .compressor import lz4, LZ4_NOT_INSTALLED_ERROR
+from .compressor import _ZLIB_PREFIX, _GZIP_PREFIX
+from .compressor import _COMPRESSORS, register_compressor, CompressorWrapper
+from .compressor import BinaryZlibFile, BinaryGzipFile
+from .compressor import (BZ2CompressorWrapper, LZMACompressorWrapper,
+                         XZCompressorWrapper, LZ4CompressorWrapper)
 from .numpy_pickle_utils import Unpickler, Pickler
 from .numpy_pickle_utils import _read_fileobject, _write_fileobject
 from .numpy_pickle_utils import _read_bytes, BUFFER_SIZE
@@ -27,6 +31,18 @@ from .numpy_pickle_compat import NDArrayWrapper
 from .numpy_pickle_compat import ZNDArrayWrapper  # noqa
 from ._compat import _basestring, PY3_OR_LATER
 from .backports import make_memmap
+
+# Register supported compressors
+register_compressor('zlib', CompressorWrapper(obj=BinaryZlibFile,
+                                              prefix=_ZLIB_PREFIX,
+                                              extension='.z'))
+register_compressor('gzip', CompressorWrapper(obj=BinaryGzipFile,
+                                              prefix=_GZIP_PREFIX,
+                                              extension='.gz'))
+register_compressor('bz2', BZ2CompressorWrapper())
+register_compressor('lzma', LZMACompressorWrapper())
+register_compressor('xz', XZCompressorWrapper())
+register_compressor('lz4', LZ4CompressorWrapper())
 
 ###############################################################################
 # Utility objects for persistence.

@@ -11,11 +11,8 @@ import contextlib
 from contextlib import closing
 
 from ._compat import PY3_OR_LATER, PY27
-from .compressor import BinaryGzipFile, BinaryZlibFile
-from .compressor import (_ZFILE_PREFIX, _ZLIB_PREFIX, _GZIP_PREFIX)
-from .compressor import register_compressor, CompressorWrapper, _COMPRESSORS
-from .compressor import (BZ2CompressorWrapper, LZMACompressorWrapper,
-                         XZCompressorWrapper, LZ4CompressorWrapper)
+from .compressor import _ZFILE_PREFIX
+from .compressor import _COMPRESSORS
 
 if PY3_OR_LATER:
     Unpickler = pickle._Unpickler
@@ -38,19 +35,6 @@ try:
     import bz2
 except ImportError:
     bz2 = None
-
-# Register supported compressors
-register_compressor('zlib', CompressorWrapper(obj=BinaryZlibFile,
-                                              prefix=_ZLIB_PREFIX,
-                                              extension='.z'))
-register_compressor('gzip', CompressorWrapper(obj=BinaryGzipFile,
-                                              prefix=_GZIP_PREFIX,
-                                              extension='.gz'))
-register_compressor('bz2', BZ2CompressorWrapper())
-register_compressor('lzma', LZMACompressorWrapper())
-register_compressor('xz', XZCompressorWrapper())
-register_compressor('lz4', LZ4CompressorWrapper())
-
 
 # Buffer size used in io.BufferedReader and io.BufferedWriter
 _IO_BUFFER_SIZE = 1024 ** 2
