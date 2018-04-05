@@ -941,17 +941,14 @@ def test_register_compressor(tmpdir):
     compressor_name = 'test-name'
     compressor_prefix = 'test-prefix'
 
-
     class BinaryCompressorTestFile(io.BufferedIOBase):
         pass
-
 
     class BinaryCompressorTestWrapper(CompressorWrapper):
 
         def __init__(self):
             CompressorWrapper.__init__(self, obj=BinaryCompressorTestFile,
                                        prefix=compressor_prefix)
-
 
     register_compressor(compressor_name, BinaryCompressorTestWrapper())
 
@@ -975,16 +972,13 @@ def test_register_compressor_invalid_name(invalid_name):
 def test_register_compressor_invalid_fileobj():
     # Test that registering an invalid file object is not allowed.
 
-
     class InvalidFileObject():
         pass
-
 
     class InvalidFileObjectWrapper(CompressorWrapper):
         def __init__(self):
             CompressorWrapper.__init__(self, obj=InvalidFileObject,
                                        prefix=b'prefix')
-
 
     with raises(ValueError) as excinfo:
         register_compressor('invalid', InvalidFileObjectWrapper())
