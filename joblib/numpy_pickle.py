@@ -15,7 +15,6 @@ except ImportError:
 
 from .compressor import lz4, LZ4_NOT_INSTALLED_ERROR
 from .compressor import _COMPRESSORS, register_compressor
-from .compressor import BinaryZlibFile, BinaryGzipFile
 from .compressor import (ZlibCompressorWrapper, GzipCompressorWrapper,
                          BZ2CompressorWrapper, LZMACompressorWrapper,
                          XZCompressorWrapper, LZ4CompressorWrapper)
