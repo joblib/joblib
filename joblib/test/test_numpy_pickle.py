@@ -949,7 +949,7 @@ def test_register_compressor(tmpdir):
     class BinaryCompressorTestWrapper(CompressorWrapper):
 
         def __init__(self):
-            CompressorWrapper.__init__(obj=BinaryCompressorTestFile,
+            CompressorWrapper.__init__(self, obj=BinaryCompressorTestFile,
                                        prefix=compressor_prefix)
 
 
@@ -982,7 +982,8 @@ def test_register_compressor_invalid_fileobj():
 
     class InvalidFileObjectWrapper(CompressorWrapper):
         def __init__(self):
-            CompressorWrapper.__init__(obj=InvalidFileObject, prefix=b'prefix')
+            CompressorWrapper.__init__(self, obj=InvalidFileObject,
+                                       prefix=b'prefix')
 
 
     with raises(ValueError) as excinfo:
