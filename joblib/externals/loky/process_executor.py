@@ -62,7 +62,6 @@ __author__ = 'Thomas Moreau (thomas.moreau.2010@gmail.com)'
 import os
 import sys
 import types
-import atexit
 import weakref
 import warnings
 import itertools
@@ -163,12 +162,17 @@ def _python_exit():
     global _global_shutdown
     _global_shutdown = True
     items = list(_threads_wakeups.items())
+    mp.util.debug("Interpreter shutting down. Waking up queue_manager_threads "
+                  "{}".format(items))
     for thread, thread_wakeup in items:
         if thread.is_alive():
             thread_wakeup.wakeup()
     for thread, _ in items:
         thread.join()
 
+
+# Module variable to register the at_exit call
+process_pool_executor_at_exit = None
 
 # Controls how many more calls than processes will be queued in the call queue.
 # A smaller number will mean that processes spend more time idle waiting for
@@ -332,7 +336,7 @@ def _sendback_result(result_queue, work_id, result=None, exception=None):
 
 
 def _process_worker(call_queue, result_queue, initializer, initargs,
-                    processes_management_lock, timeout, safe_guard_lock,
+                    processes_management_lock, timeout, worker_exit_lock,
                     current_depth):
     """Evaluates calls from call_queue and places the results in result_queue.
 
@@ -349,7 +353,7 @@ def _process_worker(call_queue, result_queue, initializer, initargs,
             workers are being spawned.
         timeout: maximum time to wait for a new item in the call_queue. If that
             time is expired, the worker will shutdown.
-        safe_guard_lock: Lock to avoid flagging the executor as broken on
+        worker_exit_lock: Lock to avoid flagging the executor as broken on
             workers timeout.
         current_depth: Nested parallelism level, to avoid infinite spawning.
     """
@@ -387,7 +391,7 @@ def _process_worker(call_queue, result_queue, initializer, initargs,
         if call_item is None:
             # Notify queue management thread about clean worker shutdown
             result_queue.put(os.getpid())
-            with safe_guard_lock:
+            with worker_exit_lock:
                 return
         try:
             r = call_item.fn(*call_item.args, **call_item.kwargs)
@@ -493,11 +497,14 @@ def _queue_management_worker(executor_reference,
         mp.util.debug("queue management thread shutting down")
         executor_flags.flag_as_shutting_down()
         # Create a list to avoid RuntimeError due to concurrent modification of
-        # processe. nb_children_alive is thus an upper bound
+        # processes. nb_children_alive is thus an upper bound. Also release the
+        # processes' safe_guard_locks to accelerate the shutdown procedure, as
+        # there is no need for hand-shake here.
         with processes_management_lock:
-            n_children_alive = sum(
-                p.is_alive() for p in list(processes.values())
-            )
+            n_children_alive = 0
+            for p in list(processes.values()):
+                p._worker_exit_lock.release()
+                n_children_alive += 1
         n_children_to_stop = n_children_alive
         n_sentinels_sent = 0
         # Send the right number of sentinels, to make sure all children are
@@ -509,7 +516,6 @@ def _queue_management_worker(executor_reference,
                     n_sentinels_sent += 1
                 except Full:
                     break
-                n_sentinels_sent += 1
             with processes_management_lock:
                 n_children_alive = sum(
                     p.is_alive() for p in list(processes.values())
@@ -528,7 +534,6 @@ def _queue_management_worker(executor_reference,
         # some ctx.Queue methods may deadlock on Mac OS X.
         while processes:
             _, p = processes.popitem()
-            p._safe_guard_lock.release()
             p.join()
         mp.util.debug("queue management thread clean shutdown of worker "
                       "processes: {}".format(list(processes)))
@@ -605,7 +610,7 @@ def _queue_management_worker(executor_reference,
 
             # p can be None is the executor is concurrently shutting down.
             if p is not None:
-                p._safe_guard_lock.release()
+                p._worker_exit_lock.release()
                 p.join()
                 del p
 
@@ -648,6 +653,10 @@ def _queue_management_worker(executor_reference,
         #   - The executor that owns this worker has been collected OR
         #   - The executor that owns this worker has been shutdown.
         if is_shutting_down():
+            # bpo-33097: Make sure that the executor is flagged as shutting
+            # down even if it is shutdown by the interpreter exiting.
+            with executor_flags.shutdown_lock:
+                executor_flags.shutdown = True
             if executor_flags.kill_workers:
                 while pending_work_items:
                     _, work_item = pending_work_items.popitem()
@@ -755,6 +764,8 @@ class ShutdownExecutorError(RuntimeError):
 
 
 class ProcessPoolExecutor(_base.Executor):
+
+    _at_exit = None
 
     def __init__(self, max_workers=None, job_reducers=None,
                  result_reducers=None, timeout=None, context=None,
@@ -886,10 +897,18 @@ class ProcessPoolExecutor(_base.Executor):
             _threads_wakeups[self._queue_management_thread] = \
                 self._queue_management_thread_wakeup
 
+            global process_pool_executor_at_exit
+            if process_pool_executor_at_exit is None:
+                # Ensure that the _python_exit function will be called before
+                # the multiprocessing.Queue._close finalizers which have an
+                # exitpriority of 10.
+                process_pool_executor_at_exit = mp.util.Finalize(
+                    None, _python_exit, exitpriority=20)
+
     def _adjust_process_count(self):
         for _ in range(len(self._processes), self._max_workers):
-            safe_guard_lock = self._context.BoundedSemaphore(1)
-            safe_guard_lock.acquire()
+            worker_exit_lock = self._context.BoundedSemaphore(1)
+            worker_exit_lock.acquire()
             p = self._context.Process(
                 target=_process_worker,
                 args=(self._call_queue,
@@ -898,9 +917,9 @@ class ProcessPoolExecutor(_base.Executor):
                       self._initargs,
                       self._processes_management_lock,
                       self._timeout,
-                      safe_guard_lock,
+                      worker_exit_lock,
                       _CURRENT_DEPTH + 1))
-            p._safe_guard_lock = safe_guard_lock
+            p._worker_exit_lock = worker_exit_lock
             p.start()
             self._processes[p.pid] = p
         mp.util.debug('Adjust process count : {}'.format(self._processes))
@@ -920,6 +939,12 @@ class ProcessPoolExecutor(_base.Executor):
             if self._flags.shutdown:
                 raise ShutdownExecutorError(
                     'cannot schedule new futures after shutdown')
+
+            # Cannot submit a new calls once the interpreter is shutting down.
+            # This check avoids spawning new processes at exit.
+            if _global_shutdown:
+                raise RuntimeError('cannot schedule new futures after '
+                                   'interpreter shutdown')
 
             f = _base.Future()
             w = _WorkItem(f, fn, args, kwargs)
@@ -968,27 +993,37 @@ class ProcessPoolExecutor(_base.Executor):
 
     def shutdown(self, wait=True, kill_workers=False):
         mp.util.debug('shutting down executor %s' % self)
-        self._flags.flag_as_shutting_down(kill_workers)
-        if self._queue_management_thread:
-            # Wake up queue management thread
-            self._queue_management_thread_wakeup.wakeup()
-            if wait:
-                self._queue_management_thread.join()
-        # To reduce the risk of opening too many files, remove references to
-        # objects that use file descriptors.
-        self._queue_management_thread = None
 
-        if self._call_queue:
-            self._call_queue.close()
+        self._flags.flag_as_shutting_down(kill_workers)
+        qmt = self._queue_management_thread
+        qmtw = self._queue_management_thread_wakeup
+        if qmt:
+            self._queue_management_thread = None
+            if qmtw:
+                self._queue_management_thread_wakeup = None
+            # Wake up queue management thread
+            if qmtw is not None:
+                try:
+                    qmtw.wakeup()
+                except OSError:
+                    # Can happen in case of concurrent calls to shutdown.
+                    pass
             if wait:
-                self._call_queue.join_thread()
+                qmt.join()
+
+        cq = self._call_queue
+        if cq:
             self._call_queue = None
+            cq.close()
+            if wait:
+                cq.join_thread()
         self._result_queue = None
         self._processes_management_lock = None
-        if self._queue_management_thread_wakeup:
-            self._queue_management_thread_wakeup.close()
-            self._queue_management_thread_wakeup = None
+
+        if qmtw:
+            try:
+                qmtw.close()
+            except OSError:
+                # Can happen in case of concurrent calls to shutdown.
+                pass
     shutdown.__doc__ = _base.Executor.shutdown.__doc__
-
-
-atexit.register(_python_exit)
