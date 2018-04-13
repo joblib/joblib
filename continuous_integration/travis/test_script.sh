@@ -2,6 +2,9 @@
 
 set -e
 
+python -c "import multiprocessing as mp; print('multiprocessing.cpu_count():', mp.cpu_count())"
+python -c "import joblib; print('joblib.cpu_count():', joblib.cpu_count())"
+
 if [[ -n "$FLAKE8_VERSION" ]]; then
     source continuous_integration/travis/flake8_diff.sh
 fi
