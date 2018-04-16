@@ -76,6 +76,17 @@ if hasattr(mp, 'get_context'):
 DefaultBackend = BACKENDS[DEFAULT_BACKEND]
 
 
+def teardown():
+    thread_names = set(t.name for t in threading.enumerate())
+    # remove the expected thread names: the main thread and the 3 helper
+    # threads from the reusable process pool executor in loky.
+    thread_names -= set(['MainThread', 'QueueManagerThread',
+                         'QueueFeederThread', 'ThreadManager'])
+    if thread_names:
+        raise AssertionError("Unexpected running threads: %s"
+                             % ", ".join(sorted(thread_names)))
+
+
 def get_workers(backend):
     return getattr(backend, '_pool', getattr(backend, '_workers', None))
 
@@ -151,22 +162,29 @@ def test_main_thread_renamed_no_warning(backend, monkeypatch):
     # https://github.com/joblib/joblib/issues/180#issuecomment-253266247
     # Some programs use a different name for the main thread. This is the case
     # for uWSGI apps for instance.
-    monkeypatch.setattr(target=threading.current_thread(), name='name',
-                        value='some_new_name_for_the_main_thread')
+    try:
+        original_name = threading.current_thread().name
+        monkeypatch.setattr(target=threading.current_thread(), name='name',
+                            value='some_new_name_for_the_main_thread')
 
-    with warns(None) as warninfo:
-        results = Parallel(n_jobs=2, backend=backend)(
-            delayed(square)(x) for x in range(3))
-        assert results == [0, 1, 4]
+        with warns(None) as warninfo:
+            results = Parallel(n_jobs=2, backend=backend)(
+                delayed(square)(x) for x in range(3))
+            assert results == [0, 1, 4]
 
-    # Due to the default parameters of LokyBackend, there is a chance that
-    # warninfo catches Warnings from worker timeouts. We remove it if it exists
-    warninfo = [w for w in warninfo if "worker timeout" not in str(w.message)]
+        # Due to the default parameters of LokyBackend, there is a chance that
+        # warninfo catches Warnings from worker timeouts. We remove it if it
+        # exists
+        warninfo = [w for w in warninfo
+                    if "worker timeout" not in str(w.message)]
 
-    # The multiprocessing backend will raise a warning when detecting that is
-    # started from the non-main thread. Let's check that there is no false
-    # positive because of the name change.
-    assert len(warninfo) == 0
+        # The multiprocessing backend will raise a warning when detecting that
+        # is started from the non-main thread. Let's check that there is no
+        # false positive because of the name change.
+        assert len(warninfo) == 0
+    finally:
+        monkeypatch.setattr(target=threading.current_thread(), name='name',
+                            value=original_name)
 
 
 def _assert_warning_nested(backend, inner_n_jobs, expected):
