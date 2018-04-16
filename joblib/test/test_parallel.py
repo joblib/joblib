@@ -1152,3 +1152,18 @@ def test_global_parallel_backend():
 
     pb.unregister()
     assert type(Parallel()._backend) is type(default)
+
+
+@with_numpy
+@parametrize('backend', BACKENDS)
+@parametrize('n_jobs', [1, 2, -2, -1])
+def test_explore_deadlock_issue(backend, n_jobs):
+    def func(arg):
+        result = np.ones(int(5e5), dtype=bool)
+        result[0] = False
+        return result
+
+    result = Parallel(n_jobs=n_jobs, backend=backend)(
+        delayed(func)(i) for i in range(10))
+
+    del result
