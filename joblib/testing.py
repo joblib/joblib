@@ -36,7 +36,7 @@ def warnings_to_stdout():
     # warnings.simplefilter('always')
 
 
-def check_subprocess_call(cmd, timeout=1, stdout_regex=None,
+def check_subprocess_call(cmd, timeout=5, stdout_regex=None,
                           stderr_regex=None):
     """Runs a command in a subprocess with timeout in seconds.
 
