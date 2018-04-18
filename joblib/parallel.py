@@ -423,6 +423,8 @@ class Parallel(Logger):
         mmap_mode: {None, 'r+', 'r', 'w+', 'c'}
             Memmapping mode for numpy arrays passed to workers.
             See 'max_nbytes' parameter documentation for more details.
+        return_generator: bool
+            If True, calls to this instance will return a generator.
 
         Notes
         -----
@@ -544,7 +546,7 @@ class Parallel(Logger):
     def __init__(self, n_jobs=None, backend=None, verbose=0, timeout=None,
                  pre_dispatch='2 * n_jobs', batch_size='auto',
                  temp_folder=None, max_nbytes='1M', mmap_mode='r',
-                 prefer=None, require=None):
+                 return_generator=False, prefer=None, require=None):
         active_backend, context_n_jobs = get_active_backend(
             prefer=prefer, require=require, verbose=verbose)
         if backend is None and n_jobs is None:
@@ -559,6 +561,7 @@ class Parallel(Logger):
         self.verbose = verbose
         self.timeout = timeout
         self.pre_dispatch = pre_dispatch
+        self.return_generator = return_generator
 
         if isinstance(max_nbytes, _basestring):
             max_nbytes = memstr_to_bytes(max_nbytes)
@@ -607,7 +610,6 @@ class Parallel(Logger):
                 % batch_size)
 
         self._backend = backend
-        self._output = None
         self._jobs = list()
         self._managed_backend = False
 
@@ -669,6 +671,7 @@ class Parallel(Logger):
 
         dispatch_timestamp = time.time()
         cb = BatchCompletionCallBack(dispatch_timestamp, len(batch), self)
+
         with self._lock:
             job_idx = len(self._jobs)
             job = self._backend.apply_async(batch, callback=cb)
@@ -772,65 +775,43 @@ class Parallel(Logger):
                          short_format_time(remaining_time),
                          ))
 
-    def retrieve(self):
-        self._output = list()
-        while self._iterating or len(self._jobs) > 0:
-            if len(self._jobs) == 0:
-                # Wait for an async callback to dispatch new jobs
-                time.sleep(0.01)
-                continue
-            # We need to be careful: the job list can be filling up as
-            # we empty it and Python list are not thread-safe by default hence
-            # the use of the lock
-            with self._lock:
-                job = self._jobs.pop(0)
+    def _handle_error(self, exception):
+        # Stop dispatching any new job in the async callback thread
+        self._aborting = True
 
-            try:
-                if getattr(self._backend, 'supports_timeout', False):
-                    self._output.extend(job.get(timeout=self.timeout))
-                else:
-                    self._output.extend(job.get())
+        # If the backend allows it, cancel or kill remaining running
+        # tasks without waiting for the results as we will raise
+        # the exception we got back to the caller instead of returning
+        # any result.
+        backend = self._backend
+        if (backend is not None and
+                hasattr(backend, 'abort_everything')):
+            # If the backend is managed externally we need to make sure
+            # to leave it in a working state to allow for future jobs
+            # scheduling.
+            ensure_ready = self._managed_backend
+            backend.abort_everything(ensure_ready=ensure_ready)
 
-            except BaseException as exception:
-                # Note: we catch any BaseException instead of just Exception
-                # instances to also include KeyboardInterrupt.
-
-                # Stop dispatching any new job in the async callback thread
-                self._aborting = True
-
-                # If the backend allows it, cancel or kill remaining running
-                # tasks without waiting for the results as we will raise
-                # the exception we got back to the caller instead of returning
-                # any result.
-                backend = self._backend
-                if (backend is not None and
-                        hasattr(backend, 'abort_everything')):
-                    # If the backend is managed externally we need to make sure
-                    # to leave it in a working state to allow for future jobs
-                    # scheduling.
-                    ensure_ready = self._managed_backend
-                    backend.abort_everything(ensure_ready=ensure_ready)
-
-                if not isinstance(exception, TransportableException):
-                    raise
-                else:
-                    # Capture exception to add information on the local
-                    # stack in addition to the distant stack
-                    this_report = format_outer_frames(context=10,
-                                                      stack_start=1)
-                    report = """Multiprocessing exception:
+        if not isinstance(exception, TransportableException):
+            raise
+        else:
+            # Capture exception to add information on the local
+            # stack in addition to the distant stack
+            this_report = format_outer_frames(context=10,
+                                              stack_start=1)
+            report = """Multiprocessing exception:
 %s
 ---------------------------------------------------------------------------
 Sub-process traceback:
 ---------------------------------------------------------------------------
 %s""" % (this_report, exception.message)
-                    # Convert this to a JoblibException
-                    exception_type = _mk_exception(exception.etype)[0]
-                    exception = exception_type(report)
+            # Convert this to a JoblibException
+            exception_type = _mk_exception(exception.etype)[0]
+            exception = exception_type(report)
 
-                    raise exception
+            raise exception
 
-    def __call__(self, iterable):
+    def _retrieve(self, iterable):
         if self._jobs:
             raise ValueError('This Parallel instance is already running')
         # A flag used to abort the dispatching of jobs in case an
@@ -888,19 +869,42 @@ Sub-process traceback:
                 self._iterating = False
 
             with self._backend.retrieval_context():
-                self.retrieve()
+                while self._iterating or len(self._jobs) > 0:
+                    if len(self._jobs) == 0:
+                        # Wait for an async callback to dispatch new jobs
+                        time.sleep(0.01)
+                        continue
+
+                    # We need to be careful: the buffer list can be filling up
+                    # as we empty it and Python list are not thread-safe by
+                    # default hence the use of the lock
+                    with self._lock:
+                        job = self._jobs.pop(0)
+                    if getattr(self._backend, 'supports_timeout', False):
+                        res_batch = job.get(timeout=self.timeout)
+                    else:
+                        res_batch = job.get()
+
+                    for res in res_batch:
+                        yield res
+
             # Make sure that we get a last message telling us we are done
             elapsed_time = time.time() - self._start_time
             self._print('Done %3i out of %3i | elapsed: %s finished',
-                        (len(self._output), len(self._output),
+                        (self.n_completed_tasks, self.n_completed_tasks,
                          short_format_time(elapsed_time)))
+        # Note: we catch any BaseException instead of just Exception
+        # instances to also include KeyboardInterrupt.
+        except BaseException as exception:
+            self._handle_error(exception)
         finally:
             if not self._managed_backend:
                 self._terminate_backend()
             self._jobs = list()
-        output = self._output
-        self._output = None
-        return output
+
+    def __call__(self, iterable):
+        output = self._retrieve(iterable)
+        return output if self.return_generator else list(output)
 
     def __repr__(self):
         return '%s(n_jobs=%s)' % (self.__class__.__name__, self.n_jobs)

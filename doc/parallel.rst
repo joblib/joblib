@@ -21,6 +21,25 @@ can be spread over 2 CPUs using the following::
     >>> Parallel(n_jobs=2)(delayed(sqrt)(i ** 2) for i in range(10))
     [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
 
+The output can be a generator that yields the results as soon as they're
+available, even if the subsequent tasks aren't completed yet. The order
+of the outputs always matches the order of the inputs::
+
+    >>> from math import sqrt
+    >>> from joblib import Parallel, delayed
+    >>> pool = Parallel(n_jobs=2, return_generator=True)
+    >>> input_generator = (delayed(sqrt)(i ** 2) for i in range(10))
+    >>> output_generator = pool(input_generator)
+    >>> type(output_generator)
+    <class 'generator'>
+    >>> next(output_generator)
+    0.0
+    >>> next(output_generator)
+    1.0
+
+By default joblib uses the ``'loky'`` backend to safely and efficiently
+use a pool of worker Python processes to execute the delayed functions
+on each set of arguments in the comprehension.
 
 Thread-based parallelism vs process-based parallelism
 =====================================================
