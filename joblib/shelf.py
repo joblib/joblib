@@ -35,6 +35,10 @@ class JoblibShelfFuture():
         """
         return self._shelf.store_backend.load_item([self._data_id])
 
+    def __del__(self):
+        self._shelf.store_backend.clear_location(
+            os.path.join(self._shelf.store_backend.location, self._data_id))
+
 
 ###############################################################################
 # class `JoblibShelf`
@@ -45,9 +49,9 @@ class JoblibShelf(StoreBase):
     # The root of the shelf storage is built with current Python interpreter
     # process ID
     _root = 'joblib-shelf-{}'.format(os.getpid())
-    _futures = set()
+    _futures = weakref.WeakValueDictionary()
 
-    def put(self, data):
+    def put(self, data, mmap=False):
         """Put data on the shelf.
 
         Parameters
@@ -55,24 +59,31 @@ class JoblibShelf(StoreBase):
         data: any
             The data to put on the shelf.
 
+        mmap: bool
+            Enable memory map mode. Should only used with numerical numpy
+            arrays. With non numpy array, returns a future like the `shelve`
+            function.
+
         Returns:
         --------
             A future on the shelved data.
 
         """
         data_id = uuid4().hex
-        self.store_backend.dump_item([data_id], data)
+        self.store_backend.dump_item([data_id], data, verbose=1)
 
         future = JoblibShelfFuture(data_id, self)
 
-        def _collect(ref):
-            self._on_collect(data_id)
-        self._futures.add(weakref.ref(future, _collect))
-        return future
+        if mmap:
+            mmap_obj = future.result()
+            try:
+                self._futures[future] = mmap_obj
+                return mmap_obj
+            except TypeError:
+                pass
 
-    def _on_collect(self, data_id):
-        self.store_backend.clear_location(
-            os.path.join(self.store_backend.location, data_id))
+        self._futures[data_id] = future
+        return future
 
     def __del__(self):
         # TODO: FIX self.clear()
@@ -234,6 +245,5 @@ def shelve_mmap(input_object):
                                     tempfile.gettempdir())
         _active_shelf_mmap = JoblibShelf(tmp_folder, mmap_mode='r')
 
-    future = _active_shelf_mmap.put(input_object)
-    _mmap_weak_dict[future] = future.result()
-    return _mmap_weak_dict[future]
+    mmap = _active_shelf_mmap.put(input_object, mmap=True)
+    return mmap

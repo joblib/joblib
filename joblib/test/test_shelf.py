@@ -28,7 +28,7 @@ def test_shelve_mmap_with_standard_data(data):
     # no memmaping is possible with standard types
     shelved_data = shelve_mmap(data)
     assert not isinstance(shelved_data, np.memmap)
-    assert shelved_data == data
+    assert shelved_data.result() == data
 
 
 @with_numpy
@@ -44,6 +44,7 @@ def test_shelve_mmap():
     data = np.random.random((5, 5))
     shelved_data = shelve_mmap(data)
     assert isinstance(shelved_data, np.memmap)
+    np.testing.assert_array_equal(np.asarray(shelved_data), data)
 
 
 @parametrize('data', [42, 2018.01, "some data",
