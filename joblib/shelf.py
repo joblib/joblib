@@ -160,28 +160,26 @@ def shelve(input_object):
 
 
 def shelve_mmap(input_object):
-    """Shelves an arbitrary object and returns a future.
+    """Shelves an arbitrary object and returns a memmap with numpy arrays.
 
-    The input array can then be deleted at any time to save memory. The
-    future, a light-weight object, can be used later to reload the initial
-    array.
+    The input object can then be deleted at any time to save memory.
 
-    The future returns a memmap only for input numpy arrays. On other types of
-    objects, it returns the initial object.
+    A memmap is only returned when a numpy array is given as input. For other
+    types of objects, it behaves like the `shelve` function: a future is
+    returned.
 
-    During the life of the future the content of the array is kept written on a
-    store (by default a file on a disk).
-    To retrieve the memmapped input array later, use the ``result`` method of
-    the future, this call will return a numpy memmap on the input array.
+    During the life of the memmap/future the content of the object is kept
+    written on a store (by default a file on a disk).
 
     Parameters
     ----------
-    input_array: any
-        The input numpy array to shelve.
+    input_object: any
+        The input object to shelve, preferably a numpy array
 
     Returns
     -------
-        A future on the shelved array.
+        A numpy memmap when a numpy array is given as input or a future on
+        the shelved object otherwise.
 
     See Also
     --------
@@ -190,8 +188,6 @@ def shelve_mmap(input_object):
 
     Notes
     -----
-        The content of the shelved array is effectively deleted from the store
-        only when no reference on its future no longer exists.
         When the interpreter process exits, all shelved objects are deleted
         from the store.
 
