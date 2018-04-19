@@ -874,6 +874,7 @@ class StoreBase(Logger):
                                  compress, self._verbose))
 
     def _location(self, location):
+        self.location = location
         if isinstance(location, _basestring):
             return os.path.join(location, self._root)
         return location
