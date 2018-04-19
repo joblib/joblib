@@ -44,7 +44,7 @@ A simple example:
   Then, instanciate a memory context that uses this cache directory::
 
     >>> from joblib import Memory
-    >>> memory = Memory(location=cachedir, verbose=0)
+    >>> memory = Memory(cachedir, verbose=0)
 
   After these initial steps, just decorate a function to cache its output in
   this context::
@@ -143,7 +143,7 @@ Memmapping (memory mapping) speeds up cache looking when reloading large numpy
 arrays::
 
     >>> cachedir2 = 'your_cachedir2_location'
-    >>> memory2 = Memory(location=cachedir2, mmap_mode='r')
+    >>> memory2 = Memory(cachedir2, mmap_mode='r')
     >>> square = memory2.cache(np.square)
     >>> a = np.vander(np.arange(3)).astype(np.float)
     >>> square(a)
@@ -234,7 +234,7 @@ python interpreter.
 .. topic:: Shelving when cache is disabled
 
     In the case where caching is disabled (e.g.
-    `Memory(cachedir=None)`), the `call_and_shelve` method returns a
+    `Memory(None)`), the `call_and_shelve` method returns a
     `NotMemorizedResult` instance, that stores the full function
     output, instead of just a reference (since there is nothing to
     point to). All the above remains valid though, except for the

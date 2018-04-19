@@ -57,7 +57,7 @@ Main features
 
       >>> from joblib import Memory
       >>> cachedir = 'your_cache_dir_goes_here'
-      >>> mem = Memory(cachedir=cachedir)
+      >>> mem = Memory(cachedir)
       >>> import numpy as np
       >>> a = np.vander(np.arange(3)).astype(np.float)
       >>> square = mem.cache(np.square)
