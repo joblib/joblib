@@ -215,7 +215,7 @@ def shelve_mmap(input_object):
         ...     return np.mean(data)
         >>> array = np.random.random((10, 10))
         >>> Parallel(n_jobs=10, backend='threading')(
-        ...          delayed(f)(shelve_mmap(i)) for i in array))  #doctest: +SKIP
+        ...          delayed(f)(i) for i in shelve_mmap(array))  #doctest: +SKIP
         [0.5224197461540009,
          0.5529565351274045,
          0.5685303248444292,
