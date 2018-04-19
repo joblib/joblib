@@ -16,6 +16,7 @@ from .memory import StoreBase
 
 _active_shelf = None
 _active_shelf_mmap = None
+_mmap_weak_dict = weakref.WeakKeyDictionary()
 
 
 class JoblibShelfFuture():
@@ -85,8 +86,9 @@ def shelve(input_object):
     memory. The future, a light-weight object, can be used later to reload the
     initial object.
 
-    During the life of the future, the input object is kept written on a store
-    (by default a file on a disk).
+    The input object is kept in a store (by default a file on a disk) as long
+    as the future object exists (technically: as long as there is a reference
+    on the future).
     To retrieve the original input object later, use the ``result`` method of
     the returned future, this call will reload the initial data from the disk
     and return it.
@@ -146,7 +148,7 @@ def shelve(input_object):
     return _active_shelf.put(input_object)
 
 
-def shelve_mmap(input_array):
+def shelve_mmap(input_object):
     """Shelves an arbitrary object and returns a future.
 
     The input array can then be deleted at any time to save memory. The
@@ -190,11 +192,9 @@ def shelve_mmap(input_array):
         >>> import numpy as np
         >>> from joblib import shelve_mmap
         >>> array = np.ones((10, 10))
-        >>> future = shelve_mmap(array)
+        >>> mmap = shelve_mmap(array)
         >>> del array  # input array can now be removed from memory
-        >>> future  #doctest: +SKIP
-        <joblib.shelf.JoblibShelfFuture at 0x7fc15f1e7be0>
-        >>> future.result()
+        >>> mmap
         memmap([[1., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
                 [1., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
                 [1., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
@@ -210,12 +210,12 @@ def shelve_mmap(input_array):
         `shelve_mmap`:
 
         >>> import numpy as np
-        >>> from joblib import shelve, Parallel, delayed
-        >>> def f(future):
-        ...     return np.mean(future.result())
+        >>> from joblib import shelve_mmap, Parallel, delayed
+        >>> def f(data):
+        ...     return np.mean(data)
         >>> array = np.random.random((10, 10))
         >>> Parallel(n_jobs=10, backend='threading')(
-        ...          delayed(f)(shelve(i)) for i in array))  #doctest: +SKIP
+        ...          delayed(f)(shelve_mmap(i)) for i in array))  #doctest: +SKIP
         [0.5224197461540009,
          0.5529565351274045,
          0.5685303248444292,
@@ -234,4 +234,6 @@ def shelve_mmap(input_array):
                                     tempfile.gettempdir())
         _active_shelf_mmap = JoblibShelf(tmp_folder, mmap_mode='r')
 
-    return _active_shelf_mmap.put(input_array)
+    future = _active_shelf_mmap.put(input_object)
+    _mmap_weak_dict[future] = future.result()
+    return _mmap_weak_dict[future]
