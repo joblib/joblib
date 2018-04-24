@@ -9,7 +9,8 @@ import os
 import os.path
 import gc
 
-from joblib.shelf import JoblibShelf, shelve, shelve_mmap
+from joblib import Parallel, delayed, shelve, shelve_mmap
+from joblib.shelf import JoblibShelf, JoblibShelfFuture
 from joblib.test.common import with_numpy, np
 from joblib.testing import parametrize
 
@@ -32,19 +33,72 @@ def test_shelve_mmap_with_standard_data(data):
 
 
 @with_numpy
-def test_shelve_with_numpy():
-    data = np.random.random((5, 5))
-    future = shelve(data)
-    data_result = future.result()
-    np.testing.assert_array_equal(data_result, data)
+def test_shelve_with_numpy(tmpdir):
+    filename = tmpdir.join('test.pkl').strpath
+
+    for obj in (np.random.random((5, 5)),
+                np.matrix(np.zeros(10)),
+                np.memmap(filename + 'mmap',
+                          mode='w+', shape=4, dtype=np.float)):
+        future = shelve(obj)
+        data_result = future.result()
+        np.testing.assert_array_equal(np.asarray(data_result), obj)
 
 
 @with_numpy
-def test_shelve_mmap():
-    data = np.random.random((5, 5))
+def test_shelve_parallel():
+    data = np.random.random((50, 50))
+    future = shelve(data)
+    assert isinstance(future, JoblibShelfFuture)
+    np.testing.assert_array_equal(future.result(), data)
+
+    mean_expected = [np.mean(line) for line in data]
+
+    def f(future):
+        return np.mean(future.result())
+
+    mean_result = Parallel(n_jobs=10, backend='threading')(
+                           delayed(f)(shelve(line)) for line in data)
+    np.testing.assert_array_equal(mean_result, mean_expected)
+
+
+@with_numpy
+def test_shelve_mmap_with_numpy(tmpdir):
+    filename = tmpdir.join('test.pkl').strpath
+
+    for obj in (np.random.random((5, 5)),
+                np.matrix(np.zeros(10)),
+                np.memmap(filename + 'mmap',
+                          mode='w+', shape=4, dtype=np.float)):
+        mmap = shelve_mmap(obj)
+        np.testing.assert_array_equal(np.asarray(mmap), obj)
+
+
+@with_numpy
+def test_shelve_mmap_with_numpy_obj(tmpdir):
+    obj = np.array([1, 'abc', {'a': 1, 'b': 2}], dtype='O')
+    shelved_data = shelve_mmap(obj)
+
+    assert isinstance(shelved_data, JoblibShelfFuture)
+    np.testing.assert_array_equal(shelved_data.result(), obj)
+
+
+@with_numpy
+@parametrize('backend', ["threading", "loky", "multiprocessing"])
+def test_shelve_mmap_parallel(backend):
+    data = np.random.random((50, 50))
     shelved_data = shelve_mmap(data)
     assert isinstance(shelved_data, np.memmap)
     np.testing.assert_array_equal(np.asarray(shelved_data), data)
+
+    mean_expected = [np.mean(line) for line in data]
+
+    def f(data):
+        return np.mean(data)
+
+    mean_result = Parallel(n_jobs=10, backend=backend)(
+                           delayed(f)(line) for line in shelved_data)
+    np.testing.assert_array_equal(mean_result, mean_expected)
 
 
 @parametrize('data', [42, 2018.01, "some data",
