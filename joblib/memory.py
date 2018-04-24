@@ -751,7 +751,7 @@ class Memory(Logger):
         All values are cached on the filesystem, in a deep directory
         structure.
 
-        see :ref:`memory`
+        Read more in the :ref:`User Guide <memory>`.
     """
     # ------------------------------------------------------------------------
     # Public interface

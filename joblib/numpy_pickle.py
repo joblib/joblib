@@ -353,7 +353,7 @@ class NumpyUnpickler(Unpickler):
 def dump(value, filename, compress=0, protocol=None, cache_size=None):
     """Persist an arbitrary Python object into one file.
 
-    see :ref:`persistence`
+    Read more in the :ref:`User Guide <persistence>`.
 
     Parameters
     -----------
@@ -533,7 +533,7 @@ def _unpickle(fobj, filename="", mmap_mode=None):
 def load(filename, mmap_mode=None):
     """Reconstruct a Python object from a file persisted with joblib.dump.
 
-    see :ref:`persistence`
+    Read more in the :ref:`User Guide <persistence>`.
 
     Parameters
     -----------

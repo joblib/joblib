@@ -324,7 +324,7 @@ def effective_n_jobs(n_jobs=-1):
 class Parallel(Logger):
     ''' Helper class for readable parallel mapping.
 
-        see :ref:`parallel`
+        Read more in the :ref:`User Guide <parallel>`.
 
         Parameters
         -----------
