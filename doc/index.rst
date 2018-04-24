@@ -30,7 +30,6 @@ Joblib: running Python functions as pipeline jobs
 Introduction
 ------------
 
-
 .. automodule:: joblib
 
 User manual
@@ -50,8 +49,19 @@ User manual
 Module reference
 -----------------
 
- .. toctree::
-    :maxdepth: 2
+.. currentmodule:: joblib
 
-    classes.rst
-    functions.rst
+.. autosummary::
+   :toctree: generated/
+   :template: class.rst
+
+   Memory
+   Parallel
+
+.. autosummary::
+   :toctree: generated/
+   :template: function.rst
+
+   dump
+   load
+   hash
