@@ -50,13 +50,8 @@ User manual
 Module reference
 -----------------
 
-.. currentmodule:: joblib
+ .. toctree::
+    :maxdepth: 2
 
-.. autosummary::
-   :toctree: generated
-
-   Memory
-   Parallel
-   dump
-   load
-   hash
+    classes.rst
+    functions.rst
