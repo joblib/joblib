@@ -1,4 +1,6 @@
 
+.. _parallel:
+
 =================================
 Embarrassingly parallel for loops
 =================================
@@ -25,7 +27,7 @@ can be spread over 2 CPUs using the following::
 Thread-based parallelism vs process-based parallelism
 =====================================================
 
-By default :class:`Parallel` uses the ``'loky'`` backend module to start
+By default :class:`joblib.Parallel` uses the ``'loky'`` backend module to start
 separate Python worker processes to execute tasks concurrently on
 separate CPUs. This is a reasonable default for generic Python programs
 but can induce a significant overhead as the input and output data need
@@ -41,7 +43,7 @@ block of a Cython function.
 .. _`with nogil`: http://docs.cython.org/src/userguide/external_C_code.html#acquiring-and-releasing-the-gil
 
 To hint that your code can efficiently use threads, just pass
-``prefer="threads"`` as parameter of the :class:`Parallel` constructor.
+``prefer="threads"`` as parameter of the :class:`joblib.Parallel` constructor.
 In this case joblib will automatically use the ``"threading"`` backend
 instead of the default ``"loky"`` backend:
 
@@ -58,15 +60,15 @@ with the help of a context manager:
     [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
 
 The latter is especially useful when calling a library that uses
-``joblib.Parallel`` internally without exposing backend selection as
+:class:`joblib.Parallel` internally without exposing backend selection as
 part of its public API.
 
 Note that the ``prefer="threads"`` option was introduced in joblib 0.12.
 In prior versions, the same effect could be achieved by hardcoding a
 specific backend implementation such as ``backend="threading"`` in the
-call to ``Parallel`` but this is now considered a bad pattern (when done
-in a library) as it does not make it possible to override that choice
-with the ``parallel_backend`` context manager.
+call to :class:`joblib.Parallel` but this is now considered a bad pattern
+(when done in a library) as it does not make it possible to override that
+choice with the ``parallel_backend`` context manager.
 
 
 Shared-memory semantics
@@ -99,13 +101,13 @@ Reusing a pool of workers
 
 Some algorithms require to make several consecutive calls to a parallel
 function interleaved with processing of the intermediate results. Calling
-``Parallel`` several times in a loop is sub-optimal because it will create and
-destroy a pool of workers (threads or processes) several times which can cause
-a significant overhead.
+:class:`joblib.Parallel` several times in a loop is sub-optimal because it will
+create and destroy a pool of workers (threads or processes) several times which
+can cause a significant overhead.
 
 For this case it is more efficient to use the context manager API of the
-``Parallel`` class to re-use the same pool of workers for several calls to
-the ``Parallel`` object::
+:class:`joblib.Parallel` class to re-use the same pool of workers for several
+calls to the :class:`joblib.Parallel` object::
 
     >>> with Parallel(n_jobs=2) as parallel:
     ...    accumulator = 0.
@@ -189,7 +191,7 @@ syntax.
 
    Under Windows, the use of ``multiprocessing.Pool`` requires to
    protect the main loop of code to avoid recursive spawning of
-   subprocesses when using ``joblib.Parallel``. In other words, you
+   subprocesses when using :class:`joblib.Parallel`. In other words, you
    should be writing code like this when using the ``'multiprocessing'``
    backend:
 
@@ -221,7 +223,7 @@ Bad interaction of multiprocessing and third-party libraries
 Using the ``'multiprocessing'`` backend can cause a crash when using
 third party libraries that manage their own native thread-pool if the
 library is first used in the main process and subsequently called again
-in a worker process (inside the ``Parallel`` call).
+in a worker process (inside the :class:`joblib.Parallel` call).
 
 Joblib version 0.12 and later are no longer subject to this problem
 thanks to the use of `loky <https://github.com/tomMoral/loky>`_ as the
@@ -237,12 +239,12 @@ libraries such as XGBoost, spaCy, OpenCV...
 
 The best way to avoid this problem is to use the ``'loky'`` backend
 instead of the ``multiprocessing`` backend. Prior to joblib 0.12, it is
-also possible  to get ``joblib.Parallel`` configured to use the
+also possible  to get :class:`joblib.Parallel` configured to use the
 ``'forkserver'`` start method on Python 3.4 and later. The start method
 has to be configured by setting the ``JOBLIB_START_METHOD`` environment
 variable to ``'forkserver'`` instead of the default ``'fork'`` start
 method. However the user should be aware that using the ``'forkserver'``
-method prevents ``joblib.Parallel`` to call function interactively
+method prevents :class:`joblib.Parallel` to call function interactively
 defined in a shell session.
 
 You can read more on this topic in the `multiprocessing documentation
