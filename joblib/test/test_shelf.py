@@ -58,7 +58,7 @@ def test_shelve_parallel():
         return np.mean(future.result())
 
     mean_result = Parallel(n_jobs=10, backend='threading')(
-                           delayed(f)(shelve(line)) for line in data)
+        delayed(f)(shelve(line)) for line in data)
     np.testing.assert_array_equal(mean_result, mean_expected)
 
 
@@ -97,7 +97,7 @@ def test_shelve_mmap_parallel(backend):
         return np.mean(data)
 
     mean_result = Parallel(n_jobs=10, backend=backend)(
-                           delayed(f)(line) for line in shelved_data)
+        delayed(f)(line) for line in shelved_data)
     np.testing.assert_array_equal(mean_result, mean_expected)
 
 
