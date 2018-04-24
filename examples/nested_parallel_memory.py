@@ -58,7 +58,7 @@ print('Elapsed time for the entire processing: {:.2f} s'
 from joblib import Memory
 
 location = './cachedir'
-memory = Memory(location=location, verbose=0)
+memory = Memory(location, verbose=0)
 costly_compute_cached = memory.cache(costly_compute)
 
 

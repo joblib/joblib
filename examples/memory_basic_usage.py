@@ -50,7 +50,7 @@ print('\nThe transformed data are:\n {}'.format(data_trans))
 
 from joblib import Memory
 location = './cachedir'
-memory = Memory(location=location, verbose=0)
+memory = Memory(location, verbose=0)
 
 
 def costly_compute_cached(data, column_index=0):
