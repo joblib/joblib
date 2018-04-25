@@ -43,15 +43,12 @@ div.body table.docutils td{
 
 /* Move the ads down in read the docs */
 div.sphinxsidebarwrapper ul:last-of-type {
+    margin-top: -10px;
     margin-bottom: 100px;
 }
 
 /* But don't apply this to nested ul */
 div.sphinxsidebarwrapper ul ul:last-of-type {
+    margin-top: 0px;
     margin-bottom: 20px;
-}
-
-/* Move up the last list containing functions reference links */
-div.sphinxsidebar ul:last-of-type {
-    margin-top: -10px;
 }
