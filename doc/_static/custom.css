@@ -50,3 +50,8 @@ div.sphinxsidebarwrapper ul:last-of-type {
 div.sphinxsidebarwrapper ul ul:last-of-type {
     margin-bottom: 20px;
 }
+
+/* Move up the last list containing functions reference links */
+div.sphinxsidebar ul:last-of-type {
+    margin-top: -10px;
+}
