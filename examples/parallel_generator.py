@@ -17,21 +17,21 @@ This example illustrates memory optimization enabled by using
 # Save memory by consuming the outputs of the tasks as soon as it's available
 ##############################################################################
 #
-# We create a task whose output takes about 0.6GB of available memory
+# We create a task whose output takes about 60MB of RAM
 import time
 import numpy as np
 
+
 def memory_consuming_task(i):
     time.sleep(2)
-    return i*np.ones((100000,100),dtype=np.float64)
+    return i * np.ones((10000, 100), dtype=np.float64)
 
 
 ###############################################################################
 # We process those many of those tasks in parallel. Normally we should expect
-# a usage of more than 50GB in RAM (and the process would terminate with a
-# MemoryError) before we get there on most computers). Here we reduce the
-# outputs faster than the workers need to compute new ones, which controls
-# the memory usage.
+# a usage of more than 5GB in RAM. Here we reduce the outputs faster than the
+# workers can compute new ones. We see a clear benefit: the overall memory
+# footprint is less than 500MB.
 
 from joblib import Parallel, delayed
 pool = Parallel(n_jobs=2, return_generator=True)
