@@ -431,7 +431,7 @@ class MemorizedFunc(Logger):
         """
         # Compare the function code with the previous to see if the
         # function code has changed
-        func_id, args_id = self._get_output_idendifiers(*args, **kwargs)
+        func_id, args_id = self._get_output_identifiers(*args, **kwargs)
         metadata = None
         msg = None
         # FIXME: The statements below should be try/excepted
@@ -518,7 +518,7 @@ class MemorizedFunc(Logger):
         return hashing.hash(filter_args(self.func, self.ignore, args, kwargs),
                             coerce_mmap=(self.mmap_mode is not None))
 
-    def _get_output_idendifiers(self, *args, **kwargs):
+    def _get_output_identifiers(self, *args, **kwargs):
         """Return the func identifier and input parameter hash of a result."""
         func_id = _build_func_identifier(self.func)
         argument_hash = self._get_argument_hash(*args, **kwargs)
@@ -663,7 +663,7 @@ class MemorizedFunc(Logger):
             persist the output values.
         """
         start_time = time.time()
-        func_id, args_id = self._get_output_idendifiers(*args, **kwargs)
+        func_id, args_id = self._get_output_identifiers(*args, **kwargs)
         if self._verbose > 0:
             print(format_call(self.func, args, kwargs))
         output = self.func(*args, **kwargs)
@@ -705,7 +705,7 @@ class MemorizedFunc(Logger):
         # concurrent joblibs removing the file or the directory
         metadata = {"duration": duration, "input_args": input_repr}
 
-        func_id, args_id = self._get_output_idendifiers(*args, **kwargs)
+        func_id, args_id = self._get_output_identifiers(*args, **kwargs)
         self.store_backend.store_metadata([func_id, args_id], metadata)
 
         this_duration = time.time() - start_time
