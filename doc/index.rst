@@ -53,10 +53,16 @@ Module reference
 .. currentmodule:: joblib
 
 .. autosummary::
-   :toctree: generated
+   :toctree: generated/
+   :template: class.rst
 
    Memory
    Parallel
+
+.. autosummary::
+   :toctree: generated/
+   :template: function.rst
+
    dump
    load
    hash
