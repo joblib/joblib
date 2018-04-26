@@ -398,7 +398,7 @@ def test_func_dir(tmpdir):
     assert g._check_previous_func_code()
 
     # Test the robustness to failure of loading previous results.
-    func_id, args_id = g._get_output_idendifiers(1)
+    func_id, args_id = g._get_output_identifiers(1)
     output_dir = os.path.join(g.store_backend.location, func_id, args_id)
     a = g(1)
     assert os.path.exists(output_dir)
@@ -414,7 +414,7 @@ def test_persistence(tmpdir):
 
     h = pickle.loads(pickle.dumps(g))
 
-    func_id, args_id = h._get_output_idendifiers(1)
+    func_id, args_id = h._get_output_identifiers(1)
     output_dir = os.path.join(h.store_backend.location, func_id, args_id)
     assert os.path.exists(output_dir)
     assert output == h.store_backend.load_item([func_id, args_id])
@@ -640,7 +640,7 @@ def _setup_toy_cache(tmpdir, num_inputs=10):
         get_1000_bytes(arg)
 
     func_id = _build_func_identifier(get_1000_bytes)
-    hash_dirnames = [get_1000_bytes._get_output_idendifiers(arg)[1]
+    hash_dirnames = [get_1000_bytes._get_output_identifiers(arg)[1]
                      for arg in inputs]
 
     full_hashdirs = [os.path.join(get_1000_bytes.store_backend.location,
