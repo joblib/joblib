@@ -4,3 +4,4 @@ numpy
 matplotlib
 pillow
 sphinx-gallery
+numpydoc
