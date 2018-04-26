@@ -1049,9 +1049,8 @@ def test_backend_batch_statistics_reset(backend):
 @parametrize('backend', BACKENDS)
 @parametrize('n_jobs', [1, 2, -2, -1])
 def test_deadlock_with_generator(backend, n_jobs):
-    # This test used to timeout with multiprocessing backend.
-    # We use a large numpy object to delay the pickler, which causes Pipes
-    # to timeout.
+    # Non-regression test for a race condition in the backends when the pickler
+    # is delayed by a large object.
     def func(arg):
         result = np.ones(int(5 * 1e5), dtype=bool)
         result[0] = False
