@@ -752,6 +752,48 @@ class Memory(Logger):
         structure.
 
         Read more in the :ref:`User Guide <memory>`.
+
+        Parameters
+        ----------
+        location: str or None
+            The path of the base directory to use as a data store
+            or None. If None is given, no caching is done and
+            the Memory object is completely transparent. This option
+            replaces cachedir since version 0.12.
+
+        backend: str or 'local'
+            Type of store backend for reading/writing cache files.
+            Default is 'local'. The 'local' backend is using regular
+            filesystem operations to manipulate data (open, mv, etc) in the
+            backend.
+
+        cachedir: str or None
+
+            .. deprecated: 0.12
+                'cachedir' has been deprecated in 0.12 and will be
+                removed in 0.14. Use the 'location' parameter instead.
+
+        mmap_mode: {None, 'r+', 'r', 'w+', 'c'}, optional
+            The memmapping mode used when loading from cache
+            numpy arrays. See numpy.load for the meaning of the
+            arguments.
+
+        compress: boolean, or integer
+            Whether to zip the stored data on disk. If an integer is
+            given, it should be between 1 and 9, and sets the amount
+            of compression. Note that compressed arrays cannot be
+            read by memmapping.
+
+        verbose: int, optional
+            Verbosity flag, controls the debug messages that are issued
+            as functions are evaluated.
+
+        bytes_limit: int, optional
+            Limit in bytes of the size of the cache.
+
+        backend_options: dict, optional
+            Contains a dictionnary of named parameters used to configure
+            the store backend.
     """
     # ------------------------------------------------------------------------
     # Public interface
@@ -760,50 +802,6 @@ class Memory(Logger):
     def __init__(self, location=None, backend='local', cachedir=None,
                  mmap_mode=None, compress=False, verbose=1, bytes_limit=None,
                  backend_options={}):
-        """
-            Parameters
-            ----------
-            location: str or None
-                The path of the base directory to use as a data store
-                or None. If None is given, no caching is done and
-                the Memory object is completely transparent. This option
-                replaces cachedir since version 0.12.
-
-            backend: str or 'local'
-                Type of store backend for reading/writing cache files.
-                Default is 'local'. The 'local' backend is using regular
-                filesystem operations to manipulate data (open, mv, etc) in the
-                backend.
-
-            cachedir: str or None
-
-                .. deprecated: 0.12
-                    'cachedir' has been deprecated in 0.12 and will be
-                    removed in 0.14. Use the 'location' parameter instead.
-
-            mmap_mode: {None, 'r+', 'r', 'w+', 'c'}, optional
-                The memmapping mode used when loading from cache
-                numpy arrays. See numpy.load for the meaning of the
-                arguments.
-
-            compress: boolean, or integer
-                Whether to zip the stored data on disk. If an integer is
-                given, it should be between 1 and 9, and sets the amount
-                of compression. Note that compressed arrays cannot be
-                read by memmapping.
-
-            verbose: int, optional
-                Verbosity flag, controls the debug messages that are issued
-                as functions are evaluated.
-
-            bytes_limit: int, optional
-                Limit in bytes of the size of the cache.
-
-            backend_options: dict, optional
-                Contains a dictionnary of named parameters used to configure
-                the store backend.
-
-        """
         # XXX: Bad explanation of the None value of cachedir
         Logger.__init__(self)
         self._verbose = verbose
