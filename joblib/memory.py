@@ -761,13 +761,13 @@ class Memory(Logger):
             the Memory object is completely transparent. This option
             replaces cachedir since version 0.12.
 
-        backend: str or 'local'
+        backend: str, optional
             Type of store backend for reading/writing cache files.
-            Default is 'local'. The 'local' backend is using regular
-            filesystem operations to manipulate data (open, mv, etc) in the
-            backend.
+            Default: 'local'.
+            The 'local' backend is using regular filesystem operations to
+            manipulate data (open, mv, etc) in the backend.
 
-        cachedir: str or None
+        cachedir: str or None, optional
 
             .. deprecated: 0.12
                 'cachedir' has been deprecated in 0.12 and will be
@@ -778,7 +778,7 @@ class Memory(Logger):
             numpy arrays. See numpy.load for the meaning of the
             arguments.
 
-        compress: boolean, or integer
+        compress: boolean, or integer, optional
             Whether to zip the stored data on disk. If an integer is
             given, it should be between 1 and 9, and sets the amount
             of compression. Note that compressed arrays cannot be
