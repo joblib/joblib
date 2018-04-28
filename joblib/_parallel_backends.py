@@ -195,8 +195,8 @@ class PoolManagerMixin(object):
         cberr = {}
         if error_callback is not None:
             cberr['error_callback'] = error_callback
-        return self._get_pool().apply_async(
-                SafeFunction(func), callback=callback, **cberr)
+        return self._get_pool().apply_async(SafeFunction(func),
+                                            callback=callback, **cberr)
 
     def abort_everything(self, ensure_ready=True):
         """Shutdown the pool and restart a new one with the same parameters"""
