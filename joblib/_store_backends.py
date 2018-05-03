@@ -284,11 +284,11 @@ class StoreBackendMixin(object):
                 print('Deleting item {0}'.format(item))
             try:
                 self.clear_location(item.path)
-            except OSError:
+            except (OSError, IOError):
                 # Even with ignore_errors=True can shutil.rmtree
-                # can raise OSErrror with [Errno 116] Stale file
-                # handle if another process has deleted the folder
-                # already.
+                # can raise OSError (IOError in python 2) with 
+                # [Errno 116] Stale file handle if another process 
+                # has deleted the folder already. 
                 pass
 
     def _get_items_to_delete(self, bytes_limit):
