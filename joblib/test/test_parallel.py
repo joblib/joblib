@@ -47,6 +47,11 @@ try:
 except ImportError:
     posix = None
 
+try:
+    reload         # Python 2
+except NameError:  # Python 3
+    from importlib import reload
+
 from joblib._parallel_backends import SequentialBackend
 from joblib._parallel_backends import ThreadingBackend
 from joblib._parallel_backends import MultiprocessingBackend
