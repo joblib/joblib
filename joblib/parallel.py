@@ -260,6 +260,10 @@ class BatchCompletionCallBack(object):
         self.parallel = parallel
 
     def __call__(self, out):
+        if self.parallel.as_completed:
+            self.parallel._async_buffer.append(out)
+        else:
+            self.parallel._async_buffer = [out]
         self.parallel.n_completed_tasks += self.batch_size
         this_batch_duration = time.time() - self.dispatch_timestamp
 
@@ -269,6 +273,18 @@ class BatchCompletionCallBack(object):
         with self.parallel._lock:
             if self.parallel._original_iterator is not None:
                 self.parallel.dispatch_next()
+
+
+class BatchErrorCallBack(object):
+    """Callback used by joblib.Parallel's multiprocessing backend.
+    This callable is executed by the parent process whenever a worker process
+    has failed with an error (n.b. not KeyboardInterrupt).
+    """
+    def __init__(self, parallel):
+        self.parallel = parallel
+
+    def __call__(self, exception):
+        self.parallel._error_buffer.append(exception)
 
 
 ###############################################################################
@@ -425,6 +441,13 @@ class Parallel(Logger):
         mmap_mode: {None, 'r+', 'r', 'w+', 'c'}
             Memmapping mode for numpy arrays passed to workers.
             See 'max_nbytes' parameter documentation for more details.
+        return_generator: bool
+            If True, calls to this instance will return a generator.
+        as_completed: bool
+            If True, results will be returned asynchronously, depending on
+            which computes faster. Requires a backend that implements
+            `apply_async` with the keyword argument `error_callback`, e.g
+            python 3 and backend='multiprocessing'.
 
         Notes
         -----
@@ -546,7 +569,8 @@ class Parallel(Logger):
     def __init__(self, n_jobs=None, backend=None, verbose=0, timeout=None,
                  pre_dispatch='2 * n_jobs', batch_size='auto',
                  temp_folder=None, max_nbytes='1M', mmap_mode='r',
-                 prefer=None, require=None):
+                 return_generator=False, as_completed=False, prefer=None,
+                 require=None):
         active_backend, context_n_jobs = get_active_backend(
             prefer=prefer, require=require, verbose=verbose)
         if backend is None and n_jobs is None:
@@ -561,6 +585,8 @@ class Parallel(Logger):
         self.verbose = verbose
         self.timeout = timeout
         self.pre_dispatch = pre_dispatch
+        self.return_generator = return_generator
+        self.as_completed = as_completed
 
         if isinstance(max_nbytes, _basestring):
             max_nbytes = memstr_to_bytes(max_nbytes)
@@ -608,9 +634,18 @@ class Parallel(Logger):
                 "batch_size must be 'auto' or a positive integer, got: %r"
                 % batch_size)
 
+        if as_completed and backend == 'multiprocessing' and \
+                sys.version_info < (3, 0):
+            raise NotImplementedError(
+                "as_completed with multiprocessing backend requires python 3, "
+                "got: %r.%r "
+                % (sys.version_info.major, sys.version_info.minor))
+
         self._backend = backend
-        self._output = None
+        self._async_buffer = list()
+        self._error_buffer = list()
         self._jobs = list()
+        self._nb_pending = 0
         self._managed_backend = False
 
         # This lock is used coordinate the main thread of this process with
@@ -671,14 +706,22 @@ class Parallel(Logger):
 
         dispatch_timestamp = time.time()
         cb = BatchCompletionCallBack(dispatch_timestamp, len(batch), self)
+        # use empty kwarg when as_completed is False to keep compatibility with
+        # backends that does not implement error_callback.
+        kwargs = {}
+        if self.as_completed:
+            kwargs['error_callback'] = BatchErrorCallBack(self)
+
         with self._lock:
-            job_idx = len(self._jobs)
-            job = self._backend.apply_async(batch, callback=cb)
-            # A job can complete so quickly than its callback is
-            # called before we get here, causing self._jobs to
-            # grow. To ensure correct results ordering, .insert is
-            # used (rather than .append) in the following line
-            self._jobs.insert(job_idx, job)
+            job_idx = None if self.as_completed else len(self._jobs)
+            job = self._backend.apply_async(batch, callback=cb, **kwargs)
+            # A job can complete so quickly than its callback is called before
+            # we get here, causing self._jobs to grow (in non-async setup). To
+            # ensure correct results ordering, .insert is used (rather than
+            # .append) in the following lines
+            if not self.as_completed:
+                self._jobs.insert(job_idx, job)
+            self._nb_pending += 1
 
     def dispatch_next(self):
         """Dispatch more data for parallel processing
@@ -717,6 +760,13 @@ class Parallel(Logger):
             else:
                 self._dispatch(tasks)
                 return True
+
+    def get_last_async_result(self):
+        '''
+        Public function that can be used to implement callbacks on last
+        computed result.
+        '''
+        return self._async_buffer[-1]
 
     def _print(self, msg, msg_args):
         """Display the message on stout or stderr depending on verbosity"""
@@ -774,66 +824,44 @@ class Parallel(Logger):
                          short_format_time(remaining_time),
                          ))
 
-    def retrieve(self):
-        self._output = list()
-        while self._iterating or len(self._jobs) > 0:
-            if len(self._jobs) == 0:
-                # Wait for an async callback to dispatch new jobs
-                time.sleep(0.01)
-                continue
-            # We need to be careful: the job list can be filling up as
-            # we empty it and Python list are not thread-safe by default hence
-            # the use of the lock
-            with self._lock:
-                job = self._jobs.pop(0)
+    def _handle_error(self, exception):
+        # Stop dispatching any new job in the async callback thread
+        self._aborting = True
 
-            try:
-                if getattr(self._backend, 'supports_timeout', False):
-                    self._output.extend(job.get(timeout=self.timeout))
-                else:
-                    self._output.extend(job.get())
+        # If the backend allows it, cancel or kill remaining running
+        # tasks without waiting for the results as we will raise
+        # the exception we got back to the caller instead of returning
+        # any result.
+        backend = self._backend
+        if (backend is not None and
+                hasattr(backend, 'abort_everything')):
+            # If the backend is managed externally we need to make sure
+            # to leave it in a working state to allow for future jobs
+            # scheduling.
+            ensure_ready = self._managed_backend
+            backend.abort_everything(ensure_ready=ensure_ready)
 
-            except BaseException as exception:
-                # Note: we catch any BaseException instead of just Exception
-                # instances to also include KeyboardInterrupt.
-
-                # Stop dispatching any new job in the async callback thread
-                self._aborting = True
-
-                # If the backend allows it, cancel or kill remaining running
-                # tasks without waiting for the results as we will raise
-                # the exception we got back to the caller instead of returning
-                # any result.
-                backend = self._backend
-                if (backend is not None and
-                        hasattr(backend, 'abort_everything')):
-                    # If the backend is managed externally we need to make sure
-                    # to leave it in a working state to allow for future jobs
-                    # scheduling.
-                    ensure_ready = self._managed_backend
-                    backend.abort_everything(ensure_ready=ensure_ready)
-
-                if not isinstance(exception, TransportableException):
-                    raise
-                else:
-                    # Capture exception to add information on the local
-                    # stack in addition to the distant stack
-                    this_report = format_outer_frames(context=10,
-                                                      stack_start=1)
-                    report = """Multiprocessing exception:
+        if not isinstance(exception, TransportableException):
+            raise
+        else:
+            # Capture exception to add information on the local
+            # stack in addition to the distant stack
+            this_report = format_outer_frames(context=10,
+                                              stack_start=1)
+            report = """Multiprocessing exception:
 %s
 ---------------------------------------------------------------------------
 Sub-process traceback:
 ---------------------------------------------------------------------------
 %s""" % (this_report, exception.message)
-                    # Convert this to a JoblibException
-                    exception_type = _mk_exception(exception.etype)[0]
-                    exception = exception_type(report)
+            # Convert this to a JoblibException
+            exception_type = _mk_exception(exception.etype)[0]
+            exception = exception_type(report)
 
-                    raise exception
+            raise exception
 
-    def __call__(self, iterable):
-        if self._jobs:
+    def _retrieve(self, iterable):
+        if self._nb_pending:
             raise ValueError('This Parallel instance is already running')
         # A flag used to abort the dispatching of jobs in case an
         # exception is found
@@ -890,19 +918,57 @@ Sub-process traceback:
                 self._iterating = False
 
             with self._backend.retrieval_context():
-                self.retrieve()
+                while self._iterating or self._nb_pending > 0:
+                    if self._nb_pending == 0:
+                        # Wait for new results to fetch (jobs or async outputs)
+                        time.sleep(0.01)
+                        continue
+
+                    res_batch = []
+                    if self.as_completed and len(self._async_buffer) > 0:
+                        # We need to be careful: the buffer list can be filling
+                        # up as we empty it and Python list are not thread-safe
+                        # by default hence the use of the lock
+                        with self._lock:
+                            res_batch = self._async_buffer.pop(0)
+                            self._nb_pending -= 1
+
+                    if not self.as_completed:
+                        # Same caution here
+                        with self._lock:
+                            job = self._jobs.pop(0)
+                            self._nb_pending -= 1
+                        if getattr(self._backend, 'supports_timeout', False):
+                            res_batch = job.get(timeout=self.timeout)
+                        else:
+                            res_batch = job.get()
+
+                    if self.as_completed and len(self._error_buffer) > 0:
+                        raise self._error_buffer.pop(0)
+
+                    for res in res_batch:
+                        yield res
+
             # Make sure that we get a last message telling us we are done
             elapsed_time = time.time() - self._start_time
             self._print('Done %3i out of %3i | elapsed: %s finished',
-                        (len(self._output), len(self._output),
+                        (self.n_completed_tasks, self.n_completed_tasks,
                          short_format_time(elapsed_time)))
+        # Note: we catch any BaseException instead of just Exception
+        # instances to also include KeyboardInterrupt.
+        except BaseException as exception:
+            self._handle_error(exception)
         finally:
             if not self._managed_backend:
                 self._terminate_backend()
             self._jobs = list()
-        output = self._output
-        self._output = None
-        return output
+            self._nb_pending = 0
+            self._async_buffer = list()
+            self._error_buffer = list()
+
+    def __call__(self, iterable):
+        output = self._retrieve(iterable)
+        return output if self.return_generator else list(output)
 
     def __repr__(self):
         return '%s(n_jobs=%s)' % (self.__class__.__name__, self.n_jobs)

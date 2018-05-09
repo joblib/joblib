@@ -13,6 +13,7 @@ that uses a custom alternative to SimpleQueue.
 # Copyright: 2012, Olivier Grisel
 # License: BSD 3 clause
 
+import os
 import sys
 import warnings
 from time import sleep
@@ -316,6 +317,8 @@ class MemmappingPool(PicklingPool):
         n_retries = 10
         for i in range(n_retries):
             try:
+                if os.name != 'nt':
+                    self._inqueue._reader.close()
                 super(MemmappingPool, self).terminate()
                 break
             except OSError as e:

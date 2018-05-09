@@ -96,6 +96,9 @@ def teardown_autokill(module_name):
         killer.cancel()
 
 
+with_python_3 = skipif(
+    sys.version_info < (3, 0), reason="requires Python3")
+
 with_multiprocessing = skipif(
     mp is None, reason='Needs multiprocessing to run.')
 

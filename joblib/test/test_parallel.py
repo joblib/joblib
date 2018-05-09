@@ -10,6 +10,7 @@ import os
 import sys
 import time
 import mmap
+import random
 import threading
 from math import sqrt
 from time import sleep
@@ -20,7 +21,7 @@ from joblib import dump, load
 from joblib import parallel
 
 from joblib.test.common import np, with_numpy
-from joblib.test.common import with_multiprocessing
+from joblib.test.common import with_multiprocessing, with_python_3
 from joblib.testing import (parametrize, raises, check_subprocess_call,
                             SkipTest, warns)
 from joblib._compat import PY3_OR_LATER
@@ -222,8 +223,10 @@ def nested_loop(backend):
 
 @parametrize('child_backend', BACKENDS)
 @parametrize('parent_backend', BACKENDS)
-def test_nested_loop(parent_backend, child_backend):
-    Parallel(n_jobs=2, backend=parent_backend)(
+@parametrize('return_generator', [True, False])
+def test_nested_loop(parent_backend, child_backend, return_generator):
+    Parallel(n_jobs=2, backend=parent_backend,
+             return_generator=return_generator)(
         delayed(nested_loop)(child_backend) for _ in range(2))
 
 
@@ -914,6 +917,23 @@ def test_warning_about_timeout_not_supported_by_backend():
         "will not be used.")
 
 
+def set_list_value(input_list, index, value):
+    input_list[index] = value
+    return value
+
+
+def test_parallel_return_generator():
+    # This test inserts values in a list in some expected order
+    # in sequential computing, and then check that this order has been
+    # respectted by Parallel output generator.
+    input_list = [0] * 5
+    result = Parallel(n_jobs=1, return_generator=True)(
+        delayed(set_list_value)(input_list, i, i) for i in range(5))
+
+    for i, each in enumerate(result):
+        assert input_list[i] == each
+
+
 @parametrize('backend', ALL_VALID_BACKENDS)
 @parametrize('n_jobs', [1, 2, -2, -1])
 def test_abort_backend(n_jobs, backend):
@@ -1024,6 +1044,26 @@ def test_backend_batch_statistics_reset(backend):
 
     # Tolerance in the timing comparison to avoid random failures on CIs
     assert test_time / ref_time <= 1 + relative_tolerance
+
+
+@with_numpy
+@parametrize('backend', BACKENDS)
+@parametrize('n_jobs', [1, 2, -2, -1])
+def test_deadlock_with_generator(backend, n_jobs):
+    # Non-regression test for a race condition in the backends when the pickler
+    # is delayed by a large object.
+    def func(arg):
+        result = np.ones(int(5 * 1e5), dtype=bool)
+        result[0] = False
+        return result
+
+    result = Parallel(n_jobs=n_jobs, backend=backend, return_generator=True)(
+        delayed(func)(i) for i in range(10))
+
+    next(result)
+    next(result)
+
+    del result
 
 
 def test_backend_hinting_and_constraints():
@@ -1152,3 +1192,66 @@ def test_global_parallel_backend():
 
     pb.unregister()
     assert type(Parallel()._backend) is type(default)
+
+
+def some_function(i):
+    time.sleep(0.001 * random.randint(1, 100))
+    return (i + 1)
+
+
+@with_multiprocessing
+@parametrize('backend', PARALLEL_BACKENDS)
+def test_read_output_from_task_generator(backend):
+    """Check that the task generator can read the flow of outputs."""
+
+    def task_generator(pool, pre_dispatch, batch_size, n_jobs, n_iter):
+        # pre-computed tasks must be ready for pre-dispatch
+        x = -1
+        for i in range(batch_size * eval(pre_dispatch)):
+            x += 1
+            time.sleep(0.001 * random.randint(1, 100))
+            yield 10**(x)
+
+        # now, new tasks can be created from outputs
+        i = 0
+        while i < n_iter:
+            time.sleep(0.01 * random.randint(1, 100))
+            next_element = pool.get_last_async_result()
+            if hasattr(next_element, 'result'):
+                next_element = next_element.result()
+            for e in next_element:
+                if i < n_iter:
+                    time.sleep(0.001 * random.randint(1, 100))
+                    i += 1
+                    yield e
+
+    pre_dispatch = '2*n_jobs'
+    batch_size = 3  # batch_size != 'auto'
+    n_jobs = 3
+    n_iter = 20
+
+    pool = Parallel(n_jobs=n_jobs, pre_dispatch=pre_dispatch,
+                    batch_size=batch_size, verbose=0,
+                    backend=backend)
+
+    output = pool(delayed(some_function)(i) for i in
+                  task_generator(pool, pre_dispatch, batch_size,
+                                 n_jobs, n_iter))
+
+    assert(len(output) == (n_iter + (batch_size * eval(pre_dispatch))))
+
+
+@with_multiprocessing
+@with_python_3
+@parametrize('backend', ['multiprocessing'])
+def test_async_and_sync_return_same_results(backend):
+    """Check that the outputs in async mode are consistents with sync mode"""
+
+    pool = Parallel(n_jobs=2, as_completed=True, backend=backend)
+    pool2 = Parallel(n_jobs=2, as_completed=False, backend=backend)
+
+    res = pool(delayed(some_function)(i) for i in range(15))
+    res2 = pool2(delayed(some_function)(i) for i in range(15))
+    print(res)  # order is different at each call
+    print(res2)  # order is as expected
+    assert(sorted(res) == res2)

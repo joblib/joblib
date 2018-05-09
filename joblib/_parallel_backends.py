@@ -51,7 +51,7 @@ class ParallelBackendBase(with_metaclass(ABCMeta)):
         """
 
     @abstractmethod
-    def apply_async(self, func, callback=None):
+    def apply_async(self, func, callback=None, error_callback=None):
         """Schedule a func to be run"""
 
     def configure(self, n_jobs=1, parallel=None, prefer=None, require=None,
@@ -143,12 +143,18 @@ class SequentialBackend(ParallelBackendBase):
             raise ValueError('n_jobs == 0 in Parallel has no meaning')
         return 1
 
-    def apply_async(self, func, callback=None):
+    def apply_async(self, func, callback=None, error_callback=None):
         """Schedule a func to be run"""
-        result = ImmediateResult(func)
-        if callback:
-            callback(result)
-        return result
+        try:
+            result = ImmediateResult(func)
+            if callback:
+                callback(result)
+            return result
+        except Exception as exception:
+            if error_callback:
+                error_callback(exception)
+            else:
+                raise exception
 
     def get_nested_backend(self):
         return self
@@ -182,10 +188,15 @@ class PoolManagerMixin(object):
         """Used by apply_async to make it possible to implement lazy init"""
         return self._pool
 
-    def apply_async(self, func, callback=None):
+    def apply_async(self, func, callback=None, error_callback=None):
         """Schedule a func to be run"""
-        return self._get_pool().apply_async(
-            SafeFunction(func), callback=callback)
+        # HACK: error_callback not implemented in python2
+        # do not even pass error_callback = None
+        cberr = {}
+        if error_callback is not None:
+            cberr['error_callback'] = error_callback
+        return self._get_pool().apply_async(SafeFunction(func),
+                                            callback=callback, **cberr)
 
     def abort_everything(self, ensure_ready=True):
         """Shutdown the pool and restart a new one with the same parameters"""
@@ -460,10 +471,13 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
             n_jobs = max(cpu_count() + 1 + n_jobs, 1)
         return n_jobs
 
-    def apply_async(self, func, callback=None):
+    def apply_async(self, func, callback=None, error_callback=None):
         """Schedule a func to be run"""
         future = self._workers.submit(SafeFunction(func))
         future.get = functools.partial(self.wrap_future_result, future)
+        if error_callback is not None:
+            raise NotImplementedError('Loky Backend does not support'
+                                      'error callbacks')
         if callback is not None:
             future.add_done_callback(callback)
         return future
