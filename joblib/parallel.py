@@ -189,8 +189,10 @@ class BatchedCalls(object):
 
     @staticmethod
     def _wrap_non_picklable_objects(obj):
+        obj_name = getattr(obj, "__qualname__", "")
         need_wrap = "__main__" in getattr(obj, "__module__", "")
-        need_wrap |= callable(obj) and obj.__name__ == "<lambda>"
+        need_wrap |= (callable(obj)
+                      and "<locals>" in obj_name or "<lambda>" in obj_name)
         if need_wrap:
             return CloudpickledObjectWrapper(obj)
         return obj
