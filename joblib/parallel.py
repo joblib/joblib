@@ -163,6 +163,14 @@ else:
     DEFAULT_MP_CONTEXT = None
 
 
+class MainModuleObjectWrapper:
+    def __init__(self, obj):
+        self.pickled_obj = dumps(obj)
+
+    def __reduce__(self):
+        return loads, (self.pickled_obj,)
+
+
 class BatchedCalls(object):
     """Wrap a sequence of (func, args, kwargs) tuples as a single callable"""
 
@@ -179,15 +187,23 @@ class BatchedCalls(object):
     def __len__(self):
         return self._size
 
+    @staticmethod
+    def _wrap_from_main(obj):
+        mod = getattr(obj, "__module__", "")
+        if "__main__" in mod:
+            return MainModuleObjectWrapper(obj)
+        return obj
+
     def __getstate__(self):
-        items = [(dumps(func), args, kwargs)
+        items = [(self._wrap_from_main(func),
+                  [self._wrap_from_main(a) for a in args],
+                  {k: self._wrap_from_main(a) for k, a in kwargs.items()}
+                  )
                  for func, args, kwargs in self.items]
         return (items, self._size, self._backend)
 
     def __setstate__(self, state):
-        items, self._size, self._backend = state
-        self.items = [(loads(func), args, kwargs)
-                      for func, args, kwargs in items]
+        self.items, self._size, self._backend = state
 
 
 ###############################################################################
