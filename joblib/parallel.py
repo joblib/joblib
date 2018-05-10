@@ -163,7 +163,7 @@ else:
     DEFAULT_MP_CONTEXT = None
 
 
-class MainModuleObjectWrapper:
+class CloudpickledObjectWrapper:
     def __init__(self, obj):
         self.pickled_obj = dumps(obj)
 
@@ -188,16 +188,18 @@ class BatchedCalls(object):
         return self._size
 
     @staticmethod
-    def _wrap_from_main(obj):
-        mod = getattr(obj, "__module__", "")
-        if "__main__" in mod:
-            return MainModuleObjectWrapper(obj)
+    def _wrap_non_picklable_objects(obj):
+        need_wrap = "__main__" in getattr(obj, "__module__", "")
+        need_wrap |= callable(obj) and obj.__name__ == "<lambda>"
+        if need_wrap:
+            return CloudpickledObjectWrapper(obj)
         return obj
 
     def __getstate__(self):
-        items = [(self._wrap_from_main(func),
-                  [self._wrap_from_main(a) for a in args],
-                  {k: self._wrap_from_main(a) for k, a in kwargs.items()}
+        items = [(self._wrap_non_picklable_objects(func),
+                  [self._wrap_non_picklable_objects(a) for a in args],
+                  {k: self._wrap_non_picklable_objects(a)
+                   for k, a in kwargs.items()}
                   )
                  for func, args, kwargs in self.items]
         return (items, self._size, self._backend)
