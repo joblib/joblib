@@ -12,6 +12,7 @@ import sys
 from math import sqrt
 import functools
 import time
+import inspect
 import threading
 import itertools
 from numbers import Integral
@@ -163,7 +164,7 @@ else:
     DEFAULT_MP_CONTEXT = None
 
 
-class CloudpickledObjectWrapper:
+class CloudpickledObjectWrapper(object):
     def __init__(self, obj):
         self.pickled_obj = dumps(obj)
 
@@ -189,10 +190,16 @@ class BatchedCalls(object):
 
     @staticmethod
     def _wrap_non_picklable_objects(obj):
-        obj_name = getattr(obj, "__qualname__", "")
         need_wrap = "__main__" in getattr(obj, "__module__", "")
-        need_wrap |= (callable(obj)
-                      and "<locals>" in obj_name or "<lambda>" in obj_name)
+        if callable(obj):
+            # Need wrap if the object is a local function
+            func_code = getattr(obj, "__code__", "")
+            need_wrap |= getattr(func_code, "co_flags", 0) & inspect.CO_NESTED
+
+            # Need wrap if the obj is a lambda expression
+            func_name = getattr(obj, "__name__", "")
+            need_wrap |= "<lambda>" in func_name
+
         if need_wrap:
             return CloudpickledObjectWrapper(obj)
         return obj
