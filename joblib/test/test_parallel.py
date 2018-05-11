@@ -846,7 +846,7 @@ def test_parallel_with_interactively_defined_functions_in_args(backend):
     code = CUSTOM_BACKEND_SCRIPT_TEMPLATE_ARGS.format(backend)
     check_subprocess_call(
         [sys.executable, '-c', code], timeout=2,
-        stdout_regex=r'\[0, 1, 4, 9, 16\]\n\[0, 1, 4, 9, 16\]')
+        stdout_regex=r'\[0, 1, 4, 9, 16\]\s{1,2}\[0, 1, 4, 9, 16\]')
 
 
 DEFAULT_BACKEND_SCRIPT_CONTENT = """\
