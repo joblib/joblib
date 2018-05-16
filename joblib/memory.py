@@ -439,8 +439,8 @@ class MemorizedFunc(Logger):
                 self.store_backend.contains_item([func_id, args_id])):
             if self._verbose > 10:
                 _, name = get_func_name(self.func)
-                self.warn('Computing func %{0}, argument hash %{1} '
-                          'in location %{2}'
+                self.warn('Computing func {0}, argument hash {1} '
+                          'in location {2}'
                           .format(name, args_id,
                                   self.store_backend.
                                   get_cached_func_info([func_id])['location']))
@@ -642,7 +642,7 @@ class MemorizedFunc(Logger):
         # XXX: Should be using warnings, and giving stacklevel
         if self._verbose > 10:
             _, func_name = get_func_name(self.func, resolv_alias=False)
-            self.warn("Function %{0} (identified by %{1}) has changed"
+            self.warn("Function {0} (identified by {1}) has changed"
                       ".".format(func_name, func_id))
         self.clear(warn=True)
         return False
