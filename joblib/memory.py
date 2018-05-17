@@ -651,14 +651,18 @@ class MemorizedFunc(Logger):
 
         # The function has changed, wipe the cache directory.
         # XXX: Should be using warnings, and giving stacklevel
-        if self._verbose > 10:
-            _, func_name = get_func_name(self.func, resolv_alias=False)
-            self.warn("Function %{0} (identified by %{1}) has changed"
-                      ".".format(func_name, func_id))
+        _, func_name = get_func_name(self.func, resolv_alias=False)
         if self.invalidate_on_code_change:
+            if self._verbose > 10:
+                self.warn("Function {0} (identified by {1}) has changed"
+                          ", clearing cache.".format(func_name, func_id))
             self.clear(warn=True)
             return False
         else:
+            if self._verbose > 10:
+                self.warn("Function {0} (identified by {1}) has changed"
+                          ", you should consider clearing the cache."
+                          .format(func_name, func_id))
             return True
 
     def clear(self, warn=True):
