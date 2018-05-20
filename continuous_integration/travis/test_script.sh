@@ -22,7 +22,7 @@ fi
 if [[ "$SKLEARN_TESTS" == "true" ]]; then
     # Install scikit-learn from conda, patch it to use this version of joblib
     # and run the scikit-learn tests with pytest.
-    conda install --yes scikit-learn nose
+    conda install --yes scikit-learn==0.19.1 nose scipy==1.0.1
     export SKLEARN=`python -c "import sklearn; print(sklearn.__path__[0])"`
     cp $TRAVIS_BUILD_DIR/continuous_integration/travis/copy_joblib.sh $SKLEARN/externals
     (cd $SKLEARN/externals && bash copy_joblib.sh $TRAVIS_BUILD_DIR)
