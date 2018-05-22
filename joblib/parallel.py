@@ -904,10 +904,10 @@ Sub-process traceback:
         self.n_dispatched_batches = 0
         self.n_dispatched_tasks = 0
         self.n_completed_tasks = 0
-        # Use a caching dict for callable that are pickled with cloudpickle to
+        # Use a caching dict for callables that are pickled with cloudpickle to
         # improve performances. This cache is used only in the case of
-        # functions that are defined in the __main__ module, function that are
-        # defined locally (inside another function) and lambda expression.
+        # functions that are defined in the __main__ module, functions that are
+        # defined locally (inside another function) and lambda expressions.
         self._pickle_cache = dict()
         try:
             # Only set self._iterating to True if at least a batch
