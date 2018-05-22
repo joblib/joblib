@@ -175,10 +175,11 @@ class CloudpickledObjectWrapper(object):
 class BatchedCalls(object):
     """Wrap a sequence of (func, args, kwargs) tuples as a single callable"""
 
-    def __init__(self, iterator_slice, backend):
+    def __init__(self, iterator_slice, backend, pickle_cache):
         self.items = list(iterator_slice)
         self._size = len(self.items)
         self._backend = backend
+        self._pickle_cache = pickle_cache
 
     def __call__(self):
         with parallel_backend(self._backend):
@@ -189,7 +190,7 @@ class BatchedCalls(object):
         return self._size
 
     @staticmethod
-    def _wrap_non_picklable_objects(obj):
+    def _wrap_non_picklable_objects(obj, pickle_cache):
         need_wrap = "__main__" in getattr(obj, "__module__", "")
         if callable(obj):
             # Need wrap if the object is a local function
@@ -201,13 +202,18 @@ class BatchedCalls(object):
             need_wrap |= "<lambda>" in func_name
 
         if need_wrap:
-            return CloudpickledObjectWrapper(obj)
+            if obj in pickle_cache:
+                return pickle_cache[obj]
+            wrapped_obj = CloudpickledObjectWrapper(obj)
+            pickle_cache[obj] = wrapped_obj
+            return wrapped_obj
         return obj
 
     def __getstate__(self):
-        items = [(self._wrap_non_picklable_objects(func),
-                  [self._wrap_non_picklable_objects(a) for a in args],
-                  {k: self._wrap_non_picklable_objects(a)
+        items = [(self._wrap_non_picklable_objects(func, self._pickle_cache),
+                  [self._wrap_non_picklable_objects(a, self._pickle_cache)
+                   for a in args],
+                  {k: self._wrap_non_picklable_objects(a, self._pickle_cache)
                    for k, a in kwargs.items()}
                   )
                  for func, args, kwargs in self.items]
@@ -737,7 +743,8 @@ class Parallel(Logger):
 
         with self._lock:
             tasks = BatchedCalls(itertools.islice(iterator, batch_size),
-                                 self._backend.get_nested_backend())
+                                 self._backend.get_nested_backend(),
+                                 self._pickle_cache)
             if len(tasks) == 0:
                 # No more tasks available in the iterator: tell caller to stop.
                 return False
@@ -895,6 +902,11 @@ Sub-process traceback:
         self.n_dispatched_batches = 0
         self.n_dispatched_tasks = 0
         self.n_completed_tasks = 0
+        # Use a caching dict for callable that are pickled with cloudpickle to
+        # improve performances. This cache is used only in the case of
+        # functions that are defined in the __main__ module, function that are
+        # defined locally (inside another function) and lambda expression.
+        self._pickle_cache = dict()
         try:
             # Only set self._iterating to True if at least a batch
             # was dispatched. In particular this covers the edge
@@ -927,6 +939,7 @@ Sub-process traceback:
             if not self._managed_backend:
                 self._terminate_backend()
             self._jobs = list()
+            self._pickle_cache = None
         output = self._output
         self._output = None
         return output
