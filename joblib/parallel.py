@@ -12,6 +12,7 @@ import sys
 from math import sqrt
 import functools
 import time
+import inspect
 import threading
 import itertools
 from numbers import Integral
@@ -163,13 +164,22 @@ else:
     DEFAULT_MP_CONTEXT = None
 
 
+class CloudpickledObjectWrapper(object):
+    def __init__(self, obj):
+        self.pickled_obj = dumps(obj)
+
+    def __reduce__(self):
+        return loads, (self.pickled_obj,)
+
+
 class BatchedCalls(object):
     """Wrap a sequence of (func, args, kwargs) tuples as a single callable"""
 
-    def __init__(self, iterator_slice, backend):
+    def __init__(self, iterator_slice, backend, pickle_cache):
         self.items = list(iterator_slice)
         self._size = len(self.items)
         self._backend = backend
+        self._pickle_cache = pickle_cache
 
     def __call__(self):
         with parallel_backend(self._backend):
@@ -179,15 +189,40 @@ class BatchedCalls(object):
     def __len__(self):
         return self._size
 
+    @staticmethod
+    def _wrap_non_picklable_objects(obj, pickle_cache):
+        need_wrap = "__main__" in getattr(obj, "__module__", "")
+        if callable(obj):
+            # Need wrap if the object is a function defined in a local scope of
+            # another function.
+            func_code = getattr(obj, "__code__", "")
+            need_wrap |= getattr(func_code, "co_flags", 0) & inspect.CO_NESTED
+
+            # Need wrap if the obj is a lambda expression
+            func_name = getattr(obj, "__name__", "")
+            need_wrap |= "<lambda>" in func_name
+
+        if not need_wrap:
+            return obj
+
+        wrapped_obj = pickle_cache.get(obj)
+        if wrapped_obj is None:
+            wrapped_obj = CloudpickledObjectWrapper(obj)
+            pickle_cache[obj] = wrapped_obj
+        return wrapped_obj
+
     def __getstate__(self):
-        items = [(dumps(func), args, kwargs)
+        items = [(self._wrap_non_picklable_objects(func, self._pickle_cache),
+                  [self._wrap_non_picklable_objects(a, self._pickle_cache)
+                   for a in args],
+                  {k: self._wrap_non_picklable_objects(a, self._pickle_cache)
+                   for k, a in kwargs.items()}
+                  )
                  for func, args, kwargs in self.items]
         return (items, self._size, self._backend)
 
     def __setstate__(self, state):
-        items, self._size, self._backend = state
-        self.items = [(loads(func), args, kwargs)
-                      for func, args, kwargs in items]
+        self.items, self._size, self._backend = state
 
 
 ###############################################################################
@@ -710,7 +745,8 @@ class Parallel(Logger):
 
         with self._lock:
             tasks = BatchedCalls(itertools.islice(iterator, batch_size),
-                                 self._backend.get_nested_backend())
+                                 self._backend.get_nested_backend(),
+                                 self._pickle_cache)
             if len(tasks) == 0:
                 # No more tasks available in the iterator: tell caller to stop.
                 return False
@@ -868,6 +904,11 @@ Sub-process traceback:
         self.n_dispatched_batches = 0
         self.n_dispatched_tasks = 0
         self.n_completed_tasks = 0
+        # Use a caching dict for callables that are pickled with cloudpickle to
+        # improve performances. This cache is used only in the case of
+        # functions that are defined in the __main__ module, functions that are
+        # defined locally (inside another function) and lambda expressions.
+        self._pickle_cache = dict()
         try:
             # Only set self._iterating to True if at least a batch
             # was dispatched. In particular this covers the edge
@@ -900,6 +941,7 @@ Sub-process traceback:
             if not self._managed_backend:
                 self._terminate_backend()
             self._jobs = list()
+            self._pickle_cache = None
         output = self._output
         self._output = None
         return output
