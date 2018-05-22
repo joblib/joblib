@@ -786,7 +786,37 @@ def test_no_blas_crash_or_freeze_with_subprocesses(backend):
         delayed(np.dot)(a, a.T) for i in range(2))
 
 
-UNPICKLABLE_CALLABLE_SCRIPT_TEMPLATE = """\
+UNPICKLABLE_CALLABLE_SCRIPT_TEMPLATE_NO_MAIN = """\
+from joblib import Parallel, delayed
+
+def square(x):
+    return x ** 2
+
+backend = "{}"
+if backend == "spawn":
+    from multiprocessing import get_context
+    backend = get_context(backend)
+
+print(Parallel(n_jobs=2, backend=backend)(
+      delayed(square)(i) for i in range(5)))
+"""
+
+
+@with_multiprocessing
+@with_multiprocessing
+@parametrize('backend', PROCESS_BACKENDS +
+             ([] if sys.version_info[:2] < (3, 4) or mp is None
+              else ['spawn']))
+def test_parallel_with_interactively_defined_functions(backend):
+    # When using the "-c" flag, interactive functions defined in __main__
+    # should work with any backend.
+    code = UNPICKLABLE_CALLABLE_SCRIPT_TEMPLATE_NO_MAIN.format(backend)
+    check_subprocess_call(
+        [sys.executable, '-c', code], timeout=2,
+        stdout_regex=r'\[0, 1, 4, 9, 16\]')
+
+
+UNPICKLABLE_CALLABLE_SCRIPT_TEMPLATE_MAIN = """\
 from joblib import Parallel, delayed
 
 def run(f, x):
@@ -799,8 +829,8 @@ if __name__ == "__main__":
     if backend == "spawn":
         from multiprocessing import get_context
         backend = get_context(backend)
-    callable_position = "{}"
 
+    callable_position = "{}"
     if callable_position == "delayed":
         print(Parallel(n_jobs=2, backend=backend)(
                 delayed(square)(i) for i in range(5)))
@@ -836,9 +866,7 @@ square = lambda x: x ** 2
 @parametrize('callable_position', ['delayed', 'args', 'kwargs'])
 def test_parallel_with_unpicklable_functions_in_args(
         backend, define_func, callable_position, tmpdir):
-    # When using the "-c" flag, interactive functions defined in __main__
-    # should work with any backend.
-    code = UNPICKLABLE_CALLABLE_SCRIPT_TEMPLATE.format(
+    code = UNPICKLABLE_CALLABLE_SCRIPT_TEMPLATE_MAIN.format(
         define_func, backend, callable_position)
     code_file = tmpdir.join("unpicklable_func_script.py")
     code_file.write(code)
