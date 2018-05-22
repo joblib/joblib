@@ -789,40 +789,10 @@ def test_no_blas_crash_or_freeze_with_subprocesses(backend):
 CUSTOM_BACKEND_SCRIPT_TEMPLATE = """\
 from joblib import Parallel, delayed
 
-def square(x):
-    return x**2
-
-backend = "{}"
-if backend == "spawn":
-    from multiprocessing import get_context
-    backend = get_context(backend)
-
-print(Parallel(n_jobs=2, backend=backend)(
-        delayed(square)(i) for i in range(5)))
-"""
-
-
-@with_multiprocessing
-@parametrize('backend', PROCESS_BACKENDS +
-             ([] if sys.version_info[:2] < (3, 4) or mp is None
-              else ['spawn']))
-def test_parallel_with_interactively_defined_functions(backend):
-    # When using the "-c" flag, interactive functions defined in __main__
-    # should work with any backend.
-    code = CUSTOM_BACKEND_SCRIPT_TEMPLATE.format(backend)
-    check_subprocess_call([sys.executable, '-c', code],
-                          stdout_regex=r'\[0, 1, 4, 9, 16\]',
-                          timeout=2)
-
-
-CUSTOM_BACKEND_SCRIPT_TEMPLATE_ARGS = """\
-from joblib import Parallel, delayed
-
 def run(f, x):
     return f(x)
 
-def square(x):
-    return x**2
+{}
 
 backend = "{}"
 if backend == "spawn":
@@ -835,15 +805,31 @@ print(Parallel(n_jobs=2, backend=backend)(
         delayed(run)(f=square, x=i) for i in range(5)))
 """
 
+SQUARE_MAIN = """\
+def square(x):
+    return x ** 2
+"""
+SQUARE_LOCAL = """\
+def gen_square():
+    def square(x):
+        return x ** 2
+    return square
+square = gen_square()
+"""
+SQUARE_LAMBDA = """\
+square = lambda x: x ** 2
+"""
+
 
 @with_multiprocessing
 @parametrize('backend', PROCESS_BACKENDS +
              ([] if sys.version_info[:2] < (3, 4) or mp is None
               else ['spawn']))
-def test_parallel_with_interactively_defined_functions_in_args(backend):
+@parametrize('define_func', [SQUARE_MAIN, SQUARE_LOCAL, SQUARE_LAMBDA])
+def test_parallel_with_unpicklable_functions_in_args(backend, define_func):
     # When using the "-c" flag, interactive functions defined in __main__
     # should work with any backend.
-    code = CUSTOM_BACKEND_SCRIPT_TEMPLATE_ARGS.format(backend)
+    code = CUSTOM_BACKEND_SCRIPT_TEMPLATE.format(define_func, backend)
     check_subprocess_call(
         [sys.executable, '-c', code], timeout=2,
         stdout_regex=r'\[0, 1, 4, 9, 16\]\s{1,2}\[0, 1, 4, 9, 16\]')
