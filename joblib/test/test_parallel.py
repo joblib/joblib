@@ -812,7 +812,7 @@ def test_parallel_with_interactively_defined_functions(backend):
     # should work with any backend.
     code = UNPICKLABLE_CALLABLE_SCRIPT_TEMPLATE_NO_MAIN.format(backend)
     check_subprocess_call(
-        [sys.executable, '-c', code], timeout=2,
+        [sys.executable, '-c', code], timeout=10,
         stdout_regex=r'\[0, 1, 4, 9, 16\]')
 
 
@@ -871,7 +871,7 @@ def test_parallel_with_unpicklable_functions_in_args(
     code_file = tmpdir.join("unpicklable_func_script.py")
     code_file.write(code)
     check_subprocess_call(
-        [sys.executable, code_file.strpath], timeout=2,
+        [sys.executable, code_file.strpath], timeout=10,
         stdout_regex=r'\[0, 1, 4, 9, 16\]')
 
 
