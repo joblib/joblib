@@ -786,7 +786,7 @@ def test_no_blas_crash_or_freeze_with_subprocesses(backend):
         delayed(np.dot)(a, a.T) for i in range(2))
 
 
-CUSTOM_BACKEND_SCRIPT_TEMPLATE = """\
+UNPICKLABLE_CALLABLE_SCRIPT_TEMPLATE = """\
 from joblib import Parallel, delayed
 
 def run(f, x):
@@ -794,15 +794,22 @@ def run(f, x):
 
 {}
 
-backend = "{}"
-if backend == "spawn":
-    from multiprocessing import get_context
-    backend = get_context(backend)
+if __name__ == "__main__":
+    backend = "{}"
+    if backend == "spawn":
+        from multiprocessing import get_context
+        backend = get_context(backend)
+    callable_position = "{}"
 
-print(Parallel(n_jobs=2, backend=backend)(
-        delayed(run)(square, i) for i in range(5)))
-print(Parallel(n_jobs=2, backend=backend)(
-        delayed(run)(f=square, x=i) for i in range(5)))
+    if callable_position == "delayed":
+        print(Parallel(n_jobs=2, backend=backend)(
+                delayed(square)(i) for i in range(5)))
+    elif callable_position == "args":
+        print(Parallel(n_jobs=2, backend=backend)(
+                delayed(run)(square, i) for i in range(5)))
+    else:
+        print(Parallel(n_jobs=2, backend=backend)(
+                delayed(run)(f=square, x=i) for i in range(5)))
 """
 
 SQUARE_MAIN = """\
@@ -826,13 +833,18 @@ square = lambda x: x ** 2
              ([] if sys.version_info[:2] < (3, 4) or mp is None
               else ['spawn']))
 @parametrize('define_func', [SQUARE_MAIN, SQUARE_LOCAL, SQUARE_LAMBDA])
-def test_parallel_with_unpicklable_functions_in_args(backend, define_func):
+@parametrize('callable_position', ['delayed', 'args', 'kwargs'])
+def test_parallel_with_unpicklable_functions_in_args(
+        backend, define_func, callable_position, tmpdir):
     # When using the "-c" flag, interactive functions defined in __main__
     # should work with any backend.
-    code = CUSTOM_BACKEND_SCRIPT_TEMPLATE.format(define_func, backend)
+    code = UNPICKLABLE_CALLABLE_SCRIPT_TEMPLATE.format(
+        define_func, backend, callable_position)
+    code_file = tmpdir.join("unpicklable_func_script.py")
+    code_file.write(code)
     check_subprocess_call(
-        [sys.executable, '-c', code], timeout=2,
-        stdout_regex=r'\[0, 1, 4, 9, 16\]\s{1,2}\[0, 1, 4, 9, 16\]')
+        [sys.executable, code_file.strpath], timeout=2,
+        stdout_regex=r'\[0, 1, 4, 9, 16\]')
 
 
 DEFAULT_BACKEND_SCRIPT_CONTENT = """\
@@ -847,6 +859,9 @@ from joblib import Parallel, delayed
 
 def square(x):
     return x ** 2
+
+# Here, we do not need the `if __name__ == "__main__":` safeguard when
+# using the default `loky` backend (even on Windows).
 print(Parallel(n_jobs=2)(delayed(square)(i) for i in range(5)))
 """.format(joblib_root_folder=os.path.dirname(
     os.path.dirname(joblib.__file__)))
