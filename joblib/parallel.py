@@ -64,7 +64,7 @@ def _register_dask():
         msg = ("To use the dask.distributed backend you must install both "
                "the `dask` and distributed modules.\n\n"
                "See http://dask.pydata.org/en/latest/install.html for more "
-               "information."
+               "information.")
         raise ImportError(msg)
 
 

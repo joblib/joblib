@@ -179,13 +179,14 @@ A problem exists that external packages that register new parallel backends
 must now be imported explicitly for their backends to be identified by joblib::
 
    >>> import joblib
-   >>> with joblib.parallel_backend('custom'):
-       ...  # this fails
-    KeyError: 'custom' does not exist in BACKENDS
+   >>> with joblib.parallel_backend('custom'):  # doctest: +SKIP
+   ...     ...  # this fails
+   KeyError: 'custom'
 
-   >>> import my_custom_backend_library  # Register external joblib
-   >>> with joblib.parallel_backend('custom'):
-       ...  # this works
+   # Import library to register external backend
+   >>> import my_custom_backend_library  # doctest: +SKIP
+   >>> with joblib.parallel_backend('custom'):  # doctest: +SKIP
+   ...     ... # this works
 
 This can be confusing for users.  To resolve this, external packages can
 safely register their backends directly within the joblib codebase by creating
