@@ -59,7 +59,7 @@ from joblib.parallel import Parallel, delayed
 from joblib.parallel import register_parallel_backend, parallel_backend
 from joblib.parallel import effective_n_jobs, cpu_count
 
-from joblib.parallel import mp, BACKENDS, DEFAULT_BACKEND
+from joblib.parallel import mp, BACKENDS, DEFAULT_BACKEND, EXTERNAL_BACKENDS
 from joblib.my_exceptions import JoblibException
 
 
@@ -1215,3 +1215,13 @@ def test_global_parallel_backend():
 
     pb.unregister()
     assert type(Parallel()._backend) is type(default)
+
+
+def test_external_backends():
+    def register_foo():
+        BACKENDS['foo'] = ThreadingBackend
+
+    EXTERNAL_BACKENDS['foo'] = register_foo
+
+    with parallel_backend('foo'):
+        assert isinstance(Parallel()._backend, ThreadingBackend)

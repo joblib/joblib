@@ -20,16 +20,13 @@ orchestrate well the computation.
 ###############################################################################
 # Setup the distributed client
 ###############################################################################
-from distributed import Client
-# Typically, to execute on a remote machine, the address of the scheduler
-# would go there
-client = Client()
+from dask.distributed import Client
 
-# Recover the address
-address = client.scheduler_info()['address']
+# If you have a remote cluster running Dask
+# client = Client('tcp://scheduler-address:8786')
 
-# This import registers the dask.distributed backend for joblib
-import distributed.joblib  # noqa
+# If you want Dask to set itself up on your personal computer
+client = Client(processes=False)
 
 ###############################################################################
 # Run parallel computation using dask.distributed
@@ -47,11 +44,11 @@ def long_running_function(i):
 ###############################################################################
 # The verbose messages below show that the backend is indeed the
 # dask.distributed one
-with joblib.parallel_backend('dask.distributed', scheduler_host=address):
-    joblib.Parallel(n_jobs=2, verbose=100)(
+with joblib.parallel_backend('dask'):
+    joblib.Parallel(verbose=100)(
         joblib.delayed(long_running_function)(i)
         for i in range(10))
 
 ###############################################################################
 # Progress in computation can be followed on the distributed web
-# interface, see http://distributed.readthedocs.io/en/latest/web.html
+# interface, see http://dask.pydata.org/en/latest/diagnostics-distributed.html

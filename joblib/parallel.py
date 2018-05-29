@@ -42,7 +42,6 @@ BACKENDS = {
     'sequential': SequentialBackend,
     'loky': LokyBackend,
 }
-
 # name of the backend used by default by Parallel outside of any context
 # managed by ``parallel_backend``.
 DEFAULT_BACKEND = 'loky'
@@ -55,6 +54,23 @@ _backend = threading.local()
 
 VALID_BACKEND_HINTS = ('processes', 'threads', None)
 VALID_BACKEND_CONSTRAINTS = ('sharedmem', None)
+
+
+def _register_dask():
+    """ Register Dask Backend if called with parallel_backend("dask") """
+    try:
+        import distributed.joblib  # noqa: #F401
+    except ImportError:
+        msg = ("To use the dask.distributed backend you must install both "
+               "the `dask` and distributed modules.\n\n"
+               "See http://dask.pydata.org/en/latest/install.html for more "
+               "information.")
+        raise ImportError(msg)
+
+
+EXTERNAL_BACKENDS = {
+    'dask': _register_dask,
+}
 
 
 def get_active_backend(prefer=None, require=None, verbose=0):
@@ -131,6 +147,10 @@ class parallel_backend(object):
     """
     def __init__(self, backend, n_jobs=-1, **backend_params):
         if isinstance(backend, _basestring):
+            if backend not in BACKENDS and backend in EXTERNAL_BACKENDS:
+                register = EXTERNAL_BACKENDS[backend]
+                register()
+
             backend = BACKENDS[backend](**backend_params)
 
         self.old_backend_and_jobs = getattr(_backend, 'backend_and_jobs', None)

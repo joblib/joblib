@@ -175,6 +175,36 @@ uses :class:`joblib.Parallel` internally while not exposing the ``backend``
 argument in its own API.
 
 
+A problem exists that external packages that register new parallel backends
+must now be imported explicitly for their backends to be identified by joblib::
+
+   >>> import joblib
+   >>> with joblib.parallel_backend('custom'):  # doctest: +SKIP
+   ...     ...  # this fails
+   KeyError: 'custom'
+
+   # Import library to register external backend
+   >>> import my_custom_backend_library  # doctest: +SKIP
+   >>> with joblib.parallel_backend('custom'):  # doctest: +SKIP
+   ...     ... # this works
+
+This can be confusing for users.  To resolve this, external packages can
+safely register their backends directly within the joblib codebase by creating
+a small function that registers their backend, and including this function
+within the ``joblib.parallel.EXTERNAL_PACKAGES`` dictionary::
+
+   def _register_custom():
+       try:
+           import my_custom_library
+       except ImportError:
+           raise ImportError("an informative error message")
+
+   EXTERNAL_BACKENDS['custom'] = _register_custom
+
+This is subject to community review, but can reduce the confusion for users
+when relying on side effects of external package imports.
+
+
 Old multiprocessing backend
 ===========================
 
