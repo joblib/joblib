@@ -6,6 +6,7 @@ import gc
 import os
 import sys
 import warnings
+import weakref
 import threading
 import functools
 import contextlib
@@ -184,8 +185,9 @@ class PoolManagerMixin(object):
 
     def apply_async(self, func, callback=None):
         """Schedule a func to be run"""
-        return self._get_pool().apply_async(
+        out = self._get_pool().apply_async(
             SafeFunction(func), callback=callback)
+        return(out)
 
     def abort_everything(self, ensure_ready=True):
         """Shutdown the pool and restart a new one with the same parameters"""
@@ -288,6 +290,12 @@ class AutoBatchingMixin(object):
         self._smoothed_batch_duration = self._DEFAULT_SMOOTHED_BATCH_DURATION
 
 
+# A global thread pool
+_thread_pool = None
+# The set of backends that are using the global thread pool
+_thread_pool_users = weakref.WeakSet()
+
+
 class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
     """A ParallelBackend which will use a thread pool to execute batches in.
 
@@ -307,6 +315,15 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
     uses_threads = True
     supports_sharedmem = True
 
+    def effective_n_jobs(self, n_jobs):
+        if len(_thread_pool_users) > 2 * cpu_count():
+            # Don't span new threads if there are already many running
+            # This will fallback to SequentialBackend in the configure
+            # method
+            # This is necessary to avoid fork bombs
+            return 1
+        return super(ThreadingBackend, self).effective_n_jobs(n_jobs)
+
     def configure(self, n_jobs=1, parallel=None, **backend_args):
         """Build a process or thread pool and return the number of workers"""
         n_jobs = self.effective_n_jobs(n_jobs)
@@ -320,12 +337,38 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
     def _get_pool(self):
         """Lazily initialize the thread pool
 
-        The actual pool of worker threads is only initialized at the first
+        The actual pool of worker threads is shared across
+        ThreadingBackends in a process and only initialized at the first
         call to apply_async.
         """
-        if self._pool is None:
-            self._pool = ThreadPool(self._n_jobs)
-        return self._pool
+        global _thread_pool
+        global _thread_pool_users
+        if _thread_pool is None:
+            # We need to create a thread pool
+            _thread_pool = ThreadPool(self._n_jobs)
+            # We own it. It is our responsability to close it
+            self._pool = _thread_pool
+        else:
+            # Try to get more jobs
+            # The code below is accessing multiprocessing private API
+            max_processes = cpu_count() + len(_thread_pool_users)
+            if _thread_pool._processes < max_processes:
+                _thread_pool._processes = min(max_processes,
+                    _thread_pool._processes + self._n_jobs)
+                _thread_pool._repopulate_pool()
+        _thread_pool_users.add(self)
+        return _thread_pool
+
+    def terminate(self):
+        """Shutdown the process or thread pool"""
+        if self._pool is not None:
+            super(ThreadingBackend, self).terminate()
+            global _thread_pool
+            _thread_pool = None
+        try:
+            _thread_pool_users.remove(self)
+        except KeyError:
+            pass
 
 
 class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,

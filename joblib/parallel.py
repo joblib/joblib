@@ -599,7 +599,7 @@ class Parallel(Logger):
 
     '''
     def __init__(self, n_jobs=None, backend=None, verbose=0, timeout=None,
-                 pre_dispatch='2 * n_jobs', batch_size='auto',
+                 pre_dispatch='n_jobs', batch_size='auto',
                  temp_folder=None, max_nbytes='1M', mmap_mode='r',
                  prefer=None, require=None):
         active_backend, context_n_jobs = get_active_backend(
