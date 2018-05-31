@@ -61,6 +61,7 @@ from joblib.parallel import effective_n_jobs, cpu_count
 
 from joblib.parallel import mp, BACKENDS, DEFAULT_BACKEND, EXTERNAL_BACKENDS
 from joblib.my_exceptions import JoblibException
+from joblib.testing import raises
 
 
 ALL_VALID_BACKENDS = [None] + sorted(BACKENDS.keys())
@@ -1225,3 +1226,17 @@ def test_external_backends():
 
     with parallel_backend('foo'):
         assert isinstance(Parallel()._backend, ThreadingBackend)
+
+
+def _recursive_parallel():
+    # A horrible function that does recursive parallelist
+    Parallel()(delayed(_recursive_parallel)() for i in range(2))
+
+
+def test_fork_bomp():
+    # Test that recursive parallelism raises a recursion error
+    with parallel_backend('threading', n_jobs=-1):
+        with raises(RuntimeError) as excinfo:
+            _recursive_parallel()
+        assert 'maximum recursion' in str(excinfo.value)
+
