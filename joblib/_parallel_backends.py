@@ -26,6 +26,9 @@ if mp is not None:
     from multiprocessing import TimeoutError
     from .externals.loky._base import TimeoutError as LokyTimeoutError
     from .externals.loky import process_executor, cpu_count
+else:
+    def cpu_count():
+        return(1)
 
 
 class ParallelBackendBase(with_metaclass(ABCMeta)):
