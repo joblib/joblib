@@ -298,6 +298,22 @@ _thread_pool = None
 # The set of backends that are using the global thread pool
 _thread_pool_users = weakref.WeakSet()
 
+class SafeThreadPool(ThreadPool):
+    " A ThreadPool that can repopulate in a thread safe way."
+
+    _repopulate_lock = threading.Lock()
+
+    def _maintain_pool(self):
+        # _maintain_pool is called every .1s in the pool's handler thread,
+        # that is there to maintain the quality of the pool
+        # _maintain_pool calls _repopulate_pool internally
+        with self._repopulate_lock:
+            super(ThreadPool, self)._maintain_pool()
+
+    def repopulate_pool(self):
+        with self._repopulate_lock:
+            super(ThreadPool, self)._repopulate_pool()
+
 
 class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
     """A ParallelBackend which will use a thread pool to execute batches in.
@@ -348,7 +364,7 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
         global _thread_pool_users
         if _thread_pool is None:
             # We need to create a thread pool
-            _thread_pool = ThreadPool(self._n_jobs)
+            _thread_pool = SafeThreadPool(self._n_jobs)
             # We own it. It is our responsability to close it
             self._pool = _thread_pool
         else:
@@ -358,7 +374,7 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
             if _thread_pool._processes < max_processes:
                 _thread_pool._processes = min(max_processes,
                     _thread_pool._processes + self._n_jobs)
-                _thread_pool._repopulate_pool()
+                _thread_pool.repopulate_pool()
         _thread_pool_users.add(self)
         return _thread_pool
 
