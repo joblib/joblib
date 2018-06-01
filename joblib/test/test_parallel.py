@@ -1235,15 +1235,11 @@ def _recursive_parallel():
 
 def test_fork_bomp():
     # Test that recursive parallelism raises a recursion error
-    if sys.version_info[0] > 2 and sys.version_info[1] > 4:
-        # RecursionError is new in 3.5
-        excp = (JoblibException, RecursionError)
-    else:
-        excp = (JoblibException, RuntimeError)
     # Depending on whether the exception is raised in the main thread
-    # or in a slave thread one exception or the other is raised
+    # or in a slave thread and the version of Python one exception org
+    # another is raised
     with parallel_backend('threading', n_jobs=-1):
-        with raises(excp) as excinfo:
+        with raises(Exception) as excinfo:
             _recursive_parallel()
         assert 'maximum recursion' in str(excinfo.value)
 
