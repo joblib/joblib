@@ -901,7 +901,8 @@ Sub-process traceback:
             n_jobs = self._effective_n_jobs()
         self._print("Using backend %s with %d concurrent workers.",
                     (self._backend.__class__.__name__, n_jobs))
-
+        if hasattr(self._backend, 'start_call'):
+            self._backend.start_call()
         iterator = iter(iterable)
         pre_dispatch = self.pre_dispatch
 
@@ -958,6 +959,8 @@ Sub-process traceback:
                         (len(self._output), len(self._output),
                          short_format_time(elapsed_time)))
         finally:
+            if hasattr(self._backend, 'stop_call'):
+                self._backend.stop_call()
             if not self._managed_backend:
                 self._terminate_backend()
             self._jobs = list()

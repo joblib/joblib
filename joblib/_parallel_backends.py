@@ -64,6 +64,12 @@ class ParallelBackendBase(with_metaclass(ABCMeta)):
         self.parallel = parallel
         return self.effective_n_jobs(n_jobs)
 
+    def start_call(self):
+        """Call-back method called at the beginning of a Parallel call"""
+
+    def stop_call(self):
+        """Call-back method called at the end of a Parallel call"""
+
     def terminate(self):
         """Shutdown the workers and free the shared memory."""
 
