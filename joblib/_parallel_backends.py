@@ -45,7 +45,7 @@ if mp is not None:
 
 else:
     def cpu_count():
-        return(1)
+        return 1
 
 
 class ParallelBackendBase(with_metaclass(ABCMeta)):
@@ -205,9 +205,8 @@ class PoolManagerMixin(object):
 
     def apply_async(self, func, callback=None):
         """Schedule a func to be run"""
-        out = self._get_pool().apply_async(
+        return self._get_pool().apply_async(
             SafeFunction(func), callback=callback)
-        return(out)
 
     def abort_everything(self, ensure_ready=True):
         """Shutdown the pool and restart a new one with the same parameters"""
@@ -339,8 +338,8 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
         if len(_thread_pool_users) > 2 * cpu_count():
             # Don't span new threads if there are already many running
             # This will fallback to SequentialBackend in the configure
-            # method
-            # This is necessary to avoid fork bombs
+            # method.
+            # This is necessary to avoid thread bombs
             return 1
         return super(ThreadingBackend, self).effective_n_jobs(n_jobs)
 
