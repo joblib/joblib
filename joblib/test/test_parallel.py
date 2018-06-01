@@ -1236,7 +1236,7 @@ def _recursive_parallel():
 def test_fork_bomp():
     # Test that recursive parallelism raises a recursion error
     with parallel_backend('threading', n_jobs=-1):
-        with raises(RuntimeError) as excinfo:
+        with raises(JoblibException) as excinfo:
             _recursive_parallel()
         assert 'maximum recursion' in str(excinfo.value)
 
