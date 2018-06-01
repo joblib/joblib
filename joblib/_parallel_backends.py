@@ -26,6 +26,23 @@ if mp is not None:
     from multiprocessing import TimeoutError
     from .externals.loky._base import TimeoutError as LokyTimeoutError
     from .externals.loky import process_executor, cpu_count
+
+    class SafeThreadPool(ThreadPool):
+        " A ThreadPool that can repopulate in a thread safe way."
+
+        _repopulate_lock = threading.Lock()
+
+        def _maintain_pool(self):
+            # _maintain_pool is called every .1s in the pool's handler thread,
+            # that is there to maintain the quality of the pool
+            # _maintain_pool calls _repopulate_pool internally
+            with self._repopulate_lock:
+                super(ThreadPool, self)._maintain_pool()
+
+        def repopulate_pool(self):
+            with self._repopulate_lock:
+                super(ThreadPool, self)._repopulate_pool()
+
 else:
     def cpu_count():
         return(1)
@@ -297,22 +314,6 @@ class AutoBatchingMixin(object):
 _thread_pool = None
 # The set of backends that are using the global thread pool
 _thread_pool_users = weakref.WeakSet()
-
-class SafeThreadPool(ThreadPool):
-    " A ThreadPool that can repopulate in a thread safe way."
-
-    _repopulate_lock = threading.Lock()
-
-    def _maintain_pool(self):
-        # _maintain_pool is called every .1s in the pool's handler thread,
-        # that is there to maintain the quality of the pool
-        # _maintain_pool calls _repopulate_pool internally
-        with self._repopulate_lock:
-            super(ThreadPool, self)._maintain_pool()
-
-    def repopulate_pool(self):
-        with self._repopulate_lock:
-            super(ThreadPool, self)._repopulate_pool()
 
 
 class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
