@@ -1234,12 +1234,13 @@ def _recursive_parallel():
 
 
 def test_fork_bomp():
-    # Test that recursive parallelism raises a recursion error
+    # Test that recursive parallelism raises a recursion rather than
+    # doing a fork bomp
     # Depending on whether the exception is raised in the main thread
     # or in a slave thread and the version of Python one exception org
     # another is raised
     with parallel_backend('threading', n_jobs=-1):
-        with raises(Exception) as excinfo:
+        with raises(BaseException) as excinfo:
             _recursive_parallel()
         assert 'maximum recursion' in str(excinfo.value)
 
