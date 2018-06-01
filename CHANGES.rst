@@ -4,6 +4,13 @@ Latest changes
 Development
 -----------
 
+Gael Varoquaux
+
+    Avoid oversubscription when there are multiple nested parallel loops.
+    As a result the system avoids fork bombs with recursive parallel
+    functions, also it is much more resource friendly in very nested
+    parallel settings.
+
 Elizabeth Sander
 
     Prevent numpy arrays with the same shape and data from hashing to

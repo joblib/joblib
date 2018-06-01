@@ -1240,7 +1240,6 @@ def test_fork_bomp():
     # or in a slave thread and the version of Python one exception org
     # another is raised
     with parallel_backend('threading', n_jobs=-1):
-        with raises(BaseException) as excinfo:
+        with raises(BaseException):
             _recursive_parallel()
-        assert 'maximum recursion' in str(excinfo.value)
 
