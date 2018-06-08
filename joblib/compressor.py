@@ -65,14 +65,14 @@ def register_compressor(compressor_name, compressor,
         raise ValueError("Compressor should implement the CompressorWrapper "
                          "interface, '{}' given.".format(compressor))
 
-    if (compressor.obj is not None and
-            (not hasattr(compressor.obj, 'read') or
-             not hasattr(compressor.obj, 'write') or
-             not hasattr(compressor.obj, 'seek') or
-             not hasattr(compressor.obj, 'tell'))):
-        raise ValueError("Compressor 'obj' attribute should implement the "
-                         "file object interface, '{}' given."
-                         .format(compressor.obj))
+    if (compressor.fileobj_factory is not None and
+            (not hasattr(compressor.fileobj_factory, 'read') or
+             not hasattr(compressor.fileobj_factory, 'write') or
+             not hasattr(compressor.fileobj_factory, 'seek') or
+             not hasattr(compressor.fileobj_factory, 'tell'))):
+        raise ValueError("Compressor 'fileobj_factory' attribute should "
+                         "implement the file object interface, '{}' given."
+                         .format(compressor.fileobj_factory))
 
     if compressor_name in _COMPRESSORS and not force:
         raise ValueError("Compressor '{}' already registered."
@@ -98,31 +98,33 @@ class CompressorWrapper():
     """
 
     def __init__(self, obj, prefix=b'', extension=''):
-        self.obj = obj
+        self.fileobj_factory = obj
         self.prefix = prefix
         self.extension = extension
 
     def compressor_file(self, fileobj, compresslevel=None):
         """Returns an instance of a compressor file object."""
         if compresslevel is None:
-            return self.obj(fileobj, 'wb')
+            return self.fileobj_factory(fileobj, 'wb')
         else:
-            return self.obj(fileobj, 'wb', compresslevel=compresslevel)
+            return self.fileobj_factory(fileobj, 'wb',
+                                        compresslevel=compresslevel)
 
     def decompressor_file(self, fileobj):
         """Returns an instance of a decompressor file object."""
-        return self.obj(fileobj, 'rb')
+        return self.fileobj_factory(fileobj, 'rb')
 
 
 class BZ2CompressorWrapper(CompressorWrapper):
 
+    prefix = _BZ2_PREFIX
+    extension = '.bz2'
+
     def __init__(self):
-        self.prefix = _BZ2_PREFIX
-        self.extension = '.bz2'
         if bz2 is not None:
-            self.obj = bz2.BZ2File
+            self.fileobj_factory = bz2.BZ2File
         else:
-            self.obj = None
+            self.fileobj_factory = None
 
     def _check_versions(self):
         if bz2 is None:
@@ -133,39 +135,43 @@ class BZ2CompressorWrapper(CompressorWrapper):
         """Returns an instance of a compressor file object."""
         self._check_versions()
         if compresslevel is None:
-            return self.obj(fileobj, 'wb')
+            return self.fileobj_factory(fileobj, 'wb')
         else:
-            return self.obj(fileobj, 'wb', compresslevel=compresslevel)
+            return self.fileobj_factory(fileobj, 'wb',
+                                        compresslevel=compresslevel)
 
     def decompressor_file(self, fileobj):
         """Returns an instance of a decompressor file object."""
         self._check_versions()
         if PY3_OR_LATER:
-            fileobj = self.obj(fileobj, 'rb')
+            fileobj = self.fileobj_factory(fileobj, 'rb')
         else:
             # In python 2, BZ2File doesn't support a fileobj opened in
             # binary mode. In this case, we pass the filename.
-            fileobj = self.obj(fileobj.name, 'rb')
+            fileobj = self.fileobj_factory(fileobj.name, 'rb')
         return fileobj
 
 
 class LZMACompressorWrapper(CompressorWrapper):
 
+    prefix = _LZMA_PREFIX
+    extension = '.lzma'
+
     def __init__(self):
-        self.prefix = _LZMA_PREFIX
-        self.extension = '.lzma'
         if lzma is not None:
-            self.obj = lzma.LZMAFile
+            self.fileobj_factory = lzma.LZMAFile
         else:
-            self.obj = None
+            self.fileobj_factory = None
 
     def compressor_file(self, fileobj, compresslevel=None):
         """Returns an instance of a compressor file object."""
         if compresslevel is None:
-            return self.obj(fileobj, 'wb', format=lzma.FORMAT_ALONE)
+            return self.fileobj_factory(fileobj, 'wb',
+                                        format=lzma.FORMAT_ALONE)
         else:
-            return self.obj(fileobj, 'wb', format=lzma.FORMAT_ALONE,
-                            preset=compresslevel)
+            return self.fileobj_factory(fileobj, 'wb',
+                                        format=lzma.FORMAT_ALONE,
+                                        preset=compresslevel)
 
     def decompressor_file(self, fileobj):
         """Returns an instance of a decompressor file object."""
@@ -186,32 +192,34 @@ class LZMACompressorWrapper(CompressorWrapper):
 
 class XZCompressorWrapper(LZMACompressorWrapper):
 
+    prefix = _XZ_PREFIX
+    extension = '.xz'
+
     def __init__(self):
-        self.prefix = _XZ_PREFIX
-        self.extension = '.xz'
         if lzma is not None:
-            self.obj = lzma.LZMAFile
+            self.fileobj_factory = lzma.LZMAFile
         else:
-            self.obj = None
+            self.fileobj_factory = None
 
     def compressor_file(self, fileobj, compresslevel=None):
         """Returns an instance of a compressor file object."""
         if compresslevel is None:
-            return self.obj(fileobj, 'wb', check=lzma.CHECK_NONE)
+            return self.fileobj_factory(fileobj, 'wb', check=lzma.CHECK_NONE)
         else:
-            return self.obj(fileobj, 'wb', check=lzma.CHECK_NONE,
-                            preset=compresslevel)
+            return self.fileobj_factory(fileobj, 'wb', check=lzma.CHECK_NONE,
+                                        preset=compresslevel)
 
 
 class LZ4CompressorWrapper(CompressorWrapper):
 
+    prefix = _LZ4_PREFIX
+    extension = '.lz4'
+
     def __init__(self):
-        self.prefix = _LZ4_PREFIX
-        self.extension = '.lz4'
         if PY3_OR_LATER and lz4 is not None:
-            self.obj = lz4.frame.LZ4FrameFile
+            self.fileobj_factory = lz4.frame.LZ4FrameFile
         else:
-            self.obj = None
+            self.fileobj_factory = None
 
     def _check_versions(self):
         if not PY3_OR_LATER:
@@ -225,14 +233,15 @@ class LZ4CompressorWrapper(CompressorWrapper):
         """Returns an instance of a compressor file object."""
         self._check_versions()
         if compresslevel is None:
-            return self.obj(fileobj, 'wb')
+            return self.fileobj_factory(fileobj, 'wb')
         else:
-            return self.obj(fileobj, 'wb', compression_level=compresslevel)
+            return self.fileobj_factory(fileobj, 'wb',
+                                        compression_level=compresslevel)
 
     def decompressor_file(self, fileobj):
         """Returns an instance of a decompressor file object."""
         self._check_versions()
-        return self.obj(fileobj, 'rb')
+        return self.fileobj_factory(fileobj, 'rb')
 
 
 ###############################################################################

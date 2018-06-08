@@ -952,7 +952,7 @@ def test_register_compressor(tmpdir):
 
     register_compressor(compressor_name, BinaryCompressorTestWrapper())
 
-    assert (_COMPRESSORS[compressor_name].obj ==
+    assert (_COMPRESSORS[compressor_name].fileobj_factory ==
             BinaryCompressorTestFile)
     assert _COMPRESSORS[compressor_name].prefix == compressor_prefix
 
@@ -983,8 +983,8 @@ def test_register_compressor_invalid_fileobj():
     with raises(ValueError) as excinfo:
         register_compressor('invalid', InvalidFileObjectWrapper())
 
-    excinfo.match("Compressor 'obj' attribute should implement the file "
-                  "object interface")
+    excinfo.match("Compressor 'fileobj_factory' attribute should implement "
+                  "the file object interface")
 
 
 class AnotherZlibCompressorWrapper(CompressorWrapper):
@@ -1016,7 +1016,7 @@ def test_register_compressor_already_registered():
                         force=True)
 
     assert compressor_name in _COMPRESSORS
-    assert _COMPRESSORS[compressor_name].obj == gzip.GzipFile
+    assert _COMPRESSORS[compressor_name].fileobj_factory == gzip.GzipFile
 
     # Remove this dummy compressor file from extra compressors because other
     # tests might fail because of this
@@ -1029,7 +1029,7 @@ def test_lz4_compression(tmpdir):
     import lz4.frame
     compressor = 'lz4'
     assert compressor in _COMPRESSORS
-    assert _COMPRESSORS[compressor].obj == lz4.frame.LZ4FrameFile
+    assert _COMPRESSORS[compressor].fileobj_factory == lz4.frame.LZ4FrameFile
 
     fname = tmpdir.join('test.pkl').strpath
     data = 'test data'
