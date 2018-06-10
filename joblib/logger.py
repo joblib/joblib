@@ -19,6 +19,9 @@ import pprint
 
 from .disk import mkdirp
 
+logger = logging.getLogger("joblib")
+logger.addHandler(logging.NullHandler())
+
 
 def _squeeze_time(t):
     """Remove .1s to the time under Windows: this is the time it take to
@@ -74,11 +77,11 @@ class Logger(object):
         self.depth = depth
 
     def warn(self, msg):
-        logging.warning("[%s]: %s" % (self, msg))
+        logger.warning("[%s]: %s" % (self, msg))
 
     def debug(self, msg):
         # XXX: This conflicts with the debug flag used in children class
-        logging.debug("[%s]: %s" % (self, msg))
+        logger.debug("[%s]: %s" % (self, msg))
 
     def format(self, obj, indent=0):
         """ Return the formated representation of the object.
