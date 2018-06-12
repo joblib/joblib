@@ -115,6 +115,10 @@ from .logger import Logger
 from .hashing import hash
 from .numpy_pickle import dump
 from .numpy_pickle import load
+from .numpy_pickle_v2 import dump as dump2
+from .numpy_pickle_v2 import load as load2
+from .numpy_pickle_v2 import dump
+from .numpy_pickle_v2 import load
 from .parallel import Parallel
 from .parallel import delayed
 from .parallel import cpu_count
