@@ -72,8 +72,9 @@ create_new_conda_env
 if [ -n "$NUMPY_VERSION" ]; then
     # We want to ensure no memory copies are performed only when numpy is
     # installed. This also ensures that we don't keep a strong dependency on
-    # memory_profiler.
-    pip install memory_profiler
+    # memory_profiler. We also want to ensure that joblib can be used with and
+    # without lz4 compressor package installed.
+    pip install memory_profiler lz4
 fi
 
 # Install py.test timeout to fasten failure in deadlocking tests

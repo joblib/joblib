@@ -44,6 +44,14 @@ Alexandre Abadie
     The ``cachedir`` parameter of ``Memory`` is now marked as deprecated, use
     ``location`` instead.
 
+    Add support for LZ4 compression if ``lz4`` package is installed.
+
+    Add ``register_compressor`` function for extending available compressors.
+
+    Allow passing a string to ``compress`` parameter in ``dump`` funtion. This
+    string should correspond to the compressor used (e.g. zlib, gzip, lz4,
+    etc). The default compression level is used in this case.
+
 Matthew Rocklin
 
     Allow ``parallel_backend`` to be used globally instead of only as a context
