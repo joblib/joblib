@@ -25,7 +25,7 @@ except ImportError:
 try:
     import lz4
     if PY3_OR_LATER:
-        import lz4.frame
+        from lz4.frame import LZ4FrameFile
 except ImportError:
     lz4 = None
 
@@ -217,7 +217,7 @@ class LZ4CompressorWrapper(CompressorWrapper):
 
     def __init__(self):
         if PY3_OR_LATER and lz4 is not None:
-            self.fileobj_factory = lz4.frame.LZ4FrameFile
+            self.fileobj_factory = LZ4FrameFile
         else:
             self.fileobj_factory = None
 
