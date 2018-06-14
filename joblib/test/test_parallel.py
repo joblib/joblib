@@ -11,6 +11,7 @@ import sys
 import time
 import mmap
 import threading
+from traceback import format_exception
 from math import sqrt
 from time import sleep
 from multiprocessing import TimeoutError
@@ -23,7 +24,7 @@ from joblib.test.common import np, with_numpy
 from joblib.test.common import with_multiprocessing
 from joblib.testing import (parametrize, raises, check_subprocess_call,
                             SkipTest, warns)
-from joblib._compat import PY3_OR_LATER
+from joblib._compat import PY3_OR_LATER, PY27
 
 try:
     import cPickle as pickle
@@ -53,7 +54,6 @@ from joblib._parallel_backends import MultiprocessingBackend
 from joblib._parallel_backends import ParallelBackendBase
 from joblib._parallel_backends import LokyBackend
 from joblib._parallel_backends import SafeFunction
-from joblib._parallel_backends import WorkerInterrupt
 
 from joblib.parallel import Parallel, delayed
 from joblib.parallel import register_parallel_backend, parallel_backend
@@ -61,6 +61,9 @@ from joblib.parallel import effective_n_jobs, cpu_count
 
 from joblib.parallel import mp, BACKENDS, DEFAULT_BACKEND, EXTERNAL_BACKENDS
 from joblib.my_exceptions import JoblibException
+from joblib.my_exceptions import TransportableException
+from joblib.my_exceptions import JoblibValueError
+from joblib.my_exceptions import WorkerInterrupt
 
 
 ALL_VALID_BACKENDS = [None] + sorted(BACKENDS.keys())
@@ -308,9 +311,7 @@ def test_error_capture(backend):
     # Check that error are captured, and that correct exceptions
     # are raised.
     if mp is not None:
-        # A JoblibException will be raised only if there is indeed
-        # multiprocessing
-        with raises(JoblibException):
+        with raises(ZeroDivisionError):
             Parallel(n_jobs=2, backend=backend)(
                 [delayed(division)(x, y)
                     for x, y in zip((0, 1), (1, 0))])
@@ -323,7 +324,7 @@ def test_error_capture(backend):
             assert get_workers(parallel._backend) is not None
             original_workers = get_workers(parallel._backend)
 
-            with raises(JoblibException):
+            with raises(ZeroDivisionError):
                 parallel([delayed(division)(x, y)
                           for x, y in zip((0, 1), (1, 0))])
 
@@ -471,12 +472,51 @@ def test_exception_dispatch():
             delayed(exception_raiser)(i) for i in range(30))
 
 
-def test_nested_exception_dispatch():
-    """Ensure TransportableException objects for nested joblib cases gets
-    propagated."""
-    with raises(JoblibException):
-        Parallel(n_jobs=2, pre_dispatch=16, verbose=0)(
-            delayed(SafeFunction(exception_raiser))(i) for i in range(30))
+@with_multiprocessing
+@parametrize('backend', ['loky', 'multiprocessing', 'threading'])
+def test_nested_exception_dispatch(backend):
+    """Ensure errors for nested joblib cases gets propagated
+
+    For Python 2.7, the TransportableException wrapping and unwrapping should
+    preserve the traceback information of the inner function calls.
+
+    For Python 3, we rely on the built-in __cause__ system that already
+    report this kind of information to the user.
+    """
+    if PY27 and backend == 'multiprocessing':
+        raise SkipTest("Nested parallel calls can deadlock with the python 2.7"
+                       "multiprocessing backend.")
+
+    def nested_function_inner(i):
+        Parallel(n_jobs=2)(
+            delayed(exception_raiser)(j) for j in range(30))
+
+    def nested_function_outer(i):
+        Parallel(n_jobs=2)(
+            delayed(nested_function_inner)(j) for j in range(30))
+
+    with raises(ValueError) as excinfo:
+        Parallel(n_jobs=2, backend=backend)(
+            delayed(nested_function_outer)(i) for i in range(30))
+
+    # Check that important information such as function names are visible
+    # in the final error message reported to the user
+    report_lines = format_exception(excinfo.type, excinfo.value, excinfo.tb)
+    report = "".join(report_lines)
+    assert 'nested_function_outer' in report
+    assert 'nested_function_inner' in report
+    assert 'exception_raiser' in report
+
+    if PY3_OR_LATER:
+        # Under Python 3, there is no need for exception wrapping as the
+        # exception in worker processes are transportable by default and
+        # preserve the necessary information via the `__cause__` attribute.
+        assert type(excinfo.value) is ValueError
+    else:
+        # The wrapping mechanism used to make exception of Python2.7
+        # transportable does not create a JoblibJoblibJoblibValueError
+        # despite the nested calls.
+        assert type(excinfo.value) is JoblibValueError
 
 
 def _reload_joblib():
@@ -703,8 +743,21 @@ def test_joblib_exception():
 
 def test_safe_function():
     safe_division = SafeFunction(division)
-    with raises(JoblibException):
-        safe_division(1, 0)
+    if PY3_OR_LATER:
+        with raises(ZeroDivisionError):
+            safe_division(1, 0)
+    else:
+        # Under Python 2.7, exception are wrapped with a special wrapper
+        # to preserve runtime information of the worker environment.
+        # Python 3 does not need this as it preserve the traceback information
+        # by default.
+        with raises(TransportableException) as excinfo:
+            safe_division(1, 0)
+        assert isinstance(excinfo.value.unwrap(), ZeroDivisionError)
+
+    safe_interrupt = SafeFunction(interrupt_raiser)
+    with raises(WorkerInterrupt):
+        safe_interrupt('x')
 
 
 @parametrize('batch_size', [0, -1, 1.42])
