@@ -509,13 +509,13 @@ def test_nested_exception_dispatch(backend):
 
     if PY3_OR_LATER:
         # Under Python 3, there is no need for exception wrapping as the
-        # exception in worker processes are transportable by default and
-        # preserve the necessary information via the `__cause__` attribute.
+        # exception raised in a worker process is transportable by default and
+        # preserves the necessary information via the `__cause__` attribute.
         assert type(excinfo.value) is ValueError
     else:
         # The wrapping mechanism used to make exception of Python2.7
         # transportable does not create a JoblibJoblibJoblibValueError
-        # despite the nested calls.
+        # despite the 3 nested parallel calls.
         assert type(excinfo.value) is JoblibValueError
 
 
@@ -747,10 +747,9 @@ def test_safe_function():
         with raises(ZeroDivisionError):
             safe_division(1, 0)
     else:
-        # Under Python 2.7, exception are wrapped with a special wrapper
-        # to preserve runtime information of the worker environment.
-        # Python 3 does not need this as it preserve the traceback information
-        # by default.
+        # Under Python 2.7, exception are wrapped with a special wrapper to
+        # preserve runtime information of the worker environment. Python 3 does
+        # not need this as it preserves the traceback information by default.
         with raises(TransportableException) as excinfo:
             safe_division(1, 0)
         assert isinstance(excinfo.value.unwrap(), ZeroDivisionError)
