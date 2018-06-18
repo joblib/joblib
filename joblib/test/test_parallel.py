@@ -957,7 +957,7 @@ def test_parallel_with_interactively_defined_functions_default_backend(tmpdir):
     script.write(DEFAULT_BACKEND_SCRIPT_CONTENT)
     check_subprocess_call([sys.executable, script.strpath],
                           stdout_regex=r'\[0, 1, 4, 9, 16\]',
-                          timeout=2)
+                          timeout=5)
 
 
 def test_parallel_with_exhausted_iterator():
@@ -1044,7 +1044,7 @@ def test_abort_backend(n_jobs, backend):
         Parallel(n_jobs=n_jobs, backend=backend)(
             delayed(time.sleep)(i) for i in delays)
     dt = time.time() - t_start
-    assert dt < 3
+    assert dt < 5
 
 
 @with_numpy
