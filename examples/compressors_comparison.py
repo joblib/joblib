@@ -43,7 +43,7 @@ data = pd.read_csv(url, names=names)
 
 from joblib import dump, load
 
-pickle_file = './pickle_data.pkl'
+pickle_file = './pickle_data.joblib'
 
 ###############################################################################
 # Start by measuring the time spent for dumping the raw data:
