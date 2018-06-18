@@ -78,7 +78,7 @@ if [ -n "$NUMPY_VERSION" ]; then
     # memory_profiler. We also want to ensure that joblib can be used with and
     # without lz4 compressor package installed.
     PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES memory_profiler"
-    if [ "$NUMPY_VERSION" != "1.12" ]; then
+    if [ "$NO_LZ4" != "true" ]; then
         PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES lz4"
     fi
 fi
