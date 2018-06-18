@@ -1296,3 +1296,33 @@ def test_thread_bomb_mitigation():
     with parallel_backend('threading', n_jobs=2):
         with raises(RecursionError):
             _recursive_parallel()
+
+
+@parametrize(
+    'n_tasks_outer, n_tasks_inner, n_jobs_outer, n_jobs_inner, pre_dispatch', [
+        (200, 10, 2, 10, 'all'),
+        (200, 10, 4, 4, 'all'),
+        (200, 10, 10, 2, 'all'),
+        (10, 200, 4, 4, 'all'),
+        (200, 10, 4, 4, 'n_jobs'),
+        (200, 10, 4, 4, '1'),
+        (200, 10, 4, 4, '2 * n_jobs'),
+    ])
+def test_nested_threads_stress(n_tasks_outer, n_tasks_inner,
+                               n_jobs_outer, n_jobs_inner,
+                               pre_dispatch):
+    def inner_func(*args):
+        time.sleep(0.001)
+        return args
+
+    def nested_loop(i):
+        return Parallel(n_jobs=n_jobs_inner, pre_dispatch=pre_dispatch)(
+            delayed(inner_func)(i, j) for j in range(n_tasks_inner))
+
+    results = Parallel(n_jobs=n_jobs_outer, backend='threading',
+                       pre_dispatch=pre_dispatch)(
+        delayed(nested_loop)(i) for i in range(n_tasks_outer))
+
+    expected = [[(i, j) for j in range(n_tasks_inner)]
+                for i in range(n_tasks_outer)]
+    assert results == expected
