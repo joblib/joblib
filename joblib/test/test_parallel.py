@@ -78,6 +78,11 @@ if hasattr(mp, 'get_context'):
 
 DefaultBackend = BACKENDS[DEFAULT_BACKEND]
 
+try:
+    RecursionError
+except NameError:
+    RecursionError = RuntimeError
+
 
 def get_workers(backend):
     return getattr(backend, '_pool', getattr(backend, '_workers', None))
@@ -1280,17 +1285,14 @@ def test_external_backends():
 
 
 def _recursive_parallel():
-    # A horrible function that does recursive parallelist
-    Parallel()(delayed(_recursive_parallel)() for i in range(2))
+    # A horrible function that does recursive parallel calls
+    Parallel(n_jobs=2)(delayed(_recursive_parallel)() for i in range(2))
 
 
-def test_fork_bomp():
+def test_thread_bomb_mitigation():
     # Test that recursive parallelism raises a recursion rather than
-    # doing a fork bomp
-    # Depending on whether the exception is raised in the main thread
-    # or in a slave thread and the version of Python one exception org
-    # another is raised
-    with parallel_backend('threading', n_jobs=-1):
-        with raises(BaseException):
+    # saturating the operating system resources by creating a unbounded number
+    # of threads.
+    with parallel_backend('threading', n_jobs=2):
+        with raises(RecursionError):
             _recursive_parallel()
-
