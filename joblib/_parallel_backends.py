@@ -378,8 +378,8 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
             # The code below is accessing multiprocessing private API
             max_processes = cpu_count() + len(_thread_pool_users)
             if _thread_pool._processes < max_processes:
-                _thread_pool._processes = min(max_processes,
-                    _thread_pool._processes + self._n_jobs)
+                _thread_pool._processes = min(
+                    max_processes, _thread_pool._processes + self._n_jobs)
                 _thread_pool.repopulate_pool()
         _thread_pool_users.add(self)
         return _thread_pool
