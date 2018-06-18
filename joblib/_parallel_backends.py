@@ -15,7 +15,7 @@ from abc import ABCMeta, abstractmethod
 from .format_stack import format_exc
 from .my_exceptions import WorkerInterrupt, TransportableException
 from ._multiprocessing_helpers import mp
-from ._compat import with_metaclass
+from ._compat import with_metaclass, PY27
 if mp is not None:
     from .disk import delete_folder
     from .pool import MemmappingPool
@@ -84,6 +84,12 @@ class ParallelBackendBase(with_metaclass(ABCMeta)):
         """
         self.parallel = parallel
         return self.effective_n_jobs(n_jobs)
+
+    def start_call(self):
+        """Call-back method called at the beginning of a Parallel call"""
+
+    def stop_call(self):
+        """Call-back method called at the end of a Parallel call"""
 
     def terminate(self):
         """Shutdown the workers and free the shared memory."""
@@ -587,10 +593,17 @@ class SafeFunction(object):
             # something different, as multiprocessing does not
             # interrupt processing for a KeyboardInterrupt
             raise WorkerInterrupt()
-        except:
-            e_type, e_value, e_tb = sys.exc_info()
-            text = format_exc(e_type, e_value, e_tb, context=10, tb_offset=1)
-            raise TransportableException(text, e_type)
+        except BaseException:
+            if PY27:
+                # Capture the traceback of the worker to make it part of
+                # the final exception message.
+                e_type, e_value, e_tb = sys.exc_info()
+                text = format_exc(e_type, e_value, e_tb, context=10,
+                                  tb_offset=1)
+                raise TransportableException(text, e_type)
+            else:
+                # Rely on Python 3 built-in Remote Traceback reporting
+                raise
 
 
 class FallbackToBackend(Exception):

@@ -22,7 +22,7 @@ from ._multiprocessing_helpers import mp
 
 from .format_stack import format_outer_frames
 from .logger import Logger, short_format_time
-from .my_exceptions import TransportableException, _mk_exception
+from .my_exceptions import TransportableException
 from .disk import memstr_to_bytes
 from ._parallel_backends import (FallbackToBackend, MultiprocessingBackend,
                                  ThreadingBackend, SequentialBackend,
@@ -869,24 +869,14 @@ class Parallel(Logger):
                     ensure_ready = self._managed_backend
                     backend.abort_everything(ensure_ready=ensure_ready)
 
-                if not isinstance(exception, TransportableException):
-                    raise
-                else:
+                if isinstance(exception, TransportableException):
                     # Capture exception to add information on the local
                     # stack in addition to the distant stack
                     this_report = format_outer_frames(context=10,
                                                       stack_start=1)
-                    report = """Multiprocessing exception:
-%s
----------------------------------------------------------------------------
-Sub-process traceback:
----------------------------------------------------------------------------
-%s""" % (this_report, exception.message)
-                    # Convert this to a JoblibException
-                    exception_type = _mk_exception(exception.etype)[0]
-                    exception = exception_type(report)
-
-                    raise exception
+                    raise exception.unwrap(this_report)
+                else:
+                    raise
 
     def __call__(self, iterable):
         if self._jobs:
@@ -901,7 +891,8 @@ Sub-process traceback:
             n_jobs = self._effective_n_jobs()
         self._print("Using backend %s with %d concurrent workers.",
                     (self._backend.__class__.__name__, n_jobs))
-
+        if hasattr(self._backend, 'start_call'):
+            self._backend.start_call()
         iterator = iter(iterable)
         pre_dispatch = self.pre_dispatch
 
@@ -958,6 +949,8 @@ Sub-process traceback:
                         (len(self._output), len(self._output),
                          short_format_time(elapsed_time)))
         finally:
+            if hasattr(self._backend, 'stop_call'):
+                self._backend.stop_call()
             if not self._managed_backend:
                 self._terminate_backend()
             self._jobs = list()

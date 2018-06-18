@@ -115,6 +115,7 @@ from .logger import Logger
 from .hashing import hash
 from .numpy_pickle import dump
 from .numpy_pickle import load
+from .compressor import register_compressor
 from .parallel import Parallel
 from .parallel import delayed
 from .parallel import cpu_count
@@ -126,4 +127,4 @@ from .parallel import effective_n_jobs
 __all__ = ['Memory', 'MemorizedResult', 'PrintTime', 'Logger', 'hash', 'dump',
            'load', 'Parallel', 'delayed', 'cpu_count', 'effective_n_jobs',
            'register_parallel_backend', 'parallel_backend',
-           'register_store_backend']
+           'register_store_backend', 'register_compressor']
