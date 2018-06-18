@@ -27,6 +27,15 @@ Olivier Grisel
     ``prefer='threads'`` or enforce shared-memory semantics with
     ``require='sharedmem'``.
 
+    Rely on the built-in exception nesting system of Python 3 to preserve
+    traceback information when an exception is raised on a remote worker
+    process. This avoid verbose and redundant exception reports under
+    Python 3.
+
+    Preserve exception type information when doing nested Parallel calls
+    instead of mapping the exception to the generic ``JoblibException`` type.
+
+
 Alexandre Abadie
 
     Introduce the concept of 'store' and refactor the ``Memory`` internal
