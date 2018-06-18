@@ -69,19 +69,23 @@ create_new_conda_env() {
 
 create_new_conda_env
 
+# Install py.test timeout to fasten failure in deadlocking tests
+PIP_INSTALL_PACKAGES="pytest-timeout"
+
 if [ -n "$NUMPY_VERSION" ]; then
     # We want to ensure no memory copies are performed only when numpy is
     # installed. This also ensures that we don't keep a strong dependency on
     # memory_profiler. We also want to ensure that joblib can be used with and
     # without lz4 compressor package installed.
-    pip install memory_profiler lz4
+    PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES memory_profiler"
+    if [ "$NO_LZ4" != "true" ]; then
+        PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES lz4"
+    fi
 fi
-
-# Install py.test timeout to fasten failure in deadlocking tests
-pip install pytest-timeout
 
 if [[ "$COVERAGE" == "true" ]]; then
-    pip install pytest-cov codecov
+    PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES pytest-cov codecov"
 fi
 
+pip install $PIP_INSTALL_PACKAGES
 python setup.py install

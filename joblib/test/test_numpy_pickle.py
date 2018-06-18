@@ -547,6 +547,10 @@ def test_joblib_compression_formats(tmpdir, compress, cmethod):
                 numpy_pickle.dump(obj, dump_filename,
                                   compress=(cmethod, compress))
             excinfo.match(msg)
+        elif cmethod == 'lz4' and with_lz4.args[0]:
+            # Skip the test if lz4 is not installed. We here use the with_lz4
+            # skipif fixture whose argument is True when lz4 is not installed
+            raise SkipTest("lz4 is not installed.")
         else:
             numpy_pickle.dump(obj, dump_filename,
                               compress=(cmethod, compress))
