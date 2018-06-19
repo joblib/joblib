@@ -427,14 +427,14 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
     supports_timeout = True
 
     def configure(self, n_jobs=1, parallel=None, prefer=None, require=None,
-                  **memmappingexecutor_args):
+                  idle_worker_timeout=300, **memmappingexecutor_args):
         """Build a process executor and return the number of workers"""
         n_jobs = self.effective_n_jobs(n_jobs)
         if n_jobs == 1:
             raise FallbackToBackend(SequentialBackend())
 
         self._workers = get_memmapping_executor(
-            n_jobs, **memmappingexecutor_args)
+            n_jobs, timeout=idle_worker_timeout, **memmappingexecutor_args)
         self.parallel = parallel
         return n_jobs
 
