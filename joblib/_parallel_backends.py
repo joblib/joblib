@@ -6,6 +6,7 @@ import gc
 import os
 import sys
 import warnings
+import weakref
 import threading
 import functools
 import contextlib
@@ -25,6 +26,26 @@ if mp is not None:
     from multiprocessing import TimeoutError
     from .externals.loky._base import TimeoutError as LokyTimeoutError
     from .externals.loky import process_executor, cpu_count
+
+    class SafeThreadPool(ThreadPool):
+        " A ThreadPool that can repopulate in a thread safe way."
+
+        _repopulate_lock = threading.Lock()
+
+        def _maintain_pool(self):
+            # _maintain_pool is called every .1s in the pool's handler thread,
+            # that is there to maintain the quality of the pool
+            # _maintain_pool calls _repopulate_pool internally
+            with self._repopulate_lock:
+                super(ThreadPool, self)._maintain_pool()
+
+        def repopulate_pool(self):
+            with self._repopulate_lock:
+                super(ThreadPool, self)._repopulate_pool()
+
+else:
+    def cpu_count():
+        return 1
 
 
 class ParallelBackendBase(with_metaclass(ABCMeta)):
@@ -294,6 +315,12 @@ class AutoBatchingMixin(object):
         self._smoothed_batch_duration = self._DEFAULT_SMOOTHED_BATCH_DURATION
 
 
+# A global thread pool
+_thread_pool = None
+# The set of backends that are using the global thread pool
+_thread_pool_users = weakref.WeakSet()
+
+
 class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
     """A ParallelBackend which will use a thread pool to execute batches in.
 
@@ -313,6 +340,15 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
     uses_threads = True
     supports_sharedmem = True
 
+    def effective_n_jobs(self, n_jobs):
+        if len(_thread_pool_users) > 2 * cpu_count():
+            # Don't span new threads if there are already many running
+            # This will fallback to SequentialBackend in the configure
+            # method.
+            # This is necessary to avoid thread bombs
+            return 1
+        return super(ThreadingBackend, self).effective_n_jobs(n_jobs)
+
     def configure(self, n_jobs=1, parallel=None, **backend_args):
         """Build a process or thread pool and return the number of workers"""
         n_jobs = self.effective_n_jobs(n_jobs)
@@ -326,12 +362,38 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
     def _get_pool(self):
         """Lazily initialize the thread pool
 
-        The actual pool of worker threads is only initialized at the first
+        The actual pool of worker threads is shared across
+        ThreadingBackends in a process and only initialized at the first
         call to apply_async.
         """
-        if self._pool is None:
-            self._pool = ThreadPool(self._n_jobs)
-        return self._pool
+        global _thread_pool
+        global _thread_pool_users
+        if _thread_pool is None:
+            # We need to create a thread pool
+            _thread_pool = SafeThreadPool(self._n_jobs)
+            # We own it. It is our responsability to close it
+            self._pool = _thread_pool
+        else:
+            # Try to get more jobs
+            # The code below is accessing multiprocessing private API
+            max_processes = cpu_count() + len(_thread_pool_users)
+            if _thread_pool._processes < max_processes:
+                _thread_pool._processes = min(
+                    max_processes, _thread_pool._processes + self._n_jobs)
+                _thread_pool.repopulate_pool()
+        _thread_pool_users.add(self)
+        return _thread_pool
+
+    def terminate(self):
+        """Shutdown the process or thread pool"""
+        if self._pool is not None:
+            super(ThreadingBackend, self).terminate()
+            global _thread_pool
+            _thread_pool = None
+        try:
+            _thread_pool_users.remove(self)
+        except KeyError:
+            pass
 
 
 class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,

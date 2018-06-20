@@ -78,6 +78,11 @@ if hasattr(mp, 'get_context'):
 
 DefaultBackend = BACKENDS[DEFAULT_BACKEND]
 
+try:
+    RecursionError
+except NameError:
+    RecursionError = RuntimeError
+
 
 def get_workers(backend):
     return getattr(backend, '_pool', getattr(backend, '_workers', None))
@@ -1277,3 +1282,47 @@ def test_external_backends():
 
     with parallel_backend('foo'):
         assert isinstance(Parallel()._backend, ThreadingBackend)
+
+
+def _recursive_parallel():
+    # A horrible function that does recursive parallel calls
+    Parallel(n_jobs=2)(delayed(_recursive_parallel)() for i in range(2))
+
+
+def test_thread_bomb_mitigation():
+    # Test that recursive parallelism raises a recursion rather than
+    # saturating the operating system resources by creating a unbounded number
+    # of threads.
+    with parallel_backend('threading', n_jobs=2):
+        with raises(RecursionError):
+            _recursive_parallel()
+
+
+@parametrize(
+    'n_tasks_outer, n_tasks_inner, n_jobs_outer, n_jobs_inner, pre_dispatch', [
+        (200, 10, 2, 10, 'all'),
+        (200, 10, 4, 4, 'all'),
+        (200, 10, 10, 2, 'all'),
+        (10, 200, 4, 4, 'all'),
+        (200, 10, 4, 4, 'n_jobs'),
+        (200, 10, 4, 4, '1'),
+        (200, 10, 4, 4, '2 * n_jobs'),
+    ])
+def test_nested_threads_stress(n_tasks_outer, n_tasks_inner,
+                               n_jobs_outer, n_jobs_inner,
+                               pre_dispatch):
+    def inner_func(*args):
+        time.sleep(0.001)
+        return args
+
+    def nested_loop(i):
+        return Parallel(n_jobs=n_jobs_inner, pre_dispatch=pre_dispatch)(
+            delayed(inner_func)(i, j) for j in range(n_tasks_inner))
+
+    results = Parallel(n_jobs=n_jobs_outer, backend='threading',
+                       pre_dispatch=pre_dispatch)(
+        delayed(nested_loop)(i) for i in range(n_tasks_outer))
+
+    expected = [[(i, j) for j in range(n_tasks_inner)]
+                for i in range(n_tasks_outer)]
+    assert results == expected
