@@ -1296,6 +1296,7 @@ def _recursive_backend_info(limit=3):
         return this_level + results[0]
 
 
+@with_multiprocessing
 @parametrize('backend', ['loky', 'threading'])
 def test_nested_parallel_limit(backend):
     with parallel_backend(backend, n_jobs=2):
