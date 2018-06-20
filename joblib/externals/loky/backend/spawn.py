@@ -32,12 +32,12 @@ if sys.version_info[:2] < (3, 4):
         Returns prefix of command line used for spawning a child process
         '''
         if getattr(sys, 'frozen', False):
-            return ([sys.executable, '--multiprocessing-fork'])
+            return ([sys.executable, '--multiprocessing-fork', pipe_handle])
         else:
             prog = 'from multiprocessing.forking import main; main()'
             opts = util._args_from_interpreter_flags()
-            return [_python_exe] + opts + ['-c', prog, '--multiprocessing-fork',
-                                           pipe_handle]
+            return [_python_exe] + opts + [
+                '-c', prog, '--multiprocessing-fork', pipe_handle]
 else:
     from multiprocessing.spawn import get_command_line
 
