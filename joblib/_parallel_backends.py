@@ -31,6 +31,10 @@ class ParallelBackendBase(with_metaclass(ABCMeta)):
     """Helper abc which defines all methods a ParallelBackend must implement"""
 
     supports_timeout = False
+    nesting_level = 0
+
+    def __init__(self, nesting_level=0):
+        self.nesting_level = nesting_level
 
     @abstractmethod
     def effective_n_jobs(self, n_jobs):
@@ -111,9 +115,16 @@ class ParallelBackendBase(with_metaclass(ABCMeta)):
     def get_nested_backend(self):
         """Backend instance to be used by nested Parallel calls.
 
-        By default a thread-based backend is used.
+        By default a thread-based backend is used for the first level of
+        nesting. Beyond, switch to sequential backend to avoid spawning too
+        many threads on the host.
         """
-        return ThreadingBackend()
+        nesting_level = getattr(self, 'nesting_level', 0) + 1
+        if nesting_level > 1:
+            return SequentialBackend(nesting_level=nesting_level)
+        else:
+            return ThreadingBackend(nesting_level=nesting_level)
+
 
     @contextlib.contextmanager
     def retrieval_context(self):
@@ -157,7 +168,8 @@ class SequentialBackend(ParallelBackendBase):
         return result
 
     def get_nested_backend(self):
-        return self
+        nested_level = getattr(self, 'nesting_level', 0) + 1
+        return SequentialBackend(nesting_level=nested_level)
 
 
 class PoolManagerMixin(object):
