@@ -36,6 +36,11 @@ class ParallelBackendBase(with_metaclass(ABCMeta)):
     def __init__(self, nesting_level=0):
         self.nesting_level = nesting_level
 
+    SUPPORTED_CLIB_VARS = [
+        'OMP_NUM_THREADS', 'OPENBLAS_NUM_THREADS', 'MKL_NUM_THREADS',
+        'VECLIB_MAXIMUM_THREADS', 'NUMEXPR_NUM_THREADS'
+    ]
+
     @abstractmethod
     def effective_n_jobs(self, n_jobs):
         """Determine the number of jobs that can actually run in parallel
@@ -142,6 +147,19 @@ class ParallelBackendBase(with_metaclass(ABCMeta)):
         tasks.
         """
         yield
+
+    @classmethod
+    def limit_clib_threads(cls, n_threads=1):
+        """Initializer to limit the number of threads used by some C-libraries.
+
+        This function set the number of threads to `n_threads` for OpenMP, MKL,
+        Accelerated and OpenBLAS libraries, that can be used with scientific
+        computing tools like numpy.
+        """
+        for var in cls.SUPPORTED_CLIB_VARS:
+            var_value = os.environ.get(var, None)
+            if var_value is None:
+                os.environ[var] = str(n_threads)
 
 
 class SequentialBackend(ParallelBackendBase):
@@ -342,7 +360,8 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
         call to apply_async.
         """
         if self._pool is None:
-            self._pool = ThreadPool(self._n_jobs)
+            self._pool = ThreadPool(
+                self._n_jobs, initializer=self.limit_clib_threads)
         return self._pool
 
 
@@ -420,7 +439,8 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
 
         # Make sure to free as much memory as possible before forking
         gc.collect()
-        self._pool = MemmappingPool(n_jobs, **memmappingpool_args)
+        self._pool = MemmappingPool(
+            n_jobs, initializer=self.limit_clib_threads, **memmappingpool_args)
         self.parallel = parallel
         return n_jobs
 
@@ -446,7 +466,9 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
             raise FallbackToBackend(SequentialBackend())
 
         self._workers = get_memmapping_executor(
-            n_jobs, timeout=idle_worker_timeout, **memmappingexecutor_args)
+            n_jobs, timeout=idle_worker_timeout,
+            initializer=self.limit_clib_threads,
+            **memmappingexecutor_args)
         self.parallel = parallel
         return n_jobs
 
