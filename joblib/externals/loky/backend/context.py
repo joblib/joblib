@@ -205,7 +205,7 @@ class LokyContext(BaseContext):
 class LokyInitMainContext(LokyContext):
     """Extra context with LokyProcess, which does load the main module
 
-    This context is used for compatibility in the case ``cloudpickle`` is not 
+    This context is used for compatibility in the case ``cloudpickle`` is not
     present on the running system. This permits to load functions defined in
     the ``main`` module, using proper safeguards. The declaration of the
     ``executor`` should be protected by ``if __name__ == "__main__":`` and the

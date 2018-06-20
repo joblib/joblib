@@ -203,7 +203,6 @@ def main(fd):
                 try:
                     sem_unlink(name)
                     if VERBOSE:  # pragma: no cover
-                        name = name.decode('ascii')
                         sys.stderr.write("[SemaphoreTracker] unlink {}\n"
                                          .format(name))
                         sys.stderr.flush()

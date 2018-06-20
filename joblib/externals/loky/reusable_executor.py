@@ -38,8 +38,9 @@ def _get_next_executor_id():
 
 
 def get_reusable_executor(max_workers=None, context=None, timeout=10,
-                          kill_workers=False, job_reducers=None,
-                          result_reducers=None, reuse="auto"):
+                          kill_workers=False, reuse="auto",
+                          job_reducers=None, result_reducers=None,
+                          initializer=None, initargs=()):
     """Return the current ReusableExectutor instance.
 
     Start a new instance if it has not been started already or if the previous
@@ -69,29 +70,45 @@ def get_reusable_executor(max_workers=None, context=None, timeout=10,
 
     The ``job_reducers`` and ``result_reducers`` are used to customize the
     pickling of tasks and results send to the executor.
+
+    When provided, the ``initializer`` is run first in newly spawned
+    processes with argument ``initargs``.
     """
     with _executor_lock:
-        global _executor, _executor_args
+        global _executor, _executor_kwargs
         executor = _executor
-        args = dict(context=context, timeout=timeout,
-                    job_reducers=job_reducers, result_reducers=result_reducers)
+
+        if max_workers is None:
+            if reuse is True and executor is not None:
+                max_workers = executor._max_workers
+            else:
+                max_workers = cpu_count()
+        elif max_workers <= 0:
+            raise ValueError(
+                "max_workers must be greater than 0, got {}."
+                .format(max_workers))
+
         if isinstance(context, STRING_TYPE):
             context = get_context(context)
         if context is not None and context.get_start_method() == "fork":
             raise ValueError("Cannot use reusable executor with the 'fork' "
                              "context")
+
+        kwargs = dict(context=context, timeout=timeout,
+                      job_reducers=job_reducers,
+                      result_reducers=result_reducers,
+                      initializer=initializer, initargs=initargs)
         if executor is None:
             mp.util.debug("Create a executor with max_workers={}."
                           .format(max_workers))
             executor_id = _get_next_executor_id()
-            _executor_args = args
+            _executor_kwargs = kwargs
             _executor = executor = _ReusablePoolExecutor(
-                _executor_lock, max_workers=max_workers, context=context,
-                timeout=timeout, executor_id=executor_id,
-                job_reducers=job_reducers, result_reducers=result_reducers)
+                _executor_lock, max_workers=max_workers,
+                executor_id=executor_id, **kwargs)
         else:
             if reuse == 'auto':
-                reuse = args == _executor_args
+                reuse = kwargs == _executor_kwargs
             if (executor._flags.broken or executor._flags.shutdown
                     or not reuse):
                 if executor._flags.broken:
@@ -105,17 +122,12 @@ def get_reusable_executor(max_workers=None, context=None, timeout=10,
                     "previous instance cannot be reused ({})."
                     .format(max_workers, reason))
                 executor.shutdown(wait=True, kill_workers=kill_workers)
-                _executor = executor = _executor_args = None
+                _executor = executor = _executor_kwargs = None
                 # Recursive call to build a new instance
                 return get_reusable_executor(max_workers=max_workers,
-                                             **args)
+                                             **kwargs)
             else:
-                if max_workers is not None and max_workers <= 0:
-                    raise ValueError(
-                        "max_workers must be greater than 0, got {}."
-                        .format(max_workers))
-
-                mp.util.debug("Reusing existing executor with max_worker={}."
+                mp.util.debug("Reusing existing executor with max_workers={}."
                               .format(executor._max_workers))
                 executor._resize(max_workers)
 
@@ -125,11 +137,11 @@ def get_reusable_executor(max_workers=None, context=None, timeout=10,
 class _ReusablePoolExecutor(ProcessPoolExecutor):
     def __init__(self, submit_resize_lock, max_workers=None, context=None,
                  timeout=None, executor_id=0, job_reducers=None,
-                 result_reducers=None):
+                 result_reducers=None, initializer=None, initargs=()):
         super(_ReusablePoolExecutor, self).__init__(
             max_workers=max_workers, context=context, timeout=timeout,
-            job_reducers=job_reducers,
-            result_reducers=result_reducers)
+            job_reducers=job_reducers, result_reducers=result_reducers,
+            initializer=initializer, initargs=initargs)
         self.executor_id = executor_id
         self._submit_resize_lock = submit_resize_lock
 
@@ -140,14 +152,17 @@ class _ReusablePoolExecutor(ProcessPoolExecutor):
 
     def _resize(self, max_workers):
         with self._submit_resize_lock:
+            if max_workers is None:
+                raise ValueError("Trying to resize with max_workers=None")
+            elif max_workers == self._max_workers:
+                return
 
             if self._queue_management_thread is None:
                 # If the queue_management_thread has not been started
                 # then no processes have been spawned and we can just
                 # update _max_workers and return
                 self._max_workers = max_workers
-            if max_workers is None or max_workers == self._max_workers:
-                return True
+                return
 
             self._wait_job_completion()
 
