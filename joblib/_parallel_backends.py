@@ -360,8 +360,7 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
         call to apply_async.
         """
         if self._pool is None:
-            self._pool = ThreadPool(
-                self._n_jobs, initializer=self.limit_clib_threads)
+            self._pool = ThreadPool(self._n_jobs)
         return self._pool
 
 
