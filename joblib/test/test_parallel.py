@@ -48,6 +48,11 @@ try:
 except ImportError:
     posix = None
 
+try:
+    RecursionError
+except NameError:
+    RecursionError = RuntimeError
+
 from joblib._parallel_backends import SequentialBackend
 from joblib._parallel_backends import ThreadingBackend
 from joblib._parallel_backends import MultiprocessingBackend
@@ -1277,3 +1282,45 @@ def test_external_backends():
 
     with parallel_backend('foo'):
         assert isinstance(Parallel()._backend, ThreadingBackend)
+
+
+def _recursive_backend_info(limit=3):
+    """Perform nested parallel calls and introspect the backend on the way"""
+
+    with Parallel() as p:
+        this_level = [(type(p._backend).__name__, p._backend.nesting_level)]
+        if limit == 0:
+            return this_level
+        results = p(delayed(_recursive_backend_info)(limit=limit - 1)
+                    for i in range(1))
+        return this_level + results[0]
+
+
+@parametrize('backend', ['loky', 'threading'])
+def test_nested_parallel_limit(backend):
+    with parallel_backend(backend, n_jobs=2):
+        backend_types_and_levels = _recursive_backend_info()
+
+    top_level_backend_type = backend.title() + 'Backend'
+    expected_types_and_levels = [
+        (top_level_backend_type, 0),
+        ('ThreadingBackend', 1),
+        ('SequentialBackend', 2),
+        ('SequentialBackend', 3)
+    ]
+    assert backend_types_and_levels == expected_types_and_levels
+
+
+def _recursive_parallel(nesting_limit=None):
+    """A horrible function that does recursive parallel calls"""
+    return Parallel()(delayed(_recursive_parallel)() for i in range(2))
+
+
+@parametrize('backend', ['loky', 'threading'])
+def test_thread_bomb_mitigation(backend):
+    # Test that recursive parallelism raises a recursion rather than
+    # saturating the operating system resources by creating a unbounded number
+    # of threads.
+    with parallel_backend(backend, n_jobs=2):
+        with raises(RecursionError):
+            _recursive_parallel()
