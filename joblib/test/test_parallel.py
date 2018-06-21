@@ -10,6 +10,7 @@ import os
 import sys
 import time
 import mmap
+import pytest
 import threading
 from traceback import format_exception
 from math import sqrt
@@ -23,7 +24,7 @@ from joblib import parallel
 from joblib.test.common import np, with_numpy
 from joblib.test.common import with_multiprocessing
 from joblib.testing import (parametrize, raises, check_subprocess_call,
-                            SkipTest, warns)
+                            skipif, SkipTest, warns)
 from joblib._compat import PY3_OR_LATER, PY27
 
 try:
@@ -52,6 +53,11 @@ try:
     RecursionError
 except NameError:
     RecursionError = RuntimeError
+
+try:
+    from ._openmp_test_helper.parallel_sum import parallel_sum
+except ImportError:
+    parallel_sum = None
 
 from joblib._parallel_backends import SequentialBackend
 from joblib._parallel_backends import ThreadingBackend
@@ -860,7 +866,6 @@ print(Parallel(n_jobs=2, backend=backend)(
 
 
 @with_multiprocessing
-@with_multiprocessing
 @parametrize('backend', PROCESS_BACKENDS +
              ([] if sys.version_info[:2] < (3, 4) or mp is None
               else ['spawn']))
@@ -1325,3 +1330,16 @@ def test_thread_bomb_mitigation(backend):
     with parallel_backend(backend, n_jobs=2):
         with raises(RecursionError):
             _recursive_parallel()
+
+
+def _run_parallel_sum():
+    return parallel_sum(100)
+
+
+@parametrize("backend", [None] + PROCESS_BACKENDS)
+@skipif(parallel_sum is None, reason="Need OpenMP helper compiled")
+def test_parallel_thread_limit(backend):
+    res = Parallel(n_jobs=2, backend=backend)(
+        delayed(run_parallel_sum)() for _ in range(2)
+    )
+    assert all([r == 1 for r in res])
