@@ -123,7 +123,24 @@ class parallel_backend(object):
     If ``backend`` is a string it must match a previously registered
     implementation using the ``register_parallel_backend`` function.
 
-    Alternatively backend can be passed directly as an instance.
+    By default the following backends are available:
+
+    - 'loky': single-host, process-based parallelism (used by default),
+    - 'threading': single-host, thread-based parallelism,
+    - 'multiprocessing': legacy single-host, process-based parallelism.
+
+    'loky' is recommended to run functions that manipulate Python objects.
+    'threading' is a low-overhead alternative that is most efficient for
+    functions that release the Global Interpreter Lock: e.g. I/O-bound code or
+    CPU-bound code in a few calls to native code that explicitly releases the
+    GIL.
+
+    In addition, if the `dask` and `distributed` Python packages are installed,
+    it is possible to use the 'dask' backend for better scheduling of nested
+    parallel calls without over-subscription and potentially distribute
+    parallel calls over a networked cluster of several hosts.
+
+    Alternatively the backend can be passed directly as an instance.
 
     By default all available workers will be used (``n_jobs=-1``) unless the
     caller passes an explicit value for the ``n_jobs`` parameter.
