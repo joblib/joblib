@@ -10,7 +10,6 @@ import os
 import sys
 import time
 import mmap
-import pytest
 import threading
 from traceback import format_exception
 from math import sqrt
@@ -1340,6 +1339,6 @@ def _run_parallel_sum():
 @skipif(parallel_sum is None, reason="Need OpenMP helper compiled")
 def test_parallel_thread_limit(backend):
     res = Parallel(n_jobs=2, backend=backend)(
-        delayed(run_parallel_sum)() for _ in range(2)
+        delayed(_run_parallel_sum)() for _ in range(2)
     )
     assert all([r == 1 for r in res])
