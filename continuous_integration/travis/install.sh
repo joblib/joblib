@@ -90,7 +90,7 @@ fi
 pip install $PIP_INSTALL_PACKAGES
 
 
-if [[ "$CYTHON" == "true"]]; then
+if [[ "$CYTHON" == "true" ]]; then
     pip install cython
     cd joblib/test/_openmp_test_helper
     python setup.py build_ext -i
