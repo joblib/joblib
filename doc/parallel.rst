@@ -128,6 +128,35 @@ parallelism automatically tries to maintain and reuse a pool of workers
 by it-self even for calls without the context manager.
 
 
+Avoiding over-subscription of CPU ressources
+============================================
+
+The computation parallelism relies on the usage of multiple CPUs to perform the
+operation simultaneously. When using more processes than the number of CPU on
+a machine, the performance of each process is degraded as there is less
+computational power available for each process. Moreover, when many processes
+are running, the time taken by the OS scheduler to switch between them can
+further hinder the performance of the computation. It is generally better to
+avoid using more ``Process/Thread`` than the number of CPU on a machine.
+
+Some third-partiy libraries -- *e.g.* ``numpy`` -- manage internally a
+thread-pool to perform their computations. The default behavior is generaly to
+use number of thread equals to the number of CPU available. When these
+libraries are used with :class:`joblib.Parallel`, each worker will spawn its
+thread-pools, resulting in a massive over-subscription of the ressources that
+can slow down the computation compared to sequential one. To cope with this
+problem, joblib forces by default supported third-party libraries to use only
+one thread in workers with the ``'loky'`` backend. This behavior can be
+overwritten by setting the proper environment variable to the desired number of
+threads. This limitation is supported for the following libraries:
+
+    - OpenMP with the environment variable ``'OMP_NUM_THREADS'``,
+    - OpenBLAS with the ``'OPENBLAS_NUM_THREADS'``,
+    - MKL with the environment variable ``'MKL_NUM_THREADS'``,
+    - Accelerated with the environment variable ``'VECLIB_MAXIMUM_THREADS'``,
+    - Numexpr with the environment variable ``'NUMEXPR_NUM_THREADS'``.
+
+
 Custom backend API (experimental)
 =================================
 
