@@ -167,8 +167,8 @@ def _get_temp_dir(pool_folder_name, temp_folder=None):
                         os.makedirs(pool_folder)
                     use_shared_mem = True
             except (IOError, OSError):
-                # Missing rights in the the /dev/shm partition,
-                # fallback to regular temp folder.
+                # Missing rights in the /dev/shm partition, fallback to regular
+                # temp folder.
                 temp_folder = None
     if temp_folder is None:
         # Fallback to the default tmp folder, typically /tmp
