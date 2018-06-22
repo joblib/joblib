@@ -1332,7 +1332,11 @@ def test_thread_bomb_mitigation(backend):
 
 
 def _run_parallel_sum():
-    return parallel_sum(100)
+    env_vars = {}
+    for var in ['OMP_NUM_THREADS', 'OPENBLAS_NUM_THREADS', 'MKL_NUM_THREADS',
+                'VECLIB_MAXIMUM_THREADS', 'NUMEXPR_NUM_THREADS']:
+        env_vars[var] = os.environ.get(var)
+    return env_vars, parallel_sum(100)
 
 
 @parametrize("backend", [None] + PROCESS_BACKENDS)
@@ -1341,4 +1345,6 @@ def test_parallel_thread_limit(backend):
     res = Parallel(n_jobs=2, backend=backend)(
         delayed(_run_parallel_sum)() for _ in range(2)
     )
-    assert all([r == 1 for r in res])
+    for value in res[0][0].values():
+        assert value == '1'
+    assert all([r[1] == 1 for r in res])
