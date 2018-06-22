@@ -6,15 +6,15 @@ Development
 
 Thomas Moreau
 
-    Limit the number of threads used in worker processes (for ``loky`` and
-    ``multiprocessing``) by C-libraries that relies on threadpools. This
-    functionality works for MKL, OpenBLAS, OpenMP and Accelerated.
-
-    Implement the ``loky`` backend with @ogrisel. This backend relies on
+    Implement the ``'loky'`` backend with @ogrisel. This backend relies on
     a robust implementation of ``concurrent.futures.ProcessPoolExecutor``
     with spawned processes that can be reused accross the ``Parallel``
-    calls.
+    calls. This fixes the bad interation with third paty libraries relying on
+    thread pools, described in https://pythonhosted.org/joblib/parallel.html#bad-interaction-of-multiprocessing-and-third-party-libraries
 
+    Limit the number of threads used in worker processes by C-libraries that
+    relies on threadpools. This functionality works for MKL, OpenBLAS, OpenMP
+    and Accelerated.
 
 Elizabeth Sander
 
