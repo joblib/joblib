@@ -1,8 +1,8 @@
 Latest changes
 ===============
 
-Development
------------
+Release 0.12
+------------
 
 Thomas Moreau
 
