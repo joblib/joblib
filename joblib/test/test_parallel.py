@@ -1339,7 +1339,7 @@ def _run_parallel_sum():
     return env_vars, parallel_sum(100)
 
 
-@parametrize("backend", [None] + PROCESS_BACKENDS)
+@parametrize("backend", [None, 'loky'])
 @skipif(parallel_sum is None, reason="Need OpenMP helper compiled")
 def test_parallel_thread_limit(backend):
     res = Parallel(n_jobs=2, backend=backend)(
