@@ -369,18 +369,18 @@ def register_parallel_backend(name, factory, make_default=False):
 def effective_n_jobs(n_jobs=-1):
     """Determine the number of jobs that can actually run in parallel
 
-    n_jobs is the is the number of workers requested by the callers.
-    Passing n_jobs=-1 means requesting all available workers for instance
-    matching the number of CPU cores on the worker host(s).
+    n_jobs is the number of workers requested by the callers. Passing n_jobs=-1
+    means requesting all available workers for instance matching the number of
+    CPU cores on the worker host(s).
 
     This method should return a guesstimate of the number of workers that can
     actually perform work concurrently with the currently enabled default
     backend. The primary use case is to make it possible for the caller to know
     in how many chunks to slice the work.
 
-    In general working on larger data chunks is more efficient (less
-    scheduling overhead and better use of CPU cache prefetching heuristics)
-    as long as all the workers have enough work to do.
+    In general working on larger data chunks is more efficient (less scheduling
+    overhead and better use of CPU cache prefetching heuristics) as long as all
+    the workers have enough work to do.
 
     Warning: this function is experimental and subject to change in a future
     version of joblib.
