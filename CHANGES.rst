@@ -4,6 +4,18 @@ Latest changes
 Development
 -----------
 
+Thomas Moreau
+
+    Implement the ``'loky'`` backend with @ogrisel. This backend relies on
+    a robust implementation of ``concurrent.futures.ProcessPoolExecutor``
+    with spawned processes that can be reused accross the ``Parallel``
+    calls. This fixes the bad interation with third paty libraries relying on
+    thread pools, described in https://pythonhosted.org/joblib/parallel.html#bad-interaction-of-multiprocessing-and-third-party-libraries
+
+    Limit the number of threads used in worker processes by C-libraries that
+    relies on threadpools. This functionality works for MKL, OpenBLAS, OpenMP
+    and Accelerated.
+
 Elizabeth Sander
 
     Prevent numpy arrays with the same shape and data from hashing to
