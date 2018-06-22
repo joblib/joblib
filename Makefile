@@ -3,7 +3,7 @@
 all: test
 
 test:
-	pytest joblib --timeout 15 -vl
+	pytest joblib --timeout 30 -vl
 
 test-no-multiprocessing:
 	export JOBLIB_MULTIPROCESSING=0 && pytest joblib
