@@ -113,8 +113,8 @@ class ParallelBackendBase(with_metaclass(ABCMeta)):
         managed by the backend it-self: if we expect no new tasks, there is no
         point in re-creating new workers.
         """
-        # Does nothing by default: to be overriden in subclasses when canceling
-        # tasks is possible.
+        # Does nothing by default: to be overridden in subclasses when
+        # canceling tasks is possible.
         pass
 
     def get_nested_backend(self):
