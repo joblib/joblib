@@ -1,6 +1,7 @@
 [run]
 omit =
   joblib/test/data/*
+  joblib/test/_openmp_test_helper/setup.py
   */joblib/externals/*
 
 [report]

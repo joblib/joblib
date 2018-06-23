@@ -12,6 +12,7 @@ import sys
 from math import sqrt
 import functools
 import time
+import inspect
 import threading
 import itertools
 from numbers import Integral
@@ -21,7 +22,7 @@ from ._multiprocessing_helpers import mp
 
 from .format_stack import format_outer_frames
 from .logger import Logger, short_format_time
-from .my_exceptions import TransportableException, _mk_exception
+from .my_exceptions import TransportableException
 from .disk import memstr_to_bytes
 from ._parallel_backends import (FallbackToBackend, MultiprocessingBackend,
                                  ThreadingBackend, SequentialBackend,
@@ -41,7 +42,6 @@ BACKENDS = {
     'sequential': SequentialBackend,
     'loky': LokyBackend,
 }
-
 # name of the backend used by default by Parallel outside of any context
 # managed by ``parallel_backend``.
 DEFAULT_BACKEND = 'loky'
@@ -54,6 +54,23 @@ _backend = threading.local()
 
 VALID_BACKEND_HINTS = ('processes', 'threads', None)
 VALID_BACKEND_CONSTRAINTS = ('sharedmem', None)
+
+
+def _register_dask():
+    """ Register Dask Backend if called with parallel_backend("dask") """
+    try:
+        import distributed.joblib  # noqa: #F401
+    except ImportError:
+        msg = ("To use the dask.distributed backend you must install both "
+               "the `dask` and distributed modules.\n\n"
+               "See http://dask.pydata.org/en/latest/install.html for more "
+               "information.")
+        raise ImportError(msg)
+
+
+EXTERNAL_BACKENDS = {
+    'dask': _register_dask,
+}
 
 
 def get_active_backend(prefer=None, require=None, verbose=0):
@@ -106,7 +123,24 @@ class parallel_backend(object):
     If ``backend`` is a string it must match a previously registered
     implementation using the ``register_parallel_backend`` function.
 
-    Alternatively backend can be passed directly as an instance.
+    By default the following backends are available:
+
+    - 'loky': single-host, process-based parallelism (used by default),
+    - 'threading': single-host, thread-based parallelism,
+    - 'multiprocessing': legacy single-host, process-based parallelism.
+
+    'loky' is recommended to run functions that manipulate Python objects.
+    'threading' is a low-overhead alternative that is most efficient for
+    functions that release the Global Interpreter Lock: e.g. I/O-bound code or
+    CPU-bound code in a few calls to native code that explicitly releases the
+    GIL.
+
+    In addition, if the `dask` and `distributed` Python packages are installed,
+    it is possible to use the 'dask' backend for better scheduling of nested
+    parallel calls without over-subscription and potentially distribute
+    parallel calls over a networked cluster of several hosts.
+
+    Alternatively the backend can be passed directly as an instance.
 
     By default all available workers will be used (``n_jobs=-1``) unless the
     caller passes an explicit value for the ``n_jobs`` parameter.
@@ -130,6 +164,10 @@ class parallel_backend(object):
     """
     def __init__(self, backend, n_jobs=-1, **backend_params):
         if isinstance(backend, _basestring):
+            if backend not in BACKENDS and backend in EXTERNAL_BACKENDS:
+                register = EXTERNAL_BACKENDS[backend]
+                register()
+
             backend = BACKENDS[backend](**backend_params)
 
         self.old_backend_and_jobs = getattr(_backend, 'backend_and_jobs', None)
@@ -163,13 +201,22 @@ else:
     DEFAULT_MP_CONTEXT = None
 
 
+class CloudpickledObjectWrapper(object):
+    def __init__(self, obj):
+        self.pickled_obj = dumps(obj)
+
+    def __reduce__(self):
+        return loads, (self.pickled_obj,)
+
+
 class BatchedCalls(object):
     """Wrap a sequence of (func, args, kwargs) tuples as a single callable"""
 
-    def __init__(self, iterator_slice, backend):
+    def __init__(self, iterator_slice, backend, pickle_cache):
         self.items = list(iterator_slice)
         self._size = len(self.items)
         self._backend = backend
+        self._pickle_cache = pickle_cache
 
     def __call__(self):
         with parallel_backend(self._backend):
@@ -179,15 +226,40 @@ class BatchedCalls(object):
     def __len__(self):
         return self._size
 
+    @staticmethod
+    def _wrap_non_picklable_objects(obj, pickle_cache):
+        need_wrap = "__main__" in getattr(obj, "__module__", "")
+        if callable(obj):
+            # Need wrap if the object is a function defined in a local scope of
+            # another function.
+            func_code = getattr(obj, "__code__", "")
+            need_wrap |= getattr(func_code, "co_flags", 0) & inspect.CO_NESTED
+
+            # Need wrap if the obj is a lambda expression
+            func_name = getattr(obj, "__name__", "")
+            need_wrap |= "<lambda>" in func_name
+
+        if not need_wrap:
+            return obj
+
+        wrapped_obj = pickle_cache.get(obj)
+        if wrapped_obj is None:
+            wrapped_obj = CloudpickledObjectWrapper(obj)
+            pickle_cache[obj] = wrapped_obj
+        return wrapped_obj
+
     def __getstate__(self):
-        items = [(dumps(func), args, kwargs)
+        items = [(self._wrap_non_picklable_objects(func, self._pickle_cache),
+                  [self._wrap_non_picklable_objects(a, self._pickle_cache)
+                   for a in args],
+                  {k: self._wrap_non_picklable_objects(a, self._pickle_cache)
+                   for k, a in kwargs.items()}
+                  )
                  for func, args, kwargs in self.items]
         return (items, self._size, self._backend)
 
     def __setstate__(self, state):
-        items, self._size, self._backend = state
-        self.items = [(loads(func), args, kwargs)
-                      for func, args, kwargs in items]
+        self.items, self._size, self._backend = state
 
 
 ###############################################################################
@@ -297,18 +369,18 @@ def register_parallel_backend(name, factory, make_default=False):
 def effective_n_jobs(n_jobs=-1):
     """Determine the number of jobs that can actually run in parallel
 
-    n_jobs is the is the number of workers requested by the callers.
-    Passing n_jobs=-1 means requesting all available workers for instance
-    matching the number of CPU cores on the worker host(s).
+    n_jobs is the number of workers requested by the callers. Passing n_jobs=-1
+    means requesting all available workers for instance matching the number of
+    CPU cores on the worker host(s).
 
     This method should return a guesstimate of the number of workers that can
     actually perform work concurrently with the currently enabled default
     backend. The primary use case is to make it possible for the caller to know
     in how many chunks to slice the work.
 
-    In general working on larger data chunks is more efficient (less
-    scheduling overhead and better use of CPU cache prefetching heuristics)
-    as long as all the workers have enough work to do.
+    In general working on larger data chunks is more efficient (less scheduling
+    overhead and better use of CPU cache prefetching heuristics) as long as all
+    the workers have enough work to do.
 
     Warning: this function is experimental and subject to change in a future
     version of joblib.
@@ -710,7 +782,8 @@ class Parallel(Logger):
 
         with self._lock:
             tasks = BatchedCalls(itertools.islice(iterator, batch_size),
-                                 self._backend.get_nested_backend())
+                                 self._backend.get_nested_backend(),
+                                 self._pickle_cache)
             if len(tasks) == 0:
                 # No more tasks available in the iterator: tell caller to stop.
                 return False
@@ -813,24 +886,14 @@ class Parallel(Logger):
                     ensure_ready = self._managed_backend
                     backend.abort_everything(ensure_ready=ensure_ready)
 
-                if not isinstance(exception, TransportableException):
-                    raise
-                else:
+                if isinstance(exception, TransportableException):
                     # Capture exception to add information on the local
                     # stack in addition to the distant stack
                     this_report = format_outer_frames(context=10,
                                                       stack_start=1)
-                    report = """Multiprocessing exception:
-%s
----------------------------------------------------------------------------
-Sub-process traceback:
----------------------------------------------------------------------------
-%s""" % (this_report, exception.message)
-                    # Convert this to a JoblibException
-                    exception_type = _mk_exception(exception.etype)[0]
-                    exception = exception_type(report)
-
-                    raise exception
+                    raise exception.unwrap(this_report)
+                else:
+                    raise
 
     def __call__(self, iterable):
         if self._jobs:
@@ -845,7 +908,8 @@ Sub-process traceback:
             n_jobs = self._effective_n_jobs()
         self._print("Using backend %s with %d concurrent workers.",
                     (self._backend.__class__.__name__, n_jobs))
-
+        if hasattr(self._backend, 'start_call'):
+            self._backend.start_call()
         iterator = iter(iterable)
         pre_dispatch = self.pre_dispatch
 
@@ -868,6 +932,11 @@ Sub-process traceback:
         self.n_dispatched_batches = 0
         self.n_dispatched_tasks = 0
         self.n_completed_tasks = 0
+        # Use a caching dict for callables that are pickled with cloudpickle to
+        # improve performances. This cache is used only in the case of
+        # functions that are defined in the __main__ module, functions that are
+        # defined locally (inside another function) and lambda expressions.
+        self._pickle_cache = dict()
         try:
             # Only set self._iterating to True if at least a batch
             # was dispatched. In particular this covers the edge
@@ -897,9 +966,12 @@ Sub-process traceback:
                         (len(self._output), len(self._output),
                          short_format_time(elapsed_time)))
         finally:
+            if hasattr(self._backend, 'stop_call'):
+                self._backend.stop_call()
             if not self._managed_backend:
                 self._terminate_backend()
             self._jobs = list()
+            self._pickle_cache = None
         output = self._output
         self._output = None
         return output

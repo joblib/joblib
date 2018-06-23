@@ -66,3 +66,4 @@ Module reference
    dump
    load
    hash
+   register_compressor

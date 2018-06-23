@@ -1,8 +1,20 @@
 Latest changes
 ===============
 
-Development
------------
+Release 0.12
+------------
+
+Thomas Moreau
+
+    Implement the ``'loky'`` backend with @ogrisel. This backend relies on
+    a robust implementation of ``concurrent.futures.ProcessPoolExecutor``
+    with spawned processes that can be reused accross the ``Parallel``
+    calls. This fixes the bad interation with third paty libraries relying on
+    thread pools, described in https://pythonhosted.org/joblib/parallel.html#bad-interaction-of-multiprocessing-and-third-party-libraries
+
+    Limit the number of threads used in worker processes by C-libraries that
+    relies on threadpools. This functionality works for MKL, OpenBLAS, OpenMP
+    and Accelerated.
 
 Elizabeth Sander
 
@@ -27,6 +39,15 @@ Olivier Grisel
     ``prefer='threads'`` or enforce shared-memory semantics with
     ``require='sharedmem'``.
 
+    Rely on the built-in exception nesting system of Python 3 to preserve
+    traceback information when an exception is raised on a remote worker
+    process. This avoid verbose and redundant exception reports under
+    Python 3.
+
+    Preserve exception type information when doing nested Parallel calls
+    instead of mapping the exception to the generic ``JoblibException`` type.
+
+
 Alexandre Abadie
 
     Introduce the concept of 'store' and refactor the ``Memory`` internal
@@ -44,10 +65,19 @@ Alexandre Abadie
     The ``cachedir`` parameter of ``Memory`` is now marked as deprecated, use
     ``location`` instead.
 
+    Add support for LZ4 compression if ``lz4`` package is installed.
+
+    Add ``register_compressor`` function for extending available compressors.
+
+    Allow passing a string to ``compress`` parameter in ``dump`` funtion. This
+    string should correspond to the compressor used (e.g. zlib, gzip, lz4,
+    etc). The default compression level is used in this case.
+
 Matthew Rocklin
 
     Allow ``parallel_backend`` to be used globally instead of only as a context
     manager.
+    Support lazy registration of external parallel backends
 
 Release 0.11
 ------------

@@ -15,18 +15,20 @@ import socket
 from contextlib import closing
 import mmap
 
-from joblib.test.common import np, with_numpy
+from joblib.test.common import np, with_numpy, with_lz4, without_lz4
 from joblib.test.common import with_memory_profiler, memory_used
 from joblib.testing import parametrize, raises, SkipTest, warns
 
 # numpy_pickle is not a drop-in replacement of pickle, as it takes
 # filenames instead of open files as arguments.
-from joblib import numpy_pickle
+from joblib import numpy_pickle, register_compressor
 from joblib.test import data
 
 from joblib._compat import PY3_OR_LATER
-from joblib.numpy_pickle_utils import _IO_BUFFER_SIZE, BinaryZlibFile
-from joblib.numpy_pickle_utils import _detect_compressor, _COMPRESSORS
+from joblib.numpy_pickle_utils import _IO_BUFFER_SIZE
+from joblib.numpy_pickle_utils import _detect_compressor
+from joblib.compressor import (_COMPRESSORS, _LZ4_PREFIX, CompressorWrapper,
+                               LZ4_NOT_INSTALLED_ERROR, BinaryZlibFile)
 
 ###############################################################################
 # Define a list of standard types.
@@ -128,7 +130,7 @@ def test_value_error():
         numpy_pickle.dump('foo', dict())
 
 
-@parametrize('wrong_compress', [-1, 10, 'wrong'])
+@parametrize('wrong_compress', [-1, 10, dict()])
 def test_compress_level_error(wrong_compress):
     # Verify that passing an invalid compress argument raises an error.
     exception_msg = ('Non valid compress level given: '
@@ -139,7 +141,7 @@ def test_compress_level_error(wrong_compress):
 
 
 @with_numpy
-@parametrize('compress', [False, True, 0, 3])
+@parametrize('compress', [False, True, 0, 3, 'zlib'])
 def test_numpy_persistence(tmpdir, compress):
     filename = tmpdir.join('test.pkl').strpath
     rnd = np.random.RandomState(0)
@@ -388,8 +390,9 @@ def _check_pickle(filename, expected_list):
     by this function.
     """
     if (not PY3_OR_LATER and (filename.endswith('.xz') or
-                              filename.endswith('.lzma'))):
-        # lzma is not supported for python versions < 3.3
+                              filename.endswith('.lzma') or
+                              filename.endswith('.lz4'))):
+        # lzma and lz4 are not supported for python versions < 3.3
         with raises(NotImplementedError):
             numpy_pickle.load(filename)
         return
@@ -451,6 +454,7 @@ def _check_pickle(filename, expected_list):
             assert message in str(e.args)
 
 
+@with_lz4
 @with_numpy
 def test_joblib_pickle_across_python_versions():
     # We need to be specific about dtypes in particular endianness
@@ -476,7 +480,7 @@ def test_joblib_pickle_across_python_versions():
     # relevant python, joblib and numpy versions.
     test_data_dir = os.path.dirname(os.path.abspath(data.__file__))
 
-    pickle_extensions = ('.pkl', '.gz', '.gzip', '.bz2', '.xz', '.lzma')
+    pickle_extensions = ('.pkl', '.gz', '.gzip', '.bz2', '.xz', '.lzma', 'lz4')
     pickle_filenames = [os.path.join(test_data_dir, fn)
                         for fn in os.listdir(test_data_dir)
                         if any(fn.endswith(ext) for ext in pickle_extensions)]
@@ -511,6 +515,17 @@ def test_compress_tuple_argument_exception(tmpdir, compress_tuple, message):
     excinfo.match(message)
 
 
+@parametrize('compress_string', ['zlib', 'gzip'])
+def test_compress_string_argument(tmpdir, compress_string):
+    # Verify the string is correctly taken into account.
+    filename = tmpdir.join('test.pkl').strpath
+    numpy_pickle.dump("dummy", filename,
+                      compress=compress_string)
+    # Verify the file contains the right magic number
+    with open(filename, 'rb') as f:
+        assert _detect_compressor(f) == compress_string
+
+
 @with_numpy
 @parametrize('compress', [1, 3, 6])
 @parametrize('cmethod', _COMPRESSORS)
@@ -522,13 +537,20 @@ def test_joblib_compression_formats(tmpdir, compress, cmethod):
 
     dump_filename = filename + "." + cmethod
     for obj in objects:
-        if not PY3_OR_LATER and cmethod in ('xz', 'lzma'):
+        if not PY3_OR_LATER and cmethod in ('lzma', 'xz', 'lz4'):
             # Lzma module only available for python >= 3.3
             msg = "{} compression is only available".format(cmethod)
-            with raises(NotImplementedError) as excinfo:
+            error = NotImplementedError
+            if cmethod == 'lz4':
+                error = ValueError
+            with raises(error) as excinfo:
                 numpy_pickle.dump(obj, dump_filename,
                                   compress=(cmethod, compress))
             excinfo.match(msg)
+        elif cmethod == 'lz4' and with_lz4.args[0]:
+            # Skip the test if lz4 is not installed. We here use the with_lz4
+            # skipif fixture whose argument is True when lz4 is not installed
+            raise SkipTest("lz4 is not installed.")
         else:
             numpy_pickle.dump(obj, dump_filename,
                               compress=(cmethod, compress))
@@ -916,3 +938,127 @@ def test_load_memmap_with_big_offset(tmpdir):
     assert isinstance(memmaps[1], np.memmap)
     assert memmaps[1].offset > size
     np.testing.assert_array_equal(obj, memmaps)
+
+
+def test_register_compressor(tmpdir):
+    # Check that registering compressor file works.
+    compressor_name = 'test-name'
+    compressor_prefix = 'test-prefix'
+
+    class BinaryCompressorTestFile(io.BufferedIOBase):
+        pass
+
+    class BinaryCompressorTestWrapper(CompressorWrapper):
+
+        def __init__(self):
+            CompressorWrapper.__init__(self, obj=BinaryCompressorTestFile,
+                                       prefix=compressor_prefix)
+
+    register_compressor(compressor_name, BinaryCompressorTestWrapper())
+
+    assert (_COMPRESSORS[compressor_name].fileobj_factory ==
+            BinaryCompressorTestFile)
+    assert _COMPRESSORS[compressor_name].prefix == compressor_prefix
+
+    # Remove this dummy compressor file from extra compressors because other
+    # tests might fail because of this
+    _COMPRESSORS.pop(compressor_name)
+
+
+@parametrize('invalid_name', [1, (), {}])
+def test_register_compressor_invalid_name(invalid_name):
+    # Test that registering an invalid compressor name is not allowed.
+    with raises(ValueError) as excinfo:
+        register_compressor(invalid_name, None)
+    excinfo.match("Compressor name should be a string")
+
+
+def test_register_compressor_invalid_fileobj():
+    # Test that registering an invalid file object is not allowed.
+
+    class InvalidFileObject():
+        pass
+
+    class InvalidFileObjectWrapper(CompressorWrapper):
+        def __init__(self):
+            CompressorWrapper.__init__(self, obj=InvalidFileObject,
+                                       prefix=b'prefix')
+
+    with raises(ValueError) as excinfo:
+        register_compressor('invalid', InvalidFileObjectWrapper())
+
+    excinfo.match("Compressor 'fileobj_factory' attribute should implement "
+                  "the file object interface")
+
+
+class AnotherZlibCompressorWrapper(CompressorWrapper):
+
+    def __init__(self):
+        CompressorWrapper.__init__(self, obj=BinaryZlibFile, prefix=b'prefix')
+
+
+class StandardLibGzipCompressorWrapper(CompressorWrapper):
+
+    def __init__(self):
+        CompressorWrapper.__init__(self, obj=gzip.GzipFile, prefix=b'prefix')
+
+
+def test_register_compressor_already_registered():
+    # Test registration of existing compressor files.
+    compressor_name = 'test-name'
+
+    # register a test compressor
+    register_compressor(compressor_name, AnotherZlibCompressorWrapper())
+
+    with raises(ValueError) as excinfo:
+        register_compressor(compressor_name,
+                            StandardLibGzipCompressorWrapper())
+    excinfo.match("Compressor '{}' already registered."
+                  .format(compressor_name))
+
+    register_compressor(compressor_name, StandardLibGzipCompressorWrapper(),
+                        force=True)
+
+    assert compressor_name in _COMPRESSORS
+    assert _COMPRESSORS[compressor_name].fileobj_factory == gzip.GzipFile
+
+    # Remove this dummy compressor file from extra compressors because other
+    # tests might fail because of this
+    _COMPRESSORS.pop(compressor_name)
+
+
+@with_lz4
+def test_lz4_compression(tmpdir):
+    # Check that lz4 can be used when dependency is available.
+    import lz4.frame
+    compressor = 'lz4'
+    assert compressor in _COMPRESSORS
+    assert _COMPRESSORS[compressor].fileobj_factory == lz4.frame.LZ4FrameFile
+
+    fname = tmpdir.join('test.pkl').strpath
+    data = 'test data'
+    numpy_pickle.dump(data, fname, compress=compressor)
+
+    with open(fname, 'rb') as f:
+        assert f.read(len(_LZ4_PREFIX)) == _LZ4_PREFIX
+    assert numpy_pickle.load(fname) == data
+
+    # Test that LZ4 is applied based on file extension
+    numpy_pickle.dump(data, fname + '.lz4')
+    with open(fname, 'rb') as f:
+        assert f.read(len(_LZ4_PREFIX)) == _LZ4_PREFIX
+    assert numpy_pickle.load(fname) == data
+
+
+@without_lz4
+def test_lz4_compression_without_lz4(tmpdir):
+    # Check that lz4 cannot be used when dependency is not available.
+    fname = tmpdir.join('test.nolz4').strpath
+    data = 'test data'
+    with raises(ValueError) as excinfo:
+        numpy_pickle.dump(data, fname, compress='lz4')
+    excinfo.match(LZ4_NOT_INSTALLED_ERROR)
+
+    with raises(ValueError) as excinfo:
+        numpy_pickle.dump(data, fname + '.lz4')
+    excinfo.match(LZ4_NOT_INSTALLED_ERROR)

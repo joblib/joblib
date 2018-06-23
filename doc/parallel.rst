@@ -128,6 +128,37 @@ parallelism automatically tries to maintain and reuse a pool of workers
 by it-self even for calls without the context manager.
 
 
+Avoiding over-subscription of CPU ressources
+============================================
+
+The computation parallelism relies on the usage of multiple CPUs to perform the
+operation simultaneously. When using more processes than the number of CPU on
+a machine, the performance of each process is degraded as there is less
+computational power available for each process. Moreover, when many processes
+are running, the time taken by the OS scheduler to switch between them can
+further hinder the performance of the computation. It is generally better to
+avoid using significantly more processes or threads than the number of CPUs on
+a machine.
+
+Some third-partiy libraries -- *e.g.* the BLAS runtime used by ``numpy`` --
+manage internally a thread-pool to perform their computations. The default
+behavior is generally to use number of thread equals to the number of CPU
+available. When these libraries are used with :class:`joblib.Parallel`, each
+worker will spawn its thread-pools, resulting in a massive over-subscription of
+the ressources that can slow down the computation compared to sequential one.
+To cope with this problem, joblib forces by default supported third-party
+libraries to use only one thread in workers with the ``'loky'`` backend. This
+behavior can be overwritten by setting the proper environment variable to the
+desired number of threads. This limitation is supported for the following
+libraries:
+
+    - OpenMP with the environment variable ``'OMP_NUM_THREADS'``,
+    - OpenBLAS with the ``'OPENBLAS_NUM_THREADS'``,
+    - MKL with the environment variable ``'MKL_NUM_THREADS'``,
+    - Accelerated with the environment variable ``'VECLIB_MAXIMUM_THREADS'``,
+    - Numexpr with the environment variable ``'NUMEXPR_NUM_THREADS'``.
+
+
 Custom backend API (experimental)
 =================================
 
@@ -173,6 +204,36 @@ The connection parameters can then be passed to the
 Using the context manager can be helpful when using a third-party library that
 uses :class:`joblib.Parallel` internally while not exposing the ``backend``
 argument in its own API.
+
+
+A problem exists that external packages that register new parallel backends
+must now be imported explicitly for their backends to be identified by joblib::
+
+   >>> import joblib
+   >>> with joblib.parallel_backend('custom'):  # doctest: +SKIP
+   ...     ...  # this fails
+   KeyError: 'custom'
+
+   # Import library to register external backend
+   >>> import my_custom_backend_library  # doctest: +SKIP
+   >>> with joblib.parallel_backend('custom'):  # doctest: +SKIP
+   ...     ... # this works
+
+This can be confusing for users.  To resolve this, external packages can
+safely register their backends directly within the joblib codebase by creating
+a small function that registers their backend, and including this function
+within the ``joblib.parallel.EXTERNAL_PACKAGES`` dictionary::
+
+   def _register_custom():
+       try:
+           import my_custom_library
+       except ImportError:
+           raise ImportError("an informative error message")
+
+   EXTERNAL_BACKENDS['custom'] = _register_custom
+
+This is subject to community review, but can reduce the confusion for users
+when relying on side effects of external package imports.
 
 
 Old multiprocessing backend

@@ -11,6 +11,7 @@ import sys
 import time
 import mmap
 import threading
+from traceback import format_exception
 from math import sqrt
 from time import sleep
 from multiprocessing import TimeoutError
@@ -22,8 +23,8 @@ from joblib import parallel
 from joblib.test.common import np, with_numpy
 from joblib.test.common import with_multiprocessing
 from joblib.testing import (parametrize, raises, check_subprocess_call,
-                            SkipTest, warns)
-from joblib._compat import PY3_OR_LATER
+                            skipif, SkipTest, warns)
+from joblib._compat import PY3_OR_LATER, PY27
 
 try:
     import cPickle as pickle
@@ -48,9 +49,19 @@ except ImportError:
     posix = None
 
 try:
+    RecursionError
+except NameError:
+    RecursionError = RuntimeError
+
+try:
     reload         # Python 2
 except NameError:  # Python 3
     from importlib import reload
+
+try:
+    from ._openmp_test_helper.parallel_sum import parallel_sum
+except ImportError:
+    parallel_sum = None
 
 from joblib._parallel_backends import SequentialBackend
 from joblib._parallel_backends import ThreadingBackend
@@ -58,14 +69,16 @@ from joblib._parallel_backends import MultiprocessingBackend
 from joblib._parallel_backends import ParallelBackendBase
 from joblib._parallel_backends import LokyBackend
 from joblib._parallel_backends import SafeFunction
-from joblib._parallel_backends import WorkerInterrupt
 
 from joblib.parallel import Parallel, delayed
 from joblib.parallel import register_parallel_backend, parallel_backend
 from joblib.parallel import effective_n_jobs, cpu_count
 
-from joblib.parallel import mp, BACKENDS, DEFAULT_BACKEND
+from joblib.parallel import mp, BACKENDS, DEFAULT_BACKEND, EXTERNAL_BACKENDS
 from joblib.my_exceptions import JoblibException
+from joblib.my_exceptions import TransportableException
+from joblib.my_exceptions import JoblibValueError
+from joblib.my_exceptions import WorkerInterrupt
 
 
 ALL_VALID_BACKENDS = [None] + sorted(BACKENDS.keys())
@@ -313,9 +326,7 @@ def test_error_capture(backend):
     # Check that error are captured, and that correct exceptions
     # are raised.
     if mp is not None:
-        # A JoblibException will be raised only if there is indeed
-        # multiprocessing
-        with raises(JoblibException):
+        with raises(ZeroDivisionError):
             Parallel(n_jobs=2, backend=backend)(
                 [delayed(division)(x, y)
                     for x, y in zip((0, 1), (1, 0))])
@@ -328,7 +339,7 @@ def test_error_capture(backend):
             assert get_workers(parallel._backend) is not None
             original_workers = get_workers(parallel._backend)
 
-            with raises(JoblibException):
+            with raises(ZeroDivisionError):
                 parallel([delayed(division)(x, y)
                           for x, y in zip((0, 1), (1, 0))])
 
@@ -476,12 +487,51 @@ def test_exception_dispatch():
             delayed(exception_raiser)(i) for i in range(30))
 
 
-def test_nested_exception_dispatch():
-    """Ensure TransportableException objects for nested joblib cases gets
-    propagated."""
-    with raises(JoblibException):
-        Parallel(n_jobs=2, pre_dispatch=16, verbose=0)(
-            delayed(SafeFunction(exception_raiser))(i) for i in range(30))
+@with_multiprocessing
+@parametrize('backend', ['loky', 'multiprocessing', 'threading'])
+def test_nested_exception_dispatch(backend):
+    """Ensure errors for nested joblib cases gets propagated
+
+    For Python 2.7, the TransportableException wrapping and unwrapping should
+    preserve the traceback information of the inner function calls.
+
+    For Python 3, we rely on the built-in __cause__ system that already
+    report this kind of information to the user.
+    """
+    if PY27 and backend == 'multiprocessing':
+        raise SkipTest("Nested parallel calls can deadlock with the python 2.7"
+                       "multiprocessing backend.")
+
+    def nested_function_inner(i):
+        Parallel(n_jobs=2)(
+            delayed(exception_raiser)(j) for j in range(30))
+
+    def nested_function_outer(i):
+        Parallel(n_jobs=2)(
+            delayed(nested_function_inner)(j) for j in range(30))
+
+    with raises(ValueError) as excinfo:
+        Parallel(n_jobs=2, backend=backend)(
+            delayed(nested_function_outer)(i) for i in range(30))
+
+    # Check that important information such as function names are visible
+    # in the final error message reported to the user
+    report_lines = format_exception(excinfo.type, excinfo.value, excinfo.tb)
+    report = "".join(report_lines)
+    assert 'nested_function_outer' in report
+    assert 'nested_function_inner' in report
+    assert 'exception_raiser' in report
+
+    if PY3_OR_LATER:
+        # Under Python 3, there is no need for exception wrapping as the
+        # exception raised in a worker process is transportable by default and
+        # preserves the necessary information via the `__cause__` attribute.
+        assert type(excinfo.value) is ValueError
+    else:
+        # The wrapping mechanism used to make exception of Python2.7
+        # transportable does not create a JoblibJoblibJoblibValueError
+        # despite the 3 nested parallel calls.
+        assert type(excinfo.value) is JoblibValueError
 
 
 def _reload_joblib():
@@ -708,8 +758,20 @@ def test_joblib_exception():
 
 def test_safe_function():
     safe_division = SafeFunction(division)
-    with raises(JoblibException):
-        safe_division(1, 0)
+    if PY3_OR_LATER:
+        with raises(ZeroDivisionError):
+            safe_division(1, 0)
+    else:
+        # Under Python 2.7, exception are wrapped with a special wrapper to
+        # preserve runtime information of the worker environment. Python 3 does
+        # not need this as it preserves the traceback information by default.
+        with raises(TransportableException) as excinfo:
+            safe_division(1, 0)
+        assert isinstance(excinfo.value.unwrap(), ZeroDivisionError)
+
+    safe_interrupt = SafeFunction(interrupt_raiser)
+    with raises(WorkerInterrupt):
+        safe_interrupt('x')
 
 
 @parametrize('batch_size', [0, -1, 1.42])
@@ -791,11 +853,11 @@ def test_no_blas_crash_or_freeze_with_subprocesses(backend):
         delayed(np.dot)(a, a.T) for i in range(2))
 
 
-CUSTOM_BACKEND_SCRIPT_TEMPLATE = """\
+UNPICKLABLE_CALLABLE_SCRIPT_TEMPLATE_NO_MAIN = """\
 from joblib import Parallel, delayed
 
 def square(x):
-    return x**2
+    return x ** 2
 
 backend = "{}"
 if backend == "spawn":
@@ -803,7 +865,7 @@ if backend == "spawn":
     backend = get_context(backend)
 
 print(Parallel(n_jobs=2, backend=backend)(
-        delayed(square)(i) for i in range(5)))
+      delayed(square)(i) for i in range(5)))
 """
 
 
@@ -814,10 +876,69 @@ print(Parallel(n_jobs=2, backend=backend)(
 def test_parallel_with_interactively_defined_functions(backend):
     # When using the "-c" flag, interactive functions defined in __main__
     # should work with any backend.
-    code = CUSTOM_BACKEND_SCRIPT_TEMPLATE.format(backend)
-    check_subprocess_call([sys.executable, '-c', code],
-                          stdout_regex=r'\[0, 1, 4, 9, 16\]',
-                          timeout=2)
+    code = UNPICKLABLE_CALLABLE_SCRIPT_TEMPLATE_NO_MAIN.format(backend)
+    check_subprocess_call(
+        [sys.executable, '-c', code], timeout=10,
+        stdout_regex=r'\[0, 1, 4, 9, 16\]')
+
+
+UNPICKLABLE_CALLABLE_SCRIPT_TEMPLATE_MAIN = """\
+from joblib import Parallel, delayed
+
+def run(f, x):
+    return f(x)
+
+{}
+
+if __name__ == "__main__":
+    backend = "{}"
+    if backend == "spawn":
+        from multiprocessing import get_context
+        backend = get_context(backend)
+
+    callable_position = "{}"
+    if callable_position == "delayed":
+        print(Parallel(n_jobs=2, backend=backend)(
+                delayed(square)(i) for i in range(5)))
+    elif callable_position == "args":
+        print(Parallel(n_jobs=2, backend=backend)(
+                delayed(run)(square, i) for i in range(5)))
+    else:
+        print(Parallel(n_jobs=2, backend=backend)(
+                delayed(run)(f=square, x=i) for i in range(5)))
+"""
+
+SQUARE_MAIN = """\
+def square(x):
+    return x ** 2
+"""
+SQUARE_LOCAL = """\
+def gen_square():
+    def square(x):
+        return x ** 2
+    return square
+square = gen_square()
+"""
+SQUARE_LAMBDA = """\
+square = lambda x: x ** 2
+"""
+
+
+@with_multiprocessing
+@parametrize('backend', PROCESS_BACKENDS +
+             ([] if sys.version_info[:2] < (3, 4) or mp is None
+              else ['spawn']))
+@parametrize('define_func', [SQUARE_MAIN, SQUARE_LOCAL, SQUARE_LAMBDA])
+@parametrize('callable_position', ['delayed', 'args', 'kwargs'])
+def test_parallel_with_unpicklable_functions_in_args(
+        backend, define_func, callable_position, tmpdir):
+    code = UNPICKLABLE_CALLABLE_SCRIPT_TEMPLATE_MAIN.format(
+        define_func, backend, callable_position)
+    code_file = tmpdir.join("unpicklable_func_script.py")
+    code_file.write(code)
+    check_subprocess_call(
+        [sys.executable, code_file.strpath], timeout=10,
+        stdout_regex=r'\[0, 1, 4, 9, 16\]')
 
 
 DEFAULT_BACKEND_SCRIPT_CONTENT = """\
@@ -832,6 +953,9 @@ from joblib import Parallel, delayed
 
 def square(x):
     return x ** 2
+
+# Here, we do not need the `if __name__ == "__main__":` safeguard when
+# using the default `loky` backend (even on Windows).
 print(Parallel(n_jobs=2)(delayed(square)(i) for i in range(5)))
 """.format(joblib_root_folder=os.path.dirname(
     os.path.dirname(joblib.__file__)))
@@ -847,7 +971,7 @@ def test_parallel_with_interactively_defined_functions_default_backend(tmpdir):
     script.write(DEFAULT_BACKEND_SCRIPT_CONTENT)
     check_subprocess_call([sys.executable, script.strpath],
                           stdout_regex=r'\[0, 1, 4, 9, 16\]',
-                          timeout=2)
+                          timeout=5)
 
 
 def test_parallel_with_exhausted_iterator():
@@ -934,7 +1058,7 @@ def test_abort_backend(n_jobs, backend):
         Parallel(n_jobs=n_jobs, backend=backend)(
             delayed(time.sleep)(i) for i in delays)
     dt = time.time() - t_start
-    assert dt < 3
+    assert dt < 5
 
 
 @with_numpy
@@ -1157,3 +1281,75 @@ def test_global_parallel_backend():
 
     pb.unregister()
     assert type(Parallel()._backend) is type(default)
+
+
+def test_external_backends():
+    def register_foo():
+        BACKENDS['foo'] = ThreadingBackend
+
+    EXTERNAL_BACKENDS['foo'] = register_foo
+
+    with parallel_backend('foo'):
+        assert isinstance(Parallel()._backend, ThreadingBackend)
+
+
+def _recursive_backend_info(limit=3):
+    """Perform nested parallel calls and introspect the backend on the way"""
+
+    with Parallel() as p:
+        this_level = [(type(p._backend).__name__, p._backend.nesting_level)]
+        if limit == 0:
+            return this_level
+        results = p(delayed(_recursive_backend_info)(limit=limit - 1)
+                    for i in range(1))
+        return this_level + results[0]
+
+
+@with_multiprocessing
+@parametrize('backend', ['loky', 'threading'])
+def test_nested_parallel_limit(backend):
+    with parallel_backend(backend, n_jobs=2):
+        backend_types_and_levels = _recursive_backend_info()
+
+    top_level_backend_type = backend.title() + 'Backend'
+    expected_types_and_levels = [
+        (top_level_backend_type, 0),
+        ('ThreadingBackend', 1),
+        ('SequentialBackend', 2),
+        ('SequentialBackend', 3)
+    ]
+    assert backend_types_and_levels == expected_types_and_levels
+
+
+def _recursive_parallel(nesting_limit=None):
+    """A horrible function that does recursive parallel calls"""
+    return Parallel()(delayed(_recursive_parallel)() for i in range(2))
+
+
+@parametrize('backend', ['loky', 'threading'])
+def test_thread_bomb_mitigation(backend):
+    # Test that recursive parallelism raises a recursion rather than
+    # saturating the operating system resources by creating a unbounded number
+    # of threads.
+    with parallel_backend(backend, n_jobs=2):
+        with raises(RecursionError):
+            _recursive_parallel()
+
+
+def _run_parallel_sum():
+    env_vars = {}
+    for var in ['OMP_NUM_THREADS', 'OPENBLAS_NUM_THREADS', 'MKL_NUM_THREADS',
+                'VECLIB_MAXIMUM_THREADS', 'NUMEXPR_NUM_THREADS']:
+        env_vars[var] = os.environ.get(var)
+    return env_vars, parallel_sum(100)
+
+
+@parametrize("backend", [None, 'loky'])
+@skipif(parallel_sum is None, reason="Need OpenMP helper compiled")
+def test_parallel_thread_limit(backend):
+    res = Parallel(n_jobs=2, backend=backend)(
+        delayed(_run_parallel_sum)() for _ in range(2)
+    )
+    for value in res[0][0].values():
+        assert value == '1'
+    assert all([r[1] == 1 for r in res])

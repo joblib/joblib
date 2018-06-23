@@ -1,5 +1,5 @@
 ###############################################################################
-# Re-implementation of the ProcessPoolExecutor to robustify its fault tolerance
+# Re-implementation of the ProcessPoolExecutor more robust to faults
 #
 # author: Thomas Moreau and Olivier Grisel
 #
@@ -76,6 +76,7 @@ from .backend.compat import queue
 from .backend.compat import wait
 from .backend.context import cpu_count
 from .backend.queues import Queue, SimpleQueue, Full
+from .backend.utils import recursive_terminate
 
 try:
     from concurrent.futures.process import BrokenProcessPool as _BPPException
@@ -498,7 +499,7 @@ def _queue_management_worker(executor_reference,
         executor_flags.flag_as_shutting_down()
         # Create a list to avoid RuntimeError due to concurrent modification of
         # processes. nb_children_alive is thus an upper bound. Also release the
-        # processes' safe_guard_locks to accelerate the shutdown procedure, as
+        # processes' _worker_exit_lock to accelerate the shutdown procedure, as
         # there is no need for hand-shake here.
         with processes_management_lock:
             n_children_alive = 0
@@ -594,8 +595,7 @@ def _queue_management_worker(executor_reference,
                 _, p = processes.popitem()
                 mp.util.debug('terminate process {}'.format(p.name))
                 try:
-                    p.terminate()
-                    p.join()
+                    recursive_terminate(p)
                 except ProcessLookupError:  # pragma: no cover
                     pass
 
@@ -668,8 +668,7 @@ def _queue_management_worker(executor_reference,
                 # locks may be in a dirty state and block forever.
                 while processes:
                     _, p = processes.popitem()
-                    p.terminate()
-                    p.join()
+                    recursive_terminate(p)
                 shutdown_all_workers()
                 return
             # Since no new work items can be added, it is safe to shutdown

@@ -14,7 +14,7 @@ from abc import ABCMeta, abstractmethod
 from .format_stack import format_exc
 from .my_exceptions import WorkerInterrupt, TransportableException
 from ._multiprocessing_helpers import mp
-from ._compat import with_metaclass
+from ._compat import with_metaclass, PY27
 if mp is not None:
     from .disk import delete_folder
     from .pool import MemmappingPool
@@ -31,6 +31,15 @@ class ParallelBackendBase(with_metaclass(ABCMeta)):
     """Helper abc which defines all methods a ParallelBackend must implement"""
 
     supports_timeout = False
+    nesting_level = 0
+
+    def __init__(self, nesting_level=0):
+        self.nesting_level = nesting_level
+
+    SUPPORTED_CLIB_VARS = [
+        'OMP_NUM_THREADS', 'OPENBLAS_NUM_THREADS', 'MKL_NUM_THREADS',
+        'VECLIB_MAXIMUM_THREADS', 'NUMEXPR_NUM_THREADS'
+    ]
 
     @abstractmethod
     def effective_n_jobs(self, n_jobs):
@@ -63,6 +72,12 @@ class ParallelBackendBase(with_metaclass(ABCMeta)):
         """
         self.parallel = parallel
         return self.effective_n_jobs(n_jobs)
+
+    def start_call(self):
+        """Call-back method called at the beginning of a Parallel call"""
+
+    def stop_call(self):
+        """Call-back method called at the end of a Parallel call"""
 
     def terminate(self):
         """Shutdown the workers and free the shared memory."""
@@ -98,16 +113,23 @@ class ParallelBackendBase(with_metaclass(ABCMeta)):
         managed by the backend it-self: if we expect no new tasks, there is no
         point in re-creating new workers.
         """
-        # Does nothing by default: to be overriden in subclasses when canceling
-        # tasks is possible.
+        # Does nothing by default: to be overridden in subclasses when
+        # canceling tasks is possible.
         pass
 
     def get_nested_backend(self):
         """Backend instance to be used by nested Parallel calls.
 
-        By default a thread-based backend is used.
+        By default a thread-based backend is used for the first level of
+        nesting. Beyond, switch to sequential backend to avoid spawning too
+        many threads on the host.
         """
-        return ThreadingBackend()
+        nesting_level = getattr(self, 'nesting_level', 0) + 1
+        if nesting_level > 1:
+            return SequentialBackend(nesting_level=nesting_level)
+        else:
+            return ThreadingBackend(nesting_level=nesting_level)
+
 
     @contextlib.contextmanager
     def retrieval_context(self):
@@ -125,6 +147,19 @@ class ParallelBackendBase(with_metaclass(ABCMeta)):
         tasks.
         """
         yield
+
+    @classmethod
+    def limit_clib_threads(cls, n_threads=1):
+        """Initializer to limit the number of threads used by some C-libraries.
+
+        This function set the number of threads to `n_threads` for OpenMP, MKL,
+        Accelerated and OpenBLAS libraries, that can be used with scientific
+        computing tools like numpy.
+        """
+        for var in cls.SUPPORTED_CLIB_VARS:
+            var_value = os.environ.get(var, None)
+            if var_value is None:
+                os.environ[var] = str(n_threads)
 
 
 class SequentialBackend(ParallelBackendBase):
@@ -151,7 +186,8 @@ class SequentialBackend(ParallelBackendBase):
         return result
 
     def get_nested_backend(self):
-        return self
+        nested_level = getattr(self, 'nesting_level', 0) + 1
+        return SequentialBackend(nesting_level=nested_level)
 
 
 class PoolManagerMixin(object):
@@ -402,7 +438,8 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
 
         # Make sure to free as much memory as possible before forking
         gc.collect()
-        self._pool = MemmappingPool(n_jobs, **memmappingpool_args)
+        self._pool = MemmappingPool(
+            n_jobs, initializer=self.limit_clib_threads, **memmappingpool_args)
         self.parallel = parallel
         return n_jobs
 
@@ -421,14 +458,16 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
     supports_timeout = True
 
     def configure(self, n_jobs=1, parallel=None, prefer=None, require=None,
-                  **memmappingexecutor_args):
+                  idle_worker_timeout=300, **memmappingexecutor_args):
         """Build a process executor and return the number of workers"""
         n_jobs = self.effective_n_jobs(n_jobs)
         if n_jobs == 1:
             raise FallbackToBackend(SequentialBackend())
 
         self._workers = get_memmapping_executor(
-            n_jobs, **memmappingexecutor_args)
+            n_jobs, timeout=idle_worker_timeout,
+            initializer=self.limit_clib_threads,
+            **memmappingexecutor_args)
         self.parallel = parallel
         return n_jobs
 
@@ -525,10 +564,17 @@ class SafeFunction(object):
             # something different, as multiprocessing does not
             # interrupt processing for a KeyboardInterrupt
             raise WorkerInterrupt()
-        except:
-            e_type, e_value, e_tb = sys.exc_info()
-            text = format_exc(e_type, e_value, e_tb, context=10, tb_offset=1)
-            raise TransportableException(text, e_type)
+        except BaseException:
+            if PY27:
+                # Capture the traceback of the worker to make it part of
+                # the final exception message.
+                e_type, e_value, e_tb = sys.exc_info()
+                text = format_exc(e_type, e_value, e_tb, context=10,
+                                  tb_offset=1)
+                raise TransportableException(text, e_type)
+            else:
+                # Rely on Python 3 built-in Remote Traceback reporting
+                raise
 
 
 class FallbackToBackend(Exception):
