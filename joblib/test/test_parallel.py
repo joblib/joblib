@@ -28,6 +28,11 @@ from joblib.testing import (parametrize, raises, check_subprocess_call,
 from joblib._compat import PY3_OR_LATER, PY27
 
 try:
+    import cPickle as pickle
+except ImportError:
+    import pickle
+
+try:
     from queue import Queue
 except ImportError:
     # Backward compat
