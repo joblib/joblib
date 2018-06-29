@@ -69,6 +69,7 @@ import traceback
 import threading
 import multiprocessing as mp
 from functools import partial
+from pickle import PicklingError
 
 from . import _base
 from .backend import get_context
@@ -285,16 +286,19 @@ class _SafeQueue(Queue):
     def _on_queue_feeder_error(self, e, obj):
         if isinstance(obj, _CallItem):
             # fromat traceback only on python3
+            pickling_error = PicklingError(
+                "Could not pickle the task to send it to the workers.")
             tb = traceback.format_exception(
                 type(e), e, getattr(e, "__traceback__", None))
-            e.__cause__ = _RemoteTraceback('\n"""\n{}"""'.format(''.join(tb)))
+            pickling_error.__cause__ = _RemoteTraceback(
+                '\n"""\n{}"""'.format(''.join(tb)))
             work_item = self.pending_work_items.pop(obj.work_id, None)
             self.running_work_items.remove(obj.work_id)
             # work_item can be None if another process terminated. In this
             # case, the queue_manager_thread fails all work_items with
             # BrokenProcessPool
             if work_item is not None:
-                work_item.future.set_exception(e)
+                work_item.future.set_exception(pickling_error)
                 del work_item
             self.thread_wakeup.wakeup()
         else:

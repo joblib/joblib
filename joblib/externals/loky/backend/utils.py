@@ -42,9 +42,9 @@ def _recursive_terminate(pid):
                 ["taskkill", "/F", "/T", "/PID", str(pid)],
                 stderr=None)
         except subprocess.CalledProcessError as e:
-            # In windows, taskkill return 1 for permission denied and 128 for
-            # no process found.
-            if e.returncode not in [1, 128]:
+            # In windows, taskkill return 1 for permission denied and 128, 255
+            # for no process found.
+            if e.returncode not in [1, 128, 255]:
                 raise
             elif e.returncode == 1:
                 # Try to kill the process without its descendants if taskkill
