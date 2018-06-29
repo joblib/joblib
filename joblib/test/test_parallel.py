@@ -295,7 +295,7 @@ def test_parallel_pickling():
         def __reduce__(self):
             raise RuntimeError()
 
-    with raises(RuntimeError):
+    with raises(pickle.PicklingError):
         Parallel(n_jobs=2)(delayed(id)(UnpicklableObject()) for _ in range(10))
 
 
