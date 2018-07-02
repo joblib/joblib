@@ -14,6 +14,7 @@ import threading
 from traceback import format_exception
 from math import sqrt
 from time import sleep
+from pickle import PicklingError
 from multiprocessing import TimeoutError
 
 import joblib
@@ -28,14 +29,8 @@ from joblib._compat import PY3_OR_LATER, PY27
 
 try:
     import cPickle as pickle
-    PickleError = TypeError
 except ImportError:
     import pickle
-    PickleError = pickle.PicklingError
-
-
-if PY3_OR_LATER:
-    PickleError = pickle.PicklingError
 
 try:
     from queue import Queue
@@ -291,11 +286,11 @@ def test_parallel_pickling():
     """ Check that pmap captures the errors when it is passed an object
         that cannot be pickled.
     """
-    class UnpicklableObject:
+    class UnpicklableObject(object):
         def __reduce__(self):
             raise RuntimeError()
 
-    with raises(RuntimeError):
+    with raises(PicklingError):
         Parallel(n_jobs=2)(delayed(id)(UnpicklableObject()) for _ in range(10))
 
 
