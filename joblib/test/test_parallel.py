@@ -49,6 +49,11 @@ except NameError:
     RecursionError = RuntimeError
 
 try:
+    reload         # Python 2
+except NameError:  # Python 3
+    from importlib import reload
+
+try:
     from ._openmp_test_helper.parallel_sum import parallel_sum
 except ImportError:
     parallel_sum = None
