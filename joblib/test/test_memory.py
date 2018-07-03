@@ -595,6 +595,7 @@ def func_with_signature(a: int, b: float) -> float:
 """)
 
     def test_memory_func_with_kwonly_args(tmpdir):
+        global func_with_kwonly_args, func_with_signature
         memory = Memory(location=tmpdir.strpath, verbose=0)
         func_cached = memory.cache(func_with_kwonly_args)
 
