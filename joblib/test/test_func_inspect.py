@@ -146,14 +146,17 @@ def test_func_inspect_errors():
     assert get_func_code(ff)[1] == __file__.replace('.pyc', '.py')
 
 
-def func_with_kwonly_args(a, b, kw1='kw1', kw2='kw2'):
-    pass
-
-
-def func_with_signature(a, b):
-    pass
-
 if PY3_OR_LATER:
+    # Avoid flake8 F821 "undefined name" warning. func_with_kwonly_args and
+    # func_with_signature are redefined in the exec statement a few lines below
+    def func_with_kwonly_args():
+        pass
+
+    def func_with_signature():
+        pass
+
+    # exec is needed to define a function with a keyword-only argument and a
+    # function with signature while avoiding a SyntaxError on Python 2
     exec("""
 def func_with_kwonly_args(a, b, *, kw1='kw1', kw2='kw2'): pass
 
