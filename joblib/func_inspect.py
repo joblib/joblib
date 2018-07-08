@@ -240,8 +240,10 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
     arg_spec = getfullargspec(func)
     arg_names = arg_spec.args + arg_spec.kwonlyargs
     arg_defaults = arg_spec.defaults or ()
-    arg_defaults = arg_defaults + tuple(arg_spec.kwonlydefaults[k]
-                                        for k in arg_spec.kwonlyargs)
+    if arg_spec.kwonlydefaults:
+        arg_defaults = arg_defaults + tuple(arg_spec.kwonlydefaults[k]
+                                            for k in arg_spec.kwonlyargs
+                                            if k in arg_spec.kwonlydefaults)
     arg_varargs = arg_spec.varargs
     arg_varkw = arg_spec.varkw
 

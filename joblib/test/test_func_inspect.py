@@ -99,11 +99,25 @@ def test_filter_varargs(func, args, filtered_args):
     assert filter_args(func, *args) == filtered_args
 
 
+test_filter_kwargs_extra_params = []
+if PY3_OR_LATER:
+    m1 = m2 = None
+    # The following statements raise SyntaxError in python 2
+    # because kwargonly is not supported
+    exec("def m1(x, *, y): pass")
+    exec("def m2(x, *, y, z=3): pass")
+    test_filter_kwargs_extra_params.extend([
+        (m1, [[], (1,), {'y': 2}], {'x': 1, 'y': 2}),
+        (m2, [[], (1,), {'y': 2}], {'x': 1, 'y': 2, 'z': 3})
+    ])
+
+
 @parametrize('func,args,filtered_args',
              [(k, [[], (1, 2), {'ee': 2}],
                {'*': [1, 2], '**': {'ee': 2}}),
               (k, [[], (3, 4)],
-               {'*': [3, 4], '**': {}})])
+               {'*': [3, 4], '**': {}})] +
+             test_filter_kwargs_extra_params)
 def test_filter_kwargs(func, args, filtered_args):
     assert filter_args(func, *args) == filtered_args
 
