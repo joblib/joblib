@@ -227,8 +227,8 @@ class MemorizedResult(Logger):
     @property
     def argument_hash(self):
         warnings.warn(
-            "The 'argument_hash' attribute has been deprecated in version 0.12 "
-            "and will be removed in version 0.14.\n"
+            "The 'argument_hash' attribute has been deprecated in version "
+            "0.12 and will be removed in version 0.14.\n"
             "Use `args_id` attribute instead.",
             DeprecationWarning, stacklevel=2)
         return self.args_id
