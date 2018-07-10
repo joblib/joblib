@@ -250,11 +250,11 @@ class MemorizedResult(Logger):
 
     def __repr__(self):
         return ('{class_name}(location="{location}", func="{func}", '
-                'argument_id="{arg_id}")'
+                'args_id="{args_id}")'
                 .format(class_name=self.__class__.__name__,
                         location=self.store_backend,
                         func=self.func,
-                        arg_id=self.args_id
+                        args_id=self.args_id
                         ))
     def __reduce__(self):
         return (self.__class__,
