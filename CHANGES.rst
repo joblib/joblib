@@ -1,6 +1,19 @@
 Latest changes
 ===============
 
+Release 0.12.1
+--------------
+
+Thomas Moreau
+
+    Make sure that any exception triggered when serializing jobs in the queue
+    will be wrapped as a PicklingError as in past versions of joblib.
+
+Noam Hershtig
+
+    Fix kwonlydefaults key error in filter_args (#715)
+
+
 Release 0.12
 ------------
 
