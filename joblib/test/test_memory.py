@@ -451,6 +451,19 @@ def test_call_and_shelve(tmpdir):
         result.clear()  # Do nothing if there is no cache.
 
 
+def test_call_and_shelve_argument_hash(tmpdir):
+    # Verify that a warning is raised when accessing arguments_hash
+    # attribute from MemorizedResult
+    func = Memory(location=tmpdir.strpath, verbose=0).cache(f)
+    result = func.call_and_shelve(2)
+    assert isinstance(result, MemorizedResult)
+    with warns(DeprecationWarning) as w:
+        assert result.argument_hash == result.args_id
+    assert len(w) == 1
+    assert "The 'argument_hash' attribute has been deprecated" \
+        in str(w[-1].message)
+
+
 def test_memorized_pickling(tmpdir):
     for func in (MemorizedFunc(f, tmpdir.strpath), NotMemorizedFunc(f)):
         filename = tmpdir.join('pickling_test.dat').strpath
