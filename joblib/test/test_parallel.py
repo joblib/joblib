@@ -16,6 +16,7 @@ from math import sqrt
 from time import sleep
 from pickle import PicklingError
 from multiprocessing import TimeoutError
+import pytest
 
 import joblib
 from joblib import dump, load
@@ -1314,6 +1315,16 @@ def test_nested_parallel_limit(backend):
         ('SequentialBackend', 3)
     ]
     assert backend_types_and_levels == expected_types_and_levels
+
+
+def test_nested_parallel_dask():
+    distributed = pytest.importorskip('distributed')
+    client = distributed.Client()  # noqa
+    with parallel_backend('dask'):
+        backend_types_and_levels = _recursive_backend_info()
+    assert len(backend_types_and_levels) == 4
+    assert all(name == 'DaskDistributedBackend'
+               for name, _ in backend_types_and_levels)
 
 
 def _recursive_parallel(nesting_limit=None):
