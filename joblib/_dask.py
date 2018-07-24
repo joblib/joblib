@@ -6,7 +6,7 @@ from uuid import uuid4
 import weakref
 
 from .parallel import AutoBatchingMixin, ParallelBackendBase, BatchedCalls
-from .parallel import register_parallel_backend, parallel_backend
+from .parallel import parallel_backend
 
 try:
     import distributed
