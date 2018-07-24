@@ -5,14 +5,21 @@ import contextlib
 from uuid import uuid4
 import weakref
 
-from distributed.client import Client, _wait
-from distributed.utils import funcname, itemgetter
-from distributed import get_client, secede, rejoin
-from distributed.worker import thread_state
-from distributed.sizeof import sizeof
-from tornado import gen
-from .parallel import AutoBatchingMixin, ParallelBackendBase
+from .parallel import AutoBatchingMixin, ParallelBackendBase, BatchedCalls
 from .parallel import register_parallel_backend, parallel_backend
+
+try:
+    import distributed
+except ImportError:
+    distributed = None
+
+if distributed is not None:
+    from distributed.client import Client, _wait
+    from distributed.utils import funcname, itemgetter
+    from distributed import get_client, secede, rejoin
+    from distributed.worker import thread_state
+    from distributed.sizeof import sizeof
+    from tornado import gen
 
 
 def is_weakrefable(obj):
@@ -69,9 +76,7 @@ class _WeakKeyDictionary:
 
 def _funcname(x):
     try:
-        # Can't do isinstance, since joblib is often bundled in packages, and
-        # separate installs will have non-equivalent types.
-        if type(x).__name__ == 'BatchedCalls':
+        if isinstance(x, BatchedCalls):
             x = x.items[0][0]
     except Exception:
         pass
@@ -255,6 +260,3 @@ class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
 
         if hasattr(thread_state, 'execution_state'):
             rejoin()
-
-
-register_parallel_backend('dask', DaskDistributedBackend)

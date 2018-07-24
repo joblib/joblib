@@ -59,7 +59,8 @@ VALID_BACKEND_CONSTRAINTS = ('sharedmem', None)
 def _register_dask():
     """ Register Dask Backend if called with parallel_backend("dask") """
     try:
-        from . import _dask  # noqa
+        from ._dask import DaskDistributedBackend
+        register_parallel_backend('dask', DaskDistributedBackend)
     except ImportError:
         msg = ("To use the dask.distributed backend you must install both "
                "the `dask` and distributed modules.\n\n"
