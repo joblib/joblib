@@ -176,11 +176,8 @@ class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
                     yield itemgetters[arg_id]
                     continue
 
-                f = None
-                if f is None and arg_id in self.data_futures:
-                    f = self.data_futures[arg_id]
-
-                elif f is None and call_data_futures is not None:
+                f = self.data_futures.get(arg_id, None)
+                if f is None and call_data_futures is not None:
                     try:
                         f = call_data_futures[arg]
                     except KeyError:
