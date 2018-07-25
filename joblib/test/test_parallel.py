@@ -945,14 +945,27 @@ import sys
 sys.path.insert(0, {joblib_root_folder!r})
 
 from joblib import Parallel, delayed
+from functools import partial
+
+class MyClass:
+    '''Class defined in the __main__ namespace'''
+    def __init__(self, value):
+        self.value = value
 
 
-def square(x):
-    return x ** 2
+def square(x, ignored=None, ignored2=None):
+    '''Function defined in the __main__ namespace'''
+    return x.value ** 2
+
+
+square2 = partial(square, ignored2='something')
 
 # Here, we do not need the `if __name__ == "__main__":` safeguard when
 # using the default `loky` backend (even on Windows).
-print(Parallel(n_jobs=2)(delayed(square)(i) for i in range(5)))
+print(Parallel(n_jobs=2)(
+    delayed(square2)(MyClass(i), ignored=[dict(a=MyClass(1))])
+    for i in range(5)
+))
 """.format(joblib_root_folder=os.path.dirname(
     os.path.dirname(joblib.__file__)))
 
