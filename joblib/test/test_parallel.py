@@ -16,6 +16,7 @@ from math import sqrt
 from time import sleep
 from pickle import PicklingError
 from multiprocessing import TimeoutError
+import pytest
 
 import joblib
 from joblib import dump, load
@@ -1093,6 +1094,8 @@ def test_lambda_expression():
 
 
 def test_delayed_check_pickle_deprecated():
+    if sys.version_info < (3, 4):
+        pytest.skip("Warning check unstable under Python 2, life is too short")
 
     class UnpicklableCallable(object):
 
@@ -1288,21 +1291,21 @@ def test_external_backends():
         assert isinstance(Parallel()._backend, ThreadingBackend)
 
 
-def _recursive_backend_info(limit=3):
+def _recursive_backend_info(limit=3, **kwargs):
     """Perform nested parallel calls and introspect the backend on the way"""
 
     with Parallel() as p:
         this_level = [(type(p._backend).__name__, p._backend.nesting_level)]
         if limit == 0:
             return this_level
-        results = p(delayed(_recursive_backend_info)(limit=limit - 1)
+        results = p(delayed(_recursive_backend_info)(limit=limit - 1, **kwargs)
                     for i in range(1))
         return this_level + results[0]
 
 
 @with_multiprocessing
 @parametrize('backend', ['loky', 'threading'])
-def test_nested_parallel_limit(backend):
+def test_nested_parallelism_limit(backend):
     with parallel_backend(backend, n_jobs=2):
         backend_types_and_levels = _recursive_backend_info()
 
@@ -1314,6 +1317,28 @@ def test_nested_parallel_limit(backend):
         ('SequentialBackend', 3)
     ]
     assert backend_types_and_levels == expected_types_and_levels
+
+
+@with_numpy
+def test_nested_parallelism_with_dask():
+    distributed = pytest.importorskip('distributed')
+    client = distributed.Client()  # noqa
+
+    # 10 MB of data as argument to trigger implicit scattering
+    data = np.ones(int(1e7), dtype=np.uint8)
+    for i in range(2):
+        with parallel_backend('dask'):
+            backend_types_and_levels = _recursive_backend_info(data=data)
+        assert len(backend_types_and_levels) == 4
+        assert all(name == 'DaskDistributedBackend'
+                   for name, _ in backend_types_and_levels)
+
+    # No argument
+    with parallel_backend('dask'):
+        backend_types_and_levels = _recursive_backend_info()
+    assert len(backend_types_and_levels) == 4
+    assert all(name == 'DaskDistributedBackend'
+               for name, _ in backend_types_and_levels)
 
 
 def _recursive_parallel(nesting_limit=None):

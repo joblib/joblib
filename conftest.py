@@ -5,6 +5,10 @@ from _pytest.doctest import DoctestItem
 
 import logging
 from joblib.parallel import mp
+try:
+    import lz4
+except ImportError:
+    lz4 = None
 
 
 def pytest_collection_modifyitems(config, items):
@@ -29,6 +33,11 @@ def pytest_collection_modifyitems(config, items):
         for item in items:
             if isinstance(item, DoctestItem):
                 item.add_marker(skip_marker)
+
+    if lz4 is None:
+        for item in items:
+            if item.name == 'persistence.rst':
+                item.add_marker(pytest.mark.skip(reason='lz4 is missing'))
 
 
 def pytest_configure(config):
