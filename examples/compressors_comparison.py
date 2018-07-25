@@ -34,6 +34,8 @@ names = ("duration, protocol_type, service, flag, src_bytes, "
          "num_file_creations, ").split(', ')
 
 data = pd.read_csv(url, names=names)
+# Take the first 1e6 data points, for a faster example
+data = data.iloc[:int(1e6)]
 
 ###############################################################################
 # Dump and load the dataset without compression
@@ -190,13 +192,13 @@ file_sizes = (raw_file_size, lz4_file_size, zlib_file_size, lzma_file_size)
 ind = np.arange(N)
 width = 0.5
 
-plt.figure(1)
+plt.figure(1, figsize=(5, 4))
 p1 = plt.bar(ind, dump_durations, width)
 p2 = plt.bar(ind, load_durations, width, bottom=dump_durations)
 plt.ylabel('Time in seconds')
 plt.title('Dump and load durations')
 plt.xticks(ind, ('Raw', 'LZ4', 'Zlib', 'LZMA'))
-plt.yticks(np.arange(0, 30, 5))
+plt.yticks(np.arange(0, 5))
 plt.legend((p1[0], p2[0]), ('Dump duration', 'Load duration'))
 
 ###############################################################################
@@ -211,7 +213,7 @@ plt.legend((p1[0], p2[0]), ('Dump duration', 'Load duration'))
 # LZMA and Zlib, even if always slower for dumping data, are quite fast when
 # re-loading compressed data from disk.
 
-plt.figure(2)
+plt.figure(2, figsize=(5, 4))
 plt.bar(ind, file_sizes, width, log=True)
 plt.ylabel('File size in MB')
 plt.xticks(ind, ('Raw', 'LZ4', 'Zlib', 'LZMA'))
