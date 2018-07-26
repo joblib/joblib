@@ -224,7 +224,9 @@ def _need_pickle_wrapping(obj):
     elif isinstance(obj, partial):
         return _need_pickle_wrapping(obj.func)
 
-    need_wrap = "__main__" in getattr(obj, "__module__", "")
+    # Warning: obj.__module__ can be defined and set to None
+    module = getattr(obj, "__module__", None)
+    need_wrap = module is not None and "__main__" in module
     if callable(obj):
         # Need wrap if the object is a function defined in a local scope of
         # another function.
@@ -234,6 +236,13 @@ def _need_pickle_wrapping(obj):
         # Need wrap if the obj is a lambda expression
         func_name = getattr(obj, "__name__", "")
         need_wrap |= "<lambda>" in func_name
+
+        # Need wrap if obj is a bound method of an instance of an
+        # interactively defined class
+        method_self = getattr(obj, '__self__', None)
+        if not need_wrap and method_self is not None:
+            # Recursively introspect the instanc of the method
+            return _need_pickle_wrapping(method_self)
     return need_wrap
 
 

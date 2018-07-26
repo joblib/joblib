@@ -937,7 +937,7 @@ def test_parallel_with_unpicklable_functions_in_args(
         stdout_regex=r'\[0, 1, 4, 9, 16\]')
 
 
-DEFAULT_BACKEND_SCRIPT_CONTENT = """\
+INTERACTIVE_DEFINED_FUNCTION_AND_CLASS_SCRIPT_CONTENT = """\
 import sys
 # Make sure that joblib is importable in the subprocess launching this
 # script. This is needed in case we run the tests from the joblib root
@@ -976,10 +976,43 @@ def test_parallel_with_interactively_defined_functions_default_backend(tmpdir):
     # __main__ and does not require if __name__ == '__main__' even when
     # the __main__ module is defined by the result of the execution of a
     # filesystem script.
-    script = tmpdir.join('joblib_default_backend_script.py')
-    script.write(DEFAULT_BACKEND_SCRIPT_CONTENT)
+    script = tmpdir.join('joblib_interactively_defined_function.py')
+    script.write(INTERACTIVE_DEFINED_FUNCTION_AND_CLASS_SCRIPT_CONTENT)
     check_subprocess_call([sys.executable, script.strpath],
                           stdout_regex=r'\[0, 1, 4, 9, 16\]',
+                          timeout=5)
+
+
+INTERACTIVELY_DEFINED_SUBCLASS_WITH_METHOD_SCRIPT_CONTENT = """\
+import sys
+# Make sure that joblib is importable in the subprocess launching this
+# script. This is needed in case we run the tests from the joblib root
+# folder without having installed joblib
+sys.path.insert(0, {joblib_root_folder!r})
+
+from joblib import Parallel, delayed, hash
+
+class MyList(list):
+    '''MyList is interactively defined by MyList.append is a built-in'''
+    def __hash__(self):
+        # XXX: workaround limitation in cloudpickle
+        return hash(self).__hash__()
+
+l = MyList()
+
+print(Parallel(n_jobs=2)(
+    delayed(l.append)(i) for i in range(3)
+))
+""".format(joblib_root_folder=os.path.dirname(
+    os.path.dirname(joblib.__file__)))
+
+
+@with_multiprocessing
+def test_parallel_with_interactively_defined_bound_method(tmpdir):
+    script = tmpdir.join('joblib_interactive_bound_method_script.py')
+    script.write(INTERACTIVELY_DEFINED_SUBCLASS_WITH_METHOD_SCRIPT_CONTENT)
+    check_subprocess_call([sys.executable, script.strpath],
+                          stdout_regex=r'\[None, None, None\]',
                           timeout=5)
 
 
