@@ -962,6 +962,13 @@ square2 = partial(square, ignored2='something')
 
 # Here, we do not need the `if __name__ == "__main__":` safeguard when
 # using the default `loky` backend (even on Windows).
+
+# The following baroque function call is meant to check that joblib
+# introspection rightfully uses cloudpickle instead of the (faster) pickle
+# module of the standard library when necessary. In particular cloudpickle is
+# necessary for functions and instances of classes interactively defined in the
+# __main__ module.
+
 print(Parallel(n_jobs=2)(
     delayed(square2)(MyClass(i), ignored=[dict(a=MyClass(1))])
     for i in range(5)
