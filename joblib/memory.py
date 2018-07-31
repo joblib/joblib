@@ -324,6 +324,9 @@ class NotMemorizedFunc(object):
     def call_and_shelve(self, *args, **kwargs):
         return NotMemorizedResult(self.func(*args, **kwargs))
 
+    def in_store(self, *args, **kwargs):    
+        return False
+
     def __reduce__(self):
         return (self.__class__, (self.func,))
 
@@ -517,6 +520,25 @@ class MemorizedFunc(Logger):
         """
         return (self.__class__, (self.func, self.store_backend, self.ignore,
                 self.mmap_mode, self.compress, self._verbose))
+
+    def in_store(self, *args, **kwargs):
+        """"Return true if the store contains results for set of parameters.
+
+        Note that this will not check if results can be loaded, call the
+        function to achieve this.
+
+        Returns
+        -------
+            cached: bool
+                True if calling function with these arguments would
+                load from backend, else False.
+        """
+        func_id, args_id = self._get_output_identifiers(*args, **kwargs)
+        if (self._check_previous_func_code(stacklevel=4) and
+                self.store_backend.contains_item([func_id, args_id])):
+            return True
+        else:
+            return False
 
     # ------------------------------------------------------------------------
     # Private interface
