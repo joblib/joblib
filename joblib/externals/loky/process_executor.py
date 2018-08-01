@@ -70,6 +70,8 @@ import threading
 import multiprocessing as mp
 from functools import partial
 from pickle import PicklingError
+from time import time
+import gc
 
 from . import _base
 from .backend import get_context
@@ -112,6 +114,24 @@ _global_shutdown = False
 # Executor, a LokyRecursionError is raised
 MAX_DEPTH = int(os.environ.get("LOKY_MAX_DEPTH", 10))
 _CURRENT_DEPTH = 0
+
+# Minimum time interval between two consecutive memory usage checks.
+_MEMORY_CHECK_DELAY = 1.
+
+# Number of bytes of memory usage allowed over the reference process size.
+_MAX_MEMORY_LEAK_SIZE = int(1e8)
+
+try:
+    from psutil import Process
+
+    def _get_memory_usage(pid, force_gc=False):
+        if force_gc:
+            gc.collect()
+
+        return Process(pid).memory_info().rss
+
+except ImportError:
+    _get_memory_usage = None
 
 
 class _ThreadWakeup:
@@ -374,15 +394,18 @@ def _process_worker(call_queue, result_queue, initializer, initargs,
     # set the global _CURRENT_DEPTH mechanism to limit recursive call
     global _CURRENT_DEPTH
     _CURRENT_DEPTH = current_depth
+    _REFERENCE_PROCESS_SIZE = None
+    _LAST_MEMORY_CHECK = None
+    pid = os.getpid()
 
-    mp.util.debug('worker started with timeout=%s' % timeout)
+    mp.util.debug('Worker started with timeout=%s' % timeout)
     while True:
         try:
             call_item = call_queue.get(block=True, timeout=timeout)
             if call_item is None:
-                mp.util.info("shutting down worker on sentinel")
+                mp.util.info("Shutting down worker on sentinel")
         except queue.Empty:
-            mp.util.info("shutting down worker after timeout %0.3fs"
+            mp.util.info("Shutting down worker after timeout %0.3fs"
                          % timeout)
             if processes_management_lock.acquire(block=False):
                 processes_management_lock.release()
@@ -395,7 +418,7 @@ def _process_worker(call_queue, result_queue, initializer, initargs,
             sys.exit(1)
         if call_item is None:
             # Notify queue management thread about clean worker shutdown
-            result_queue.put(os.getpid())
+            result_queue.put(pid)
             with worker_exit_lock:
                 return
         try:
@@ -406,9 +429,38 @@ def _process_worker(call_queue, result_queue, initializer, initargs,
         else:
             _sendback_result(result_queue, call_item.work_id, result=r)
 
-        # Liberate the resource as soon as possible, to avoid holding onto
+        # Free the resource as soon as possible, to avoid holding onto
         # open files or shared memory that is not needed anymore
         del call_item
+
+        if _get_memory_usage is not None:
+            if _REFERENCE_PROCESS_SIZE is None:
+                # Make reference measurement after the first call
+                _REFERENCE_PROCESS_SIZE = _get_memory_usage(pid, force_gc=True)
+                _LAST_MEMORY_CHECK = time()
+                continue
+            if time() - _LAST_MEMORY_CHECK > _MEMORY_CHECK_DELAY:
+                mem_usage = _get_memory_usage(pid)
+                _LAST_MEMORY_CHECK = time()
+                if mem_usage - _REFERENCE_PROCESS_SIZE < _MAX_MEMORY_LEAK_SIZE:
+                    # Memory usage stays within bounds: everything is fine.
+                    continue
+
+                # Check again memory usage; this time take the measurement
+                # after a forced garbage collection to break any reference
+                # cycles.
+                mem_usage = _get_memory_usage(pid, force_gc=True)
+                _LAST_MEMORY_CHECK = time()
+                if mem_usage - _REFERENCE_PROCESS_SIZE < _MAX_MEMORY_LEAK_SIZE:
+                    # The GC managed to free the memory: everything is fine.
+                    continue
+
+                # The process is leaking memory: let the master process
+                # know that we need to start a new worker.
+                mp.util.info("Memory leak detected: shutting down worker")
+                result_queue.put(pid)
+                with worker_exit_lock:
+                    return
 
 
 def _add_call_item_to_queue(pending_work_items,
@@ -629,9 +681,9 @@ def _queue_management_worker(executor_reference,
                 if (executor is not None
                         and len(processes) < executor._max_workers):
                     warnings.warn(
-                        "A worker timeout while some jobs were given to the "
-                        "executor. You might want to use a longer timeout for "
-                        "the executor.", UserWarning
+                        "A worker stopped while some jobs were given to the "
+                        "executor. This can be caused by a too short worker "
+                        "timeout or by a memory leak.", UserWarning
                     )
                     executor._adjust_process_count()
                     executor = None
