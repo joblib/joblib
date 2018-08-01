@@ -249,11 +249,11 @@ def _need_pickle_wrapping(obj):
 class BatchedCalls(object):
     """Wrap a sequence of (func, args, kwargs) tuples as a single callable"""
 
-    def __init__(self, iterator_slice, backend, pickle_cache):
+    def __init__(self, iterator_slice, backend, pickle_cache=None):
         self.items = list(iterator_slice)
         self._size = len(self.items)
         self._backend = backend
-        self._pickle_cache = pickle_cache
+        self._pickle_cache = pickle_cache if pickle_cache is not None else {}
 
     def __call__(self):
         with parallel_backend(self._backend):
