@@ -5,6 +5,10 @@ import signal
 import warnings
 import threading
 import subprocess
+try:
+    import psutil
+except ImportError:
+    psutil = None
 
 
 def _flag_current_thread_clean_exit():
@@ -13,17 +17,41 @@ def _flag_current_thread_clean_exit():
     thread._clean_exit = True
 
 
-def recursive_terminate(process):
+def recursive_terminate(process, use_psutil=True):
+    if use_psutil and psutil is not None:
+        _recursive_terminate_with_psutil(process)
+    else:
+        _recursive_terminate_without_psutil(process)
+
+
+def _recursive_terminate_with_psutil(process, retries=5):
+    try:
+        children = psutil.Process(process.pid).children(recursive=True)
+    except psutil.NoSuchProcess:
+        return
+
+    for child in children:
+        try:
+            child.terminate()
+        except psutil.NoSuchProcess:
+            pass
+
+    gone, still_alive = psutil.wait_procs(children, timeout=5)
+    for child_process in still_alive:
+        child_process.kill()
+
+    process.terminate()
+    process.join()
+
+
+def _recursive_terminate_without_psutil(process):
     """Terminate a process and its descendants.
     """
     try:
         _recursive_terminate(process.pid)
     except OSError as e:
-        import traceback
-        tb = traceback.format_exc()
-        warnings.warn("Failure in child introspection on this platform. You "
-                      "should report it on https://github.com/tomMoral/loky "
-                      "with the following traceback\n{}".format(tb))
+        warnings.warn("Failed to kill subprocesses on this platform. Please"
+                      "install psutil: https://github.com/giampaolo/psutil")
         # In case we cannot introspect the children, we fall back to the
         # classic Process.terminate.
         process.terminate()
