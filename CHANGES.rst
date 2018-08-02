@@ -1,6 +1,33 @@
 Latest changes
 ===============
 
+Release 0.12.2
+--------------
+
+Olivier Grisel
+
+   Integrate loky 2.2.0 to fix regression with unpicklable arguments and
+   functions reported by users (#723, #643).
+
+   Loky 2.2.0 also provides a protection against memory leaks long running
+   applications when psutil is installed (reported as #721).
+
+   Joblib now includes the code for the dask backend which has been updated
+   to properly handle nested parallelism and data scattering at the same
+   time (#722).
+
+Alexandre Abadie and Olivier Grisel
+
+   Restored some private API attribute and arguments
+   (`MemorizedResult.argument_hash` and `BatchedCalls.__init__`'s
+   `pickle_cache`) for backward compat. (#716, #732).
+
+
+Joris Van den Bossche
+
+   Fix a deprecation warning message (for `Memory`'s `cachedir`) (#720).
+
+
 Release 0.12.1
 --------------
 
