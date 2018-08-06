@@ -33,9 +33,7 @@ names = ("duration, protocol_type, service, flag, src_bytes, "
          "root_shell, su_attempted, num_root, "
          "num_file_creations, ").split(', ')
 
-data = pd.read_csv(url, names=names)
-# Take the first 1e6 data points, for a faster example
-data = data.iloc[:int(1e6)]
+data = pd.read_csv(url, names=names, nrows=1000)
 
 ###############################################################################
 # Dump and load the dataset without compression
@@ -58,7 +56,7 @@ print("Raw dump duration: %0.3fs" % raw_dump_duration)
 ###############################################################################
 # Then measure the size of the raw dumped data on disk:
 raw_file_size = os.stat(pickle_file).st_size / 1e6
-print("Raw dump file size: %0.1fMB" % raw_file_size)
+print("Raw dump file size: %0.3fMB" % raw_file_size)
 
 ###############################################################################
 # Finally measure the time spent for loading the raw data:
@@ -88,7 +86,7 @@ print("Zlib dump duration: %0.3fs" % zlib_dump_duration)
 # Then measure the size of the zlib dump data on disk:
 
 zlib_file_size = os.stat(pickle_file).st_size / 1e6
-print("Zlib file size: %0.1fMB" % zlib_file_size)
+print("Zlib file size: %0.3fMB" % zlib_file_size)
 
 ###############################################################################
 # Finally measure the time spent for loading the compressed dataset:
@@ -128,7 +126,7 @@ print("LZMA dump duration: %0.3fs" % lzma_dump_duration)
 # Then measure the size of the lzma dump data on disk:
 
 lzma_file_size = os.stat(pickle_file).st_size / 1e6
-print("LZMA file size: %0.1fMB" % lzma_file_size)
+print("LZMA file size: %0.3fMB" % lzma_file_size)
 
 ###############################################################################
 # Finally measure the time spent for loading the lzma data:
@@ -165,7 +163,7 @@ print("LZ4 dump duration: %0.3fs" % lz4_dump_duration)
 # Then measure the size of the lz4 dump data on disk:
 
 lz4_file_size = os.stat(pickle_file).st_size / 1e6
-print("LZ4 file size: %0.1fMB" % lz4_file_size)
+print("LZ4 file size: %0.3fMB" % lz4_file_size)
 
 ###############################################################################
 # Finally measure the time spent for loading the lz4 data:
@@ -198,7 +196,7 @@ p2 = plt.bar(ind, load_durations, width, bottom=dump_durations)
 plt.ylabel('Time in seconds')
 plt.title('Dump and load durations')
 plt.xticks(ind, ('Raw', 'LZ4', 'Zlib', 'LZMA'))
-plt.yticks(np.arange(0, 5))
+plt.yticks(np.arange(0, lzma_load_duration + lzma_dump_duration, 0.01))
 plt.legend((p1[0], p2[0]), ('Dump duration', 'Load duration'))
 
 ###############################################################################
