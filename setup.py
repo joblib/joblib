@@ -20,7 +20,7 @@ if __name__ == '__main__':
           version=joblib.__version__,
           author='Gael Varoquaux',
           author_email='gael.varoquaux@normalesup.org',
-          url='http://pythonhosted.org/joblib/',
+          url='https://joblib.readthedocs.io',
           description=("Lightweight pipelining: using Python functions "
                        "as pipeline jobs."),
           long_description=joblib.__doc__,
