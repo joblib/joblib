@@ -19,7 +19,7 @@
 
 The homepage of joblib with user documentation is located on:
 
-https://pythonhosted.org/joblib/
+https://joblib.readthedocs.io
 
 Getting the latest code
 =======================

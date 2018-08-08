@@ -12,7 +12,7 @@ data and has specific optimizations for `numpy` arrays. It is
 
 
     ==================== ===============================================
-    **Documentation:**       http://pythonhosted.org/joblib
+    **Documentation:**       https://joblib.readthedocs.io
 
     **Download:**            http://pypi.python.org/pypi/joblib#downloads
 
