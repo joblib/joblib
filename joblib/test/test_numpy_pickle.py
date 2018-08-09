@@ -441,7 +441,7 @@ def _check_pickle(filename, expected_list):
                 assert message in str(exc)
             elif filename.endswith('.lz4') and with_lz4.args[0]:
                 assert isinstance(exc, ValueError)
-                assert message in LZ4_NOT_INSTALLED_ERROR
+                assert LZ4_NOT_INSTALLED_ERROR in str(exc)
             else:
                 raise
     else:
