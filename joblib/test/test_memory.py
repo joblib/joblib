@@ -424,6 +424,12 @@ def test_persistence(tmpdir):
     # Fix regression in #741
     memory.mmap_mode = 'c'
     memory2 = pickle.loads(pickle.dumps(memory))
+    # check all attributes are restored
+    for k in vars(memory):
+        assert k in vars(memory2)
+        if k not in ('timestamp', 'store_backend'):
+            assert getattr(memory, k) == getattr(memory2, k)
+    assert memory.store_backend.location == memory2.store_backend.location
 
     # Smoke test that pickling a memory with location=None works
     memory = Memory(location=None, verbose=0)
