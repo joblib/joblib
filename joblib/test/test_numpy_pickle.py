@@ -526,6 +526,7 @@ def test_compress_string_argument(tmpdir, compress_string):
         assert _detect_compressor(f) == compress_string
 
 
+@with_lz4
 @with_numpy
 @parametrize('compress', [1, 3, 6])
 @parametrize('cmethod', _COMPRESSORS)
@@ -547,10 +548,6 @@ def test_joblib_compression_formats(tmpdir, compress, cmethod):
                 numpy_pickle.dump(obj, dump_filename,
                                   compress=(cmethod, compress))
             excinfo.match(msg)
-        elif cmethod == 'lz4' and with_lz4.args[0]:
-            # Skip the test if lz4 is not installed. We here use the with_lz4
-            # skipif fixture whose argument is True when lz4 is not installed
-            raise SkipTest("lz4 is not installed.")
         else:
             numpy_pickle.dump(obj, dump_filename,
                               compress=(cmethod, compress))
@@ -1061,4 +1058,7 @@ def test_lz4_compression_without_lz4(tmpdir):
 
     with raises(ValueError) as excinfo:
         numpy_pickle.dump(data, fname + '.lz4')
-    excinfo.match(LZ4_NOT_INSTALLED_ERROR)
+    if PY3_OR_LATER:
+        excinfo.match(LZ4_NOT_INSTALLED_ERROR)
+    else:
+        excinfo.match("lz4 compression is only available with python3+")
