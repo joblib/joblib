@@ -7,7 +7,7 @@ env:
   matrix:
     # Run scikit-learn tests as integration / non-regression tests
     - SKIP_TESTS="true" SKLEARN_TESTS="true" PYTHON_VERSION="3.6" NUMPY_VERSION="1.14"
-    - PYTHON_VERSION="2.7" NUMPY_VERSION="1.6" NO_LZ4="true"
+    - PYTHON_VERSION="2.7" NUMPY_VERSION="1.6" NO_LZ4="true" COVERAGE="true"
     - PYTHON_VERSION="2.7" NUMPY_VERSION="1.8" COVERAGE="true"
     - PYTHON_VERSION="3.4" NUMPY_VERSION="1.10"
     # NUMPY_VERSION not set means numpy is not installed
