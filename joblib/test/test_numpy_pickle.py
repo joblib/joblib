@@ -439,6 +439,9 @@ def _check_pickle(filename, expected_list):
                 message = ('You may be trying to read with '
                            'python 3 a joblib pickle generated with python 2.')
                 assert message in str(exc)
+            elif filename.endswith('.lz4') and with_lz4.args[0]:
+                assert isinstance(exc, ValueError)
+                assert message in LZ4_NOT_INSTALLED_ERROR
             else:
                 raise
     else:
@@ -454,7 +457,6 @@ def _check_pickle(filename, expected_list):
             assert message in str(e.args)
 
 
-@with_lz4
 @with_numpy
 def test_joblib_pickle_across_python_versions():
     # We need to be specific about dtypes in particular endianness
