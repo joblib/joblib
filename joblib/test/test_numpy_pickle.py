@@ -1067,8 +1067,8 @@ def test_lz4_compression_without_lz4(tmpdir):
         msg = "lz4 compression is only available with python3+"
     with raises(ValueError) as excinfo:
         numpy_pickle.dump(data, fname, compress='lz4')
-        excinfo.match(msg)
+    excinfo.match(msg)
 
     with raises(ValueError) as excinfo:
         numpy_pickle.dump(data, fname + '.lz4')
-        excinfo.match(msg)
+    excinfo.match(msg)
