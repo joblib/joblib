@@ -398,8 +398,8 @@ def _check_pickle(filename, expected_list):
             # lz4 is not supported for python versions < 3.3
             with raises(ValueError) as excinfo:
                 numpy_pickle.load(filename)
-                assert excinfo.match("lz4 compression is only available with "
-                                     "python3+")
+            assert excinfo.match("lz4 compression is only available with "
+                                 "python3+")
         return
 
     version_match = re.match(r'.+py(\d)(\d).+', filename)
