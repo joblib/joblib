@@ -421,6 +421,10 @@ def test_persistence(tmpdir):
     memory2 = pickle.loads(pickle.dumps(memory))
     assert memory.store_backend.location == memory2.store_backend.location
 
+    # Fix regression in #741
+    memory.mmap_mode = 'c'
+    memory2 = pickle.loads(pickle.dumps(memory))
+
     # Smoke test that pickling a memory with location=None works
     memory = Memory(location=None, verbose=0)
     pickle.loads(pickle.dumps(memory))

@@ -775,12 +775,6 @@ class Memory(Logger):
             The 'local' backend is using regular filesystem operations to
             manipulate data (open, mv, etc) in the backend.
 
-        cachedir: str or None, optional
-
-            .. deprecated: 0.12
-                'cachedir' has been deprecated in 0.12 and will be
-                removed in 0.14. Use the 'location' parameter instead.
-
         mmap_mode: {None, 'r+', 'r', 'w+', 'c'}, optional
             The memmapping mode used when loading from cache
             numpy arrays. See numpy.load for the meaning of the
@@ -802,14 +796,20 @@ class Memory(Logger):
         backend_options: dict, optional
             Contains a dictionnary of named parameters used to configure
             the store backend.
+
+        cachedir: str or None, optional
+
+            .. deprecated: 0.12
+                'cachedir' has been deprecated in 0.12 and will be
+                removed in 0.14. Use the 'location' parameter instead.
     """
     # ------------------------------------------------------------------------
     # Public interface
     # ------------------------------------------------------------------------
 
-    def __init__(self, location=None, backend='local', cachedir=None,
-                 mmap_mode=None, compress=False, verbose=1, bytes_limit=None,
-                 backend_options={}):
+    def __init__(self, location=None, backend='local', mmap_mode=None,
+                 compress=False, verbose=1, bytes_limit=None,
+                 backend_options={}, cachedir=None):
         # XXX: Bad explanation of the None value of cachedir
         Logger.__init__(self)
         self._verbose = verbose
