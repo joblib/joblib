@@ -389,12 +389,17 @@ def _check_pickle(filename, expected_list):
     Note: currently only pickles containing an iterable are supported
     by this function.
     """
-    if (not PY3_OR_LATER and (filename.endswith('.xz') or
-                              filename.endswith('.lzma') or
-                              filename.endswith('.lz4'))):
-        # lzma and lz4 are not supported for python versions < 3.3
-        with raises(NotImplementedError):
-            numpy_pickle.load(filename)
+    if not PY3_OR_LATER:
+        if filename.endswith('.xz') or filename.endswith('.lzma'):
+            # lzma is not implemented in python versions < 3.3
+            with raises(NotImplementedError):
+                numpy_pickle.load(filename)
+        elif filename.endswith('.lz4'):
+            # lz4 is not supported for python versions < 3.3
+            with raises(ValueError) as excinfo:
+                numpy_pickle.load(filename)
+                assert excinfo.match("lz4 compression is only available with "
+                                     "python3+")
         return
 
     version_match = re.match(r'.+py(\d)(\d).+', filename)
@@ -1057,13 +1062,13 @@ def test_lz4_compression_without_lz4(tmpdir):
     # Check that lz4 cannot be used when dependency is not available.
     fname = tmpdir.join('test.nolz4').strpath
     data = 'test data'
+    msg = LZ4_NOT_INSTALLED_ERROR
+    if not PY3_OR_LATER:
+        msg = "lz4 compression is only available with python3+"
     with raises(ValueError) as excinfo:
         numpy_pickle.dump(data, fname, compress='lz4')
-    excinfo.match(LZ4_NOT_INSTALLED_ERROR)
+        excinfo.match(msg)
 
     with raises(ValueError) as excinfo:
         numpy_pickle.dump(data, fname + '.lz4')
-    if PY3_OR_LATER:
-        excinfo.match(LZ4_NOT_INSTALLED_ERROR)
-    else:
-        excinfo.match("lz4 compression is only available with python3+")
+        excinfo.match(msg)
