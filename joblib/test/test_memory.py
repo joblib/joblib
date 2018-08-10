@@ -141,8 +141,8 @@ def test_memory_kwarg(tmpdir):
     assert g(l=30, m=2) == 30
 
 
-def test_in_store(tmpdir):
-    " Test in_store function."
+def test_cached(tmpdir):
+    " Test cached function."
 
     def g(a, b, c, d, e=None, f=1):
         return (a, b, c, d, e, f)
@@ -152,10 +152,10 @@ def test_in_store(tmpdir):
     args = (1, 2, 3, 4)
     kwargs = {'e': 5, 'f': 6}
     g(*args, **kwargs)
-    assert(g.in_store(*args, **kwargs))
-    assert(not g.in_store(*args[::-1], **kwargs))
+    assert(g.cached(*args, **kwargs))
+    assert(not g.cached(*args[::-1], **kwargs))
     g.clear()
-    assert(not g.in_store(*args, **kwargs))
+    assert(not g.cached(*args, **kwargs))
 
 
 def test_memory_lambda(tmpdir):
