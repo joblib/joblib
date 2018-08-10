@@ -375,13 +375,23 @@ class MemorizedFunc(Logger):
     verbose: int, optional
         The verbosity flag, controls messages that are issued as
         the function is evaluated.
+
+    invalidate_on_code_change: boolean, optional
+        Whether to automatically invalidate a function's cache when we think its
+        code has changed. A warning will be given either way. You might want to
+        disable this because code-change detection isn't perfect, e.g. you'll
+        get false positives (cache cleared unnecessarily) if the line number of
+        the function changes (code was added above), and you'll get false
+        negatives (cache not cleared when necessary) if a function your function
+        calls is changed.
     """
     # ------------------------------------------------------------------------
     # Public interface
     # ------------------------------------------------------------------------
 
     def __init__(self, func, location, backend='local', ignore=None,
-                 mmap_mode=None, compress=False, verbose=1, timestamp=None):
+                 mmap_mode=None, compress=False, verbose=1,
+                 invalidate_on_code_change=True, timestamp=None):
         Logger.__init__(self)
         self.mmap_mode = mmap_mode
         self.compress = compress
@@ -390,6 +400,7 @@ class MemorizedFunc(Logger):
             ignore = []
         self.ignore = ignore
         self._verbose = verbose
+        self.invalidate_on_code_change = invalidate_on_code_change
 
         # retrieve store object from backend type and location.
         self.store_backend = _store_backend_factory(backend, location,
@@ -648,12 +659,19 @@ class MemorizedFunc(Logger):
 
         # The function has changed, wipe the cache directory.
         # XXX: Should be using warnings, and giving stacklevel
-        if self._verbose > 10:
-            _, func_name = get_func_name(self.func, resolv_alias=False)
-            self.warn("Function {0} (identified by {1}) has changed"
-                      ".".format(func_name, func_id))
-        self.clear(warn=True)
-        return False
+        _, func_name = get_func_name(self.func, resolv_alias=False)
+        if self.invalidate_on_code_change:
+            if self._verbose > 10:
+                self.warn("Function {0} (identified by {1}) has changed"
+                          ", clearing cache.".format(func_name, func_id))
+            self.clear(warn=True)
+            return False
+        else:
+            if self._verbose > 10:
+                self.warn("Function {0} (identified by {1}) has changed"
+                          ", you should consider clearing the cache."
+                          .format(func_name, func_id))
+            return True
 
     def clear(self, warn=True):
         """Empty the function's cache."""
@@ -802,6 +820,15 @@ class Memory(Logger):
         backend_options: dict, optional
             Contains a dictionnary of named parameters used to configure
             the store backend.
+
+        invalidate_on_code_change: boolean, optional
+            Whether to automatically invalidate a function's cache when we think
+            its code has changed. A warning will be given either way. You might
+            want to disable this because code-change detection isn't perfect,
+            e.g. you'll get false positives (cache cleared unnecessarily) if the
+            line number of the function changes (code was added above), and
+            you'll get false negatives (cache not cleared when necessary) if a
+            function your function calls is changed.
     """
     # ------------------------------------------------------------------------
     # Public interface
@@ -809,7 +836,7 @@ class Memory(Logger):
 
     def __init__(self, location=None, backend='local', cachedir=None,
                  mmap_mode=None, compress=False, verbose=1, bytes_limit=None,
-                 backend_options={}):
+                 backend_options={}, invalidate_on_code_change=True):
         # XXX: Bad explanation of the None value of cachedir
         Logger.__init__(self)
         self._verbose = verbose
@@ -817,6 +844,7 @@ class Memory(Logger):
         self.timestamp = time.time()
         self.bytes_limit = bytes_limit
         self.backend = backend
+        self.invalidate_on_code_change = invalidate_on_code_change
         if compress and mmap_mode is not None:
             warnings.warn('Compressed results cannot be memmapped',
                           stacklevel=2)
@@ -887,7 +915,8 @@ class Memory(Logger):
             # Partial application, to be able to specify extra keyword
             # arguments in decorators
             return functools.partial(self.cache, ignore=ignore,
-                                     verbose=verbose, mmap_mode=mmap_mode)
+                                     verbose=verbose, mmap_mode=mmap_mode,
+                                     invalidate_on_code_change=self.invalidate_on_code_change)
         if self.store_backend is None:
             return NotMemorizedFunc(func)
         if verbose is None:
@@ -898,6 +927,7 @@ class Memory(Logger):
             func = func.func
         return MemorizedFunc(func, self.store_backend, mmap_mode=mmap_mode,
                              ignore=ignore, verbose=verbose,
+                             invalidate_on_code_change=self.invalidate_on_code_change,
                              timestamp=self.timestamp)
 
     def clear(self, warn=True):
