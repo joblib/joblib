@@ -152,10 +152,10 @@ def test_cached(tmpdir):
     args = (1, 2, 3, 4)
     kwargs = {'e': 5, 'f': 6}
     g(*args, **kwargs)
-    assert(g.cached(*args, **kwargs))
-    assert(not g.cached(*args[::-1], **kwargs))
+    assert g.cached(*args, **kwargs)
+    assert not g.cached(*args[::-1], **kwargs)
     g.clear()
-    assert(not g.cached(*args, **kwargs))
+    assert not g.cached(*args, **kwargs)
 
 
 def test_memory_lambda(tmpdir):
