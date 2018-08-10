@@ -158,6 +158,21 @@ def test_cached(tmpdir):
     assert not g.cached(*args, **kwargs)
 
 
+def test_load(tmpdir):
+    " Test load function."
+
+    def g(a, b=1):
+        return a, b
+
+    memory = Memory(location=tmpdir.strpath, verbose=0)
+    g = memory.cache(g)
+    a, b = 1, 4
+    g(a, b=b)
+    assert (a, b) == g.load(a, b=b)
+    with raises(ValueError):
+        g.load(0, b=0)
+
+
 def test_memory_lambda(tmpdir):
     " Test memory with a function with a lambda."
     accumulator = list()

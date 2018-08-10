@@ -467,18 +467,7 @@ class MemorizedFunc(Logger):
                                                    verbose=self._verbose)
         else:
             try:
-                t0 = time.time()
-                if self._verbose:
-                    msg = _format_load_msg(func_id, args_id,
-                                           timestamp=self.timestamp,
-                                           metadata=metadata)
-                out = self.store_backend.load_item([func_id, args_id], msg=msg,
-                                                   verbose=self._verbose)
-                if self._verbose > 4:
-                    t = time.time() - t0
-                    _, name = get_func_name(self.func)
-                    msg = '%s cache loaded - %s' % (name, format_time(t))
-                    print(max(0, (80 - len(msg))) * '_' + msg)
+                out = self.load(*args, **kwargs)
             except Exception:
                 # XXX: Should use an exception logger
                 _, signature = format_signature(self.func, *args, **kwargs)
@@ -530,6 +519,27 @@ class MemorizedFunc(Logger):
         func_id, args_id = self._get_output_identifiers(*args, **kwargs)
         return (self._check_previous_func_code(stacklevel=4)
                 and self.store_backend.contains_item([func_id, args_id]))
+
+    def load(self, *args, **kwargs):
+        """"Return results for parameters args and kwargs.
+        """
+        msg = None
+        if not self.cached(*args, **kwargs):
+            raise ValueError('No precomputed results available')
+        func_id, args_id = self._get_output_identifiers(*args, **kwargs)
+        t0 = time.time()
+        if self._verbose:
+            msg = _format_load_msg(func_id, args_id,
+                                   timestamp=self.timestamp,
+                                   metadata=None)
+        out = self.store_backend.load_item([func_id, args_id], msg=msg,
+                                           verbose=self._verbose)
+        if self._verbose > 4:
+            t = time.time() - t0
+            _, name = get_func_name(self.func)
+            msg = '%s cache loaded - %s' % (name, format_time(t))
+            print(max(0, (80 - len(msg))) * '_' + msg)
+        return out
 
     # ------------------------------------------------------------------------
     # Private interface
