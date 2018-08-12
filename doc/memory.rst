@@ -332,7 +332,7 @@ Gotchas
   and use the cached function inside your class, i.e. something like
   this::
 
-    @mem.cache
+    @memory.cache
     def compute_func(arg1, arg2, arg3):
         # long computation
         return result
@@ -359,7 +359,7 @@ Gotchas
 
        class Foo(object):
 
-           @mem.cache  # WRONG
+           @memory.cache  # WRONG
            def method(self, args):
                pass
 
@@ -368,7 +368,7 @@ Gotchas
        class Foo(object):
 
            def __init__(self, args):
-               self.method = mem.cache(self.method)
+               self.method = memory.cache(self.method)
 
            def method(self, ...):
                pass
@@ -383,7 +383,7 @@ Gotchas
      create cache that will not be reused in subsequent calls. To
      alleviate these problems and if you *know* that the result of
      ``self.method`` does not depend on ``self`` you can use
-     ``self.method = mem.cache(self.method, ignore=['self'])``.
+     ``self.method = memory.cache(self.method, ignore=['self'])``.
 
 
 Ignoring some arguments
