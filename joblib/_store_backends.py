@@ -133,6 +133,9 @@ class StoreBackendBase(with_metaclass(ABCMeta)):
             store backend.
         """
 
+    def __eq__(self, other):
+        return self.__class__ is other.__class__ and vars(self) == vars(other)
+
 
 class StoreBackendMixin(object):
     """Class providing all logic for managing the store in a generic way.

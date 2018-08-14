@@ -421,6 +421,16 @@ def test_persistence(tmpdir):
     memory2 = pickle.loads(pickle.dumps(memory))
     assert memory.store_backend.location == memory2.store_backend.location
 
+    # Fix regression in #741
+    memory.mmap_mode = 'c'
+    memory2 = pickle.loads(pickle.dumps(memory))
+    # check all attributes are restored
+    for k in vars(memory):
+        assert k in vars(memory2)
+        if k != 'timestamp':
+            assert getattr(memory, k) == getattr(memory2, k)
+    assert memory.store_backend.location == memory2.store_backend.location
+
     # Smoke test that pickling a memory with location=None works
     memory = Memory(location=None, verbose=0)
     pickle.loads(pickle.dumps(memory))
@@ -473,6 +483,18 @@ def test_memorized_pickling(tmpdir):
         with open(filename, 'rb') as fp:
             result2 = pickle.load(fp)
         assert result2.get() == result.get()
+
+        # test pickling the func too
+        filename = tmpdir.join('pickling_test.dat').strpath
+        with open(filename, 'wb') as fp:
+            pickle.dump(func, fp)
+        with open(filename, 'rb') as fp:
+            func2 = pickle.load(fp)
+        for k in vars(func):
+            assert k in vars(func2)
+            if k != 'timestamp':
+                assert getattr(func, k) == getattr(func2, k)
+
         os.remove(filename)
 
 
