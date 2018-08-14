@@ -515,8 +515,9 @@ class MemorizedFunc(Logger):
             depending from it.
             In addition, when unpickling, we run the __init__
         """
-        return (self.__class__, (self.func, self.store_backend, self.ignore,
-                self.mmap_mode, self.compress, self._verbose))
+        return (self.__class__, (self.func, None),
+                {k: v for k, v in vars(self).items()
+                 if k not in ('timestamp', 'func')})
 
     # ------------------------------------------------------------------------
     # Private interface
@@ -940,10 +941,5 @@ class Memory(Logger):
             depending from it.
             In addition, when unpickling, we run the __init__
         """
-        # We need to remove 'joblib' from the end of cachedir
-        location = (repr(self.store_backend)[:-7]
-                    if self.store_backend is not None else None)
-        compress = self.store_backend.compress \
-            if self.store_backend is not None else False
-        return (self.__class__, (location, self.backend, self.mmap_mode,
-                                 compress, self._verbose))
+        return (self.__class__, (), {k: v for k, v in vars(self).items()
+                                     if k != 'timestamp'})
