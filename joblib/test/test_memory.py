@@ -427,7 +427,7 @@ def test_persistence(tmpdir):
     # check all attributes are restored
     for k in vars(memory):
         assert k in vars(memory2)
-        if k not in ('timestamp',):
+        if k != 'timestamp':
             assert getattr(memory, k) == getattr(memory2, k)
     assert memory.store_backend.location == memory2.store_backend.location
 
@@ -492,7 +492,7 @@ def test_memorized_pickling(tmpdir):
             func2 = pickle.load(fp)
         for k in vars(func):
             assert k in vars(func2)
-            if k not in ('timestamp',):
+            if k != 'timestamp':
                 assert getattr(func, k) == getattr(func2, k)
 
         os.remove(filename)
