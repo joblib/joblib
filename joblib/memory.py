@@ -96,8 +96,11 @@ def register_store_backend(backend_name, backend):
     _STORE_BACKENDS[backend_name] = backend
 
 
-def _store_backend_factory(backend, location, verbose=0, backend_options={}):
+def _store_backend_factory(backend, location, verbose=0, backend_options=None):
     """Return the correct store object for the given location."""
+    if backend_options is None:
+        backend_options = {}
+
     if isinstance(location, StoreBackendBase):
         return location
     elif isinstance(location, _basestring):
@@ -809,7 +812,7 @@ class Memory(Logger):
 
     def __init__(self, location=None, backend='local', cachedir=None,
                  mmap_mode=None, compress=False, verbose=1, bytes_limit=None,
-                 backend_options={}):
+                 backend_options=None):
         # XXX: Bad explanation of the None value of cachedir
         Logger.__init__(self)
         self._verbose = verbose
@@ -817,6 +820,10 @@ class Memory(Logger):
         self.timestamp = time.time()
         self.bytes_limit = bytes_limit
         self.backend = backend
+        if backend_options is None:
+            backend_options = {}
+        self.backend_options = backend_options
+
         if compress and mmap_mode is not None:
             warnings.warn('Compressed results cannot be memmapped',
                           stacklevel=2)
