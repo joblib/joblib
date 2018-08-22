@@ -1,6 +1,14 @@
 Latest changes
 ===============
 
+Release 0.12.3
+--------------
+
+Alexandre Abadie
+
+    Fix MemorizedResult not picklable (#747).
+
+
 Release 0.12.2
 --------------
 
