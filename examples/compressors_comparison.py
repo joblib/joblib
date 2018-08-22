@@ -33,7 +33,7 @@ names = ("duration, protocol_type, service, flag, src_bytes, "
          "root_shell, su_attempted, num_root, "
          "num_file_creations, ").split(', ')
 
-data = pd.read_csv(url, names=names, nrows=1000)
+data = pd.read_csv(url, names=names, nrows=500000)
 
 ###############################################################################
 # Dump and load the dataset without compression
@@ -196,7 +196,7 @@ p2 = plt.bar(ind, load_durations, width, bottom=dump_durations)
 plt.ylabel('Time in seconds')
 plt.title('Dump and load durations')
 plt.xticks(ind, ('Raw', 'LZ4', 'Zlib', 'LZMA'))
-plt.yticks(np.arange(0, lzma_load_duration + lzma_dump_duration, 0.01))
+plt.yticks(np.arange(0, lzma_load_duration + lzma_dump_duration))
 plt.legend((p1[0], p2[0]), ('Dump duration', 'Load duration'))
 
 ###############################################################################
