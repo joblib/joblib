@@ -210,8 +210,11 @@ class MemorizedResult(Logger):
     def __init__(self, location, func, args_id, backend='local',
                  mmap_mode=None, verbose=0, timestamp=None, metadata=None):
         Logger.__init__(self)
-        self.func = func
         self.func_id = _build_func_identifier(func)
+        if isinstance(func, _basestring):
+            self.func = func
+        else:
+            self.func = self.func_id
         self.args_id = args_id
         self.store_backend = _store_backend_factory(backend, location,
                                                     verbose=verbose)

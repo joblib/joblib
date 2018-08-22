@@ -964,3 +964,25 @@ def test_dummy_store_backend():
 
     backend_obj = _store_backend_factory(backend_name, "dummy_location")
     assert isinstance(backend_obj, DummyStoreBackend)
+
+
+def test_memorized_result_pickle(tmpdir):
+    # Verify a MemoryResult object can be pickled/depickled. Non regression
+    # test introduced following issue
+    # https://github.com/joblib/joblib/issues/747
+
+    memory = Memory(location=tmpdir.strpath)
+
+    @memory.cache
+    def g(x):
+        return x**2
+
+    memorized_result = g.call_and_shelve(4)
+    memorized_result_pickle = pickle.dumps(memorized_result)
+    memorized_result_loads = pickle.loads(memorized_result_pickle)
+
+    assert memorized_result.store_backend.location == \
+        memorized_result_loads.store_backend.location
+    assert memorized_result.func == memorized_result_loads.func
+    assert memorized_result.args_id == memorized_result_loads.args_id
+    assert str(memorized_result) == str(memorized_result_loads)
