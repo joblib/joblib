@@ -33,7 +33,7 @@ names = ("duration, protocol_type, service, flag, src_bytes, "
          "root_shell, su_attempted, num_root, "
          "num_file_creations, ").split(', ')
 
-data = pd.read_csv(url, names=names, nrows=2e6)
+data = pd.read_csv(url, names=names, nrows=1e6)
 
 ###############################################################################
 # Dump and load the dataset without compression
