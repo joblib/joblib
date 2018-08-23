@@ -346,19 +346,22 @@ def test_memory_ignore(tmpdir):
 
 
 def test_memory_args_as_kwargs(tmpdir):
-    """Regression test against 0.12.0 changes."""
+    """Non-regression test against 0.12.0 changes.
+
+    https://github.com/joblib/joblib/pull/751
+    """
     memory = Memory(location=tmpdir.strpath, verbose=0)
 
     @memory.cache
     def plus_one(a):
         return a + 1
 
-    # This would (and should) pass before the patch.
+    # It's possible to call a positional arg as a kwarg.
     assert plus_one(1) == 2
     assert plus_one(a=1) == 2
 
     # However, a positional argument that joblib hadn't seen
-    # before would cause a failure if it was passed as a kwarg
+    # before would cause a failure if it was passed as a kwarg.
     assert plus_one(a=2) == 3
 
 
