@@ -196,11 +196,11 @@ class parallel_backend(object):
 # to set an environment variable to switch the default start method from
 # 'fork' to 'forkserver' or 'spawn' to avoid this issue albeit at the cost
 # of causing semantic changes and some additional pool instantiation overhead.
+DEFAULT_MP_CONTEXT = None
 if hasattr(mp, 'get_context'):
     method = os.environ.get('JOBLIB_START_METHOD', '').strip() or None
-    DEFAULT_MP_CONTEXT = mp.get_context(method=method)
-else:
-    DEFAULT_MP_CONTEXT = None
+    if method is not None:
+        DEFAULT_MP_CONTEXT = mp.get_context(method=method)
 
 
 class CloudpickledObjectWrapper(object):
