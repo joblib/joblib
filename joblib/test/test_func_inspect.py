@@ -223,6 +223,18 @@ def test_filter_args_error_msg(exception, regex, func, args):
     excinfo.match(regex)
 
 
+def test_filter_args_no_kwargs_mutation():
+    """None-regression test against 0.12.0 changes.
+
+    https://github.com/joblib/joblib/pull/75
+
+    Make sure filter args doesn't mutate the kwargs dict that gets passed in.
+    """
+    kwargs = {'x': 0}
+    filter_args(g, [], [], kwargs)
+    assert kwargs == {'x': 0}
+
+
 def test_clean_win_chars():
     string = r'C:\foo\bar\main.py'
     mangled_string = _clean_win_chars(string)
