@@ -226,7 +226,7 @@ def test_filter_args_error_msg(exception, regex, func, args):
 def test_filter_args_kwargs_consumption():
     """Regression test against 0.12.0 changes.
 
-    Make sure filter args doesn't consume the kwargs dict that gets passed to it.
+    Make sure filter args doesn't consume the kwargs dict that gets passed in.
     """
     kwargs = {'x': 0}
     filter_args(g, [], [], kwargs)
