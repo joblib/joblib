@@ -679,6 +679,8 @@ class Parallel(Logger):
         )
         if DEFAULT_MP_CONTEXT is not None:
             self._backend_args['context'] = DEFAULT_MP_CONTEXT
+        elif hasattr(mp, "get_context"):
+            self._backend_args['context'] = mp.get_context()
 
         if backend is None:
             backend = active_backend
