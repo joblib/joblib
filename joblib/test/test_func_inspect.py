@@ -223,6 +223,16 @@ def test_filter_args_error_msg(exception, regex, func, args):
     excinfo.match(regex)
 
 
+def test_filter_args_kwargs_consumption():
+    """Regression test against 0.12.0 changes.
+
+    Make sure filter args doesn't consume the kwargs dict that gets passed to it.
+    """
+    kwargs = {'x': 0}
+    filter_args(g, [], [], kwargs)
+    assert kwargs == {'x': 0}
+
+
 def test_clean_win_chars():
     string = r'C:\foo\bar\main.py'
     mangled_string = _clean_win_chars(string)

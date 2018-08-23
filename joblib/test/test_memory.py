@@ -345,6 +345,23 @@ def test_memory_ignore(tmpdir):
     assert len(accumulator) == 1
 
 
+def test_memory_args_as_kwargs(tmpdir):
+    """Regression test against 0.12.0 changes."""
+    memory = Memory(location=tmpdir.strpath, verbose=0)
+
+    @memory.cache
+    def plus_one(a):
+        return a + 1
+
+    # This would (and should) pass before the patch.
+    assert plus_one(1) == 2
+    assert plus_one(a=1) == 2
+
+    # However, a positional argument that joblib hadn't seen
+    # before would cause a failure if it was passed as a kwarg
+    assert plus_one(a=2) == 3
+
+
 @parametrize('ignore, verbose, mmap_mode', [(['x'], 100, 'r'),
                                             ([], 10, None)])
 def test_partial_decoration(tmpdir, ignore, verbose, mmap_mode):
