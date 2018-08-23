@@ -19,6 +19,12 @@ James Collins
     kwargs several times with different values (#751).
 
 
+Maxime Weyl
+
+    Prevent MemorizedFunc.call_and_shelve from loading cached results to
+    RAM when not necessary. Results in big performance improvements
+    
+
 Release 0.12.2
 --------------
 
