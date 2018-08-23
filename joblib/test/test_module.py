@@ -11,7 +11,8 @@ def test_version():
 
 @pytest.mark.skipif(sys.version_info < (3, 3), reason="Need python3.3+")
 def test_import():
-    # check that the import does not set the start_method for multiprocessing
+    # check that importing joblib does not implicitly set the global
+    # start_method for multiprocessing.
     code = """if True:
         import joblib
         import multiprocessing as mp

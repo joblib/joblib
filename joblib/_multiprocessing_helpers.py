@@ -30,8 +30,8 @@ if mp is not None:
             # backend for multiprocessing. To avoid that, we use the 'spawn'
             # context which is available on all supported platforms.
             ctx = mp.get_context('spawn')
-            Semaphore = ctx.Semaphore()
-        _sem = Semaphore
+            Semaphore = ctx.Semaphore
+        _sem = Semaphore()
         del _sem  # cleanup
     except (ImportError, OSError) as e:
         mp = None
