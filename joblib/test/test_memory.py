@@ -14,6 +14,8 @@ import sys
 import time
 import datetime
 
+import pytest
+
 from joblib.memory import Memory
 from joblib.memory import MemorizedFunc, NotMemorizedFunc
 from joblib.memory import MemorizedResult, NotMemorizedResult
@@ -27,6 +29,7 @@ from joblib.test.common import with_numpy, np
 from joblib.test.common import with_multiprocessing
 from joblib.testing import parametrize, raises, warns
 from joblib._compat import PY3_OR_LATER
+from joblib.hashing import hash
 
 
 ###############################################################################
@@ -984,3 +987,74 @@ def test_dummy_store_backend():
 
     backend_obj = _store_backend_factory(backend_name, "dummy_location")
     assert isinstance(backend_obj, DummyStoreBackend)
+
+
+def test_memorized_result_pickle(tmpdir):
+    # Verify a MemoryResult object can be pickled/depickled. Non regression
+    # test introduced following issue
+    # https://github.com/joblib/joblib/issues/747
+
+    memory = Memory(location=tmpdir.strpath)
+
+    @memory.cache
+    def g(x):
+        return x**2
+
+    memorized_result = g.call_and_shelve(4)
+    memorized_result_pickle = pickle.dumps(memorized_result)
+    memorized_result_loads = pickle.loads(memorized_result_pickle)
+
+    assert memorized_result.store_backend.location == \
+        memorized_result_loads.store_backend.location
+    assert memorized_result.func == memorized_result_loads.func
+    assert memorized_result.args_id == memorized_result_loads.args_id
+    assert str(memorized_result) == str(memorized_result_loads)
+
+
+def compare(left, right, ignored_attrs=None):
+    if ignored_attrs is None:
+        ignored_attrs = []
+
+    left_vars = vars(left)
+    right_vars = vars(right)
+    assert set(left_vars.keys()) == set(right_vars.keys())
+    for attr in left_vars.keys():
+        if attr in ignored_attrs:
+            continue
+        assert left_vars[attr] == right_vars[attr]
+
+
+@pytest.mark.parametrize('memory_kwargs',
+                         [{'compress': 3, 'verbose': 2},
+                          {'mmap_mode': 'r', 'verbose': 5, 'bytes_limit': 1e6,
+                           'backend_options': {'parameter': 'unused'}}])
+def test_memory_pickle_dump_load(tmpdir, memory_kwargs):
+    memory = Memory(location=tmpdir.strpath, **memory_kwargs)
+
+    memory_reloaded = pickle.loads(pickle.dumps(memory))
+
+    # Compare Memory instance before and after pickle roundtrip
+    compare(memory.store_backend, memory_reloaded.store_backend)
+    compare(memory, memory_reloaded,
+            ignored_attrs=set(['store_backend', 'timestamp']))
+    assert hash(memory) == hash(memory_reloaded)
+
+    func_cached = memory.cache(f)
+
+    func_cached_reloaded = pickle.loads(pickle.dumps(func_cached))
+
+    # Compare MemorizedFunc instance before/after pickle roundtrip
+    compare(func_cached.store_backend, func_cached_reloaded.store_backend)
+    compare(func_cached, func_cached_reloaded,
+            ignored_attrs=set(['store_backend', 'timestamp']))
+    assert hash(func_cached) == hash(func_cached_reloaded)
+
+    # Compare MemorizedResult instance before/after pickle roundtrip
+    memorized_result = func_cached.call_and_shelve(1)
+    memorized_result_reloaded = pickle.loads(pickle.dumps(memorized_result))
+
+    compare(memorized_result.store_backend,
+            memorized_result_reloaded.store_backend)
+    compare(memorized_result, memorized_result_reloaded,
+            ignored_attrs=set(['store_backend', 'timestamp']))
+    assert hash(memorized_result) == hash(memorized_result_reloaded)

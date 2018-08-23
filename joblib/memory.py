@@ -210,8 +210,11 @@ class MemorizedResult(Logger):
     def __init__(self, location, func, args_id, backend='local',
                  mmap_mode=None, verbose=0, timestamp=None, metadata=None):
         Logger.__init__(self)
-        self.func = func
         self.func_id = _build_func_identifier(func)
+        if isinstance(func, _basestring):
+            self.func = func
+        else:
+            self.func = self.func_id
         self.args_id = args_id
         self.store_backend = _store_backend_factory(backend, location,
                                                     verbose=verbose)
@@ -259,10 +262,11 @@ class MemorizedResult(Logger):
                         func=self.func,
                         args_id=self.args_id
                         ))
-    def __reduce__(self):
-        return (self.__class__,
-                (self.store_backend, self.func, self.args_id),
-                {'mmap_mode': self.mmap_mode})
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        state['timestamp'] = None
+        return state
 
 
 class NotMemorizedResult(object):
@@ -327,9 +331,6 @@ class NotMemorizedFunc(object):
     def call_and_shelve(self, *args, **kwargs):
         return NotMemorizedResult(self.func(*args, **kwargs))
 
-    def __reduce__(self):
-        return (self.__class__, (self.func,))
-
     def __repr__(self):
         return '{0}(func={1})'.format(self.__class__.__name__, self.func)
 
@@ -389,6 +390,7 @@ class MemorizedFunc(Logger):
         self.mmap_mode = mmap_mode
         self.compress = compress
         self.func = func
+
         if ignore is None:
             ignore = []
         self.ignore = ignore
@@ -513,13 +515,13 @@ class MemorizedFunc(Logger):
     def __call__(self, *args, **kwargs):
         return self._cached_call(args, kwargs)[0]
 
-    def __reduce__(self):
+    def __getstate__(self):
         """ We don't store the timestamp when pickling, to avoid the hash
             depending from it.
-            In addition, when unpickling, we run the __init__
         """
-        return (self.__class__, (self.func, self.store_backend, self.ignore,
-                self.mmap_mode, self.compress, self._verbose))
+        state = self.__dict__.copy()
+        state['timestamp'] = None
+        return state
 
     # ------------------------------------------------------------------------
     # Private interface
@@ -820,6 +822,7 @@ class Memory(Logger):
         self.timestamp = time.time()
         self.bytes_limit = bytes_limit
         self.backend = backend
+        self.compress = compress
         if backend_options is None:
             backend_options = {}
         self.backend_options = backend_options
@@ -903,9 +906,11 @@ class Memory(Logger):
             mmap_mode = self.mmap_mode
         if isinstance(func, MemorizedFunc):
             func = func.func
-        return MemorizedFunc(func, self.store_backend, mmap_mode=mmap_mode,
-                             ignore=ignore, verbose=verbose,
-                             timestamp=self.timestamp)
+        return MemorizedFunc(func, location=self.store_backend,
+                             backend=self.backend,
+                             ignore=ignore, mmap_mode=mmap_mode,
+                             compress=self.compress,
+                             verbose=verbose, timestamp=self.timestamp)
 
     def clear(self, warn=True):
         """ Erase the complete cache directory.
@@ -942,15 +947,10 @@ class Memory(Logger):
             self.__class__.__name__, (repr(None) if self.store_backend is None
                                       else repr(self.store_backend)))
 
-    def __reduce__(self):
+    def __getstate__(self):
         """ We don't store the timestamp when pickling, to avoid the hash
             depending from it.
-            In addition, when unpickling, we run the __init__
         """
-        # We need to remove 'joblib' from the end of cachedir
-        location = (repr(self.store_backend)[:-7]
-                    if self.store_backend is not None else None)
-        compress = self.store_backend.compress \
-            if self.store_backend is not None else False
-        return (self.__class__, (location, self.backend, self.mmap_mode,
-                                 compress, self._verbose))
+        state = self.__dict__.copy()
+        state['timestamp'] = None
+        return state

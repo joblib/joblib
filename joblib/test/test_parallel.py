@@ -241,6 +241,17 @@ def test_nested_loop(parent_backend, child_backend):
         delayed(nested_loop)(child_backend) for _ in range(2))
 
 
+def raise_exception(backend):
+    raise ValueError
+
+
+def test_nested_loop_with_exception_with_loky():
+    with raises(ValueError):
+        with Parallel(n_jobs=2, backend="loky") as parallel:
+            parallel([delayed(nested_loop)("loky"),
+                      delayed(raise_exception)("loky")])
+
+
 def test_mutate_input_with_threads():
     """Input is mutable when using the threading backend"""
     q = Queue(maxsize=5)

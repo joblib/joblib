@@ -1,6 +1,18 @@
 Latest changes
 ===============
 
+master
+------
+
+Alexandre Abadie
+
+    Fix MemorizedResult not picklable (#747).
+
+Loïc Estève
+
+    Fix Memory, MemorizedFunc and MemorizedResult round-trip pickling +
+    unpickling (#746).
+
 Release 0.12.2
 --------------
 
