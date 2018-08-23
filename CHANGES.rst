@@ -13,6 +13,12 @@ Loïc Estève
     Fix Memory, MemorizedFunc and MemorizedResult round-trip pickling +
     unpickling (#746).
 
+James Collins
+
+    Fixed a regression in Memory when positional arguments are called as
+    kwargs several times with different values (#751).
+
+
 Release 0.12.2
 --------------
 
