@@ -4,6 +4,10 @@ Latest changes
 master
 ------
 
+Thomas Moreau
+
+    Fix joblib import setting the global start_method for multiprocessing.
+
 Alexandre Abadie
 
     Fix MemorizedResult not picklable (#747).
