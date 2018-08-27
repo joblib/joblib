@@ -1373,10 +1373,15 @@ def test_nested_parallelism_limit(backend):
     with parallel_backend(backend, n_jobs=2):
         backend_types_and_levels = _recursive_backend_info()
 
+    if cpu_count() == 1:
+        second_level_backend_type = 'SequentialBackend'
+    else:
+        second_level_backend_type = 'ThreadingBackend'
+
     top_level_backend_type = backend.title() + 'Backend'
     expected_types_and_levels = [
         (top_level_backend_type, 0),
-        ('ThreadingBackend', 1),
+        (second_level_backend_type, 1),
         ('SequentialBackend', 2),
         ('SequentialBackend', 3)
     ]
