@@ -326,7 +326,7 @@ def test_memory_numpy_check_mmap_mode(tmpdir, monkeypatch):
     assert isinstance(b, np.memmap)
     assert b.mode == 'r'
 
-    # Corrupts the file,  Deleting b and c mmaps 
+    # Corrupts the file,  Deleting b and c mmaps
     # is necessary to be able edit the file
     del b
     del c

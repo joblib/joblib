@@ -27,8 +27,13 @@ Maxime Weyl
 
     Prevent MemorizedFunc.call_and_shelve from loading cached results to
     RAM when not necessary. Results in big performance improvements
-    
 
+Maxime Weyl
+
+    Added a new test for for getting a corrupted cached file with mmap mode.
+    It reveals a bug because the file is loaded without mmap.
+    Fixing the bug.
+    
 Release 0.12.2
 --------------
 
