@@ -426,15 +426,27 @@ class MemorizedFunc(Logger):
             doc = func.__doc__
         self.__doc__ = 'Memoized version of %s' % doc
 
-    def _cached_call(self, args, kwargs):
+    def _cached_call(self, args, kwargs, shelving=False):
         """Call wrapped function and cache result, or read cache if available.
 
         This function returns the wrapped function output and some metadata.
 
+        Arguments:
+        ----------
+
+        args, kwargs: list and dict
+            input arguments for wrapped function
+
+        shelving: bool
+            is this call used for a shelved call ?
+
+
         Returns
         -------
-        output: value or tuple
-            what is returned by wrapped function
+        output: value or tuple or None
+            what is returned by wrapped function.
+            if shelving is True and the call has been already cached,
+            output is None.
 
         argument_hash: string
             hash of function arguments
@@ -474,8 +486,16 @@ class MemorizedFunc(Logger):
                     msg = _format_load_msg(func_id, args_id,
                                            timestamp=self.timestamp,
                                            metadata=metadata)
-                out = self.store_backend.load_item([func_id, args_id], msg=msg,
-                                                   verbose=self._verbose)
+
+                if not shelving:
+                    # When shelving, we do not need to load the output
+                    out = self.store_backend.load_item(
+                        [func_id, args_id],
+                        msg=msg,
+                        verbose=self._verbose)
+                else:
+                    out = None
+
                 if self._verbose > 4:
                     t = time.time() - t0
                     _, name = get_func_name(self.func)
@@ -507,7 +527,7 @@ class MemorizedFunc(Logger):
             class "NotMemorizedResult" is used when there is no cache
             activated (e.g. location=None in Memory).
         """
-        _, args_id, metadata = self._cached_call(args, kwargs)
+        _, args_id, metadata = self._cached_call(args, kwargs, shelving=True)
         return MemorizedResult(self.store_backend, self.func, args_id,
                                metadata=metadata, verbose=self._verbose - 1,
                                timestamp=self.timestamp)
