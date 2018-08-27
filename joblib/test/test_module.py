@@ -10,7 +10,7 @@ def test_version():
 
 
 @pytest.mark.skipif(sys.version_info < (3, 3), reason="Need python3.3+")
-def test_import():
+def test_no_start_method_side_effect_on_import():
     # check that importing joblib does not implicitly set the global
     # start_method for multiprocessing.
     code = """if True:
