@@ -1383,7 +1383,7 @@ def test_nested_parallelism_limit(backend):
 @with_numpy
 def test_nested_parallelism_with_dask():
     distributed = pytest.importorskip('distributed')
-    client = distributed.Client()  # noqa
+    client = distributed.Client(n_workers=2, threads_per_worker=2)  # noqa
 
     # 10 MB of data as argument to trigger implicit scattering
     data = np.ones(int(1e7), dtype=np.uint8)
