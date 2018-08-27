@@ -57,6 +57,26 @@ def check_identity_lazy(func, accumulator, location):
             assert len(accumulator) == i + 1
 
 
+def corrupt_single_cache_item(memory):
+    single_cache_item, = memory.store_backend.get_items()
+    output_filename = os.path.join(single_cache_item.path, 'output.pkl')
+    with open(output_filename, 'w') as f:
+        f.write('garbage')
+
+
+def monkeypatch_cached_func(func, attr_name, monkeypatch):
+    # Need monkeypatch because pytest does not
+    # capture stdlib logging output (see
+    # https://github.com/pytest-dev/pytest/issues/2079)
+
+    recorded = []
+
+    def append_to_record(item):
+        recorded.append(item)
+    monkeypatch.setattr(func, attr_name, append_to_record)
+    return recorded
+
+
 ###############################################################################
 # Tests
 def test_memory_integration(tmpdir):
@@ -286,7 +306,7 @@ def test_memory_numpy(tmpdir, mmap_mode):
 
 
 @with_numpy
-def test_memory_numpy_check_mmap_mode(tmpdir):
+def test_memory_numpy_check_mmap_mode(tmpdir, monkeypatch):
     """Check that mmap_mode is respected even at the first call"""
 
     memory = Memory(location=tmpdir.strpath, mmap_mode='r', verbose=0)
@@ -305,6 +325,25 @@ def test_memory_numpy_check_mmap_mode(tmpdir):
 
     assert isinstance(b, np.memmap)
     assert b.mode == 'r'
+
+    # Corrupts the file,  Deleting b and c mmaps 
+    # is necessary to be able edit the file
+    del b
+    del c
+    corrupt_single_cache_item(memory)
+
+    # Make sure that corrupting the file causes recomputation and that
+    # a warning is issued.
+    recorded_warnings = monkeypatch_cached_func(
+        twice, "warn", monkeypatch)
+    d = twice(a)
+    assert len(recorded_warnings) == 1
+    exception_msg = 'Exception while loading results'
+    assert exception_msg in recorded_warnings[0]
+    # Asserts that the recomputation returns a mmmap
+    assert isinstance(d, np.memmap)
+    assert d.mode == 'r'
+
 
 
 def test_memory_exception(tmpdir):
@@ -836,7 +875,7 @@ def test_cached_function_race_condition_when_persisting_output_2(tmpdir,
     assert exception_msg not in stderr
 
 
-def test_memory_recomputes_after_an_error_why_loading_results(tmpdir,
+def test_memory_recomputes_after_an_error_while_loading_results(tmpdir,
                                                               monkeypatch):
     memory = Memory(location=tmpdir.strpath)
 
@@ -856,21 +895,12 @@ def test_memory_recomputes_after_an_error_why_loading_results(tmpdir,
 
     # Corrupting output.pkl to make sure that an error happens when
     # loading the cached result
-    single_cache_item, = memory.store_backend.get_items()
-    output_filename = os.path.join(single_cache_item.path, 'output.pkl')
-    with open(output_filename, 'w') as f:
-        f.write('garbage')
-
-    recorded_warnings = []
-
-    def append_to_record(item):
-        recorded_warnings.append(item)
+    corrupt_single_cache_item(memory)
 
     # Make sure that corrupting the file causes recomputation and that
-    # a warning is issued. Need monkeypatch because pytest does not
-    # capture stdlib logging output (see
-    # https://github.com/pytest-dev/pytest/issues/2079)
-    monkeypatch.setattr(cached_func, 'warn', append_to_record)
+    # a warning is issued.
+    recorded_warnings = monkeypatch_cached_func(
+        cached_func, "warn", monkeypatch)
     recomputed_arg, recomputed_timestamp = cached_func(arg)
     assert len(recorded_warnings) == 1
     exception_msg = 'Exception while loading results'
