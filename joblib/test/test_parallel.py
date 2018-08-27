@@ -1191,30 +1191,22 @@ def test_delayed_check_pickle_deprecated():
 @parametrize('backend', ['multiprocessing', 'loky'])
 def test_backend_batch_statistics_reset(backend):
     """Test that a parallel backend correctly resets its batch statistics."""
-    relative_tolerance = 0.2
     n_jobs = 2
     n_inputs = 500
     task_time = 2. / n_inputs
 
     p = Parallel(verbose=10, n_jobs=n_jobs, backend=backend)
-    start_time = time.time()
     p(delayed(time.sleep)(task_time) for i in range(n_inputs))
-    ref_time = time.time() - start_time
     assert (p._backend._effective_batch_size ==
             p._backend._DEFAULT_EFFECTIVE_BATCH_SIZE)
     assert (p._backend._smoothed_batch_duration ==
             p._backend._DEFAULT_SMOOTHED_BATCH_DURATION)
 
-    start_time = time.time()
     p(delayed(time.sleep)(task_time) for i in range(n_inputs))
-    test_time = time.time() - start_time
     assert (p._backend._effective_batch_size ==
             p._backend._DEFAULT_EFFECTIVE_BATCH_SIZE)
     assert (p._backend._smoothed_batch_duration ==
             p._backend._DEFAULT_SMOOTHED_BATCH_DURATION)
-
-    # Tolerance in the timing comparison to avoid random failures on CIs
-    assert test_time / ref_time <= 1 + relative_tolerance
 
 
 def test_backend_hinting_and_constraints():
