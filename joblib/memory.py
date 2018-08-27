@@ -438,21 +438,21 @@ class MemorizedFunc(Logger):
             input arguments for wrapped function
 
         shelving: bool
-            is this call used for a shelved call ?
+            True when called via the call_and_shelve function.
 
 
         Returns
         -------
         output: value or tuple or None
-            what is returned by wrapped function.
-            if shelving is True and the call has been already cached,
+            Output of the wrapped function.
+            If shelving is True and the call has been already cached,
             output is None.
 
         argument_hash: string
-            hash of function arguments
+            Hash of function arguments.
 
         metadata: dict
-            some metadata about wrapped function call (see _persist_input())
+            Some metadata about wrapped function call (see _persist_input()).
         """
         # Compare the function code with the previous to see if the
         # function code has changed
