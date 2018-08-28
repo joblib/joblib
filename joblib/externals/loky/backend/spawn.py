@@ -10,8 +10,9 @@ import os
 import sys
 import runpy
 import types
-import multiprocessing as mp
 from multiprocessing import process, util
+
+from joblib.externals.loky.backend import context
 
 
 if sys.platform != 'win32':
@@ -25,21 +26,6 @@ if WINSERVICE:
     _python_exe = os.path.join(sys.exec_prefix, 'python.exe')
 else:
     _python_exe = sys.executable
-
-if sys.version_info[:2] < (3, 4):
-    def get_command_line(pipe_handle, **kwds):
-        '''
-        Returns prefix of command line used for spawning a child process
-        '''
-        if getattr(sys, 'frozen', False):
-            return ([sys.executable, '--multiprocessing-fork', pipe_handle])
-        else:
-            prog = 'from multiprocessing.forking import main; main()'
-            opts = util._args_from_interpreter_flags()
-            return [_python_exe] + opts + [
-                '-c', prog, '--multiprocessing-fork', pipe_handle]
-else:
-    from multiprocessing.spawn import get_command_line
 
 
 def get_executable():
@@ -105,10 +91,11 @@ def get_preparation_data(name, init_main_module=True):
     # Figure out whether to initialise main in the subprocess as a module
     # or through direct execution (or to leave it alone entirely)
     if init_main_module:
+        d['loky_init_main'] = True
         main_module = sys.modules['__main__']
         try:
             main_mod_name = getattr(main_module.__spec__, "name", None)
-        except:
+        except BaseException:
             main_mod_name = None
         if main_mod_name is not None:
             d['init_main_from_name'] = main_mod_name
@@ -165,8 +152,8 @@ def prepare(data):
     if 'orig_dir' in data:
         process.ORIGINAL_DIR = data['orig_dir']
 
-    if hasattr(mp, 'set_start_method'):
-        mp.set_start_method('loky', force=True)
+    if sys.version_info < (3, 3) and 'loky_init_main' in data:
+            context.DEFAULT_METHOD = 'loky_init_main'
 
     if 'tacker_pid' in data:
         from . import semaphore_tracker
