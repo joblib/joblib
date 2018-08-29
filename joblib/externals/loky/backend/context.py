@@ -20,42 +20,39 @@ import multiprocessing as mp
 
 from .process import LokyProcess, LokyInitMainProcess
 
+START_METHODS = ['loky', 'loky_init_main']
+_DEFAULT_START_METHOD = None
+
 if sys.version_info[:2] >= (3, 4):
     from multiprocessing import get_context as mp_get_context
     from multiprocessing.context import assert_spawning, set_spawning_popen
     from multiprocessing.context import get_spawning_popen, BaseContext
-    from multiprocessing.context import _default_context
+
+    START_METHODS += ['spawn']
+    if sys.platform != 'win32':
+        START_METHODS += ['fork', 'forkserver']
 
     def get_context(method=None):
         # Try to overload the default context
-        if method is None and _default_context._actual_context is None:
-            method = 'loky'
+        method = method or _DEFAULT_START_METHOD or "loky"
+        if method == "fork":
+            # If 'fork' is explicitly requested, warn user about potential
+            # issues.
+            warnings.warn("`fork` start method should not be used with "
+                          "`loky` as it does not respect POSIX. Try using "
+                          "`spawn` or `loky` instead.", UserWarning)
         try:
             context = mp_get_context(method)
         except ValueError:
-            raise ValueError("Unknown context '{}'. Value should be in {{"
-                             "'loky', 'loky_init_main', 'spawn', 'forkserver'"
-                             "}}.".format(method))
-
-        if context.get_start_method() == 'fork':
-            if method == "fork":
-                # If 'fork' is explicitly requested, warn user about potential
-                # issues.
-                warnings.warn("`fork` start method should not be used with "
-                              "`loky` as it does not respect POSIX. Try using "
-                              "`spawn` or `loky` instead.", UserWarning)
-            else:
-                # If fork is not explicitly requested, override it with `loky`
-                context = mp_get_context('loky')
+            raise ValueError("Unknown context '{}'. Value should be in {}."
+                             .format(method, START_METHODS))
 
         return context
 
 else:
-    METHODS = ['loky', 'loky_init_main']
-    DEFAULT_METHOD = 'loky'
     if sys.platform != 'win32':
         import threading
-        # Mecanism to check that the current thread is spawning a child process
+        # Mechanism to check that the current thread is spawning a process
         _tls = threading.local()
         popen_attr = 'spawning_popen'
     else:
@@ -79,14 +76,29 @@ else:
             )
 
     def get_context(method=None):
-        method = method or DEFAULT_METHOD
+        method = method or _DEFAULT_START_METHOD or 'loky'
         if method == "loky":
             return LokyContext()
         elif method == "loky_init_main":
             return LokyInitMainContext()
         else:
-            raise ValueError("Method {} is not implemented. The available "
-                             "methods are {}".format(method, METHODS))
+            raise ValueError("Unknown context '{}'. Value should be in {}."
+                             .format(method, START_METHODS))
+
+
+def set_start_method(method, force=False):
+    global _DEFAULT_START_METHOD
+    if _DEFAULT_START_METHOD is not None and not force:
+        raise RuntimeError('context has already been set')
+    assert method is None or method in START_METHODS, (
+        "'{}' is not a valid start_method. It should be in {}"
+        .format(method, START_METHODS))
+
+    _DEFAULT_START_METHOD = method
+
+
+def get_start_method():
+    return _DEFAULT_START_METHOD
 
 
 def cpu_count():

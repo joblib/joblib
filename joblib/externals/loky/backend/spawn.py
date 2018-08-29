@@ -91,7 +91,6 @@ def get_preparation_data(name, init_main_module=True):
     # Figure out whether to initialise main in the subprocess as a module
     # or through direct execution (or to leave it alone entirely)
     if init_main_module:
-        d['loky_init_main'] = True
         main_module = sys.modules['__main__']
         try:
             main_mod_name = getattr(main_module.__spec__, "name", None)
@@ -151,9 +150,6 @@ def prepare(data):
 
     if 'orig_dir' in data:
         process.ORIGINAL_DIR = data['orig_dir']
-
-    if sys.version_info < (3, 3) and 'loky_init_main' in data:
-            context.DEFAULT_METHOD = 'loky_init_main'
 
     if 'tacker_pid' in data:
         from . import semaphore_tracker
