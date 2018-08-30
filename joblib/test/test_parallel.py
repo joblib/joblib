@@ -1009,6 +1009,8 @@ import sys
 sys.path.insert(0, {joblib_root_folder!r})
 
 from joblib import Parallel, delayed, hash
+import multiprocessing as mp
+mp.util.log_to_stderr(5)
 
 class MyList(list):
     '''MyList is interactively defined by MyList.append is a built-in'''
@@ -1031,6 +1033,7 @@ def test_parallel_with_interactively_defined_bound_method(tmpdir):
     script.write(INTERACTIVELY_DEFINED_SUBCLASS_WITH_METHOD_SCRIPT_CONTENT)
     check_subprocess_call([sys.executable, script.strpath],
                           stdout_regex=r'\[None, None, None\]',
+                          stderr_regex=r'LokyProcess',
                           timeout=5)
 
 

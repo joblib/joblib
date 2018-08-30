@@ -16,6 +16,8 @@ def test_no_start_method_side_effect_on_import():
     code = """if True:
         import joblib
         import multiprocessing as mp
+        # The following line would raise RuntimeError if the
+        # start_method is already set.
         mp.set_start_method("loky")
     """
     check_subprocess_call([sys.executable, '-c', code])
