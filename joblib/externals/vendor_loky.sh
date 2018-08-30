@@ -11,7 +11,7 @@ then
 else
     LOKY=$1
 fi
-pip install $LOKY --target $INSTALL_FOLDER
+pip install --no-cache $LOKY --target $INSTALL_FOLDER
 cp -r $INSTALL_FOLDER/loky .
 rm -rf $INSTALL_FOLDER
 
