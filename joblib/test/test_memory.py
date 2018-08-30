@@ -1012,8 +1012,7 @@ def test_filesystem_store_backend_repr(tmpdir):
 
 
 def test_memory_objects_repr(tmpdir):
-    # Check that MemorizedResult and MemorizedFunc printable reprs are as
-    # expected.
+    # Verify printable reprs of MemorizedResult, MemorizedFunc and Memory.
 
     def my_func(a, b):
         return a + b
