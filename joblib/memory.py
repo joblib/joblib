@@ -769,8 +769,10 @@ class MemorizedFunc(Logger):
     # ------------------------------------------------------------------------
 
     def __repr__(self):
-        return ("{0}(func={1}, location={2})".format(
-            self.__class__.__name__, self.func, self.store_backend.location,))
+        return ("{class_name}(func={func}, location={location})".format(
+            class_name=self.__class__.__name__,
+            func=self.func,
+            location=self.store_backend.location,))
 
 
 ###############################################################################
