@@ -1,8 +1,8 @@
 Latest changes
 ===============
 
-master
-------
+Release 0.12.3
+--------------
 
 Thomas Moreau
 
@@ -21,6 +21,12 @@ James Collins
 
     Fixed a regression in Memory when positional arguments are called as
     kwargs several times with different values (#751).
+
+Thomas Moreau and Olivier Grisel
+
+    Integration of loky 2.2.2 that fixes issues with the selection of the
+    default start method and improve the reporting when calling functions
+    with arguments that raise an exception when unpickling.
 
 
 Maxime Weyl
