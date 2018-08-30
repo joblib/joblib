@@ -35,8 +35,7 @@ class StoreBackendBase(with_metaclass(ABCMeta)):
     """Helper Abstract Base Class which defines all methods that
        a StorageBackend must implement."""
 
-    def __init__(self, location=None):
-        self.location = location
+    location = None
 
     @abstractmethod
     def _open_item(self, f, mode):
