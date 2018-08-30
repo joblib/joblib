@@ -1018,26 +1018,24 @@ def test_memory_objects_repr(tmpdir):
     memory = Memory(location=tmpdir.strpath, verbose=0)
     memorized_func = memory.cache(my_func)
 
-    memorized_func_repr = '{class_name}(func={func}, location={location})'
+    memorized_func_repr = 'MemorizedFunc(func={func}, location={location})'
 
     assert str(memorized_func) == memorized_func_repr.format(
-        class_name="MemorizedFunc",
         func=my_func,
         location=memory.store_backend.location)
 
     memorized_result = memorized_func.call_and_shelve(42, 42)
 
-    memorized_result_repr = ('{class_name}(location="{location}", '
+    memorized_result_repr = ('MemorizedResult(location="{location}", '
                              'func="{func}", args_id="{args_id}")')
 
     assert str(memorized_result) == memorized_result_repr.format(
-        class_name="MemorizedResult", location=memory.store_backend.location,
-        func=memorized_result.func_id, args_id=memorized_result.args_id)
+        location=memory.store_backend.location,
+        func=memorized_result.func_id,
+        args_id=memorized_result.args_id)
 
-    memory_repr = '{class_name}(location={location})'
-
-    assert str(memory) == memory_repr.format(
-        class_name="Memory", location=memory.store_backend.location)
+    assert str(memory) == 'Memory(location={location})'.format(
+        location=memory.store_backend.location)
 
 
 def test_memorized_result_pickle(tmpdir):
