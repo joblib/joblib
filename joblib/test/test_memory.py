@@ -24,7 +24,7 @@ from joblib.memory import register_store_backend, _STORE_BACKENDS
 from joblib.memory import _build_func_identifier, _store_backend_factory
 from joblib.memory import JobLibCollisionWarning
 from joblib.parallel import Parallel, delayed
-from joblib._store_backends import StoreBackendBase
+from joblib._store_backends import StoreBackendBase, FileSystemStoreBackend
 from joblib.test.common import with_numpy, np
 from joblib.test.common import with_multiprocessing
 from joblib.testing import parametrize, raises, warns
@@ -987,6 +987,55 @@ def test_dummy_store_backend():
 
     backend_obj = _store_backend_factory(backend_name, "dummy_location")
     assert isinstance(backend_obj, DummyStoreBackend)
+
+
+def test_filesystem_store_backend_repr(tmpdir):
+    # Verify string representation of a filesystem store backend.
+
+    repr_pattern = 'FileSystemStoreBackend(location="{location}")'
+    backend = FileSystemStoreBackend()
+    assert backend.location is None
+
+    repr(backend)  # Should not raise an exception
+
+    assert str(backend) == repr_pattern.format(location=None)
+
+    # backend location is passed explicitely via the configure method (called
+    # by the internal _store_backend_factory function)
+    backend.configure(tmpdir.strpath)
+
+    assert str(backend) == repr_pattern.format(location=tmpdir.strpath)
+
+    repr(backend)  # Should not raise an exception
+
+
+def test_memory_objects_repr(tmpdir):
+    # Verify printable reprs of MemorizedResult, MemorizedFunc and Memory.
+
+    def my_func(a, b):
+        return a + b
+
+    memory = Memory(location=tmpdir.strpath, verbose=0)
+    memorized_func = memory.cache(my_func)
+
+    memorized_func_repr = 'MemorizedFunc(func={func}, location={location})'
+
+    assert str(memorized_func) == memorized_func_repr.format(
+        func=my_func,
+        location=memory.store_backend.location)
+
+    memorized_result = memorized_func.call_and_shelve(42, 42)
+
+    memorized_result_repr = ('MemorizedResult(location="{location}", '
+                             'func="{func}", args_id="{args_id}")')
+
+    assert str(memorized_result) == memorized_result_repr.format(
+        location=memory.store_backend.location,
+        func=memorized_result.func_id,
+        args_id=memorized_result.args_id)
+
+    assert str(memory) == 'Memory(location={location})'.format(
+        location=memory.store_backend.location)
 
 
 def test_memorized_result_pickle(tmpdir):
