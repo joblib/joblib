@@ -992,21 +992,19 @@ def test_dummy_store_backend():
 def test_filesystem_store_backend_repr(tmpdir):
     # Verify string representation of a filesystem store backend.
 
-    repr_pattern = '{class_name}(location="{location}")'
+    repr_pattern = 'FileSystemStoreBackend(location="{location}")'
     backend = FileSystemStoreBackend()
     assert backend.location is None
 
     repr(backend)  # Should not raise an exception
 
-    assert str(backend) == repr_pattern.format(
-        class_name=backend.__class__.__name__, location=None)
+    assert str(backend) == repr_pattern.format(location=None)
 
     # backend location is passed explicitely via the configure method (called
     # by the internal _store_backend_factory function)
     backend.configure(tmpdir.strpath)
 
-    assert str(backend) == repr_pattern.format(
-        class_name=backend.__class__.__name__, location=tmpdir.strpath)
+    assert str(backend) == repr_pattern.format(location=tmpdir.strpath)
 
     repr(backend)  # Should not raise an exception
 
