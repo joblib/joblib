@@ -64,7 +64,7 @@ def corrupt_single_cache_item(memory):
         f.write('garbage')
 
 
-def monkeypatch_cached_func(func, attr_name, monkeypatch):
+def monkeypatch_cached_func_warn(func, monkeypatch_fixture):
     # Need monkeypatch because pytest does not
     # capture stdlib logging output (see
     # https://github.com/pytest-dev/pytest/issues/2079)
@@ -73,7 +73,7 @@ def monkeypatch_cached_func(func, attr_name, monkeypatch):
 
     def append_to_record(item):
         recorded.append(item)
-    monkeypatch.setattr(func, attr_name, append_to_record)
+    monkeypatch_fixture.setattr(func, 'warn', append_to_record)
     return recorded
 
 
@@ -334,8 +334,7 @@ def test_memory_numpy_check_mmap_mode(tmpdir, monkeypatch):
 
     # Make sure that corrupting the file causes recomputation and that
     # a warning is issued.
-    recorded_warnings = monkeypatch_cached_func(
-        twice, "warn", monkeypatch)
+    recorded_warnings = monkeypatch_cached_func_warn(twice, monkeypatch)
     d = twice(a)
     assert len(recorded_warnings) == 1
     exception_msg = 'Exception while loading results'
@@ -343,7 +342,6 @@ def test_memory_numpy_check_mmap_mode(tmpdir, monkeypatch):
     # Asserts that the recomputation returns a mmmap
     assert isinstance(d, np.memmap)
     assert d.mode == 'r'
-
 
 
 def test_memory_exception(tmpdir):
@@ -899,8 +897,7 @@ def test_memory_recomputes_after_an_error_while_loading_results(tmpdir,
 
     # Make sure that corrupting the file causes recomputation and that
     # a warning is issued.
-    recorded_warnings = monkeypatch_cached_func(
-        cached_func, "warn", monkeypatch)
+    recorded_warnings = monkeypatch_cached_func_warn(cached_func, monkeypatch)
     recomputed_arg, recomputed_timestamp = cached_func(arg)
     assert len(recorded_warnings) == 1
     exception_msg = 'Exception while loading results'
