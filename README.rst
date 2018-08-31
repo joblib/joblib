@@ -58,6 +58,8 @@ Dependencies
 - Joblib has an optional dependency on
   `python-lz4 <https://pypi.python.org/pypi/lz4>`_ as a faster alternative to
   zlib and gzip for compressed serialization.
+- Joblib has an optional dependency on psutil to mitigate memory leaks in
+  parallel worker processes.
 - Some examples require external dependencies such as pandas. See the
   instructions in the `Building the docs`_ section for details.
 

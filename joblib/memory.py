@@ -258,7 +258,7 @@ class MemorizedResult(Logger):
         return ('{class_name}(location="{location}", func="{func}", '
                 'args_id="{args_id}")'
                 .format(class_name=self.__class__.__name__,
-                        location=self.store_backend,
+                        location=self.store_backend.location,
                         func=self.func,
                         args_id=self.args_id
                         ))
@@ -775,9 +775,10 @@ class MemorizedFunc(Logger):
     # ------------------------------------------------------------------------
 
     def __repr__(self):
-        return ("{0}(func={1}, location={2})".format(self.__class__.__name__,
-                                                     self.func,
-                                                     self.store_backend,))
+        return '{class_name}(func={func}, location={location})'.format(
+            class_name=self.__class__.__name__,
+            func=self.func,
+            location=self.store_backend.location,)
 
 
 ###############################################################################
@@ -969,9 +970,10 @@ class Memory(Logger):
     # ------------------------------------------------------------------------
 
     def __repr__(self):
-        return '{0}(location={1})'.format(
-            self.__class__.__name__, (repr(None) if self.store_backend is None
-                                      else repr(self.store_backend)))
+        return '{class_name}(location={location})'.format(
+            class_name=self.__class__.__name__,
+            location=(None if self.store_backend is None
+                      else self.store_backend.location))
 
     def __getstate__(self):
         """ We don't store the timestamp when pickling, to avoid the hash

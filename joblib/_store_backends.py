@@ -35,6 +35,8 @@ class StoreBackendBase(with_metaclass(ABCMeta)):
     """Helper Abstract Base Class which defines all methods that
        a StorageBackend must implement."""
 
+    location = None
+
     @abstractmethod
     def _open_item(self, f, mode):
         """Opens an item on the store and return a file-like object.
@@ -327,7 +329,8 @@ class StoreBackendMixin(object):
 
     def __repr__(self):
         """Printable representation of the store location."""
-        return self.location
+        return '{class_name}(location="{location}")'.format(
+            class_name=self.__class__.__name__, location=self.location)
 
 
 class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
