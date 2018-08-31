@@ -4,6 +4,11 @@ Latest changes
 master
 ------
 
+Maxime Weyl
+
+    Loading a corrupted cached file with mmap mode enabled would
+    recompute the results and return them without memmory mapping.
+
 
 Release 0.12.3
 --------------
@@ -37,7 +42,7 @@ Maxime Weyl
 
     Prevent MemorizedFunc.call_and_shelve from loading cached results to
     RAM when not necessary. Results in big performance improvements
-    
+
 
 Release 0.12.2
 --------------
