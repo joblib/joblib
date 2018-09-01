@@ -6,6 +6,10 @@ master
 
 Maxime Weyl
 
+    Raises a more explicit exception when a corrupted MemorizedResult is loaded.
+
+Maxime Weyl
+
     Loading a corrupted cached file with mmap mode enabled would
     recompute the results and return them without memmory mapping.
 
