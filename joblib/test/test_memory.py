@@ -915,7 +915,7 @@ def test_memory_recomputes_after_an_error_while_loading_results(
             "It normally not possible to load a corrupted"
             " MemorizedResult"
         )
-    except ValueError as e:
+    except KeyError as e:
         message = "is corrupted"
         assert message in str(e.args)
 
