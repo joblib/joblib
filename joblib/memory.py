@@ -247,8 +247,18 @@ class MemorizedResult(Logger):
                                    metadata=self.metadata)
         else:
             msg = None
-        return self.store_backend.load_item(
-            [self.func_id, self.args_id], msg=msg, verbose=self.verbose)
+
+        try:
+            return self.store_backend.load_item(
+                [self.func_id, self.args_id], msg=msg, verbose=self.verbose)
+        except ValueError:
+            raise ValueError(
+                "Error while trying to load a MemorizedResult's value. "
+                "It seems that this folder is corrupted : {}".format(
+                    os.path.join(
+                        self.store_backend.location, self.func_id,
+                        self.args_id)
+                ))
 
     def clear(self):
         """Clear value from cache"""
