@@ -5,6 +5,9 @@ language: python
 
 env:
   matrix:
+    # Run PyPy tests first because they are slower because of the cost to start
+    # new processes
+    - PYTHON_VERSION="pypy3" LOKY_MAX_CPU_COUNT="2"
     # Run scikit-learn tests as integration / non-regression tests
     - SKIP_TESTS="true" SKLEARN_TESTS="true" PYTHON_VERSION="3.6" NUMPY_VERSION="1.14"
     - PYTHON_VERSION="2.7" NUMPY_VERSION="1.6" NO_LZ4="true" COVERAGE="true"

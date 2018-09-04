@@ -572,30 +572,42 @@ def test_numpy_arrays_use_different_memory(mmap_mode):
 
 @with_numpy
 def test_weak_array_key_map():
+
+    def assert_empty_after_gc_collect(container, retries=3):
+        for i in range(retries):
+            if len(container) == 0:
+                return
+            gc.collect()
+        assert len(container) == 0
+
     a = np.ones(42)
     m = _WeakArrayKeyMap()
-    m.set(a, 42)
-    assert m.get(a) == 42
+    m.set(a, 'a')
+    assert m.get(a) == 'a'
 
     b = a
-    assert m.get(b) == 42
-    m.set(b, -42)
-    assert m.get(a) == -42
+    assert m.get(b) == 'a'
+    m.set(b, 'b')
+    assert m.get(a) == 'b'
 
     del a
     gc.collect()
     assert len(m._data) == 1
-    assert m.get(b) == -42
+    assert m.get(b) == 'b'
 
     del b
-    gc.collect()
-    assert len(m._data) == 0
+    assert_empty_after_gc_collect(m._data)
 
-    m.set(np.ones(42), 42)
+    c = np.ones(42)
+    m.set(c, 'c')
+    assert len(m._data) == 1
+    assert m.get(c) == 'c'
+
     with raises(KeyError):
         m.get(np.ones(42))
-    gc.collect()
-    assert len(m._data) == 0
+
+    del c
+    assert_empty_after_gc_collect(m._data)
 
     # Check that creating and dropping numpy arrays with potentially the same
     # object id will not cause the map to get confused.

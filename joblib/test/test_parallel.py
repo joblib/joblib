@@ -1034,7 +1034,7 @@ def test_parallel_with_interactively_defined_bound_method(tmpdir):
     check_subprocess_call([sys.executable, script.strpath],
                           stdout_regex=r'\[None, None, None\]',
                           stderr_regex=r'LokyProcess',
-                          timeout=5)
+                          timeout=15)
 
 
 def test_parallel_with_exhausted_iterator():
@@ -1121,7 +1121,7 @@ def test_abort_backend(n_jobs, backend):
         Parallel(n_jobs=n_jobs, backend=backend)(
             delayed(time.sleep)(i) for i in delays)
     dt = time.time() - t_start
-    assert dt < 5
+    assert dt < 20
 
 
 @with_numpy
