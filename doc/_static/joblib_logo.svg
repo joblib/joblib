@@ -11,8 +11,8 @@
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    id="svg2"
    version="1.1"
-   inkscape:version="0.92.2 (5c3e80d, 2017-08-06)"
-   width="969.46912"
+   inkscape:version="0.92.3 (2405546, 2018-03-11)"
+   width="862.47913"
    height="794.92072"
    sodipodi:docname="joblib_logo.svg">
   <metadata
@@ -23,12 +23,21 @@
         <dc:format>image/svg+xml</dc:format>
         <dc:type
            rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
-        <dc:title></dc:title>
+        <dc:title />
       </cc:Work>
     </rdf:RDF>
   </metadata>
   <defs
-     id="defs6" />
+     id="defs6">
+    <style
+       type="text/css"
+       id="style851">
+      @import url('https://fonts.googleapis.com/css?family=Ubuntu+Mono');
+      text {
+        font-family: "Ubuntu Mono";
+      }
+    </style>
+  </defs>
   <sodipodi:namedview
      pagecolor="#ffffff"
      bordercolor="#666666"
@@ -38,17 +47,17 @@
      guidetolerance="10"
      inkscape:pageopacity="1"
      inkscape:pageshadow="2"
-     inkscape:window-width="1600"
-     inkscape:window-height="848"
+     inkscape:window-width="1920"
+     inkscape:window-height="1028"
      id="namedview4"
      showgrid="false"
      inkscape:zoom="0.40606399"
-     inkscape:cx="2.6925478"
-     inkscape:cy="221.99425"
-     inkscape:window-x="0"
+     inkscape:cx="-244.80539"
+     inkscape:cy="221.99429"
+     inkscape:window-x="1600"
      inkscape:window-y="24"
      inkscape:window-maximized="1"
-     inkscape:current-layer="svg2"
+     inkscape:current-layer="g4547"
      fit-margin-top="0"
      fit-margin-left="0"
      fit-margin-right="0"
@@ -63,38 +72,26 @@
      style="fill:#000000;fill-opacity:1"
      d="m 467.65426,634.81886 c -0.79593,-1.2504 -3.98822,-10.14845 -7.09399,-19.77345 -3.10577,-9.625 -6.18435,-18.02015 -6.84129,-18.65589 -0.65694,-0.63574 -6.14443,-1.90756 -12.19443,-2.82625 -6.05,-0.9187 -15.3914,-2.74543 -20.75867,-4.0594 -5.36727,-1.31397 -10.31727,-2.15177 -11,-1.86177 -0.68273,0.28999 -7.09133,7.51488 -14.24133,16.0553 -7.15,8.54042 -13.35877,15.75224 -13.79727,16.02626 -1.32598,0.8286 -31.82974,-11.84565 -32.45954,-13.48688 -0.32197,-0.83906 -0.0137,-10.77991 0.68496,-22.09077 1.21473,-19.66466 1.18938,-20.62267 -0.57889,-21.87713 -1.01709,-0.72155 -6.34926,-4.07568 -11.84926,-7.45362 -5.5,-3.37795 -13.88845,-8.98305 -18.641,-12.45578 -4.75255,-3.47274 -9.37035,-6.31407 -10.26176,-6.31407 -0.89142,0 -8.81018,3.6 -17.59724,8 -8.78706,4.4 -16.5513,8 -17.25387,8 -1.64589,0 -24.74613,-23.12824 -24.74613,-24.77613 0,-0.68535 3.84242,-8.92089 8.53872,-18.3012 l 8.53871,-17.05512 -5.39951,-7.18378 c -6.53098,-8.68912 -16.6375,-24.00152 -20.38006,-30.87783 l -2.73541,-5.02586 -14.53123,0.84247 c -7.99217,0.46336 -17.45622,0.85034 -21.03122,0.85996 l -6.5,0.0175 -6.16912,-15 c -3.39301,-8.25 -6.20551,-15.54828 -6.25,-16.21839 -0.0445,-0.67012 6.10662,-6.4771 13.66912,-12.9044 7.5625,-6.4273 14.5843,-12.46332 15.604,-13.41338 1.80287,-1.67975 1.78223,-2.04094 -0.74828,-13.09561 -1.43125,-6.25253 -3.30567,-15.86823 -4.16537,-21.36823 -0.8597,-5.5 -2.00736,-10.45 -2.55035,-11 -0.543,-0.55 -9.62789,-3.925 -20.18864,-7.5 l -19.20136,-6.5 v -17.91646 -17.91647 l 20,-6.66624 20,-6.66624 2.09877,-12.4173 c 1.15433,-6.82951 3.06683,-16.61378 4.25,-21.74282 1.18318,-5.12904 2.15123,-9.93253 2.15123,-10.67442 0,-0.74189 -6.975,-7.28127 -15.5,-14.53196 -8.525,-7.25068 -15.488,-13.69719 -15.47334,-14.32557 0.0147,-0.62839 2.83392,-7.89252 6.26502,-16.14252 l 6.23836,-15 7.98498,0.006 c 4.39174,0.003 14.03282,0.22816 21.42462,0.5 l 13.43965,0.494 6.42976,-10.5 c 3.53636,-5.775 9.18852,-14.25831 12.56035,-18.85181 3.37183,-4.59349 6.71812,-9.16101 7.4362,-10.15004 1.13731,-1.56644 0.20273,-4.00111 -7.25,-18.88709 -4.70558,-9.39886 -8.5556,-17.64958 -8.5556,-18.33493 0,-1.64749 23.10003,-24.77613 24.74548,-24.77613 0.7022,0 8.96672,3.85002 18.36558,8.5556 14.86044,7.43994 17.32112,8.38536 18.87001,7.25 14.41389,-10.56547 23.20349,-16.55807 31.26893,-21.31859 l 9.75,-5.75481 -0.009,-5.6161 c -0.005,-3.08886 -0.46136,-11.89349 -1.01452,-19.56586 -0.79291,-11.00074 -0.7382,-14.19298 0.259,-15.10024 1.74954,-1.59175 28.59423,-12.45 30.77994,-12.45 1.0578,0 6.73943,5.89557 14.05909,14.58849 14.07251,16.71268 10.61016,15.42694 29.92549,11.11279 6.325,-1.41271 15.32297,-3.08501 19.99548,-3.71621 4.67252,-0.63121 9.03374,-1.59436 9.69161,-2.14034 0.65786,-0.54598 3.73818,-8.61962 6.84514,-17.94142 L 468.20579,0 l 17.57668,0.27271 17.57667,0.2727 5.58271,16.52288 c 3.07048,9.08758 5.92729,17.04358 6.34846,17.68001 0.42117,0.63642 3.34617,1.45889 6.5,1.8277 7.45074,0.87128 34.52791,6.25037 37.88173,7.52548 3.28758,1.24994 3.09565,1.41493 16.0016,-13.75445 5.75635,-6.76589 11.08026,-12.30162 11.8309,-12.30162 0.75064,0 8.14972,2.7594 16.4424,6.13201 l 15.07761,6.132 -0.10021,7.618 c -0.0551,4.18989 -0.39262,12.09466 -0.75,17.56616 -0.52952,8.10683 -0.37215,10.24964 0.85021,11.57694 0.825,0.89583 6.25472,4.44227 12.06604,7.88098 5.81133,3.43871 15.17058,9.64125 20.79835,13.78343 l 10.2323,7.53124 16.85784,-8.61038 c 9.27182,-4.73571 17.4696,-8.61038 18.21729,-8.61038 1.70249,0 24.82818,23.07781 24.82818,24.77678 0,0.68571 -3.6,8.43616 -8,17.22322 -4.4,8.78706 -8,16.84724 -8,17.91151 0,1.06427 1.06241,3.20707 2.36092,4.76176 3.71959,4.45348 16.89524,24.13375 21.21528,31.68895 l 3.9238,6.86223 15.5,-0.80768 c 8.525,-0.44422 17.29886,-0.83222 19.49746,-0.86222 l 3.99746,-0.0546 6.17165,15 c 3.39442,8.25 6.20806,15.68242 6.25255,16.51649 0.0445,0.83407 -6.21912,6.8378 -13.91912,13.34161 -8.66681,7.32044 -14,12.52784 -14,13.66981 0,1.01457 1.11279,6.44038 2.47287,12.05735 1.36008,5.61697 3.1895,15.20814 4.06539,21.31371 0.87589,6.10556 1.93264,11.74909 2.34835,12.54116 0.41571,0.79207 8.37378,3.97931 17.68461,7.08274 l 16.92878,5.64262 0.27165,17.93147 0.27164,17.93148 -17.52079,5.80829 c -14.79237,4.90379 -17.59423,6.14738 -17.99235,7.98578 -0.25935,1.19762 -1.37902,7.71272 -2.48814,14.47801 -1.10913,6.76528 -2.92232,15.9396 -4.0293,20.38738 -1.10699,4.44777 -2.01271,8.5988 -2.01271,9.2245 0,0.62571 6.3,6.4672 14,12.9811 7.7,6.5139 14.00518,12.35264 14.01151,12.97498 0.0218,2.14818 -12.36343,31.55241 -13.43601,31.89879 -0.59152,0.19103 -8.7255,-0.15768 -18.0755,-0.77491 -9.35,-0.61723 -17.54328,-0.93974 -18.2073,-0.7167 -0.66401,0.22305 -4.20924,5.42727 -7.87829,11.56494 -3.66905,6.13767 -9.98826,15.73218 -14.0427,21.32114 -4.05444,5.58901 -7.37171,10.8818 -7.37171,11.76181 0,0.88001 3.6,8.78944 8,17.5765 4.4,8.78706 8,16.77661 8,17.75455 0,2.29652 -21.97786,24.24545 -24.27741,24.24545 -0.96036,0 -8.93553,-3.6 -17.72259,-8 -8.78706,-4.4 -16.68564,-8 -17.55239,-8 -0.86674,0 -6.54697,3.59736 -12.62271,7.99412 -6.07574,4.39677 -15.03022,10.29309 -19.89883,13.10293 -4.86862,2.80985 -9.37768,5.74218 -10.02015,6.5163 -0.89115,1.07378 -0.87928,5.93673 0.0501,20.51 0.66999,10.50638 0.84148,19.43697 0.38109,19.84575 -0.83352,0.74006 -30.72669,13.0309 -31.69315,13.0309 -0.27911,0 -6.23847,-6.75 -13.24302,-15 -7.00454,-8.25 -13.26821,-15 -13.91927,-15 -0.65105,0 -5.63827,1.09069 -11.0827,2.42375 -5.44443,1.33306 -14.84897,3.17759 -20.89897,4.09894 -6.05,0.92136 -11.45,2.09947 -12,2.61802 -0.55,0.51855 -3.96216,9.81153 -7.58258,20.65106 l -6.58259,19.70823 -17.129,0.27345 c -16.86561,0.26924 -17.15125,0.23849 -18.57612,-2 z m 52.89656,-176.31101 c 5.8585,-1.56174 17.8418,-6.39607 26.62956,-10.74297 36.29609,-17.95404 61.01702,-46.79506 74.21828,-86.58779 4.93957,-14.88936 5.41065,-18.39001 5.53474,-41.12882 0.11416,-20.91675 -0.51185,-27.10425 -3.95152,-39.05668 -11.92855,-41.45037 -39.82461,-74.68677 -77.57681,-92.42792 -23.21334,-10.9088 -36.75942,-13.9373 -62.13563,-13.89168 -22.47773,0.0405 -34.8381,2.37713 -54.4269,10.2894 -18.37668,7.42268 -30.35375,15.70139 -47.74601,33.00267 -15.01679,14.93824 -17.99949,19.00377 -26.05234,35.51032 -12.43769,25.49443 -15.43565,38.28405 -15.39721,65.68624 0.0243,17.36418 0.87386,25.17569 3.90535,35.91119 15.5763,55.16052 60.01109,96.07296 115.31392,106.17299 12.17536,2.22358 49.24635,0.57875 61.68457,-2.73695 z"
      inkscape:connector-curvature="0" />
-  <text
-     xml:space="preserve"
-     style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:7.5px;line-height:94.99999881%;font-family:'Courier 10 Pitch';-inkscape-font-specification:'Courier 10 Pitch, Bold';text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
-     x="384.1759"
-     y="693.95142"
-     id="text4519"><tspan
-       sodipodi:role="line"
-       id="tspan4517"
-       x="384.1759"
-       y="699.30658" /></text>
   <g
      id="g4547">
     <text
        id="text4523"
        y="782.04944"
-       x="405.62256"
-       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:192px;line-height:94.99999881%;font-family:'Ubuntu Mono';-inkscape-font-specification:'Ubuntu Mono, Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-feature-settings:normal;text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       x="345.62256"
        xml:space="preserve"><tspan
-         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:192px;font-family:'Ubuntu Mono';-inkscape-font-specification:'Ubuntu Mono, Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-feature-settings:normal;text-align:start;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1"
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:175px;font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-feature-settings:normal;text-align:start;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1"
          y="782.04944"
-         x="405.62256"
+         x="345.62256"
          id="tspan4521"
          sodipodi:role="line">Job</tspan></text>
     <text
        id="text4523-0"
        y="782.24146"
-       x="687.22913"
-       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:192px;line-height:94.99999881%;font-family:'Ubuntu Mono';-inkscape-font-specification:'Ubuntu Mono, Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-feature-settings:normal;text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#e15617;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       x="605.22913"
        xml:space="preserve"><tspan
-         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:192px;font-family:'Ubuntu Mono';-inkscape-font-specification:'Ubuntu Mono, Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-feature-settings:normal;text-align:start;writing-mode:lr-tb;text-anchor:start;fill:#e15617;fill-opacity:1"
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:175px;font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-feature-settings:normal;text-align:start;writing-mode:lr-tb;text-anchor:start;fill:#e15617;fill-opacity:1"
          y="782.24146"
-         x="687.22913"
+         x="605.22913"
          id="tspan4521-1"
          sodipodi:role="line">lib</tspan></text>
   </g>
