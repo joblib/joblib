@@ -1,8 +1,16 @@
 Latest changes
 ===============
 
-master
-------
+Release 0.12.4
+--------------
+
+Thomas Moreau, Pierre Glaser, Olivier Grisel
+
+    Include loky 2.3.0 with many bugfixes, notably w.r.t. when setting
+    non-default multiprocessing contexts. Also include improvement on
+    memory management of long running worker processes and fixed issues
+    when using the loky backend under PyPy.
+
 
 Maxime Weyl
 
