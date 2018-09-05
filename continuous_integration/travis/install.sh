@@ -67,7 +67,21 @@ create_new_conda_env() {
 
 }
 
-create_new_conda_env
+create_new_pypy3_env() {
+    deactivate
+    PYPY_FOLDER="pypy3-v6.0.0-linux64"
+    wget https://bitbucket.org/pypy/pypy/downloads/$PYPY_FOLDER.tar.bz2
+    tar xvf $PYPY_FOLDER.tar.bz2
+    $PYPY_FOLDER/bin/pypy3 -m venv pypy3
+    source pypy3/bin/activate
+    pip install -U pip pytest
+}
+
+if [[ "$PYTHON_VERSION" == "pypy3" ]]; then
+    create_new_pypy3_env
+else
+    create_new_conda_env
+fi
 
 # Install py.test timeout to fasten failure in deadlocking tests
 PIP_INSTALL_PACKAGES="pytest-timeout"
