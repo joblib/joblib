@@ -83,7 +83,8 @@ def test_format_records_file_with_less_lines_than_context(tmpdir):
     filename = os.path.join(tmpdir.strpath, 'small_file.py')
     code_lines = ['def func():', '    1/0']
     code = '\n'.join(code_lines)
-    open(filename, 'w').write(code)
+    with open(filename, 'w') as f:
+        f.write(code)
 
     small_file = imp.load_source('small_file', filename)
     if not hasattr(small_file, 'func'):
