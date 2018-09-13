@@ -1,8 +1,8 @@
 Latest changes
 ===============
 
-master
-------
+Release 0.12.5
+--------------
 
 Thomas Moreau, Olivier Grisel
 
