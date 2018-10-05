@@ -126,9 +126,9 @@ class ParallelBackendBase(with_metaclass(ABCMeta)):
         """
         nesting_level = getattr(self, 'nesting_level', 0) + 1
         if nesting_level > 1:
-            return SequentialBackend(nesting_level=nesting_level)
+            return SequentialBackend(nesting_level=nesting_level), None
         else:
-            return ThreadingBackend(nesting_level=nesting_level)
+            return ThreadingBackend(nesting_level=nesting_level), None
 
     @contextlib.contextmanager
     def retrieval_context(self):
@@ -186,7 +186,7 @@ class SequentialBackend(ParallelBackendBase):
 
     def get_nested_backend(self):
         nested_level = getattr(self, 'nesting_level', 0) + 1
-        return SequentialBackend(nesting_level=nested_level)
+        return SequentialBackend(nesting_level=nested_level), None
 
 
 class PoolManagerMixin(object):

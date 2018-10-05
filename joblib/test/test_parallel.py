@@ -713,9 +713,19 @@ def test_nested_backend_context_manager():
     # Check that by default, nested parallel calls will always use the
     # ThreadingBackend
 
+    def sleep_and_return_pid():
+        sleep(.1)
+        return os.getpid()
+
     def get_nested_pids():
         assert _active_backend_type() == ThreadingBackend
-        return Parallel(n_jobs=2)(delayed(os.getpid)() for _ in range(2))
+        # Assert that the nested backend does not change the default number of
+        # jobs used in Parallel
+        assert Parallel()._effective_n_jobs() == 1
+
+        # Assert that the tasks are running only on one process
+        return Parallel(n_jobs=2)(delayed(sleep_and_return_pid)()
+                                  for _ in range(2))
 
     for backend in ['threading', 'loky', 'multiprocessing']:
         with parallel_backend(backend):
@@ -1353,7 +1363,7 @@ def test_external_backends():
 def _recursive_backend_info(limit=3, **kwargs):
     """Perform nested parallel calls and introspect the backend on the way"""
 
-    with Parallel() as p:
+    with Parallel(n_jobs=2) as p:
         this_level = [(type(p._backend).__name__, p._backend.nesting_level)]
         if limit == 0:
             return this_level
