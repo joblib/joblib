@@ -721,12 +721,11 @@ def test_nested_backend_context_manager():
         assert _active_backend_type() == ThreadingBackend
         # Assert that the nested backend does not change the default number of
         # jobs used in Parallel
-        parallel = Parallel()
-        assert parallel._effective_n_jobs() == 1
+        assert Parallel()._effective_n_jobs() == 1
 
-        # Assert that the 
-        parallel = Parallel(n_jobs=2)
-        return parallel(delayed(sleep_and_return_pid)() for _ in range(2))
+        # Assert that the tasks are running only on one process
+        return Parallel(n_jobs=2)(delayed(sleep_and_return_pid)()
+                                  for _ in range(2))
 
     for backend in ['threading', 'loky', 'multiprocessing']:
         with parallel_backend(backend):
