@@ -4,6 +4,10 @@ Latest changes
 master
 ------
 
+Thomas Moreau, Olivier Grisel
+
+    Fix nested_backend behavior to avoid setting the default number of
+    workers to -1 when the backend is not dask. (#784)
 
 Release 0.12.4
 --------------
