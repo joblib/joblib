@@ -256,7 +256,9 @@ class BatchedCalls(object):
         self._pickle_cache = pickle_cache if pickle_cache is not None else {}
 
     def __call__(self):
-        with parallel_backend(self._backend):
+        # Set the default nested backend to self._backend but do not set the
+        # change the default number of processes to -1
+        with parallel_backend(self._backend, n_jobs=None):
             return [func(*args, **kwargs)
                     for func, args, kwargs in self.items]
 

@@ -438,7 +438,6 @@ def _process_worker(call_queue, result_queue, initializer, initargs,
                 continue
             if time() - _last_memory_leak_check > _MEMORY_LEAK_CHECK_DELAY:
                 mem_usage = _get_memory_usage(pid)
-                print(mem_usage)
                 _last_memory_leak_check = time()
                 if mem_usage - _process_reference_size < _MAX_MEMORY_LEAK_SIZE:
                     # Memory usage stays within bounds: everything is fine.
