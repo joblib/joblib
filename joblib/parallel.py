@@ -290,10 +290,10 @@ class BatchedCalls(object):
                    for k, a in kwargs.items()}
                   )
                  for func, args, kwargs in self.items]
-        return (items, self._size, self._backend)
+        return (items, self._size, self._backend, self._n_jobs)
 
     def __setstate__(self, state):
-        self.items, self._size, self._backend = state
+        self.items, self._size, self._backend, self._n_jobs = state
 
 
 ###############################################################################
