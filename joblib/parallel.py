@@ -249,16 +249,16 @@ def _need_pickle_wrapping(obj):
 class BatchedCalls(object):
     """Wrap a sequence of (func, args, kwargs) tuples as a single callable"""
 
-    def __init__(self, iterator_slice, backend, pickle_cache=None):
+    def __init__(self, iterator_slice, backend_n_jobs, pickle_cache=None):
         self.items = list(iterator_slice)
         self._size = len(self.items)
-        self._backend = backend
+        self._backend, self._n_jobs = backend_n_jobs
         self._pickle_cache = pickle_cache if pickle_cache is not None else {}
 
     def __call__(self):
         # Set the default nested backend to self._backend but do not set the
         # change the default number of processes to -1
-        with parallel_backend(self._backend, n_jobs=None):
+        with parallel_backend(self._backend, n_jobs=self._n_jobs):
             return [func(*args, **kwargs)
                     for func, args, kwargs in self.items]
 

@@ -1364,7 +1364,6 @@ def _recursive_backend_info(limit=3, **kwargs):
     """Perform nested parallel calls and introspect the backend on the way"""
 
     with Parallel(n_jobs=2) as p:
-        print(p._backend)
         this_level = [(type(p._backend).__name__, p._backend.nesting_level)]
         if limit == 0:
             return this_level
