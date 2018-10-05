@@ -339,7 +339,7 @@ def test_memory_numpy_check_mmap_mode(tmpdir, monkeypatch):
     assert len(recorded_warnings) == 1
     exception_msg = 'Exception while loading results'
     assert exception_msg in recorded_warnings[0]
-    # Asserts that the recomputation returns a mmmap
+    # Asserts that the recomputation returns a mmap
     assert isinstance(d, np.memmap)
     assert d.mode == 'r'
 
@@ -873,8 +873,8 @@ def test_cached_function_race_condition_when_persisting_output_2(tmpdir,
     assert exception_msg not in stderr
 
 
-def test_memory_recomputes_after_an_error_while_loading_results(tmpdir,
-                                                              monkeypatch):
+def test_memory_recomputes_after_an_error_while_loading_results(
+        tmpdir, monkeypatch):
     memory = Memory(location=tmpdir.strpath)
 
     def func(arg):
@@ -904,6 +904,20 @@ def test_memory_recomputes_after_an_error_while_loading_results(tmpdir,
     assert exception_msg in recorded_warnings[0]
     assert recomputed_arg == arg
     assert recomputed_timestamp > timestamp
+
+    # Corrupting output.pkl to make sure that an error happens when
+    # loading the cached result
+    corrupt_single_cache_item(memory)
+    reference = cached_func.call_and_shelve(arg)
+    try:
+        reference.get()
+        raise AssertionError(
+            "It normally not possible to load a corrupted"
+            " MemorizedResult"
+        )
+    except KeyError as e:
+        message = "is corrupted"
+        assert message in str(e.args)
 
 
 def test_deprecated_cachedir_behaviour(tmpdir):
