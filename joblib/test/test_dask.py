@@ -160,7 +160,7 @@ def test_nested_backend_context_manager(loop):  # noqa: F811
         with Client(s['address'], loop=loop) as client:
             with parallel_backend('dask') as (ba, _):
                 pid_groups = Parallel(n_jobs=2)(
-                    delayed(get_nested_pids, check_pickle=False)()
+                    delayed(get_nested_pids)()
                     for _ in range(10)
                 )
                 for pid_group in pid_groups:
@@ -170,11 +170,37 @@ def test_nested_backend_context_manager(loop):  # noqa: F811
         with Client(s['address'], loop=loop) as client:  # noqa: F841
             with parallel_backend('dask') as (ba, _):
                 pid_groups = Parallel(n_jobs=2)(
-                    delayed(get_nested_pids, check_pickle=False)()
+                    delayed(get_nested_pids)()
                     for _ in range(10)
                 )
                 for pid_group in pid_groups:
                     assert len(set(pid_group)) <= 2
+
+
+def test_nested_backend_context_manager_implicit_n_jobs(loop):  # noqa: F811
+    # Check that Parallel with no explicit n_jobs value automatically selects
+    # all the dask workers, including in nested calls.
+
+    def _backend_type(p):
+        return p._backend.__class__.__name__
+
+    def get_nested_implicit_n_jobs():
+        with Parallel() as p:
+            return _backend_type(p), p.n_jobs
+
+    with cluster() as (s, [a, b]):
+        with Client(s['address'], loop=loop) as client:  # noqa: F841
+            with parallel_backend('dask') as (ba, _):
+                with Parallel() as p:
+                    assert _backend_type(p) == "DaskDistributedBackend"
+                    assert p.n_jobs == -1
+                    all_nested_n_jobs = p(
+                        delayed(get_nested_implicit_n_jobs)()
+                        for _ in range(2)
+                    )
+                for backend_type, nested_n_jobs in all_nested_n_jobs:
+                    assert backend_type == "DaskDistributedBackend"
+                    assert nested_n_jobs == -1
 
 
 def test_errors(loop):  # noqa: F811
