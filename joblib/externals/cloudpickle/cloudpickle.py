@@ -42,19 +42,20 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 from __future__ import print_function
 
-import dis
-from functools import partial
 import io
-import itertools
-import logging
+import dis
+import sys
+import types
 import opcode
-import operator
 import pickle
 import struct
-import sys
-import traceback
-import types
+import logging
 import weakref
+import operator
+import importlib
+import itertools
+import traceback
+from functools import partial
 
 
 # cloudpickle is meant for inter process communication: we expect all
@@ -1103,11 +1104,12 @@ def _make_skel_func(code, cell_count, base_globals=None):
         base_globals = {}
     elif isinstance(base_globals, str):
         base_globals_name = base_globals
-        if sys.modules.get(base_globals, None) is not None:
-            # This checks if we can import the previous environment the object
-            # lived in
-            base_globals = vars(sys.modules[base_globals])
-        else:
+        try:
+            # First try to reuse the globals from the module containing the
+            # function. If it is not possible to retrieve it, fallback to an
+            # empty dictionary.
+            base_globals = vars(importlib.import_module(base_globals))
+        except ImportError:
             base_globals = _dynamic_modules_globals.get(
                     base_globals_name, None)
             if base_globals is None:
