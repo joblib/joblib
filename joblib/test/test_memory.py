@@ -514,6 +514,32 @@ def test_call_and_shelve_argument_hash(tmpdir):
         in str(w[-1].message)
 
 
+def test_call_and_shelve_performance(tmpdir):
+    """Check call_and_shelve only load stored data if needed."""
+    memory = Memory(location=tmpdir.strpath, verbose=0)
+    func = memory.cache(f)
+    func_id, argument_hash = func._get_output_identifiers(2)
+    result_path = os.path.join(memory.store_backend.location,
+                               func_id, argument_hash, 'output.pkl')
+    assert func(2) == 5
+    first_access = os.stat(result_path).st_atime
+    time.sleep(1)
+
+    # Should not access the stored data
+    result = func.call_and_shelve(2)
+    assert isinstance(result, MemorizedResult)
+    assert os.stat(result_path).st_atime == first_access
+    time.sleep(1)
+
+    # Should not access the stored data
+    func.call_and_shelve(2)
+    assert os.stat(result_path).st_atime == first_access
+
+    # Read the stored data => last access time is greater than first_access
+    assert result.get() == 5
+    assert os.stat(result_path).st_atime > first_access
+
+
 def test_memorized_pickling(tmpdir):
     for func in (MemorizedFunc(f, tmpdir.strpath), NotMemorizedFunc(f)):
         filename = tmpdir.join('pickling_test.dat').strpath
