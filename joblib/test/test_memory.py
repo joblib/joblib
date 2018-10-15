@@ -522,22 +522,22 @@ def test_call_and_shelve_performance(tmpdir):
     result_path = os.path.join(memory.store_backend.location,
                                func_id, argument_hash, 'output.pkl')
     assert func(2) == 5
-    first_access = os.stat(result_path).st_atime
+    first_access = os.path.getatime(result_path)
     time.sleep(1)
 
     # Should not access the stored data
     result = func.call_and_shelve(2)
     assert isinstance(result, MemorizedResult)
-    assert os.stat(result_path).st_atime == first_access
+    assert os.path.getatime(result_path) == first_access
     time.sleep(1)
 
     # Should not access the stored data
     func.call_and_shelve(2)
-    assert os.stat(result_path).st_atime == first_access
+    assert os.path.getatime(result_path) == first_access
 
     # Read the stored data => last access time is greater than first_access
     assert result.get() == 5
-    assert os.stat(result_path).st_atime > first_access
+    assert os.path.getatime(result_path) > first_access
 
 
 def test_memorized_pickling(tmpdir):
