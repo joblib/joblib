@@ -185,8 +185,10 @@ class SequentialBackend(ParallelBackendBase):
         return result
 
     def get_nested_backend(self):
-        nested_level = getattr(self, 'nesting_level', 0) + 1
-        return SequentialBackend(nesting_level=nested_level), None
+        # SequentialBackend should neither change the nesting level, the
+        # default backend or the number of jobs. Just return the current one.
+        from .parallel import get_active_backend
+        return get_active_backend()
 
 
 class PoolManagerMixin(object):
