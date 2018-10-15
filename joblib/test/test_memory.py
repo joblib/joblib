@@ -27,7 +27,7 @@ from joblib.parallel import Parallel, delayed
 from joblib._store_backends import StoreBackendBase, FileSystemStoreBackend
 from joblib.test.common import with_numpy, np
 from joblib.test.common import with_multiprocessing
-from joblib.testing import parametrize, raises, warns
+from joblib.testing import parametrize, raises, warns, skipif
 from joblib._compat import PY3_OR_LATER
 from joblib.hashing import hash
 
@@ -514,6 +514,7 @@ def test_call_and_shelve_argument_hash(tmpdir):
         in str(w[-1].message)
 
 
+@skipif(os.name == 'nt', reason="Not supported on Windows")
 def test_call_and_shelve_performance(tmpdir):
     """Check call_and_shelve only load stored data if needed."""
     memory = Memory(location=tmpdir.strpath, verbose=0)
@@ -522,23 +523,18 @@ def test_call_and_shelve_performance(tmpdir):
     result_path = os.path.join(memory.store_backend.location,
                                func_id, argument_hash, 'output.pkl')
     assert func(2) == 5
-    first_access = os.path.getatime(result_path)
+    first_access = os.stat(result_path).st_atime
     time.sleep(1)
 
     # Should not access the stored data
     result = func.call_and_shelve(2)
     assert isinstance(result, MemorizedResult)
-    assert os.path.getatime(result_path) == first_access
-    time.sleep(1)
-
-    # Should not access the stored data
-    func.call_and_shelve(2)
-    assert os.path.getatime(result_path) == first_access
+    assert os.stat(result_path).st_atime == first_access
     time.sleep(1)
 
     # Read the stored data => last access time is greater than first_access
     assert result.get() == 5
-    assert os.path.getatime(result_path) > first_access
+    assert os.stat(result_path).st_atime > first_access
 
 
 def test_memorized_pickling(tmpdir):
