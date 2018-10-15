@@ -534,6 +534,7 @@ def test_call_and_shelve_performance(tmpdir):
     # Should not access the stored data
     func.call_and_shelve(2)
     assert os.path.getatime(result_path) == first_access
+    time.sleep(1)
 
     # Read the stored data => last access time is greater than first_access
     assert result.get() == 5
