@@ -745,9 +745,8 @@ def test_nested_backend_in_sequential(backend, n_jobs):
     # ThreadingBackend
 
     def check_nested_backend(expected_backend_type, expected_n_job):
-        # Assert that the sequential backend at top level, does not change
-        if expected_backend_type is None:
-            expected_backend_type = 'loky'
+        # Assert that the sequential backend at top level, does not change the
+        # backend for nested calls.
         assert _active_backend_type() == BACKENDS[expected_backend_type]
 
         # Assert that the nested backend in SequentialBackend does not change
