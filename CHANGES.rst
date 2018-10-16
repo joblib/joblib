@@ -4,6 +4,11 @@ Latest changes
 master
 ------
 
+Thomas Moreau
+
+   Fix nested backend in SequentialBackend to avoid changing the default
+   backend to Sequential. (#792)
+
 Thomas Moreau, Olivier Grisel
 
     Fix nested_backend behavior to avoid setting the default number of

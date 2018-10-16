@@ -709,7 +709,8 @@ def test_direct_parameterized_backend_context_manager():
 
 
 @with_multiprocessing
-def test_nested_backend_context_manager():
+@pytest.mark.parametrize('backend', ['threading', 'loky', 'multiprocessing'])
+def test_nested_backend_context_manager(backend):
     # Check that by default, nested parallel calls will always use the
     # ThreadingBackend
 
@@ -727,14 +728,42 @@ def test_nested_backend_context_manager():
         return Parallel(n_jobs=2)(delayed(sleep_and_return_pid)()
                                   for _ in range(2))
 
-    for backend in ['threading', 'loky', 'multiprocessing']:
-        with parallel_backend(backend):
-            pid_groups = Parallel(n_jobs=2)(
-                delayed(get_nested_pids)()
-                for _ in range(10)
-            )
-            for pid_group in pid_groups:
-                assert len(set(pid_group)) == 1
+    with parallel_backend(backend):
+        pid_groups = Parallel(n_jobs=2)(
+            delayed(get_nested_pids)()
+            for _ in range(10)
+        )
+        for pid_group in pid_groups:
+            assert len(set(pid_group)) == 1
+
+
+@with_multiprocessing
+@pytest.mark.parametrize('n_jobs', [2, -1, None])
+@pytest.mark.parametrize('backend', PARALLEL_BACKENDS)
+def test_nested_backend_in_sequential(backend, n_jobs):
+    # Check that by default, nested parallel calls will always use the
+    # ThreadingBackend
+
+    def check_nested_backend(expected_backend_type, expected_n_job):
+        # Assert that the sequential backend at top level, does not change the
+        # backend for nested calls.
+        assert _active_backend_type() == BACKENDS[expected_backend_type]
+
+        # Assert that the nested backend in SequentialBackend does not change
+        # the default number of jobs used in Parallel
+        expected_n_job = effective_n_jobs(expected_n_job)
+        assert Parallel()._effective_n_jobs() == expected_n_job
+
+    Parallel(n_jobs=1)(
+        delayed(check_nested_backend)('loky', 1)
+        for _ in range(10)
+    )
+
+    with parallel_backend(backend, n_jobs=n_jobs):
+        Parallel(n_jobs=1)(
+            delayed(check_nested_backend)(backend, n_jobs)
+            for _ in range(10)
+        )
 
 
 @with_multiprocessing
@@ -1201,7 +1230,7 @@ def test_delayed_check_pickle_deprecated():
 
 
 @with_multiprocessing
-@parametrize('backend', ['multiprocessing', 'loky'])
+@parametrize('backend', PROCESS_BACKENDS)
 def test_backend_batch_statistics_reset(backend):
     """Test that a parallel backend correctly resets its batch statistics."""
     n_jobs = 2
@@ -1380,15 +1409,17 @@ def test_nested_parallelism_limit(backend):
 
     if cpu_count() == 1:
         second_level_backend_type = 'SequentialBackend'
+        max_level = 1
     else:
         second_level_backend_type = 'ThreadingBackend'
+        max_level = 2
 
     top_level_backend_type = backend.title() + 'Backend'
     expected_types_and_levels = [
         (top_level_backend_type, 0),
         (second_level_backend_type, 1),
-        ('SequentialBackend', 2),
-        ('SequentialBackend', 3)
+        ('SequentialBackend', max_level),
+        ('SequentialBackend', max_level)
     ]
     assert backend_types_and_levels == expected_types_and_levels
 
