@@ -27,7 +27,7 @@ from joblib.parallel import Parallel, delayed
 from joblib._store_backends import StoreBackendBase, FileSystemStoreBackend
 from joblib.test.common import with_numpy, np
 from joblib.test.common import with_multiprocessing
-from joblib.testing import parametrize, raises, warns, skipif
+from joblib.testing import parametrize, raises, warns
 from joblib._compat import PY3_OR_LATER
 from joblib.hashing import hash
 
