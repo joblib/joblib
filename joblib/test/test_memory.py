@@ -519,7 +519,9 @@ def test_call_and_shelve_performance(tmpdir):
     test_access_time_file = tmpdir.join('test_access')
     test_access_time_file.write('test_access')
     test_access_time = os.stat(test_access_time_file.strpath).st_atime
-    time.sleep(1)
+    # check file system access time stats resolution is lower than test wait
+    # timings.
+    time.sleep(0.5)
     assert test_access_time_file.read() == 'test_access'
 
     if test_access_time == os.stat(test_access_time_file.strpath).st_atime:
