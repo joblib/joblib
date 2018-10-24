@@ -514,7 +514,7 @@ def test_call_and_shelve_argument_hash(tmpdir):
         in str(w[-1].message)
 
 
-def test_call_and_shelve_performance(tmpdir):
+def test_call_and_shelve_lazily_load_stored_result(tmpdir):
     """Check call_and_shelve only load stored data if needed."""
     test_access_time_file = tmpdir.join('test_access')
     test_access_time_file.write('test_access')
@@ -527,7 +527,8 @@ def test_call_and_shelve_performance(tmpdir):
     if test_access_time == os.stat(test_access_time_file.strpath).st_atime:
         # Skip this test when access time cannot be retrieved with enough
         # precision from the file system (e.g. NTFS on windows).
-        return
+        pytest.skip("filesystem does not support fine-grained access time "
+                    "attribute")
 
     memory = Memory(location=tmpdir.strpath, verbose=0)
     func = memory.cache(f)
