@@ -49,6 +49,7 @@ sphinx_gallery_conf = {
     'default_thumb_file': '_static/joblib_logo_examples.png',
     'doc_module': 'joblib',
     'filename_pattern': '',
+    'ignore_pattern': 'utils.py',
     'backreferences_dir': os.path.join('generated'),
     'reference_url': {
         'joblib': None}

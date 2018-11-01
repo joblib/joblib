@@ -15,6 +15,14 @@ import numpy as np
 from joblib import Parallel, delayed
 
 
+# The followings are hacks to allow sphinx-gallery to run the example.
+import os
+import sys
+sys.path.insert(0, os.getcwd())
+main_dir = os.path.basename(sys.modules['__main__'].__file__)
+IS_RUN_WITH_SPHINX_GALLERY = main_dir != os.getcwd()
+
+
 ###############################################################################
 # A utility function for the example
 def print_vector(vector, backend):
@@ -68,6 +76,12 @@ print_vector(random_vector, backend)
 # do not require more care. However, this is not the case regarding the
 # multiprocessing backend.
 
+if IS_RUN_WITH_SPHINX_GALLERY:
+    # When this example is run with sphinx gallery, it breaks the pickling
+    # capacity for multiprocessing backend so we have to modify the way we
+    # define our functions. This has nothing to do with the example.
+    from utils import stochastic_function
+
 backend = 'multiprocessing'
 random_vector = Parallel(n_jobs=2, backend=backend)(delayed(
     stochastic_function)(10) for _ in range(n_vectors))
@@ -87,6 +101,13 @@ print_vector(random_vector, backend)
 def stochastic_function_seeded(max_value, random_state):
     rng = np.random.RandomState(random_state)
     return rng.randint(max_value, size=5)
+
+
+if IS_RUN_WITH_SPHINX_GALLERY:
+    # When this example is run with sphinx gallery, it breaks the pickling
+    # capacity for multiprocessing backend so we have to modify the way we
+    # define our functions. This has nothing to do with the example.
+    from utils import stochastic_function_seeded  # noqa: F811
 
 
 ###############################################################################
