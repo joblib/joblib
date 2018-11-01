@@ -31,9 +31,9 @@ def set_cause(exc, cause):
     if not PY3:
         # Preformat message here.
         if exc.__cause__ is not None:
-            exc.args = ("{}\n\nThis was caused directly by {}"
-                        .format(exc.args if len(exc.args) > 1 else exc.args[0],
-                                str(exc.__cause__)),)
+            exc.args = ("{}\n\nThis was caused directly by {}".format(
+                exc.args if len(exc.args) != 1 else exc.args[0],
+                str(exc.__cause__)),)
 
     return exc
 

@@ -23,8 +23,8 @@ find loky -name "*.bak" | xargs rm
 
 for f in $(git grep -l "cloudpickle" loky); do
 	echo $f;
-	sed -ie 's/import cloudpickle/from joblib.externals import cloudpickle/' $f
-	sed -ie 's/from cloudpickle import/from joblib.externals.cloudpickle import/' $f
+	sed -i 's/import cloudpickle/from joblib.externals import cloudpickle/' $f
+	sed -i 's/from cloudpickle import/from joblib.externals.cloudpickle import/' $f
 done
 
 sed -i "s/loky.backend.popen_loky/joblib.externals.loky.backend.popen_loky/" loky/backend/popen_loky_posix.py

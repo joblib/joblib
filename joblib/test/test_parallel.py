@@ -494,7 +494,6 @@ def test_exception_dispatch():
             delayed(exception_raiser)(i) for i in range(30))
 
 
-
 def nested_function_inner(i):
     Parallel(n_jobs=2)(
         delayed(exception_raiser)(j) for j in range(30))
@@ -987,8 +986,9 @@ square = lambda x: x ** 2
 @parametrize('callable_position', ['delayed', 'args', 'kwargs'])
 def test_parallel_with_unpicklable_functions_in_args(
         backend, define_func, callable_position, tmpdir):
-    if define_func != SQUARE_MAIN and backend in ['multiprocessing', 'spawn']:
-        pytest.skip("Not pickleble with pickle")
+    if backend in ['multiprocessing', 'spawn'] and (
+            define_func != SQUARE_MAIN or sys.platform == "win32"):
+        pytest.skip("Not picklable with pickle")
     code = UNPICKLABLE_CALLABLE_SCRIPT_TEMPLATE_MAIN.format(
         define_func=define_func, backend=backend,
         callable_position=callable_position,
