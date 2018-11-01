@@ -305,9 +305,9 @@ def test_parallel_pickling():
     """
     class UnpicklableObject(object):
         def __reduce__(self):
-            raise RuntimeError()
+            raise RuntimeError('123')
 
-    with raises(PicklingError):
+    with raises(PicklingError, match=r"the task to send"):
         Parallel(n_jobs=2)(delayed(id)(UnpicklableObject()) for _ in range(10))
 
 
@@ -494,8 +494,19 @@ def test_exception_dispatch():
             delayed(exception_raiser)(i) for i in range(30))
 
 
+
+def nested_function_inner(i):
+    Parallel(n_jobs=2)(
+        delayed(exception_raiser)(j) for j in range(30))
+
+
+def nested_function_outer(i):
+    Parallel(n_jobs=2)(
+        delayed(nested_function_inner)(j) for j in range(30))
+
+
 @with_multiprocessing
-@parametrize('backend', ['loky', 'multiprocessing', 'threading'])
+@parametrize('backend', PARALLEL_BACKENDS)
 def test_nested_exception_dispatch(backend):
     """Ensure errors for nested joblib cases gets propagated
 
@@ -508,14 +519,6 @@ def test_nested_exception_dispatch(backend):
     if PY27 and backend == 'multiprocessing':
         raise SkipTest("Nested parallel calls can deadlock with the python 2.7"
                        "multiprocessing backend.")
-
-    def nested_function_inner(i):
-        Parallel(n_jobs=2)(
-            delayed(exception_raiser)(j) for j in range(30))
-
-    def nested_function_outer(i):
-        Parallel(n_jobs=2)(
-            delayed(nested_function_inner)(j) for j in range(30))
 
     with raises(ValueError) as excinfo:
         Parallel(n_jobs=2, backend=backend)(
@@ -708,25 +711,27 @@ def test_direct_parameterized_backend_context_manager():
     assert _active_backend_type() == DefaultBackend
 
 
+def sleep_and_return_pid():
+    sleep(.1)
+    return os.getpid()
+
+
+def get_nested_pids():
+    assert _active_backend_type() == ThreadingBackend
+    # Assert that the nested backend does not change the default number of
+    # jobs used in Parallel
+    assert Parallel()._effective_n_jobs() == 1
+
+    # Assert that the tasks are running only on one process
+    return Parallel(n_jobs=2)(delayed(sleep_and_return_pid)()
+                              for _ in range(2))
+
+
 @with_multiprocessing
-@pytest.mark.parametrize('backend', ['threading', 'loky', 'multiprocessing'])
+@pytest.mark.parametrize('backend', PARALLEL_BACKENDS)
 def test_nested_backend_context_manager(backend):
     # Check that by default, nested parallel calls will always use the
     # ThreadingBackend
-
-    def sleep_and_return_pid():
-        sleep(.1)
-        return os.getpid()
-
-    def get_nested_pids():
-        assert _active_backend_type() == ThreadingBackend
-        # Assert that the nested backend does not change the default number of
-        # jobs used in Parallel
-        assert Parallel()._effective_n_jobs() == 1
-
-        # Assert that the tasks are running only on one process
-        return Parallel(n_jobs=2)(delayed(sleep_and_return_pid)()
-                                  for _ in range(2))
 
     with parallel_backend(backend):
         pid_groups = Parallel(n_jobs=2)(
@@ -916,9 +921,7 @@ print(Parallel(n_jobs=2, backend=backend)(
 
 
 @with_multiprocessing
-@parametrize('backend', PROCESS_BACKENDS +
-             ([] if sys.version_info[:2] < (3, 4) or mp is None
-              else ['spawn']))
+@parametrize('backend', PROCESS_BACKENDS)
 def test_parallel_with_interactively_defined_functions(backend):
     # When using the "-c" flag, interactive functions defined in __main__
     # should work with any backend.
@@ -929,20 +932,26 @@ def test_parallel_with_interactively_defined_functions(backend):
 
 
 UNPICKLABLE_CALLABLE_SCRIPT_TEMPLATE_MAIN = """\
+import sys
+# Make sure that joblib is importable in the subprocess launching this
+# script. This is needed in case we run the tests from the joblib root
+# folder without having installed joblib
+sys.path.insert(0, {joblib_root_folder!r})
+
 from joblib import Parallel, delayed
 
 def run(f, x):
     return f(x)
 
-{}
+{define_func}
 
 if __name__ == "__main__":
-    backend = "{}"
+    backend = "{backend}"
     if backend == "spawn":
         from multiprocessing import get_context
         backend = get_context(backend)
 
-    callable_position = "{}"
+    callable_position = "{callable_position}"
     if callable_position == "delayed":
         print(Parallel(n_jobs=2, backend=backend)(
                 delayed(square)(i) for i in range(5)))
@@ -978,8 +987,12 @@ square = lambda x: x ** 2
 @parametrize('callable_position', ['delayed', 'args', 'kwargs'])
 def test_parallel_with_unpicklable_functions_in_args(
         backend, define_func, callable_position, tmpdir):
+    if define_func != SQUARE_MAIN and backend in ['multiprocessing', 'spawn']:
+        pytest.skip("Not pickleble with pickle")
     code = UNPICKLABLE_CALLABLE_SCRIPT_TEMPLATE_MAIN.format(
-        define_func, backend, callable_position)
+        define_func=define_func, backend=backend,
+        callable_position=callable_position,
+        joblib_root_folder=os.path.dirname(os.path.dirname(joblib.__file__)))
     code_file = tmpdir.join("unpicklable_func_script.py")
     code_file.write(code)
     check_subprocess_call(
@@ -1191,12 +1204,12 @@ def test_memmapping_leaks(backend, tmpdir):
     assert not os.listdir(tmpdir)
 
 
-def test_lambda_expression():
+@pytest.mark.parametrize('backend', [None, 'loky', 'threading'])
+def test_lambda_expression(backend):
     # cloudpickle is used to pickle delayed callables
-    for backend in ALL_VALID_BACKENDS:
-        results = Parallel(n_jobs=2, backend=backend)(
-            delayed(lambda x: x ** 2)(i) for i in range(10))
-        assert results == [i ** 2 for i in range(10)]
+    results = Parallel(n_jobs=2, backend=backend)(
+        delayed(lambda x: x ** 2)(i) for i in range(10))
+    assert results == [i ** 2 for i in range(10)]
 
 
 def test_delayed_check_pickle_deprecated():
