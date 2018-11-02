@@ -924,6 +924,9 @@ print(Parallel(n_jobs=2, backend=backend)(
 def test_parallel_with_interactively_defined_functions(backend):
     # When using the "-c" flag, interactive functions defined in __main__
     # should work with any backend.
+    if backend == "multiprocessing" and sys.platform == "win32":
+        pytest.skip("Require fork start method to use interactively defined "
+                    "functions with multiprocessing.")
     code = UNPICKLABLE_CALLABLE_SCRIPT_TEMPLATE_NO_MAIN.format(backend)
     check_subprocess_call(
         [sys.executable, '-c', code], timeout=10,
