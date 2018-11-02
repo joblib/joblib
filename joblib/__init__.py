@@ -123,8 +123,12 @@ from .parallel import register_parallel_backend
 from .parallel import parallel_backend
 from .parallel import effective_n_jobs
 
+from .externals.loky import set_loky_pickler
+from .externals.loky import wrap_non_picklable_objects
+
 
 __all__ = ['Memory', 'MemorizedResult', 'PrintTime', 'Logger', 'hash', 'dump',
            'load', 'Parallel', 'delayed', 'cpu_count', 'effective_n_jobs',
            'register_parallel_backend', 'parallel_backend',
-           'register_store_backend', 'register_compressor']
+           'register_store_backend', 'register_compressor',
+           'set_loky_pickler', 'wrap_non_picklable_objects']
