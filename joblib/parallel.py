@@ -206,10 +206,15 @@ if hasattr(mp, 'get_context'):
 class BatchedCalls(object):
     """Wrap a sequence of (func, args, kwargs) tuples as a single callable"""
 
-    def __init__(self, iterator_slice, backend_n_jobs, pickle_cache=None):
+    def __init__(self, iterator_slice, backend_and_jobs, pickle_cache=None):
         self.items = list(iterator_slice)
         self._size = len(self.items)
-        self._backend, self._n_jobs = backend_n_jobs
+        if isinstance(backend_and_jobs, tuple):
+            self._backend, self._n_jobs = backend_and_jobs
+        else:
+            # this is for backward compatibility purposes. Before 0.12.6,
+            # nested backends were returned without n_jobs indications.
+            self._backend, self._n_jobs = backend_and_jobs, None
         self._pickle_cache = pickle_cache if pickle_cache is not None else {}
 
     def __call__(self):
