@@ -708,8 +708,19 @@ def test_direct_parameterized_backend_context_manager():
     assert _active_backend_type() == DefaultBackend
 
 
+class MyBackend(joblib._parallel_backends.LokyBackend):
+    """Backend to test backward compatibility with older backends"""
+    def get_nested_backend(self, ):
+        # Older backends only return a backend, without n_jobs indications.
+        return super(MyBackend, self).get_nested_backend()[0]
+
+
+register_parallel_backend('back_compat_backend', MyBackend)
+
+
 @with_multiprocessing
-@pytest.mark.parametrize('backend', ['threading', 'loky', 'multiprocessing'])
+@pytest.mark.parametrize('backend', ['threading', 'loky', 'multiprocessing',
+                                     'back_compat_backend'])
 def test_nested_backend_context_manager(backend):
     # Check that by default, nested parallel calls will always use the
     # ThreadingBackend
