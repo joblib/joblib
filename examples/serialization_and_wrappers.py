@@ -161,3 +161,7 @@ print("With default and wrapper: {:.3f}s".format(time.time() - t_start))
 # ``issubclass`` functions. Some improvements will be considered if use-cases
 # are reported.
 #
+
+# Reset the loky_pickler to avoid border effects with other examples in
+# sphinx-gallery.
+set_loky_pickler()
