@@ -26,7 +26,6 @@ from joblib import wrap_non_picklable_objects
 
 # The followings are hacks to allow sphinx-gallery to run the example.
 import os
-from joblib.externals.loky import BrokenProcessPool
 sys.path.insert(0, os.getcwd())
 main_dir = os.path.basename(sys.modules['__main__'].__file__)
 IS_RUN_WITH_SPHINX_GALLERY = main_dir != os.getcwd()
