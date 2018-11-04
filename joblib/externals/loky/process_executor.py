@@ -80,6 +80,7 @@ from .backend.compat import wait
 from .backend.compat import set_cause
 from .backend.context import cpu_count
 from .backend.queues import Queue, SimpleQueue, Full
+from .backend.reduction import get_loky_pickler, set_loky_pickler
 from .backend.utils import recursive_terminate, get_exitcodes_terminated_worker
 
 try:
@@ -257,11 +258,12 @@ class _ResultItem(object):
 
 class _CallItem(object):
 
-    def __init__(self, work_id, fn, args, kwargs):
+    def __init__(self, work_id, fn, args, kwargs, loky_pickler=None):
         self.work_id = work_id
         self.fn = fn
         self.args = args
         self.kwargs = kwargs
+        self.loky_pickler = loky_pickler
 
     def __repr__(self):
         return "CallItem({}, {}, {}, {})".format(
@@ -407,6 +409,7 @@ def _process_worker(call_queue, result_queue, initializer, initargs,
             with worker_exit_lock:
                 return
         try:
+            set_loky_pickler(call_item.loky_pickler)
             r = call_item.fn(*call_item.args, **call_item.kwargs)
         except BaseException as e:
             exc = _ExceptionWithTraceback(e)
@@ -490,7 +493,8 @@ def _add_call_item_to_queue(pending_work_items,
                 call_queue.put(_CallItem(work_id,
                                          work_item.fn,
                                          work_item.args,
-                                         work_item.kwargs),
+                                         work_item.kwargs,
+                                         get_loky_pickler()),
                                block=True)
             else:
                 del pending_work_items[work_id]

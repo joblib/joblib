@@ -31,7 +31,8 @@ By default :class:`joblib.Parallel` uses the ``'loky'`` backend module to start
 separate Python worker processes to execute tasks concurrently on
 separate CPUs. This is a reasonable default for generic Python programs
 but can induce a significant overhead as the input and output data need
-to be serialized in a queue for communication with the worker processes.
+to be serialized in a queue for communication with the worker processes (see
+:ref:`serialization_and_processes`).
 
 When you know that the function you are calling is based on a compiled
 extension that releases the Python Global Interpreter Lock (GIL) during
@@ -69,6 +70,28 @@ specific backend implementation such as ``backend="threading"`` in the
 call to :class:`joblib.Parallel` but this is now considered a bad pattern
 (when done in a library) as it does not make it possible to override that
 choice with the ``parallel_backend`` context manager.
+
+.. _serialization_and_processes:
+
+Serialization & Processes
+=========================
+
+To share function definition across multiple python processes, it is necessary to rely on a serialization protocol. The standard protocol in python is :mod:`pickle` but its default implementation in the standard library has several limitations. For instance, it cannot serialize functions which are defined interactively or in the :code:`__main__` module.
+
+To avoid this limitation, the ``loky`` backend now relies on |cloudpickle| to serialize python objects. |cloudpickle| is an alternative implementation of the pickle protocol which allows the serialization of a greater number of objects, in particular interactively defined functions. So for most usages, the loky ``backend`` should work seamlessly.
+
+
+The main drawback of |cloudpickle| is that it can be slower than the :mod:`pickle` module in the standard library. In particular, it is critical for large python dictionaries or lists, where the serialization time can be up to 100 times slower. There is two ways to alter the serialization process for the ``joblib`` to temper this issue:
+
+- If you are on an UNIX system, you can switch back to the old ``multiprocessing`` backend. With this backend, interactively defined functions can be shared with the worker processes using the fast :mod:`pickle`. The main issue with this solution is that using ``fork`` to start the process breaks the standard POSIX and can have weird interaction with third party libraries such as ``numpy`` and ``openblas``.
+
+- If you wish to use the ``loky`` backend with a different serialization library, you can use ``joblib.set_loky_pickler(mod_pickle)`` to use its argument as the serialization library for ``loky``. The module name passed as an argument should be importable as ``import mod_pickle`` and should contain a ``Pickler`` object, which will be used to serialize to objects. This behavior can also be obtained by setting the ``LOKY_PICKLER`` environment variable. The main drawback here is that if you use ``LOKY_PICKLER=pickle``, interactively defined functions will not be serializable anymore. To cope with this, you can use this solution together with the :func:`joblib.wrap_non_picklable_objects` wrapper, which can be used as a decorator to locally enable using |cloudpickle| for specific objects. This way, you can have fast pickling of all python objects and locally enable slow pickling for interactive functions. An example is given in loky_wrapper_.
+
+.. |cloudpickle| raw:: html
+
+    <a href="https://github.com/cloudpipe/cloudpickle"><code>cloudpickle</code></a>
+
+.. _loky_wrapper:  auto_examples/serialization_and_wrappers.html
 
 
 Shared-memory semantics
@@ -121,11 +144,11 @@ calls to the :class:`joblib.Parallel` object::
     >>> (accumulator, n_iter)                            # doctest: +ELLIPSIS
     (1136.596..., 14)
 
-.. include:: parallel_numpy.rst
-
 Note that the ``'loky'`` backend now used by default for process-based
 parallelism automatically tries to maintain and reuse a pool of workers
 by it-self even for calls without the context manager.
+
+.. include:: parallel_numpy.rst
 
 
 Avoiding over-subscription of CPU ressources
