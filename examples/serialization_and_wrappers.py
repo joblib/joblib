@@ -91,11 +91,11 @@ if sys.platform != 'win32':
 
 
 ###############################################################################
-# However, using ``fork`` to start new processes breaks the POSIX backend and
-# can have bad interaction with third party libraries such as ``numpy`` with
-# ``openmp``. Also, it is not possible to start processes with ``fork`` on
-# windows where only ``spawn`` is available. The ``loky`` backend has
-# been developped to mitigate these issues.
+# However, using ``fork`` to start new processes can cause violation of the
+# POSIX specification and can have bad interaction with compiled extensions
+# that use ``openmp``. Also, it is not possible to start processes with
+# ``fork`` on windows where only ``spawn`` is available. The ``loky`` backend
+# has been developped to mitigate these issues.
 #
 # To have fast pickling with ``loky``, it is possible to rely on ``pickle`` to
 # serialize all communications between the main process and the workers with

@@ -78,7 +78,7 @@ Serialization & Processes
 
 To share function definition across multiple python processes, it is necessary to rely on a serialization protocol. The standard protocol in python is :mod:`pickle` but its default implementation in the standard library has several limitations. For instance, it cannot serialize functions which are defined interactively or in the :code:`__main__` module.
 
-To avoid this limitation, the ``loky`` backend now relies on |cloudpickle| to serialize python objects. |cloudpickle| is a fork of the pickle protocol which allows the serialization of a greater number of objects, in particular interactively defined functions. So for most usages, the loky ``backend`` should work seamlessly.
+To avoid this limitation, the ``loky`` backend now relies on |cloudpickle| to serialize python objects. |cloudpickle| is an alternative implementation of the pickle protocol which allows the serialization of a greater number of objects, in particular interactively defined functions. So for most usages, the loky ``backend`` should work seamlessly.
 
 
 The main drawback of |cloudpickle| is that it can be slower than the :mod:`pickle` module in the standard library. In particular, it is critical for large python dictionaries or lists, where the serialization time can be up to 100 times slower. There is two ways to alter the serialization process for the ``joblib`` to temper this issue:
