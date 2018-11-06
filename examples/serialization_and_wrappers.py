@@ -96,10 +96,10 @@ if sys.platform != 'win32':
 # To have fast pickling with ``loky``, it is possible to rely on ``pickle`` to
 # serialize all communications between the main process and the workers with
 # the ``loky`` backend. This can be done by setting the environment variable
-# ``LOKY_PICKLER=pickle`` before the script is launched. Here we use an internal
-# programatic switch ``loky.set_loky_pickler`` for demonstration purposes but it
-# has the same effect as setting ``LOKY_PICKLER``. Note that this switch should
-# not be used as it has some side effects with the workers.
+# ``LOKY_PICKLER=pickle`` before the script is launched. Here we use an
+# internal programmatic switch ``loky.set_loky_pickler`` for demonstration
+# purposes but it has the same effect as setting ``LOKY_PICKLER``. Note that
+# this switch should not be used as it has some side effects with the workers.
 #
 
 # Now set the `loky_pickler` to use the pickle serialization from stdlib. Here,
@@ -148,7 +148,8 @@ def func_async_wrapped(i, *args):
 
 t_start = time.time()
 Parallel(n_jobs=2)(func_async_wrapped(21, large_list) for _ in range(1))
-print("With pickle from stdlib and wrapper: {:.3f}s".format(time.time() - t_start))
+print("With pickle from stdlib and wrapper: {:.3f}s"
+      .format(time.time() - t_start))
 
 
 ###############################################################################
