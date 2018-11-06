@@ -51,4 +51,4 @@ with joblib.parallel_backend('dask'):
 
 ###############################################################################
 # Progress in computation can be followed on the distributed web
-# interface, see http://dask.pydata.org/en/latest/diagnostics-distributed.html
+# interface, see https://dask.pydata.org/en/latest/diagnostics-distributed.html
