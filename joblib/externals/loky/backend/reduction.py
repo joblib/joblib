@@ -141,7 +141,14 @@ def set_loky_pickler(loky_pickler=None):
 
     loky_pickler_cls = None
 
-    if loky_pickler in ["cloudpickle", "", None]:
+    # The default loky_pickler is cloudpickle
+    if loky_pickler in ["", None]:
+        loky_pickler = "cloudpickle"
+
+    if loky_pickler == _loky_pickler_name:
+        return
+
+    if loky_pickler == "cloudpickle":
         from joblib.externals.cloudpickle import CloudPickler as loky_pickler_cls
     else:
         try:
@@ -156,6 +163,9 @@ def set_loky_pickler(loky_pickler=None):
             e.args = (e.args[0] + extra_info,) + e.args[1:]
             e.msg = e.args[0]
             raise e
+
+    util.debug("Using '{}' for serialization."
+               .format(loky_pickler if loky_pickler else "cloudpickle"))
 
     class CustomizablePickler(loky_pickler_cls):
         _loky_pickler_cls = loky_pickler_cls
@@ -196,13 +206,17 @@ def set_loky_pickler(loky_pickler=None):
                 self.dispatch_table[type] = reduce_func
 
     _LokyPickler = CustomizablePickler
-    _loky_pickler_name = loky_pickler if loky_pickler else "cloudpickle"
-    util.debug("Using '{}' for serialization.".format(_loky_pickler_name))
+    _loky_pickler_name = loky_pickler
+
+
+def get_loky_pickler_name():
+    global _loky_pickler_name
+    return _loky_pickler_name
 
 
 def get_loky_pickler():
-    global _loky_pickler_name
-    return _loky_pickler_name
+    global _LokyPickler
+    return _LokyPickler
 
 
 # Set it to its default value
