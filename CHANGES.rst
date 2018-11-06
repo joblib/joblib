@@ -1,8 +1,13 @@
 Latest changes
 ===============
 
-master
-------
+Release 0.13.0
+--------------
+
+Thomas Moreau
+
+   Include loky 2.4.2 with default serialization with ``cloudpickle``.
+   This can be tweaked with the environment variable ``LOKY_PICKLER``.
 
 Thomas Moreau
 
