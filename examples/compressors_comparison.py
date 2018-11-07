@@ -147,7 +147,7 @@ print("LZMA load duration: %0.3fs" % lzma_load_duration)
 
 ###############################################################################
 # .. note:: In order to use LZ4 compression with Joblib, the
-#    `lz4 <http://https://pypi.python.org/pypi/lz4>`_ package must be installed
+#    `lz4 <https://pypi.python.org/pypi/lz4>`_ package must be installed
 #    on the system.
 
 ###############################################################################
