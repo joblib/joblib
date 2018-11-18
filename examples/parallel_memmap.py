@@ -121,7 +121,7 @@ output = np.memmap(output_filename_memmap, dtype=data.dtype,
                    shape=len(slices), mode='w+')
 
 ###############################################################################
-# ``data`` is replaced by its memory mapped version. Note that the buffer as
+# ``data`` is replaced by its memory mapped version. Note that the buffer has
 # already been dumped in the previous section.
 
 data = load(data_filename_memmap, mmap_mode='r')
