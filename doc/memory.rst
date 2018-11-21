@@ -41,7 +41,7 @@ A simple example:
 
     >>> cachedir = 'your_cache_location_directory'
 
-  Then, instanciate a memory context that uses this cache directory::
+  Then, instantiate a memory context that uses this cache directory::
 
     >>> from joblib import Memory
     >>> memory = Memory(cachedir, verbose=0)
