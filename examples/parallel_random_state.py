@@ -56,7 +56,7 @@ print('\nThe different generated vectors in a sequential manner are:\n {}'
 # Parallel behavior
 ###############################################################################
 #
-# Joblib provides three different backend: loky (default), threading, and
+# Joblib provides three different backends: loky (default), threading, and
 # multiprocessing.
 
 backend = 'loky'
@@ -92,7 +92,7 @@ print_vector(random_vector, backend)
 # problem for the application.
 #
 # Technically, the reason is that all forked Python processes share the
-# same exact random seed. As a results, we obtain twice the same randomly
+# same exact random seed. As a result, we obtain twice the same randomly
 # generated vectors because we are using ``n_jobs=2``. A solution is to
 # set the random state within the function which is passed to
 # :class:`joblib.Parallel`.
