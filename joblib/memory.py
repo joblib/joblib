@@ -788,6 +788,18 @@ class MemorizedFunc(Logger):
         return metadata
 
     # XXX: Need a method to check if results are available.
+    def check_call_in_cache(self, *args, **kwargs):
+        """Check if function call is in the memory cache.
+
+        Does not call the function or do any work besides func inspection
+        and arg hashing.
+
+        Returns
+        -------
+        store_backend.contains_item: bool
+        """
+        func_id, args_id = self._get_output_identifiers(*args, **kwargs)
+        return self.store_backend.contains_item((func_id, args_id))
 
     # ------------------------------------------------------------------------
     # Private `object` interface
