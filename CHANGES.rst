@@ -1,6 +1,15 @@
 Latest changes
 ===============
 
+Release 0.13.1
+--------------
+
+Pierre Glaser
+
+   Memory now accepts pathlib.Path objects as ``location`` parameter.
+   Also, a warning is raised if the returned backend is None while
+   ``location`` is not None.
+
 Release 0.13.0
 --------------
 
