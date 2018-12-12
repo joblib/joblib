@@ -31,6 +31,9 @@ from joblib.testing import parametrize, raises, warns
 from joblib._compat import PY3_OR_LATER
 from joblib.hashing import hash
 
+if sys.version_info[:2] >= (3, 4):
+    import pathlib
+
 
 ###############################################################################
 # Module-level variables for the tests
@@ -1043,6 +1046,20 @@ def test_memory_default_store_backend():
     excinfo.match(r"Unknown location*")
 
 
+def test_warning_on_unknown_location_type():
+    class NonSupportedLocationClass:
+        pass
+    unsupported_location = NonSupportedLocationClass()
+
+    with warns(UserWarning) as warninfo:
+        _store_backend_factory("local", location=unsupported_location)
+
+    expected_mesage = ("Instanciating a backend using a "
+                       "NonSupportedLocationClass as a location is not "
+                       "supported by joblib")
+    assert expected_mesage in str(warninfo[0].message)
+
+
 def test_instanciate_incomplete_store_backend():
     # Verify that registering an external incomplete store backend raises an
     # exception when one tries to instanciate it.
@@ -1064,6 +1081,15 @@ def test_dummy_store_backend():
 
     backend_obj = _store_backend_factory(backend_name, "dummy_location")
     assert isinstance(backend_obj, DummyStoreBackend)
+
+
+@pytest.mark.skipif(sys.version_info[:2] < (3, 4),
+                    reason="pathlib is available for python versions >= 3.4")
+def test_instanciate_store_backend_with_pathlib_path():
+    # Instanciate a FileSystemStoreBackend using a pathlib.Path object
+    path = pathlib.Path("some_folder")
+    backend_obj = _store_backend_factory("local", path)
+    assert backend_obj.location == "some_folder"
 
 
 def test_filesystem_store_backend_repr(tmpdir):
