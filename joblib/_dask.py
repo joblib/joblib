@@ -108,6 +108,12 @@ class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
 
     def __init__(self, scheduler_host=None, scatter=None,
                  client=None, loop=None, **submit_kwargs):
+        if distributed is None:
+            msg = ("You are trying to use 'dask' as a joblib parallel backend "
+                   "but dask is not installed. Please install dask "
+                   "to fix this error.")
+            raise ValueError(msg)
+
         if client is None:
             if scheduler_host:
                 client = Client(scheduler_host, loop=loop,

@@ -59,6 +59,11 @@ try:
 except ImportError:
     parallel_sum = None
 
+try:
+    import distributed
+except ImportError:
+    distributed = None
+
 from joblib._parallel_backends import SequentialBackend
 from joblib._parallel_backends import ThreadingBackend
 from joblib._parallel_backends import MultiprocessingBackend
@@ -1453,8 +1458,8 @@ def test_nested_parallelism_limit(backend):
 
 
 @with_numpy
+@skipif(distributed is None, reason='This test requires dask')
 def test_nested_parallelism_with_dask():
-    distributed = pytest.importorskip('distributed')
     client = distributed.Client(n_workers=2, threads_per_worker=2)  # noqa
 
     # 10 MB of data as argument to trigger implicit scattering
@@ -1506,3 +1511,10 @@ def test_parallel_thread_limit(backend):
     for value in res[0][0].values():
         assert value == '1'
     assert all([r[1] == 1 for r in res])
+
+
+@skipif(distributed is not None,
+        reason='This test requires dask NOT installed')
+def test_dask_backend_when_dask_not_installed():
+    with raises(ValueError, match='Please install dask'):
+        parallel_backend('dask')
