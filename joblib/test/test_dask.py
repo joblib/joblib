@@ -10,7 +10,7 @@ from ..parallel import ThreadingBackend
 from .._dask import DaskDistributedBackend
 
 distributed = pytest.importorskip('distributed')
-from distributed import Client
+from distributed import Client, LocalCluster
 from distributed.metrics import time
 from distributed.utils_test import cluster, inc
 from distributed.utils_test import loop # noqa F401
@@ -281,3 +281,46 @@ def test_cleanup(loop):  # noqa: F811
             assert time() < start + 5
 
         assert not client.futures
+
+
+@pytest.mark.parametrize("cluster_strategy", ["adaptive", "late_scaling"])
+def test_wait_for_workers(cluster_strategy):
+    cluster = LocalCluster(n_workers=0, processes=False, threads_per_worker=2)
+    client = Client(cluster)
+    if cluster_strategy == "adaptive":
+        cluster.adapt(minimum=0, maximum=2)
+    elif cluster_strategy == "late_scaling":
+        # Tell the cluster to start workers but this is a non-blocking call
+        # and new workers might take time to connect. In this case the Parallel
+        # call should wait for at least one worker to come up before starting
+        # to schedule work.
+        cluster.scale(2)
+    try:
+        with parallel_backend('dask'):
+            # The following should wait a bit for at least one worker to
+            # become available.
+            Parallel()(delayed(inc)(i) for i in range(10))
+    finally:
+        client.close()
+        cluster.close()
+
+
+def test_wait_for_workers_timeout():
+    # Start a cluster with 0 worker:
+    cluster = LocalCluster(n_workers=0, processes=False, threads_per_worker=2)
+    client = Client(cluster)
+    try:
+        with parallel_backend('dask', wait_for_workers_timeout=0.1):
+            # Short timeout: DaskDistributedBackend
+            msg = "DaskDistributedBackend has no worker after 0.1 seconds."
+            with pytest.raises(TimeoutError, match=msg):
+                Parallel()(delayed(inc)(i) for i in range(10))
+
+        with parallel_backend('dask', wait_for_workers_timeout=0):
+            # No timeout: fallback to generic joblib failure:
+            msg = "DaskDistributedBackend has no active worker"
+            with pytest.raises(RuntimeError, match=msg):
+                Parallel()(delayed(inc)(i) for i in range(10))
+    finally:
+        client.close()
+        cluster.close()

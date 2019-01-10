@@ -876,8 +876,7 @@ class Parallel(Logger):
             n_jobs = self._effective_n_jobs()
         backend_name = self._backend.__class__.__name__
         if n_jobs == 0:
-            raise RuntimeError("Parallel backend %s has no active worker."
-                               % backend_name)
+            raise RuntimeError("%s has no active worker." % backend_name)
 
         self._print("Using backend %s with %d concurrent workers.",
                     (backend_name, n_jobs))
