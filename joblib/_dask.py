@@ -31,7 +31,7 @@ def is_weakrefable(obj):
 
 
 try:
-    TimeoutError
+    TimeoutError = TimeoutError
 except NameError:
     # Python 2 backward compat
     class TimeoutError(Exception):
