@@ -7,7 +7,7 @@ from time import sleep
 
 from .. import Parallel, delayed, parallel_backend
 from ..parallel import ThreadingBackend
-from .._dask import DaskDistributedBackend
+from .._dask import DaskDistributedBackend, TimeoutError
 
 distributed = pytest.importorskip('distributed')
 from distributed import Client, LocalCluster
