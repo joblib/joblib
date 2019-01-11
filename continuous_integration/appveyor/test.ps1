@@ -1,2 +1,2 @@
-pytest joblib --cov joblib -l --timeout 15 --ignore joblib/externals
+pytest joblib --cov joblib -vl --timeout 30 --ignore joblib/externals
 exit $LastExitCode
