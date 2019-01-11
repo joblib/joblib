@@ -34,7 +34,7 @@ try:
     TimeoutError = TimeoutError
 except NameError:
     # Python 2 backward compat
-    class TimeoutError(Exception):
+    class TimeoutError(OSError):
         pass
 
 
@@ -110,6 +110,11 @@ class Batch(object):
         return Batch, (self.tasks,)
 
 
+def _joblib_probe_task():
+    # Noop used by the joblib connector to probe when workers are ready.
+    pass
+
+
 class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
     MIN_IDEAL_BATCH_DURATION = 0.2
     MAX_IDEAL_BATCH_DURATION = 1.0
@@ -177,7 +182,7 @@ class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         # to come up and be available. If the dask cluster is in adaptive mode
         # task might cause the cluster to provision some workers.
         try:
-            self.client.submit(lambda: None).result(
+            self.client.submit(_joblib_probe_task).result(
                 timeout=self.wait_for_workers_timeout)
         except gen.TimeoutError:
             raise TimeoutError("DaskDistributedBackend has no worker after %s"
