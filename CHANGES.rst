@@ -10,6 +10,17 @@ Pierre Glaser
    Also, a warning is raised if the returned backend is None while
    ``location`` is not None.
 
+Olivier Grisel
+
+   Make ``Parallel`` raise an informative RuntimeError when the active
+   parallel has zero worker.
+
+   Make the ``DaskDistributedBackend`` wait for workers before trying to
+   schedule work. This is useful in particular when the workers are
+   provisionned dynamically but provisionning is not immediate (for
+   instance using Kubernetes, Yarn or an HPC job queue).
+
+
 Release 0.13.0
 --------------
 

@@ -185,8 +185,15 @@ class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
             self.client.submit(_joblib_probe_task).result(
                 timeout=self.wait_for_workers_timeout)
         except gen.TimeoutError:
-            raise TimeoutError("DaskDistributedBackend has no worker after %s"
-                               " seconds." % self.wait_for_workers_timeout)
+            error_msg = (
+                "DaskDistributedBackend has no worker after {} seconds. "
+                "Make sure that workers are started and can properly connect "
+                "to the scheduler and increase the joblib/dask connection "
+                "timeout with:\n\n"
+                "parallel_backend('dask', wait_for_workers_timeout={})"
+            ).format(self.wait_for_workers_timeout,
+                     max(10, 2 * self.wait_for_workers_timeout))
+            raise TimeoutError(error_msg)
         return sum(self.client.ncores().values())
 
     def _to_func_args(self, func):
