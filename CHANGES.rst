@@ -12,8 +12,8 @@ Pierre Glaser
 
 Olivier Grisel
 
-   Make ``Parallel`` raise an informative RuntimeError when the active
-   parallel has zero worker.
+   Make ``Parallel`` raise an informative ``RuntimeError`` when the
+   active parallel backend has zero worker.
 
    Make the ``DaskDistributedBackend`` wait for workers before trying to
    schedule work. This is useful in particular when the workers are
