@@ -1518,3 +1518,22 @@ def test_parallel_thread_limit(backend):
 def test_dask_backend_when_dask_not_installed():
     with raises(ValueError, match='Please install dask'):
         parallel_backend('dask')
+
+
+def test_zero_worker_backend():
+    # joblib.Parallel should reject with an explicit error message parallel
+    # backends that have no worker.
+    class ZeroWorkerBackend(ThreadingBackend):
+        def configure(self, *args, **kwargs):
+            return 0
+
+        def apply_async(self, func, callback=None):   # pragma: no cover
+            raise TimeoutError("No worker available")
+
+        def effective_n_jobs(self, n_jobs):   # pragma: no cover
+            return 0
+
+    expected_msg = "ZeroWorkerBackend has no active worker"
+    with parallel_backend(ZeroWorkerBackend()):
+        with pytest.raises(RuntimeError, match=expected_msg):
+            Parallel(n_jobs=2)(delayed(id)(i) for i in range(2))
