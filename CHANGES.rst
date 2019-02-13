@@ -1,6 +1,14 @@
 Latest changes
 ===============
 
+Release 0.13.2
+--------------
+
+Pierre Glaser
+
+   Upgrade to cloudpickle 0.8.0
+
+
 Release 0.13.1
 --------------
 
