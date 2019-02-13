@@ -8,6 +8,11 @@ Pierre Glaser
 
    Upgrade to cloudpickle 0.8.0
 
+   Add a non-regression test related to joblib issues #836 and #833, reporting
+   that cloudpickle versions between 0.5.4 and 0.7 introduced a bug where
+   global variables changes in a parent process between two calls to
+   joblib.Parallel would not be propagated into the workers
+
 
 Release 0.13.1
 --------------
