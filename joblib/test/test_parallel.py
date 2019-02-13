@@ -1537,3 +1537,31 @@ def test_zero_worker_backend():
     with parallel_backend(ZeroWorkerBackend()):
         with pytest.raises(RuntimeError, match=expected_msg):
             Parallel(n_jobs=2)(delayed(id)(i) for i in range(2))
+
+
+def test_globals_update_at_each_parallel_call():
+    # This is a non-regression test related to joblib issues #836 and #833.
+    # Cloudpickle versions between 0.5.4 and 0.7 introduced a bug where global
+    # variables changes in a parent process between two calls to
+    # joblib.Parallel would not be propagated into the workers.
+    global MY_GLOBAL_VARIABLE
+    MY_GLOBAL_VARIABLE = "original value"
+
+    def check_globals():
+        global MY_GLOBAL_VARIABLE
+        return MY_GLOBAL_VARIABLE
+
+    assert check_globals() == "original value"
+
+    workers_global_variable = Parallel(n_jobs=2)(
+        delayed(check_globals)() for i in range(2))
+    assert set(workers_global_variable) == {"original value"}
+
+    # Change the value of MY_GLOBAL_VARIABLE, and make sure this change gets
+    # propagated into the workers environment
+    MY_GLOBAL_VARIABLE = "changed value"
+    assert check_globals() == "changed value"
+
+    workers_global_variable = Parallel(n_jobs=2)(
+        delayed(check_globals)() for i in range(2))
+    assert set(workers_global_variable) == {"changed value"}
