@@ -256,6 +256,11 @@ def hash(obj, hash_name='md5', coerce_mmap=False):
         coerce_mmap: boolean
             Make no difference between np.memmap and np.ndarray
     """
+    valid_hash_name = ('md5', 'sha1')
+    if hash_name not in valid_hash_names:
+        raise ValueError("Valid options for 'hash_name' are {}. "
+                         "Got hash_name={!r} instead."
+                         .format(valid_hash_name, hash_name))
     if 'numpy' in sys.modules:
         hasher = NumpyHasher(hash_name=hash_name, coerce_mmap=coerce_mmap)
     else:
