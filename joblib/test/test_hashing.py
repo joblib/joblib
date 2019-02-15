@@ -454,3 +454,10 @@ def test_hashing_pickling_error():
     with raises(pickle.PicklingError) as excinfo:
         hash(non_picklable)
     excinfo.match('PicklingError while hashing')
+
+
+def test_wrong_hash_name():
+    msg = "Valid options for 'hash_name' are"
+    with raises(ValueError, match=msg):
+        data = np.arange(10)
+        hash(data, hash_name='invalid')
