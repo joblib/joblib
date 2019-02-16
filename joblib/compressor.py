@@ -226,7 +226,9 @@ class LZ4CompressorWrapper(CompressorWrapper):
             raise ValueError('lz4 compression is only available with '
                              'python3+.')
 
-        if lz4 is None or parse_version(lz4.__version__) < parse_version('0.19'):
+        if lz4 is None or (
+            parse_version(lz4.__version__) < parse_version('0.19')
+        ):
             raise ValueError(LZ4_NOT_INSTALLED_ERROR)
 
     def compressor_file(self, fileobj, compresslevel=None):
