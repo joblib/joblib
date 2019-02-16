@@ -21,7 +21,7 @@ try:
         """
         mm = np.memmap(filename, dtype=dtype, mode=mode, offset=offset,
                        shape=shape, order=order)
-        if parse_version(np.__version__) < '1.13':
+        if parse_version(np.__version__) < parse_version('1.13'):
             mm.offset = offset
         return mm
 except ImportError:
