@@ -459,5 +459,5 @@ def test_hashing_pickling_error():
 def test_wrong_hash_name():
     msg = "Valid options for 'hash_name' are"
     with raises(ValueError, match=msg):
-        data = np.arange(10)
+        data = {'foo': 'bar'}
         hash(data, hash_name='invalid')
