@@ -632,3 +632,20 @@ def test_weak_array_key_map_no_pickling():
     m = _WeakArrayKeyMap()
     with raises(pickle.PicklingError):
         pickle.dumps(m)
+
+
+def test_direct_mmap(tmpdir):
+    testfile = str(tmpdir.join('arr.dat'))
+    a = np.arange(10, dtype='uint8')
+    with open(testfile, mode='wb') as f:
+        f.write(a.tobytes())
+
+    with open('arr.dat') as fd:
+        mm = mmap.mmap(fd.fileno(), 0, access=mmap.ACCESS_READ, offset=0)
+    arr = np.ndarray((10,), dtype=np.uint8, buffer=mm, offset=0)
+
+    # this is expected to work and gives the reference
+    ref = Parallel(n_jobs=2)(delayed(np.sqrt)(x) for x in [a])
+
+    results = Parallel(n_jobs=2)(delayed(np.sqrt)(x) for x in [arr])
+    np.testing.assert_array_equal(results, ref)
