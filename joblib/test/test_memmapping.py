@@ -639,8 +639,7 @@ def test_weak_array_key_map_no_pickling():
 def test_direct_mmap(tmpdir):
     testfile = str(tmpdir.join('arr.dat'))
     a = np.arange(10, dtype='uint8')
-    with open(testfile, mode='wb') as f:
-        f.write(a.tobytes())
+    a.tofile(testfile)
 
     def _read_array():
         with open(testfile) as fd:
