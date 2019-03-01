@@ -299,7 +299,7 @@ class ArrayMemmapReducer(object):
 
     def __call__(self, a):
         m = _get_backing_memmap(a)
-        if m is not None:
+        if m is not None and isinstance(m, np.memmap):
             # a is already backed by a memmap file, let's reuse it directly
             return _reduce_memmap_backed(a, m)
 
