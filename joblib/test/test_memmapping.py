@@ -634,6 +634,8 @@ def test_weak_array_key_map_no_pickling():
         pickle.dumps(m)
 
 
+@with_numpy
+@with_multiprocessing
 def test_direct_mmap(tmpdir):
     testfile = str(tmpdir.join('arr.dat'))
     a = np.arange(10, dtype='uint8')
