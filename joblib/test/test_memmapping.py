@@ -646,13 +646,16 @@ def test_direct_mmap(tmpdir):
             mm = mmap.mmap(fd.fileno(), 0, access=mmap.ACCESS_READ, offset=0)
         return np.ndarray((10,), dtype=np.uint8, buffer=mm, offset=0)
 
+    def func(x):
+        return x**2
+
     arr = _read_array()
 
     # this is expected to work and gives the reference
-    ref = Parallel(n_jobs=2)(delayed(np.sqrt)(x) for x in [a])
+    ref = Parallel(n_jobs=2)(delayed(func)(x) for x in [a])
 
     # now test that it work with the mmap array
-    results = Parallel(n_jobs=2)(delayed(np.sqrt)(x) for x in [arr])
+    results = Parallel(n_jobs=2)(delayed(func)(x) for x in [arr])
     np.testing.assert_array_equal(results, ref)
 
     # also test with a mmap array read in the subprocess
