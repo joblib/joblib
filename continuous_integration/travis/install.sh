@@ -111,4 +111,4 @@ if [[ "$CYTHON" == "true" ]]; then
     cd ../../..
 fi
 
-python setup.py install
+pip install -v .

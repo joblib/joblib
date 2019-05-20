@@ -20,13 +20,13 @@ if [[ "$SKIP_TESTS" != "true" ]]; then
 fi
 
 if [[ "$SKLEARN_TESTS" == "true" ]]; then
-    # Install scikit-learn from conda, patch it to use this version of joblib
-    # and run the scikit-learn tests with pytest. The versions of scikit-learn
-    # and scipy are frozen to avoid instabilities in the API (see issue #684)
-    # that should not be tested here.
-    conda install --yes scikit-learn==0.20.3 scipy==1.2.1
-    export SKLEARN=`python -c "import sklearn; print(sklearn.__path__[0])"`
-    cp $TRAVIS_BUILD_DIR/continuous_integration/travis/copy_joblib.sh $SKLEARN/externals
-    (cd $SKLEARN/externals && bash copy_joblib.sh $TRAVIS_BUILD_DIR)
-    pytest -vl $SKLEARN
+    # Install scikit-learn from conda and test against the installed
+    # development version of joblib.
+    conda install --yes cython pillow scikit-learn scipy==1.2.1
+    python -c "import sklearn; print('Testing scikit-learn', sklearn.__version__)"
+    # Skip test_lars_cv_max_iter because of a warning that is (probably)
+    # not related to joblib. To be confirmed once the following PR is
+    # merged:
+    # https://github.com/scikit-learn/scikit-learn/pull/12597
+    pytest -vl -k "not test_lars_cv_max_iter" --pyargs sklearn
 fi
