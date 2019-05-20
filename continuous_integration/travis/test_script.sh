@@ -22,7 +22,7 @@ fi
 if [[ "$SKLEARN_TESTS" == "true" ]]; then
     # Install scikit-learn from conda and test against the installed
     # development version of joblib.
-    conda install --yes cython scikit-learn scipy==1.2.1
+    conda install --yes cython pillow scikit-learn scipy==1.2.1
     python -c "import sklearn; print('Testing scikit-learn', sklearn.__version__)"
     pytest -vl --pyargs sklearn
 fi
