@@ -9,6 +9,10 @@ try:
     import lz4
 except ImportError:
     lz4 = None
+try:
+    from distributed.utils_test import loop
+except ImportError:
+    loop = None
 
 
 def pytest_collection_modifyitems(config, items):
