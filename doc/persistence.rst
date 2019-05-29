@@ -13,6 +13,26 @@ Use case
 pickle to work efficiently on arbitrary Python objects containing large data,
 in particular large numpy arrays.
 
+.. warning::
+
+  :func:`joblib.dump` and :func:`joblib.load` are based on the Python pickle
+  serialization model, which means that arbitrary Python code can be executed
+  when loading a serialized object with :func:`joblib.load`.
+
+  :func:`joblib.load` should therefore never be used to load objects from an
+  untrusted source or otherwise you will introduce a security vulnerability in
+  your program.
+
+.. note::
+
+  As of Python 3.8 and numpy 1.16, pickle protocol 5 introduced in
+  `PEP 574 <https://www.python.org/dev/peps/pep-0574/>`_ supports efficient
+  serialization and de-serialization for large data buffers natively using
+  the standard library::
+
+      pickle.dump(large_object, fileobj, protocol=5)
+
+
 A simple example
 ================
 
