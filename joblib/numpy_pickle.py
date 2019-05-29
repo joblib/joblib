@@ -550,6 +550,10 @@ def load(filename, mmap_mode=None):
 
     Read more in the :ref:`User Guide <persistence>`.
 
+    WARNING: joblib.load relies on the pickle module and can therefore
+    execute arbitrary Python code. It should therefore never be used
+    to load files from untrusted sources.
+
     Parameters
     -----------
     filename: str, pathlib.Path, or file object.

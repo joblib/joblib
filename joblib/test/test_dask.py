@@ -13,7 +13,6 @@ distributed = pytest.importorskip('distributed')
 from distributed import Client, LocalCluster
 from distributed.metrics import time
 from distributed.utils_test import cluster, inc
-from distributed.utils_test import loop # noqa F401
 
 
 def noop(*args, **kwargs):
@@ -26,7 +25,7 @@ def slow_raise_value_error(condition, duration=0.05):
         raise ValueError("condition evaluated to True")
 
 
-def test_simple(loop):  # noqa: F811
+def test_simple(loop):
     with cluster() as (s, [a, b]):
         with Client(s['address'], loop=loop) as client:  # noqa: F841
             with parallel_backend('dask') as (ba, _):
@@ -45,7 +44,7 @@ def random2():
     return random()
 
 
-def test_dont_assume_function_purity(loop):  # noqa: F811
+def test_dont_assume_function_purity(loop):
     with cluster() as (s, [a, b]):
         with Client(s['address'], loop=loop) as client:  # noqa: F841
             with parallel_backend('dask') as (ba, _):
@@ -53,7 +52,7 @@ def test_dont_assume_function_purity(loop):  # noqa: F811
                 assert x != y
 
 
-def test_dask_funcname(loop):  # noqa: F811
+def test_dask_funcname(loop):
     with cluster() as (s, [a, b]):
         with Client(s['address'], loop=loop) as client:
             with parallel_backend('dask') as (ba, _):
@@ -84,7 +83,7 @@ class CountSerialized(object):
         return (CountSerialized, (self.x,))
 
 
-def test_manual_scatter(loop):  # noqa: F811
+def test_manual_scatter(loop):
     x = CountSerialized(1)
     y = CountSerialized(2)
     z = CountSerialized(3)
@@ -114,7 +113,7 @@ def test_manual_scatter(loop):  # noqa: F811
     assert z.count == 4
 
 
-def test_auto_scatter(loop):  # noqa: F811
+def test_auto_scatter(loop):
     np = pytest.importorskip('numpy')
     data = np.ones(int(1e7), dtype=np.uint8)
 
@@ -150,7 +149,7 @@ def test_auto_scatter(loop):  # noqa: F811
             assert counts[b['address']] == 0
 
 
-def test_nested_backend_context_manager(loop):  # noqa: F811
+def test_nested_backend_context_manager(loop):
     def get_nested_pids():
         pids = set(Parallel(n_jobs=2)(delayed(os.getpid)() for _ in range(2)))
         pids |= set(Parallel(n_jobs=2)(delayed(os.getpid)() for _ in range(2)))
@@ -177,7 +176,7 @@ def test_nested_backend_context_manager(loop):  # noqa: F811
                     assert len(set(pid_group)) <= 2
 
 
-def test_nested_backend_context_manager_implicit_n_jobs(loop):  # noqa: F811
+def test_nested_backend_context_manager_implicit_n_jobs(loop):
     # Check that Parallel with no explicit n_jobs value automatically selects
     # all the dask workers, including in nested calls.
 
@@ -203,7 +202,7 @@ def test_nested_backend_context_manager_implicit_n_jobs(loop):  # noqa: F811
                     assert nested_n_jobs == -1
 
 
-def test_errors(loop):  # noqa: F811
+def test_errors(loop):
     with pytest.raises(ValueError) as info:
         with parallel_backend('dask'):
             pass
@@ -211,7 +210,7 @@ def test_errors(loop):  # noqa: F811
     assert "create a dask client" in str(info.value).lower()
 
 
-def test_correct_nested_backend(loop):  # noqa: F811
+def test_correct_nested_backend(loop):
     with cluster() as (s, [a, b]):
         with Client(s['address'], loop=loop) as client:  # noqa: F841
             # No requirement, should be us
@@ -244,7 +243,7 @@ def inner():
     return Parallel()._backend
 
 
-def test_secede_with_no_processes(loop):  # noqa: F811
+def test_secede_with_no_processes(loop):
     # https://github.com/dask/distributed/issues/1775
     with Client(loop=loop, processes=False, set_as_default=True):
         with parallel_backend('dask'):
@@ -256,7 +255,7 @@ def _worker_address(_):
     return get_worker().address
 
 
-def test_dask_backend_keywords(loop):  # noqa: F811
+def test_dask_backend_keywords(loop):
     with cluster() as (s, [a, b]):
         with Client(s['address'], loop=loop) as client:  # noqa: F841
             with parallel_backend('dask', workers=a['address']) as (ba, _):
@@ -270,7 +269,7 @@ def test_dask_backend_keywords(loop):  # noqa: F811
                 assert seq == [b['address']] * 10
 
 
-def test_cleanup(loop):  # noqa: F811
+def test_cleanup(loop):
     with Client(processes=False, loop=loop) as client:
         with parallel_backend('dask'):
             Parallel()(delayed(inc)(i) for i in range(10))
