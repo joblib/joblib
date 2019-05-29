@@ -3,6 +3,8 @@
 import pickle
 import os
 import zlib
+import inspect
+
 from io import BytesIO
 
 from ._compat import PY3_OR_LATER
@@ -96,9 +98,15 @@ class NDArrayWrapper(object):
         # use getattr instead of self.allow_mmap to ensure backward compat
         # with NDArrayWrapper instances pickled with joblib < 0.9.0
         allow_mmap = getattr(self, 'allow_mmap', True)
-        memmap_kwargs = ({} if not allow_mmap
-                         else {'mmap_mode': unpickler.mmap_mode})
-        array = unpickler.np.load(filename, **memmap_kwargs)
+        kwargs = {}
+        if allow_mmap:
+            kwargs['mmap_mode'] = unpickler.mmap_mode
+        if "allow_pickle" in inspect.signature(unpickler.np.load).parameters:
+            # Required in numpy 1.16.3 and later to aknowledge the security
+            # risk.
+            kwargs["allow_pickle"] = True
+        array = unpickler.np.load(filename, **kwargs)
+
         # Reconstruct subclasses. This does not work with old
         # versions of numpy
         if (hasattr(array, '__array_prepare__') and

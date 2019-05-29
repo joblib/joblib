@@ -1,6 +1,15 @@
 Latest changes
 ===============
 
+Release 0.14.0
+--------------
+
+- Warn users that they should never use `joblib.load` with files from
+  untrusted sources. Fix security related API change introduced in numpy
+  1.6.3 that would prevent using joblib with recent numpy versions.
+  https://github.com/joblib/joblib/pull/879
+
+
 Release 0.13.2
 --------------
 
