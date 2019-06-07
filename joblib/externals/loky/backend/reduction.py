@@ -188,7 +188,11 @@ def set_loky_pickler(loky_pickler=None):
             if sys.version_info < (3,):
                 self.dispatch = self._dispatch.copy()
             else:
-                self.dispatch_table = self._dispatch_table.copy()
+                if getattr(self, "dispatch_table", None) is not None:
+                    self.dispatch_table.update(self._dispatch_table.copy())
+                else:
+                    self.dispatch_table = self._dispatch_table.copy()
+
             for type, reduce_func in reducers.items():
                 self.register(type, reduce_func)
 

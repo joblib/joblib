@@ -21,7 +21,7 @@ STRING_TYPE = type("")
 _executor_lock = threading.RLock()
 _next_executor_id = 0
 _executor = None
-_executor_args = None
+_executor_kwargs = None
 
 
 def _get_next_executor_id():
