@@ -1567,6 +1567,7 @@ def test_globals_update_at_each_parallel_call():
 
 
 @with_numpy
+@with_multiprocessing
 def test_threadpool_limitation_in_child():
     # Check that the protection against oversubscription in workers is working
     # using threadpoolctl functionalities.
@@ -1577,6 +1578,10 @@ def test_threadpool_limitation_in_child():
         np.dot(a, a)
         from joblib.threadpoolctl import threadpool_info
         return threadpool_info()
+
+    # Skip this test if numpy is not linked to a BLAS library
+    if len(check_threadpool_limits()) == 0:
+        pytest.skip(msg="Need a version of numpy linked to BLAS")
 
     workers_threadpool_infos = Parallel(n_jobs=2)(
         delayed(check_threadpool_limits)() for i in range(2))
