@@ -6,8 +6,8 @@ Python**. In particular:
 
 2. easy simple parallel computing
 
-Joblib is optimized to be **fast** and **robust** in particular on large
-data and has specific optimizations for `numpy` arrays. It is
+Joblib is optimized to be **fast** and **robust** on large
+data in particular and has specific optimizations for `numpy` arrays. It is
 **BSD-licensed**.
 
 
@@ -28,12 +28,12 @@ Vision
 The vision is to provide tools to easily achieve better performance and
 reproducibility when working with long running jobs.
 
- *  **Avoid computing twice the same thing**: code is rerun over an
-    over, for instance when prototyping computational-heavy jobs (as in
-    scientific development), but hand-crafted solution to alleviate this
-    issue is error-prone and often leads to unreproducible results
+ *  **Avoid computing the same thing twice**: code is often rerun again and
+    again, for instance when prototyping computational-heavy jobs (as in
+    scientific development), but hand-crafted solutions to alleviate this
+    issue are error-prone and often lead to unreproducible results.
 
- *  **Persist to disk transparently**: persisting in an efficient way
+ *  **Persist to disk transparently**: efficiently persisting
     arbitrary objects containing large data is hard. Using
     joblib's caching mechanism avoids hand-written persistence and
     implicitly links the file on disk to the execution context of
