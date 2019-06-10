@@ -85,13 +85,13 @@ class ResourceTracker(object):
                     return
                 # => dead, launch it again
                 os.close(self._fd)
-                try:
-                    # Clean-up to avoid dangling processes.
-                    os.waitpid(self._pid, 0)
-                except OSError:
-                    # The process was terminated or is a child from an ancestor
-                    # of the current process.
-                    pass
+                #try:
+                #    # Clean-up to avoid dangling processes.
+                #    os.waitpid(self._pid, 0)
+                #except OSError:
+                #    # The process was terminated or is a child from an ancestor
+                #    # of the current process.
+                #    pass
                 self._fd = None
                 self._pid = None
 
