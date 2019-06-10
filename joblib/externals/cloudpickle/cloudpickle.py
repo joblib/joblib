@@ -123,8 +123,13 @@ def _lookup_class_or_track(class_tracker_id, class_def):
             _DYNAMIC_CLASS_TRACKER_BY_CLASS[class_def] = class_tracker_id
     return class_def
 
-if PY3:
+if sys.version_info[:2] >= (3, 5):
     from pickle import _getattribute
+elif sys.version_info[:2] >= (3, 4):
+    from pickle import _getattribute as _py34_getattribute
+    #  pickle._getattribute does not return the parent under Python 3.4
+    def _getattribute(obj, name):
+        return _py34_getattribute(obj, name), None
 else:
     # pickle._getattribute is a python3 addition and enchancement of getattr,
     # that can handle dotted attribute names. In cloudpickle for python2,

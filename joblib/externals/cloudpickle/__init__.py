@@ -8,4 +8,4 @@ from .cloudpickle import *
 if sys.version_info[:2] >= (3, 8):
     from .cloudpickle_fast import CloudPickler, dumps, dump
 
-__version__ = '1.2.0'
+__version__ = '1.3.0.dev0'
