@@ -6,6 +6,7 @@ Test the memory module.
 # Copyright (c) 2009 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
+import gc
 import shutil
 import os
 import os.path
@@ -333,6 +334,7 @@ def test_memory_numpy_check_mmap_mode(tmpdir, monkeypatch):
     # is necessary to be able edit the file
     del b
     del c
+    gc.collect()
     corrupt_single_cache_item(memory)
 
     # Make sure that corrupting the file causes recomputation and that
