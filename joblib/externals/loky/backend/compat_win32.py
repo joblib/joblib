@@ -34,19 +34,6 @@ if sys.platform == "win32":
             CreateProcess = win_api.CreateProcess
 
             @staticmethod
-            def CreatePipe(*args):
-                rfd, wfd = os.pipe()
-                _current_process = win_api.GetCurrentProcess()
-                rhandle = win_api.DuplicateHandle(
-                    _current_process, msvcrt.get_osfhandle(rfd),
-                    _current_process, 0, True,
-                    win_api.DUPLICATE_SAME_ACCESS)
-                if sys.version_info[:2] < (3, 3):
-                    rhandle = rhandle.Detach()
-                os.close(rfd)
-                return rhandle, wfd
-
-            @staticmethod
             def CloseHandle(h):
                 if isinstance(h, numbers.Integral):
                     # Cast long to int for 64-bit Python 2.7 under Windows

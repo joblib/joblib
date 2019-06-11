@@ -211,8 +211,8 @@ class LokyContext(BaseContext):
         """
         def Semaphore(self, value=1):
             """Returns a semaphore object"""
-            from . import synchronize
-            return synchronize.Semaphore(value=value)
+            from .synchronize import Semaphore
+            return Semaphore(value=value)
 
         def BoundedSemaphore(self, value):
             """Returns a bounded semaphore object"""

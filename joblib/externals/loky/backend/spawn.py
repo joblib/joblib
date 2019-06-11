@@ -19,6 +19,8 @@ if sys.platform != 'win32':
     WINEXE = False
     WINSERVICE = False
 else:
+    import msvcrt
+    from .reduction import duplicate
     WINEXE = (sys.platform == 'win32' and getattr(sys, 'frozen', False))
     WINSERVICE = sys.executable.lower().endswith("pythonservice.exe")
 
@@ -82,11 +84,16 @@ def get_preparation_data(name, init_main_module=True):
         dir=os.getcwd()
     )
 
-    if sys.platform != "win32":
-        # Pass the semaphore_tracker pid to avoid re-spawning it in every child
-        from . import semaphore_tracker
-        semaphore_tracker.ensure_running()
-        d['tracker_pid'] = semaphore_tracker._semaphore_tracker._pid
+    # Tell the child how to communicate with the resource_tracker
+    from .resource_tracker import _resource_tracker
+    _resource_tracker.ensure_running()
+    d["tracker_args"] = {"pid": _resource_tracker._pid}
+    if sys.platform == "win32":
+        child_w = duplicate(
+            msvcrt.get_osfhandle(_resource_tracker._fd), inheritable=True)
+        d["tracker_args"]["fh"] = child_w
+    else:
+        d["tracker_args"]["fd"] = _resource_tracker._fd
 
     # Figure out whether to initialise main in the subprocess as a module
     # or through direct execution (or to leave it alone entirely)
@@ -151,9 +158,15 @@ def prepare(data):
     if 'orig_dir' in data:
         process.ORIGINAL_DIR = data['orig_dir']
 
-    if 'tacker_pid' in data:
-        from . import semaphore_tracker
-        semaphore_tracker._semaphore_tracker._pid = data["tracker_pid"]
+    if 'tracker_args' in data:
+        from .resource_tracker import _resource_tracker
+        _resource_tracker._pid = data["tracker_args"]['pid']
+        if sys.platform == 'win32':
+            handle = data["tracker_args"]["fh"]
+            _resource_tracker._fd = msvcrt.open_osfhandle(handle, 0)
+        else:
+            _resource_tracker._fd = data["tracker_args"]["fd"]
+
 
     if 'init_main_from_name' in data:
         _fixup_main_from_name(data['init_main_from_name'])

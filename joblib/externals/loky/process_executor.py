@@ -611,7 +611,7 @@ def _queue_management_worker(executor_reference,
         # signal send. The wake up signals come either from new tasks being
         # submitted, from the executor being shutdown/gc-ed, or from the
         # shutdown of the python interpreter.
-        worker_sentinels = [p.sentinel for p in processes.values()]
+        worker_sentinels = [p.sentinel for p in list(processes.values())]
         ready = wait(readers + worker_sentinels)
 
         broken = ("A worker process managed by the executor was unexpectedly "
