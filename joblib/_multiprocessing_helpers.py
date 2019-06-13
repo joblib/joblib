@@ -36,19 +36,21 @@ if mp is not None:
                 Semaphore = ctx.Semaphore
             _sem = Semaphore()
         else:
-                from joblib.externals.loky.backend.semlock import SemLock
-                for i in range(100):
-                    try:
-                        _sem = SemLock(0, 1, None, name=SemLock._make_name(),
-                                       unlink_now=True)
-                    except CompatFileExistsError:  # pragma: no cover
-                        pass
-                    else:
-                        break
-                else:  # pragma: no cover
-                    raise CompatFileExistsError(
-                        'cannot find name for semaphore')
-                del _sem  # cleanup
+            # try to create a named semaphore using
+            from joblib.externals.loky.backend.semlock import SemLock
+            for i in range(100):
+                try:
+                    name = '/loky-{}-{}' .format(
+                        os.getpid(), next(SemLock._rand))
+                    _sem = SemLock(0, 1, None, name=name, unlink_now=True)
+                except CompatFileExistsError:  # pragma: no cover
+                    pass
+                else:
+                    break
+            else:  # pragma: no cover
+                raise CompatFileExistsError(
+                    'cannot find name for semaphore')
+            del _sem  # cleanup
     except (AttributeError, CompatFileExistsError, ImportError, OSError) as e:
         mp = None
         warnings.warn('%s.  joblib will operate in serial mode' % (e,))
