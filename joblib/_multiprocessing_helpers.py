@@ -4,8 +4,9 @@ We use a distinct module to simplify import statements and avoid introducing
 circular dependencies (for instance for the assert_spawning name).
 """
 import os
-import sys
 import warnings
+
+from ._compat import CompatFileExistsError
 
 
 # Obtain possible configuration from the environment, assuming 1 (on)
@@ -22,18 +23,19 @@ if mp:
 #            issue a warning if not
 if mp is not None:
     try:
-        # Use the spawn context
-        if sys.version_info < (3, 3):
-            Semaphore = mp.Semaphore
-        else:
-            # Using mp.Semaphore has a border effect and set the default
-            # backend for multiprocessing. To avoid that, we use the 'spawn'
-            # context which is available on all supported platforms.
-            ctx = mp.get_context('spawn')
-            Semaphore = ctx.Semaphore
-        _sem = Semaphore()
+        from joblib.externals.loky.backend.semlock import SemLock
+        for i in range(100):
+            try:
+                _sem = SemLock(0, 1, None, name=SemLock._make_name(),
+                               unlink_now=True)
+            except CompatFileExistsError:  # pragma: no cover
+                pass
+            else:
+                break
+        else:  # pragma: no cover
+            raise CompatFileExistsError('cannot find name for semaphore')
         del _sem  # cleanup
-    except (ImportError, OSError) as e:
+    except (AttributeError, CompatFileExistsError) as e:
         mp = None
         warnings.warn('%s.  joblib will operate in serial mode' % (e,))
 
