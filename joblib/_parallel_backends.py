@@ -160,7 +160,7 @@ class ParallelBackendBase(with_metaclass(ABCMeta)):
             if var_value is None:
                 os.environ[var] = str(n_threads)
         from joblib.threadpoolctl import threadpool_limits
-        threadpool_limits(limits=1)
+        threadpool_limits(limits=n_threads)
 
 
 class SequentialBackend(ParallelBackendBase):
