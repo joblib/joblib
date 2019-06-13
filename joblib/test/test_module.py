@@ -38,7 +38,6 @@ def test_no_semaphore_tracker_on_import():
     check_subprocess_call([sys.executable, '-c', code])
 
 
-@pytest.mark.skipif(PY27, reason="Need python3.3+")
 def test_no_ressource_tracker_on_import():
     code = """if True:
         import joblib
