@@ -9,32 +9,28 @@ is called with the same input arguments.
 # License: BSD Style, 3 clauses.
 
 
-from __future__ import with_statement
+import asyncio
+import datetime
+import functools
+import inspect
 import logging
 import os
-from textwrap import dedent
-import time
 import pathlib
 import pydoc
 import re
-import functools
+import textwrap
+import time
+import tokenize
 import traceback
 import warnings
-import inspect
 import weakref
-from datetime import timedelta
 
-from tokenize import open as open_py_source
-
-# Local imports
 from . import hashing
-from .func_inspect import get_func_code, get_func_name, filter_args
-from .func_inspect import format_call
-from .func_inspect import format_signature
-from .logger import Logger, format_time, pformat
-from ._store_backends import StoreBackendBase, FileSystemStoreBackend
 from ._store_backends import CacheWarning  # noqa
-
+from ._store_backends import FileSystemStoreBackend, StoreBackendBase
+from .func_inspect import (filter_args, format_call, format_signature,
+                           get_func_code, get_func_name)
+from .logger import Logger, format_time, pformat
 
 FIRST_LINE_TEXT = "# first line:"
 
@@ -329,6 +325,14 @@ class NotMemorizedFunc(object):
 
 
 ###############################################################################
+# class `AsyncNotMemorizedFunc`
+###############################################################################
+class AsyncNotMemorizedFunc(NotMemorizedFunc):
+    async def call_and_shelve(self, *args, **kwargs):
+        return NotMemorizedResult(await self.func(*args, **kwargs))
+
+
+###############################################################################
 # class `MemorizedFunc`
 ###############################################################################
 class MemorizedFunc(Logger):
@@ -481,7 +485,7 @@ class MemorizedFunc(Logger):
             logging.basicConfig(level=logging.INFO)
             _, signature = format_signature(self.func, *args, **kwargs)
             self.info(
-                dedent(
+                textwrap.dedent(
                     f"""
                         Querying {func_name} with signature
                         {signature}.
@@ -517,16 +521,7 @@ class MemorizedFunc(Logger):
                 self.warn('Computing func {}, argument hash {} in location {}'
                           .format(func_name, args_id, location))
 
-        output, metadata = self._call(path, args, kwargs)
-        if shelving:
-            return self._get_memorized_result(path, metadata)
-
-        if self.mmap_mode is not None:
-            # Memmap the output at the first call to be consistent with
-            # later calls
-            output = self._load_item(path, metadata)
-
-        return output
+        return self._call(path, args, kwargs, shelving)
 
     @property
     def func_code_info(self):
@@ -699,7 +694,7 @@ class MemorizedFunc(Logger):
             if os.path.exists(source_file):
                 _, func_name = get_func_name(self.func, resolv_alias=False)
                 num_lines = len(func_code.split('\n'))
-                with open_py_source(source_file) as f:
+                with tokenize.open(source_file) as f:
                     on_disk_func_code = f.readlines()[
                         old_first_line - 1:old_first_line - 1 + num_lines - 1]
                 on_disk_func_code = ''.join(on_disk_func_code)
@@ -751,24 +746,35 @@ class MemorizedFunc(Logger):
         -------
         output : object
             The output of the function call.
-        metadata : dict
-            The metadata associated with the call.
         """
         path = (self.func_id, self._get_args_id(*args, **kwargs))
         return self._call(path, args, kwargs)
 
-    def _call(self, path, args, kwargs):
+    def _call(self, path, args, kwargs, shelving=False):
+        self._before_call(args, kwargs)
         start_time = time.time()
+        output = self.func(*args, **kwargs)
+        return self._after_call(path, args, kwargs, shelving,
+                                output, start_time)
+
+    def _before_call(self, args, kwargs):
         if self._verbose > 0:
             print(format_call(self.func, args, kwargs))
-        output = self.func(*args, **kwargs)
+
+    def _after_call(self, path, args, kwargs, shelving, output, start_time):
         self.store_backend.dump_item(path, output, verbose=self._verbose)
         duration = time.time() - start_time
         if self._verbose > 0:
             self._print_duration(duration)
-
         metadata = self._persist_input(duration, path, args, kwargs)
-        return output, metadata
+        if shelving:
+            return self._get_memorized_result(path, metadata)
+
+        if self.mmap_mode is not None:
+            # Memmap the output at the first call to be consistent with
+            # later calls
+            output = self._load_item(path, metadata)
+        return output
 
     def _persist_input(self, duration, path, args, kwargs,
                        this_duration_limit=0.5):
@@ -842,6 +848,30 @@ class MemorizedFunc(Logger):
             class_name=self.__class__.__name__,
             func=self.func,
             location=self.store_backend.location,)
+
+
+###############################################################################
+# class `AsyncMemorizedFunc`
+###############################################################################
+class AsyncMemorizedFunc(MemorizedFunc):
+    async def __call__(self, *args, **kwargs):
+        out = super().__call__(*args, **kwargs)
+        return await out if asyncio.iscoroutine(out) else out
+
+    async def call_and_shelve(self, *args, **kwargs):
+        out = super().call_and_shelve(*args, **kwargs)
+        return await out if asyncio.iscoroutine(out) else out
+
+    async def call(self, *args, **kwargs):
+        out = super().call(*args, **kwargs)
+        return await out if asyncio.iscoroutine(out) else out
+
+    async def _call(self, path, args, kwargs, shelving=False):
+        self._before_call(args, kwargs)
+        start_time = time.time()
+        output = await self.func(*args, **kwargs)
+        return self._after_call(path, args, kwargs, shelving,
+                                output, start_time)
 
 
 ###############################################################################
@@ -991,14 +1021,20 @@ class Memory(Logger):
                 cache_validation_callback=cache_validation_callback
             )
         if self.store_backend is None:
-            return NotMemorizedFunc(func)
+            cls = (AsyncNotMemorizedFunc
+                   if asyncio.iscoroutinefunction(func)
+                   else NotMemorizedFunc)
+            return cls(func)
         if verbose is None:
             verbose = self._verbose
         if mmap_mode is False:
             mmap_mode = self.mmap_mode
         if isinstance(func, MemorizedFunc):
             func = func.func
-        return MemorizedFunc(
+        cls = (AsyncMemorizedFunc
+               if asyncio.iscoroutinefunction(func)
+               else MemorizedFunc)
+        return cls(
             func, location=self.store_backend, backend=self.backend,
             ignore=ignore, mmap_mode=mmap_mode, compress=self.compress,
             verbose=verbose, timestamp=self.timestamp,
@@ -1106,7 +1142,7 @@ def expires_after(days=0, seconds=0, microseconds=0, milliseconds=0, minutes=0,
     days, seconds, microseconds, milliseconds, minutes, hours, weeks: numbers
         argument passed to a timedelta.
     """
-    delta = timedelta(
+    delta = datetime.timedelta(
         days=days, seconds=seconds, microseconds=microseconds,
         milliseconds=milliseconds, minutes=minutes, hours=hours, weeks=weeks
     )
