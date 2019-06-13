@@ -21,7 +21,7 @@ def with_metaclass(meta, *bases):
 
 # python2.7 error compatibility
 if PY27:
-    class _FileExistsError(OSError):
+    class CompatFileExistsError(OSError):
         pass
 else:
     CompatFileExistsError = FileExistsError
