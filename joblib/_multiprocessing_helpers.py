@@ -4,6 +4,7 @@ We use a distinct module to simplify import statements and avoid introducing
 circular dependencies (for instance for the assert_spawning name).
 """
 import os
+import sys
 import warnings
 
 from ._compat import CompatFileExistsError
@@ -29,6 +30,12 @@ if mp is not None:
         # Unix system or changing the default backend.
         import tempfile
         from _multiprocessing import SemLock
+        if sys.version_info < (3,):
+            _SemLock = SemLock
+
+            def SemLock(kind, value, maxvalue, name, unlink):
+                return _SemLock(kind, value, maxvalue)
+
         _rand = tempfile._RandomNameSequence()
         for i in range(100):
             try:
