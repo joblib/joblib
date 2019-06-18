@@ -7,6 +7,8 @@ import os
 import sys
 import warnings
 
+from ._compat import CompatFileExistsError
+
 
 # Obtain possible configuration from the environment, assuming 1 (on)
 # by default, upon 0 set to None. Should instructively fail if some non
@@ -22,18 +24,31 @@ if mp:
 #            issue a warning if not
 if mp is not None:
     try:
-        # Use the spawn context
-        if sys.version_info < (3, 3):
-            Semaphore = mp.Semaphore
-        else:
-            # Using mp.Semaphore has a border effect and set the default
-            # backend for multiprocessing. To avoid that, we use the 'spawn'
-            # context which is available on all supported platforms.
-            ctx = mp.get_context('spawn')
-            Semaphore = ctx.Semaphore
-        _sem = Semaphore()
-        del _sem  # cleanup
-    except (ImportError, OSError) as e:
+        # try to create a named semaphore using SemLock to make sure they are
+        # available on this platform. We use the low level object
+        # _multiprocessing.SemLock to avoid spawning a resource tracker on
+        # Unix system or changing the default backend.
+        import tempfile
+        from _multiprocessing import SemLock
+        if sys.version_info < (3,):
+            _SemLock = SemLock
+
+            def SemLock(kind, value, maxvalue, name, unlink):
+                return _SemLock(kind, value, maxvalue)
+
+        _rand = tempfile._RandomNameSequence()
+        for i in range(100):
+            try:
+                name = '/joblib-{}-{}' .format(
+                    os.getpid(), next(_rand))
+                _sem = SemLock(0, 0, 1, name=name, unlink=True)
+                del _sem  # cleanup
+                break
+            except CompatFileExistsError:  # pragma: no cover
+                if i >= 99:
+                    raise CompatFileExistsError(
+                        'cannot find name for semaphore')
+    except (CompatFileExistsError, AttributeError, ImportError, OSError) as e:
         mp = None
         warnings.warn('%s.  joblib will operate in serial mode' % (e,))
 

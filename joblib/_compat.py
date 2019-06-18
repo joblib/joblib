@@ -17,3 +17,11 @@ except NameError:
 def with_metaclass(meta, *bases):
     """Create a base class with a metaclass."""
     return meta("NewBase", bases, {})
+
+
+# python2.7 error compatibility
+if PY27:
+    class CompatFileExistsError(OSError):
+        pass
+else:
+    CompatFileExistsError = FileExistsError
