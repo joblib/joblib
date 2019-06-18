@@ -33,8 +33,8 @@ if mp is not None:
         for i in range(100):
             try:
                 name = '/joblib-{}-{}' .format(
-                    os.getpid(), next(SemLock._rand))
-                _sem = SemLock(0, 1, None, name=name, unlink_now=True)
+                    os.getpid(), next(_rand))
+                _sem = SemLock(0, 0, 1, name=name, unlink=True)
                 del _sem  # cleanup
                 break
             except CompatFileExistsError:  # pragma: no cover
