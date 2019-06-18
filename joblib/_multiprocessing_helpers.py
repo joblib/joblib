@@ -4,10 +4,9 @@ We use a distinct module to simplify import statements and avoid introducing
 circular dependencies (for instance for the assert_spawning name).
 """
 import os
-import sys
 import warnings
 
-from ._compat import PY27, CompatFileExistsError
+from ._compat import CompatFileExistsError
 
 
 # Obtain possible configuration from the environment, assuming 1 (on)
@@ -24,34 +23,25 @@ if mp:
 #            issue a warning if not
 if mp is not None:
     try:
-        if sys.platform == "win32":
-            # Use the spawn context
-            if PY27:
-                Semaphore = mp.Semaphore
-            else:
-                # Using mp.Semaphore has a border effect and set the default
-                # backend for multiprocessing. To avoid that, we use the
-                # 'spawn' context which is available on all supported platforms
-                ctx = mp.get_context('spawn')
-                Semaphore = ctx.Semaphore
-            _sem = Semaphore()
-        else:
-            # try to create a named semaphore using
-            from joblib.externals.loky.backend.semlock import SemLock
-            for i in range(100):
-                try:
-                    name = '/loky-{}-{}' .format(
-                        os.getpid(), next(SemLock._rand))
-                    _sem = SemLock(0, 1, None, name=name, unlink_now=True)
-                except CompatFileExistsError:  # pragma: no cover
-                    pass
-                else:
-                    break
-            else:  # pragma: no cover
-                raise CompatFileExistsError(
-                    'cannot find name for semaphore')
-            del _sem  # cleanup
-    except (AttributeError, CompatFileExistsError, ImportError, OSError) as e:
+        # try to create a named semaphore using SemLock to make sure they are
+        # available on this platform. We use the low level object
+        # _multiprocessing.SemLock to avoid spawning a resource tracker on
+        # Unix system or changing the default backend.
+        import tempfile
+        from _multiprocessing import SemLock
+        _rand = tempfile._RandomNameSequence()
+        for i in range(100):
+            try:
+                name = '/joblib-{}-{}' .format(
+                    os.getpid(), next(SemLock._rand))
+                _sem = SemLock(0, 1, None, name=name, unlink_now=True)
+                del _sem  # cleanup
+                break
+            except CompatFileExistsError:  # pragma: no cover
+                if i >= 99:
+                    raise CompatFileExistsError(
+                        'cannot find name for semaphore')
+    except (CompatFileExistsError, AttributeError, ImportError, OSError) as e:
         mp = None
         warnings.warn('%s.  joblib will operate in serial mode' % (e,))
 
