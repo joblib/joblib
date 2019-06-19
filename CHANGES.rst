@@ -13,6 +13,10 @@ Release 0.14.0
   Python 3.8 release among other things.
   https://github.com/joblib/joblib/pull/878
 
+- Fix semaphore availability checker to avoid spawning resource trackers
+  on module import.
+  https://github.com/joblib/joblib/pull/893
+
 Release 0.13.2
 --------------
 
