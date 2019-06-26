@@ -73,6 +73,7 @@ class Logger(object):
         """
         self.depth = depth
         self.logger = logging.getLogger(name)
+        self.logger.addHandler(logging.NullHandler())
 
     def warn(self, msg):
         self.logger.warning("[%s]: %s" % (self, msg))
