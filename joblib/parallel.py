@@ -17,6 +17,7 @@ import itertools
 from numbers import Integral
 import warnings
 import queue
+from functools import partial
 
 from ._multiprocessing_helpers import mp
 
@@ -35,6 +36,11 @@ from .externals import loky
 # so that 3rd party backend implementers can import them from here.
 from ._parallel_backends import AutoBatchingMixin  # noqa
 from ._parallel_backends import ParallelBackendBase  # noqa
+
+try:
+    import queue
+except ImportError:  # backward compat for Python 2
+    import Queue as queue
 
 BACKENDS = {
     'multiprocessing': MultiprocessingBackend,
@@ -783,7 +789,9 @@ class Parallel(Logger):
                 # up starving. So in this case, re-scale the batch size
                 # accordingly to distribute evenly the last items between all
                 # workers.
-                BIG_BATCH_SIZE = batch_size * self.n_jobs
+                n_jobs = self._cached_effective_n_jobs
+                BIG_BATCH_SIZE = batch_size * n_jobs
+                # raise ValueError(BIG_BATCH_SIZE)
 
                 islice = list(itertools.islice(iterator, BIG_BATCH_SIZE))
                 if len(islice) == 0:
@@ -792,10 +800,9 @@ class Parallel(Logger):
                     # we reached the end of the iterator. In this case,
                     # decrease the batch size to account for potential variance
                     # in the batches running time.
-                    final_batch_size = max(
-                        1, len(islice) // (10 * self.n_jobs))
+                    final_batch_size = max(1, len(islice) // (10 * n_jobs))
                 else:
-                    final_batch_size = max(1, len(islice) // self.n_jobs)
+                    final_batch_size = max(1, len(islice) // n_jobs)
                 i = 0
                 # enqueue n_jobs batches in a local queue
                 while i < len(islice):
@@ -929,6 +936,11 @@ class Parallel(Logger):
             n_jobs = self._initialize_backend()
         else:
             n_jobs = self._effective_n_jobs()
+
+        # self._effective_n_jobs should be called in the Parallel.__call__
+        # thread only -- store its value in an attribute for further queries.
+        self._cached_effective_n_jobs = n_jobs
+
         backend_name = self._backend.__class__.__name__
         if n_jobs == 0:
             raise RuntimeError("%s has no active worker." % backend_name)
