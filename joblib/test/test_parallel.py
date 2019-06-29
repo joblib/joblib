@@ -808,7 +808,7 @@ def test_retrieval_context():
 
     with parallel_backend("retrieval") as (ba, _):
         Parallel(n_jobs=2)(
-            delayed(nested_call, check_pickle=False)(i)
+            delayed(nested_call)(i)
             for i in range(5)
         )
         assert ba.i == 1
