@@ -763,8 +763,12 @@ class Parallel(Logger):
         """Display the message on stout or stderr depending on verbosity"""
         # XXX: Not using the logger framework: need to
         # learn to use logger better.
+
         if sys.stdout is None or sys.stderr is None:
+            # Both can be None in Windows services, causing write exception.
+            #   Docs: https://docs.python.org/3/library/sys.html#sys.__stdout__
             return
+
         if not self.verbose:
             return
         if self.verbose < 50:
