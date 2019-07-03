@@ -64,8 +64,15 @@ def check_identity_lazy(func, accumulator, location):
 def corrupt_single_cache_item(memory):
     single_cache_item, = memory.store_backend.get_items()
     output_filename = os.path.join(single_cache_item.path, 'output.pkl')
-    with open(output_filename, 'w') as f:
-        f.write('garbage')
+    for i in range(5):
+        try:
+            with open(output_filename, 'w') as f:
+                f.write('garbage')
+            break
+        except OSError:
+            continue
+    else:
+        raise
 
 
 def monkeypatch_cached_func_warn(func, monkeypatch_fixture):
