@@ -49,7 +49,7 @@ create_new_conda_env() {
     chmod +x miniconda.sh && ./miniconda.sh -b -p $MINICONDA_PREFIX
     export PATH=$MINICONDA_PREFIX/bin:$PATH
     conda update --yes conda
-    conda config --set restore_free_chanel true
+    conda config --set restore_free_channel true
 
     # Configure the conda environment and put it in the path using the
     # provided versions
