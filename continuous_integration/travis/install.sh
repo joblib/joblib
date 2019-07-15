@@ -50,6 +50,7 @@ create_new_conda_env() {
     export PATH=$MINICONDA_PREFIX/bin:$PATH
     conda update --yes conda
     conda config --set restore_free_channel true
+    conda config --set pip_interop_enabled true
 
     # Configure the conda environment and put it in the path using the
     # provided versions
