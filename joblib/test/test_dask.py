@@ -1,4 +1,5 @@
 from __future__ import print_function, division, absolute_import
+import gc
 import os
 
 import pytest
@@ -302,6 +303,9 @@ def test_wait_for_workers(cluster_strategy):
     finally:
         client.close()
         cluster.close()
+        del client
+        del cluster
+        gc.collect()
 
 
 def test_wait_for_workers_timeout():
