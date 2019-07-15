@@ -22,7 +22,7 @@ fi
 if [[ "$SKLEARN_TESTS" == "true" ]]; then
     # Install scikit-learn from conda and test against the installed
     # development version of joblib.
-    conda install --yes cython pillow scikit-learn
+    conda install --yes cython pillow scikit-learn==0.20.3
     python -c "import sklearn; print('Testing scikit-learn', sklearn.__version__)"
     # Skip test_lars_cv_max_iter because of a warning that is (probably)
     # not related to joblib. To be confirmed once the following PR is
