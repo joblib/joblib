@@ -16,7 +16,7 @@ conda update --yes --quiet conda
 conda create -n $CONDA_ENV_NAME --yes --quiet python=3
 source activate $CONDA_ENV_NAME
 
-conda install --yes --quiet pip numpy sphinx=1.6.3 matplotlib pillow dask distributed
+conda install --yes --quiet pip numpy sphinx matplotlib pillow dask distributed
 pip install sphinx-gallery numpydoc lz4
 
 python setup.py develop
