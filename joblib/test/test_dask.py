@@ -1,5 +1,4 @@
 from __future__ import print_function, division, absolute_import
-import gc
 import os
 
 import pytest

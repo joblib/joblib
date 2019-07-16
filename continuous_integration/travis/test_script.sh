@@ -28,5 +28,5 @@ if [[ "$SKLEARN_TESTS" == "true" ]]; then
     # not related to joblib. To be confirmed once the following PR is
     # merged:
     # https://github.com/scikit-learn/scikit-learn/pull/12597
-    pytest --cache-clear -vl -k "not test_lars_cv_max_iter" --pyargs sklearn
+    pytest -vl -k "not test_lars_cv_max_iter" --pyargs sklearn
 fi
