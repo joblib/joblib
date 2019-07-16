@@ -115,7 +115,9 @@ def test_manual_scatter(loop):
 
 def test_auto_scatter(loop):
     np = pytest.importorskip('numpy')
-    data = np.ones(int(1e7), dtype=np.uint8)
+    data1 = np.ones(int(1e4), dtype=np.uint8)
+    data2 = np.ones(int(1e4), dtype=np.uint8)
+    data_to_process = ([data1] * 4) + ([data2] * 4)
 
     def count_events(event_name, client):
         worker_events = client.run(lambda dask_worker: dask_worker.log)
@@ -131,7 +133,7 @@ def test_auto_scatter(loop):
                 # Passing the same data as arg and kwarg triggers a single
                 # scatter operation whose result is reused.
                 Parallel()(delayed(noop)(data, data, i, opt=data)
-                           for i in range(5))
+                           for i, data in enumerate(data_to_process))
             # By default large array are automatically scattered with
             # broadcast=1 which means that one worker must directly receive
             # the data from the scatter operation once.
