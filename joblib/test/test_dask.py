@@ -284,6 +284,9 @@ def test_cleanup(loop):
 
 
 @pytest.mark.parametrize("cluster_strategy", ["adaptive", "late_scaling"])
+@pytest.mark.skipif(
+    distributed.__version__ <= '2.1.1' and distributed.__version__ >= '1.28.0',
+    reason="Bug affecting distributed's get_client method")
 def test_wait_for_workers(cluster_strategy):
     cluster = LocalCluster(n_workers=0, processes=False, threads_per_worker=2)
     client = Client(cluster)
@@ -303,9 +306,6 @@ def test_wait_for_workers(cluster_strategy):
     finally:
         client.close()
         cluster.close()
-        del client
-        del cluster
-        gc.collect()
 
 
 def test_wait_for_workers_timeout():
