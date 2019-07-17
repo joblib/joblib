@@ -49,6 +49,8 @@ create_new_conda_env() {
     chmod +x miniconda.sh && ./miniconda.sh -b -p $MINICONDA_PREFIX
     export PATH=$MINICONDA_PREFIX/bin:$PATH
     conda update --yes conda
+    conda config --set restore_free_channel true
+    conda config --set pip_interop_enabled true
 
     # Configure the conda environment and put it in the path using the
     # provided versions
@@ -56,15 +58,6 @@ create_new_conda_env() {
     echo "conda requirements string: $REQUIREMENTS"
     conda create -n testenv --yes $REQUIREMENTS
     source activate testenv
-
-    if [[ "$INSTALL_MKL" == "true" ]]; then
-        # Make sure that MKL is used
-        conda install --yes mkl
-    else
-        # Make sure that MKL is not used
-        conda remove --yes --features mkl || echo "MKL not installed"
-    fi
-
 }
 
 create_new_pypy3_env() {
