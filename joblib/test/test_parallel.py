@@ -1508,9 +1508,10 @@ def test_parallel_thread_limit(backend):
     res = Parallel(n_jobs=2, backend=backend)(
         delayed(_run_parallel_sum)() for _ in range(2)
     )
+    n_threads = max(cpu_count() // 2, 1)
     for value in res[0][0].values():
-        assert value == '1'
-    assert all([r[1] == 1 for r in res])
+        assert value == str(n_threads)
+    assert all([r[1] == n_threads for r in res])
 
 
 @skipif(distributed is not None,
@@ -1565,3 +1566,13 @@ def test_globals_update_at_each_parallel_call():
     workers_global_variable = Parallel(n_jobs=2)(
         delayed(check_globals)() for i in range(2))
     assert set(workers_global_variable) == {"changed value"}
+
+
+@pytest.mark.parametrize("Backend", [MultiprocessingBackend, LokyBackend])
+def test_limit_clib_threads(Backend):
+    with pytest.raises(ValueError,
+                       match="one of n_threads, n_jobs must be not None"):
+        Backend.limit_clib_threads(n_threads=None, n_jobs=None)
+    with pytest.raises(ValueError,
+                       match="must be a non zero int."):
+        Backend.limit_clib_threads(n_threads=None, n_jobs=0)

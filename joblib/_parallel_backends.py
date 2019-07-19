@@ -163,13 +163,13 @@ class ParallelBackendBase(with_metaclass(ABCMeta)):
             if n_jobs is None:
                 raise ValueError('At least one of n_threads, n_jobs must be '
                                  'not None')
-            elif n_jobs == -1:
-                n_threads = 1
-            elif n_jobs >= 1:
+            elif isinstance(n_jobs, int) and n_jobs != 0:
+                if n_jobs < 0:
+                    n_jobs = cpu_count() - n_jobs + 1
                 n_threads = max(cpu_count() // n_jobs, 1)
             else:
-                raise ValueError('n_jobs={} must be larger than 1 or equal to '
-                                 '-1.'.format(n_jobs))
+                raise ValueError('n_jobs={} must be a non zero int.'
+                                 .format(n_jobs))
 
         for var in cls.SUPPORTED_CLIB_VARS:
             var_value = os.environ.get(var, None)
