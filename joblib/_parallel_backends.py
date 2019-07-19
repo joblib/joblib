@@ -148,13 +148,29 @@ class ParallelBackendBase(with_metaclass(ABCMeta)):
         yield
 
     @classmethod
-    def limit_clib_threads(cls, n_threads=1):
+    def limit_clib_threads(cls, n_threads=1, n_jobs=None):
         """Initializer to limit the number of threads used by some C-libraries.
 
         This function set the number of threads to `n_threads` for OpenMP, MKL,
         Accelerated and OpenBLAS libraries, that can be used with scientific
         computing tools like numpy.
+
+        If ``n_threads`` is None and ``n_jobs`` is not None, `n_threads` is set
+        to ``max(cpu_count // n_jobs, 1)``.  Otherwise the value of n_jobs is
+        ignored.
         """
+        if n_threads is None:
+            if n_jobs is None:
+                raise ValueError('At least one of n_threads, n_jobs must be '
+                                 'not None')
+            elif n_jobs == -1:
+                n_threads = 1
+            elif n_jobs >= 1:
+                n_threads = max(cpu_count() // n_jobs, 1)
+            else:
+                raise ValueError('n_jobs={} must be larger than 1 or equal to '
+                                 '-1.'.format(n_jobs))
+
         for var in cls.SUPPORTED_CLIB_VARS:
             var_value = os.environ.get(var, None)
             if var_value is None:
@@ -444,7 +460,14 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
         # Make sure to free as much memory as possible before forking
         gc.collect()
         self._pool = MemmappingPool(
-            n_jobs, initializer=self.limit_clib_threads, **memmappingpool_args)
+            n_jobs,
+            initializer=functools.partial(
+                self.limit_clib_threads,
+                n_threads=None,
+                n_jobs=n_jobs
+            ),
+            **memmappingpool_args
+        )
         self.parallel = parallel
         return n_jobs
 
@@ -472,7 +495,11 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
 
         self._workers = get_memmapping_executor(
             n_jobs, timeout=idle_worker_timeout,
-            initializer=self.limit_clib_threads,
+            initializer=functools.partial(
+                self.limit_clib_threads,
+                n_threads=None,
+                n_jobs=n_jobs
+            ),
             **memmappingexecutor_args)
         self.parallel = parallel
         return n_jobs
