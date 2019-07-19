@@ -143,7 +143,7 @@ def test_auto_scatter(loop):
     with cluster() as (s, [a, b]):
         with Client(s['address'], loop=loop) as client:
             with parallel_backend('dask') as (ba, _):
-                Parallel()(delayed(noop)(data[:3], i) for i in range(5))
+                Parallel()(delayed(noop)(data1[:3], i) for i in range(5))
             # Small arrays are passed within the task definition without going
             # through a scatter operation.
             counts = count_events('receive-from-scatter', client)
