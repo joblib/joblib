@@ -234,6 +234,25 @@ def test_nested_parallel_warnings(parent_backend, child_backend, expected):
         assert all(res)
 
 
+@with_multiprocessing
+@parametrize('backend', ['loky', 'multiprocessing', 'threading'])
+def test_background_thread_parallelism(backend):
+    is_run_parallel = [False]
+
+    def background_thread(is_run_parallel):
+        with warns(None) as records:
+            with parallel_backend(backend, in_background_thread=True):
+                Parallel(n_jobs=2)(
+                    delayed(sleep)(.1) for _ in range(4))
+        print(len(records))
+        is_run_parallel[0] = len(records) == 0
+
+    t = threading.Thread(target=background_thread, args=(is_run_parallel,))
+    t.start()
+    t.join()
+    assert is_run_parallel[0]
+
+
 def nested_loop(backend):
     Parallel(n_jobs=2, backend=backend)(
         delayed(square)(.01) for _ in range(2))
@@ -729,7 +748,6 @@ def get_nested_pids():
     # Assert that the tasks are running only on one process
     return Parallel(n_jobs=2)(delayed(sleep_and_return_pid)()
                               for _ in range(2))
-
 
 
 class MyBackend(joblib._parallel_backends.LokyBackend):

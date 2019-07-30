@@ -12,12 +12,10 @@ import sys
 from math import sqrt
 import functools
 import time
-import inspect
 import threading
 import itertools
 from numbers import Integral
 import warnings
-from functools import partial
 
 from ._multiprocessing_helpers import mp
 
@@ -29,7 +27,7 @@ from ._parallel_backends import (FallbackToBackend, MultiprocessingBackend,
                                  ThreadingBackend, SequentialBackend,
                                  LokyBackend)
 from ._compat import _basestring
-from .externals.cloudpickle import dumps, loads
+from .externals.cloudpickle import dumps
 from .externals import loky
 
 # Make sure that those two classes are part of the public joblib.parallel API
@@ -206,7 +204,7 @@ if hasattr(mp, 'get_context'):
 class BatchedCalls(object):
     """Wrap a sequence of (func, args, kwargs) tuples as a single callable"""
 
-    def __init__(self, iterator_slice, backend_and_jobs, pickle_cache=None):
+    def __init__(self, iterator_slice, backend_and_jobs):
         self.items = list(iterator_slice)
         self._size = len(self.items)
         if isinstance(backend_and_jobs, tuple):
@@ -215,7 +213,6 @@ class BatchedCalls(object):
             # this is for backward compatibility purposes. Before 0.12.6,
             # nested backends were returned without n_jobs indications.
             self._backend, self._n_jobs = backend_and_jobs, None
-        self._pickle_cache = pickle_cache if pickle_cache is not None else {}
 
     def __call__(self):
         # Set the default nested backend to self._backend but do not set the
@@ -750,8 +747,7 @@ class Parallel(Logger):
 
         with self._lock:
             tasks = BatchedCalls(itertools.islice(iterator, batch_size),
-                                 self._backend.get_nested_backend(),
-                                 self._pickle_cache)
+                                 self._backend.get_nested_backend())
             if len(tasks) == 0:
                 # No more tasks available in the iterator: tell caller to stop.
                 return False
@@ -904,11 +900,7 @@ class Parallel(Logger):
         self.n_dispatched_batches = 0
         self.n_dispatched_tasks = 0
         self.n_completed_tasks = 0
-        # Use a caching dict for callables that are pickled with cloudpickle to
-        # improve performances. This cache is used only in the case of
-        # functions that are defined in the __main__ module, functions that are
-        # defined locally (inside another function) and lambda expressions.
-        self._pickle_cache = dict()
+
         try:
             # Only set self._iterating to True if at least a batch
             # was dispatched. In particular this covers the edge
@@ -943,7 +935,6 @@ class Parallel(Logger):
             if not self._managed_backend:
                 self._terminate_backend()
             self._jobs = list()
-            self._pickle_cache = None
         output = self._output
         self._output = None
         return output

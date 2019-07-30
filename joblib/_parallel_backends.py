@@ -30,11 +30,13 @@ if mp is not None:
 class ParallelBackendBase(with_metaclass(ABCMeta)):
     """Helper abc which defines all methods a ParallelBackend must implement"""
 
-    supports_timeout = False
     nesting_level = 0
+    supports_timeout = False
+    in_background_thread = False
 
-    def __init__(self, nesting_level=0):
+    def __init__(self, nesting_level=0, in_background_thread=False):
         self.nesting_level = nesting_level
+        self.in_background_thread = in_background_thread
 
     SUPPORTED_CLIB_VARS = [
         'OMP_NUM_THREADS', 'OPENBLAS_NUM_THREADS', 'MKL_NUM_THREADS',
@@ -160,6 +162,10 @@ class ParallelBackendBase(with_metaclass(ABCMeta)):
             if var_value is None:
                 os.environ[var] = str(n_threads)
 
+    @staticmethod
+    def called_in_main_thread():
+        return isinstance(threading.current_thread(), threading._MainThread)
+
 
 class SequentialBackend(ParallelBackendBase):
     """A ParallelBackend which will execute all batches sequentially.
@@ -251,9 +257,10 @@ class AutoBatchingMixin(object):
     _DEFAULT_EFFECTIVE_BATCH_SIZE = 1
     _DEFAULT_SMOOTHED_BATCH_DURATION = 0.0
 
-    def __init__(self):
+    def __init__(self, **kwargs):
         self._effective_batch_size = self._DEFAULT_EFFECTIVE_BATCH_SIZE
         self._smoothed_batch_duration = self._DEFAULT_SMOOTHED_BATCH_DURATION
+        ParallelBackendBase.__init__(self, **kwargs)
 
     def compute_batch_size(self):
         """Determine the optimal batch size"""
@@ -409,12 +416,14 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
                     stacklevel=3)
             return 1
 
-        if not isinstance(threading.current_thread(), threading._MainThread):
+        if not (self.called_in_main_thread() or self.in_background_thread):
             # Prevent posix fork inside in non-main posix threads
             if n_jobs != 1:
                 warnings.warn(
                     'Multiprocessing-backed parallel loops cannot be nested'
-                    ' below threads, setting n_jobs=1',
+                    ' below threads, setting n_jobs=1. If Parallel is called'
+                    ' from a background thread, set `in_background_thread` in '
+                    '`parallel_backend` to run in parallel.',
                     stacklevel=3)
             return 1
 
@@ -490,11 +499,14 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
             if n_jobs != 1:
                 warnings.warn(
                     'Loky-backed parallel loops cannot be called in a'
-                    ' multiprocessing, setting n_jobs=1',
+                    ' multiprocessing, setting n_jobs=1. If Parallel is called'
+                    ' from a background thread, set `in_background_thread` in '
+                    '`parallel_backend` to run in parallel.',
                     stacklevel=3)
             return 1
-        elif not isinstance(threading.current_thread(), threading._MainThread):
-            # Prevent posix fork inside in non-main posix threads
+        elif not (self.called_in_main_thread() or self.in_background_thread):
+            # Prevent spawning workers inside in non-main posix threads if not
+            # explicitely allowed.
             if n_jobs != 1:
                 warnings.warn(
                     'Loky-backed parallel loops cannot be nested below '
