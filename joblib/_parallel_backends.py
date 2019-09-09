@@ -258,7 +258,7 @@ class AutoBatchingMixin(object):
     def __init__(self, **kwargs):
         self._effective_batch_size = self._DEFAULT_EFFECTIVE_BATCH_SIZE
         self._smoothed_batch_duration = self._DEFAULT_SMOOTHED_BATCH_DURATION
-        super().__init__(**kwargs)
+        super(AutoBatchingMixin, self).__init__(**kwargs)
 
     def compute_batch_size(self):
         """Determine the optimal batch size"""
