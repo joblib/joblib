@@ -35,6 +35,10 @@ def test_no_semaphore_tracker_on_import():
         # start_method is already set.
         msg = "multiprocessing.semaphore_tracker has been spawned on import"
         assert semaphore_tracker._semaphore_tracker._fd is None, msg"""
+    if sys.version_info >= (3, 8):
+        # semaphore tracker has been replaced by a more generic resource tracker
+        # in Python 3.8.
+        code = code.replace("semaphore_tracker", "resource_tracker")
     check_subprocess_call([sys.executable, '-c', code])
 
 
