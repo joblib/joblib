@@ -56,10 +56,17 @@ class Hasher(Pickler):
 
     def __init__(self, hash_name='md5'):
         self.stream = io.BytesIO()
-        # By default we want a pickle protocol that only changes with
-        # the major python version and not the minor one
-        protocol = (pickle.DEFAULT_PROTOCOL if PY3_OR_LATER
-                    else pickle.HIGHEST_PROTOCOL)
+        # Hash depends in on the Major.Minor version of Python
+        if sys.version_info >= (3, 8):
+            # Always use the most recent pickle protocol for recent
+            # versions of Python
+            protocol = pickle.HIGHEST_PROTOCOL
+        elif sys.version_info >= (3,):
+            # Backward compat for Python 3.4 to 3.7 included.
+            protocol = pickle.DEFAULT_PROTOCOL
+        else:
+            # Python 2
+            protocol = pickle.HIGHEST_PROTOCOL
         Pickler.__init__(self, self.stream, protocol=protocol)
         # Initialise the hash obj
         self._hash = hashlib.new(hash_name)

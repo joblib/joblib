@@ -342,34 +342,46 @@ def test_dtype():
     assert hash([a, c]) == hash([a, b])
 
 
-@parametrize('to_hash,expected',
+@parametrize('to_hash,expected_hashes',
              [('This is a string to hash',
-                 {'py2': '80436ada343b0d79a99bfd8883a96e45',
-                  'py3': '71b3f47df22cb19431d85d92d0b230b2'}),
+                 [((2, 7), '80436ada343b0d79a99bfd8883a96e45'),
+                  ((3, 7), '71b3f47df22cb19431d85d92d0b230b2'),
+                  ((3, 8), '2f8c74a1db939f6ca9a1933e9916c3db')]),
               (u"C'est l\xe9t\xe9",
-                 {'py2': '2ff3a25200eb6219f468de2640913c2d',
-                  'py3': '2d8d189e9b2b0b2e384d93c868c0e576'}),
+                 [((2, 7), '2ff3a25200eb6219f468de2640913c2d'),
+                  ((3, 7), '2d8d189e9b2b0b2e384d93c868c0e576'),
+                  ((3, 8), '2c6506e42c1c5af92fb67c72c03fae1d')]),
               ((123456, 54321, -98765),
-                 {'py2': '50d81c80af05061ac4dcdc2d5edee6d6',
-                  'py3': 'e205227dd82250871fa25aa0ec690aa3'}),
+                 [((2, 7), '50d81c80af05061ac4dcdc2d5edee6d6'),
+                  ((3, 7), 'e205227dd82250871fa25aa0ec690aa3'),
+                  ((3, 8), '41fd5608d1e848730ff73d2c0568d455')]),
               ([random.Random(42).random() for _ in range(5)],
-                 {'py2': '1a36a691b2e2ba3a9df72de3dccf17ea',
-                  'py3': 'a11ffad81f9682a7d901e6edc3d16c84'}),
+                 [((2, 7), '1a36a691b2e2ba3a9df72de3dccf17ea'),
+                  ((3, 7), 'a11ffad81f9682a7d901e6edc3d16c84'),
+                  ((3, 8), 'ef1ee700ae3196a3d5fa69e2e03ba57c')]),
               ([3, 'abc', None, TransportableException('foo', ValueError)],
-                 {'py2': 'adb6ba84990ee5e462dc138383f11802',
-                  'py3': '994f663c64ba5e64b2a85ebe75287829'}),
+                 [((2, 7), 'adb6ba84990ee5e462dc138383f11802'),
+                  ((3, 7), '994f663c64ba5e64b2a85ebe75287829'),
+                  ((3, 8), '8f7bcef5d8115802b7d4f5d570de0188')]),
               ({'abcde': 123, 'sadfas': [-9999, 2, 3]},
-                 {'py2': 'fc9314a39ff75b829498380850447047',
-                  'py3': 'aeda150553d4bb5c69f0e69d51b0e2ef'})])
-def test_hashes_stay_the_same(to_hash, expected):
-    # We want to make sure that hashes don't change with joblib
-    # version. For end users, that would mean that they have to
-    # regenerate their cache from scratch, which potentially means
-    # lengthy recomputations.
-    # Expected results have been generated with joblib 0.9.2
-
-    py_version_str = 'py3' if PY3_OR_LATER else 'py2'
-    assert hash(to_hash) == expected[py_version_str]
+                 [((2, 7), 'fc9314a39ff75b829498380850447047'),
+                  ((3, 7), 'aeda150553d4bb5c69f0e69d51b0e2ef'),
+                  ((3, 8), '08f6d8304d037c30f320a0fab748c311')])])
+def test_hashes_stay_the_same(to_hash, expected_hashes):
+    # We want to make sure that hashes don't change with joblib version (only
+    # Python version). For end users, that would mean that they have to
+    # regenerate their cache from scratch, which potentially means lengthy
+    # recomputations. Expected results have been generated with joblib 0.9.2
+    py_version = sys.version_info[:2]
+    expected_hash = None
+    for version, current_hash in expected_hashes:
+        if version > py_version:
+            break
+        expected_hash = current_hash
+    if expected_hash is None:  # noqa
+        raise RuntimeError("Could not find expected hashes for Python %s"
+                           % (py_version,))
+    assert hash(to_hash) == expected_hash
 
 
 @with_numpy
@@ -425,24 +437,48 @@ def test_hashes_stay_the_same_with_numpy_objects():
     ]
 
     # These expected results have been generated with joblib 0.9.0
-    expected_dict = {'py2': ['80f2387e7752abbda2658aafed49e086',
-                             '0d700f7f25ea670fd305e4cd93b0e8cd',
-                             '83a2bdf843e79e4b3e26521db73088b9',
-                             '63e0efd43c0a9ad92a07e8ce04338dd3',
-                             '03fef702946b602c852b8b4e60929914',
-                             '07074691e90d7098a85956367045c81e',
-                             'd264cf79f353aa7bbfa8349e3df72d8f'],
-                     'py3': ['10a6afc379ca2708acfbaef0ab676eab',
-                             '988a7114f337f381393025911ebc823b',
-                             'c6809f4b97e35f2fa0ee8d653cbd025c',
-                             'b3ad17348e32728a7eb9cda1e7ede438',
-                             '927b3e6b0b6a037e8e035bda134e0b05',
-                             '108f6ee98e7db19ea2006ffd208f4bf1',
-                             'bd48ccaaff28e16e6badee81041b7180']}
-
-    py_version_str = 'py3' if PY3_OR_LATER else 'py2'
-    expected_list = expected_dict[py_version_str]
-
+    expected_hashes = [
+        ((2, 7), [
+            '80f2387e7752abbda2658aafed49e086',
+            '0d700f7f25ea670fd305e4cd93b0e8cd',
+            '83a2bdf843e79e4b3e26521db73088b9',
+            '63e0efd43c0a9ad92a07e8ce04338dd3',
+            '03fef702946b602c852b8b4e60929914',
+            '07074691e90d7098a85956367045c81e',
+            'd264cf79f353aa7bbfa8349e3df72d8f',
+        ]),
+        ((3, 7), [
+            '10a6afc379ca2708acfbaef0ab676eab',
+            '988a7114f337f381393025911ebc823b',
+            'c6809f4b97e35f2fa0ee8d653cbd025c',
+            'b3ad17348e32728a7eb9cda1e7ede438',
+            '927b3e6b0b6a037e8e035bda134e0b05',
+            '108f6ee98e7db19ea2006ffd208f4bf1',
+            'bd48ccaaff28e16e6badee81041b7180',
+        ]),
+        # The last version needs to be updated when a new
+        # Python version is released. The hash values to
+        # not necessarily change, so it can just be a matter
+        # of increasing the minor version number.
+        ((3, 8), [
+            '1af842c8e0aee279b7e43355dac70882',
+            '839f1e65a5a9085164b43efa3e79171f',
+            '07d9267113271c76742ec6becee0a08a',
+            '2ef06ddd0c6c659d517c4208d8391293',
+            '299c42fc7c382c27473037a62a39282a',
+            'd877b37ffaad185212cd6f7e3fbe31df',
+            'ae41362cd801a6b40edc6cdcf01af136',
+        ])
+    ]
+    py_version = sys.version_info[:2]
+    expected_list = None
+    for version, hash_list in expected_hashes:
+        if version > py_version:
+            break
+        expected_list = hash_list
+    if expected_list is None:  # noqa
+        raise RuntimeError("Could not find expected hashes for Python %s"
+                           % (py_version,))
     for to_hash, expected in zip(to_hash_list, expected_list):
         assert hash(to_hash) == expected
 
