@@ -4,6 +4,9 @@ Latest changes
 Release 0.14.0
 --------------
 
+- Add official support for Python 3.8: fixed protocol number in `Hasher`
+  and updated tests.
+
 - Warn users that they should never use `joblib.load` with files from
   untrusted sources. Fix security related API change introduced in numpy
   1.6.3 that would prevent using joblib with recent numpy versions.
