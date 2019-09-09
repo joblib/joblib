@@ -26,7 +26,7 @@ def test_no_start_method_side_effect_on_import():
 
 @pytest.mark.skipif(PY27, reason="Need python3.3+")
 def test_no_semaphore_tracker_on_import():
-    # check that importing joblib does not implicitly spawn a ressource tracker
+    # check that importing joblib does not implicitly spawn a resource tracker
     # or a semaphore tracker
     code = """if True:
         import joblib
@@ -36,8 +36,8 @@ def test_no_semaphore_tracker_on_import():
         msg = "multiprocessing.semaphore_tracker has been spawned on import"
         assert semaphore_tracker._semaphore_tracker._fd is None, msg"""
     if sys.version_info >= (3, 8):
-        # semaphore tracker has been replaced by a more generic resource tracker
-        # in Python 3.8.
+        # semaphore tracker has been replaced by a more generic resource
+        # tracker in Python 3.8
         code = code.replace("semaphore_tracker", "resource_tracker")
     check_subprocess_call([sys.executable, '-c', code])
 
