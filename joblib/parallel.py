@@ -172,17 +172,20 @@ class parallel_backend(object):
 
             backend = BACKENDS[backend](**backend_params)
 
-        self.old_backend_and_jobs = getattr(_backend, 'backend_and_jobs', None)
-        self.new_backend_and_jobs = (backend, n_jobs)
-
-        # Correctly set the nesting level
+        # If the nesting_level of the backend is not set previously, use the
+        # nesting level from the previous active_backend to set it
+        current_backend_and_jobs = getattr(_backend, 'backend_and_jobs', None)
         if backend.nesting_level is None:
-            if self.old_backend_and_jobs is None:
+            if current_backend_and_jobs is None:
                 nesting_level = 0
             else:
-                nesting_level = self.old_backend_and_jobs[0].nesting_level
+                nesting_level = current_backend_and_jobs.nesting_level
 
             backend.nesting_level = nesting_level
+
+        # Save the backends info and set the active backend
+        self.old_backend_and_jobs = current_backend_and_jobs
+        self.new_backend_and_jobs = (backend, n_jobs)
 
         _backend.backend_and_jobs = (backend, n_jobs)
 
