@@ -27,6 +27,8 @@ install:
   - SET PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%
 
   # Install the build and runtime dependencies of the project.
+  - python -m venv ../python_venv
+  - ../python_venv/Scripts/activate.bat
   - pip install -r continuous_integration/appveyor/requirements.txt
   - python setup.py bdist_wheel
   - ps: ls dist
