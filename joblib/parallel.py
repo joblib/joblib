@@ -179,7 +179,7 @@ class parallel_backend(object):
             if current_backend_and_jobs is None:
                 nesting_level = 0
             else:
-                nesting_level = current_backend_and_jobs.nesting_level
+                nesting_level = current_backend_and_jobs[0].nesting_level
 
             backend.nesting_level = nesting_level
 
