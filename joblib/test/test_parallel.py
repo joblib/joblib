@@ -804,6 +804,28 @@ def test_nested_backend_in_sequential(backend, n_jobs):
         )
 
 
+def check_nesting_level(inner_backend, expected_level):
+    with parallel_backend(inner_backend) as (backend, n_jobs):
+        assert backend.nesting_level == expected_level
+
+
+@with_multiprocessing
+@pytest.mark.parametrize('outer_backend', PARALLEL_BACKENDS)
+@pytest.mark.parametrize('inner_backend', PARALLEL_BACKENDS)
+def test_backend_nesting_level(outer_backend, inner_backend):
+    # Check that the nesting level for the backend is correctly set
+    check_nesting_level(outer_backend, 0)
+
+    Parallel(n_jobs=2, backend=outer_backend)(
+        delayed(check_nesting_level)(inner_backend, 1)
+        for _ in range(10)
+    )
+
+    with parallel_backend(inner_backend, n_jobs=2):
+        Parallel()(delayed(check_nesting_level)(inner_backend, 1)
+                   for _ in range(10))
+
+
 @with_multiprocessing
 def test_retrieval_context():
     import contextlib

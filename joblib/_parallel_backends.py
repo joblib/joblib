@@ -30,10 +30,10 @@ if mp is not None:
 class ParallelBackendBase(with_metaclass(ABCMeta)):
     """Helper abc which defines all methods a ParallelBackend must implement"""
 
+    nesting_level = None
     supports_timeout = False
-    nesting_level = 0
 
-    def __init__(self, nesting_level=0):
+    def __init__(self, nesting_level=None):
         self.nesting_level = nesting_level
 
     SUPPORTED_CLIB_VARS = [
@@ -160,6 +160,10 @@ class ParallelBackendBase(with_metaclass(ABCMeta)):
             if var_value is None:
                 os.environ[var] = str(n_threads)
 
+    @staticmethod
+    def in_main_thread():
+        return isinstance(threading.current_thread(), threading._MainThread)
+
 
 class SequentialBackend(ParallelBackendBase):
     """A ParallelBackend which will execute all batches sequentially.
@@ -251,9 +255,10 @@ class AutoBatchingMixin(object):
     _DEFAULT_EFFECTIVE_BATCH_SIZE = 1
     _DEFAULT_SMOOTHED_BATCH_DURATION = 0.0
 
-    def __init__(self):
+    def __init__(self, **kwargs):
         self._effective_batch_size = self._DEFAULT_EFFECTIVE_BATCH_SIZE
         self._smoothed_batch_duration = self._DEFAULT_SMOOTHED_BATCH_DURATION
+        super().__init__(**kwargs)
 
     def compute_batch_size(self):
         """Determine the optimal batch size"""
@@ -409,7 +414,7 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
                     stacklevel=3)
             return 1
 
-        if not isinstance(threading.current_thread(), threading._MainThread):
+        elif not (self.in_main_thread() or self.nesting_level == 0):
             # Prevent posix fork inside in non-main posix threads
             if n_jobs != 1:
                 warnings.warn(
@@ -493,7 +498,7 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
                     ' multiprocessing, setting n_jobs=1',
                     stacklevel=3)
             return 1
-        elif not isinstance(threading.current_thread(), threading._MainThread):
+        elif not (self.in_main_thread() or self.nesting_level == 0):
             # Prevent posix fork inside in non-main posix threads
             if n_jobs != 1:
                 warnings.warn(
