@@ -17,6 +17,10 @@ Release 0.14.0
   on module import.
   https://github.com/joblib/joblib/pull/893
 
+- Fix the oversubscription protection to only protect against nested
+  `Parallel` calls. This allows `joblib` to be run in background threads.
+  https://github.com/joblib/joblib/pull/934
+
 Release 0.13.2
 --------------
 
