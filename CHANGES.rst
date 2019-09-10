@@ -4,6 +4,9 @@ Latest changes
 Release 0.14.0
 --------------
 
+- Add official support for Python 3.8: fixed protocol number in `Hasher`
+  and updated tests.
+
 - Warn users that they should never use `joblib.load` with files from
   untrusted sources. Fix security related API change introduced in numpy
   1.6.3 that would prevent using joblib with recent numpy versions.
@@ -16,6 +19,10 @@ Release 0.14.0
 - Fix semaphore availability checker to avoid spawning resource trackers
   on module import.
   https://github.com/joblib/joblib/pull/893
+
+- Fix the oversubscription protection to only protect against nested
+  `Parallel` calls. This allows `joblib` to be run in background threads.
+  https://github.com/joblib/joblib/pull/934
 
 Release 0.13.2
 --------------

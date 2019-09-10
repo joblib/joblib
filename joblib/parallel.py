@@ -12,12 +12,10 @@ import sys
 from math import sqrt
 import functools
 import time
-import inspect
 import threading
 import itertools
 from numbers import Integral
 import warnings
-from functools import partial
 
 from ._multiprocessing_helpers import mp
 
@@ -92,11 +90,13 @@ def get_active_backend(prefer=None, require=None, verbose=0):
     if backend_and_jobs is not None:
         # Try to use the backend set by the user with the context manager.
         backend, n_jobs = backend_and_jobs
+        nesting_level = backend.nesting_level
         supports_sharedmem = getattr(backend, 'supports_sharedmem', False)
         if require == 'sharedmem' and not supports_sharedmem:
             # This backend does not match the shared memory constraint:
             # fallback to the default thead-based backend.
-            sharedmem_backend = BACKENDS[DEFAULT_THREAD_BACKEND]()
+            sharedmem_backend = BACKENDS[DEFAULT_THREAD_BACKEND](
+                nesting_level=nesting_level)
             if verbose >= 10:
                 print("Using %s as joblib.Parallel backend instead of %s "
                       "as the latter does not provide shared memory semantics."
@@ -108,14 +108,14 @@ def get_active_backend(prefer=None, require=None, verbose=0):
 
     # We are outside of the scope of any parallel_backend context manager,
     # create the default backend instance now.
-    backend = BACKENDS[DEFAULT_BACKEND]()
+    backend = BACKENDS[DEFAULT_BACKEND](nesting_level=0)
     supports_sharedmem = getattr(backend, 'supports_sharedmem', False)
     uses_threads = getattr(backend, 'uses_threads', False)
     if ((require == 'sharedmem' and not supports_sharedmem) or
             (prefer == 'threads' and not uses_threads)):
         # Make sure the selected default backend match the soft hints and
         # hard constraints:
-        backend = BACKENDS[DEFAULT_THREAD_BACKEND]()
+        backend = BACKENDS[DEFAULT_THREAD_BACKEND](nesting_level=0)
     return backend, DEFAULT_N_JOBS
 
 
@@ -172,7 +172,19 @@ class parallel_backend(object):
 
             backend = BACKENDS[backend](**backend_params)
 
-        self.old_backend_and_jobs = getattr(_backend, 'backend_and_jobs', None)
+        # If the nesting_level of the backend is not set previously, use the
+        # nesting level from the previous active_backend to set it
+        current_backend_and_jobs = getattr(_backend, 'backend_and_jobs', None)
+        if backend.nesting_level is None:
+            if current_backend_and_jobs is None:
+                nesting_level = 0
+            else:
+                nesting_level = current_backend_and_jobs[0].nesting_level
+
+            backend.nesting_level = nesting_level
+
+        # Save the backends info and set the active backend
+        self.old_backend_and_jobs = current_backend_and_jobs
         self.new_backend_and_jobs = (backend, n_jobs)
 
         _backend.backend_and_jobs = (backend, n_jobs)
@@ -587,6 +599,7 @@ class Parallel(Logger):
                  prefer=None, require=None):
         active_backend, context_n_jobs = get_active_backend(
             prefer=prefer, require=require, verbose=verbose)
+        nesting_level = active_backend.nesting_level
         if backend is None and n_jobs is None:
             # If we are under a parallel_backend context manager, look up
             # the default number of jobs and use that instead:
@@ -618,22 +631,26 @@ class Parallel(Logger):
 
         if backend is None:
             backend = active_backend
+
         elif isinstance(backend, ParallelBackendBase):
-            # Use provided backend as is
-            pass
+            # Use provided backend as is, with the current nesting_level if it
+            # is not set yet.
+            if backend.nesting_level is None:
+                backend.nesting_level = nesting_level
+
         elif hasattr(backend, 'Pool') and hasattr(backend, 'Lock'):
             # Make it possible to pass a custom multiprocessing context as
             # backend to change the start method to forkserver or spawn or
             # preload modules on the forkserver helper process.
             self._backend_args['context'] = backend
-            backend = MultiprocessingBackend()
+            backend = MultiprocessingBackend(nesting_level=nesting_level)
         else:
             try:
                 backend_factory = BACKENDS[backend]
             except KeyError:
                 raise ValueError("Invalid backend: %s, expected one of %r"
                                  % (backend, sorted(BACKENDS.keys())))
-            backend = backend_factory()
+            backend = backend_factory(nesting_level=nesting_level)
 
         if (require == 'sharedmem' and
                 not getattr(backend, 'supports_sharedmem', False)):
