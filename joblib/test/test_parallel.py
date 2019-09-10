@@ -234,6 +234,24 @@ def test_nested_parallel_warnings(parent_backend, child_backend, expected):
         assert all(res)
 
 
+@with_multiprocessing
+@parametrize('backend', ['loky', 'multiprocessing', 'threading'])
+def test_background_thread_parallelism(backend):
+    is_run_parallel = [False]
+
+    def background_thread(is_run_parallel):
+        with warns(None) as records:
+            Parallel(n_jobs=2)(
+                delayed(sleep)(.1) for _ in range(4))
+        print(len(records))
+        is_run_parallel[0] = len(records) == 0
+
+    t = threading.Thread(target=background_thread, args=(is_run_parallel,))
+    t.start()
+    t.join()
+    assert is_run_parallel[0]
+
+
 def nested_loop(backend):
     Parallel(n_jobs=2, backend=backend)(
         delayed(square)(.01) for _ in range(2))
@@ -731,7 +749,6 @@ def get_nested_pids():
                               for _ in range(2))
 
 
-
 class MyBackend(joblib._parallel_backends.LokyBackend):
     """Backend to test backward compatibility with older backends"""
     def get_nested_backend(self, ):
@@ -785,6 +802,28 @@ def test_nested_backend_in_sequential(backend, n_jobs):
             delayed(check_nested_backend)(backend, n_jobs)
             for _ in range(10)
         )
+
+
+def check_nesting_level(inner_backend, expected_level):
+    with parallel_backend(inner_backend) as (backend, n_jobs):
+        assert backend.nesting_level == expected_level
+
+
+@with_multiprocessing
+@pytest.mark.parametrize('outer_backend', PARALLEL_BACKENDS)
+@pytest.mark.parametrize('inner_backend', PARALLEL_BACKENDS)
+def test_backend_nesting_level(outer_backend, inner_backend):
+    # Check that the nesting level for the backend is correctly set
+    check_nesting_level(outer_backend, 0)
+
+    Parallel(n_jobs=2, backend=outer_backend)(
+        delayed(check_nesting_level)(inner_backend, 1)
+        for _ in range(10)
+    )
+
+    with parallel_backend(inner_backend, n_jobs=2):
+        Parallel()(delayed(check_nesting_level)(inner_backend, 1)
+                   for _ in range(10))
 
 
 @with_multiprocessing
