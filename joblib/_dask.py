@@ -256,14 +256,13 @@ class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         future = self.client.submit(func, *args, key=key, **self.submit_kwargs)
         self.task_futures.add(future)
 
-        @gen.coroutine
-        def callback_wrapper():
-            result = yield _wait([future])
+        def callback_wrapper(future):
+            result = future.result()
             self.task_futures.remove(future)
             if callback is not None:
-                callback(result)  # gets called in separate thread
+                callback(result)
 
-        self.client.loop.add_callback(callback_wrapper)
+        future.add_done_callback(callback_wrapper)
 
         ref = weakref.ref(future)  # avoid reference cycle
 
