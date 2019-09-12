@@ -112,7 +112,10 @@ class NumpyArrayWrapper(object):
         if len(self.shape) == 0:
             count = 1
         else:
-            count = unpickler.np.multiply.reduce(self.shape)
+            # joblib issue #859: we cast the elements of self.shape to int64 to
+            # prevent a potential overflow when computing their product.
+            shape_int64 = [unpickler.np.int64(x) for x in self.shape]
+            count = unpickler.np.multiply.reduce(shape_int64)
         # Now read the actual data.
         if self.dtype.hasobject:
             # The array contained Python objects. We need to unpickle the data.
