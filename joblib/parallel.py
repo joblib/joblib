@@ -17,7 +17,6 @@ import itertools
 from numbers import Integral
 import warnings
 import queue
-from functools import partial
 
 from ._multiprocessing_helpers import mp
 
@@ -790,13 +789,12 @@ class Parallel(Logger):
                 # accordingly to distribute evenly the last items between all
                 # workers.
                 n_jobs = self._cached_effective_n_jobs
-                BIG_BATCH_SIZE = batch_size * n_jobs
-                # raise ValueError(BIG_BATCH_SIZE)
+                big_batch_size = batch_size * n_jobs
 
-                islice = list(itertools.islice(iterator, BIG_BATCH_SIZE))
+                islice = list(itertools.islice(iterator, big_batch_size))
                 if len(islice) == 0:
                     return False
-                elif len(islice) < BIG_BATCH_SIZE:
+                elif len(islice) < big_batch_size:
                     # we reached the end of the iterator. In this case,
                     # decrease the batch size to account for potential variance
                     # in the batches running time.
