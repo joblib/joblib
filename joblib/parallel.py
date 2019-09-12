@@ -794,10 +794,13 @@ class Parallel(Logger):
                 islice = list(itertools.islice(iterator, big_batch_size))
                 if len(islice) == 0:
                     return False
-                elif len(islice) < big_batch_size:
-                    # we reached the end of the iterator. In this case,
-                    # decrease the batch size to account for potential variance
-                    # in the batches running time.
+                elif (iterator is self._original_iterator
+                      and len(islice) < big_batch_size):
+                    # We reached the end of the original iterator (unless
+                    # iterator is the ``pre_dispatch``-long initial slice of
+                    # the original iterator) -- decrease the batch size to
+                    # account for potential variance in the batches running
+                    # time.
                     final_batch_size = max(1, len(islice) // (10 * n_jobs))
                 else:
                     final_batch_size = max(1, len(islice) // n_jobs)
@@ -965,7 +968,7 @@ class Parallel(Logger):
             # callbacks upon task completions.
 
             # TODO: this iterator should be batch_size * n_jobs
-            iterator = itertools.islice(iterator, n_jobs)
+            iterator = itertools.islice(iterator, self._pre_dispatch_amount)
 
         self._start_time = time.time()
         self.n_dispatched_batches = 0
