@@ -28,6 +28,10 @@ Release 0.14.0
   `Parallel` calls. This allows `joblib` to be run in background threads.
   https://github.com/joblib/joblib/pull/934
 
+- Fix `ValueError` (negative dimensions) when pickling large numpy arrays on
+  Windows.
+  https://github.com/joblib/joblib/pull/920
+
 Release 0.13.2
 --------------
 
