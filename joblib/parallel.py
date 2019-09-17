@@ -16,7 +16,6 @@ import threading
 import itertools
 from numbers import Integral
 import warnings
-import queue
 
 from ._multiprocessing_helpers import mp
 
