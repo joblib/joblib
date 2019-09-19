@@ -1604,3 +1604,30 @@ def test_globals_update_at_each_parallel_call():
     workers_global_variable = Parallel(n_jobs=2)(
         delayed(check_globals)() for i in range(2))
     assert set(workers_global_variable) == {"changed value"}
+
+
+@with_numpy
+@with_multiprocessing
+def test_threadpool_limitation_in_child():
+    # Check that the protection against oversubscription in workers is working
+    # using threadpoolctl functionalities.
+
+    def check_threadpool_limits():
+        import numpy as np
+        a = np.random.randn(1000)
+        np.dot(a, a)
+        from threadpoolctl import threadpool_info
+        return threadpool_info()
+
+    # Skip this test if numpy is not linked to a BLAS library
+    if len(check_threadpool_limits()) == 0:
+        pytest.skip(msg="Need a version of numpy linked to BLAS")
+
+    workers_threadpool_infos = Parallel(n_jobs=-1)(
+        delayed(check_threadpool_limits)() for i in range(2))
+    num_threads = set(module['num_threads']
+                      for threadpool_info in workers_threadpool_infos
+                      for module in threadpool_info)
+    msg = "Found num_threads={} instead of 1. The module infos are:\n{}"
+    assert num_threads == {1}, msg.format(num_threads,
+                                          workers_threadpool_infos)
