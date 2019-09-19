@@ -30,11 +30,11 @@ if mp is not None:
 class ParallelBackendBase(with_metaclass(ABCMeta)):
     """Helper abc which defines all methods a ParallelBackend must implement"""
 
-    nesting_level = None
     supports_timeout = False
 
-    def __init__(self, nesting_level=None):
+    def __init__(self, nesting_level=None, max_inner_num_threads=None):
         self.nesting_level = nesting_level
+        self.max_inner_num_threads = max_inner_num_threads
 
     SUPPORTED_CLIB_VARS = [
         'OMP_NUM_THREADS', 'OPENBLAS_NUM_THREADS', 'MKL_NUM_THREADS',
@@ -159,6 +159,22 @@ class ParallelBackendBase(with_metaclass(ABCMeta)):
             var_value = os.environ.get(var, None)
             if var_value is None:
                 os.environ[var] = str(n_threads)
+
+    def get_env_limit_threadpools(self, n_threads=1):
+        """Return environment variables limiting threadpools size in C-lib.
+
+        This function return a dict containing environment variable to pass in
+        creating a ProcessPool limiting the number of threads to `n_threads`
+        for OpenMP, MKL, Accelerated and OpenBLAS libraries, that can be used
+        with scientific computing tools like numpy in the child processes.
+        """
+        env = {}
+        for var in self.SUPPORTED_CLIB_VARS:
+            var_value = os.environ.get(var, None)
+            if var_value is None:
+                var_value = str(n_threads)
+            env[var] = var_value
+        return env
 
     @staticmethod
     def in_main_thread():
@@ -475,9 +491,13 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
             raise FallbackToBackend(
                 SequentialBackend(nesting_level=self.nesting_level))
 
+        n_threads = self.max_inner_num_threads
+        if n_threads is None:
+            n_threads = max(cpu_count() // n_jobs, 1)
+
         self._workers = get_memmapping_executor(
             n_jobs, timeout=idle_worker_timeout,
-            initializer=self.limit_clib_threads,
+            env=self.get_env_limit_threadpools(n_threads=n_threads),
             **memmappingexecutor_args)
         self.parallel = parallel
         return n_jobs
