@@ -4,10 +4,10 @@ Latest changes
 Release 0.14.0
 --------------
 
-- Improve the load balancing between joblib's workers, which yielded a
-  performance increase for an extensive set of use-cases (including running
-  tasks with varying running time, and combined usage of ``joblib.Memory`` and
-  ``joblib.Parallel``)
+- Improved the load balancing between workers to avoid stranglers caused by an
+  excessively large batch size when the task duration is varying significantly
+  (because of the combined use of ``joblib.Parallel`` and ``joblib.Memory``
+  with a partially warmed cache for instance).
   https://github.com/joblib/joblib/pull/899
 
 - Add official support for Python 3.8: fixed protocol number in `Hasher`
