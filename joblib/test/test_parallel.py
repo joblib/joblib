@@ -1608,6 +1608,8 @@ def test_globals_update_at_each_parallel_call():
 
 @with_numpy
 @with_multiprocessing
+@skipif(sys.version_info >= (3, 5),
+        reason='threadpoolctl is a python3.5+ package')
 def test_threadpool_limitation_in_child():
     # Check that the protection against oversubscription in workers is working
     # using threadpoolctl functionalities.

@@ -77,7 +77,7 @@ else
 fi
 
 # Install py.test timeout to fasten failure in deadlocking tests
-PIP_INSTALL_PACKAGES="pytest-timeout threadpoolctl"
+PIP_INSTALL_PACKAGES="pytest-timeout"
 
 if [ -n "$NUMPY_VERSION" ]; then
     # We want to ensure no memory copies are performed only when numpy is
@@ -92,6 +92,10 @@ fi
 
 if [[ "$COVERAGE" == "true" ]]; then
     PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES pytest-cov codecov"
+fi
+
+if [[ "2.7 3.4 pypy3" != *"$PYTHON_VERSION"* ]]; then
+    PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES threadpoolctl"
 fi
 
 pip install $PIP_INSTALL_PACKAGES

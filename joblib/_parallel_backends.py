@@ -31,6 +31,7 @@ class ParallelBackendBase(with_metaclass(ABCMeta)):
     """Helper abc which defines all methods a ParallelBackend must implement"""
 
     supports_timeout = False
+    nesting_level = None
 
     def __init__(self, nesting_level=None, max_inner_num_threads=None):
         self.nesting_level = nesting_level
