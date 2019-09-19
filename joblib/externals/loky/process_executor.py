@@ -400,7 +400,7 @@ def _process_worker(call_queue, result_queue, initializer, initargs,
             else:
                 mp.util.info("Could not acquire processes_management_lock")
                 continue
-        except BaseException as e:
+        except BaseException:
             previous_tb = traceback.format_exc()
             try:
                 result_queue.put(_RemoteTraceback(previous_tb))
@@ -853,7 +853,7 @@ class ProcessPoolExecutor(_base.Executor):
 
     def __init__(self, max_workers=None, job_reducers=None,
                  result_reducers=None, timeout=None, context=None,
-                 initializer=None, initargs=()):
+                 initializer=None, initargs=(), env=None):
         """Initializes a new ProcessPoolExecutor instance.
 
         Args:
@@ -874,6 +874,10 @@ class ProcessPoolExecutor(_base.Executor):
                 object should provide SimpleQueue, Queue and Process.
             initializer: An callable used to initialize worker processes.
             initargs: A tuple of arguments to pass to the initializer.
+            env: A dict of environment variable to overwrite in the child
+                process. The environment variables are set before any module is
+                loaded. Note that this only works with the loky context and it
+                is unreliable under windows with Python < 3.6.
         """
         _check_system_limits()
 
@@ -887,6 +891,7 @@ class ProcessPoolExecutor(_base.Executor):
         if context is None:
             context = get_context()
         self._context = context
+        self._env = env
 
         if initializer is not None and not callable(initializer):
             raise TypeError("initializer must be a callable")
@@ -992,17 +997,17 @@ class ProcessPoolExecutor(_base.Executor):
     def _adjust_process_count(self):
         for _ in range(len(self._processes), self._max_workers):
             worker_exit_lock = self._context.BoundedSemaphore(1)
+            args = (self._call_queue, self._result_queue, self._initializer,
+                    self._initargs, self._processes_management_lock,
+                    self._timeout, worker_exit_lock, _CURRENT_DEPTH + 1)
             worker_exit_lock.acquire()
-            p = self._context.Process(
-                target=_process_worker,
-                args=(self._call_queue,
-                      self._result_queue,
-                      self._initializer,
-                      self._initargs,
-                      self._processes_management_lock,
-                      self._timeout,
-                      worker_exit_lock,
-                      _CURRENT_DEPTH + 1))
+            try:
+                # Try to spawn the process with some environment variable to
+                # overwrite but it only works with the loky context for now.
+                p = self._context.Process(target=_process_worker, args=args,
+                                          env=self._env)
+            except TypeError:
+                p = self._context.Process(target=_process_worker, args=args)
             p._worker_exit_lock = worker_exit_lock
             p.start()
             self._processes[p.pid] = p
