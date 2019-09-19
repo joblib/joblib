@@ -31,6 +31,7 @@ class ParallelBackendBase(with_metaclass(ABCMeta)):
     """Helper abc which defines all methods a ParallelBackend must implement"""
 
     supports_timeout = False
+    support_inner_num_threads = False
     nesting_level = None
 
     def __init__(self, nesting_level=None, max_inner_num_threads=None):
@@ -483,6 +484,7 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
     """Managing pool of workers with loky instead of multiprocessing."""
 
     supports_timeout = True
+    support_inner_num_threads = True
 
     def configure(self, n_jobs=1, parallel=None, prefer=None, require=None,
                   idle_worker_timeout=300, **memmappingexecutor_args):

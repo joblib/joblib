@@ -24,6 +24,7 @@ def get_memmapping_executor(n_jobs, timeout=300, initializer=None, initargs=(),
     """
     global _backend_args
     reuse = _backend_args is None or _backend_args == backend_args
+    reuse = 'auto' if reuse else False
     _backend_args = backend_args
 
     id_executor = random.randint(0, int(1e10))

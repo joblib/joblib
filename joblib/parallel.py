@@ -181,6 +181,9 @@ class parallel_backend(object):
             backend = BACKENDS[backend](**backend_params)
 
         if max_inner_num_threads is not None:
+            msg = ("max_inner_num_threads argument should only be used with "
+                   "backend='loky'")
+            assert backend.support_inner_num_threads, msg
             backend.max_inner_num_threads = max_inner_num_threads
 
         # If the nesting_level of the backend is not set previously, use the
