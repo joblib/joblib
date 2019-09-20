@@ -31,7 +31,7 @@ class ParallelBackendBase(with_metaclass(ABCMeta)):
     """Helper abc which defines all methods a ParallelBackend must implement"""
 
     supports_timeout = False
-    support_inner_max_num_threads = False
+    supports_inner_max_num_threads = False
     nesting_level = None
 
     def __init__(self, nesting_level=None, inner_max_num_threads=None):
@@ -149,7 +149,7 @@ class ParallelBackendBase(with_metaclass(ABCMeta)):
         """
         yield
 
-    def get_max_num_threads_vars(self, n_threads=1):
+    def _get_max_num_threads_vars(self, n_threads=1):
         """Return environment variables limiting threadpools in external libs.
 
         This function return a dict containing environment variable to pass in
@@ -470,7 +470,7 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
     """Managing pool of workers with loky instead of multiprocessing."""
 
     supports_timeout = True
-    support_inner_max_num_threads = True
+    supports_inner_max_num_threads = True
 
     def configure(self, n_jobs=1, parallel=None, prefer=None, require=None,
                   idle_worker_timeout=300, **memmappingexecutor_args):
@@ -486,7 +486,7 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
 
         self._workers = get_memmapping_executor(
             n_jobs, timeout=idle_worker_timeout,
-            env=self.get_max_num_threads_vars(n_threads=n_threads),
+            env=self._get_max_num_threads_vars(n_threads=n_threads),
             **memmappingexecutor_args)
         self.parallel = parallel
         return n_jobs

@@ -162,11 +162,11 @@ class parallel_backend(object):
     version of joblib.
 
     Joblib also tries to limit the oversubscription by limiting the number of
-    threads usable in some C-level library threadpools like openBLAS, MKL or
-    OpenMP. The default limit in each worker is set to
-    ``cpu_count() // effective_n_jobs`` but this limit can be overwritten with
-    the ``inner_max_num_threads`` argument which will be used to set this limit
-    in the child processes.
+    threads usable in some third-party library threadpools like OpenBLAS, MKL
+    or OpenMP. The default limit in each worker is set to
+    ``max(cpu_count() // effective_n_jobs, 1)`` but this limit can be
+    overwritten with the ``inner_max_num_threads`` argument which will be used
+    to set this limit in the child processes.
 
     .. versionadded:: 0.10
 
@@ -181,9 +181,9 @@ class parallel_backend(object):
             backend = BACKENDS[backend](**backend_params)
 
         if inner_max_num_threads is not None:
-            msg = ("inner_max_num_threads argument should only be used with "
-                   "backend='loky'")
-            assert backend.support_inner_max_num_threads, msg
+            msg = ("{} does not accept setting the inner_max_num_threads "
+                   "argument.".format(backend.__class__.__name__))
+            assert backend.supports_inner_max_num_threads, msg
             backend.inner_max_num_threads = inner_max_num_threads
 
         # If the nesting_level of the backend is not set previously, use the
