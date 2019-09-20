@@ -32,7 +32,7 @@ Release 0.14.0
   Windows.
   https://github.com/joblib/joblib/pull/920
 
-- Upgrade to loky 2.6.1 that add supports for the setting environment variables
+- Upgrade to loky 2.6.0 that add supports for the setting environment variables
   in child before loading any module.
   https://github.com/joblib/joblib/pull/940
 
