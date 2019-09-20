@@ -1631,7 +1631,18 @@ def get_max_num_threads(module, original_info):
         if original_module['filepath'] == module['filepath']:
             return original_module['num_threads']
     raise ValueError("A new module was found in child\n{}"
-                        .format(module))
+                     .format(module))
+
+
+def check_max_num_threads(workers_info, original_info, num_threads):
+    # Check that the number of threads reported in workers_info is consistent
+    # with the expectation. We need to be carefull to handle the cases where
+    # the requested number of threads is below max_num_thread for the library.
+    for child_threadpool_info in workers_info:
+        for module in child_threadpool_info:
+            max_num_threads = get_max_num_threads(module, original_info)
+            expected = {min(num_threads, max_num_threads), num_threads}
+            assert module['num_threads'] in expected
 
 
 @with_numpy
@@ -1644,17 +1655,18 @@ def test_threadpool_limitation_in_child(n_jobs):
     # using threadpoolctl functionalities.
 
     # Skip this test if numpy is not linked to a BLAS library
-    if len(_check_threadpool_limits()) == 0:
+    original_info = _check_threadpool_limits()
+    if len(original_info) == 0:
         pytest.skip(msg="Need a version of numpy linked to BLAS")
 
     workers_threadpool_infos = Parallel(n_jobs=n_jobs)(
         delayed(_check_threadpool_limits)() for i in range(2))
 
     n_jobs = effective_n_jobs(n_jobs)
-
-    num_threads = _get_num_threads(workers_threadpool_infos)
     expected_num_threads = max(cpu_count() // n_jobs, 1)
-    assert num_threads == {expected_num_threads}, workers_threadpool_infos
+
+    check_max_num_threads(workers_threadpool_infos, original_info,
+                          expected_num_threads)
 
 
 @with_numpy
@@ -1680,15 +1692,8 @@ def test_threadpool_limitation_in_child_context(n_jobs, inner_max_num_threads):
     if inner_max_num_threads is None:
         inner_max_num_threads = max(cpu_count() // n_jobs, 1)
 
-    # Check that the number of threads reported is consistent with what is
-    # expected. We need to be carefull to handle the cases where the requested
-    # number of threads is below max_num_thread for the library.
-    for child_threadpool_info in workers_threadpool_infos:
-        for module in child_threadpool_info:
-            max_num_threads = get_max_num_threads(module, original_info)
-            expected = {min(inner_max_num_threads, max_num_threads),
-                        inner_max_num_threads}
-            assert module['num_threads'] in expected
+    check_max_num_threads(workers_threadpool_infos, original_info,
+                          inner_max_num_threads)
 
 
 @with_numpy
