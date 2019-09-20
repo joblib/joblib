@@ -1619,13 +1619,6 @@ def _check_threadpool_limits():
     return threadpool_info()
 
 
-def _get_num_threads(threadpool_info_list):
-    """Return a set containing the different num_threads"""
-    return set(module['num_threads']
-               for threadpool_info in threadpool_info_list
-               for module in threadpool_info)
-
-
 def get_max_num_threads(module, original_info):
     for original_module in original_info:
         if original_module['filepath'] == module['filepath']:
