@@ -803,9 +803,9 @@ class Parallel(Logger):
                     final_batch_size = max(1, len(islice) // (10 * n_jobs))
                 else:
                     final_batch_size = max(1, len(islice) // n_jobs)
-                i = 0
+
                 # enqueue n_jobs batches in a local queue
-                while i < len(islice):
+                for i in range(0, len(islice), final_batch_size):
                     tasks = BatchedCalls(islice[i:i + final_batch_size],
                                          self._backend.get_nested_backend(),
                                          self._pickle_cache)
