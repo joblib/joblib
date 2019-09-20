@@ -31,14 +31,14 @@ class ParallelBackendBase(with_metaclass(ABCMeta)):
     """Helper abc which defines all methods a ParallelBackend must implement"""
 
     supports_timeout = False
-    support_inner_num_threads = False
+    support_inner_max_num_threads = False
     nesting_level = None
 
-    def __init__(self, nesting_level=None, max_inner_num_threads=None):
+    def __init__(self, nesting_level=None, inner_max_num_threads=None):
         self.nesting_level = nesting_level
-        self.max_inner_num_threads = max_inner_num_threads
+        self.inner_max_num_threads = inner_max_num_threads
 
-    SUPPORTED_CLIB_VARS = [
+    MAX_NUM_THREADS_VARS = [
         'OMP_NUM_THREADS', 'OPENBLAS_NUM_THREADS', 'MKL_NUM_THREADS',
         'VECLIB_MAXIMUM_THREADS', 'NUMEXPR_NUM_THREADS'
     ]
@@ -149,21 +149,8 @@ class ParallelBackendBase(with_metaclass(ABCMeta)):
         """
         yield
 
-    @classmethod
-    def limit_clib_threads(cls, n_threads=1):
-        """Initializer to limit the number of threads used by some C-libraries.
-
-        This function set the number of threads to `n_threads` for OpenMP, MKL,
-        Accelerated and OpenBLAS libraries, that can be used with scientific
-        computing tools like numpy.
-        """
-        for var in cls.SUPPORTED_CLIB_VARS:
-            var_value = os.environ.get(var, None)
-            if var_value is None:
-                os.environ[var] = str(n_threads)
-
-    def get_env_limit_threadpools(self, n_threads=1):
-        """Return environment variables limiting threadpools size in C-lib.
+    def get_max_num_threads_vars(self, n_threads=1):
+        """Return environment variables limiting threadpools in external libs.
 
         This function return a dict containing environment variable to pass in
         creating a ProcessPool limiting the number of threads to `n_threads`
@@ -171,7 +158,7 @@ class ParallelBackendBase(with_metaclass(ABCMeta)):
         with scientific computing tools like numpy in the child processes.
         """
         env = {}
-        for var in self.SUPPORTED_CLIB_VARS:
+        for var in self.MAX_NUM_THREADS_VARS:
             var_value = os.environ.get(var, None)
             if var_value is None:
                 var_value = str(n_threads)
@@ -466,8 +453,7 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
 
         # Make sure to free as much memory as possible before forking
         gc.collect()
-        self._pool = MemmappingPool(
-            n_jobs, initializer=self.limit_clib_threads, **memmappingpool_args)
+        self._pool = MemmappingPool(n_jobs, **memmappingpool_args)
         self.parallel = parallel
         return n_jobs
 
@@ -484,7 +470,7 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
     """Managing pool of workers with loky instead of multiprocessing."""
 
     supports_timeout = True
-    support_inner_num_threads = True
+    support_inner_max_num_threads = True
 
     def configure(self, n_jobs=1, parallel=None, prefer=None, require=None,
                   idle_worker_timeout=300, **memmappingexecutor_args):
@@ -494,13 +480,13 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
             raise FallbackToBackend(
                 SequentialBackend(nesting_level=self.nesting_level))
 
-        n_threads = self.max_inner_num_threads
+        n_threads = self.inner_max_num_threads
         if n_threads is None:
             n_threads = max(cpu_count() // n_jobs, 1)
 
         self._workers = get_memmapping_executor(
             n_jobs, timeout=idle_worker_timeout,
-            env=self.get_env_limit_threadpools(n_threads=n_threads),
+            env=self.get_max_num_threads_vars(n_threads=n_threads),
             **memmappingexecutor_args)
         self.parallel = parallel
         return n_jobs

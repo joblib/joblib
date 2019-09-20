@@ -1654,8 +1654,8 @@ def test_threadpool_limitation_in_child(n_jobs):
 @skipif(sys.version_info < (3, 5),
         reason='threadpoolctl is a python3.5+ package')
 @parametrize('n_jobs', [2, -1])
-@parametrize('max_inner_num_threads', [1, 2, 4, None])
-def test_threadpool_limitation_in_child_context(n_jobs, max_inner_num_threads):
+@parametrize('inner_max_num_threads', [1, 2, 4, None])
+def test_threadpool_limitation_in_child_context(n_jobs, inner_max_num_threads):
     # Check that the protection against oversubscription in workers is working
     # using threadpoolctl functionalities.
 
@@ -1663,17 +1663,20 @@ def test_threadpool_limitation_in_child_context(n_jobs, max_inner_num_threads):
     if len(_check_threadpool_limits()) == 0:
         pytest.skip(msg="Need a version of numpy linked to BLAS")
 
-    with parallel_backend('loky', max_inner_num_threads=max_inner_num_threads):
+    with parallel_backend('loky', inner_max_num_threads=inner_max_num_threads):
         workers_threadpool_infos = Parallel(n_jobs=n_jobs)(
             delayed(_check_threadpool_limits)() for i in range(2))
 
     n_jobs = effective_n_jobs(n_jobs)
-    if max_inner_num_threads is None:
-        max_inner_num_threads = max(cpu_count() // n_jobs, 1)
+    if inner_max_num_threads is None:
+        inner_max_num_threads = max(cpu_count() // n_jobs, 1)
 
     num_threads = _get_num_threads(workers_threadpool_infos)
-    expected_num_threads = min(max_inner_num_threads, cpu_count())
-    assert num_threads == {expected_num_threads}, workers_threadpool_infos
+    expected_num_threads = min(inner_max_num_threads, cpu_count())
+    expected_num_threads = {expected_num_threads, inner_max_num_threads}
+
+    success = len(num_threads.difference(expected_num_threads)) == 0
+    assert success, workers_threadpool_infos
 
 
 @with_numpy
@@ -1682,5 +1685,5 @@ def test_threadpool_limitation_in_child_context(n_jobs, max_inner_num_threads):
                          MultiprocessingBackend(), ThreadingBackend()])
 def test_threadpool_limitation_in_child_context_error(backend):
 
-    with raises(AssertionError, match=r"inner_num.*should only be used.*loky"):
-        parallel_backend(backend, max_inner_num_threads=1)
+    with raises(AssertionError, match=r"inner_max.*should only be used.*loky"):
+        parallel_backend(backend, inner_max_num_threads=1)

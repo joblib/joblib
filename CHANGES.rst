@@ -32,6 +32,17 @@ Release 0.14.0
   Windows.
   https://github.com/joblib/joblib/pull/920
 
+- Upgrade to loky 2.6.1 that add supports for the setting environment variables
+  in child before loading any module.
+  https://github.com/joblib/joblib/pull/940
+
+- Fix the oversubscription protection for native libraries using threadpools.
+  The maximal number of threads is can now be set in children using the
+  ``inner_max_num_threads`` in ``parallel_backend``. It default to
+  ``cpu_count() // n_jobs``.
+  https://github.com/joblib/joblib/pull/940
+
+
 Release 0.13.2
 --------------
 
