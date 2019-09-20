@@ -1695,5 +1695,5 @@ def test_threadpool_limitation_in_child_context(n_jobs, inner_max_num_threads):
                          MultiprocessingBackend(), ThreadingBackend()])
 def test_threadpool_limitation_in_child_context_error(backend):
 
-    with raises(AssertionError, match=r"inner_max.*should only be used.*loky"):
+    with raises(AssertionError, match=r"does not acc.*inner_max_num_threads"):
         parallel_backend(backend, inner_max_num_threads=1)
