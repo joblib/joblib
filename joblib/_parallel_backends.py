@@ -149,19 +149,29 @@ class ParallelBackendBase(with_metaclass(ABCMeta)):
         """
         yield
 
-    def _get_max_num_threads_vars(self, n_threads=1):
+    def _get_max_num_threads_vars(self, n_jobs):
         """Return environment variables limiting threadpools in external libs.
 
-        This function return a dict containing environment variable to pass in
-        creating a ProcessPool limiting the number of threads to `n_threads`
-        for OpenMP, MKL, Accelerated and OpenBLAS libraries, that can be used
-        with scientific computing tools like numpy in the child processes.
+        This function return a dict containing environment variables to pass
+        when creating a pool of process. These environment variables limit the
+        number of threads to `n_threads` for OpenMP, MKL, Accelerated and
+        OpenBLAS libraries in the child processes.
         """
+        explicit_n_threads = self.inner_max_num_threads
+        default_n_threads = str(max(cpu_count() // n_jobs, 1))
+
+        # Set the inner environment variables to self.inner_max_num_threads if
+        # it is given. Else, default to cpu_count // n_jobs unless the variable
+        # is already present in the parent process environment.
         env = {}
         for var in self.MAX_NUM_THREADS_VARS:
-            var_value = os.environ.get(var, None)
-            if var_value is None:
-                var_value = str(n_threads)
+            if explicit_n_threads is None:
+                var_value = os.environ.get(var, None)
+                if var_value is None:
+                    var_value = default_n_threads
+            else:
+                var_value = str(explicit_n_threads)
+
             env[var] = var_value
         return env
 
@@ -480,13 +490,9 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
             raise FallbackToBackend(
                 SequentialBackend(nesting_level=self.nesting_level))
 
-        n_threads = self.inner_max_num_threads
-        if n_threads is None:
-            n_threads = max(cpu_count() // n_jobs, 1)
-
         self._workers = get_memmapping_executor(
             n_jobs, timeout=idle_worker_timeout,
-            env=self._get_max_num_threads_vars(n_threads=n_threads),
+            env=self._get_max_num_threads_vars(n_jobs=n_jobs),
             **memmappingexecutor_args)
         self.parallel = parallel
         return n_jobs

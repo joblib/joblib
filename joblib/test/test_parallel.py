@@ -1695,13 +1695,18 @@ def test_threadpool_limitation_in_child_context(n_jobs, inner_max_num_threads):
                             expected_child_num_threads)
 
 
-@parametrize('n_jobs', [2, 4, -2, -1])
+@parametrize('n_jobs', [2, -1])
 @parametrize('var_name', ["OPENBLAS_NUM_THREADS",
                           "MKL_NUM_THREADS",
                           "OMP_NUM_THREADS"])
 def test_threadpool_limitation_in_child_override(n_jobs, var_name):
     # Check that environment variables set by the user on the main process
     # always have the priority.
+
+    # Clean up the existing executor because we change the environment fo the
+    # parent at runtime and it is not detected in loky intentionally.
+    from joblib.externals.loky import get_reusable_executor
+    get_reusable_executor().shutdown()
 
     def _get_env(var_name):
         return os.environ.get(var_name)
@@ -1717,7 +1722,7 @@ def test_threadpool_limitation_in_child_override(n_jobs, var_name):
         with parallel_backend('loky', inner_max_num_threads=1):
             results = Parallel(n_jobs=n_jobs)(
                 delayed(_get_env)(var_name) for i in range(2))
-        assert results == ["4", "4"]
+        assert results == ["1", "1"]
 
     finally:
         if original_var_value is None:
