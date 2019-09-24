@@ -810,7 +810,6 @@ class Parallel(Logger):
                                          self._backend.get_nested_backend(),
                                          self._pickle_cache)
                     self._ready_batches.put(tasks)
-                    i += final_batch_size
 
                 # finally, get one task.
                 tasks = self._ready_batches.get(block=False)
