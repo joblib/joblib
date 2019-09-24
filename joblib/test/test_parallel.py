@@ -1696,6 +1696,7 @@ def test_threadpool_limitation_in_child_context(n_jobs, inner_max_num_threads):
                             expected_child_num_threads)
 
 
+@with_multiprocessing
 @parametrize('n_jobs', [2, -1])
 @parametrize('var_name', ["OPENBLAS_NUM_THREADS",
                           "MKL_NUM_THREADS",
