@@ -417,11 +417,12 @@ def test_error_capture(backend):
 
     try:
         # JoblibException wrapping is disabled in sequential mode:
-        ex = JoblibException()
         Parallel(n_jobs=1)(
             delayed(division)(x, y) for x, y in zip((0, 1), (1, 0)))
     except Exception as ex:
         assert not isinstance(ex, JoblibException)
+    else:
+        raise ValueError("The excepted error has not been raised.")
 
 
 def consumer(queue, item):
