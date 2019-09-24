@@ -1611,7 +1611,7 @@ def test_globals_update_at_each_parallel_call():
 # the maximal number of threads in C-library threadpools.
 #
 
-def _check_threadpool_limits():
+def _check_numpy_threadpool_limits():
     import numpy as np
     a = np.random.randn(1000)
     np.dot(a, a)
@@ -1619,23 +1619,24 @@ def _check_threadpool_limits():
     return threadpool_info()
 
 
-def get_max_num_threads(module, original_info):
-    for original_module in original_info:
-        if original_module['filepath'] == module['filepath']:
-            return original_module['num_threads']
-    raise ValueError("A new module was found in child\n{}"
-                     .format(module))
+def _parent_max_num_threads_for(child_module, parent_info):
+    for parent_module in parent_info:
+        if parent_module['filepath'] == child_module['filepath']:
+            return parent_module['num_threads']
+    raise ValueError("An unexpected module was loaded in child:\n{}"
+                     .format(child_module))
 
 
-def check_max_num_threads(workers_info, original_info, num_threads):
+def check_child_num_threads(workers_info, parent_info, num_threads):
     # Check that the number of threads reported in workers_info is consistent
     # with the expectation. We need to be carefull to handle the cases where
     # the requested number of threads is below max_num_thread for the library.
     for child_threadpool_info in workers_info:
-        for module in child_threadpool_info:
-            max_num_threads = get_max_num_threads(module, original_info)
-            expected = {min(num_threads, max_num_threads), num_threads}
-            assert module['num_threads'] in expected
+        for child_module in child_threadpool_info:
+            parent_max_num_threads = _parent_max_num_threads_for(
+                child_module, parent_info)
+            expected = {min(num_threads, parent_max_num_threads), num_threads}
+            assert child_module['num_threads'] in expected
 
 
 @with_numpy
@@ -1648,18 +1649,18 @@ def test_threadpool_limitation_in_child(n_jobs):
     # using threadpoolctl functionalities.
 
     # Skip this test if numpy is not linked to a BLAS library
-    original_info = _check_threadpool_limits()
-    if len(original_info) == 0:
+    parent_info = _check_numpy_threadpool_limits()
+    if len(parent_info) == 0:
         pytest.skip(msg="Need a version of numpy linked to BLAS")
 
     workers_threadpool_infos = Parallel(n_jobs=n_jobs)(
-        delayed(_check_threadpool_limits)() for i in range(2))
+        delayed(_check_numpy_threadpool_limits)() for i in range(2))
 
     n_jobs = effective_n_jobs(n_jobs)
-    expected_num_threads = max(cpu_count() // n_jobs, 1)
+    expected_child_num_threads = max(cpu_count() // n_jobs, 1)
 
-    check_max_num_threads(workers_threadpool_infos, original_info,
-                          expected_num_threads)
+    check_child_num_threads(workers_threadpool_infos, parent_info,
+                            expected_child_num_threads)
 
 
 @with_numpy
@@ -1673,20 +1674,22 @@ def test_threadpool_limitation_in_child_context(n_jobs, inner_max_num_threads):
     # using threadpoolctl functionalities.
 
     # Skip this test if numpy is not linked to a BLAS library
-    original_info = _check_threadpool_limits()
-    if len(original_info) == 0:
+    parent_info = _check_numpy_threadpool_limits()
+    if len(parent_info) == 0:
         pytest.skip(msg="Need a version of numpy linked to BLAS")
 
     with parallel_backend('loky', inner_max_num_threads=inner_max_num_threads):
         workers_threadpool_infos = Parallel(n_jobs=n_jobs)(
-            delayed(_check_threadpool_limits)() for i in range(2))
+            delayed(_check_numpy_threadpool_limits)() for i in range(2))
 
     n_jobs = effective_n_jobs(n_jobs)
     if inner_max_num_threads is None:
-        inner_max_num_threads = max(cpu_count() // n_jobs, 1)
+        expected_child_num_threads = max(cpu_count() // n_jobs, 1)
+    else:
+        expected_child_num_threads = inner_max_num_threads
 
-    check_max_num_threads(workers_threadpool_infos, original_info,
-                          inner_max_num_threads)
+    check_child_num_threads(workers_threadpool_infos, parent_info,
+                            expected_child_num_threads)
 
 
 @with_numpy
