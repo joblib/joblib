@@ -35,6 +35,11 @@ from .externals import loky
 from ._parallel_backends import AutoBatchingMixin  # noqa
 from ._parallel_backends import ParallelBackendBase  # noqa
 
+try:
+    import queue
+except ImportError:  # backward compat for Python 2
+    import Queue as queue
+
 BACKENDS = {
     'multiprocessing': MultiprocessingBackend,
     'threading': ThreadingBackend,
@@ -612,6 +617,7 @@ class Parallel(Logger):
         self.verbose = verbose
         self.timeout = timeout
         self.pre_dispatch = pre_dispatch
+        self._ready_batches = queue.Queue()
 
         if isinstance(max_nbytes, _basestring):
             max_nbytes = memstr_to_bytes(max_nbytes)
@@ -766,9 +772,47 @@ class Parallel(Logger):
             batch_size = self.batch_size
 
         with self._lock:
-            tasks = BatchedCalls(itertools.islice(iterator, batch_size),
-                                 self._backend.get_nested_backend(),
-                                 self._pickle_cache)
+            # to ensure an even distribution of the workolad between workers,
+            # we look ahead in the original iterators more than batch_size
+            # tasks - However, we keep consuming only one batch at each
+            # dispatch_one_batch call. The extra tasks are stored in a local
+            # queue, _ready_batches, that is looked-up prior to re-consuming
+            # tasks from the origal iterator.
+            try:
+                tasks = self._ready_batches.get(block=False)
+            except queue.Empty:
+                # slice the iterator n_jobs * batchsize items at a time. If the
+                # slice returns less than that, then the current batchsize puts
+                # too much weight on a subset of workers, while other may end
+                # up starving. So in this case, re-scale the batch size
+                # accordingly to distribute evenly the last items between all
+                # workers.
+                n_jobs = self._cached_effective_n_jobs
+                big_batch_size = batch_size * n_jobs
+
+                islice = list(itertools.islice(iterator, big_batch_size))
+                if len(islice) == 0:
+                    return False
+                elif (iterator is self._original_iterator
+                      and len(islice) < big_batch_size):
+                    # We reached the end of the original iterator (unless
+                    # iterator is the ``pre_dispatch``-long initial slice of
+                    # the original iterator) -- decrease the batch size to
+                    # account for potential variance in the batches running
+                    # time.
+                    final_batch_size = max(1, len(islice) // (10 * n_jobs))
+                else:
+                    final_batch_size = max(1, len(islice) // n_jobs)
+
+                # enqueue n_jobs batches in a local queue
+                for i in range(0, len(islice), final_batch_size):
+                    tasks = BatchedCalls(islice[i:i + final_batch_size],
+                                         self._backend.get_nested_backend(),
+                                         self._pickle_cache)
+                    self._ready_batches.put(tasks)
+
+                # finally, get one task.
+                tasks = self._ready_batches.get(block=False)
             if len(tasks) == 0:
                 # No more tasks available in the iterator: tell caller to stop.
                 return False
@@ -891,6 +935,11 @@ class Parallel(Logger):
             n_jobs = self._initialize_backend()
         else:
             n_jobs = self._effective_n_jobs()
+
+        # self._effective_n_jobs should be called in the Parallel.__call__
+        # thread only -- store its value in an attribute for further queries.
+        self._cached_effective_n_jobs = n_jobs
+
         backend_name = self._backend.__class__.__name__
         if n_jobs == 0:
             raise RuntimeError("%s has no active worker." % backend_name)
@@ -915,7 +964,9 @@ class Parallel(Logger):
             # The main thread will consume the first pre_dispatch items and
             # the remaining items will later be lazily dispatched by async
             # callbacks upon task completions.
-            iterator = itertools.islice(iterator, pre_dispatch)
+
+            # TODO: this iterator should be batch_size * n_jobs
+            iterator = itertools.islice(iterator, self._pre_dispatch_amount)
 
         self._start_time = time.time()
         self.n_dispatched_batches = 0
