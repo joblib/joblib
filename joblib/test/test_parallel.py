@@ -1694,6 +1694,7 @@ def test_threadpool_limitation_in_child_context(n_jobs, inner_max_num_threads):
     check_child_num_threads(workers_threadpool_infos, parent_info,
                             expected_child_num_threads)
 
+
 @parametrize('n_jobs', [2, 4, -2, -1])
 @parametrize('var_name', ["OPENBLAS_NUM_THREADS",
                           "MKL_NUM_THREADS",
