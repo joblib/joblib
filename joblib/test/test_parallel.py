@@ -1613,6 +1613,9 @@ def test_globals_update_at_each_parallel_call():
 
 def _check_numpy_threadpool_limits():
     import numpy as np
+    # Let's call BLAS on a Matrix Matrix multiplication with dimensions large
+    # enough to ensure that the threadpool managed by the underlying BLAS
+    # implementation is actually used so as to force its initialization.
     a = np.random.randn(100, 100)
     np.dot(a, a)
     from threadpoolctl import threadpool_info
