@@ -1613,7 +1613,7 @@ def test_globals_update_at_each_parallel_call():
 
 def _check_numpy_threadpool_limits():
     import numpy as np
-    a = np.random.randn(1000)
+    a = np.random.randn(100, 100)
     np.dot(a, a)
     from threadpoolctl import threadpool_info
     return threadpool_info()
