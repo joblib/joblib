@@ -40,7 +40,7 @@ class ParallelBackendBase(with_metaclass(ABCMeta)):
 
     MAX_NUM_THREADS_VARS = [
         'OMP_NUM_THREADS', 'OPENBLAS_NUM_THREADS', 'MKL_NUM_THREADS',
-        'VECLIB_MAXIMUM_THREADS', 'NUMEXPR_NUM_THREADS'
+        'BLIS_NUM_THREADS', 'VECLIB_MAXIMUM_THREADS', 'NUMEXPR_NUM_THREADS'
     ]
 
     @abstractmethod
