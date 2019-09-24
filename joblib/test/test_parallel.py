@@ -1694,6 +1694,36 @@ def test_threadpool_limitation_in_child_context(n_jobs, inner_max_num_threads):
     check_child_num_threads(workers_threadpool_infos, parent_info,
                             expected_child_num_threads)
 
+@parametrize('n_jobs', [2, 4, -2, -1])
+@parametrize('var_name', ["OPENBLAS_NUM_THREADS",
+                          "MKL_NUM_THREADS",
+                          "OMP_NUM_THREADS"])
+def test_threadpool_limitation_in_child_override(n_jobs, var_name):
+    # Check that environment variables set by the user on the main process
+    # always have the priority.
+
+    def _get_env(var_name):
+        return os.environ.get(var_name)
+
+    original_var_value = os.environ.get(var_name)
+    try:
+        os.environ[var_name] = "4"
+        # Skip this test if numpy is not linked to a BLAS library
+        results = Parallel(n_jobs=n_jobs)(
+            delayed(_get_env)(var_name) for i in range(2))
+        assert results == ["4", "4"]
+
+        with parallel_backend('loky', inner_max_num_threads=1):
+            results = Parallel(n_jobs=n_jobs)(
+                delayed(_get_env)(var_name) for i in range(2))
+        assert results == ["4", "4"]
+
+    finally:
+        if original_var_value is None:
+            del os.environ[var_name]
+        else:
+            os.environ[var_name] = original_var_value
+
 
 @with_numpy
 @with_multiprocessing
