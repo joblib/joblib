@@ -186,13 +186,13 @@ libraries:
     - Accelerated with the environment variable ``'VECLIB_MAXIMUM_THREADS'``,
     - Numexpr with the environment variable ``'NUMEXPR_NUM_THREADS'``.
 
-It is also possible to programmatically override the default number of threads
-using the ``inner_max_num_threads`` argument of the ``parallel_backend``
-function as follows:
+Since joblib 0.14, it is also possible to programmatically override the default
+number of threads using the ``inner_max_num_threads`` argument of the
+``parallel_backend`` function as follows:
 
 .. code-block:: python
 
-    from joblib Parallel, delayed, import parallel_backend
+    from joblib import Parallel, delayed, parallel_backend
 
     with parallel_backend("loky", inner_max_num_threads=2):
         results = Parallel(n_jobs=4)(delayed(func)(x, y) for x, y in data)
