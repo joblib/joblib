@@ -68,7 +68,7 @@ if sys.platform != "win32":
                 while True:
                     try:
                         pid, sts = os.waitpid(self.pid, flag)
-                    except OSError as e:
+                    except OSError:
                         # Child process not yet created. See #1731717
                         # e.errno == errno.ECHILD == 10
                         return None
@@ -150,7 +150,7 @@ if sys.platform != "win32":
                 reduction._mk_inheritable(tracker_fd)
                 self._fds.extend([child_r, child_w, tracker_fd])
                 from .fork_exec import fork_exec
-                pid = fork_exec(cmd_python, self._fds)
+                pid = fork_exec(cmd_python, self._fds, env=process_obj.env)
                 util.debug("launched python with pid {} and cmd:\n{}"
                            .format(pid, cmd_python))
                 self.sentinel = parent_r
@@ -197,7 +197,7 @@ if __name__ == '__main__':
                 del process.current_process()._inheriting
 
         exitcode = process_obj._bootstrap()
-    except Exception as e:
+    except Exception:
         print('\n\n' + '-' * 80)
         print('{} failed with traceback: '.format(args.process_name))
         print('-' * 80)

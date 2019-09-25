@@ -417,11 +417,12 @@ def test_error_capture(backend):
 
     try:
         # JoblibException wrapping is disabled in sequential mode:
-        ex = JoblibException()
         Parallel(n_jobs=1)(
             delayed(division)(x, y) for x, y in zip((0, 1), (1, 0)))
     except Exception as ex:
         assert not isinstance(ex, JoblibException)
+    else:
+        raise ValueError("The excepted error has not been raised.")
 
 
 def consumer(queue, item):
@@ -760,8 +761,8 @@ register_parallel_backend('back_compat_backend', MyBackend)
 
 
 @with_multiprocessing
-@pytest.mark.parametrize('backend', ['threading', 'loky', 'multiprocessing',
-                                     'back_compat_backend'])
+@parametrize('backend', ['threading', 'loky', 'multiprocessing',
+                         'back_compat_backend'])
 def test_nested_backend_context_manager(backend):
     # Check that by default, nested parallel calls will always use the
     # ThreadingBackend
@@ -776,8 +777,8 @@ def test_nested_backend_context_manager(backend):
 
 
 @with_multiprocessing
-@pytest.mark.parametrize('n_jobs', [2, -1, None])
-@pytest.mark.parametrize('backend', PARALLEL_BACKENDS)
+@parametrize('n_jobs', [2, -1, None])
+@parametrize('backend', PARALLEL_BACKENDS)
 def test_nested_backend_in_sequential(backend, n_jobs):
     # Check that by default, nested parallel calls will always use the
     # ThreadingBackend
@@ -810,8 +811,8 @@ def check_nesting_level(inner_backend, expected_level):
 
 
 @with_multiprocessing
-@pytest.mark.parametrize('outer_backend', PARALLEL_BACKENDS)
-@pytest.mark.parametrize('inner_backend', PARALLEL_BACKENDS)
+@parametrize('outer_backend', PARALLEL_BACKENDS)
+@parametrize('inner_backend', PARALLEL_BACKENDS)
 def test_backend_nesting_level(outer_backend, inner_backend):
     # Check that the nesting level for the backend is correctly set
     check_nesting_level(outer_backend, 0)
@@ -1263,7 +1264,7 @@ def test_memmapping_leaks(backend, tmpdir):
     assert not os.listdir(tmpdir)
 
 
-@pytest.mark.parametrize('backend', [None, 'loky', 'threading'])
+@parametrize('backend', [None, 'loky', 'threading'])
 def test_lambda_expression(backend):
     # cloudpickle is used to pickle delayed callables
     results = Parallel(n_jobs=2, backend=backend)(
@@ -1604,3 +1605,139 @@ def test_globals_update_at_each_parallel_call():
     workers_global_variable = Parallel(n_jobs=2)(
         delayed(check_globals)() for i in range(2))
     assert set(workers_global_variable) == {"changed value"}
+
+
+##############################################################################
+# Test environment variable in child env, in particular for limiting
+# the maximal number of threads in C-library threadpools.
+#
+
+def _check_numpy_threadpool_limits():
+    import numpy as np
+    # Let's call BLAS on a Matrix Matrix multiplication with dimensions large
+    # enough to ensure that the threadpool managed by the underlying BLAS
+    # implementation is actually used so as to force its initialization.
+    a = np.random.randn(100, 100)
+    np.dot(a, a)
+    from threadpoolctl import threadpool_info
+    return threadpool_info()
+
+
+def _parent_max_num_threads_for(child_module, parent_info):
+    for parent_module in parent_info:
+        if parent_module['filepath'] == child_module['filepath']:
+            return parent_module['num_threads']
+    raise ValueError("An unexpected module was loaded in child:\n{}"
+                     .format(child_module))
+
+
+def check_child_num_threads(workers_info, parent_info, num_threads):
+    # Check that the number of threads reported in workers_info is consistent
+    # with the expectation. We need to be carefull to handle the cases where
+    # the requested number of threads is below max_num_thread for the library.
+    for child_threadpool_info in workers_info:
+        for child_module in child_threadpool_info:
+            parent_max_num_threads = _parent_max_num_threads_for(
+                child_module, parent_info)
+            expected = {min(num_threads, parent_max_num_threads), num_threads}
+            assert child_module['num_threads'] in expected
+
+
+@with_numpy
+@with_multiprocessing
+@skipif(sys.version_info < (3, 5),
+        reason='threadpoolctl is a python3.5+ package')
+@parametrize('n_jobs', [2, 4, -2, -1])
+def test_threadpool_limitation_in_child(n_jobs):
+    # Check that the protection against oversubscription in workers is working
+    # using threadpoolctl functionalities.
+
+    # Skip this test if numpy is not linked to a BLAS library
+    parent_info = _check_numpy_threadpool_limits()
+    if len(parent_info) == 0:
+        pytest.skip(msg="Need a version of numpy linked to BLAS")
+
+    workers_threadpool_infos = Parallel(n_jobs=n_jobs)(
+        delayed(_check_numpy_threadpool_limits)() for i in range(2))
+
+    n_jobs = effective_n_jobs(n_jobs)
+    expected_child_num_threads = max(cpu_count() // n_jobs, 1)
+
+    check_child_num_threads(workers_threadpool_infos, parent_info,
+                            expected_child_num_threads)
+
+
+@with_numpy
+@with_multiprocessing
+@skipif(sys.version_info < (3, 5),
+        reason='threadpoolctl is a python3.5+ package')
+@parametrize('inner_max_num_threads', [1, 2, 4, None])
+@parametrize('n_jobs', [2, -1])
+def test_threadpool_limitation_in_child_context(n_jobs, inner_max_num_threads):
+    # Check that the protection against oversubscription in workers is working
+    # using threadpoolctl functionalities.
+
+    # Skip this test if numpy is not linked to a BLAS library
+    parent_info = _check_numpy_threadpool_limits()
+    if len(parent_info) == 0:
+        pytest.skip(msg="Need a version of numpy linked to BLAS")
+
+    with parallel_backend('loky', inner_max_num_threads=inner_max_num_threads):
+        workers_threadpool_infos = Parallel(n_jobs=n_jobs)(
+            delayed(_check_numpy_threadpool_limits)() for i in range(2))
+
+    n_jobs = effective_n_jobs(n_jobs)
+    if inner_max_num_threads is None:
+        expected_child_num_threads = max(cpu_count() // n_jobs, 1)
+    else:
+        expected_child_num_threads = inner_max_num_threads
+
+    check_child_num_threads(workers_threadpool_infos, parent_info,
+                            expected_child_num_threads)
+
+
+@with_multiprocessing
+@parametrize('n_jobs', [2, -1])
+@parametrize('var_name', ["OPENBLAS_NUM_THREADS",
+                          "MKL_NUM_THREADS",
+                          "OMP_NUM_THREADS"])
+def test_threadpool_limitation_in_child_override(n_jobs, var_name):
+    # Check that environment variables set by the user on the main process
+    # always have the priority.
+
+    # Clean up the existing executor because we change the environment fo the
+    # parent at runtime and it is not detected in loky intentionally.
+    from joblib.externals.loky import get_reusable_executor
+    get_reusable_executor().shutdown()
+
+    def _get_env(var_name):
+        return os.environ.get(var_name)
+
+    original_var_value = os.environ.get(var_name)
+    try:
+        os.environ[var_name] = "4"
+        # Skip this test if numpy is not linked to a BLAS library
+        results = Parallel(n_jobs=n_jobs)(
+            delayed(_get_env)(var_name) for i in range(2))
+        assert results == ["4", "4"]
+
+        with parallel_backend('loky', inner_max_num_threads=1):
+            results = Parallel(n_jobs=n_jobs)(
+                delayed(_get_env)(var_name) for i in range(2))
+        assert results == ["1", "1"]
+
+    finally:
+        if original_var_value is None:
+            del os.environ[var_name]
+        else:
+            os.environ[var_name] = original_var_value
+
+
+@with_numpy
+@with_multiprocessing
+@parametrize('backend', ['multiprocessing', 'threading',
+                         MultiprocessingBackend(), ThreadingBackend()])
+def test_threadpool_limitation_in_child_context_error(backend):
+
+    with raises(AssertionError, match=r"does not acc.*inner_max_num_threads"):
+        parallel_backend(backend, inner_max_num_threads=1)

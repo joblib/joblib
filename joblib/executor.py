@@ -18,12 +18,13 @@ _backend_args = None
 
 
 def get_memmapping_executor(n_jobs, timeout=300, initializer=None, initargs=(),
-                            **backend_args):
+                            env=None, **backend_args):
     """Factory for ReusableExecutor with automatic memmapping for large numpy
     arrays.
     """
     global _backend_args
     reuse = _backend_args is None or _backend_args == backend_args
+    reuse = 'auto' if reuse else False
     _backend_args = backend_args
 
     id_executor = random.randint(0, int(1e10))
@@ -33,7 +34,7 @@ def get_memmapping_executor(n_jobs, timeout=300, initializer=None, initargs=(),
                                       result_reducers=result_reducers,
                                       reuse=reuse, timeout=timeout,
                                       initializer=initializer,
-                                      initargs=initargs)
+                                      initargs=initargs, env=env)
     # If executor doesn't have a _temp_folder, it means it is a new executor
     # and the reducers have been used. Else, the previous reducers are used
     # and we should not change this attibute.

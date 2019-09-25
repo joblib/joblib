@@ -40,7 +40,7 @@ def _get_next_executor_id():
 def get_reusable_executor(max_workers=None, context=None, timeout=10,
                           kill_workers=False, reuse="auto",
                           job_reducers=None, result_reducers=None,
-                          initializer=None, initargs=()):
+                          initializer=None, initargs=(), env=None):
     """Return the current ReusableExectutor instance.
 
     Start a new instance if it has not been started already or if the previous
@@ -73,6 +73,13 @@ def get_reusable_executor(max_workers=None, context=None, timeout=10,
 
     When provided, the ``initializer`` is run first in newly spawned
     processes with argument ``initargs``.
+
+    The environment variable in the child process are a copy of the values in
+    the main process. One can provide a dict ``{ENV: VAL}`` where ``ENV`` and
+    ``VAR`` are string literals to overwrite the environment variable ``ENV``
+    in the child processes to value ``VAL``. The environment variables are set
+    in the children before any module is loaded. This only works with with the
+    ``loky`` context and it is unreliable on Windows with Python < 3.6.
     """
     with _executor_lock:
         global _executor, _executor_kwargs
@@ -97,7 +104,8 @@ def get_reusable_executor(max_workers=None, context=None, timeout=10,
         kwargs = dict(context=context, timeout=timeout,
                       job_reducers=job_reducers,
                       result_reducers=result_reducers,
-                      initializer=initializer, initargs=initargs)
+                      initializer=initializer, initargs=initargs,
+                      env=env)
         if executor is None:
             mp.util.debug("Create a executor with max_workers={}."
                           .format(max_workers))
@@ -137,11 +145,12 @@ def get_reusable_executor(max_workers=None, context=None, timeout=10,
 class _ReusablePoolExecutor(ProcessPoolExecutor):
     def __init__(self, submit_resize_lock, max_workers=None, context=None,
                  timeout=None, executor_id=0, job_reducers=None,
-                 result_reducers=None, initializer=None, initargs=()):
+                 result_reducers=None, initializer=None, initargs=(),
+                 env=None):
         super(_ReusablePoolExecutor, self).__init__(
             max_workers=max_workers, context=context, timeout=timeout,
             job_reducers=job_reducers, result_reducers=result_reducers,
-            initializer=initializer, initargs=initargs)
+            initializer=initializer, initargs=initargs, env=env)
         self.executor_id = executor_id
         self._submit_resize_lock = submit_resize_lock
 

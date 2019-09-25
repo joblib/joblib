@@ -166,16 +166,30 @@ class parallel_backend(object):
     Warning: this function is experimental and subject to change in a future
     version of joblib.
 
+    Joblib also tries to limit the oversubscription by limiting the number of
+    threads usable in some third-party library threadpools like OpenBLAS, MKL
+    or OpenMP. The default limit in each worker is set to
+    ``max(cpu_count() // effective_n_jobs, 1)`` but this limit can be
+    overwritten with the ``inner_max_num_threads`` argument which will be used
+    to set this limit in the child processes.
+
     .. versionadded:: 0.10
 
     """
-    def __init__(self, backend, n_jobs=-1, **backend_params):
+    def __init__(self, backend, n_jobs=-1, inner_max_num_threads=None,
+                 **backend_params):
         if isinstance(backend, _basestring):
             if backend not in BACKENDS and backend in EXTERNAL_BACKENDS:
                 register = EXTERNAL_BACKENDS[backend]
                 register()
 
             backend = BACKENDS[backend](**backend_params)
+
+        if inner_max_num_threads is not None:
+            msg = ("{} does not accept setting the inner_max_num_threads "
+                   "argument.".format(backend.__class__.__name__))
+            assert backend.supports_inner_max_num_threads, msg
+            backend.inner_max_num_threads = inner_max_num_threads
 
         # If the nesting_level of the backend is not set previously, use the
         # nesting level from the previous active_backend to set it

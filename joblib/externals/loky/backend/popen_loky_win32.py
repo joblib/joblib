@@ -31,10 +31,18 @@ WINEXE = (sys.platform == 'win32' and getattr(sys, 'frozen', False))
 WINSERVICE = sys.executable.lower().endswith("pythonservice.exe")
 
 
+def _path_eq(p1, p2):
+    return p1 == p2 or os.path.normcase(p1) == os.path.normcase(p2)
+
+
+WINENV = (hasattr(sys, "_base_executable")
+          and not _path_eq(sys.executable, sys._base_executable))
+
 #
 # We define a Popen class similar to the one from subprocess, but
 # whose constructor takes a process object as its argument.
 #
+
 
 class Popen(_Popen):
     '''
@@ -55,6 +63,18 @@ class Popen(_Popen):
         cmd = get_command_line(parent_pid=os.getpid(), pipe_handle=rhandle)
         cmd = ' '.join('"%s"' % x for x in cmd)
 
+        python_exe = spawn.get_executable()
+
+        # copy the environment variables to set in the child process
+        child_env = os.environ.copy()
+        child_env.update(process_obj.env)
+
+        # bpo-35797: When running in a venv, we bypass the redirect
+        # executor and launch our base Python.
+        if WINENV and _path_eq(python_exe, sys.executable):
+            python_exe = sys._base_executable
+            child_env["__PYVENV_LAUNCHER__"] = sys.executable
+
         try:
             with open(wfd, 'wb') as to_child:
                 # start process
@@ -68,11 +88,11 @@ class Popen(_Popen):
                     # be used instead.
                     inherit = True
                     hp, ht, pid, tid = _winapi.CreateProcess(
-                        spawn.get_executable(), cmd,
+                        python_exe, cmd,
                         None, None, inherit, 0,
-                        None, None, None)
+                        child_env, None, None)
                     _winapi.CloseHandle(ht)
-                except BaseException as e:
+                except BaseException:
                     _winapi.CloseHandle(rhandle)
                     raise
 

@@ -167,12 +167,17 @@ Some third-partiy libraries -- *e.g.* the BLAS runtime used by ``numpy`` --
 manage internally a thread-pool to perform their computations. The default
 behavior is generally to use number of thread equals to the number of CPU
 available. When these libraries are used with :class:`joblib.Parallel`, each
-worker will spawn its thread-pools, resulting in a massive over-subscription of
-the ressources that can slow down the computation compared to sequential one.
-To cope with this problem, joblib forces by default supported third-party
-libraries to use only one thread in workers with the ``'loky'`` backend. This
-behavior can be overwritten by setting the proper environment variable to the
-desired number of threads. This limitation is supported for the following
+worker will spawn its thread-pools, resulting in a massive over-subscription
+of the ressources that can slow down the computation compared to sequential
+one. To cope with this problem, joblib tells supported third-party libraries
+to use a limited number of threads in workers managed by the ``'loky'``
+backend: by default each worker process will have environment variables set to
+allow a maximum of ``cpu_count() // n_jobs`` so that the total number of
+threads used by all the workers does not exceed the number of CPUs of the
+host.
+
+This behavior can be overridden by setting the proper environment variables to
+the desired number of threads. This override is supported for the following
 libraries:
 
     - OpenMP with the environment variable ``'OMP_NUM_THREADS'``,
@@ -180,6 +185,20 @@ libraries:
     - MKL with the environment variable ``'MKL_NUM_THREADS'``,
     - Accelerated with the environment variable ``'VECLIB_MAXIMUM_THREADS'``,
     - Numexpr with the environment variable ``'NUMEXPR_NUM_THREADS'``.
+
+It is also possible to programmatically override the default number of threads
+using the ``inner_max_num_threads`` argument of the ``parallel_backend``
+function as follows:
+
+.. code-block:: python
+
+    from joblib Parallel, delayed, import parallel_backend
+
+    with parallel_backend("loky", inner_max_num_threads=2):
+        results = Parallel(n_jobs=4)(delayed(func)(x, y) for x, y in data)
+
+In this example, 4 Python worker processes will be allowed to use 2 threads
+each, meaning that this program will be able to use up to 8 CPUs concurrently.
 
 
 Custom backend API (experimental)

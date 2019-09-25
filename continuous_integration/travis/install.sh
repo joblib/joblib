@@ -94,6 +94,10 @@ if [[ "$COVERAGE" == "true" ]]; then
     PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES pytest-cov codecov"
 fi
 
+if [[ "2.7 3.4 pypy3" != *"$PYTHON_VERSION"* ]]; then
+    PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES threadpoolctl"
+fi
+
 pip install $PIP_INSTALL_PACKAGES
 
 

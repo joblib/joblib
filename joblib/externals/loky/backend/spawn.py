@@ -12,8 +12,6 @@ import runpy
 import types
 from multiprocessing import process, util
 
-from joblib.externals.loky.backend import context
-
 
 if sys.platform != 'win32':
     WINEXE = False
@@ -60,14 +58,13 @@ def get_preparation_data(name, init_main_module=True):
     d = dict(
         log_to_stderr=util._log_to_stderr,
         authkey=bytes(process.current_process().authkey),
+        name=name,
+        sys_argv=sys.argv,
+        orig_dir=process.ORIGINAL_DIR,
+        dir=os.getcwd()
     )
 
-    if util._logger is not None:
-        d['log_level'] = util._logger.getEffectiveLevel()
-        if len(util._logger.handlers) > 0:
-            h = util._logger.handlers[0]
-            d['log_fmt'] = h.formatter._fmt
-
+    # Send sys_path and make sure the current directory will not be changed
     sys_path = [p for p in sys.path]
     try:
         i = sys_path.index('')
@@ -75,14 +72,14 @@ def get_preparation_data(name, init_main_module=True):
         pass
     else:
         sys_path[i] = process.ORIGINAL_DIR
+    d['sys_path'] = sys_path
 
-    d.update(
-        name=name,
-        sys_path=sys_path,
-        sys_argv=sys.argv,
-        orig_dir=process.ORIGINAL_DIR,
-        dir=os.getcwd()
-    )
+    # Make sure to pass the information if the multiprocessing logger is active
+    if util._logger is not None:
+        d['log_level'] = util._logger.getEffectiveLevel()
+        if len(util._logger.handlers) > 0:
+            h = util._logger.handlers[0]
+            d['log_fmt'] = h.formatter._fmt
 
     # Tell the child how to communicate with the resource_tracker
     from .resource_tracker import _resource_tracker
@@ -166,7 +163,6 @@ def prepare(data):
             _resource_tracker._fd = msvcrt.open_osfhandle(handle, 0)
         else:
             _resource_tracker._fd = data["tracker_args"]["fd"]
-
 
     if 'init_main_from_name' in data:
         _fixup_main_from_name(data['init_main_from_name'])
