@@ -407,7 +407,8 @@ class Parallel(Logger):
             Soft hint to choose the default backend if no specific backend
             was selected with the parallel_backend context manager. The
             default process-based backend is 'loky' and the default
-            thread-based backend is 'threading'.
+            thread-based backend is 'threading'. Ignored if the ``backend``
+            parameter is specified.
         require: 'sharedmem' or None, default None
             Hard constraint to select the backend. If set to 'sharedmem',
             the selected backend will be single-host and thread-based even
