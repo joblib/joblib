@@ -1264,6 +1264,38 @@ def test_memmapping_leaks(backend, tmpdir):
     assert not os.listdir(tmpdir)
 
 
+def view_on_memmap(a):
+    return a[1:2]
+
+
+@with_numpy
+@with_multiprocessing
+@parametrize('backend', PROCESS_BACKENDS)
+def test_view_on_memmap(backend, tmpdir):
+    # Non-regression test for when a view to the memmaped object is returned
+    # https://github.com/joblib/joblib/issues/806
+    tmpdir = tmpdir.strpath
+
+    # Use max_nbytes=1 to force the use of memory-mapping even for small
+    # arrays
+    with Parallel(n_jobs=2, max_nbytes=1, backend=backend,
+                  temp_folder=tmpdir) as p:
+        p(delayed(view_on_memmap)(a) for a in [np.random.random(10)] * 2)
+
+        # The memmap folder should not be clean in the context scope
+        assert len(os.listdir(tmpdir)) > 0
+
+    # Make sure that the shared memory is cleaned at the end when we exit
+    # the context
+    assert not os.listdir(tmpdir)
+
+    # Make sure that the shared memory is cleaned at the end of a call
+    p = Parallel(n_jobs=2, max_nbytes=1, backend=backend)
+    p(delayed(view_on_memmap)(a) for a in [np.random.random(10)] * 2)
+
+    assert not os.listdir(tmpdir)
+
+
 @parametrize('backend', [None, 'loky', 'threading'])
 def test_lambda_expression(backend):
     # cloudpickle is used to pickle delayed callables
