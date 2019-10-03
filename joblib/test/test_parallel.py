@@ -1745,6 +1745,28 @@ def test_threadpool_limitation_in_child_context_error(backend):
 
 @with_numpy
 @parametrize("trial", range(10))
+def test_non_regression_memmap_permission_error_minimal(trial):
+    # Smoke test to serve as a non regression test for:
+    # https://github.com/joblib/joblib/issues/806
+    #
+    # The issue happens when trying to delete a memory mapped file that has
+    # not yet been closed by one of the worker processes.
+    data = np.random.rand(int(2e6)).reshape((int(1e6), 2))
+
+    # Build a complex cyclic reference that is likely to delay garbage
+    # collection of the memmapped array in the worker processes.
+    first_list = current_list = [data]
+    for i in range(10):
+        current_list = [current_list]
+    first_list.append(current_list)
+
+    results = Parallel(n_jobs=2)(
+        delayed(len)(current_list) for i in range(10))
+    assert results == [1] * 10
+
+
+@with_numpy
+@parametrize("trial", range(10))
 def test_non_regression_memmap_permission_error_pandas(trial):
     # Smoke test to serve as a non regression test for:
     # https://github.com/joblib/joblib/issues/806
@@ -1765,32 +1787,10 @@ def test_non_regression_memmap_permission_error_pandas(trial):
     gs = model_selection.RandomizedSearchCV(
         clf,
         param_distributions={"n_estimators": [1],
-                                "max_depth": [2]},
+                             "max_depth": [2]},
         n_iter=1,
         cv=2,
         scoring="accuracy",
         n_jobs=2
     )
     gs.fit(X_train, y_train)
-
-
-@with_numpy
-@parametrize("trial", range(10))
-def test_non_regression_memmap_permission_error_minimal(trial):
-    # Smoke test to serve as a non regression test for:
-    # https://github.com/joblib/joblib/issues/806
-    #
-    # The issue happens when trying to delete a memory mapped file that has
-    # not yet been closed by one of the worker processes.
-    data = np.random.rand(int(2e6)).reshape((int(1e6), 2))
-
-    # Build a complex cyclic reference that is likely to delay garbage
-    # collection of the memmapped array in the worker processes.
-    first_list = current_list = [data]
-    for i in range(10):
-        current_list = [current_list]
-    first_list.append(current_list)
-
-    results = Parallel(n_jobs=2)(
-        delayed(len)(current_list) for i in range(10))
-    assert results == [1] * 10
