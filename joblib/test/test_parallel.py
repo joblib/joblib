@@ -1744,8 +1744,8 @@ def test_threadpool_limitation_in_child_context_error(backend):
 
 
 @with_numpy
-@parametrize("trial", range(10))
-def test_non_regression_memmap_permission_error_minimal(trial):
+@parametrize("trial", range(3))
+def test_non_regression_memmap_permission_error(trial):
     # Smoke test to serve as a non regression test for:
     # https://github.com/joblib/joblib/issues/806
     #
@@ -1763,34 +1763,3 @@ def test_non_regression_memmap_permission_error_minimal(trial):
     results = Parallel(n_jobs=2)(
         delayed(len)(current_list) for i in range(10))
     assert results == [1] * 10
-
-
-@with_numpy
-@parametrize("trial", range(10))
-def test_non_regression_memmap_permission_error_pandas(trial):
-    # Smoke test to serve as a non regression test for:
-    # https://github.com/joblib/joblib/issues/806
-    #
-    # The issue happens when trying to delete a memory mapped file that has
-    # not yet been closed by one of the worker processes.
-    ensemble = pytest.importorskip("sklearn.ensemble")
-    model_selection = pytest.importorskip("sklearn.model_selection")
-    pd = pytest.importorskip("pandas")
-
-    # Several iterations are needed to have a significant chance to trigger
-    # the bug. Generate a different dataset that are big enough to trigger
-    # joblib memory mapping
-    X_train = np.random.rand(int(2e6)).reshape((int(1e6), 2))
-    y_train = np.random.randint(0, 2, int(1e6))
-    X_train = pd.DataFrame(X_train)  # necessary to trigger the issue
-    clf = ensemble.RandomForestClassifier(n_estimators=5)
-    gs = model_selection.RandomizedSearchCV(
-        clf,
-        param_distributions={"n_estimators": [1],
-                             "max_depth": [2]},
-        n_iter=1,
-        cv=2,
-        scoring="accuracy",
-        n_jobs=2
-    )
-    gs.fit(X_train, y_train)
