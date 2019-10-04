@@ -1264,8 +1264,8 @@ def test_memmapping_leaks(backend, tmpdir):
     assert not os.listdir(tmpdir)
 
 
-def view_on_memmap(a):
-    return a[1:2]
+def view_on_memmap(a, start=1, stop=2):
+    return a[start:stop]
 
 
 @with_numpy
@@ -1276,11 +1276,18 @@ def test_view_on_memmap(backend, tmpdir):
     # https://github.com/joblib/joblib/issues/806
     tmpdir = tmpdir.strpath
 
+    # Prepare some random data to be passed as argument to parallel calls:
+    arrays = [np.random.randint(100, size=10) for _ in range(3)]
+
+    # duplicate the arrays so that matching pairs should be memmapped to the
+    # same temporary file
+    arrays *= 2
+
     # Use max_nbytes=1 to force the use of memory-mapping even for small
     # arrays
     with Parallel(n_jobs=2, max_nbytes=1, backend=backend,
                   temp_folder=tmpdir) as p:
-        p(delayed(view_on_memmap)(a) for a in [np.random.random(10)] * 2)
+        views = p(delayed(view_on_memmap)(a, start=1, stop=2) for a in arrays)
 
         # The memmap folder should not be clean in the context scope
         assert len(os.listdir(tmpdir)) > 0
@@ -1289,12 +1296,20 @@ def test_view_on_memmap(backend, tmpdir):
     # the context
     assert not os.listdir(tmpdir)
 
+    for array, view in zip(arrays, views):
+        np.testing.assert_array_equal(array[1:2], view)
+        assert isinstance(view, np.memmap)
+
+
     # Make sure that the shared memory is cleaned at the end of a call
     p = Parallel(n_jobs=2, max_nbytes=1, backend=backend)
-    p(delayed(view_on_memmap)(a) for a in [np.random.random(10)] * 2)
+    views = p(delayed(view_on_memmap)(a, start=1, stop=2) for a in arrays)
 
     assert not os.listdir(tmpdir)
 
+    for array, view in zip(arrays, views):
+        np.testing.assert_array_equal(array[1:2], view)
+        assert isinstance(view, np.memmap)
 
 @parametrize('backend', [None, 'loky', 'threading'])
 def test_lambda_expression(backend):
