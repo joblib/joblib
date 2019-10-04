@@ -1300,7 +1300,6 @@ def test_view_on_memmap(backend, tmpdir):
         np.testing.assert_array_equal(array[1:2], view)
         assert isinstance(view, np.memmap)
 
-
     # Make sure that the shared memory is cleaned at the end of a call
     p = Parallel(n_jobs=2, max_nbytes=1, backend=backend)
     views = p(delayed(view_on_memmap)(a, start=1, stop=2) for a in arrays)
