@@ -1,6 +1,14 @@
 Latest changes
 ===============
 
+Release 0.14.1
+--------------
+
+- Avoid oversubscription when numba or TBB parallel code is executed
+  in a loky-managed worker via a `Parallel` call.
+  https://github.com/joblib/joblib/pull/951
+
+
 Release 0.14.0
 --------------
 
