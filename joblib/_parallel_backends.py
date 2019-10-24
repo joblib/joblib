@@ -44,6 +44,8 @@ class ParallelBackendBase(with_metaclass(ABCMeta)):
         'NUMBA_NUM_THREADS', 'NUMEXPR_NUM_THREADS',
     ]
 
+    TBB_ENABLE_IPC_VAR = "ENABLE_IPC"
+
     @abstractmethod
     def effective_n_jobs(self, n_jobs):
         """Determine the number of jobs that can actually run in parallel
@@ -150,7 +152,7 @@ class ParallelBackendBase(with_metaclass(ABCMeta)):
         """
         yield
 
-    def _get_max_num_threads_vars(self, n_jobs):
+    def _prepare_worker_env(self, n_jobs):
         """Return environment variables limiting threadpools in external libs.
 
         This function return a dict containing environment variables to pass
@@ -174,6 +176,11 @@ class ParallelBackendBase(with_metaclass(ABCMeta)):
                 var_value = str(explicit_n_threads)
 
             env[var] = var_value
+
+        if self.TBB_ENABLE_IPC_VAR not in os.environ:
+            # To avoid over-subscription when using TBB, let the TBB schedulers
+            # use Inter Process Communication to coordinate:
+            env[self.TBB_ENABLE_IPC_VAR] = "1"
         return env
 
     @staticmethod
@@ -506,7 +513,7 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
 
         self._workers = get_memmapping_executor(
             n_jobs, timeout=idle_worker_timeout,
-            env=self._get_max_num_threads_vars(n_jobs=n_jobs),
+            env=self._prepare_worker_env(n_jobs=n_jobs),
             **memmappingexecutor_args)
         self.parallel = parallel
         return n_jobs

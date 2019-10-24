@@ -4,8 +4,11 @@ Latest changes
 Release 0.14.1
 --------------
 
-- Avoid oversubscription when numba or TBB parallel code is executed
-  in a loky-managed worker via a `Parallel` call.
+- Configure the loky workers' environment to mitigate oversubsription with
+  nested multi-threaded code in the following case:
+  - allow for a suitable number of threads for numba;
+  - enable Interprocess Communication for scheduler coordination when the
+    nested code uses Threading Building Blocks (TBB).
   https://github.com/joblib/joblib/pull/951
 
 
