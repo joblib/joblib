@@ -159,7 +159,10 @@ class ZipNumpyUnpickler(Unpickler):
 
     dispatch = Unpickler.dispatch.copy()
 
-    def __init__(self, filename, file_handle, mmap_mode=None, encoding="ASCII"):
+    def __init__(
+            self, filename, file_handle,
+            mmap_mode=None, encoding="ASCII"
+    ):
         """Constructor."""
         self._filename = os.path.basename(filename)
         self._dirname = os.path.dirname(filename)
