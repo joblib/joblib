@@ -1537,7 +1537,8 @@ def test_thread_bomb_mitigation(backend):
 def _run_parallel_sum():
     env_vars = {}
     for var in ['OMP_NUM_THREADS', 'OPENBLAS_NUM_THREADS', 'MKL_NUM_THREADS',
-                'VECLIB_MAXIMUM_THREADS', 'NUMEXPR_NUM_THREADS']:
+                'VECLIB_MAXIMUM_THREADS', 'NUMEXPR_NUM_THREADS',
+                'NUMBA_NUM_THREADS', 'ENABLE_IPC']:
         env_vars[var] = os.environ.get(var)
     return env_vars, parallel_sum(100)
 
@@ -1545,12 +1546,18 @@ def _run_parallel_sum():
 @parametrize("backend", [None, 'loky'])
 @skipif(parallel_sum is None, reason="Need OpenMP helper compiled")
 def test_parallel_thread_limit(backend):
-    res = Parallel(n_jobs=2, backend=backend)(
+    results = Parallel(n_jobs=2, backend=backend)(
         delayed(_run_parallel_sum)() for _ in range(2)
     )
-    for value in res[0][0].values():
-        assert value == '1'
-    assert all([r[1] == 1 for r in res])
+    expected_num_threads = max(cpu_count() // 2, 1)
+    for worker_env_vars, omp_num_threads in results:
+        assert omp_num_threads == expected_num_threads
+        for name, value in worker_env_vars.items():
+            if name.endswith("_THREADS"):
+                assert value == str(expected_num_threads)
+            else:
+                assert name == "ENABLE_IPC"
+                assert value == "1"
 
 
 @skipif(distributed is not None,

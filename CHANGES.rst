@@ -1,5 +1,19 @@
 Latest changes
-===============
+==============
+
+Release 0.14.1
+--------------
+
+- Configure the loky workers' environment to mitigate oversubsription with
+  nested multi-threaded code in the following case:
+
+  - allow for a suitable number of threads for numba (``NUMBA_NUM_THREADS``);
+
+  - enable Interprocess Communication for scheduler coordination when the
+    nested code uses Threading Building Blocks (TBB) (``ENABLE_IPC=1``)
+
+  https://github.com/joblib/joblib/pull/951
+
 
 Release 0.14.0
 --------------
