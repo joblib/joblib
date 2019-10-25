@@ -159,13 +159,13 @@ class ZipNumpyUnpickler(Unpickler):
 
     dispatch = Unpickler.dispatch.copy()
 
-    def __init__(self, filename, file_handle, mmap_mode=None):
+    def __init__(self, filename, file_handle, mmap_mode=None, encoding="ASCII"):
         """Constructor."""
         self._filename = os.path.basename(filename)
         self._dirname = os.path.dirname(filename)
         self.mmap_mode = mmap_mode
         self.file_handle = self._open_pickle(file_handle)
-        Unpickler.__init__(self, self.file_handle)
+        Unpickler.__init__(self, self.file_handle, encoding=encoding)
         try:
             import numpy as np
         except ImportError:
