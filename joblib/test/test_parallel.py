@@ -1553,7 +1553,7 @@ def test_parallel_thread_limit(backend):
     for worker_env_vars, omp_num_threads in results:
         assert omp_num_threads == expected_num_threads
         for name, value in worker_env_vars.items():
-            if name.endswith("_NUM_THREADS"):
+            if name.endswith("_THREADS"):
                 assert value == str(expected_num_threads)
             else:
                 assert name == "ENABLE_IPC"
