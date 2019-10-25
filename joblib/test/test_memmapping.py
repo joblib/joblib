@@ -4,6 +4,7 @@ import sys
 import platform
 import gc
 import pickle
+from time import sleep
 
 from joblib.test.common import with_numpy, np
 from joblib.test.common import setup_autokill
@@ -573,11 +574,12 @@ def test_numpy_arrays_use_different_memory(mmap_mode):
 @with_numpy
 def test_weak_array_key_map():
 
-    def assert_empty_after_gc_collect(container, retries=3):
+    def assert_empty_after_gc_collect(container, retries=100):
         for i in range(retries):
             if len(container) == 0:
                 return
             gc.collect()
+            sleep(.1)
         assert len(container) == 0
 
     a = np.ones(42)
