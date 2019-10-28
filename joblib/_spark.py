@@ -38,7 +38,8 @@ class DaskDistributedBackend(ParallelBackendBase):
         return self._pool
 
     def apply_async(self, func, callback=None):
-
+        # Note the `func` args is a batch here. (BatchedCalls type)
+        # See joblib.parallel.Parallel._dispatch
         def run_on_worker_and_fetch_result():
             ser_res = self.sparkContext.parallelize([0], 1) \
                 .map(lambda _: cloudpickle.dumps(func())) \
