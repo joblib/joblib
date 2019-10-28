@@ -37,6 +37,10 @@ class DaskDistributedBackend(ParallelBackendBase):
             self._pool = ThreadPool(self._n_jobs)
         return self._pool
 
+    def compute_batch_size(self):
+        """Determine the optimal batch size"""
+        return 5
+
     def apply_async(self, func, callback=None):
         # Note the `func` args is a batch here. (BatchedCalls type)
         # See joblib.parallel.Parallel._dispatch
