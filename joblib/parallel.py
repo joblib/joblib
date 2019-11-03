@@ -79,7 +79,7 @@ def _register_spark():
         register_parallel_backend('spark', SparkDistributedBackend)
     except ImportError:
         msg = ("To use the spark.distributed backend you must install both "
-               "the `pyspark` and distributed modules.\n\n")
+               "the `pyspark` and `cloudpickle` packages.\n\n")
         raise ImportError(msg)
 
 

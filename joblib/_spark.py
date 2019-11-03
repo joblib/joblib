@@ -1,15 +1,15 @@
 import cloudpickle
+import warnings
 from multiprocessing.pool import ThreadPool
+
+from .logger import Logger
 from .parallel import ParallelBackendBase
+from ._parallel_backends import AutoBatchingMixin, SafeFunction, SequentialBackend
 
 from pyspark.sql import SparkSession
 
-from ._parallel_backends import SequentialBackend
-from .logger import Logger
-import warnings
 
-
-class SparkDistributedBackend(ParallelBackendBase):
+class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
 
     def __init__(self, **backend_args):
         super(SparkDistributedBackend, self).__init__(**backend_args)
@@ -22,25 +22,24 @@ class SparkDistributedBackend(ParallelBackendBase):
             .getOrCreate()
 
     def effective_n_jobs(self, n_jobs):
-        # TODO: get real task slots (i.e maximumn parallel spark jobs number)
-        num_slots = 128
-        return min(n_jobs, num_slots)
+        # maxNumConcurrentTasks() is a package private API
+        max_num_concurrent_tasks = self._spark.sparkContext._jsc.sc().maxNumConcurrentTasks()
+        if n_jobs > max_num_concurrent_tasks:
+            n_jobs = max_num_concurrent_tasks
+            warnings.warn("limit n_jobs to be maxNumConcurrentTasks in spark: " + str(n_jobs))
+        return n_jobs
 
     def abort_everything(self, ensure_ready=True):
         # TODO: Current pyspark has some issue on cancelling jobs, so do not support it
         #       for now
         warnings.warn("Do not implement abort_everything. Spark jobs may not exit.")
-        pass
-
-    def start_call(self):
-        pass
-
-    def stop_call(self):
-        pass
+        if ensure_ready:
+            self.configure(n_jobs=self.parallel.n_jobs, parallel=self.parallel,
+                           **self.parallel._backend_args)
 
     def terminate(self):
-        warnings.warn("Joblib Spark backend stop. Running jobs will be killed.")
-        self._spark.stop()
+        # TODO: Terminate all running spark jobs launched by this backend.
+        warnings.warn("Some spark job may be still running.")
 
     def configure(self, n_jobs=1, parallel=None, **backend_args):
         n_jobs = self.effective_n_jobs(n_jobs)
@@ -57,10 +56,6 @@ class SparkDistributedBackend(ParallelBackendBase):
             self._pool = ThreadPool(self._n_jobs)
         return self._pool
 
-    def compute_batch_size(self):
-        """Determine the optimal batch size"""
-        return 2
-
     def apply_async(self, func, callback=None):
         # Note the `func` args is a batch here. (BatchedCalls type)
         # See joblib.parallel.Parallel._dispatch
@@ -71,12 +66,13 @@ class SparkDistributedBackend(ParallelBackendBase):
             return cloudpickle.loads(ser_res)
 
         return self._get_pool().apply_async(
-            run_on_worker_and_fetch_result,
+            SafeFunction(run_on_worker_and_fetch_result),
             callback=callback
         )
 
     def get_nested_backend(self):
         """Backend instance to be used by nested Parallel calls.
+           For nested backend, always use `SequentialBackend`
         """
         nesting_level = getattr(self, 'nesting_level', 0) + 1
         return SequentialBackend(nesting_level=nesting_level), None
