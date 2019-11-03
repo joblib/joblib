@@ -14,7 +14,9 @@ class SparkDistributedBackend(ParallelBackendBase):
     def __init__(self, **backend_args):
         super(SparkDistributedBackend, self).__init__(**backend_args)
         Logger.__init__(self)
-        self.spark = SparkSession \
+        self._pool = None
+        self._n_jobs = None
+        self._spark = SparkSession \
             .builder \
             .appName("JoblibSparkBackend") \
             .getOrCreate()
@@ -38,7 +40,7 @@ class SparkDistributedBackend(ParallelBackendBase):
 
     def terminate(self):
         warnings.warn("Joblib Spark backend stop. Running jobs will be killed.")
-        self.spark.stop()
+        self._spark.stop()
 
     def configure(self, n_jobs=1, parallel=None, **backend_args):
         n_jobs = self.effective_n_jobs(n_jobs)
@@ -63,7 +65,7 @@ class SparkDistributedBackend(ParallelBackendBase):
         # Note the `func` args is a batch here. (BatchedCalls type)
         # See joblib.parallel.Parallel._dispatch
         def run_on_worker_and_fetch_result():
-            ser_res = self.spark.sparkContext.parallelize([0], 1) \
+            ser_res = self._spark.sparkContext.parallelize([0], 1) \
                 .map(lambda _: cloudpickle.dumps(func())) \
                 .first()
             return cloudpickle.loads(ser_res)

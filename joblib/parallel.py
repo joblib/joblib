@@ -85,7 +85,7 @@ def _register_spark():
 
 EXTERNAL_BACKENDS = {
     'dask': _register_dask,
-    'spark': _register_spark()
+    'spark': _register_spark
 }
 
 
