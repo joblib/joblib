@@ -2,19 +2,33 @@ import cloudpickle
 from multiprocessing.pool import ThreadPool
 from .parallel import ParallelBackendBase
 
+from pyspark.sql import SparkSession
 
-class DaskDistributedBackend(ParallelBackendBase):
+from ._parallel_backends import SequentialBackend
+from .logger import Logger
+import warnings
 
-    def __init__(self, sparkContext):
-        self.sparkContext = sparkContext
-        self._n_jobs = self.effective_n_jobs(10)
+
+class SparkDistributedBackend(ParallelBackendBase):
+
+    def __init__(self, **backend_args):
+        super(SparkDistributedBackend, self).__init__(**backend_args)
+        Logger.__init__(self)
+        self.spark = SparkSession \
+            .builder \
+            .appName("JoblibSparkBackend") \
+            .getOrCreate()
 
     def effective_n_jobs(self, n_jobs):
-        num_slots = 10 # TODO: get real task slots
+        # TODO: get real task slots (i.e maximumn parallel spark jobs number)
+        num_slots = 128
         return min(n_jobs, num_slots)
 
     def abort_everything(self, ensure_ready=True):
-        raise RuntimeError("unsupported abort")
+        # TODO: Current pyspark has some issue on cancelling jobs, so do not support it
+        #       for now
+        warnings.warn("Do not implement abort_everything. Spark jobs may not exit.")
+        pass
 
     def start_call(self):
         pass
@@ -22,7 +36,11 @@ class DaskDistributedBackend(ParallelBackendBase):
     def stop_call(self):
         pass
 
-    def configure(self, n_jobs=10, parallel=None, **backend_args):
+    def terminate(self):
+        warnings.warn("Joblib Spark backend stop. Running jobs will be killed.")
+        self.spark.stop()
+
+    def configure(self, n_jobs=1, parallel=None, **backend_args):
         n_jobs = self.effective_n_jobs(n_jobs)
         self._n_jobs = n_jobs
         return n_jobs
@@ -39,18 +57,24 @@ class DaskDistributedBackend(ParallelBackendBase):
 
     def compute_batch_size(self):
         """Determine the optimal batch size"""
-        return 5
+        return 2
 
     def apply_async(self, func, callback=None):
         # Note the `func` args is a batch here. (BatchedCalls type)
         # See joblib.parallel.Parallel._dispatch
         def run_on_worker_and_fetch_result():
-            ser_res = self.sparkContext.parallelize([0], 1) \
+            ser_res = self.spark.sparkContext.parallelize([0], 1) \
                 .map(lambda _: cloudpickle.dumps(func())) \
                 .first()
             return cloudpickle.loads(ser_res)
 
-        self._get_pool().apply_async(
+        return self._get_pool().apply_async(
             run_on_worker_and_fetch_result,
             callback=callback
         )
+
+    def get_nested_backend(self):
+        """Backend instance to be used by nested Parallel calls.
+        """
+        nesting_level = getattr(self, 'nesting_level', 0) + 1
+        return SequentialBackend(nesting_level=nesting_level), None

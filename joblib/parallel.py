@@ -73,8 +73,19 @@ def _register_dask():
         raise ImportError(msg)
 
 
+def _register_spark():
+    try:
+        from ._spark import SparkDistributedBackend
+        register_parallel_backend('spark', SparkDistributedBackend)
+    except ImportError:
+        msg = ("To use the spark.distributed backend you must install both "
+               "the `pyspark` and distributed modules.\n\n")
+        raise ImportError(msg)
+
+
 EXTERNAL_BACKENDS = {
     'dask': _register_dask,
+    'spark': _register_spark()
 }
 
 
