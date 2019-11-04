@@ -20,6 +20,7 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
             .builder \
             .appName("JoblibSparkBackend") \
             .getOrCreate()
+        self._job_group = "joblib_spark_job"
 
     def effective_n_jobs(self, n_jobs):
         # maxNumConcurrentTasks() is a package private API
@@ -30,16 +31,17 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         return n_jobs
 
     def abort_everything(self, ensure_ready=True):
-        # TODO: Current pyspark has some issue on cancelling jobs, so do not support it
-        #       for now
-        warnings.warn("Do not implement abort_everything. Spark jobs may not exit.")
+        # Note: There's bug existing in `sparkContext.cancelJobGroup`.
+        # See https://github.com/apache/spark/pull/24898
+        self._spark.sparkContext.cancelJobGroup(self._job_group)
         if ensure_ready:
             self.configure(n_jobs=self.parallel.n_jobs, parallel=self.parallel,
                            **self.parallel._backend_args)
 
     def terminate(self):
-        # TODO: Terminate all running spark jobs launched by this backend.
-        warnings.warn("Some spark job may be still running.")
+        # Note: There's bug existing in `sparkContext.cancelJobGroup`.
+        # See https://github.com/apache/spark/pull/24898
+        self._spark.sparkContext.cancelJobGroup(self._job_group)
 
     def configure(self, n_jobs=1, parallel=None, **backend_args):
         n_jobs = self.effective_n_jobs(n_jobs)
@@ -61,6 +63,7 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         # See joblib.parallel.Parallel._dispatch
         def run_on_worker_and_fetch_result():
             # TODO: handle possible spark exception here.
+            self._spark.sparkContext.setJobGroup(self._job_group, "joblib spark job")
             ser_res = self._spark.sparkContext.parallelize([0], 1) \
                 .map(lambda _: cloudpickle.dumps(func())) \
                 .first()
