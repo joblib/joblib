@@ -60,6 +60,7 @@ class SparkDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         # Note the `func` args is a batch here. (BatchedCalls type)
         # See joblib.parallel.Parallel._dispatch
         def run_on_worker_and_fetch_result():
+            # TODO: handle possible spark exception here.
             ser_res = self._spark.sparkContext.parallelize([0], 1) \
                 .map(lambda _: cloudpickle.dumps(func())) \
                 .first()
