@@ -907,7 +907,7 @@ class Parallel(Logger):
                 if (is_last_item or cursor % frequency):
                     return
             remaining_time = (elapsed_time / index) * \
-                             (self.n_dispatched_tasks - index * 1.0)
+                             (total_tasks - index * 1.0)
             # only display status if remaining time is greater or equal to 0
             self._print('Done %3i out of %3i | elapsed: %s remaining: %s',
                         (index,
