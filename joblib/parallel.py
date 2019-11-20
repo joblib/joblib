@@ -616,7 +616,7 @@ class Parallel(Logger):
     def __init__(self, n_jobs=None, backend=None, verbose=0, timeout=None,
                  pre_dispatch='2 * n_jobs', batch_size='auto',
                  temp_folder=None, max_nbytes='1M', mmap_mode='r',
-                 prefer=None, require=None):
+                 prefer=None, require=None, total=None):
         active_backend, context_n_jobs = get_active_backend(
             prefer=prefer, require=require, verbose=verbose)
         nesting_level = active_backend.nesting_level
@@ -633,6 +633,7 @@ class Parallel(Logger):
         self.timeout = timeout
         self.pre_dispatch = pre_dispatch
         self._ready_batches = queue.Queue()
+        self.total = total
 
         if isinstance(max_nbytes, _basestring):
             max_nbytes = memstr_to_bytes(max_nbytes)
@@ -861,16 +862,40 @@ class Parallel(Logger):
         # able to display an estimation of the remaining time based on already
         # completed jobs. Otherwise, we simply display the number of completed
         # tasks.
-        if self._original_iterator is not None:
-            if _verbosity_filter(self.n_dispatched_batches, self.verbose):
-                return
-            self._print('Done %3i tasks      | elapsed: %s',
-                        (self.n_completed_tasks,
-                         short_format_time(elapsed_time), ))
+        if self.total is None:
+            if self._original_iterator is not None:
+                if _verbosity_filter(self.n_dispatched_batches, self.verbose):
+                    return
+                self._print('Done %3i tasks      | elapsed: %s',
+                            (self.n_completed_tasks,
+                             short_format_time(elapsed_time), ))
+            else:
+                index = self.n_completed_tasks
+                # We are finished dispatching
+                total_tasks = self.n_dispatched_tasks
+                # We always display the first loop
+                if not index == 0:
+                    # Display depending on the number of remaining items
+                    # A message as soon as we finish dispatching, cursor is 0
+                    cursor = (total_tasks - index + 1 -
+                              self._pre_dispatch_amount)
+                    frequency = (total_tasks // self.verbose) + 1
+                    is_last_item = (index + 1 == total_tasks)
+                    if (is_last_item or cursor % frequency):
+                        return
+                remaining_time = (elapsed_time / index) * \
+                                 (self.n_dispatched_tasks - index * 1.0)
+                # only display status if remaining time is greater or equal to 0
+                self._print('Done %3i out of %3i | elapsed: %s remaining: %s',
+                            (index,
+                             total_tasks,
+                             short_format_time(elapsed_time),
+                             short_format_time(remaining_time),
+                             ))
         else:
             index = self.n_completed_tasks
             # We are finished dispatching
-            total_tasks = self.n_dispatched_tasks
+            total_tasks = self.total
             # We always display the first loop
             if not index == 0:
                 # Display depending on the number of remaining items
@@ -890,6 +915,7 @@ class Parallel(Logger):
                          short_format_time(elapsed_time),
                          short_format_time(remaining_time),
                          ))
+
 
     def retrieve(self):
         self._output = list()
