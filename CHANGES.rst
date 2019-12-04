@@ -4,6 +4,10 @@ Latest changes
 In development
 --------------
 
+- Add check_call_in_cache method to check cache without calling function.
+  https://github.com/joblib/joblib/pull/820
+
+
 Release 0.16.0
 --------------
 
@@ -80,6 +84,7 @@ Release 0.14.1
 - Revert https://github.com/joblib/joblib/pull/847 to avoid using
   `pkg_resources` that introduced a performance regression under Windows:
   https://github.com/joblib/joblib/issues/965
+
 
 Release 0.14.0
 --------------
