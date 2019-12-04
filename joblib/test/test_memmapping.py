@@ -5,6 +5,7 @@ import platform
 import gc
 import pickle
 from time import sleep
+import re
 
 from joblib.test.common import with_numpy, np
 from joblib.test.common import setup_autokill
@@ -666,3 +667,74 @@ def test_direct_mmap(tmpdir):
 
     results = Parallel(n_jobs=2)(delayed(worker)() for _ in range(1))
     np.testing.assert_array_equal(results[0], arr)
+
+
+def test_shared_memory_deleted_after_parallel_call():
+    # check that memmaped arrays in joblib are properly
+    # managed by the resource_tracker. This includes cleaning up
+    # the temporary files when no process holds a reference to it anyomore.
+    import subprocess
+
+    cmd = '''if 1:
+        import time, os, tempfile, sys
+        import numpy as np
+        from joblib import Parallel, delayed
+
+
+        def test_data(data):
+            data_view = data[0:20]
+            return data_view
+
+
+        data = np.ones(int(2e6))
+
+        # the Parallel object has to be called from a context manager to some
+        # of its temporary attributes before it gets terminated
+
+        with Parallel(n_jobs=2, verbose=5) as parallel_obj:
+            # warm up the executor
+            parallel_obj(delayed(abs)(i) for i in range(10))
+
+            # create the memmap file by calling the parallel instance reducers
+            # on the data to be sent to the workers. This allows us to get the
+            # filename and send it back to the parent for further tracking.
+            # TODO: set verbose to 1 and access the file name this way.
+            reducer = parallel_obj._backend._workers._call_queue._reducers[
+                np.ndarray]
+            load_fn, (filename, permissions) = reducer(data)
+
+            # call in parallel a functino processing the data
+            results = parallel_obj(delayed(test_data)(data) for _ in range(10))
+
+        # give the resource_tracker time to register the new resource
+        sys.stdout.write(filename + "\\n")
+        time.sleep(0.5)
+        sys.stdout.flush()
+        time.sleep(3)
+    '''
+    cmd = cmd.format(parent_pid=os.getpid())
+    p = subprocess.Popen([sys.executable, '-E', '-c', cmd],
+                         stderr=subprocess.PIPE,
+                         stdout=subprocess.PIPE)
+    out = p.stdout.readline().rstrip().decode('ascii')
+    print(out)
+
+    if out == "":
+        # before #806, the subprocess would exit with a PermissionError
+        # TODO: maybe split it into two tests: one for reference tracking, and
+        # one for the original crash.
+        p.wait()
+        assert p.returncode == 1
+        err = p.stderr.read().rstrip().decode('ascii')
+        raise AssertionError(f"subprocess did not complete {err}")
+
+    assert os.path.exists(out)
+
+    p.wait()
+    err = p.stderr.read().rstrip().decode('ascii')
+    print(err)
+
+    # wait for the resource_tracker to cleanup the leaked resources
+    p.stderr.close()
+    p.stdout.close()
+    assert not os.path.exists(out)
