@@ -120,5 +120,6 @@ def delete_folder(folder_path, onerror=None):
                         warnings.warn(
                             "Unable to delete folder {} after {} tentatives."
                             .format(folder_path, RM_SUBDIRS_N_RETRY))
-                        raise
+                        # raise
+                        break
                     time.sleep(RM_SUBDIRS_RETRY_TIME)

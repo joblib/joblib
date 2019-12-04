@@ -355,6 +355,11 @@ class ArrayMemmapReducer(object):
                           .format(a.shape, a.dtype, filename))
                 for dumped_filename in dump(a, filename):
                     os.chmod(dumped_filename, FILE_PERMISSIONS)
+                    from .externals.loky.backend.resource_tracker import (
+                        _resource_tracker
+                    )
+                    # signal the resource_tracker a new file has been created.
+                    _resource_tracker.register(dumped_filename, "file")
 
                 if self._prewarm:
                     # Warm up the data by accessing it. This operation ensures
