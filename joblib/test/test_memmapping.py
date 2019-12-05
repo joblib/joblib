@@ -5,6 +5,7 @@ import platform
 import gc
 import pickle
 from time import sleep
+import subprocess
 import re
 
 from joblib.test.common import with_numpy, np
@@ -669,11 +670,40 @@ def test_direct_mmap(tmpdir):
     np.testing.assert_array_equal(results[0], arr)
 
 
+def test_windows_memmaped_arrays_race_condition():
+    # test crash on issue #806: during the shutdown of a python
+    # process that previously called a Parallel instance,
+    # the cleanup of memmaped arrays would fail due the OS flagging
+    # the shared files as still in use by the child processes.
+    cmd = '''if 1:
+        import time, os, tempfile, sys
+        import numpy as np
+        from joblib import Parallel, delayed
+
+
+        def test_data(data):
+            data_view = data[0:20]
+            return data_view
+
+
+        data = np.ones(int(2e6))
+
+        Parallel(n_jobs=2, verbose=5)(
+            delayed(test_data)(data) for _ in range(10))
+    '''
+    p = subprocess.Popen([sys.executable, '-E', '-c', cmd],
+                         stderr=subprocess.PIPE,
+                         stdout=subprocess.PIPE)
+    p.wait()
+    out = p.stdout.read().rstrip().decode('ascii')
+    err = p.stderr.read().rstrip().decode('ascii')
+    print(err)
+
+
 def test_shared_memory_deleted_after_parallel_call():
     # check that memmaped arrays in joblib are properly
     # managed by the resource_tracker. This includes cleaning up
     # the temporary files when no process holds a reference to it anyomore.
-    import subprocess
 
     cmd = '''if 1:
         import time, os, tempfile, sys
