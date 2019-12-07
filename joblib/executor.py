@@ -14,7 +14,7 @@ from ._memmapping_reducer import get_memmapping_reducers
 from .externals.loky.reusable_executor import get_reusable_executor
 
 
-_backend_args = None
+_executor_arg = None
 
 
 def get_memmapping_executor(n_jobs, timeout=300, initializer=None, initargs=(),
@@ -22,10 +22,14 @@ def get_memmapping_executor(n_jobs, timeout=300, initializer=None, initargs=(),
     """Factory for ReusableExecutor with automatic memmapping for large numpy
     arrays.
     """
-    global _backend_args
-    reuse = _backend_args is None or _backend_args == backend_args
-    reuse = 'auto' if reuse else False
-    _backend_args = backend_args
+    global _executor_arg
+    # Check if we can reuse the executor here instead of deffering the test ot
+    # loky as the reducers are objects that changes
+    executor_arg = backend_args.items() | (env.items() if env else {})
+    executor_arg.update(dict(
+        timeout=timeout, initializer=initializer, initargs=initargs))
+    reuse = _executor_arg is None or _executor_arg == executor_arg
+    _executor_arg = executor_arg
 
     id_executor = random.randint(0, int(1e10))
     job_reducers, result_reducers, temp_folder = get_memmapping_reducers(
