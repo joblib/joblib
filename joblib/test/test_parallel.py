@@ -19,8 +19,9 @@ from multiprocessing import TimeoutError
 import pytest
 
 import joblib
-from joblib import dump, load
 from joblib import parallel
+from joblib import dump, load
+from joblib.externals.loky import get_reusable_executor
 
 from joblib.test.common import np, with_numpy
 from joblib.test.common import with_multiprocessing
@@ -1712,10 +1713,9 @@ def test_threadpool_limitation_in_child_override(n_jobs, var_name):
     # Check that environment variables set by the user on the main process
     # always have the priority.
 
-    # Clean up the existing executor because we change the environment fo the
+    # Clean up the existing executor because we change the environment of the
     # parent at runtime and it is not detected in loky intentionally.
-    from joblib.externals.loky import get_reusable_executor
-    get_reusable_executor().shutdown()
+    get_reusable_executor(reuse=True).shutdown()
 
     def _get_env(var_name):
         return os.environ.get(var_name)
@@ -1748,3 +1748,25 @@ def test_threadpool_limitation_in_child_context_error(backend):
 
     with raises(AssertionError, match=r"does not acc.*inner_max_num_threads"):
         parallel_backend(backend, inner_max_num_threads=1)
+
+
+@with_multiprocessing
+@parametrize('n_jobs', [2, 4, -1])
+def test_loky_reuse_workers(n_jobs):
+    # Non-regression test for issue #967 where the workers are not reused when
+    # calling multiple Parallel loops.
+
+    def parallel_call(n_jobs):
+        x = range(10)
+        Parallel(n_jobs=n_jobs)(delayed(sum)(x) for i in range(10))
+
+    # Run a parallel loop and get the workers used for computations
+    parallel_call(n_jobs)
+    first_executor = get_reusable_executor(reuse=True)
+
+    # Ensure that the workers are reused for the next calls, as the executor is
+    # not restarted.
+    for _ in range(10):
+        parallel_call(n_jobs)
+        executor = get_reusable_executor(reuse=True)
+        assert executor == first_executor
