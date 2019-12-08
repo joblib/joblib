@@ -57,4 +57,3 @@ def pytest_configure(config):
         log = mp.util.log_to_stderr(logging.DEBUG)
         log.handlers[0].setFormatter(logging.Formatter(
             '[%(levelname)s:%(processName)s:%(threadName)s] %(message)s'))
-
