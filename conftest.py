@@ -14,6 +14,13 @@ try:
 except ImportError:
     loop = None
 
+try:
+    # Required to run the scikit-learn doctstring doctests
+    import sklearn
+    sklearn.set_config(print_changed_only=True)
+except ImportError:
+    pass
+
 
 def pytest_collection_modifyitems(config, items):
     skip_doctests = True
@@ -50,3 +57,4 @@ def pytest_configure(config):
         log = mp.util.log_to_stderr(logging.DEBUG)
         log.handlers[0].setFormatter(logging.Formatter(
             '[%(levelname)s:%(processName)s:%(threadName)s] %(message)s'))
+
