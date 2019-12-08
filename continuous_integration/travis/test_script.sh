@@ -24,9 +24,5 @@ if [[ "$SKLEARN_TESTS" == "true" ]]; then
     # development version of joblib.
     python -m pip install cython pillow scipy scikit-learn
     python -c "import sklearn; print('Testing scikit-learn', sklearn.__version__)"
-    # Skip test_lars_cv_max_iter because of a warning that is (probably)
-    # not related to joblib. To be confirmed once the following PR is
-    # merged:
-    # https://github.com/scikit-learn/scikit-learn/pull/12597
-    pytest -vl -k "not test_lars_cv_max_iter" --pyargs sklearn
+    pytest -vl --maxfail=5 --pyargs sklearn
 fi
