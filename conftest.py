@@ -34,6 +34,11 @@ def pytest_collection_modifyitems(config, items):
         except ImportError:
             pass
 
+    # We also skip doctests when testing scikit-learn as it's hell to configure
+    # the print_changed_only=True only for doctests.
+    if sklearn is not None:
+        skip_doctests = True
+
     if skip_doctests:
         skip_marker = pytest.mark.skip(
             reason='doctests are only run for numpy >= 1.14')
@@ -54,13 +59,3 @@ def pytest_configure(config):
         log = mp.util.log_to_stderr(logging.DEBUG)
         log.handlers[0].setFormatter(logging.Formatter(
             '[%(levelname)s:%(processName)s:%(threadName)s] %(message)s'))
-
-
-def pytest_runtest_setup(item):
-    if isinstance(item, DoctestItem) and sklearn is not None:
-        sklearn.set_config(print_changed_only=True)
-
-
-def pytest_runtest_teardown(item, nextitem):
-    if isinstance(item, DoctestItem) and sklearn is not None:
-        sklearn.set_config(print_changed_only=False)
