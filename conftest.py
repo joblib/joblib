@@ -13,10 +13,6 @@ try:
     from distributed.utils_test import loop
 except ImportError:
     loop = None
-try:
-    import sklearn
-except ImportError:
-    sklearn = None
 
 
 def pytest_collection_modifyitems(config, items):
@@ -33,11 +29,6 @@ def pytest_collection_modifyitems(config, items):
                 skip_doctests = False
         except ImportError:
             pass
-
-    # We also skip doctests when testing scikit-learn as it's hell to configure
-    # the print_changed_only=True only for doctests.
-    if sklearn is not None:
-        skip_doctests = True
 
     if skip_doctests:
         skip_marker = pytest.mark.skip(

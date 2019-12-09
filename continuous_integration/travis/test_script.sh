@@ -31,5 +31,10 @@ if [[ "$SKLEARN_TESTS" == "true" ]]; then
     SKLEARN_ROOT=`python -c "import sklearn; print(sklearn.__path__[0])"`
     rm -rf "$SKLEARN_ROOT/decomposition/dict_learning.py"
     rm -rf "$SKLEARN_ROOT/inspection/partial_dependence.py"
-    pytest -vl --maxfail=5 -k "not test_import_is_deprecated" --pyargs sklearn
+
+    # Move to a dedicated folder to avoid being polluted by joblib specific conftest.py
+    # and disable the doctest plugin to avoid issues with doctests in scikit-learn
+    # docstrings that require setting print_changed_only=True temporarily.
+    cd "/tmp"
+    pytest -vl --maxfail=5 -p no:doctest -k "not test_import_is_deprecated" --pyargs sklearn
 fi
