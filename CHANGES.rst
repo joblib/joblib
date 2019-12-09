@@ -14,6 +14,9 @@ Release 0.14.1
 
   https://github.com/joblib/joblib/pull/951
 
+- Fix a regression where the loky backend was not reusing previously
+  spawned workers.
+  https://github.com/joblib/joblib/pull/968
 
 Release 0.14.0
 --------------
