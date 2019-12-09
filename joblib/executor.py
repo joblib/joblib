@@ -23,7 +23,7 @@ def get_memmapping_executor(n_jobs, timeout=300, initializer=None, initargs=(),
     arrays.
     """
     global _executor_args
-    # Check if we can reuse the executor here instead of deffering the test to
+    # Check if we can reuse the executor here instead of deferring the test to
     # loky as the reducers are objects that changes at each call.
     executor_args = backend_args.copy()
     executor_args.update(env if env else {})
