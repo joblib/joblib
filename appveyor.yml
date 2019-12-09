@@ -21,6 +21,7 @@ install:
   - powershell ./continuous_integration/appveyor/install.ps1
   - SET PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%
 
+  - python -V
   # Install the build and runtime dependencies of the project.
   - pip install -r continuous_integration/appveyor/requirements.txt
   - python setup.py bdist_wheel
