@@ -13,13 +13,10 @@ try:
     from distributed.utils_test import loop
 except ImportError:
     loop = None
-
 try:
-    # Required to run the scikit-learn doctstring doctests
     import sklearn
-    sklearn.set_config(print_changed_only=True)
 except ImportError:
-    pass
+    sklearn = None
 
 
 def pytest_collection_modifyitems(config, items):
@@ -57,3 +54,13 @@ def pytest_configure(config):
         log = mp.util.log_to_stderr(logging.DEBUG)
         log.handlers[0].setFormatter(logging.Formatter(
             '[%(levelname)s:%(processName)s:%(threadName)s] %(message)s'))
+
+
+def pytest_runtest_setup(item):
+    if isinstance(item, DoctestItem) and sklearn is not None:
+        sklearn.set_config(print_changed_only=True)
+
+
+def pytest_runtest_teardown(item, nextitem):
+    if isinstance(item, DoctestItem) and sklearn is not None:
+        sklearn.set_config(print_changed_only=False)
