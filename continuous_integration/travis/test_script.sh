@@ -28,8 +28,8 @@ if [[ "$SKLEARN_TESTS" == "true" ]]; then
 
     # Hack to workaround shadowing of public function by compat modules:
     # https://github.com/scikit-learn/scikit-learn/issues/15842
-    SKLEARN_ROOT=python -c "import sklearn; print(sklearn.__path__[0])"
+    SKLEARN_ROOT=`python -c "import sklearn; print(sklearn.__path__[0])"`
     rm -rf "$SKLEARN_ROOT/decomposition/dict_learning.py"
     rm -rf "$SKLEARN_ROOT/inspection/partial_dependence.py"
-    pytest -vl --maxfail=5 --pyargs sklearn
+    pytest -vl --maxfail=5 -k "not test_import_is_deprecated" --pyargs sklearn
 fi
