@@ -22,11 +22,19 @@ fi
 if [[ "$SKLEARN_TESTS" == "true" ]]; then
     # Install scikit-learn from conda and test against the installed
     # development version of joblib.
-    python -m pip install cython pillow scipy scikit-learn
+    conda remove -y numpy
+    conda install -y -c conda-forge cython pillow scikit-learn
     python -c "import sklearn; print('Testing scikit-learn', sklearn.__version__)"
-    # Skip test_lars_cv_max_iter because of a warning that is (probably)
-    # not related to joblib. To be confirmed once the following PR is
-    # merged:
-    # https://github.com/scikit-learn/scikit-learn/pull/12597
-    pytest -vl -k "not test_lars_cv_max_iter" --pyargs sklearn
+
+    # Hack to workaround shadowing of public function by compat modules:
+    # https://github.com/scikit-learn/scikit-learn/issues/15842
+    SKLEARN_ROOT=`python -c "import sklearn; print(sklearn.__path__[0])"`
+    rm -rf "$SKLEARN_ROOT/decomposition/dict_learning.py"
+    rm -rf "$SKLEARN_ROOT/inspection/partial_dependence.py"
+
+    # Move to a dedicated folder to avoid being polluted by joblib specific conftest.py
+    # and disable the doctest plugin to avoid issues with doctests in scikit-learn
+    # docstrings that require setting print_changed_only=True temporarily.
+    cd "/tmp"
+    pytest -vl --maxfail=5 -p no:doctest -k "not test_import_is_deprecated" --pyargs sklearn
 fi

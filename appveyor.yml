@@ -4,8 +4,8 @@ environment:
   # platforms (universal wheel).
   # We run the tests on 2 different target platforms for testing purpose only.
   matrix:
-    - PYTHON: "C:\\Python35-x64"
-      PYTHON_VERSION: "3.5.x"
+    - PYTHON: "C:\\Python37-x64"
+      PYTHON_VERSION: "3.7.x"
       PYTHON_ARCH: "64"
 
     - PYTHON: "C:\\Python27"
@@ -21,6 +21,7 @@ install:
   - powershell ./continuous_integration/appveyor/install.ps1
   - SET PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%
 
+  - python -V
   # Install the build and runtime dependencies of the project.
   - pip install -r continuous_integration/appveyor/requirements.txt
   - python setup.py bdist_wheel
