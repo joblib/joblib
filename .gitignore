@@ -48,3 +48,5 @@ doc/_build
 
 # Dask worker space directory in generated examples
 dask-worker-space/
+
+.vscode
