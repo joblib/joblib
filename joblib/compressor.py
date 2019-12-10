@@ -3,7 +3,7 @@
 import sys
 import io
 import zlib
-from pkg_resources import parse_version
+from distutils.version import LooseVersion
 
 from ._compat import _basestring, PY3_OR_LATER
 
@@ -226,9 +226,7 @@ class LZ4CompressorWrapper(CompressorWrapper):
             raise ValueError('lz4 compression is only available with '
                              'python3+.')
 
-        if lz4 is None or (
-            parse_version(lz4.__version__) < parse_version('0.19')
-        ):
+        if lz4 is None or LooseVersion(lz4.__version__) < LooseVersion('0.19'):
             raise ValueError(LZ4_NOT_INSTALLED_ERROR)
 
     def compressor_file(self, fileobj, compresslevel=None):
