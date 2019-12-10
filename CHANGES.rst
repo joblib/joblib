@@ -18,6 +18,10 @@ Release 0.14.1
   spawned workers.
   https://github.com/joblib/joblib/pull/968
 
+- Revert https://github.com/joblib/joblib/pull/847 to avoid using
+  `pkg_resources` that introduced a performance regression under Windows:
+  https://github.com/joblib/joblib/issues/965
+
 Release 0.14.0
 --------------
 
