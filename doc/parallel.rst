@@ -71,6 +71,10 @@ call to :class:`joblib.Parallel` but this is now considered a bad pattern
 (when done in a library) as it does not make it possible to override that
 choice with the ``parallel_backend`` context manager.
 
+Besides builtin joblib backends, we can use
+`Joblib Apache Spark Backend <https://github.com/joblib/joblib-spark>`_
+to distribute joblib tasks on a Spark cluster.
+
 .. _serialization_and_processes:
 
 Serialization & Processes
