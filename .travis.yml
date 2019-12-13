@@ -10,7 +10,7 @@ env:
     - PYTHON_VERSION="pypy3" LOKY_MAX_CPU_COUNT="2"
     # Run scikit-learn tests as integration / non-regression tests
     - SKIP_TESTS="true" SKLEARN_TESTS="true" PYTHON_VERSION="3.7" NUMPY_VERSION="1.16" SCIKIT_LEARN_VERSION="0.22"
-    - PYTHON_VERSION="2.7" NUMPY_VERSION="1.6" NO_LZ4="true" COVERAGE="true"
+    - PYTHON_VERSION="2.7" NUMPY_VERSION="1.8" NO_LZ4="true" COVERAGE="true"
     - PYTHON_VERSION="2.7" NUMPY_VERSION="1.8" COVERAGE="true"
     - PYTHON_VERSION="3.4" NUMPY_VERSION="1.10"
     # NUMPY_VERSION not set means numpy is not installed
