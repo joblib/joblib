@@ -20,7 +20,7 @@ print_conda_requirements() {
     #   - for scikit-learn, SCIKIT_LEARN_VERSION is used
     TO_INSTALL_ALWAYS="pip pytest"
     REQUIREMENTS="$TO_INSTALL_ALWAYS"
-    TO_INSTALL_MAYBE="python numpy distributed flake8"
+    TO_INSTALL_MAYBE="python numpy distributed flake8 scikit-learn"
     for PACKAGE in $TO_INSTALL_MAYBE; do
         # Capitalize package name and add _VERSION
         PACKAGE_VERSION_VARNAME="${PACKAGE^^}_VERSION"
@@ -49,14 +49,12 @@ create_new_conda_env() {
     chmod +x miniconda.sh && ./miniconda.sh -b -p $MINICONDA_PREFIX
     export PATH=$MINICONDA_PREFIX/bin:$PATH
     conda update --yes conda
-    conda config --set restore_free_channel true
-    conda config --set pip_interop_enabled true
 
     # Configure the conda environment and put it in the path using the
     # provided versions
     REQUIREMENTS=$(print_conda_requirements)
     echo "conda requirements string: $REQUIREMENTS"
-    conda create -n testenv --yes $REQUIREMENTS
+    conda create -n testenv --yes -c conda-forge $REQUIREMENTS
     source activate testenv
 }
 
@@ -77,7 +75,7 @@ else
 fi
 
 # Install py.test timeout to fasten failure in deadlocking tests
-PIP_INSTALL_PACKAGES="pytest-timeout scikit-learn"
+PIP_INSTALL_PACKAGES="pytest-timeout"
 
 if [ -n "$NUMPY_VERSION" ]; then
     # We want to ensure no memory copies are performed only when numpy is
