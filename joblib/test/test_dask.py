@@ -338,3 +338,22 @@ def test_wait_for_workers_timeout():
     finally:
         client.close()
         cluster.close()
+
+
+def test_nested_sklearn_with_dask(loop):
+    pytest.importorskip("sklearn")
+    from sklearn.datasets import make_classification
+    from sklearn.model_selection import GridSearchCV
+    from sklearn.ensemble import RandomForestClassifier
+
+    X, y = make_classification(n_samples=1000, n_features=10, random_state=0)
+    param_grid = {"max_depth": [5, 10, None]}
+    rf = RandomForestClassifier(n_estimators=10, random_state=0)
+    gs = GridSearchCV(rf, param_grid, cv=5)
+
+    with cluster() as (s, [a, b]):
+        with Client(s["address"], loop=loop):
+            with parallel_backend("dask"):
+                gs.fit(X, y)
+
+    assert gs.score(X, y) > 0.9
