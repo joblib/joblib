@@ -77,7 +77,7 @@ else
 fi
 
 # Install py.test timeout to fasten failure in deadlocking tests
-PIP_INSTALL_PACKAGES="pytest-timeout"
+PIP_INSTALL_PACKAGES="pytest-timeout scikit-learn"
 
 if [ -n "$NUMPY_VERSION" ]; then
     # We want to ensure no memory copies are performed only when numpy is
