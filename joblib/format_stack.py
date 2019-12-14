@@ -17,7 +17,7 @@ Adapted from IPython's VerboseTB.
 #            2001-2004, Fernando Perez
 #            2001 Nathaniel Gray
 # License: BSD 3 clause
-
+from __future__ import unicode_literals
 
 import inspect
 import keyword
