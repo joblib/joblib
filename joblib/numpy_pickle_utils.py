@@ -8,6 +8,7 @@ import pickle
 import io
 import warnings
 import contextlib
+from mmap import mmap
 
 from .compressor import _ZFILE_PREFIX
 from .compressor import _COMPRESSORS
@@ -226,3 +227,20 @@ def _read_bytes(fp, size, error_template="ran out of data"):
         raise ValueError(msg % (error_template, size, len(data)))
     else:
         return data
+
+
+def _get_backing_memmap(a):
+    """Recursively look up the original np.memmap instance base if any."""
+    b = getattr(a, 'base', None)
+    if b is None:
+        # TODO: check scipy sparse datastructure if scipy is installed
+        # a nor its descendants do not have a memmap base
+        return None
+
+    elif isinstance(b, mmap):
+        # a is already a real memmap instance.
+        return a
+
+    else:
+        # Recursive exploration of the base ancestry
+        return _get_backing_memmap(b)

@@ -573,7 +573,4 @@ def load(filename, mmap_mode=None):
                     return load_compatibility(fobj)
 
                 obj = _unpickle(fobj, filename, mmap_mode)
-
-    from .externals.loky.backend.resource_tracker import _resource_tracker
-    _resource_tracker.register(filename, "file")
     return obj

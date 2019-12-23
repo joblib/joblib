@@ -31,6 +31,7 @@ except ImportError:
 
 from .numpy_pickle import load
 from .numpy_pickle import dump
+from .numpy_pickle_utils import _get_backing_memmap
 from .backports import make_memmap
 from .disk import delete_folder
 from .externals.loky.backend.resource_tracker import _CLEANUP_FUNCS
@@ -250,6 +251,9 @@ def _reduce_memmap_backed(a, m):
         # view will be extracted.
         strides = a.strides
         total_buffer_len = (a_end - a_start) // a.itemsize
+
+    from .externals.loky.backend.resource_tracker import _resource_tracker
+    _resource_tracker.register(m.filename, "file")
     return (_strided_from_memmap,
             (m.filename, a.dtype, m.mode, offset, order, a.shape, strides,
              total_buffer_len))
@@ -318,6 +322,9 @@ class ArrayMemmapReducer(object):
         m = _get_backing_memmap(a)
         if m is not None and isinstance(m, np.memmap):
             # a is already backed by a memmap file, let's reuse it directly
+            if self.verbose > 1:
+                print('[MEMMAP REDUCE] reducing mmemmap (shape, {}, pid: {})'
+                      '\n'.format(a.shape, os.getpid()))
             return _reduce_memmap_backed(a, m)
 
         if (not a.dtype.hasobject and self._max_nbytes is not None and
@@ -351,15 +358,10 @@ class ArrayMemmapReducer(object):
             # done processing this data.
             if not os.path.exists(filename):
                 if self.verbose > 0:
-                    print("Memmapping (shape={}, dtype={}) to new file {}"
-                          .format(a.shape, a.dtype, filename))
+                    print("[ARRAY DUMP] Memmapping (shape={}, dtype={}) to "
+                          "new file {}".format(a.shape, a.dtype, filename))
                 for dumped_filename in dump(a, filename):
                     os.chmod(dumped_filename, FILE_PERMISSIONS)
-                    from .externals.loky.backend.resource_tracker import (
-                        _resource_tracker
-                    )
-                    # signal the resource_tracker a new file has been created.
-                    _resource_tracker.register(dumped_filename, "file")
 
                 if self._prewarm:
                     # Warm up the data by accessing it. This operation ensures
@@ -369,8 +371,15 @@ class ArrayMemmapReducer(object):
                     # processes.
                     load(filename, mmap_mode=self._mmap_mode).max()
             elif self.verbose > 1:
-                print("Memmapping (shape={}, dtype={}) to old file {}"
-                      .format(a.shape, a.dtype, filename))
+                print("[ARRAY DUMP] pickling the file (shape={}, dtype={}) to "
+                      "old file {}".format(a.shape, a.dtype, filename))
+
+            from .externals.loky.backend.resource_tracker import (
+                _resource_tracker
+            )
+            _resource_tracker.register(filename, "file")
+            print("[ARRAY DUMP] sending a to-be-memmaped-object ({})\n".format(
+                filename.split('/')[-1]))
 
             # The worker process will use joblib.load to memmap the data
             return (load, (filename, self._mmap_mode))
@@ -378,7 +387,7 @@ class ArrayMemmapReducer(object):
             # do not convert a into memmap, let pickler do its usual copy with
             # the default system pickler
             if self.verbose > 1:
-                print("Pickling array (shape={}, dtype={})."
+                print("[ARRAY DUMP] Pickling array (shape={}, dtype={})."
                       .format(a.shape, a.dtype))
             return (loads, (dumps(a, protocol=HIGHEST_PROTOCOL),))
 
