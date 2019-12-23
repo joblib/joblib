@@ -66,7 +66,7 @@ class _TestingMemmappingExecutor():
 
     def terminate(self):
         self._executor.shutdown()
-        delete_folder(self._temp_folder)
+        # delete_folder(self._temp_folder)
 
     def map(self, f, *args):
         res = self._executor.map(f, *args)

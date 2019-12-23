@@ -324,4 +324,4 @@ class MemmappingPool(PicklingPool):
                     if i + 1 == n_retries:
                         warnings.warn("Failed to terminate worker processes in"
                                       " multiprocessing pool: %r" % e)
-        delete_folder(self._temp_folder)
+        # delete_folder(self._temp_folder)

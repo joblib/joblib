@@ -434,7 +434,8 @@ def get_memmapping_reducers(
         delete_folder = __import__(
             pool_module_name, fromlist=['delete_folder']).delete_folder
         try:
-            delete_folder(pool_folder)
+            # delete_folder(pool_folder)
+            pass
         except WindowsError:
             warnings.warn("Failed to clean temporary folder: {}"
                           .format(pool_folder))
