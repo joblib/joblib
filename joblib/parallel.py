@@ -72,9 +72,22 @@ def _register_dask():
                "information.")
         raise ImportError(msg)
 
+def _register_ray():
+    """ Register Ray Backend if called with parallel_backend("ray") """
+    try:
+        from ._ray import RayBackend
+        register_parallel_backend('ray', RayBackend)
+    except ImportError:
+        msg = ("To use the ray backend you must install ray"
+                "try running pip install ray"
+               "See https://ray.readthedocs.io for more "
+               "information.")
+        raise ImportError(msg)
+
 
 EXTERNAL_BACKENDS = {
     'dask': _register_dask,
+    'ray': _register_ray,
 }
 
 
