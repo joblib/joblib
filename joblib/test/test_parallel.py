@@ -152,14 +152,18 @@ def test_effective_n_jobs():
     assert effective_n_jobs() > 0
 
 
-def test_effective_n_jobs_None():
+@pytest.mark.parametrize(
+    "backend_n_jobs, expected_n_jobs",
+    [(3, 3), (-1, effective_n_jobs(n_jobs=-1)), (None, 1)],
+    ids=["positive-int", "negative-int", "None"]
+)
+def test_effective_n_jobs_None(backend_n_jobs, expected_n_jobs):
     # check the number of effective jobs when `n_jobs=None`
     # non-regression test for https://github.com/joblib/joblib/issues/984
-    backend_n_jobs = 3
     with parallel_backend("threading", n_jobs=backend_n_jobs):
         # when using a backend, the default of number jobs will be the one set
         # in the backend
-        assert effective_n_jobs(n_jobs=None) == backend_n_jobs
+        assert effective_n_jobs(n_jobs=None) == expected_n_jobs
     # without any backend, None will default to a single job
     assert effective_n_jobs(n_jobs=None) == 1
 
