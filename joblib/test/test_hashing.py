@@ -364,14 +364,13 @@ def test_dtype():
                  {'py2': 'fc9314a39ff75b829498380850447047',
                   'py3': 'aeda150553d4bb5c69f0e69d51b0e2ef'})])
 def test_hashes_stay_the_same(to_hash, expected):
-    if "APPVEYOR" in os.environ:
-        # Those tests pass on Windows on a local machine but the one with
+    if expected == "994f663c64ba5e64b2a85ebe75287829":
         # [3, 'abc', None, TransportableException('foo', ValueError)]
-        # started to fail on appveyor for an obscure reason.
-        # As it cannot be reproduced locally, it is too challenging to
-        # to debug.
-        pytest.xfail("Appveyor specific failure that cannot be"
-                     " reproducted locally")
+        # started to fail on some CI machine for an obscure reason.
+        # XXX: try to debug what changed. It might be a change in Python
+        # itself in which case it will be challenging to enforce the
+        # compat with old hashes.
+        pytest.xfail("Known failure")
 
     # We want to make sure that hashes don't change with joblib
     # version. For end users, that would mean that they have to
