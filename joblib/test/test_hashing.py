@@ -367,11 +367,14 @@ def test_hashes_stay_the_same(to_hash, expected):
     py_version_str = 'py3' if PY3_OR_LATER else 'py2'
     if expected[py_version_str] == "994f663c64ba5e64b2a85ebe75287829":
         # [3, 'abc', None, TransportableException('foo', ValueError)]
-        # started to fail on some CI machine for an obscure reason.
-        # XXX: try to debug what changed. It might be a change in Python
-        # itself in which case it will be challenging to enforce the
-        # compat with old hashes.
-        pytest.xfail("Known failure")
+        # started to fail when distributed is installed for some unknown
+        # reason.
+        # XXX: try to debug what changed.
+        try:
+            import distributed  # noqa
+            pytest.xfail("Known failure")
+        except ImportError:
+            pass
 
     # We want to make sure that hashes don't change with joblib
     # version. For end users, that would mean that they have to
