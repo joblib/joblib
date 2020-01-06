@@ -364,7 +364,8 @@ def test_dtype():
                  {'py2': 'fc9314a39ff75b829498380850447047',
                   'py3': 'aeda150553d4bb5c69f0e69d51b0e2ef'})])
 def test_hashes_stay_the_same(to_hash, expected):
-    if expected == "994f663c64ba5e64b2a85ebe75287829":
+    py_version_str = 'py3' if PY3_OR_LATER else 'py2'
+    if expected[py_version_str] == "994f663c64ba5e64b2a85ebe75287829":
         # [3, 'abc', None, TransportableException('foo', ValueError)]
         # started to fail on some CI machine for an obscure reason.
         # XXX: try to debug what changed. It might be a change in Python
@@ -377,8 +378,6 @@ def test_hashes_stay_the_same(to_hash, expected):
     # regenerate their cache from scratch, which potentially means
     # lengthy recomputations.
     # Expected results have been generated with joblib 0.9.2
-
-    py_version_str = 'py3' if PY3_OR_LATER else 'py2'
     assert hash(to_hash) == expected[py_version_str]
 
 
