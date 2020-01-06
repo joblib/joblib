@@ -6,7 +6,7 @@ Release 0.14.2
 
 - Fix the number of jobs reported by ``effective_n_jobs`` when ``n_jobs=None``
   called in a parallel backend context.
-  https://github.com/joblib/joblib/blob/master/CHANGES.rst
+  https://github.com/joblib/joblib/pull/985
 
 Release 0.14.1
 --------------
