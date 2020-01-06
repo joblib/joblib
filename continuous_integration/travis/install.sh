@@ -91,7 +91,9 @@ if [ -n "$NUMPY_VERSION" ]; then
 fi
 
 if [[ "$COVERAGE" == "true" ]]; then
-    PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES pytest-cov codecov"
+    # Weird issues with recent version of coverage: unpin when not causing
+    # pytest to raise INTERNALERROR exceptions.
+    PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES coverage==4.5.4 pytest-cov codecov"
 fi
 
 if [[ "2.7 3.4 pypy3" != *"$PYTHON_VERSION"* ]]; then
