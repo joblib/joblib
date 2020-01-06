@@ -91,9 +91,10 @@ if [ -n "$NUMPY_VERSION" ]; then
 fi
 
 if [[ "$COVERAGE" == "true" ]]; then
-    # Pin the version of coverage < 0.5
     # TODO: unpin when https://github.com/nedbat/coveragepy/issues/883 is fixed
-    PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES pytest-cov codecov coverage==4.5.4"
+    # Weird issues with recent version of coverage: unpin when not causing
+    # pytest to raise INTERNALERROR exceptions.
+    PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES coverage==4.5.4 pytest-cov codecov"
 fi
 
 if [[ "2.7 3.4 pypy3" != *"$PYTHON_VERSION"* ]]; then
