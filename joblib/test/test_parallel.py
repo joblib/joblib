@@ -154,7 +154,7 @@ def test_effective_n_jobs():
 
 @pytest.mark.parametrize(
     "backend_n_jobs, expected_n_jobs",
-    [(3, 3), (-1, cpu_count()), (None, 1)],
+    [(3, 3), (-1, effective_n_jobs(n_jobs=-1)), (None, 1)],
     ids=["positive-int", "negative-int", "None"]
 )
 @with_multiprocessing
