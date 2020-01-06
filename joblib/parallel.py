@@ -385,7 +385,9 @@ def effective_n_jobs(n_jobs=-1):
     .. versionadded:: 0.10
 
     """
-    backend, _ = get_active_backend()
+    backend, backend_n_jobs = get_active_backend()
+    if n_jobs is None:
+        n_jobs = backend_n_jobs
     return backend.effective_n_jobs(n_jobs=n_jobs)
 
 
