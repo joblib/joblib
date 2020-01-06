@@ -157,6 +157,7 @@ def test_effective_n_jobs():
     [(3, 3), (-1, effective_n_jobs(n_jobs=-1)), (None, 1)],
     ids=["positive-int", "negative-int", "None"]
 )
+@with_multiprocessing
 def test_effective_n_jobs_None(backend_n_jobs, expected_n_jobs):
     # check the number of effective jobs when `n_jobs=None`
     # non-regression test for https://github.com/joblib/joblib/issues/984
