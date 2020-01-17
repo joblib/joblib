@@ -173,7 +173,7 @@ class ParallelBackendBase(with_metaclass(ABCMeta)):
                               "JOBLIB_INNER_THREADS_BUDGET.")
             else:
                 joblib_inner_max_num_threads = str(max(
-                    1, joblib_inner_threads_budget // n_jobs))
+                    1, int(joblib_inner_threads_budget) // n_jobs))
 
         # Set the inner environment variables to self.inner_max_num_threads if
         # it is given. Else, default to cpu_count // n_jobs unless the variable
