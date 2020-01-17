@@ -210,11 +210,10 @@ specific variables ``*_NUM_THREADS`` in the subprocesses, allowing to use differ
 value between the main process and its children.
 
     - ``JOBLIB_INNER_NUM_THREADS``: set the number of threads used in native library
-     using threadpools in each subprocess.
+      using threadpools in each subprocess.
     - ``JOBLIB_INNER_THREADS_BUDGET``: limit the number of threads in the
       subprocesses to the maximum between 1 and ``JOBLIB_INNER_THREADS_BUDGET``
       divided by ``n_jobs``.
-
 
 Custom backend API (experimental)
 =================================
