@@ -6,31 +6,85 @@
 trigger:
 - master
 
-pool:
-  vmImage: 'ubuntu-latest'
-strategy:
-  matrix:
-    Python27:
-      python.version: '2.7'
-    Python35:
-      python.version: '3.5'
-    Python36:
-      python.version: '3.6'
-    Python37:
-      python.version: '3.7'
+jobs:
+- job: linting
+  displayName: Linting
+  pool:
+    vmImage: ubuntu-latest
+  steps:
+    - bash: echo "##vso[task.prependpath]$CONDA/bin"
+      displayName: Add conda to PATH
+    - bash: sudo chown -R $USER $CONDA
+      displayName: Take ownership of conda installation
+    - bash: conda create --name flake8_env --yes flake8
+      displayName: Install flake8
+    - bash: |
+        if [[ $BUILD_SOURCEVERSIONMESSAGE =~ \[lint\ skip\] ]]; then
+          # skip linting
+          echo "Skipping linting"
+          exit 0
+        else
+          source activate flake8_env
+          ./continuous_integration/azure/flake8_diff.sh
+        fi
+      displayName: Run linting
 
-steps:
-- task: UsePythonVersion@0
-  inputs:
-    versionSpec: '$(python.version)'
-  displayName: 'Use Python $(python.version)'
+- job: testing
+  displayName: Testing
+  pool:
+    vmImage: 'ubuntu-latest'
+  strategy:
+    matrix:
+      pypy3:
+        PYTHON_VERSION: "pypy3"
+        LOKY_MAX_CPU_COUNT: "2"
+      python37_sklearn_tests:
+        PYTHON_VERSION: "3.7"
+        NUMPY_VERSION: "1.16"
+        SKIP_TESTS: "true"
+        SKLEARN_TESTS: "true"
+      python37_distributed:
+        PYTHON_VERSION: "3.7"
+        NUMPY_VERSION: "1.15"
+        COVERAGE: "true"
+        DISTRIBUTED_VERSION: "1.23"
+      python36_cython:
+        PYTHON_VERSION: "3.6"
+        NUMPY_VERSION: "1.14"
+        COVERAGE: "true"
+        CYTHON: "true"
+      python36_no_multiprocessing:
+        PYTHON_VERSION: "3.6"
+        NUMPY_VERSION: "1.14"
+        JOBLIB_MULTIPROCESSING: "0"
+        COVERAGE: "true"
+      python35_no_numpy:
+        PYTHON_VERSION: "3.5"
+      python34:
+        PYTHON_VERSION: "3.4"
+        NUMPY_VERSION: "1.10"
+      python27_no_lza:
+        PYTHON_VERSION: "2.7"
+        NUMPY_VERSION: "1.6"
+        NO_LZ4: "true"
+        COVERAGE: "true"
+      python27:
+        PYTHON_VERSION: "2.7"
+        NUMPY_VERSION: "1.8"
+        COVERAGE: "true"
 
-- script: |
-    python -m pip install --upgrade pip
-    pip install -e .
-  displayName: 'Install joblib and its dependencies'
+  steps:
 
-- script: |
-    pip install pytest pytest-azurepipelines
-    pytest
-  displayName: 'pytest'
+  - bash: echo "##vso[task.prependpath]$CONDA/bin"
+    displayName: Add conda to PATH
+
+  - bash: sudo chown -R $USER $CONDA
+    displayName: Take ownership of conda installation
+
+  - script: |
+      source continuous_integration/azure/install.sh
+    displayName: 'Install joblib and its dependencies'
+
+  - script: |
+      source continuous_integration/azure/run_tests.sh
+    displayName: 'Run the tests'
