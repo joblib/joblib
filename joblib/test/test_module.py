@@ -41,7 +41,7 @@ def test_no_semaphore_tracker_on_import():
     check_subprocess_call([sys.executable, '-c', code])
 
 
-def test_no_ressource_tracker_on_import():
+def test_no_resource_tracker_on_import():
     code = """if True:
         import joblib
         from joblib.externals.loky.backend import resource_tracker
