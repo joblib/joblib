@@ -20,6 +20,12 @@ if distributed is not None:
     from distributed.worker import thread_state
     from distributed.sizeof import sizeof
 
+    try:
+        # asyncio.TimeoutError, Python3-only error thrown by recent versions of
+        # distributed
+        from distributed.utils import TimeoutError as _TimeoutError
+    except ImportError:
+        from tornado.gen import TimeoutError as _TimeoutError
 
 def is_weakrefable(obj):
     try:
@@ -35,13 +41,6 @@ except NameError:
     # Python 2 backward compat
     class TimeoutError(OSError):
         pass
-
-try:
-    # asyncio.TimeoutError, Python3-only error thrown by recent versions of
-    # distributed
-    from distributed.utils import TimeoutError as _TimeoutError
-except ImportError:
-    from tornado.gen import TimeoutError as _TimeoutError
 
 
 class _WeakKeyDictionary:
