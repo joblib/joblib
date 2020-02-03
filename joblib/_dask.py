@@ -19,7 +19,6 @@ if distributed is not None:
     from distributed import get_client, secede, rejoin
     from distributed.worker import thread_state
     from distributed.sizeof import sizeof
-    from tornado import gen
 
 
 def is_weakrefable(obj):
@@ -36,6 +35,13 @@ except NameError:
     # Python 2 backward compat
     class TimeoutError(OSError):
         pass
+
+try:
+    # asyncio.TimeoutError, Python3-only error thrown by recent versions of
+    # distributed
+    from distributed.utils import TimeoutError as _TimeoutError
+except ImportError:
+    from tornado.gen import TimeoutError as _TimeoutError
 
 
 class _WeakKeyDictionary:
@@ -190,7 +196,7 @@ class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         try:
             self.client.submit(_joblib_probe_task).result(
                 timeout=self.wait_for_workers_timeout)
-        except gen.TimeoutError:
+        except _TimeoutError:
             error_msg = (
                 "DaskDistributedBackend has no worker after {} seconds. "
                 "Make sure that workers are started and can properly connect "
