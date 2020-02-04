@@ -20,10 +20,6 @@ if [[ "$SKIP_TESTS" != "true" ]]; then
 fi
 
 if [[ "$SKLEARN_TESTS" == "true" ]]; then
-    # Install scikit-learn from conda and test against the installed
-    # development version of joblib.
-    conda remove -y numpy
-    conda install -y -c conda-forge cython pillow scikit-learn
     python -c "import sklearn; print('Testing scikit-learn', sklearn.__version__)"
 
     # Hack to workaround shadowing of public function by compat modules:

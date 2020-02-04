@@ -4,6 +4,7 @@ pytest
 pytest-cov
 pytest-timeout
 codecov
+scikit-learn
 distributed
 lz4
 threadpoolctl; python_version >= '3.5'

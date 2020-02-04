@@ -152,17 +152,27 @@ def test_auto_scatter(loop):
 
 
 def test_nested_backend_context_manager(loop):
-    def get_nested_pids():
-        pids = set(Parallel(n_jobs=2)(delayed(os.getpid)() for _ in range(2)))
-        pids |= set(Parallel(n_jobs=2)(delayed(os.getpid)() for _ in range(2)))
+    def getpid(data=None):
+        # simulate tasks with varying durations:
+        sleep(random() / 30)
+        return os.getpid()
+
+    def get_nested_pids(data=None):
+        pids = set(Parallel(n_jobs=2)(
+            delayed(getpid)(data=data) for _ in range(13)))
+        pids |= set(Parallel(n_jobs=2)(
+            delayed(getpid)() for _ in range(5)))
+        pids |= set(Parallel(n_jobs=2)(
+            delayed(getpid)(data=data) for _ in range(7)))
         return pids
 
+    data = b"\x00" * int(5e6)  # 5 MB of data
     with cluster() as (s, [a, b]):
         with Client(s['address'], loop=loop) as client:
             with parallel_backend('dask') as (ba, _):
                 pid_groups = Parallel(n_jobs=2)(
-                    delayed(get_nested_pids)()
-                    for _ in range(10)
+                    delayed(get_nested_pids)(data=data)
+                    for _ in range(11)
                 )
                 for pid_group in pid_groups:
                     assert len(set(pid_group)) <= 2
@@ -171,8 +181,8 @@ def test_nested_backend_context_manager(loop):
         with Client(s['address'], loop=loop) as client:  # noqa: F841
             with parallel_backend('dask') as (ba, _):
                 pid_groups = Parallel(n_jobs=2)(
-                    delayed(get_nested_pids)()
-                    for _ in range(10)
+                    delayed(get_nested_pids)(data=data)
+                    for _ in range(9)
                 )
                 for pid_group in pid_groups:
                     assert len(set(pid_group)) <= 2
@@ -328,3 +338,22 @@ def test_wait_for_workers_timeout():
     finally:
         client.close()
         cluster.close()
+
+
+def test_nested_sklearn_with_dask(loop):
+    pytest.importorskip("sklearn")
+    from sklearn.datasets import make_classification
+    from sklearn.model_selection import GridSearchCV
+    from sklearn.ensemble import RandomForestClassifier
+
+    X, y = make_classification(n_samples=1000, n_features=10, random_state=0)
+    param_grid = {"max_depth": [5, 10, None]}
+    rf = RandomForestClassifier(n_estimators=10, random_state=0)
+    gs = GridSearchCV(rf, param_grid, cv=5)
+
+    with cluster() as (s, [a, b]):
+        with Client(s["address"], loop=loop):
+            with parallel_backend("dask"):
+                gs.fit(X, y)
+
+    assert gs.score(X, y) > 0.9
