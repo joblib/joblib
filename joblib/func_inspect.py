@@ -12,7 +12,6 @@ import warnings
 import re
 import os
 import collections
-import hashlib
 
 from ._compat import _basestring
 from .logger import pformat
@@ -160,7 +159,7 @@ def get_func_name(func, resolv_alias=True, win_characters=True):
         # Stupid windows can't encode certain characters in filenames
         name = _clean_win_chars(name)
         module = [_clean_win_chars(s) for s in module]
-    return [hashlib.sha1(m.encode('utf-8')).hexdigest() for m in module], name
+    return module, name
 
 
 def getfullargspec(func):
