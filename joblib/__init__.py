@@ -123,6 +123,7 @@ from .parallel import cpu_count
 from .parallel import register_parallel_backend
 from .parallel import parallel_backend
 from .parallel import effective_n_jobs
+from .worker_id import worker_id
 
 from .externals.loky import wrap_non_picklable_objects
 
@@ -131,7 +132,7 @@ __all__ = ['Memory', 'MemorizedResult', 'PrintTime', 'Logger', 'hash', 'dump',
            'load', 'Parallel', 'delayed', 'cpu_count', 'effective_n_jobs',
            'register_parallel_backend', 'parallel_backend',
            'register_store_backend', 'register_compressor',
-           'wrap_non_picklable_objects']
+           'wrap_non_picklable_objects', 'worker_id']
 
 
 # Workaround issue discovered in intel-openmp 2019.5:

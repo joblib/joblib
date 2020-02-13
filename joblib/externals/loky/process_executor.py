@@ -995,7 +995,7 @@ class ProcessPoolExecutor(_base.Executor):
                     None, _python_exit, exitpriority=20)
 
     def _adjust_process_count(self):
-        for _ in range(len(self._processes), self._max_workers):
+        for worker_id in range(len(self._processes), self._max_workers):
             worker_exit_lock = self._context.BoundedSemaphore(1)
             args = (self._call_queue, self._result_queue, self._initializer,
                     self._initargs, self._processes_management_lock,
@@ -1004,8 +1004,10 @@ class ProcessPoolExecutor(_base.Executor):
             try:
                 # Try to spawn the process with some environment variable to
                 # overwrite but it only works with the loky context for now.
+                env = self._env.copy()
+                env['JOBLIB_WORKER_ID'] = str(worker_id)
                 p = self._context.Process(target=_process_worker, args=args,
-                                          env=self._env)
+                                          env=env)
             except TypeError:
                 p = self._context.Process(target=_process_worker, args=args)
             p._worker_exit_lock = worker_exit_lock
