@@ -508,6 +508,7 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
         """Build a process executor and return the number of workers"""
         n_jobs = self.effective_n_jobs(n_jobs)
         if n_jobs == 1:
+            os.environ['JOBLIB_WORKER_ID'] = '0'
             raise FallbackToBackend(
                 SequentialBackend(nesting_level=self.nesting_level))
 
