@@ -54,11 +54,11 @@ class Hasher(Pickler):
         pickling.
     """
 
-    def __init__(self, hash_name='md5'):
+    def __init__(self, hash_name='md5', protocol=None):
         self.stream = io.BytesIO()
         # By default we want a pickle protocol that only changes with
         # the major python version and not the minor one
-        protocol = 3 if PY3_OR_LATER else 2
+        protocol = protocol or (3 if PY3_OR_LATER else 2)
         Pickler.__init__(self, self.stream, protocol=protocol)
         # Initialise the hash obj
         self._hash = hashlib.new(hash_name)
@@ -161,7 +161,7 @@ class NumpyHasher(Hasher):
     """ Special case the hasher for when numpy is loaded.
     """
 
-    def __init__(self, hash_name='md5', coerce_mmap=False):
+    def __init__(self, hash_name='md5', coerce_mmap=False, protocol=None):
         """
             Parameters
             ----------
@@ -170,9 +170,11 @@ class NumpyHasher(Hasher):
             coerce_mmap: boolean
                 Make no difference between np.memmap and np.ndarray
                 objects.
+            protocol: int
+                Override the default pickle protocol
         """
         self.coerce_mmap = coerce_mmap
-        Hasher.__init__(self, hash_name=hash_name)
+        Hasher.__init__(self, hash_name=hash_name, protocol=protocol)
         # delayed import of numpy, to avoid tight coupling
         import numpy as np
         self.np = np
@@ -242,7 +244,7 @@ class NumpyHasher(Hasher):
         Hasher.save(self, obj)
 
 
-def hash(obj, hash_name='md5', coerce_mmap=False):
+def hash(obj, hash_name='md5', coerce_mmap=False, protocol=None):
     """ Quick calculation of a hash to identify uniquely Python objects
         containing numpy arrays.
 
@@ -254,6 +256,8 @@ def hash(obj, hash_name='md5', coerce_mmap=False):
             faster.
         coerce_mmap: boolean
             Make no difference between np.memmap and np.ndarray
+        protocol: int
+            Override the default pickle protocol
     """
     valid_hash_names = ('md5', 'sha1')
     if hash_name not in valid_hash_names:
@@ -261,7 +265,9 @@ def hash(obj, hash_name='md5', coerce_mmap=False):
                          "Got hash_name={!r} instead."
                          .format(valid_hash_names, hash_name))
     if 'numpy' in sys.modules:
-        hasher = NumpyHasher(hash_name=hash_name, coerce_mmap=coerce_mmap)
+        hasher = NumpyHasher(
+            hash_name=hash_name, coerce_mmap=coerce_mmap, protocol=protocol,
+        )
     else:
-        hasher = Hasher(hash_name=hash_name)
+        hasher = Hasher(hash_name=hash_name, protocol=protocol)
     return hasher.hash(obj)
