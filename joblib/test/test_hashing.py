@@ -475,6 +475,7 @@ def test_wrong_hash_name():
         hash(data, hash_name='invalid')
 
 
+@skipif(not PY3_OR_LATER, reason='py2 only supports protocol <= 2')
 def test_large_objects_succeed_with_protocol_ge_4():
     # Assert that hash() doesn't fail on large values
     #   - Requires protocol >= 4
