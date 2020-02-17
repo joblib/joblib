@@ -481,4 +481,7 @@ def test_large_objects_succeed_with_protocol_ge_4():
     #   - Requires protocol >= 4
     #   - And assert the hashed value while we're at it
     bytes_4gb = b'a' * (4 * 1024**3)
-    assert hash(bytes_4gb, protocol=4) == '2252e9bd4b770db8384325f812a88b3b'
+    assert hash(bytes_4gb, protocol=4) in [
+        '2252e9bd4b770db8384325f812a88b3b',  # On py37
+        'adc0b6ef1f33125a29188cc4bbf40bf6',  # On py35, py36
+    ]
