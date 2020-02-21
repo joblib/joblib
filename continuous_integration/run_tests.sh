@@ -43,4 +43,6 @@ fi
 if [ "$SKIP_TESTS" != "true" && "$COVERAGE" == "true" ]; then
      coverage combine --append  || echo "ignored."
      coverage xml -i  # language agnostic report for the codecov upload script
+     echo "XML Coverage report written in $PWD:"
+     ls -la
 fi

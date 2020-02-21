@@ -131,6 +131,9 @@ jobs:
     displayName: 'Publish Test Results'
     condition: succeededOrFailed()
 
-  - bash: curl -s https://codecov.io/bash | bash
+  - bash: |
+      echo "About to upload coverage report from: $PWD"
+      ls -la
+      curl -s https://codecov.io/bash | bash
     displayName: 'Upload to codecov'
     condition: and(succeeded(), ne(variables['SKIP_TESTS'], 'true'), eq(variables['COVERAGE'], 'true'))
