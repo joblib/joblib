@@ -930,21 +930,12 @@ def test_dispatch_race_condition(n_tasks, n_jobs, pre_dispatch, batch_size):
 
 @with_multiprocessing
 def test_default_mp_context():
+    mp_start_method = mp.get_start_method()
     p = Parallel(n_jobs=2, backend='multiprocessing')
     context = p._backend_args.get('context')
-    if sys.version_info >= (3, 4):
+    if sys.version_info >= (3, 5):
         start_method = context.get_start_method()
-        # Under Python 3.4+ the multiprocessing context can be configured
-        # by an environment variable
-        env_method = os.environ.get('JOBLIB_START_METHOD', '').strip() or None
-        if env_method is None:
-            # Check the default behavior
-            if sys.platform == 'win32':
-                assert start_method == 'spawn'
-            else:
-                assert start_method == 'fork'
-        else:
-            assert start_method == env_method
+        assert start_method == mp_start_method
     else:
         assert context is None
 
@@ -999,7 +990,7 @@ print(Parallel(n_jobs=2, backend=backend)(
 def test_parallel_with_interactively_defined_functions(backend):
     # When using the "-c" flag, interactive functions defined in __main__
     # should work with any backend.
-    if backend == "multiprocessing" and sys.platform == "win32":
+    if backend == "multiprocessing" and mp.get_start_method() != "fork":
         pytest.skip("Require fork start method to use interactively defined "
                     "functions with multiprocessing.")
     code = UNPICKLABLE_CALLABLE_SCRIPT_TEMPLATE_NO_MAIN.format(backend)
