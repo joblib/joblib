@@ -38,6 +38,7 @@ print_conda_requirements() {
 
 create_new_conda_env() {
     conda init bash
+    source $HOME/.bashrc
     conda update --yes conda
     REQUIREMENTS=$(print_conda_requirements)
     conda create -n testenv --yes $REQUIREMENTS
