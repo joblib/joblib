@@ -30,12 +30,6 @@ if [[ "$SKLEARN_TESTS" == "true" ]]; then
     conda install -y -c conda-forge cython pillow scikit-learn
     python -c "import sklearn; print('Testing scikit-learn', sklearn.__version__)"
 
-    # Hack to workaround shadowing of public function by compat modules:
-    # https://github.com/scikit-learn/scikit-learn/issues/15842
-    SKLEARN_ROOT=`python -c "import sklearn; print(sklearn.__path__[0])"`
-    rm -rf "$SKLEARN_ROOT/decomposition/dict_learning.py"
-    rm -rf "$SKLEARN_ROOT/inspection/partial_dependence.py"
-
     # Move to a dedicated folder to avoid being polluted by joblib specific conftest.py
     # and disable the doctest plugin to avoid issues with doctests in scikit-learn
     # docstrings that require setting print_changed_only=True temporarily.

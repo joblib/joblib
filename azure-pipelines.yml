@@ -60,17 +60,10 @@ jobs:
         COVERAGE: "true"
       python35_no_numpy:
         PYTHON_VERSION: "3.5"
-      python34:
-        PYTHON_VERSION: "3.4"
-        NUMPY_VERSION: "1.10"
       python27_no_lza:
-        PYTHON_VERSION: "2.7"
-        NUMPY_VERSION: "1.6"
         NO_LZ4: "true"
-        COVERAGE: "true"
-      python27:
         PYTHON_VERSION: "2.7"
-        NUMPY_VERSION: "1.8"
+        NUMPY_VERSION: "1.14"
         COVERAGE: "true"
 
   steps:
