@@ -41,8 +41,13 @@ if [[ "$SKLEARN_TESTS" == "true" ]]; then
 fi
 
 if [[ "$SKIP_TESTS" != "true" && "$COVERAGE" == "true" ]]; then
-     coverage combine --append  || echo "ignored."
-     coverage xml -i  # language agnostic report for the codecov upload script
-     echo "XML Coverage report written in $PWD:"
-     ls -la
+    echo "Deleting empty coverage files:"
+    find . -name ".coverage.*" -size  0 -print -delete
+    echo "Combining .coverage.* files..."
+    coverage combine --append  || echo "Onvalid files were found."
+    echo "Generating XML Coverage report..."
+    coverage xml # language agnostic report for the codecov upload script
+    echo "XML Coverage report written in $PWD:"
+    ls -la .coverage*
+    ls -la coverage.xml
 fi
