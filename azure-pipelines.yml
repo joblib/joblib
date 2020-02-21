@@ -63,7 +63,7 @@ jobs:
       python27_no_lza:
         NO_LZ4: "true"
         PYTHON_VERSION: "2.7"
-        NUMPY_VERSION: "1.14"
+        NUMPY_VERSION: "1.16"
         COVERAGE: "true"
 
   steps:
