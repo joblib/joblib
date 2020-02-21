@@ -20,7 +20,7 @@ if [[ "$SKIP_TESTS" != "true" ]]; then
         export PYTEST_ADDOPTS="--cov=joblib --cov-append"
     fi
     make
-    if [[ "$PYTHON_VERSION" == "py2.7" ]]; then
+    if [[ "$PYTHON_VERSION" != "py2.7" ]]; then
         make test-doc
     fi
 fi
