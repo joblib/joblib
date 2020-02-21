@@ -39,3 +39,8 @@ if [[ "$SKLEARN_TESTS" == "true" ]]; then
     cd "/tmp"
     pytest -vl --maxfail=5 -p no:doctest -k "not test_import_is_deprecated" --pyargs sklearn
 fi
+
+if [ "$COVERAGE" == "true" ]; then
+     coverage combine --append
+     coverage xml -i  # language agnostic report for the codecov upload script
+fi
