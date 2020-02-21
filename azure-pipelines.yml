@@ -31,40 +31,54 @@ jobs:
 
 - job: testing
   displayName: Testing
-  pool:
-    vmImage: 'ubuntu-latest'
   strategy:
     matrix:
-      pypy3:
+      linux_pypy3:
+        imageName: 'ubuntu-latest'
         PYTHON_VERSION: "pypy3"
         LOKY_MAX_CPU_COUNT: "2"
-      python37_sklearn_tests:
+
+      linux_py38:
+        imageName: 'ubuntu-latest'
+        PYTHON_VERSION: "3.8"
+        NUMPY_VERSION: "1.18"
+        COVERAGE: "true"
+      linux_py37_sklearn_tests:
+        imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.7"
         NUMPY_VERSION: "1.16"
         SKIP_TESTS: "true"
         SKLEARN_TESTS: "true"
-      python37_distributed:
+      linux_py37_distributed:
+        imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.7"
         NUMPY_VERSION: "1.15"
         COVERAGE: "true"
         DISTRIBUTED_VERSION: "1.23"
-      python36_cython:
+      linux_py36_cython:
+        imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.6"
         NUMPY_VERSION: "1.14"
         COVERAGE: "true"
         CYTHON: "true"
-      python36_no_multiprocessing:
+      linux_py36_no_multiprocessing:
+        imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.6"
         NUMPY_VERSION: "1.14"
         JOBLIB_MULTIPROCESSING: "0"
         COVERAGE: "true"
-      python35_no_numpy:
+      linux_py35_no_numpy:
+        imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.5"
-      python27_no_lza:
+      linux_py27_no_lza:
+        imageName: 'ubuntu-latest'
         NO_LZ4: "true"
         PYTHON_VERSION: "2.7"
         NUMPY_VERSION: "1.16"
         COVERAGE: "true"
+
+  pool:
+    vmImage: $(imageName)
 
   steps:
 
