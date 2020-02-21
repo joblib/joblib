@@ -405,6 +405,7 @@ def test_0d_and_1d_array_hashing_is_different():
 
 
 @with_numpy
+@skipif(sys.version_info < (3, 5), reason="Bored with Python 2.7 support")
 def test_hashes_stay_the_same_with_numpy_objects():
     # We want to make sure that hashes don't change with joblib
     # version. For end users, that would mean that they have to
