@@ -33,6 +33,7 @@ from .numpy_pickle import load
 from .numpy_pickle import dump
 from .backports import make_memmap
 from .disk import delete_folder
+from .externals.loky.backend.resource_tracker import _CLEANUP_FUNCS
 
 # Some system have a ramdisk mounted by default, we can use it instead of /tmp
 # as the default folder to dump big arrays to share with subprocesses.
@@ -48,6 +49,31 @@ SYSTEM_SHARED_MEM_FS_MIN_SIZE = int(2e9)
 FOLDER_PERMISSIONS = stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR
 FILE_PERMISSIONS = stat.S_IRUSR | stat.S_IWUSR
 
+
+def file_plus_plus_unlink(filename):
+    dir_name = os.path.dirname(filename)
+    files = os.listdir(dir_name)
+
+    os.remove(filename)
+
+    if len(files) == 1:
+        # filename was the only file left in this directory => delete the
+        # directory too
+        os.rmdir(dir_name)
+
+
+# file_plus_plus is a special file resource: unlinking one of its instance will
+# proceed to unlink the directory it is located in if the said file was the
+# only file left in the directory. This resource is useful when dealing with
+# shared temporary files: the temporary folder they are located in should only
+# be deleted when all the temporary file have been deleted too. Such a
+# situation happens in joblib on Windows when sharing file-backed memmapped
+# arrays between processes.
+
+# Note that loky's resource tracker does not yet expose a method to register
+# new custom resource that we would like to be tracked. Thus, we have to hack
+# the private _CLEANUP_FUNCS used by the resource_tracker internally.
+_CLEANUP_FUNCS['file_plus_plus'] = file_plus_plus_unlink
 
 class _WeakArrayKeyMap:
     """A variant of weakref.WeakKeyDictionary for unhashable numpy arrays.
