@@ -40,7 +40,7 @@ if [[ "$SKLEARN_TESTS" == "true" ]]; then
     pytest -vl --maxfail=5 -p no:doctest -k "not test_import_is_deprecated" --pyargs sklearn
 fi
 
-if [ "$SKIP_TESTS" != "true" && "$COVERAGE" == "true" ]; then
+if [[ "$SKIP_TESTS" != "true" && "$COVERAGE" == "true" ]]; then
      coverage combine --append  || echo "ignored."
      coverage xml -i  # language agnostic report for the codecov upload script
      echo "XML Coverage report written in $PWD:"
