@@ -23,9 +23,9 @@ from joblib._memmapping_reducer import has_shareable_memory
 from joblib._memmapping_reducer import ArrayMemmapReducer
 from joblib._memmapping_reducer import reduce_memmap
 from joblib._memmapping_reducer import _strided_from_memmap
-from joblib._memmapping_reducer import _get_backing_memmap
 from joblib._memmapping_reducer import _get_temp_dir
 from joblib._memmapping_reducer import _WeakArrayKeyMap
+from joblib.numpy_pickle_utils import _get_backing_memmap
 import joblib._memmapping_reducer as jmr
 
 
@@ -695,9 +695,8 @@ def test_windows_memmaped_arrays_race_condition():
                          stderr=subprocess.PIPE,
                          stdout=subprocess.PIPE)
     p.wait()
-    out = p.stdout.read().rstrip().decode('ascii')
-    err = p.stderr.read().rstrip().decode('ascii')
-    print(err)
+    assert p.returncode == 0, err
+    assert 'resource_tracker' not in err
 
 
 def test_shared_memory_deleted_after_parallel_call():
@@ -709,6 +708,8 @@ def test_shared_memory_deleted_after_parallel_call():
         import time, os, tempfile, sys
         import numpy as np
         from joblib import Parallel, delayed
+        from joblib.externals.loky.backend import resource_tracker
+        resource_tracker.VERBOSE=1
 
 
         def test_data(data):
@@ -716,14 +717,15 @@ def test_shared_memory_deleted_after_parallel_call():
             return data_view
 
 
-        data = np.ones(int(2e6))
 
         # the Parallel object has to be called from a context manager to some
         # of its temporary attributes before it gets terminated
 
-        with Parallel(n_jobs=2, verbose=5) as parallel_obj:
+        with Parallel(n_jobs=2, verbose=101) as parallel_obj:
             # warm up the executor
-            parallel_obj(delayed(abs)(i) for i in range(10))
+            # parallel_obj(delayed(abs)(i) for i in range(10))
+
+            data = np.ones(int(2e6))
 
             # create the memmap file by calling the parallel instance reducers
             # on the data to be sent to the workers. This allows us to get the
@@ -734,13 +736,13 @@ def test_shared_memory_deleted_after_parallel_call():
             load_fn, (filename, permissions) = reducer(data)
 
             # call in parallel a functino processing the data
-            results = parallel_obj(delayed(test_data)(data) for _ in range(10))
+            results = parallel_obj(delayed(test_data)(data) for _ in range(1))
 
         # give the resource_tracker time to register the new resource
         sys.stdout.write(filename + "\\n")
         time.sleep(0.5)
         sys.stdout.flush()
-        time.sleep(3)
+        time.sleep(1)
     '''
     cmd = cmd.format(parent_pid=os.getpid())
     p = subprocess.Popen([sys.executable, '-E', '-c', cmd],
@@ -758,10 +760,13 @@ def test_shared_memory_deleted_after_parallel_call():
         err = p.stderr.read().rstrip().decode('ascii')
         raise AssertionError(f"subprocess did not complete {err}")
 
-    assert os.path.exists(out)
+    # assert os.path.exists(out)
 
     p.wait()
-    err = p.stderr.read().rstrip().decode('ascii')
+    out, err = p.communicate()
+    with open('/Users/pierreglaser/repos/joblib/ok.txt', 'w') as f:
+        f.write(out.decode())
+    import pdb; pdb.set_trace()
     print(err)
 
     # wait for the resource_tracker to cleanup the leaked resources
