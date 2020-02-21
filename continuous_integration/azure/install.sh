@@ -44,7 +44,7 @@ create_new_conda_env() {
     REQUIREMENTS=$(print_conda_requirements)
     echo "conda requirements string: $REQUIREMENTS"
     conda create -n testenv --yes $REQUIREMENTS
-    source activate testenv
+    conda activate testenv
 }
 
 create_new_pypy3_env() {

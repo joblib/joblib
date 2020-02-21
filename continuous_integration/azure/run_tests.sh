@@ -2,6 +2,14 @@
 
 set -e
 
+echo "Activating test environment:"
+if [[ "$PYTHON_VERSION" == "pypy3" ]]; then
+    source pypy3/bin/activate
+else
+    conda activate testenv
+fi
+which python
+python -V
 python -c "import multiprocessing as mp; print('multiprocessing.cpu_count():', mp.cpu_count())"
 python -c "import joblib; print('joblib.cpu_count():', joblib.cpu_count())"
 
