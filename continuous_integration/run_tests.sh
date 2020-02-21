@@ -40,7 +40,14 @@ if [[ "$SKLEARN_TESTS" == "true" ]]; then
     pytest -vl --maxfail=5 -p no:doctest -k "not test_import_is_deprecated" --pyargs sklearn
 fi
 
-if [ "$SKIP_TESTS" != "true" && "$COVERAGE" == "true" ]; then
-     coverage combine --append  || echo "ignored."
-     coverage xml -i  # language agnostic report for the codecov upload script
+if [[ "$SKIP_TESTS" != "true" && "$COVERAGE" == "true" ]]; then
+    echo "Deleting empty coverage files:"
+    find . -name ".coverage.*" -size  0 -print -delete
+    echo "Combining .coverage.* files..."
+    coverage combine --append  || echo "Found invalid coverage files."
+    echo "Generating XML Coverage report..."
+    coverage xml # language agnostic report for the codecov upload script
+    echo "XML Coverage report written in $PWD:"
+    ls -la .coverage*
+    ls -la coverage.xml
 fi

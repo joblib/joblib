@@ -129,7 +129,7 @@ jobs:
     inputs:
       testResultsFiles: '$(JUNITXML)'
     displayName: 'Publish Test Results'
-    condition: succeededOrFailed()
+    condition: and(succeededOrFailed(), ne(variables['SKIP_TESTS'], 'true'))
 
   - bash: curl -s https://codecov.io/bash | bash
     displayName: 'Upload to codecov'
