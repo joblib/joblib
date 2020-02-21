@@ -1,13 +1,5 @@
 |PyPi| |Travis| |AppVeyor| |Codecov|
 
-.. |Travis| image:: https://travis-ci.org/joblib/joblib.svg?branch=master
-   :target: https://travis-ci.org/joblib/joblib
-   :alt: Travis build status
-
-.. |AppVeyor| image:: https://ci.appveyor.com/api/projects/status/github/joblib/joblib?branch=master&svg=true
-   :target: https://ci.appveyor.com/project/joblib-ci/joblib/history
-   :alt: AppVeyor build status
-
 .. |Codecov| image:: https://codecov.io/gh/joblib/joblib/branch/master/graph/badge.svg
    :target: https://codecov.io/gh/joblib/joblib
    :alt: Codecov coverage
