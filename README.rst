@@ -1,12 +1,16 @@
-|PyPi| |Travis| |AppVeyor| |Codecov|
-
-.. |Codecov| image:: https://codecov.io/gh/joblib/joblib/branch/master/graph/badge.svg
-   :target: https://codecov.io/gh/joblib/joblib
-   :alt: Codecov coverage
+|PyPi| |Azure| |Codecov|
 
 .. |PyPi| image:: https://badge.fury.io/py/joblib.svg
    :target: https://badge.fury.io/py/joblib
    :alt: Joblib version
+
+.. |Azure| image:: https://dev.azure.com/joblib/joblib/_apis/build/status/joblib.joblib?branchName=master
+   :target: https://dev.azure.com/joblib/joblib/_build?definitionId=3&_a=summary&branchFilter=40
+   :alt: Codecov coverage
+
+.. |Codecov| image:: https://codecov.io/gh/joblib/joblib/branch/master/graph/badge.svg
+   :target: https://codecov.io/gh/joblib/joblib
+   :alt: Codecov coverage
 
 
 The homepage of joblib with user documentation is located on:
