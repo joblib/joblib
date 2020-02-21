@@ -133,4 +133,4 @@ jobs:
 
   - bash: curl -s https://codecov.io/bash | bash
     displayName: 'Upload to codecov'
-    condition: and(succeeded(), ne(variables['SKIP_TESTS'], 'true'), eq($(COVERAGE), 'true'))
+    condition: and(succeeded(), ne(variables['SKIP_TESTS'], 'true'), eq(variables['COVERAGE'], 'true'))
