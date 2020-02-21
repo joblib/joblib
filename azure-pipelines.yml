@@ -41,30 +41,29 @@ jobs:
       linux_py38:
         imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.8"
-        NUMPY_VERSION: "1.18"
+        EXTRA_CONDA_PACKAGES: "numpy=1.18"
         COVERAGE: "true"
       linux_py37_sklearn_tests:
         imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.7"
-        NUMPY_VERSION: "1.16"
+        EXTRA_CONDA_PACKAGES: "numpy=1.16"
         SKIP_TESTS: "true"
         SKLEARN_TESTS: "true"
       linux_py37_distributed:
         imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.7"
-        NUMPY_VERSION: "1.15"
+        EXTRA_CONDA_PACKAGES: "numpy=1.15 distributed=1.23"
         COVERAGE: "true"
-        DISTRIBUTED_VERSION: "1.23"
       linux_py36_cython:
         imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.6"
-        NUMPY_VERSION: "1.14"
+        EXTRA_CONDA_PACKAGES: "numpy=1.14"
         COVERAGE: "true"
         CYTHON: "true"
       linux_py36_no_multiprocessing:
         imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.6"
-        NUMPY_VERSION: "1.14"
+        EXTRA_CONDA_PACKAGES: "numpy=1.14"
         JOBLIB_MULTIPROCESSING: "0"
         COVERAGE: "true"
       linux_py35_no_numpy:
@@ -74,13 +73,13 @@ jobs:
         imageName: 'ubuntu-latest'
         NO_LZ4: "true"
         PYTHON_VERSION: "2.7"
-        NUMPY_VERSION: "1.16"
+        EXTRA_CONDA_PACKAGES: "numpy=1.16"
         COVERAGE: "true"
 
       windows_py38:
         imageName: "vs2017-win2016"
         PYTHON_VERSION: "3.8"
-        NUMPY_VERSION: "1.18"
+        EXTRA_CONDA_PACKAGES: "numpy=1.18"
         COVERAGE: "true"
       windows_py35_no_numpy:
         imageName: "vs2017-win2016"
@@ -88,20 +87,20 @@ jobs:
       windows-py27:
         imageName: "vs2017-win2016"
         PYTHON_VERSION: "2.7"
-        NUMPY_VERSION: "1.16"
+        EXTRA_CONDA_PACKAGES: "numpy=1.16"
         COVERAGE: "true"
 
       macos_py38:
         imageName: "macos-10.13"
         PYTHON_VERSION: "3.8"
-        NUMPY_VERSION: "1.18"
+        EXTRA_CONDA_PACKAGES: "numpy=1.18"
       macos_py35_no_numpy:
         imageName: "macos-10.13"
         PYTHON_VERSION: "3.5"
       macos_py27:
         imageName: "macos-10.13"
         PYTHON_VERSION: "2.7"
-        NUMPY_VERSION: "1.16"
+        EXTRA_CONDA_PACKAGES: "numpy=1.16"
         COVERAGE: "true"
 
   variables:
@@ -116,11 +115,14 @@ jobs:
     displayName: 'Override Git bash shell for Windows'
     condition: eq(variables['Agent.OS'], 'Windows_NT')
 
-  - bash: echo "##vso[task.prependpath]$CONDA/bin"
+  - powershell: Write-Host "##vso[task.prependpath]$env:CONDA\Scripts"
     displayName: Add conda to PATH
+    condition: eq(variables['Agent.OS'], 'Windows_NT')
 
-  - bash: sudo chown -R $USER $CONDA
-    displayName: Take ownership of conda installation
+  - bash: |
+      echo "##vso[task.prependpath]$CONDA/bin"
+      sudo chown -R $USER $CONDA
+    displayName: Add conda to PATH
     condition: ne(variables['Agent.OS'], 'Windows_NT')
 
   - bash: bash continuous_integration/install.sh

@@ -10,36 +10,10 @@
 
 set -e
 
-print_conda_requirements() {
-    # Echo a conda requirement string for example
-    # "pip python=2.7.3 scikit-learn=*". It has a hardcoded
-    # list of possible packages to install and looks at _VERSION
-    # environment variables to know whether to install a given package and
-    # if yes which version to install. For example:
-    #   - for numpy, NUMPY_VERSION is used
-    #   - for scikit-learn, SCIKIT_LEARN_VERSION is used
-    TO_INSTALL_ALWAYS="pip pytest"
-    REQUIREMENTS="$TO_INSTALL_ALWAYS"
-    TO_INSTALL_MAYBE="python numpy distributed flake8"
-    for PACKAGE in $TO_INSTALL_MAYBE; do
-        # Capitalize package name and add _VERSION
-        PACKAGE_VERSION_VARNAME="${PACKAGE^^}_VERSION"
-        # replace - by _, needed for scikit-learn for example
-        PACKAGE_VERSION_VARNAME="${PACKAGE_VERSION_VARNAME//-/_}"
-        # dereference $PACKAGE_VERSION_VARNAME to figure out the
-        # version to install
-        PACKAGE_VERSION="${!PACKAGE_VERSION_VARNAME}"
-        if [ -n "$PACKAGE_VERSION" ]; then
-            REQUIREMENTS="$REQUIREMENTS $PACKAGE=$PACKAGE_VERSION"
-        fi
-    done
-    echo $REQUIREMENTS
-}
-
 create_new_conda_env() {
     conda update --yes conda
-    REQUIREMENTS=$(print_conda_requirements)
-    conda create -n testenv --yes $REQUIREMENTS
+    TO_INSTALL="python=$PYTHON_VERSION pip pytest $EXTRA_CONDA_PACKAGES"
+    conda create -n testenv --yes $TO_INSTALL
     source activate testenv
 }
 
