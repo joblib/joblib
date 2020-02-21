@@ -929,22 +929,14 @@ def test_dispatch_race_condition(n_tasks, n_jobs, pre_dispatch, batch_size):
 
 
 @with_multiprocessing
+@skipif(sys.version_info < (3, 5), reason="Bored with Python 2 support")
 def test_default_mp_context():
+    mp_start_method = mp.get_start_method()
     p = Parallel(n_jobs=2, backend='multiprocessing')
     context = p._backend_args.get('context')
-    if sys.version_info >= (3, 4):
+    if sys.version_info >= (3, 5):
         start_method = context.get_start_method()
-        # Under Python 3.4+ the multiprocessing context can be configured
-        # by an environment variable
-        env_method = os.environ.get('JOBLIB_START_METHOD', '').strip() or None
-        if env_method is None:
-            # Check the default behavior
-            if sys.platform == 'win32':
-                assert start_method == 'spawn'
-            else:
-                assert start_method == 'fork'
-        else:
-            assert start_method == env_method
+        assert start_method == mp_start_method
     else:
         assert context is None
 
@@ -996,10 +988,11 @@ print(Parallel(n_jobs=2, backend=backend)(
 
 @with_multiprocessing
 @parametrize('backend', PROCESS_BACKENDS)
+@skipif(sys.version_info < (3, 5), reason="Bored with Python 2 support")
 def test_parallel_with_interactively_defined_functions(backend):
     # When using the "-c" flag, interactive functions defined in __main__
     # should work with any backend.
-    if backend == "multiprocessing" and sys.platform == "win32":
+    if backend == "multiprocessing" and mp.get_start_method() != "fork":
         pytest.skip("Require fork start method to use interactively defined "
                     "functions with multiprocessing.")
     code = UNPICKLABLE_CALLABLE_SCRIPT_TEMPLATE_NO_MAIN.format(backend)
@@ -1240,12 +1233,6 @@ def test_warning_about_timeout_not_supported_by_backend():
 @parametrize('n_jobs', [1, 2, -2, -1])
 def test_abort_backend(n_jobs, backend):
     delays = ["a"] + [10] * 100
-
-    if os.environ.get("TRAVIS_OS_NAME") is not None and n_jobs < 0:
-        # Use only up to 8 cpu in travis as cpu_count return 32 whereas we
-        # only access 2 cores.
-        n_jobs += 8
-
     with raises(TypeError):
         t_start = time.time()
         Parallel(n_jobs=n_jobs, backend=backend)(
@@ -1291,7 +1278,7 @@ def test_lambda_expression(backend):
 
 
 def test_delayed_check_pickle_deprecated():
-    if sys.version_info < (3, 4):
+    if sys.version_info < (3, 5):
         pytest.skip("Warning check unstable under Python 2, life is too short")
 
     class UnpicklableCallable(object):
