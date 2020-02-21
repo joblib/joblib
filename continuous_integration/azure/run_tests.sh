@@ -19,7 +19,8 @@ if [[ "$SKIP_TESTS" != "true" ]]; then
         # the test run and the test-doc run coverage.
         export PYTEST_ADDOPTS="--cov=joblib --cov-append"
     fi
-    make
+
+    pytest joblib -vl --timeout=60 --junitxml="${JUNITXML}"
     if [[ "$PYTHON_VERSION" != "2.7" ]]; then
         make test-doc
     fi

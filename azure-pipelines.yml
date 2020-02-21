@@ -104,6 +104,9 @@ jobs:
         NUMPY_VERSION: "1.16"
         COVERAGE: "true"
 
+  variables:
+    JUNITXML: 'test-data.xml'
+
   pool:
     vmImage: $(imageName)
 
@@ -125,3 +128,13 @@ jobs:
 
   - bash: bash continuous_integration/azure/run_tests.sh
     displayName: 'Run the tests'
+
+  - task: PublishTestResults@2
+    inputs:
+      testResultsFiles: '$(JUNITXML)'
+    displayName: 'Publish Test Results'
+    condition: succeededOrFailed()
+
+  - bash: curl -s https://codecov.io/bash | bash
+    displayName: 'Upload to codecov'
+    condition: and(succeeded(), ne(variables['SKIP_TESTS'], 'true'))
