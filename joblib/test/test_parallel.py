@@ -929,6 +929,7 @@ def test_dispatch_race_condition(n_tasks, n_jobs, pre_dispatch, batch_size):
 
 
 @with_multiprocessing
+@skipif(sys.version_info < (3, 5), "Bored with Python 2 support")
 def test_default_mp_context():
     mp_start_method = mp.get_start_method()
     p = Parallel(n_jobs=2, backend='multiprocessing')
@@ -987,6 +988,7 @@ print(Parallel(n_jobs=2, backend=backend)(
 
 @with_multiprocessing
 @parametrize('backend', PROCESS_BACKENDS)
+@skipif(sys.version_info < (3, 5), "Bored with Python 2 support")
 def test_parallel_with_interactively_defined_functions(backend):
     # When using the "-c" flag, interactive functions defined in __main__
     # should work with any backend.
@@ -1276,7 +1278,7 @@ def test_lambda_expression(backend):
 
 
 def test_delayed_check_pickle_deprecated():
-    if sys.version_info < (3, 4):
+    if sys.version_info < (3, 5):
         pytest.skip("Warning check unstable under Python 2, life is too short")
 
     class UnpicklableCallable(object):
