@@ -25,7 +25,7 @@ jobs:
           exit 0
         else
           source activate flake8_env
-          ./continuous_integration/azure/flake8_diff.sh
+          bash ./azure/flake8_diff.sh
         fi
       displayName: Run linting
 
@@ -123,10 +123,10 @@ jobs:
     displayName: Take ownership of conda installation
     condition: ne(variables['Agent.OS'], 'Windows_NT')
 
-  - bash: bash continuous_integration/azure/install.sh
+  - bash: bash azure/install.sh
     displayName: 'Install joblib and its dependencies'
 
-  - bash: bash continuous_integration/azure/run_tests.sh
+  - bash: bash azure/run_tests.sh
     displayName: 'Run the tests'
 
   - task: PublishTestResults@2
