@@ -77,6 +77,33 @@ jobs:
         NUMPY_VERSION: "1.16"
         COVERAGE: "true"
 
+      windows_py38:
+        imageName: "vs2017-win2016"
+        PYTHON_VERSION: "3.8"
+        NUMPY_VERSION: "1.18"
+        COVERAGE: "true"
+      windows_py35_no_numpy:
+        imageName: "vs2017-win2016"
+        PYTHON_VERSION: "3.5"
+      windows-py27:
+        imageName: "vs2017-win2016"
+        PYTHON_VERSION: "2.7"
+        NUMPY_VERSION: "1.16"
+        COVERAGE: "true"
+
+      macos_py38:
+        imageName: "macos-10.13"
+        PYTHON_VERSION: "3.8"
+        NUMPY_VERSION: "1.18"
+      macos_py35_no_numpy:
+        imageName: "macos-10.13"
+        PYTHON_VERSION: "3.5"
+      macos_py27:
+        imageName: "macos-10.13"
+        PYTHON_VERSION: "2.7"
+        NUMPY_VERSION: "1.16"
+        COVERAGE: "true"
+
   pool:
     vmImage: $(imageName)
 
