@@ -37,12 +37,9 @@ print_conda_requirements() {
 }
 
 create_new_conda_env() {
+    conda init bash
     conda update --yes conda
-    conda config --set restore_free_channel true
-    conda config --set pip_interop_enabled true
-
     REQUIREMENTS=$(print_conda_requirements)
-    echo "conda requirements string: $REQUIREMENTS"
     conda create -n testenv --yes $REQUIREMENTS
     conda activate testenv
 }
