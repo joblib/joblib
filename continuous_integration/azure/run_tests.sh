@@ -6,7 +6,7 @@ echo "Activating test environment:"
 if [[ "$PYTHON_VERSION" == "pypy3" ]]; then
     source pypy3/bin/activate
 else
-    conda activate testenv
+    source activate testenv
 fi
 which python
 python -V
