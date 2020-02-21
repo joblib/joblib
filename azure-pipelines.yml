@@ -81,10 +81,10 @@ jobs:
   - bash: sudo chown -R $USER $CONDA
     displayName: Take ownership of conda installation
 
-  - script: |
+  - bash: |
       source continuous_integration/azure/install.sh
     displayName: 'Install joblib and its dependencies'
 
-  - script: |
+  - bash: |
       source continuous_integration/azure/run_tests.sh
     displayName: 'Run the tests'
