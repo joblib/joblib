@@ -42,7 +42,6 @@ jobs:
         imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.8"
         EXTRA_CONDA_PACKAGES: "numpy=1.18"
-        COVERAGE: "true"
       linux_py37_sklearn_tests:
         imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.7"
@@ -53,19 +52,16 @@ jobs:
         imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.7"
         EXTRA_CONDA_PACKAGES: "numpy=1.15 distributed=1.23"
-        COVERAGE: "true"
       linux_py36_cython:
         imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.6"
         EXTRA_CONDA_PACKAGES: "numpy=1.14"
-        COVERAGE: "true"
         CYTHON: "true"
       linux_py36_no_multiprocessing:
         imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.6"
         EXTRA_CONDA_PACKAGES: "numpy=1.14"
         JOBLIB_MULTIPROCESSING: "0"
-        COVERAGE: "true"
       linux_py35_no_numpy:
         imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.5"
@@ -74,13 +70,11 @@ jobs:
         NO_LZ4: "true"
         PYTHON_VERSION: "2.7"
         EXTRA_CONDA_PACKAGES: "numpy=1.16"
-        COVERAGE: "true"
 
       windows_py38:
         imageName: "vs2017-win2016"
         PYTHON_VERSION: "3.8"
         EXTRA_CONDA_PACKAGES: "numpy=1.18"
-        COVERAGE: "true"
       windows_py35_no_numpy:
         imageName: "vs2017-win2016"
         PYTHON_VERSION: "3.5"
@@ -88,7 +82,6 @@ jobs:
         imageName: "vs2017-win2016"
         PYTHON_VERSION: "2.7"
         EXTRA_CONDA_PACKAGES: "numpy=1.16"
-        COVERAGE: "true"
 
       macos_py38:
         imageName: "macos-10.13"
@@ -101,10 +94,11 @@ jobs:
         imageName: "macos-10.13"
         PYTHON_VERSION: "2.7"
         EXTRA_CONDA_PACKAGES: "numpy=1.16"
-        COVERAGE: "true"
+
 
   variables:
     JUNITXML: 'test-data.xml'
+    COVERAGE: "true"
 
   pool:
     vmImage: $(imageName)
@@ -139,4 +133,4 @@ jobs:
 
   - bash: curl -s https://codecov.io/bash | bash
     displayName: 'Upload to codecov'
-    condition: and(succeeded(), ne(variables['SKIP_TESTS'], 'true'))
+    condition: and(succeeded(), ne(variables['SKIP_TESTS'], 'true'), eq($(COVERAGE), 'true'))
