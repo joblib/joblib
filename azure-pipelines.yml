@@ -129,7 +129,7 @@ jobs:
     inputs:
       testResultsFiles: '$(JUNITXML)'
     displayName: 'Publish Test Results'
-    condition: succeededOrFailed()
+    condition: and(succeededOrFailed(), ne(variables['SKIP_TESTS'], 'true'))
 
   - bash: |
       echo "About to upload coverage report from: $PWD"
