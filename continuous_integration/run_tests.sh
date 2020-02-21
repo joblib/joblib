@@ -41,6 +41,6 @@ if [[ "$SKLEARN_TESTS" == "true" ]]; then
 fi
 
 if [ "$COVERAGE" == "true" ]; then
-     coverage combine --append
+     coverage combine --append  || echo "ignored."
      coverage xml -i  # language agnostic report for the codecov upload script
 fi
