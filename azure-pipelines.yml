@@ -109,16 +109,19 @@ jobs:
 
   steps:
 
+  - bash: echo "##vso[task.prependpath]C:/Program Files/Git/bin"
+    displayName: 'Override Git bash shell for Windows'
+    condition: eq(variables['Agent.OS'], 'Windows_NT')
+
   - bash: echo "##vso[task.prependpath]$CONDA/bin"
     displayName: Add conda to PATH
 
   - bash: sudo chown -R $USER $CONDA
     displayName: Take ownership of conda installation
+    condition: ne(variables['Agent.OS'], 'Windows_NT')
 
-  - bash: |
-      source continuous_integration/azure/install.sh
+  - bash: bash continuous_integration/azure/install.sh
     displayName: 'Install joblib and its dependencies'
 
-  - bash: |
-      source continuous_integration/azure/run_tests.sh
+  - bash: bash continuous_integration/azure/run_tests.sh
     displayName: 'Run the tests'
