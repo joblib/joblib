@@ -4,6 +4,10 @@ Latest changes
 Release 0.14.2
 --------------
 
+- Add environment variables to control the number of threads used in native
+  libraries using threadpools in subprocesses.
+  https://github.com/joblib/joblib/pull/993
+
 - Fix the number of jobs reported by ``effective_n_jobs`` when ``n_jobs=None``
   called in a parallel backend context.
   https://github.com/joblib/joblib/pull/985
