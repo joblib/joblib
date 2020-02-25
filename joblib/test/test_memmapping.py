@@ -432,7 +432,7 @@ def test_memmapping_on_large_enough_dev_shm(factory):
         for i in range(10):
             sleep(.1)
             # The temp folder is cleaned up upon pool termination
-            if os.listdir(pool_temp_folder) == []:
+            if not os.path.exists(pool_temp_folder):
                 break
         else:
             raise AssertionError('temporary folder of pool was not deleted')
