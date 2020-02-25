@@ -200,13 +200,14 @@ def test__strided_from_memmap(tmpdir):
     # filename, dtype, mode, offset, order, shape, strides, total_buffer_len
     memmap_obj = _strided_from_memmap(fname, dtype='uint8', mode='r',
                                       offset=offset, order='C', shape=size,
-                                      strides=None, total_buffer_len=None)
+                                      strides=None, total_buffer_len=None,
+                                      track=False)
     assert isinstance(memmap_obj, np.memmap)
     assert memmap_obj.offset == offset
-    memmap_backed_obj = _strided_from_memmap(fname, dtype='uint8', mode='r',
-                                             offset=offset, order='C',
-                                             shape=(size // 2,), strides=(2,),
-                                             total_buffer_len=size)
+    memmap_backed_obj = _strided_from_memmap(
+        fname, dtype='uint8', mode='r', offset=offset, order='C',
+        shape=(size // 2,), strides=(2,), total_buffer_len=size, track=False
+    )
     assert _get_backing_memmap(memmap_backed_obj).offset == offset
 
 
@@ -348,7 +349,14 @@ def test_memmapping_pool_for_large_arrays(factory, tmpdir):
     finally:
         # check FS garbage upon pool termination
         p.terminate()
-        assert not os.path.exists(p._temp_folder)
+        for i in range(10):
+            sleep(.1)
+            if not os.path.exists(p._temp_folder):
+                break
+        else:
+            raise AssertionError(
+                'temporary folder of {} was not deleted'.format(p)
+            )
         del p
 
 
@@ -695,15 +703,12 @@ def test_windows_memmaped_arrays_race_condition():
                          stderr=subprocess.PIPE,
                          stdout=subprocess.PIPE)
     p.wait()
+    out, err = p.communicate()
     assert p.returncode == 0, err
-    assert 'resource_tracker' not in err
+    assert b'resource_tracker' not in err
 
 
 def test_shared_memory_deleted_after_parallel_call():
-    # check that memmaped arrays in joblib are properly
-    # managed by the resource_tracker. This includes cleaning up
-    # the temporary files when no process holds a reference to it anyomore.
-
     cmd = '''if 1:
         import time, os, tempfile, sys
         import numpy as np
@@ -721,25 +726,18 @@ def test_shared_memory_deleted_after_parallel_call():
         # the Parallel object has to be called from a context manager to some
         # of its temporary attributes before it gets terminated
 
-        with Parallel(n_jobs=2, verbose=101) as parallel_obj:
+        with Parallel(n_jobs=2, verbose=101, max_nbytes=100) as parallel_obj:
             # warm up the executor
             # parallel_obj(delayed(abs)(i) for i in range(10))
 
-            data = np.ones(int(2e6))
+            data = np.ones(int(1000))
 
-            # create the memmap file by calling the parallel instance reducers
-            # on the data to be sent to the workers. This allows us to get the
-            # filename and send it back to the parent for further tracking.
-            # TODO: set verbose to 1 and access the file name this way.
-            reducer = parallel_obj._backend._workers._call_queue._reducers[
-                np.ndarray]
-            load_fn, (filename, permissions) = reducer(data)
-
-            # call in parallel a functino processing the data
-            results = parallel_obj(delayed(test_data)(data) for _ in range(1))
+            [memmaped_data] = parallel_obj(
+                delayed(test_data)(data) for _ in range(1)
+            )
 
         # give the resource_tracker time to register the new resource
-        sys.stdout.write(filename + "\\n")
+        sys.stdout.write(memmaped_data.filename + "\\n")
         time.sleep(0.5)
         sys.stdout.flush()
         time.sleep(1)
@@ -760,15 +758,8 @@ def test_shared_memory_deleted_after_parallel_call():
         err = p.stderr.read().rstrip().decode('ascii')
         raise AssertionError(f"subprocess did not complete {err}")
 
-    # assert os.path.exists(out)
-
     p.wait()
     out, err = p.communicate()
-    with open('/Users/pierreglaser/repos/joblib/ok.txt', 'w') as f:
-        f.write(out.decode())
-    import pdb; pdb.set_trace()
-    print(err)
-
     # wait for the resource_tracker to cleanup the leaked resources
     p.stderr.close()
     p.stdout.close()
