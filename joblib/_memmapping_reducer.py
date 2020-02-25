@@ -30,11 +30,10 @@ try:
 except ImportError:
     np = None
 
-from .numpy_pickle import load
-from .numpy_pickle import dump
+from .numpy_pickle import dump, load, load_and_and_maybe_unlink, JOBLIB_MMAPS
 from .numpy_pickle_utils import _get_backing_memmap
 from .backports import make_memmap
-from .disk import delete_folder
+from .externals.loky.backend import resource_tracker
 from .externals.loky.backend.resource_tracker import _CLEANUP_FUNCS
 
 # Some system have a ramdisk mounted by default, we can use it instead of /tmp
@@ -205,7 +204,7 @@ def has_shareable_memory(a):
 
 
 def _strided_from_memmap(filename, dtype, mode, offset, order, shape, strides,
-                         total_buffer_len):
+                         total_buffer_len, track):
     """Reconstruct an array view on a memory mapped file."""
     if mode == 'w+':
         # Do not zero the original data when unpickling
@@ -214,12 +213,12 @@ def _strided_from_memmap(filename, dtype, mode, offset, order, shape, strides,
     if strides is None:
         # Simple, contiguous memmap
         return make_memmap(filename, dtype=dtype, shape=shape, mode=mode,
-                           offset=offset, order=order)
+                           offset=offset, order=order, track=track)
     else:
         # For non-contiguous data, memmap the total enclosing buffer and then
         # extract the non-contiguous view with the stride-tricks API
         base = make_memmap(filename, dtype=dtype, shape=total_buffer_len,
-                           mode=mode, offset=offset, order=order)
+                           mode=mode, offset=offset, order=order, track=track)
         return as_strided(base, shape=shape, strides=strides)
 
 
@@ -257,11 +256,16 @@ def _reduce_memmap_backed(a, m):
         strides = a.strides
         total_buffer_len = (a_end - a_start) // a.itemsize
 
-    from .externals.loky.backend.resource_tracker import _resource_tracker
-    _resource_tracker.register(m.filename, "file")
+    track = False
+    if m.filename in JOBLIB_MMAPS:
+        # Only the mmap objects created by joblib should be tracked by
+        # the resource_tracker.
+        resource_tracker.register(m.filename, "file_plus_plus")
+        track = True
+
     return (_strided_from_memmap,
             (m.filename, a.dtype, m.mode, offset, order, a.shape, strides,
-             total_buffer_len))
+             total_buffer_len, track))
 
 
 def reduce_memmap(a):
@@ -359,9 +363,19 @@ class ArrayMemmapReducer(object):
             # In case the same array with the same content is passed several
             # times to the pool subprocess children, serialize it only once
 
-            # XXX: implement an explicit reference counting scheme to make it
-            # possible to delete temporary files as soon as the workers are
-            # done processing this data.
+            is_new_memmap = filename not in JOBLIB_MMAPS
+
+            # add the memmap to the list of temporary memmaps created by joblib
+            JOBLIB_MMAPS.add(filename)
+            resource_tracker.register(filename, "file_plus_plus")
+
+            if is_new_memmap:
+                # Incref each temporary memmap created by joblib one extra
+                # time.  This means that these memmaps will only be deleted
+                # once an extra maybe_unlink() is called, which is done when a
+                # Parallel object returns
+                resource_tracker.register(filename, "file_plus_plus")
+
             if not os.path.exists(filename):
                 util.debug(
                     "[ARRAY DUMP] Pickling new array (shape={}, dtype={}) "
@@ -385,7 +399,9 @@ class ArrayMemmapReducer(object):
                         a.shape, a.dtype, os.path.basename(filename)))
 
             # The worker process will use joblib.load to memmap the data
-            return (load, (filename, self._mmap_mode))
+            return (
+                (load_and_and_maybe_unlink, (filename, self._mmap_mode, True))
+            )
         else:
             # do not convert a into memmap, let pickler do its usual copy with
             # the default system pickler
@@ -418,32 +434,6 @@ def get_memmapping_reducers(
     pool_folder, use_shared_mem = _get_temp_dir(pool_folder_name,
                                                 temp_folder)
 
-    # Register the garbage collector at program exit in case caller forgets
-    # to call terminate explicitly: note we do not pass any reference to
-    # self to ensure that this callback won't prevent garbage collection of
-    # the pool instance and related file handler resources such as POSIX
-    # semaphores and pipes
-    pool_module_name = whichmodule(delete_folder, 'delete_folder')
-
-    def _cleanup():
-        # In some cases the Python runtime seems to set delete_folder to
-        # None just before exiting when accessing the delete_folder
-        # function from the closure namespace. So instead we reimport
-        # the delete_folder function explicitly.
-        # https://github.com/joblib/joblib/issues/328
-        # We cannot just use from 'joblib.pool import delete_folder'
-        # because joblib should only use relative imports to allow
-        # easy vendoring.
-        delete_folder = __import__(
-            pool_module_name, fromlist=['delete_folder']).delete_folder
-        try:
-            # delete_folder(pool_folder)
-            pass
-        except WindowsError:
-            warnings.warn("Failed to clean temporary folder: {}"
-                          .format(pool_folder))
-
-    atexit.register(_cleanup)
 
     if np is not None:
         # Register smart numpy.ndarray reducers that detects memmap backed

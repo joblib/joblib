@@ -28,9 +28,9 @@ from pickle import Pickler
 from pickle import HIGHEST_PROTOCOL
 from io import BytesIO
 
-from .disk import delete_folder
-from ._memmapping_reducer import get_memmapping_reducers
+from ._memmapping_reducer import get_memmapping_reducers, JOBLIB_MMAPS
 from ._multiprocessing_helpers import mp, assert_spawning
+from .externals.loky.backend import resource_tracker
 
 # We need the class definition to derive from it, not the multiprocessing.Pool
 # factory function
@@ -296,6 +296,11 @@ class MemmappingPool(PicklingPool):
                           ' 0.9.4 and will be removed in 0.11',
                           DeprecationWarning)
 
+        # Launch the resource tracker before starting any workers.
+        # XXX: this won't work for Spawn-based workers as of now as the
+        # resource_tracker file descriptor won't be inherited.
+        resource_tracker.ensure_running()
+
         forward_reducers, backward_reducers, self._temp_folder = \
             get_memmapping_reducers(
                 id(self), temp_folder=temp_folder, max_nbytes=max_nbytes,
@@ -324,4 +329,6 @@ class MemmappingPool(PicklingPool):
                     if i + 1 == n_retries:
                         warnings.warn("Failed to terminate worker processes in"
                                       " multiprocessing pool: %r" % e)
-        # delete_folder(self._temp_folder)
+        for filename in JOBLIB_MMAPS:
+            resource_tracker.maybe_unlink(filename, "file_plus_plus")
+        JOBLIB_MMAPS.clear()

@@ -25,7 +25,7 @@ try:
     import numpy as np
 
     def make_memmap(filename, dtype='uint8', mode='r+', offset=0,
-                    shape=None, order='C'):
+                    shape=None, order='C', track=False):
         """Backport of numpy memmap offset fix.
 
         See https://github.com/numpy/numpy/pull/8443 for more details.
@@ -41,21 +41,16 @@ try:
                        shape=shape, order=order)
         if LooseVersion(np.__version__) < '1.13':
             mm.offset = offset
-        mmap_obj = _get_backing_memmap(mm)
-        print(
-            "[FINALIZER ADD] about to add a finalizer to a {} (id {}, "
-            "filename {}, pid {}, time {})\n".format(
-                type(mmap_obj.base), id(mmap_obj.base), mmap_obj.filename,
-                os.getpid(), time.time()))
-
-        if mmap_obj.base is None:
-            raise ValueError(
-                "mmap base of a np.memmap object should not be None")
-        weakref.finalize(mmap_obj.base, maybe_unlink, filename, "file")
+        if track:
+            util.debug(
+                "[FINALIZER ADD] adding a finalizer to a {} "
+                " (id {}, filename {}, pid {})".format(
+                    type(mm), id(mm), basename(mm.filename), os.getpid()))
+            weakref.finalize(mm, maybe_unlink, filename, "file_plus_plus")
         return mm
 except ImportError:
     def make_memmap(filename, dtype='uint8', mode='r+', offset=0,
-                    shape=None, order='C'):
+                    shape=None, order='C', track=False):
         raise NotImplementedError(
             "'joblib.backports.make_memmap' should not be used "
             'if numpy is not installed.')

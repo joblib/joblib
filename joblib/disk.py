@@ -111,22 +111,4 @@ def delete_folder(folder_path, onerror=None):
         else:
             # allow the rmtree to fail once, wait and re-try.
             # if the error is raised again, fail
-            err_count = 0
-            files = os.listdir(folder_path)
-            did_error = False
-            while True:
-                try:
-                    shutil.rmtree(folder_path, False, None)
-                    break
-                except (OSError, WindowsError):
-                    err_count += 1
-                    if err_count > RM_SUBDIRS_N_RETRY:
-                        atexit.register(resource_tracker.maybe_unlink,
-                                        (folder_path, "folder"))
-                        did_error = True
-
-                    time.sleep(RM_SUBDIRS_RETRY_TIME)
-            if not did_error:
-                for file in files:
-                    resource_tracker.unregister(
-                        os.path.join(folder_path, file), rtype="file")
+            shutil.rmtree(folder_path, False, None)

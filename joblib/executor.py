@@ -9,9 +9,10 @@ copy between the parent and child processes.
 # License: BSD 3 clause
 
 import random
-from .disk import delete_folder
+from .numpy_pickle import JOBLIB_MMAPS
 from ._memmapping_reducer import get_memmapping_reducers
 from .externals.loky.reusable_executor import get_reusable_executor
+from .externals.loky.backend import resource_tracker
 
 
 _executor_args = None
@@ -45,8 +46,6 @@ def get_memmapping_executor(n_jobs, timeout=300, initializer=None, initargs=(),
     # and we should not change this attibute.
     if not hasattr(_executor, "_temp_folder"):
         _executor._temp_folder = temp_folder
-    else:
-        delete_folder(temp_folder)
     return _executor
 
 
@@ -66,7 +65,9 @@ class _TestingMemmappingExecutor():
 
     def terminate(self):
         self._executor.shutdown()
-        # delete_folder(self._temp_folder)
+        for filename in JOBLIB_MMAPS:
+            resource_tracker.maybe_unlink(filename, "file_plus_plus")
+        JOBLIB_MMAPS.clear()
 
     def map(self, f, *args):
         res = self._executor.map(f, *args)
