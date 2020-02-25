@@ -15,6 +15,7 @@ import tempfile
 import warnings
 import weakref
 from uuid import uuid4
+from multiprocessing import util
 
 from pickle import whichmodule, loads, dumps, HIGHEST_PROTOCOL, PicklingError
 
@@ -56,8 +57,10 @@ def file_plus_plus_unlink(filename):
     files = os.listdir(dir_name)
 
     os.remove(filename)
-
-    if len(files) == 1:
+    files = os.listdir(dir_name)
+    if len(files) == 0:
+        util.debug("removing empty temporary folder {} (triggered after {}"
+                   " deletion)".format(dir_name, os.path.basename(filename)))
         # filename was the only file left in this directory => delete the
         # directory too
         os.rmdir(dir_name)
