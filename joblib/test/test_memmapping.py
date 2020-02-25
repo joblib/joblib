@@ -677,7 +677,9 @@ def test_direct_mmap(tmpdir):
     np.testing.assert_array_equal(results[0], arr)
 
 
-def test_windows_memmaped_arrays_race_condition():
+@with_numpy
+@parametrize("backend", ["multiprocessing", "loky"])
+def test_windows_memmaped_arrays_race_condition(backend):
     # test crash on issue #806: during the shutdown of a python
     # process that previously called a Parallel instance,
     # the cleanup of memmaped arrays would fail due the OS flagging
@@ -695,9 +697,9 @@ def test_windows_memmaped_arrays_race_condition():
 
         data = np.ones(int(2e6))
 
-        Parallel(n_jobs=2, verbose=5)(
+        Parallel(n_jobs=2, verbose=5, backend='{b}')(
             delayed(test_data)(data) for _ in range(10))
-    '''
+    '''.format(b=backend)
     p = subprocess.Popen([sys.executable, '-E', '-c', cmd],
                          stderr=subprocess.PIPE,
                          stdout=subprocess.PIPE)
@@ -707,7 +709,9 @@ def test_windows_memmaped_arrays_race_condition():
     assert b'resource_tracker' not in err
 
 
-def test_shared_memory_deleted_after_parallel_call():
+@with_numpy
+@parametrize("backend", ["multiprocessing", "loky"])
+def test_shared_memory_deleted_after_parallel_call(backend):
     cmd = '''if 1:
         import time, os, tempfile, sys
         import numpy as np
@@ -725,7 +729,8 @@ def test_shared_memory_deleted_after_parallel_call():
         # the Parallel object has to be called from a context manager to some
         # of its temporary attributes before it gets terminated
 
-        with Parallel(n_jobs=2, verbose=101, max_nbytes=100) as parallel_obj:
+        with Parallel(n_jobs=2, verbose=101, max_nbytes=100,
+                      backend='{b}') as parallel_obj:
             # warm up the executor
             # parallel_obj(delayed(abs)(i) for i in range(10))
 
@@ -740,7 +745,7 @@ def test_shared_memory_deleted_after_parallel_call():
         time.sleep(0.5)
         sys.stdout.flush()
         time.sleep(1)
-    '''
+    '''.format(b=backend)
     cmd = cmd.format(parent_pid=os.getpid())
     p = subprocess.Popen([sys.executable, '-E', '-c', cmd],
                          stderr=subprocess.PIPE,
