@@ -231,6 +231,8 @@ def _reduce_memmap_backed(a, m):
     attribute ancestry of a. ``m.base`` should be the real python mmap object.
     """
     # offset that comes from the striding differences between a and m
+    util.debug('[MEMMAP REDUCE] reducing a memmap-backed array '
+               '(shape, {}, pid: {})'.format(a.shape, os.getpid()))
     a_start, a_end = np.byte_bounds(a)
     m_start = np.byte_bounds(m)[0]
     offset = a_start - m_start
@@ -325,9 +327,10 @@ class ArrayMemmapReducer(object):
         m = _get_backing_memmap(a)
         if m is not None and isinstance(m, np.memmap):
             # a is already backed by a memmap file, let's reuse it directly
-            if self.verbose > 1:
-                print('[MEMMAP REDUCE] reducing mmemmap (shape, {}, pid: {})'
-                      '\n'.format(a.shape, os.getpid()))
+            util.debug(
+                '[MEMMAP REDUCE] reducing mmemmap (shape, {}, pid: {})'.format(
+                    a.shape, os.getpid())
+            )
             return _reduce_memmap_backed(a, m)
 
         if (not a.dtype.hasobject and self._max_nbytes is not None and
@@ -360,9 +363,10 @@ class ArrayMemmapReducer(object):
             # possible to delete temporary files as soon as the workers are
             # done processing this data.
             if not os.path.exists(filename):
-                if self.verbose > 0:
-                    print("[ARRAY DUMP] Memmapping (shape={}, dtype={}) to "
-                          "new file {}".format(a.shape, a.dtype, filename))
+                util.debug(
+                    "[ARRAY DUMP] Pickling new array (shape={}, dtype={}) "
+                    "creating a new memmap".format(
+                        a.shape, a.dtype, os.path.basename(filename)))
                 for dumped_filename in dump(a, filename):
                     os.chmod(dumped_filename, FILE_PERMISSIONS)
 
@@ -373,25 +377,21 @@ class ArrayMemmapReducer(object):
                     # concurrent memmap creation in multiple children
                     # processes.
                     load(filename, mmap_mode=self._mmap_mode).max()
-            elif self.verbose > 1:
-                print("[ARRAY DUMP] pickling the file (shape={}, dtype={}) to "
-                      "old file {}".format(a.shape, a.dtype, filename))
 
-            from .externals.loky.backend.resource_tracker import (
-                _resource_tracker
-            )
-            _resource_tracker.register(filename, "file")
-            print("[ARRAY DUMP] sending a to-be-memmaped-object ({})\n".format(
-                filename.split('/')[-1]))
+            else:
+                util.debug(
+                    "[ARRAY DUMP] Pickling known array (shape={}, dtype={}) "
+                    "retrieving memmap {}".format(
+                        a.shape, a.dtype, os.path.basename(filename)))
 
             # The worker process will use joblib.load to memmap the data
             return (load, (filename, self._mmap_mode))
         else:
             # do not convert a into memmap, let pickler do its usual copy with
             # the default system pickler
-            if self.verbose > 1:
-                print("[ARRAY DUMP] Pickling array (shape={}, dtype={})."
-                      .format(a.shape, a.dtype))
+            util.debug(
+                '[ARRAY DUMP] Pickling array (NO MEMMAPPING) (shape={}, '
+                ' dtype={}).'.format(a.shape, a.dtype))
             return (loads, (dumps(a, protocol=HIGHEST_PROTOCOL),))
 
 

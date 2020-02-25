@@ -6,16 +6,18 @@ import time
 import weakref
 
 from distutils.version import LooseVersion
+from os.path import basename
+from multiprocessing import util
 
 from .numpy_pickle_utils import _get_backing_memmap
 
 
 def maybe_unlink(filename, rtype):
     from .externals.loky.backend.resource_tracker import _resource_tracker
-    print(
+    util.debug(
         "[FINALIZER CALL] object mapping to {} about to be deleted,"
-        " decrementing the refcount of the file (pid: {})\n".format(
-            filename, os.getpid()))
+        " decrementing the refcount of the file (pid: {})".format(
+            basename(filename), os.getpid()))
     _resource_tracker.maybe_unlink(filename, rtype)
 
 
@@ -30,17 +32,15 @@ try:
 
         The numpy fix will be available in numpy 1.13.
         """
+        util.debug(
+            "[MEMMAP READ] creating a memmap (shape {}, filename {}, "
+            "pid {})".format(shape, basename(filename), os.getpid())
+        )
+
         mm = np.memmap(filename, dtype=dtype, mode=mode, offset=offset,
                        shape=shape, order=order)
         if LooseVersion(np.__version__) < '1.13':
             mm.offset = offset
-        # TODO: add a verbose parameter or remove these print statements
-        # before merging
-        print(
-            "[MEMMAP READ] reading a memmap (shape {}, filename {}, "
-            "pid {})\n".format(shape, filename.split('/')[-1], os.getpid())
-        )
-
         mmap_obj = _get_backing_memmap(mm)
         print(
             "[FINALIZER ADD] about to add a finalizer to a {} (id {}, "
