@@ -756,7 +756,7 @@ def test_shared_memory_deleted_after_parallel_call():
         p.wait()
         assert p.returncode == 1
         err = p.stderr.read().rstrip().decode('ascii')
-        raise AssertionError(f"subprocess did not complete {err}")
+        raise AssertionError("subprocess did not complete {}".format(err))
 
     p.wait()
     out, err = p.communicate()
