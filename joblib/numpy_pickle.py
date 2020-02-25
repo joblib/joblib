@@ -38,11 +38,6 @@ register_compressor('lzma', LZMACompressorWrapper())
 register_compressor('xz', XZCompressorWrapper())
 register_compressor('lz4', LZ4CompressorWrapper())
 
-# Set referencing the filenames of temporary memmaps created by joblib to speed
-# up data communication between workers. This object need not be specific to a
-# Parallel object unless we decide to support the case of calling several
-# Parallel object run in different threads of a same process.
-JOBLIB_MMAPS = set()
 
 ###############################################################################
 # Utility objects for persistence.
@@ -528,8 +523,11 @@ def _unpickle(fobj, filename="", mmap_mode=None):
 def load_and_and_maybe_unlink(filename, mmap_mode, track):
     obj = load(filename, mmap_mode)
     if track:
-        weakref.finalize(obj, maybe_unlink, obj.filename, "file_plus_plus")
+        from ._memmapping_reducer import JOBLIB_MMAPS, JOBLIB_MMAPS_FINALIZERS
         JOBLIB_MMAPS.add(obj.filename)
+        w = weakref.ref(
+            obj, lambda obj: maybe_unlink(filename, "file_plus_plus"))
+        JOBLIB_MMAPS_FINALIZERS[id(w)] = w
     return obj
 
 

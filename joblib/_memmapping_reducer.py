@@ -30,7 +30,7 @@ try:
 except ImportError:
     np = None
 
-from .numpy_pickle import dump, load, load_and_and_maybe_unlink, JOBLIB_MMAPS
+from .numpy_pickle import dump, load, load_and_and_maybe_unlink
 from .numpy_pickle_utils import _get_backing_memmap
 from .backports import make_memmap
 from .externals.loky.backend import resource_tracker
@@ -49,6 +49,14 @@ SYSTEM_SHARED_MEM_FS_MIN_SIZE = int(2e9)
 # temporary files and folder.
 FOLDER_PERMISSIONS = stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR
 FILE_PERMISSIONS = stat.S_IRUSR | stat.S_IWUSR
+
+# Set referencing the filenames of temporary memmaps created by joblib to speed
+# up data communication between workers. This object need not be specific to a
+# Parallel object unless we decide to support the case of calling several
+# Parallel object run in different threads of a same process.
+JOBLIB_MMAPS = set()
+
+JOBLIB_MMAPS_FINALIZERS = dict()
 
 
 def file_plus_plus_unlink(filename):

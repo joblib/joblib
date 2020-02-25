@@ -46,7 +46,10 @@ try:
                 "[FINALIZER ADD] adding a finalizer to a {} "
                 " (id {}, filename {}, pid {})".format(
                     type(mm), id(mm), basename(mm.filename), os.getpid()))
-            weakref.finalize(mm, maybe_unlink, filename, "file_plus_plus")
+            from ._memmapping_reducer import JOBLIB_MMAPS_FINALIZERS
+            w = weakref.ref(
+                mm, lambda obj: maybe_unlink(filename, "file_plus_plus"))
+            JOBLIB_MMAPS_FINALIZERS[id(w)] = w
         return mm
 except ImportError:
     def make_memmap(filename, dtype='uint8', mode='r+', offset=0,

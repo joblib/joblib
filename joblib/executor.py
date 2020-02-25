@@ -9,8 +9,7 @@ copy between the parent and child processes.
 # License: BSD 3 clause
 
 import random
-from .numpy_pickle import JOBLIB_MMAPS
-from ._memmapping_reducer import get_memmapping_reducers
+from ._memmapping_reducer import get_memmapping_reducers, JOBLIB_MMAPS
 from .externals.loky.reusable_executor import get_reusable_executor
 from .externals.loky.backend import resource_tracker
 
