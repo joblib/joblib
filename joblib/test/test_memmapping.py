@@ -428,8 +428,14 @@ def test_memmapping_on_large_enough_dev_shm(factory):
             # Cleanup open file descriptors
             p.terminate()
             del p
-        # The temp folder is cleaned up upon pool termination
-        assert not os.path.exists(pool_temp_folder)
+
+        for i in range(10):
+            sleep(.1)
+            # The temp folder is cleaned up upon pool termination
+            if os.listdir(pool_temp_folder) == []:
+                break
+        else:
+            raise AssertionError('temporary folder of pool was not deleted')
     finally:
         jmr.SYSTEM_SHARED_MEM_FS_MIN_SIZE = orig_size
 
