@@ -6,7 +6,6 @@ import gc
 import pickle
 from time import sleep
 import subprocess
-import re
 
 from joblib.test.common import with_numpy, np
 from joblib.test.common import setup_autokill

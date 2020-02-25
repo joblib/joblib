@@ -9,8 +9,6 @@ from distutils.version import LooseVersion
 from os.path import basename
 from multiprocessing import util
 
-from .numpy_pickle_utils import _get_backing_memmap
-
 
 def maybe_unlink(filename, rtype):
     from .externals.loky.backend.resource_tracker import _resource_tracker
