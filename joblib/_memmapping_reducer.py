@@ -11,7 +11,9 @@ import os
 import stat
 import threading
 import atexit
+import sys
 import tempfile
+import time
 import warnings
 import weakref
 from uuid import uuid4
@@ -30,7 +32,7 @@ try:
 except ImportError:
     np = None
 
-from .numpy_pickle import dump, load, load_and_and_maybe_unlink
+from .numpy_pickle import dump, load, load_temporary_memmap
 from .numpy_pickle_utils import _get_backing_memmap
 from .backports import make_memmap
 from .externals.loky.backend import resource_tracker
@@ -56,14 +58,48 @@ FILE_PERMISSIONS = stat.S_IRUSR | stat.S_IWUSR
 # Parallel object run in different threads of a same process.
 JOBLIB_MMAPS = set()
 
-JOBLIB_MMAPS_FINALIZERS = dict()
+JOBLIB_MMAPS_FINALIZERS = []
+
+
+def add_maybe_unlink_finalizer(memmap):
+    util.debug(
+        "[FINALIZER ADD] adding finalizer to {} (id {}, filename {}, pid  {} )"
+        "".format(type(memmap), id(memmap), os.path.basename(memmap.filename),
+                  os.getpid()))
+    filename = memmap.filename
+
+    def _maybe_unlink(wr):
+        # A weakref callback is constrained to be a function with one
+        # argument that is the weakref itself, while the
+        # resource_tracker.maybe_unlink needs the filename and the type of
+        # the resource to unlink. To workaround this limitation, we create
+        # a nested function whose closure will contain the arguments of
+        # resource_tracker.maybe_unlink.
+        from .externals.loky.backend.resource_tracker import _resource_tracker
+        util.debug(
+            "[FINALIZER CALL] object mapping to {} about to be deleted,"
+            " decrementing the refcount of the file (pid: {})".format(
+                os.path.basename(filename), os.getpid()))
+        _resource_tracker.maybe_unlink(filename, "file_plus_plus")
+
+    if sys.version_info[0] == 2:
+        w = weakref.ref(memmap, _maybe_unlink)
+        JOBLIB_MMAPS_FINALIZERS.append(w)
+    else:
+        weakref.finalize(memmap, _maybe_unlink, (None,))
 
 
 def file_plus_plus_unlink(filename):
     dir_name = os.path.dirname(filename)
     files = os.listdir(dir_name)
 
-    os.remove(filename)
+    n_retries = 0
+    while os.path.exists(filename) and n_retries < 10:
+        try:
+            os.remove(filename)
+        except OSError:  # PermissionError under windows
+            n_retries += 1
+            time.sleep(.1)
     files = os.listdir(dir_name)
     if len(files) == 0:
         util.debug("removing empty temporary folder {} (triggered after {}"
@@ -408,7 +444,7 @@ class ArrayMemmapReducer(object):
 
             # The worker process will use joblib.load to memmap the data
             return (
-                (load_and_and_maybe_unlink, (filename, self._mmap_mode, True))
+                (load_temporary_memmap, (filename, self._mmap_mode, True))
             )
         else:
             # do not convert a into memmap, let pickler do its usual copy with

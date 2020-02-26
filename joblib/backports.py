@@ -3,20 +3,10 @@ Backports of fixes for joblib dependencies
 """
 import os
 import time
-import weakref
 
 from distutils.version import LooseVersion
 from os.path import basename
 from multiprocessing import util
-
-
-def maybe_unlink(filename, rtype):
-    from .externals.loky.backend.resource_tracker import _resource_tracker
-    util.debug(
-        "[FINALIZER CALL] object mapping to {} about to be deleted,"
-        " decrementing the refcount of the file (pid: {})".format(
-            basename(filename), os.getpid()))
-    _resource_tracker.maybe_unlink(filename, rtype)
 
 
 try:
@@ -40,14 +30,8 @@ try:
         if LooseVersion(np.__version__) < '1.13':
             mm.offset = offset
         if track:
-            util.debug(
-                "[FINALIZER ADD] adding a finalizer to a {} "
-                " (id {}, filename {}, pid {})".format(
-                    type(mm), id(mm), basename(mm.filename), os.getpid()))
-            from ._memmapping_reducer import JOBLIB_MMAPS_FINALIZERS
-            w = weakref.ref(
-                mm, lambda obj: maybe_unlink(filename, "file_plus_plus"))
-            JOBLIB_MMAPS_FINALIZERS[id(w)] = w
+            from ._memmapping_reducer import add_maybe_unlink_finalizer
+            add_maybe_unlink_finalizer(mm)
         return mm
 except ImportError:
     def make_memmap(filename, dtype='uint8', mode='r+', offset=0,
