@@ -304,6 +304,28 @@ def test_pool_with_memmap_array_view(factory, tmpdir):
 
 
 @with_numpy
+@parametrize("trial", range(3))
+def test_non_regression_memmap_permission_error(trial):
+    # Smoke test to serve as a non regression test for:
+    # https://github.com/joblib/joblib/issues/806
+    #
+    # The issue happens when trying to delete a memory mapped file that has
+    # not yet been closed by one of the worker processes.
+    data = np.random.rand(int(2e6)).reshape((int(1e6), 2))
+
+    # Build a complex cyclic reference that is likely to delay garbage
+    # collection of the memmapped array in the worker processes.
+    first_list = current_list = [data]
+    for i in range(10):
+        current_list = [current_list]
+    first_list.append(current_list)
+
+    results = Parallel(n_jobs=2)(
+        delayed(len)(current_list) for i in range(10))
+    assert results == [1] * 10
+
+
+@with_numpy
 @with_multiprocessing
 @parametrize("factory", [MemmappingPool, _TestingMemmappingExecutor],
              ids=["multiprocessing", "loky"])
