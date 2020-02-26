@@ -7,7 +7,6 @@
 import pickle
 import os
 import warnings
-import weakref
 try:
     from pathlib import Path
 except ImportError:
