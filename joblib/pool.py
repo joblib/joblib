@@ -31,6 +31,7 @@ from io import BytesIO
 from ._memmapping_reducer import get_memmapping_reducers, JOBLIB_MMAPS
 from ._multiprocessing_helpers import mp, assert_spawning
 from .externals.loky.backend import resource_tracker
+from .disk import memstr_to_bytes
 
 # We need the class definition to derive from it, not the multiprocessing.Pool
 # factory function
@@ -296,10 +297,15 @@ class MemmappingPool(PicklingPool):
                           ' 0.9.4 and will be removed in 0.11',
                           DeprecationWarning)
 
-        # Launch the resource tracker before starting any workers.
-        # XXX: this won't work for Spawn-based workers as of now as the
-        # resource_tracker file descriptor won't be inherited.
-        resource_tracker.ensure_running()
+        if max_nbytes not in [0, memstr_to_bytes('1M')]:
+            # 1e6 is default value, None means no memmapping.
+            warnings.warn(
+                "The multiprocessing backend does not use memory-mapping "
+                "anymore, and the ``max_nbytes`` argument is ignored. "
+                "To turn-on memory-mapping using joblib, please use the  "
+                "Loky backend using ``Parallel(backend='loky')``"
+            )
+        max_nbytes = None
 
         forward_reducers, backward_reducers, self._temp_folder = \
             get_memmapping_reducers(

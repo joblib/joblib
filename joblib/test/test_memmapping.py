@@ -327,9 +327,7 @@ def test_non_regression_memmap_permission_error(trial):
 
 @with_numpy
 @with_multiprocessing
-@parametrize("factory", [MemmappingPool, _TestingMemmappingExecutor],
-             ids=["multiprocessing", "loky"])
-def test_memmapping_pool_for_large_arrays(factory, tmpdir):
+def test_loky_memmapping_pool_for_large_arrays(tmpdir):
     """Check that large arrays are not copied in memory"""
 
     # Check that the tempfolder is empty
@@ -337,7 +335,9 @@ def test_memmapping_pool_for_large_arrays(factory, tmpdir):
 
     # Build an array reducers that automaticaly dump large array content
     # to filesystem backed memmap instances to avoid memory explosion
-    p = factory(3, max_nbytes=40, temp_folder=tmpdir.strpath, verbose=2)
+    p = _TestingMemmappingExecutor(
+        3, max_nbytes=40, temp_folder=tmpdir.strpath, verbose=2
+    )
     try:
         # The temporary folder for the pool is not provisioned in advance
         assert os.listdir(tmpdir.strpath) == []
@@ -517,9 +517,9 @@ def test_memmapping_pool_for_large_arrays_in_return(factory, tmpdir):
         del p
 
 
-def _worker_multiply(a, n_times):
+def _worker_multiply(a, n_times, use_shared_mem):
     """Multiplication function to be executed by subprocess"""
-    assert has_shareable_memory(a)
+    assert has_shareable_memory(a) == use_shared_mem
     return a * n_times
 
 
@@ -536,6 +536,11 @@ def test_workaround_against_bad_memmap_with_copied_buffers(factory, tmpdir):
     assert_array_equal = np.testing.assert_array_equal
 
     p = factory(3, max_nbytes=10, temp_folder=tmpdir.strpath)
+    if factory == MemmappingPool:
+        use_shared_mem = False
+    elif factory == _TestingMemmappingExecutor:
+        use_shared_mem = True
+
     try:
         # Send a complex, large-ish view on a array that will be converted to
         # a memmap in the worker process
@@ -544,7 +549,7 @@ def test_workaround_against_bad_memmap_with_copied_buffers(factory, tmpdir):
 
         # Call a non-inplace multiply operation on the worker and memmap and
         # send it back to the parent.
-        b = p.apply_async(_worker_multiply, args=(a, 3)).get()
+        b = p.apply_async(_worker_multiply, args=(a, 3, use_shared_mem)).get()
         assert not has_shareable_memory(b)
         assert_array_equal(b, 3 * a)
     finally:

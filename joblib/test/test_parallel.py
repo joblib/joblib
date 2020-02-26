@@ -1119,6 +1119,12 @@ def check_memmap(a):
                         type(a))
     return a.copy()  # return a regular array instead of a memmap
 
+def check_np_array(a):
+    if not isinstance(a, np.ndarray):
+        raise TypeError('Expected np.ndarray instance, got %r',
+                        type(a))
+    return a.copy()  # return a regular array instead of a memmap
+
 
 @with_numpy
 @with_multiprocessing
@@ -1131,10 +1137,16 @@ def test_auto_memmap_on_arrays_from_generator(backend):
     def generate_arrays(n):
         for i in range(n):
             yield np.ones(10, dtype=np.float32) * i
+
+    if backend == 'loky':
+        check_array_type = check_memmap
+    elif backend == 'multiprocessing':
+        check_array_type = check_np_array
+
     # Use max_nbytes=1 to force the use of memory-mapping even for small
     # arrays
     results = Parallel(n_jobs=2, max_nbytes=1, backend=backend)(
-        delayed(check_memmap)(a) for a in generate_arrays(100))
+        delayed(check_array_type)(a) for a in generate_arrays(100))
     for result, expected in zip(results, generate_arrays(len(results))):
         np.testing.assert_array_equal(expected, result)
 
@@ -1142,7 +1154,7 @@ def test_auto_memmap_on_arrays_from_generator(backend):
     # of worker processes. This is a non-regression test for:
     # https://github.com/joblib/joblib/issues/629.
     results = Parallel(n_jobs=4, max_nbytes=1, backend=backend)(
-        delayed(check_memmap)(a) for a in generate_arrays(100))
+        delayed(check_array_type)(a) for a in generate_arrays(100))
     for result, expected in zip(results, generate_arrays(len(results))):
         np.testing.assert_array_equal(expected, result)
 
@@ -1197,14 +1209,22 @@ def test_memmapping_leaks(backend, tmpdir):
     # does not stay too long in memory
     tmpdir = tmpdir.strpath
 
+    if backend == 'loky':
+        check_array_type = check_memmap
+    elif backend == 'multiprocessing':
+        check_array_type = check_np_array
+
     # Use max_nbytes=1 to force the use of memory-mapping even for small
     # arrays
     with Parallel(n_jobs=2, max_nbytes=1, backend=backend,
                   temp_folder=tmpdir) as p:
-        p(delayed(check_memmap)(a) for a in [np.random.random(10)] * 2)
+        p(delayed(check_array_type)(a) for a in [np.random.random(10)] * 2)
 
         # The memmap folder should not be clean in the context scope
-        assert len(os.listdir(tmpdir)) > 0
+        if backend == 'loky':
+            assert len(os.listdir(tmpdir)) > 0
+        elif backend == 'multiprocessing':
+            assert len(os.listdir(tmpdir)) == 0
 
     # Make sure that the shared memory is cleaned at the end when we exit
     # the context
@@ -1217,7 +1237,7 @@ def test_memmapping_leaks(backend, tmpdir):
 
     # Make sure that the shared memory is cleaned at the end of a call
     p = Parallel(n_jobs=2, max_nbytes=1, backend=backend)
-    p(delayed(check_memmap)(a) for a in [np.random.random(10)] * 2)
+    p(delayed(check_array_type)(a) for a in [np.random.random(10)] * 2)
 
     for _ in range(10):
         sleep(.1)
