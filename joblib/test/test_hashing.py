@@ -25,14 +25,9 @@ from joblib.memory import Memory
 from joblib.testing import raises, skipif, fixture, parametrize
 from joblib.test.common import np, with_numpy
 from joblib.my_exceptions import TransportableException
-from joblib._compat import PY3_OR_LATER
 
 
-try:
-    # Python 2/Python 3 compat
-    unicode('str')
-except NameError:
-    unicode = lambda s: s
+unicode = lambda s: s
 
 
 ###############################################################################
@@ -364,7 +359,7 @@ def test_dtype():
                  {'py2': 'fc9314a39ff75b829498380850447047',
                   'py3': 'aeda150553d4bb5c69f0e69d51b0e2ef'})])
 def test_hashes_stay_the_same(to_hash, expected):
-    py_version_str = 'py3' if PY3_OR_LATER else 'py2'
+    py_version_str = 'py3'
     if expected[py_version_str] == "994f663c64ba5e64b2a85ebe75287829":
         # [3, 'abc', None, TransportableException('foo', ValueError)]
         # started to fail when distributed is installed for some unknown
@@ -438,22 +433,17 @@ def test_hashes_stay_the_same_with_numpy_objects():
     ]
 
     # These expected results have been generated with joblib 0.9.0
-    expected_dict = {'py2': ['80f2387e7752abbda2658aafed49e086',
-                             '0d700f7f25ea670fd305e4cd93b0e8cd',
-                             '83a2bdf843e79e4b3e26521db73088b9',
-                             '63e0efd43c0a9ad92a07e8ce04338dd3',
-                             '03fef702946b602c852b8b4e60929914',
-                             '07074691e90d7098a85956367045c81e',
-                             'd264cf79f353aa7bbfa8349e3df72d8f'],
-                     'py3': ['10a6afc379ca2708acfbaef0ab676eab',
-                             '988a7114f337f381393025911ebc823b',
-                             'c6809f4b97e35f2fa0ee8d653cbd025c',
-                             'b3ad17348e32728a7eb9cda1e7ede438',
-                             '927b3e6b0b6a037e8e035bda134e0b05',
-                             '108f6ee98e7db19ea2006ffd208f4bf1',
-                             'bd48ccaaff28e16e6badee81041b7180']}
+    expected_dict = {
+        'py3': ['10a6afc379ca2708acfbaef0ab676eab',
+                '988a7114f337f381393025911ebc823b',
+                'c6809f4b97e35f2fa0ee8d653cbd025c',
+                'b3ad17348e32728a7eb9cda1e7ede438',
+                '927b3e6b0b6a037e8e035bda134e0b05',
+                '108f6ee98e7db19ea2006ffd208f4bf1',
+                'bd48ccaaff28e16e6badee81041b7180']
+    }
 
-    py_version_str = 'py3' if PY3_OR_LATER else 'py2'
+    py_version_str = 'py3'
     expected_list = expected_dict[py_version_str]
 
     for to_hash, expected in zip(to_hash_list, expected_list):

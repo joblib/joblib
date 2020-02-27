@@ -5,7 +5,7 @@ import io
 import zlib
 from distutils.version import LooseVersion
 
-from ._compat import _basestring, PY3_OR_LATER
+from ._compat import _basestring
 
 try:
     from threading import RLock
@@ -24,8 +24,7 @@ except ImportError:
 
 try:
     import lz4
-    if PY3_OR_LATER:
-        from lz4.frame import LZ4FrameFile
+    from lz4.frame import LZ4FrameFile
 except ImportError:
     lz4 = None
 
@@ -143,12 +142,7 @@ class BZ2CompressorWrapper(CompressorWrapper):
     def decompressor_file(self, fileobj):
         """Returns an instance of a decompressor file object."""
         self._check_versions()
-        if PY3_OR_LATER:
-            fileobj = self.fileobj_factory(fileobj, 'rb')
-        else:
-            # In python 2, BZ2File doesn't support a fileobj opened in
-            # binary mode. In this case, we pass the filename.
-            fileobj = self.fileobj_factory(fileobj.name, 'rb')
+        fileobj = self.fileobj_factory(fileobj, 'rb')
         return fileobj
 
 
@@ -175,7 +169,7 @@ class LZMACompressorWrapper(CompressorWrapper):
 
     def decompressor_file(self, fileobj):
         """Returns an instance of a decompressor file object."""
-        if PY3_OR_LATER and lzma is not None:
+        if lzma is not None:
             # We support lzma only in python 3 because in python 2 users
             # may have installed the pyliblzma package, which also provides
             # the lzma module, but that unfortunately doesn't fully support
@@ -216,16 +210,12 @@ class LZ4CompressorWrapper(CompressorWrapper):
     extension = '.lz4'
 
     def __init__(self):
-        if PY3_OR_LATER and lz4 is not None:
+        if lz4 is not None:
             self.fileobj_factory = LZ4FrameFile
         else:
             self.fileobj_factory = None
 
     def _check_versions(self):
-        if not PY3_OR_LATER:
-            raise ValueError('lz4 compression is only available with '
-                             'python3+.')
-
         if lz4 is None:
             raise ValueError(LZ4_NOT_INSTALLED_ERROR)
         lz4_version = lz4.__version__

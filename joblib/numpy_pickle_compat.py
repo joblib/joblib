@@ -7,7 +7,6 @@ import inspect
 
 from io import BytesIO
 
-from ._compat import PY3_OR_LATER
 from .numpy_pickle_utils import _ZFILE_PREFIX
 from .numpy_pickle_utils import Unpickler
 
@@ -16,13 +15,12 @@ def hex_str(an_int):
     """Convert an int to an hexadecimal string."""
     return '{:#x}'.format(an_int)
 
-if PY3_OR_LATER:
-    def asbytes(s):
-        if isinstance(s, bytes):
-            return s
-        return s.encode('latin1')
-else:
-    asbytes = str
+
+def asbytes(s):
+    if isinstance(s, bytes):
+        return s
+    return s.encode('latin1')
+
 
 _MAX_LEN = len(hex_str(2 ** 64))
 _CHUNK_SIZE = 64 * 1024
@@ -191,11 +189,7 @@ class ZipNumpyUnpickler(Unpickler):
             array = nd_array_wrapper.read(self)
             self.stack.append(array)
 
-    # Be careful to register our new method.
-    if PY3_OR_LATER:
-        dispatch[pickle.BUILD[0]] = load_build
-    else:
-        dispatch[pickle.BUILD] = load_build
+    dispatch[pickle.BUILD[0]] = load_build
 
 
 def load_compatibility(filename):
@@ -234,13 +228,12 @@ def load_compatibility(filename):
             obj = unpickler.load()
         except UnicodeDecodeError as exc:
             # More user-friendly error message
-            if PY3_OR_LATER:
-                new_exc = ValueError(
-                    'You may be trying to read with '
-                    'python 3 a joblib pickle generated with python 2. '
-                    'This feature is not supported by joblib.')
-                new_exc.__cause__ = exc
-                raise new_exc
+            new_exc = ValueError(
+                'You may be trying to read with '
+                'python 3 a joblib pickle generated with python 2. '
+                'This feature is not supported by joblib.')
+            new_exc.__cause__ = exc
+            raise new_exc
         finally:
             if hasattr(unpickler, 'file_handle'):
                 unpickler.file_handle.close()

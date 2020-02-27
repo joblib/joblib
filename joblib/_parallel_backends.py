@@ -4,17 +4,15 @@ Backends for embarrassingly parallel code.
 
 import gc
 import os
-import sys
 import warnings
 import threading
 import functools
 import contextlib
 from abc import ABCMeta, abstractmethod
 
-from .format_stack import format_exc
-from .my_exceptions import WorkerInterrupt, TransportableException
+from .my_exceptions import WorkerInterrupt
 from ._multiprocessing_helpers import mp
-from ._compat import with_metaclass, PY27
+from ._compat import with_metaclass
 if mp is not None:
     from .disk import delete_folder
     from .pool import MemmappingPool
@@ -612,16 +610,8 @@ class SafeFunction(object):
             # interrupt processing for a KeyboardInterrupt
             raise WorkerInterrupt()
         except BaseException:
-            if PY27:
-                # Capture the traceback of the worker to make it part of
-                # the final exception message.
-                e_type, e_value, e_tb = sys.exc_info()
-                text = format_exc(e_type, e_value, e_tb, context=10,
-                                  tb_offset=1)
-                raise TransportableException(text, e_type)
-            else:
-                # Rely on Python 3 built-in Remote Traceback reporting
-                raise
+            # Rely on Python 3 built-in Remote Traceback reporting
+            raise
 
 
 class FallbackToBackend(Exception):

@@ -16,7 +16,6 @@ import collections
 from ._compat import _basestring
 from .logger import pformat
 from ._memory_helpers import open_py_source
-from ._compat import PY3_OR_LATER
 
 full_argspec_fields = ('args varargs varkw defaults kwonlyargs '
                        'kwonlydefaults annotations')
@@ -187,7 +186,7 @@ def _signature_str(function_name, arg_spec):
     """Helper function to output a function signature"""
     # inspect.formatargspec can not deal with the same
     # number of arguments in python 2 and 3
-    arg_spec_for_format = arg_spec[:7 if PY3_OR_LATER else 4]
+    arg_spec_for_format = arg_spec[:7]
 
     arg_spec_str = inspect.formatargspec(*arg_spec_for_format)
     return '{}{}'.format(function_name, arg_spec_str)

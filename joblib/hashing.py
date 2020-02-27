@@ -15,13 +15,10 @@ import struct
 import io
 import decimal
 
-from ._compat import _bytes_or_unicode, PY3_OR_LATER
+from ._compat import _bytes_or_unicode
 
 
-if PY3_OR_LATER:
-    Pickler = pickle._Pickler
-else:
-    Pickler = pickle.Pickler
+Pickler = pickle._Pickler
 
 
 class _ConsistentSet(object):
@@ -58,7 +55,7 @@ class Hasher(Pickler):
         self.stream = io.BytesIO()
         # By default we want a pickle protocol that only changes with
         # the major python version and not the minor one
-        protocol = 3 if PY3_OR_LATER else 2
+        protocol = 3
         Pickler.__init__(self, self.stream, protocol=protocol)
         # Initialise the hash obj
         self._hash = hashlib.new(hash_name)

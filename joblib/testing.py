@@ -12,8 +12,6 @@ import threading
 import pytest
 import _pytest
 
-from joblib._compat import PY3_OR_LATER
-
 
 raises = pytest.raises
 warns = pytest.warns
@@ -54,9 +52,7 @@ def check_subprocess_call(cmd, timeout=5, stdout_regex=None,
     try:
         timer.start()
         stdout, stderr = proc.communicate()
-
-        if PY3_OR_LATER:
-            stdout, stderr = stdout.decode(), stderr.decode()
+        stdout, stderr = stdout.decode(), stderr.decode()
         if proc.returncode != 0:
             message = (
                 'Non-zero return code: {}.\nStdout:\n{}\n'

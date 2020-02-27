@@ -28,7 +28,7 @@ from .func_inspect import format_call
 from .func_inspect import format_signature
 from ._memory_helpers import open_py_source
 from .logger import Logger, format_time, pformat
-from ._compat import _basestring, PY3_OR_LATER
+from ._compat import _basestring
 from ._store_backends import StoreBackendBase, FileSystemStoreBackend
 
 if sys.version_info[:2] >= (3, 4):
@@ -608,12 +608,8 @@ class MemorizedFunc(Logger):
 
         # Also store in the in-memory store of function hashes
         is_named_callable = False
-        if PY3_OR_LATER:
-            is_named_callable = (hasattr(self.func, '__name__') and
-                                 self.func.__name__ != '<lambda>')
-        else:
-            is_named_callable = (hasattr(self.func, 'func_name') and
-                                 self.func.func_name != '<lambda>')
+        is_named_callable = (hasattr(self.func, '__name__') and
+                             self.func.__name__ != '<lambda>')
         if is_named_callable:
             # Don't do this for lambda functions or strange callable
             # objects, as it ends up being too fragile

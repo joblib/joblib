@@ -1,7 +1,6 @@
 import sys
 import joblib
 import pytest
-from joblib._compat import PY27
 from joblib.testing import check_subprocess_call
 
 
@@ -10,7 +9,6 @@ def test_version():
         "There are no __version__ argument on the joblib module")
 
 
-@pytest.mark.skipif(PY27, reason="Need python3.3+")
 def test_no_start_method_side_effect_on_import():
     # check that importing joblib does not implicitly set the global
     # start_method for multiprocessing.
@@ -24,7 +22,6 @@ def test_no_start_method_side_effect_on_import():
     check_subprocess_call([sys.executable, '-c', code])
 
 
-@pytest.mark.skipif(PY27, reason="Need python3.3+")
 def test_no_semaphore_tracker_on_import():
     # check that importing joblib does not implicitly spawn a resource tracker
     # or a semaphore tracker
