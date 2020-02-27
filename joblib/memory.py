@@ -12,6 +12,7 @@ is called with the same input arguments.
 from __future__ import with_statement
 import os
 import time
+import pathlib
 import pydoc
 import re
 import functools
@@ -31,8 +32,6 @@ from .func_inspect import format_signature
 from .logger import Logger, format_time, pformat
 from ._store_backends import StoreBackendBase, FileSystemStoreBackend
 
-if sys.version_info[:2] >= (3, 4):
-    import pathlib
 
 
 FIRST_LINE_TEXT = "# first line:"
@@ -105,7 +104,7 @@ def _store_backend_factory(backend, location, verbose=0, backend_options=None):
     if backend_options is None:
         backend_options = {}
 
-    if (sys.version_info[:2] >= (3, 4) and isinstance(location, pathlib.Path)):
+    if isinstance(location, pathlib.Path):
         location = str(location)
 
     if isinstance(location, StoreBackendBase):

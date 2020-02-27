@@ -3,8 +3,6 @@ Backports of fixes for joblib dependencies
 """
 import os
 import time
-import ctypes
-import sys
 
 from distutils.version import LooseVersion
 
@@ -35,21 +33,7 @@ except ImportError:
 if os.name == 'nt':
     # https://github.com/joblib/joblib/issues/540
     access_denied_errors = (5, 13)
-    try:
-        from os import replace
-    except ImportError:
-        # Python 2.7
-        def replace(src, dst):
-            if not isinstance(src, unicode):  # noqa
-                src = unicode(src, sys.getfilesystemencoding())  # noqa
-            if not isinstance(dst, unicode):  # noqa
-                dst = unicode(dst, sys.getfilesystemencoding())  # noqa
-
-            movefile_replace_existing = 0x1
-            return_value = ctypes.windll.kernel32.MoveFileExW(
-                src, dst, movefile_replace_existing)
-            if return_value == 0:
-                raise ctypes.WinError()
+    from os import replace
 
     def concurrency_safe_rename(src, dst):
         """Renames ``src`` into ``dst`` overwriting ``dst`` if it exists.
@@ -75,7 +59,4 @@ if os.name == 'nt':
         else:
             raise
 else:
-    try:
-        from os import replace as concurrency_safe_rename
-    except ImportError:
-        from os import rename as concurrency_safe_rename  # noqa
+    from os import replace as concurrency_safe_rename  # noqa

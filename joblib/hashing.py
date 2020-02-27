@@ -104,8 +104,7 @@ class Hasher(Pickler):
         # defined interactively in IPython that are not injected in
         # __main__
         kwargs = dict(name=name, pack=pack)
-        if sys.version_info >= (3, 4):
-            del kwargs['pack']
+        del kwargs['pack']
         try:
             Pickler.save_global(self, obj, **kwargs)
         except pickle.PicklingError:

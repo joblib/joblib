@@ -13,6 +13,7 @@ that uses a custom alternative to SimpleQueue.
 # Copyright: 2012, Olivier Grisel
 # License: BSD 3 clause
 
+import copyreg
 import sys
 import warnings
 from time import sleep
@@ -41,9 +42,6 @@ try:
     import numpy as np
 except ImportError:
     np = None
-
-if sys.version_info[:2] > (2, 7):
-    import copyreg
 
 
 ###############################################################################

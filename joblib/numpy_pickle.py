@@ -6,7 +6,6 @@
 
 import pickle
 import os
-import sys
 import warnings
 try:
     from pathlib import Path

@@ -175,11 +175,10 @@ class LZMACompressorWrapper(CompressorWrapper):
             # See https://github.com/joblib/joblib/issues/403 for details.
             return lzma.LZMAFile(fileobj, 'rb')
         else:
-            raise NotImplementedError("Lzma decompression is not "
-                                      "supported for this version of "
-                                      "python ({}.{})"
-                                      .format(sys.version_info[0],
-                                              sys.version_info[1]))
+            raise NotImplementedError(
+                "lzma module not found. Please install lzma using "
+                "``python -m pip install lzma``"
+            )
 
 
 class XZCompressorWrapper(LZMACompressorWrapper):
