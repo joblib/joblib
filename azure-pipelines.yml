@@ -65,11 +65,6 @@ jobs:
       linux_py35_no_numpy:
         imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.5"
-      linux_py27_no_lza:
-        imageName: 'ubuntu-latest'
-        NO_LZ4: "true"
-        PYTHON_VERSION: "2.7"
-        EXTRA_CONDA_PACKAGES: "numpy=1.16"
 
       windows_py38:
         imageName: "vs2017-win2016"
@@ -78,10 +73,6 @@ jobs:
       windows_py35_no_numpy:
         imageName: "vs2017-win2016"
         PYTHON_VERSION: "3.5"
-      windows-py27:
-        imageName: "vs2017-win2016"
-        PYTHON_VERSION: "2.7"
-        EXTRA_CONDA_PACKAGES: "numpy=1.16"
 
       macos_py38:
         imageName: "macos-10.14"
@@ -90,11 +81,6 @@ jobs:
       macos_py35_no_numpy:
         imageName: "macos-10.14"
         PYTHON_VERSION: "3.5"
-      macos_py27:
-        imageName: "macos-10.14"
-        PYTHON_VERSION: "2.7"
-        EXTRA_CONDA_PACKAGES: "numpy=1.16"
-
 
   variables:
     JUNITXML: 'test-data.xml'
