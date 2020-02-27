@@ -10,11 +10,9 @@ import re
 
 from joblib.logger import PrintTime
 
-try:
-    # Python 2/Python 3 compat
-    unicode('str')
-except NameError:
-    unicode = lambda s: s
+
+def unicode(s):
+    return s
 
 
 def test_print_time(tmpdir, capsys):

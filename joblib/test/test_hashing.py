@@ -27,7 +27,8 @@ from joblib.test.common import np, with_numpy
 from joblib.my_exceptions import TransportableException
 
 
-unicode = lambda s: s
+def unicode(s):
+    return s
 
 
 ###############################################################################
