@@ -21,12 +21,13 @@ import inspect
 import sys
 import weakref
 
+from tokenize import open as open_py_source
+
 # Local imports
 from . import hashing
 from .func_inspect import get_func_code, get_func_name, filter_args
 from .func_inspect import format_call
 from .func_inspect import format_signature
-from ._memory_helpers import open_py_source
 from .logger import Logger, format_time, pformat
 from ._store_backends import StoreBackendBase, FileSystemStoreBackend
 

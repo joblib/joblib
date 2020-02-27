@@ -6,15 +6,16 @@ My own variation on function-specific inspect-like features.
 # Copyright (c) 2009 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
-from itertools import islice
 import inspect
 import warnings
 import re
 import os
 import collections
 
+from itertools import islice
+from tokenize import open as open_py_source
+
 from .logger import pformat
-from ._memory_helpers import open_py_source
 
 full_argspec_fields = ('args varargs varkw defaults kwonlyargs '
                        'kwonlydefaults annotations')
