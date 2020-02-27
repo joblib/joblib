@@ -13,7 +13,6 @@ import re
 import os
 import collections
 
-from ._compat import _basestring
 from .logger import pformat
 from ._memory_helpers import open_py_source
 
@@ -225,7 +224,7 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
             List of filtered positional and keyword arguments.
     """
     args = list(args)
-    if isinstance(ignore_lst, _basestring):
+    if isinstance(ignore_lst, str):
         # Catch a common mistake
         raise ValueError(
             'ignore_lst must be a list of parameters to ignore '

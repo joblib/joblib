@@ -15,8 +15,6 @@ import struct
 import io
 import decimal
 
-from ._compat import _bytes_or_unicode
-
 
 Pickler = pickle._Pickler
 
@@ -95,7 +93,7 @@ class Hasher(Pickler):
         # For example we want ['aa', 'aa'] and ['aa', 'aaZ'[:2]]
         # to hash to the same value and that's why we disable memoization
         # for strings
-        if isinstance(obj, _bytes_or_unicode):
+        if isinstance(obj, (bytes, str)):
             return
         Pickler.memoize(self, obj)
 

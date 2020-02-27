@@ -26,7 +26,6 @@ from .disk import memstr_to_bytes
 from ._parallel_backends import (FallbackToBackend, MultiprocessingBackend,
                                  ThreadingBackend, SequentialBackend,
                                  LokyBackend)
-from ._compat import _basestring
 from .externals.cloudpickle import dumps, loads
 from .externals import loky
 
@@ -179,7 +178,7 @@ class parallel_backend(object):
     """
     def __init__(self, backend, n_jobs=-1, inner_max_num_threads=None,
                  **backend_params):
-        if isinstance(backend, _basestring):
+        if isinstance(backend, str):
             if backend not in BACKENDS and backend in EXTERNAL_BACKENDS:
                 register = EXTERNAL_BACKENDS[backend]
                 register()
@@ -637,7 +636,7 @@ class Parallel(Logger):
         self.pre_dispatch = pre_dispatch
         self._ready_batches = queue.Queue()
 
-        if isinstance(max_nbytes, _basestring):
+        if isinstance(max_nbytes, str):
             max_nbytes = memstr_to_bytes(max_nbytes)
 
         self._backend_args = dict(

@@ -5,8 +5,6 @@ import io
 import zlib
 from distutils.version import LooseVersion
 
-from ._compat import _basestring
-
 try:
     from threading import RLock
 except ImportError:
@@ -56,7 +54,7 @@ def register_compressor(compressor_name, compressor,
         An instance of a 'CompressorWrapper'.
     """
     global _COMPRESSORS
-    if not isinstance(compressor_name, _basestring):
+    if not isinstance(compressor_name, str):
         raise ValueError("Compressor name should be a string, "
                          "'{}' given.".format(compressor_name))
 
@@ -302,7 +300,7 @@ class BinaryZlibFile(io.BufferedIOBase):
         else:
             raise ValueError("Invalid mode: %r" % (mode,))
 
-        if isinstance(filename, _basestring):
+        if isinstance(filename, str):
             self._fp = io.open(filename, mode)
             self._closefp = True
         elif hasattr(filename, "read") or hasattr(filename, "write"):

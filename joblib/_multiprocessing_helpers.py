@@ -7,8 +7,6 @@ import os
 import sys
 import warnings
 
-from ._compat import CompatFileExistsError
-
 
 # Obtain possible configuration from the environment, assuming 1 (on)
 # by default, upon 0 set to None. Should instructively fail if some non
@@ -44,11 +42,11 @@ if mp is not None:
                 _sem = SemLock(0, 0, 1, name=name, unlink=True)
                 del _sem  # cleanup
                 break
-            except CompatFileExistsError:  # pragma: no cover
+            except FileExistsError:  # pragma: no cover
                 if i >= 99:
-                    raise CompatFileExistsError(
+                    raise FileExistsError(
                         'cannot find name for semaphore')
-    except (CompatFileExistsError, AttributeError, ImportError, OSError) as e:
+    except (FileExistsError, AttributeError, ImportError, OSError) as e:
         mp = None
         warnings.warn('%s.  joblib will operate in serial mode' % (e,))
 

@@ -28,7 +28,6 @@ from .numpy_pickle_compat import NDArrayWrapper
 # Explicitly skipping next line from flake8 as it triggers an F401 warning
 # which we don't care.
 from .numpy_pickle_compat import ZNDArrayWrapper  # noqa
-from ._compat import _basestring
 from .backports import make_memmap
 
 # Register supported compressors
@@ -401,7 +400,7 @@ def dump(value, filename, compress=0, protocol=None, cache_size=None):
     if Path is not None and isinstance(filename, Path):
         filename = str(filename)
 
-    is_filename = isinstance(filename, _basestring)
+    is_filename = isinstance(filename, str)
     is_fileobj = hasattr(filename, "write")
 
     compress_method = 'zlib'  # zlib is the default compression method.
@@ -417,7 +416,7 @@ def dump(value, filename, compress=0, protocol=None, cache_size=None):
                 '(compress method, compress level), you passed {}'
                 .format(compress))
         compress_method, compress_level = compress
-    elif isinstance(compress, _basestring):
+    elif isinstance(compress, str):
         compress_method = compress
         compress_level = None  # Use default compress level
         compress = (compress_method, compress_level)
@@ -571,7 +570,7 @@ def load(filename, mmap_mode=None):
     else:
         with open(filename, 'rb') as f:
             with _read_fileobject(f, filename, mmap_mode) as fobj:
-                if isinstance(fobj, _basestring):
+                if isinstance(fobj, str):
                     # if the returned file object is a string, this means we
                     # try to load a pickle file generated with an version of
                     # Joblib so we load it with joblib compatibility function.

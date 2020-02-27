@@ -28,7 +28,6 @@ from .func_inspect import format_call
 from .func_inspect import format_signature
 from ._memory_helpers import open_py_source
 from .logger import Logger, format_time, pformat
-from ._compat import _basestring
 from ._store_backends import StoreBackendBase, FileSystemStoreBackend
 
 if sys.version_info[:2] >= (3, 4):
@@ -89,7 +88,7 @@ def register_store_backend(backend_name, backend):
         The name of a class that implements the StoreBackendBase interface.
 
     """
-    if not isinstance(backend_name, _basestring):
+    if not isinstance(backend_name, str):
         raise ValueError("Store backend name should be a string, "
                          "'{0}' given.".format(backend_name))
     if backend is None or not issubclass(backend, StoreBackendBase):
@@ -110,7 +109,7 @@ def _store_backend_factory(backend, location, verbose=0, backend_options=None):
 
     if isinstance(location, StoreBackendBase):
         return location
-    elif isinstance(location, _basestring):
+    elif isinstance(location, str):
         obj = None
         location = os.path.expanduser(location)
         # The location is not a local file system, we look in the
@@ -151,7 +150,7 @@ def _get_func_fullname(func):
 def _build_func_identifier(func):
     """Build a roughly unique identifier for the cached function."""
     parts = []
-    if isinstance(func, _basestring):
+    if isinstance(func, str):
         parts.append(func)
     else:
         parts.append(_get_func_fullname(func))
@@ -224,7 +223,7 @@ class MemorizedResult(Logger):
                  mmap_mode=None, verbose=0, timestamp=None, metadata=None):
         Logger.__init__(self)
         self.func_id = _build_func_identifier(func)
-        if isinstance(func, _basestring):
+        if isinstance(func, str):
             self.func = func
         else:
             self.func = self.func_id
@@ -897,7 +896,7 @@ class Memory(Logger):
             location = cachedir
 
         self.location = location
-        if isinstance(location, _basestring):
+        if isinstance(location, str):
             location = os.path.join(location, 'joblib')
 
         self.store_backend = _store_backend_factory(

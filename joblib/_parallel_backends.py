@@ -12,7 +12,6 @@ from abc import ABCMeta, abstractmethod
 
 from .my_exceptions import WorkerInterrupt
 from ._multiprocessing_helpers import mp
-from ._compat import with_metaclass
 if mp is not None:
     from .disk import delete_folder
     from .pool import MemmappingPool
@@ -25,7 +24,7 @@ if mp is not None:
     from .externals.loky import process_executor, cpu_count
 
 
-class ParallelBackendBase(with_metaclass(ABCMeta)):
+class ParallelBackendBase(metaclass=ABCMeta):
     """Helper abc which defines all methods a ParallelBackend must implement"""
 
     supports_timeout = False
