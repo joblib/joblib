@@ -10,6 +10,7 @@ import gc
 import shutil
 import os
 import os.path
+import pathlib
 import pickle
 import sys
 import time
@@ -31,8 +32,6 @@ from joblib.test.common import with_multiprocessing
 from joblib.testing import parametrize, raises, warns
 from joblib.hashing import hash
 
-if sys.version_info[:2] >= (3, 4):
-    import pathlib
 
 
 ###############################################################################
@@ -1074,8 +1073,6 @@ def test_dummy_store_backend():
     assert isinstance(backend_obj, DummyStoreBackend)
 
 
-@pytest.mark.skipif(sys.version_info[:2] < (3, 4),
-                    reason="pathlib is available for python versions >= 3.4")
 def test_instanciate_store_backend_with_pathlib_path():
     # Instanciate a FileSystemStoreBackend using a pathlib.Path object
     path = pathlib.Path("some_folder")

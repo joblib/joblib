@@ -892,16 +892,12 @@ def test_dispatch_race_condition(n_tasks, n_jobs, pre_dispatch, batch_size):
 
 
 @with_multiprocessing
-@skipif(sys.version_info < (3, 5), reason="Bored with Python 2 support")
 def test_default_mp_context():
     mp_start_method = mp.get_start_method()
     p = Parallel(n_jobs=2, backend='multiprocessing')
     context = p._backend_args.get('context')
-    if sys.version_info >= (3, 5):
-        start_method = context.get_start_method()
-        assert start_method == mp_start_method
-    else:
-        assert context is None
+    start_method = context.get_start_method()
+    assert start_method == mp_start_method
 
 
 @with_numpy
@@ -909,9 +905,6 @@ def test_default_mp_context():
 @parametrize('backend', PROCESS_BACKENDS)
 def test_no_blas_crash_or_freeze_with_subprocesses(backend):
     if backend == 'multiprocessing':
-        if sys.version_info < (3, 4):
-            raise SkipTest('multiprocessing can cause BLAS freeze on old '
-                           'Python that relies on fork.')
         # Use the spawn backend that is both robust and available on all
         # platforms
         backend = mp.get_context('spawn')
@@ -951,7 +944,6 @@ print(Parallel(n_jobs=2, backend=backend)(
 
 @with_multiprocessing
 @parametrize('backend', PROCESS_BACKENDS)
-@skipif(sys.version_info < (3, 5), reason="Bored with Python 2 support")
 def test_parallel_with_interactively_defined_functions(backend):
     # When using the "-c" flag, interactive functions defined in __main__
     # should work with any backend.
@@ -1013,9 +1005,7 @@ square = lambda x: x ** 2
 
 
 @with_multiprocessing
-@parametrize('backend', PROCESS_BACKENDS +
-             ([] if sys.version_info[:2] < (3, 4) or mp is None
-              else ['spawn']))
+@parametrize('backend', PROCESS_BACKENDS + ([] if mp is None else ['spawn']))
 @parametrize('define_func', [SQUARE_MAIN, SQUARE_LOCAL, SQUARE_LAMBDA])
 @parametrize('callable_position', ['delayed', 'args', 'kwargs'])
 def test_parallel_with_unpicklable_functions_in_args(
@@ -1241,9 +1231,6 @@ def test_lambda_expression(backend):
 
 
 def test_delayed_check_pickle_deprecated():
-    if sys.version_info < (3, 5):
-        pytest.skip("Warning check unstable under Python 2, life is too short")
-
     class UnpicklableCallable(object):
 
         def __call__(self, *args, **kwargs):
@@ -1620,8 +1607,6 @@ def check_child_num_threads(workers_info, parent_info, num_threads):
 
 @with_numpy
 @with_multiprocessing
-@skipif(sys.version_info < (3, 5),
-        reason='threadpoolctl is a python3.5+ package')
 @parametrize('n_jobs', [2, 4, -2, -1])
 def test_threadpool_limitation_in_child(n_jobs):
     # Check that the protection against oversubscription in workers is working
@@ -1644,8 +1629,6 @@ def test_threadpool_limitation_in_child(n_jobs):
 
 @with_numpy
 @with_multiprocessing
-@skipif(sys.version_info < (3, 5),
-        reason='threadpoolctl is a python3.5+ package')
 @parametrize('inner_max_num_threads', [1, 2, 4, None])
 @parametrize('n_jobs', [2, -1])
 def test_threadpool_limitation_in_child_context(n_jobs, inner_max_num_threads):
