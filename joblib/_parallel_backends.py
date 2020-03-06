@@ -564,16 +564,27 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
 
     def terminate(self):
         if self._workers is not None:
-            # Terminate does not shutdown the workers as we want to reuse them
-            # in latter calls
-            self._workers = None
-
             # Trigger the collection of temporary shared memory created to by
             # joblib by signaling the resource_tracker we don't need it
             # anymore.
             for filename in JOBLIB_MMAPS:
-                resource_tracker.maybe_unlink(filename, "file_plus_plus")
+                resource_tracker.maybe_unlink(filename, "file")
             JOBLIB_MMAPS.clear()
+
+            # XXX: calling shutil.rmtree inside delete_folder is likely to
+            # cause a race condition with the lines above.
+            try:
+                delete_folder(self._workers._temp_folder)
+            except OSError:
+                # Temporary folder cannot be deleted right now. No need to
+                # handle it though, as this folder will be cleaned up by an
+                # atexit finalizer registered by the memmapping_reducer.
+                pass
+
+
+            # Terminate does not shutdown the workers as we want to reuse them
+            # in latter calls
+            self._workers = None
 
         self.reset_batch_stats()
 
@@ -589,7 +600,7 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
         # All temporary files have been deleted -- unregister the temporary
         # files from the resource_tracker refcount tables.
         for filename in JOBLIB_MMAPS:
-            resource_tracker.unregister(filename, "file_plus_plus")
+            resource_tracker.unregister(filename, "file")
         JOBLIB_MMAPS.clear()
 
         if ensure_ready:

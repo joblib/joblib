@@ -8,6 +8,7 @@ Disk management utilities.
 # License: BSD Style, 3 clauses.
 
 
+import atexit
 import os
 import sys
 import time
@@ -15,6 +16,9 @@ import errno
 import shutil
 import warnings
 
+from multiprocessing import util
+
+from .externals.loky.backend import resource_tracker
 
 try:
     WindowsError
@@ -109,4 +113,23 @@ def delete_folder(folder_path, onerror=None):
         else:
             # allow the rmtree to fail once, wait and re-try.
             # if the error is raised again, fail
-            shutil.rmtree(folder_path, False, None)
+            err_count = 0
+            while True:
+                files = os.listdir(folder_path)
+                try:
+                    # only delete folder when empty
+                    if len(files) == 0:
+                        shutil.rmtree(folder_path, False, None)
+                        util.debug(
+                            "Sucessfully deleted {}".format(folder_path))
+                        break
+                    else:
+                        raise OSError
+                except (OSError, WindowsError):
+                    err_count += 1
+                    if err_count > RM_SUBDIRS_N_RETRY:
+                        # the folder cannot be deleted right now. It maybe
+                        # because some temporary files have not been deleted
+                        # yet.
+                        raise
+                time.sleep(RM_SUBDIRS_RETRY_TIME)

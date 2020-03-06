@@ -336,5 +336,5 @@ class MemmappingPool(PicklingPool):
                         warnings.warn("Failed to terminate worker processes in"
                                       " multiprocessing pool: %r" % e)
         for filename in JOBLIB_MMAPS:
-            resource_tracker.maybe_unlink(filename, "file_plus_plus")
+            resource_tracker.maybe_unlink(filename, "file")
         JOBLIB_MMAPS.clear()

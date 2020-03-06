@@ -35,6 +35,7 @@ except ImportError:
 from .numpy_pickle import dump, load, load_temporary_memmap
 from .numpy_pickle_utils import _get_backing_memmap
 from .backports import make_memmap
+from .disk import delete_folder
 from .externals.loky.backend import resource_tracker
 from .externals.loky.backend.resource_tracker import _CLEANUP_FUNCS
 
@@ -80,7 +81,7 @@ def add_maybe_unlink_finalizer(memmap):
             "[FINALIZER CALL] object mapping to {} about to be deleted,"
             " decrementing the refcount of the file (pid: {})".format(
                 os.path.basename(filename), os.getpid()))
-        _resource_tracker.maybe_unlink(filename, "file_plus_plus")
+        _resource_tracker.maybe_unlink(filename, "file")
 
     if sys.version_info[0] == 2:
         w = weakref.ref(memmap, _maybe_unlink)
@@ -88,39 +89,6 @@ def add_maybe_unlink_finalizer(memmap):
     else:
         weakref.finalize(memmap, _maybe_unlink, (None,))
 
-
-def file_plus_plus_unlink(filename):
-    dir_name = os.path.dirname(filename)
-    files = os.listdir(dir_name)
-
-    n_retries = 0
-    while os.path.exists(filename) and n_retries < 10:
-        try:
-            os.remove(filename)
-        except OSError:  # PermissionError under windows
-            n_retries += 1
-            time.sleep(.1)
-    files = os.listdir(dir_name)
-    if len(files) == 0:
-        util.debug("removing empty temporary folder {} (triggered after {}"
-                   " deletion)".format(dir_name, os.path.basename(filename)))
-        # filename was the only file left in this directory => delete the
-        # directory too
-        os.rmdir(dir_name)
-
-
-# file_plus_plus is a special file resource: unlinking one of its instance will
-# proceed to unlink the directory it is located in if the said file was the
-# only file left in the directory. This resource is useful when dealing with
-# shared temporary files: the temporary folder they are located in should only
-# be deleted when all the temporary file have been deleted too. Such a
-# situation happens in joblib on Windows when sharing file-backed memmapped
-# arrays between processes.
-
-# Note that loky's resource tracker does not yet expose a method to register
-# new custom resource that we would like to be tracked. Thus, we have to hack
-# the private _CLEANUP_FUNCS used by the resource_tracker internally.
-_CLEANUP_FUNCS['file_plus_plus'] = file_plus_plus_unlink
 
 class _WeakArrayKeyMap:
     """A variant of weakref.WeakKeyDictionary for unhashable numpy arrays.
@@ -304,7 +272,7 @@ def _reduce_memmap_backed(a, m):
     if m.filename in JOBLIB_MMAPS:
         # Only the mmap objects created by joblib should be tracked by
         # the resource_tracker.
-        resource_tracker.register(m.filename, "file_plus_plus")
+        resource_tracker.register(m.filename, "file")
         track = True
 
     return (_strided_from_memmap,
@@ -411,14 +379,14 @@ class ArrayMemmapReducer(object):
 
             # add the memmap to the list of temporary memmaps created by joblib
             JOBLIB_MMAPS.add(filename)
-            resource_tracker.register(filename, "file_plus_plus")
+            resource_tracker.register(filename, "file")
 
             if is_new_memmap:
                 # Incref each temporary memmap created by joblib one extra
                 # time.  This means that these memmaps will only be deleted
                 # once an extra maybe_unlink() is called, which is done when a
                 # Parallel object returns
-                resource_tracker.register(filename, "file_plus_plus")
+                resource_tracker.register(filename, "file")
 
             if not os.path.exists(filename):
                 util.debug(
@@ -478,6 +446,33 @@ def get_memmapping_reducers(
     pool_folder, use_shared_mem = _get_temp_dir(pool_folder_name,
                                                 temp_folder)
 
+    # Register the garbage collector at program exit in case caller forgets
+    # to call terminate explicitly: note we do not pass any reference to
+    # self to ensure that this callback won't prevent garbage collection of
+    # the pool instance and related file handler resources such as POSIX
+    # semaphores and pipes
+    pool_module_name = whichmodule(delete_folder, 'delete_folder')
+    resource_tracker.register(pool_folder, "folder")
+
+    def _cleanup():
+        # In some cases the Python runtime seems to set delete_folder to
+        # None just before exiting when accessing the delete_folder
+        # function from the closure namespace. So instead we reimport
+        # the delete_folder function explicitly.
+        # https://github.com/joblib/joblib/issues/328
+        # We cannot just use from 'joblib.pool import delete_folder'
+        # because joblib should only use relative imports to allow
+        # easy vendoring.
+        delete_folder = __import__(
+            pool_module_name, fromlist=['delete_folder']).delete_folder
+        try:
+            delete_folder(pool_folder)
+            resource_tracker.unregister(pool_folder, "folder")
+        except WindowsError:
+            warnings.warn("Failed to clean temporary folder: {}"
+                          .format(pool_folder))
+
+    atexit.register(_cleanup)
 
     if np is not None:
         # Register smart numpy.ndarray reducers that detects memmap backed

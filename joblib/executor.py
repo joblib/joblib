@@ -12,6 +12,7 @@ import random
 from ._memmapping_reducer import get_memmapping_reducers, JOBLIB_MMAPS
 from .externals.loky.reusable_executor import get_reusable_executor
 from .externals.loky.backend import resource_tracker
+from .disk import delete_folder
 
 
 _executor_args = None
@@ -65,8 +66,12 @@ class _TestingMemmappingExecutor():
     def terminate(self):
         self._executor.shutdown()
         for filename in JOBLIB_MMAPS:
-            resource_tracker.maybe_unlink(filename, "file_plus_plus")
+            resource_tracker.maybe_unlink(filename, "file")
         JOBLIB_MMAPS.clear()
+        try:
+            delete_folder(self._temp_folder, allow_non_empty=False)
+        except OSError:
+            pass
 
     def map(self, f, *args):
         res = self._executor.map(f, *args)
