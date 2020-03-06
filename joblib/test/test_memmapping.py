@@ -713,28 +713,34 @@ def test_windows_memmaped_arrays_race_condition(backend):
     # the cleanup of memmaped arrays would fail due the OS flagging
     # the shared files as still in use by the child processes.
     cmd = '''if 1:
-        import time, os, tempfile, sys
+        import os
+
         import numpy as np
+
         from joblib import Parallel, delayed
-
-
-        def test_data(data):
-            data_view = data[0:20]
-            return data_view
-
+        from testutils import test_data
 
         data = np.ones(int(2e6))
 
-        Parallel(n_jobs=2, verbose=5, backend='{b}')(
-            delayed(test_data)(data) for _ in range(10))
+        if __name__ == '__main__':
+            Parallel(n_jobs=2, verbose=5, backend='{b}')(
+                delayed(test_data)(data) for _ in range(10))
     '''.format(b=backend)
-    p = subprocess.Popen([sys.executable, '-E', '-c', cmd],
+
+    env = os.environ.copy()
+    env['PYTHONPATH'] = os.path.dirname(__file__)
+    p = subprocess.Popen([sys.executable, '-c', cmd],
                          stderr=subprocess.PIPE,
-                         stdout=subprocess.PIPE)
+                         stdout=subprocess.PIPE, env=env)
     p.wait()
     out, err = p.communicate()
     assert p.returncode == 0, err
-    assert b'resource_tracker' not in err
+    if sys.version_info[:3] not in [(3, 8, 0), (3, 8, 1)]:
+        # In early versions of Python 3.8, a reference leak
+        # https://github.com/cloudpipe/cloudpickle/issues/327, holds references
+        # to pickled objects, generating race condition during cleanup
+        # finalizers of joblib and noisy resource_tracker outputs.
+        assert b'resource_tracker' not in err
 
 
 @with_numpy
