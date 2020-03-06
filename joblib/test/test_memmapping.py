@@ -751,41 +751,40 @@ def test_shared_memory_deleted_after_parallel_call(backend):
         import numpy as np
         from joblib import Parallel, delayed
         from joblib.externals.loky.backend import resource_tracker
+        from testutils import test_data
+
         resource_tracker.VERBOSE=1
-
-
-        def test_data(data):
-            data_view = data[0:20]
-            return data_view
-
 
 
         # the Parallel object has to be called from a context manager to some
         # of its temporary attributes before it gets terminated
 
-        with Parallel(n_jobs=2, verbose=101, max_nbytes=100,
-                      backend='{b}') as parallel_obj:
-            # warm up the executor
-            # parallel_obj(delayed(abs)(i) for i in range(10))
+        if __name__ == "__main__":
+            with Parallel(n_jobs=2, verbose=101, max_nbytes=100,
+                          backend='{b}') as parallel_obj:
+                # warm up the executor
+                # parallel_obj(delayed(abs)(i) for i in range(10))
 
-            data = np.ones(int(1000))
+                data = np.ones(int(1000))
 
-            [memmaped_data] = parallel_obj(
-                delayed(test_data)(data) for _ in range(1)
-            )
+                [memmaped_data] = parallel_obj(
+                    delayed(test_data)(data) for _ in range(1)
+                )
 
-        # give the resource_tracker time to register the new resource
-        sys.stdout.write(memmaped_data.filename + "\\n")
-        time.sleep(0.5)
-        sys.stdout.flush()
-        time.sleep(1)
+            # give the resource_tracker time to register the new resource
+            sys.stdout.write(memmaped_data.filename + "\\n")
+            time.sleep(0.5)
+            sys.stdout.flush()
+            time.sleep(1)
     '''.format(b=backend)
+    env = os.environ.copy()
+    env['PYTHONPATH'] = os.path.dirname(__file__)
     cmd = cmd.format(parent_pid=os.getpid())
-    p = subprocess.Popen([sys.executable, '-E', '-c', cmd],
+    p = subprocess.Popen([sys.executable, '-c', cmd],
                          stderr=subprocess.PIPE,
-                         stdout=subprocess.PIPE)
+                         stdout=subprocess.PIPE,
+                         env=env)
     out = p.stdout.readline().rstrip().decode('ascii')
-    print(out)
 
     if out == "":
         # before #806, the subprocess would exit with a PermissionError
