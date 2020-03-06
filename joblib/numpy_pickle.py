@@ -520,13 +520,10 @@ def _unpickle(fobj, filename="", mmap_mode=None):
 
 
 def load_temporary_memmap(filename, mmap_mode, track):
+    from ._memmapping_reducer import JOBLIB_MMAPS, add_maybe_unlink_finalizer
     obj = load(filename, mmap_mode)
+    JOBLIB_MMAPS.add(obj.filename)
     if track:
-        from ._memmapping_reducer import (
-            JOBLIB_MMAPS,
-            add_maybe_unlink_finalizer
-        )
-        JOBLIB_MMAPS.add(obj.filename)
         add_maybe_unlink_finalizer(obj)
     return obj
 
