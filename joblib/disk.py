@@ -8,17 +8,14 @@ Disk management utilities.
 # License: BSD Style, 3 clauses.
 
 
-import atexit
 import os
 import sys
 import time
 import errno
 import shutil
-import warnings
 
 from multiprocessing import util
 
-from .externals.loky.backend import resource_tracker
 
 try:
     WindowsError

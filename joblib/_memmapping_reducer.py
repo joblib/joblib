@@ -13,7 +13,6 @@ import threading
 import atexit
 import sys
 import tempfile
-import time
 import warnings
 import weakref
 from uuid import uuid4
@@ -37,7 +36,6 @@ from .numpy_pickle_utils import _get_backing_memmap
 from .backports import make_memmap
 from .disk import delete_folder
 from .externals.loky.backend import resource_tracker
-from .externals.loky.backend.resource_tracker import _CLEANUP_FUNCS
 
 # Some system have a ramdisk mounted by default, we can use it instead of /tmp
 # as the default folder to dump big arrays to share with subprocesses.
