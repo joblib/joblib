@@ -1119,6 +1119,7 @@ def check_memmap(a):
                         type(a))
     return a.copy()  # return a regular array instead of a memmap
 
+
 def check_np_array(a):
     if not isinstance(a, np.ndarray):
         raise TypeError('Expected np.ndarray instance, got %r',
