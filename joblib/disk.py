@@ -105,7 +105,7 @@ def rm_subdirs(path, onerror=None):
         delete_folder(fullname, onerror=onerror)
 
 
-def delete_folder(folder_path, onerror=None):
+def delete_folder(folder_path, onerror=None, allow_non_empty=True):
     """Utility function to cleanup a temporary folder if it still exists."""
     if os.path.isdir(folder_path):
         if onerror is not None:
@@ -117,8 +117,7 @@ def delete_folder(folder_path, onerror=None):
             while True:
                 files = os.listdir(folder_path)
                 try:
-                    # only delete folder when empty
-                    if len(files) == 0:
+                    if len(files) == 0 or allow_non_empty:
                         shutil.rmtree(folder_path, False, None)
                         util.debug(
                             "Sucessfully deleted {}".format(folder_path))
