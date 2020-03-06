@@ -268,16 +268,16 @@ def _reduce_memmap_backed(a, m):
         strides = a.strides
         total_buffer_len = (a_end - a_start) // a.itemsize
 
-    track = False
     if m.filename in JOBLIB_MMAPS:
-        # Only the mmap objects created by joblib should be tracked by
-        # the resource_tracker.
-        resource_tracker.register(m.filename, "file")
-        track = True
+        # We are trying to pickle a np.memmap object created by joblib, in a
+        # branch that only happens in child processes: in this case, serialize
+        # the memmap as a numpy array: a finalizer should then deleted the
+        # associated memmap.
+        return (loads, (dumps(np.asarray(a), protocol=HIGHEST_PROTOCOL),))
 
     return (_strided_from_memmap,
             (m.filename, a.dtype, m.mode, offset, order, a.shape, strides,
-             total_buffer_len, track))
+             total_buffer_len, False))
 
 
 def reduce_memmap(a):
