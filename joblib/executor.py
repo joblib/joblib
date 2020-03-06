@@ -35,7 +35,7 @@ def get_memmapping_executor(n_jobs, timeout=300, initializer=None, initargs=(),
 
     id_executor = random.randint(0, int(1e10))
     job_reducers, result_reducers, temp_folder = get_memmapping_reducers(
-        id_executor, **backend_args)
+        id_executor, track_memmap_in_child=True, **backend_args)
     _executor = get_reusable_executor(n_jobs, job_reducers=job_reducers,
                                       result_reducers=result_reducers,
                                       reuse=reuse, timeout=timeout,

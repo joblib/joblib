@@ -316,21 +316,23 @@ class ArrayMemmapReducer(object):
         same data array is passed to different worker processes.
     """
 
-    def __init__(self, max_nbytes, temp_folder, mmap_mode, verbose=0,
-                 prewarm=True):
+    def __init__(self, max_nbytes, temp_folder, mmap_mode, track_memmap_in_child,
+                 verbose=0, prewarm=True):
         self._max_nbytes = max_nbytes
         self._temp_folder = temp_folder
         self._mmap_mode = mmap_mode
         self.verbose = int(verbose)
         self._prewarm = prewarm
         self._memmaped_arrays = _WeakArrayKeyMap()
+        self._track_memmap_in_child = track_memmap_in_child
 
     def __reduce__(self):
         # The ArrayMemmapReducer is passed to the children processes: it needs
         # to be pickled but the _WeakArrayKeyMap need to be skipped as it's
         # only guaranteed to be consistent with the parent process memory
         # garbage collection.
-        args = (self._max_nbytes, self._temp_folder, self._mmap_mode)
+        args = (self._max_nbytes, self._temp_folder, self._mmap_mode,
+                self._track_memmap_in_child)
         kwargs = {
             'verbose': self.verbose,
             'prewarm': self._prewarm,
@@ -377,7 +379,21 @@ class ArrayMemmapReducer(object):
 
             # add the memmap to the list of temporary memmaps created by joblib
             JOBLIB_MMAPS.add(filename)
-            resource_tracker.register(filename, "file")
+
+            if self._track_memmap_in_child:
+                # Bump reference count of the memmap by 1 to account for
+                # shared usage of the memmap by a child process. The
+                # corresponding decref call will be executed upon calling
+                # resource_tracker.maybe_unlink, registered as a finalizer in
+                # the child.
+                # the incref/decref calls here are only possible when the child
+                # and the parent share the same resource_tracker. It is not the
+                # case for the multiprocessing backend, but it does not matter
+                # because unlinking a memmap from a child process is only
+                # useful to control the memory usage of long-lasting child
+                # processes, while the multiprocessing-based pools terminate
+                # their workers at the end of a map() call.
+                resource_tracker.register(filename, "file")
 
             if is_new_memmap:
                 # Incref each temporary memmap created by joblib one extra
@@ -410,7 +426,8 @@ class ArrayMemmapReducer(object):
 
             # The worker process will use joblib.load to memmap the data
             return (
-                (load_temporary_memmap, (filename, self._mmap_mode, True))
+                (load_temporary_memmap, (filename, self._mmap_mode,
+                                         self._track_memmap_in_child))
             )
         else:
             # do not convert a into memmap, let pickler do its usual copy with
@@ -424,7 +441,7 @@ class ArrayMemmapReducer(object):
 def get_memmapping_reducers(
         pool_id, forward_reducers=None, backward_reducers=None,
         temp_folder=None, max_nbytes=1e6, mmap_mode='r', verbose=0,
-        prewarm=False, **kwargs):
+        prewarm=False, track_memmap_in_child=True, **kwargs):
     """Construct a pair of memmapping reducer linked to a tmpdir.
 
     This function manage the creation and the clean up of the temporary folders
@@ -479,7 +496,7 @@ def get_memmapping_reducers(
         if prewarm == "auto":
             prewarm = not use_shared_mem
         forward_reduce_ndarray = ArrayMemmapReducer(
-            max_nbytes, pool_folder, mmap_mode, verbose,
+            max_nbytes, pool_folder, mmap_mode, track_memmap_in_child, verbose,
             prewarm=prewarm)
         forward_reducers[np.ndarray] = forward_reduce_ndarray
         forward_reducers[np.memmap] = reduce_memmap
@@ -489,7 +506,7 @@ def get_memmapping_reducers(
         # to avoid confusing the caller and make it tricky to collect the
         # temporary folder
         backward_reduce_ndarray = ArrayMemmapReducer(
-            None, pool_folder, mmap_mode, verbose)
+            None, pool_folder, mmap_mode, track_memmap_in_child, verbose)
         backward_reducers[np.ndarray] = backward_reduce_ndarray
         backward_reducers[np.memmap] = reduce_memmap
 

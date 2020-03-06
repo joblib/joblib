@@ -31,7 +31,7 @@ from io import BytesIO
 from ._memmapping_reducer import get_memmapping_reducers, JOBLIB_MMAPS
 from ._multiprocessing_helpers import mp, assert_spawning
 from .externals.loky.backend import resource_tracker
-from .disk import memstr_to_bytes
+from .disk import delete_folder
 
 # We need the class definition to derive from it, not the multiprocessing.Pool
 # factory function
@@ -297,22 +297,12 @@ class MemmappingPool(PicklingPool):
                           ' 0.9.4 and will be removed in 0.11',
                           DeprecationWarning)
 
-        if max_nbytes not in [0, memstr_to_bytes('1M')]:
-            # 1e6 is default value, None means no memmapping.
-            warnings.warn(
-                "The multiprocessing backend does not use memory-mapping "
-                "anymore, and the ``max_nbytes`` argument is ignored. "
-                "To turn-on memory-mapping using joblib, please use the  "
-                "Loky backend using ``Parallel(backend='loky')``"
-            )
-        max_nbytes = None
-
         forward_reducers, backward_reducers, self._temp_folder = \
             get_memmapping_reducers(
                 id(self), temp_folder=temp_folder, max_nbytes=max_nbytes,
                 mmap_mode=mmap_mode, forward_reducers=forward_reducers,
                 backward_reducers=backward_reducers, verbose=verbose,
-                prewarm=prewarm)
+                track_memmap_in_child=False, prewarm=prewarm)
 
         poolargs = dict(
             processes=processes,
@@ -338,3 +328,7 @@ class MemmappingPool(PicklingPool):
         for filename in JOBLIB_MMAPS:
             resource_tracker.maybe_unlink(filename, "file")
         JOBLIB_MMAPS.clear()
+        try:
+            delete_folder(self._temp_folder, allow_non_empty=False)
+        except OSError:
+            pass
