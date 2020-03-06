@@ -576,6 +576,7 @@ def test_pool_memmap_with_big_offset(factory, tmpdir):
     assert isinstance(result, np.memmap)
     assert result.offset == offset
     np.testing.assert_array_equal(obj, result)
+    p.terminate()
 
 
 def test_pool_get_temp_dir(tmpdir):
