@@ -316,8 +316,8 @@ class ArrayMemmapReducer(object):
         same data array is passed to different worker processes.
     """
 
-    def __init__(self, max_nbytes, temp_folder, mmap_mode, track_memmap_in_child,
-                 verbose=0, prewarm=True):
+    def __init__(self, max_nbytes, temp_folder, mmap_mode,
+                 track_memmap_in_child, verbose=0, prewarm=True):
         self._max_nbytes = max_nbytes
         self._temp_folder = temp_folder
         self._mmap_mode = mmap_mode
