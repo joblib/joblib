@@ -8,7 +8,6 @@ import pickle
 import io
 import warnings
 import contextlib
-from mmap import mmap
 
 from .compressor import _ZFILE_PREFIX
 from .compressor import _COMPRESSORS
