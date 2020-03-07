@@ -482,7 +482,7 @@ def get_memmapping_reducers(
         try:
             delete_folder(pool_folder)
             resource_tracker.unregister(pool_folder, "folder")
-        except WindowsError:
+        except OSError:
             warnings.warn("Failed to clean temporary folder: {}"
                           .format(pool_folder))
 
