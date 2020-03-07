@@ -12,7 +12,7 @@ from joblib.test.common import setup_autokill
 from joblib.test.common import teardown_autokill
 from joblib.test.common import with_multiprocessing
 from joblib.test.common import with_dev_shm
-from joblib.testing import raises, parametrize, skipif
+from joblib.testing import raises, parametrize, skipif, xfail, param
 from joblib.backports import make_memmap
 from joblib.parallel import Parallel, delayed
 
@@ -34,6 +34,11 @@ def setup_module():
 
 def teardown_module():
     teardown_autokill(__name__)
+
+
+def check_memmap_and_send_back(array):
+    assert _get_backing_memmap(array) is not None
+    return array
 
 
 def check_array(args):
@@ -304,25 +309,130 @@ def test_pool_with_memmap_array_view(factory, tmpdir):
 
 
 @with_numpy
-@parametrize("trial", range(3))
-def test_non_regression_memmap_permission_error(trial):
-    # Smoke test to serve as a non regression test for:
+@parametrize("backend", ["multiprocessing", "loky"])
+def test_permission_error_windows_reference_cycle(backend):
+    # Non regression test for:
     # https://github.com/joblib/joblib/issues/806
     #
     # The issue happens when trying to delete a memory mapped file that has
     # not yet been closed by one of the worker processes.
-    data = np.random.rand(int(2e6)).reshape((int(1e6), 2))
+    cmd = """if 1:
+        import numpy as np
+        from joblib import Parallel, delayed
 
-    # Build a complex cyclic reference that is likely to delay garbage
-    # collection of the memmapped array in the worker processes.
-    first_list = current_list = [data]
-    for i in range(10):
-        current_list = [current_list]
-    first_list.append(current_list)
 
-    results = Parallel(n_jobs=2)(
-        delayed(len)(current_list) for i in range(10))
-    assert results == [1] * 10
+        data = np.random.rand(int(2e6)).reshape((int(1e6), 2))
+
+        # Build a complex cyclic reference that is likely to delay garbage
+        # collection of the memmapped array in the worker processes.
+        first_list = current_list = [data]
+        for i in range(10):
+            current_list = [current_list]
+        first_list.append(current_list)
+
+        if __name__ == "__main__":
+            results = Parallel(n_jobs=2, backend="{b}")(
+                delayed(len)(current_list) for i in range(10))
+            assert results == [1] * 10
+    """.format(b=backend)
+    p = subprocess.Popen([sys.executable, '-c', cmd], stderr=subprocess.PIPE,
+                         stdout=subprocess.PIPE)
+    p.wait()
+    out, err = p.communicate()
+    assert p.returncode == 0, out.decode()
+
+
+@with_numpy
+@parametrize("backend", ["multiprocessing", "loky"])
+def test_permission_error_windows_memmap_sent_to_parent(backend):
+    # Second non-regression test for:
+    # https://github.com/joblib/joblib/issues/806
+    # previously, child process would not convert temporary memmaps to numpy
+    # arrays when sending the data back to the parent process. This would lead
+    # to permission errors on windows when deleting joblib's temporary folder,
+    # as the memmaped files handles would still opened in the parent process.
+    cmd = '''if 1:
+        import os
+
+        import numpy as np
+
+        from joblib import Parallel, delayed
+        from testutils import test_data
+
+        data = np.ones(int(2e6))
+
+        if __name__ == '__main__':
+            slice_of_data = Parallel(n_jobs=2, verbose=5, backend='{b}')(
+                delayed(test_data)(data) for _ in range(10))
+    '''.format(b=backend)
+
+    env = os.environ.copy()
+    env['PYTHONPATH'] = os.path.dirname(__file__)
+    p = subprocess.Popen([sys.executable, '-c', cmd],
+                         stderr=subprocess.PIPE,
+                         stdout=subprocess.PIPE, env=env)
+    p.wait()
+    out, err = p.communicate()
+    assert p.returncode == 0, err
+    if sys.version_info[:3] not in [(3, 8, 0), (3, 8, 1)]:
+        # In early versions of Python 3.8, a reference leak
+        # https://github.com/cloudpipe/cloudpickle/issues/327, holds references
+        # to pickled objects, generating race condition during cleanup
+        # finalizers of joblib and noisy resource_tracker outputs.
+        assert b'resource_tracker' not in err
+
+
+@with_numpy
+@with_multiprocessing
+@parametrize("backend", ["multiprocessing", "loky"])
+def test_memmap_returned_as_regular_array(backend):
+    data = np.ones(int(1e3))
+    # Check that child processes serialize temporary memmaps as numpy arrays.
+    [result] = Parallel(n_jobs=2, backend=backend, max_nbytes=100)(
+        delayed(check_memmap_and_send_back)(data) for _ in range(1))
+    is_memmap = _get_backing_memmap(result) is not None
+    assert not is_memmap
+
+
+@with_numpy
+@with_multiprocessing
+@parametrize("backend", ["multiprocessing", param("loky", marks=xfail)])
+def test_resource_tracker_silent_when_reference_cycles(backend):
+    # There is a variety of reasons that can make joblib with loky backend
+    # output noisy warnings when a reference cycle is preventing a memmap from
+    # being garbage collected. Especially, joblib's main process finalizer
+    # deletes the temporary folder if it was not done before, which can
+    # interact badly with the resource_tracker. We don't risk leaking any
+    # resources, but this will likely make joblib output a lot of low-level
+    # confusing messages. This test is marked as xfail for now: but a next PR
+    # should fix this behavior.
+    # Note that the script in ``cmd`` is the exact same script as in
+    # test_permission_error_windows_reference_cycle.
+    cmd = """if 1:
+        import numpy as np
+        from joblib import Parallel, delayed
+
+
+        data = np.random.rand(int(2e6)).reshape((int(1e6), 2))
+
+        # Build a complex cyclic reference that is likely to delay garbage
+        # collection of the memmapped array in the worker processes.
+        first_list = current_list = [data]
+        for i in range(10):
+            current_list = [current_list]
+        first_list.append(current_list)
+
+        if __name__ == "__main__":
+            results = Parallel(n_jobs=2, backend="{b}")(
+                delayed(len)(current_list) for i in range(10))
+            assert results == [1] * 10
+    """.format(b=backend)
+    p = subprocess.Popen([sys.executable, '-c', cmd], stderr=subprocess.PIPE,
+                         stdout=subprocess.PIPE)
+    p.wait()
+    out, err = p.communicate()
+    assert p.returncode == 0, out.decode()
+    assert b"resource_tracker" not in err, err.decode()
 
 
 @with_numpy
@@ -704,101 +814,3 @@ def test_direct_mmap(tmpdir):
 
     results = Parallel(n_jobs=2)(delayed(worker)() for _ in range(1))
     np.testing.assert_array_equal(results[0], arr)
-
-
-@with_numpy
-@parametrize("backend", ["multiprocessing", "loky"])
-def test_windows_memmaped_arrays_race_condition(backend):
-    # test crash on issue #806: during the shutdown of a python
-    # process that previously called a Parallel instance,
-    # the cleanup of memmaped arrays would fail due the OS flagging
-    # the shared files as still in use by the child processes.
-    cmd = '''if 1:
-        import os
-
-        import numpy as np
-
-        from joblib import Parallel, delayed
-        from testutils import test_data
-
-        data = np.ones(int(2e6))
-
-        if __name__ == '__main__':
-            Parallel(n_jobs=2, verbose=5, backend='{b}')(
-                delayed(test_data)(data) for _ in range(10))
-    '''.format(b=backend)
-
-    env = os.environ.copy()
-    env['PYTHONPATH'] = os.path.dirname(__file__)
-    p = subprocess.Popen([sys.executable, '-c', cmd],
-                         stderr=subprocess.PIPE,
-                         stdout=subprocess.PIPE, env=env)
-    p.wait()
-    out, err = p.communicate()
-    assert p.returncode == 0, err
-    if sys.version_info[:3] not in [(3, 8, 0), (3, 8, 1)]:
-        # In early versions of Python 3.8, a reference leak
-        # https://github.com/cloudpipe/cloudpickle/issues/327, holds references
-        # to pickled objects, generating race condition during cleanup
-        # finalizers of joblib and noisy resource_tracker outputs.
-        assert b'resource_tracker' not in err
-
-
-@with_numpy
-@parametrize("backend", ["multiprocessing", "loky"])
-def test_shared_memory_deleted_after_parallel_call(backend):
-    cmd = '''if 1:
-        import time, os, tempfile, sys
-        import numpy as np
-        from joblib import Parallel, delayed
-        from joblib.externals.loky.backend import resource_tracker
-        from testutils import test_data
-
-        resource_tracker.VERBOSE=1
-
-
-        # the Parallel object has to be called from a context manager to some
-        # of its temporary attributes before it gets terminated
-
-        if __name__ == "__main__":
-            with Parallel(n_jobs=2, verbose=101, max_nbytes=100,
-                          backend='{b}') as parallel_obj:
-                # warm up the executor
-                # parallel_obj(delayed(abs)(i) for i in range(10))
-
-                data = np.ones(int(1000))
-
-                [memmaped_data] = parallel_obj(
-                    delayed(test_data)(data) for _ in range(1)
-                )
-
-            # give the resource_tracker time to register the new resource
-            sys.stdout.write(memmaped_data.filename + "\\n")
-            time.sleep(0.5)
-            sys.stdout.flush()
-            time.sleep(1)
-    '''.format(b=backend)
-    env = os.environ.copy()
-    env['PYTHONPATH'] = os.path.dirname(__file__)
-    cmd = cmd.format(parent_pid=os.getpid())
-    p = subprocess.Popen([sys.executable, '-c', cmd],
-                         stderr=subprocess.PIPE,
-                         stdout=subprocess.PIPE,
-                         env=env)
-    out = p.stdout.readline().rstrip().decode('ascii')
-
-    if out == "":
-        # before #806, the subprocess would exit with a PermissionError
-        # TODO: maybe split it into two tests: one for reference tracking, and
-        # one for the original crash.
-        p.wait()
-        assert p.returncode == 1
-        err = p.stderr.read().rstrip().decode('ascii')
-        raise AssertionError("subprocess did not complete {}".format(err))
-
-    p.wait()
-    out, err = p.communicate()
-    # wait for the resource_tracker to cleanup the leaked resources
-    p.stderr.close()
-    p.stdout.close()
-    assert not os.path.exists(out)
