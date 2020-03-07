@@ -32,7 +32,6 @@ except ImportError:
     np = None
 
 from .numpy_pickle import dump, load, load_temporary_memmap
-from .numpy_pickle_utils import _get_backing_memmap
 from .backports import make_memmap
 from .disk import delete_folder
 from .externals.loky.backend import resource_tracker

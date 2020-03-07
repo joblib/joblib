@@ -24,7 +24,7 @@ from joblib._memmapping_reducer import reduce_memmap
 from joblib._memmapping_reducer import _strided_from_memmap
 from joblib._memmapping_reducer import _get_temp_dir
 from joblib._memmapping_reducer import _WeakArrayKeyMap
-from joblib.numpy_pickle_utils import _get_backing_memmap
+from joblib._memmapping_reducer import _get_backing_memmap
 import joblib._memmapping_reducer as jmr
 
 
