@@ -595,7 +595,7 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
         self._workers.shutdown(kill_workers=True)
         # The folder can be safely deleted without risk of PermissionError in
         # Windows as all workers were killed.
-        delete_folder(self._workers._temp_folder, allow_non_empty=False)
+        delete_folder(self._workers._temp_folder, allow_non_empty=True)
         self._workers = None
 
         # All temporary files have been deleted -- unregister the temporary

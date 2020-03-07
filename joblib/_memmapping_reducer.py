@@ -342,10 +342,6 @@ class ArrayMemmapReducer(object):
         m = _get_backing_memmap(a)
         if m is not None and isinstance(m, np.memmap):
             # a is already backed by a memmap file, let's reuse it directly
-            util.debug(
-                '[MEMMAP REDUCE] reducing mmemmap (shape, {}, pid: {})'.format(
-                    a.shape, os.getpid())
-            )
             return _reduce_memmap_backed(a, m)
 
         if (not a.dtype.hasobject and self._max_nbytes is not None and

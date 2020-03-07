@@ -492,6 +492,34 @@ def test_memmapping_pool_for_large_arrays(factory, tmpdir):
 
 
 @with_numpy
+@parametrize("backend", ["multiprocessing", "loky"])
+def test_parallel_crash_no_resources_leaked(backend):
+    cmd = """if 1:
+        import numpy as np
+        from joblib import Parallel, delayed
+        from testutils import crash
+
+
+        data = np.random.rand(1000)
+
+        if __name__ == "__main__":
+            Parallel(n_jobs=2, backend="{b}", max_nbytes=100)(
+                delayed(crash)(data) for i in range(1))
+    """.format(b=backend)
+    env = os.environ.copy()
+    env['PYTHONPATH'] = os.path.dirname(__file__)
+    p = subprocess.Popen([sys.executable, '-c', cmd], stderr=subprocess.PIPE,
+                         stdout=subprocess.PIPE, env=env)
+    p.wait()
+    out, err = p.communicate()
+    out, err = out.decode(), err.decode()
+    filename = out.split('\n')[0]
+    assert p.returncode == 1, out
+    assert not os.path.exists(filename)
+    assert "resource_tracker" not in err, err
+
+
+@with_numpy
 @with_multiprocessing
 @parametrize("factory", [MemmappingPool, _TestingMemmappingExecutor],
              ids=["multiprocessing", "loky"])
