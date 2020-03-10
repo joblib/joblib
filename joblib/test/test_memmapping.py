@@ -390,8 +390,7 @@ def test_memmap_returned_as_regular_array(backend):
     # Check that child processes serialize temporary memmaps as numpy arrays.
     [result] = Parallel(n_jobs=2, backend=backend, max_nbytes=100)(
         delayed(check_memmap_and_send_back)(data) for _ in range(1))
-    is_memmap = _get_backing_memmap(result) is not None
-    assert not is_memmap
+    assert _get_backing_memmap(result) is None
 
 
 @with_numpy
@@ -590,10 +589,10 @@ def test_memmapping_on_large_enough_dev_shm(factory):
             del p
 
         for i in range(10):
-            sleep(.1)
             # The temp folder is cleaned up upon pool termination
             if not os.path.exists(pool_temp_folder):
                 break
+            sleep(.1)
         else:
             raise AssertionError('temporary folder of pool was not deleted')
     finally:

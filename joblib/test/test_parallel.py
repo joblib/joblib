@@ -1208,10 +1208,10 @@ def test_memmapping_leaks(backend, tmpdir):
 
     # Make sure that the shared memory is cleaned at the end when we exit
     # the context
-    for _ in range(10):
-        sleep(.1)
+    for _ in range(100):
         if not os.listdir(tmpdir):
             break
+        sleep(.1)
     else:
         raise AssertionError('temporary directory of Parallel was not removed')
 
@@ -1219,10 +1219,10 @@ def test_memmapping_leaks(backend, tmpdir):
     p = Parallel(n_jobs=2, max_nbytes=1, backend=backend)
     p(delayed(check_memmap)(a) for a in [np.random.random(10)] * 2)
 
-    for _ in range(10):
-        sleep(.1)
+    for _ in range(100):
         if not os.listdir(tmpdir):
             break
+        sleep(.1)
     else:
         raise AssertionError('temporary directory of Parallel was not removed')
 
