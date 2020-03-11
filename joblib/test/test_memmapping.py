@@ -588,7 +588,7 @@ def test_memmapping_on_large_enough_dev_shm(factory):
             p.terminate()
             del p
 
-        for i in range(10):
+        for i in range(100):
             # The temp folder is cleaned up upon pool termination
             if not os.path.exists(pool_temp_folder):
                 break
