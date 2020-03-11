@@ -65,8 +65,8 @@ Passing ``max_nbytes=None`` makes it possible to disable the automated array to
 memmap conversion.
 
 
-Manual management of memmaped input data
-----------------------------------------
+Manual management of memmapped input data
+-----------------------------------------
 
 For even finer tuning of the memory usage it is also possible to
 dump the array as a memmap directly from the parent process to

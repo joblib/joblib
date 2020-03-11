@@ -194,7 +194,7 @@ Shelving: using references to cached values
 
 In some cases, it can be useful to get a reference to the cached
 result, instead of having the result itself. A typical example of this
-is when a lot of large numpy arrays must be dispatched accross several
+is when a lot of large numpy arrays must be dispatched across several
 workers: instead of sending the data themselves over the network, send
 a reference to the joblib cache, and let the workers read the data
 from a network filesystem, potentially taking advantage of some
@@ -260,7 +260,7 @@ Gotchas
     ...     print('Running a different func(%s)' % x)
 
   As long as the same session is used, there are no collisions (in joblib
-  0.8 and above), altough joblib does warn you that you are doing something
+  0.8 and above), although joblib does warn you that you are doing something
   dangerous::
 
     >>> func(1)
