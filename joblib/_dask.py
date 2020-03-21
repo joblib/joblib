@@ -16,11 +16,16 @@ except ImportError:
     distributed = None
 
 if distributed is not None:
-    from dask.distributed import Client, as_completed
-    from distributed.utils import funcname, itemgetter
-    from distributed import get_client, secede, rejoin
-    from distributed.worker import thread_state
-    from distributed.sizeof import sizeof
+    from dask.utils import funcname, itemgetter
+    from dask.sizeof import sizeof
+    from dask.distributed import (
+        Client,
+        as_completed,
+        get_client,
+        secede,
+        rejoin
+    )
+    from distributed.utils import thread_state
 
     try:
         # asyncio.TimeoutError, Python3-only error thrown by recent versions of
