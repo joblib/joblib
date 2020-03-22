@@ -163,7 +163,6 @@ class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         else:
             self._scatter = []
             self.data_futures = {}
-        self.task_futures = set()
         self.wait_for_workers_timeout = wait_for_workers_timeout
         self.submit_kwargs = submit_kwargs
         self.waiting_futures = as_completed(
@@ -178,16 +177,13 @@ class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
     async def _collect(self):
         while self._continue:
             async for future, result in self.waiting_futures:
+                cf_future = self._results.pop(future)
                 if future.status == "error":
                     typ, exc, tb = result
-                    self._results[future].set_exception(exc)
+                    cf_future.set_exception(exc)
                 else:
-                    self._results[future].set_result(result)
+                    cf_future.set_result(result)
                 self._callbacks.pop(future)(result)
-                try:
-                    self.task_futures.remove(future)
-                except KeyError:
-                    pass
             await asyncio.sleep(0.01)
 
     def __reduce__(self):
@@ -284,30 +280,24 @@ class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         key = '%s-batch-%s' % (_funcname(func), uuid4().hex)
         func, args = self._to_func_args(func)
 
-        future = self.client.submit(func, *args, key=key, **self.submit_kwargs)
-        self.task_futures.add(future)
-        self.waiting_futures.add(future)
-        self._callbacks[future] = callback
-        self._results[future] = concurrent.futures.Future()
+        dask_future = self.client.submit(func, *args, key=key, **self.submit_kwargs)
+        self.waiting_futures.add(dask_future)
+        self._callbacks[dask_future] = callback
+        cf_future = concurrent.futures.Future()
+        self._results[dask_future] = cf_future
 
-        ref = weakref.ref(future)  # avoid reference cycle
-
-        def get(timeout=None):
-            future = ref()
-            result = self._results[future].result(timeout=timeout)
-            del self._results[future]
-            return result
-
-        future.get = get  # monkey patch to achieve AsyncResult API
-        return future
+        cf_future.get = cf_future.result  # monkey patch to achieve AsyncResult API
+        return cf_future
 
     def abort_everything(self, ensure_ready=True):
         """ Tell the client to cancel any task submitted via this instance
 
         joblib.Parallel will never access those results
         """
-        self.client.cancel(self.task_futures)
-        self.task_futures.clear()
+        with self.waiting_futures.lock:
+            self.waiting_futures.futures.clear()
+            while not self.waiting_futures.queue.empty():
+                self.waiting_futures.queue.get()
 
     @contextlib.contextmanager
     def retrieval_context(self):
