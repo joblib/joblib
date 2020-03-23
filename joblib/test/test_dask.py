@@ -117,7 +117,7 @@ def test_auto_scatter(loop):
     np = pytest.importorskip('numpy')
     data1 = np.ones(int(1e4), dtype=np.uint8)
     data2 = np.ones(int(1e4), dtype=np.uint8)
-    data_to_process = ([data1] * 4) + ([data2] * 4)
+    data_to_process = ([data1] * 3) + ([data2] * 3)
 
     def count_events(event_name, client):
         worker_events = client.run(lambda dask_worker: dask_worker.log)
