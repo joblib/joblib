@@ -41,6 +41,14 @@ def k(*args, **kwargs):
     pass
 
 
+def m1(x, *, y):
+    pass
+
+
+def m2(x, *, y, z=3):
+    pass
+
+
 @fixture(scope='module')
 def cached_func(tmpdir_factory):
     # Create a Memory object to test decorated functions.
@@ -64,7 +72,6 @@ class Klass(object):
 
 ###############################################################################
 # Tests
-
 
 @parametrize('func,args,filtered_args',
              [(f, [[], (1, )], {'x': 1, 'y': 0}),
@@ -98,9 +105,7 @@ def test_filter_varargs(func, args, filtered_args):
     assert filter_args(func, *args) == filtered_args
 
 
-def m1(x, *, y): pass
 
-def m2(x, *, y, z=3): pass
 
 test_filter_kwargs_extra_params = [
     (m1, [[], (1,), {'y': 2}], {'x': 1, 'y': 2}),
