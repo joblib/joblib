@@ -342,26 +342,19 @@ def test_dtype():
 
 @parametrize('to_hash,expected',
              [('This is a string to hash',
-                 {'py2': '80436ada343b0d79a99bfd8883a96e45',
-                  'py3': '71b3f47df22cb19431d85d92d0b230b2'}),
+               '71b3f47df22cb19431d85d92d0b230b2'),
               (u"C'est l\xe9t\xe9",
-                 {'py2': '2ff3a25200eb6219f468de2640913c2d',
-                  'py3': '2d8d189e9b2b0b2e384d93c868c0e576'}),
+               '2d8d189e9b2b0b2e384d93c868c0e576'),
               ((123456, 54321, -98765),
-                 {'py2': '50d81c80af05061ac4dcdc2d5edee6d6',
-                  'py3': 'e205227dd82250871fa25aa0ec690aa3'}),
+               'e205227dd82250871fa25aa0ec690aa3'),
               ([random.Random(42).random() for _ in range(5)],
-                 {'py2': '1a36a691b2e2ba3a9df72de3dccf17ea',
-                  'py3': 'a11ffad81f9682a7d901e6edc3d16c84'}),
+               'a11ffad81f9682a7d901e6edc3d16c84'),
               ([3, 'abc', None, TransportableException('foo', ValueError)],
-                 {'py2': 'adb6ba84990ee5e462dc138383f11802',
-                  'py3': '994f663c64ba5e64b2a85ebe75287829'}),
+              '994f663c64ba5e64b2a85ebe75287829'),
               ({'abcde': 123, 'sadfas': [-9999, 2, 3]},
-                 {'py2': 'fc9314a39ff75b829498380850447047',
-                  'py3': 'aeda150553d4bb5c69f0e69d51b0e2ef'})])
+                  'aeda150553d4bb5c69f0e69d51b0e2ef')])
 def test_hashes_stay_the_same(to_hash, expected):
-    py_version_str = 'py3'
-    if expected[py_version_str] == "994f663c64ba5e64b2a85ebe75287829":
+    if expected == "994f663c64ba5e64b2a85ebe75287829":
         # [3, 'abc', None, TransportableException('foo', ValueError)]
         # started to fail when distributed is installed for some unknown
         # reason.
@@ -377,7 +370,7 @@ def test_hashes_stay_the_same(to_hash, expected):
     # regenerate their cache from scratch, which potentially means
     # lengthy recomputations.
     # Expected results have been generated with joblib 0.9.2
-    assert hash(to_hash) == expected[py_version_str]
+    assert hash(to_hash) == expected
 
 
 @with_numpy

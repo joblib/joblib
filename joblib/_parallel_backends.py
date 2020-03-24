@@ -593,9 +593,13 @@ class ImmediateResult(object):
 class SafeFunction(object):
     """Wrapper that handles the serialization of exception tracebacks.
 
+    TODO: check whether SafeFunction is still needed since we dropped support
+    for Python 2. If not needed anymore it should be deprecated.
+
     If an exception is triggered when calling the inner function, a copy of
     the full traceback is captured to make it possible to serialize
     it so that it can be rendered in a different Python process.
+
     """
     def __init__(self, func):
         self.func = func

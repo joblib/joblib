@@ -39,8 +39,6 @@ try:
 except ImportError:
     posix = None
 
-RecursionError
-
 try:
     from ._openmp_test_helper.parallel_sum import parallel_sum
 except ImportError:
@@ -550,9 +548,6 @@ def test_nested_exception_dispatch(backend):
     assert 'nested_function_inner' in report
     assert 'exception_raiser' in report
 
-    # Under Python 3, there is no need for exception wrapping as the
-    # exception raised in a worker process is transportable by default and
-    # preserves the necessary information via the `__cause__` attribute.
     assert type(excinfo.value) is ValueError
 
 
