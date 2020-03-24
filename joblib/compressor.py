@@ -16,15 +16,12 @@ except ImportError:
     bz2 = None
 
 try:
-    import lzma
-except ImportError:
-    lzma = None
-
-try:
     import lz4
     from lz4.frame import LZ4FrameFile
 except ImportError:
     lz4 = None
+
+import lzma
 
 LZ4_NOT_INSTALLED_ERROR = ('LZ4 is not installed. Install it with pip: '
                            'https://python-lz4.readthedocs.io/')
@@ -150,10 +147,7 @@ class LZMACompressorWrapper(CompressorWrapper):
     extension = '.lzma'
 
     def __init__(self):
-        if lzma is not None:
-            self.fileobj_factory = lzma.LZMAFile
-        else:
-            self.fileobj_factory = None
+        self.fileobj_factory = lzma.LZMAFile
 
     def compressor_file(self, fileobj, compresslevel=None):
         """Returns an instance of a compressor file object."""
@@ -167,18 +161,7 @@ class LZMACompressorWrapper(CompressorWrapper):
 
     def decompressor_file(self, fileobj):
         """Returns an instance of a decompressor file object."""
-        if lzma is not None:
-            # We support lzma only in python 3 because in python 2 users
-            # may have installed the pyliblzma package, which also provides
-            # the lzma module, but that unfortunately doesn't fully support
-            # the buffer interface required by joblib.
-            # See https://github.com/joblib/joblib/issues/403 for details.
-            return lzma.LZMAFile(fileobj, 'rb')
-        else:
-            raise NotImplementedError(
-                "lzma module not found. Please install lzma using "
-                "``python -m pip install lzma``"
-            )
+        return lzma.LZMAFile(fileobj, 'rb')
 
 
 class XZCompressorWrapper(LZMACompressorWrapper):
@@ -187,10 +170,7 @@ class XZCompressorWrapper(LZMACompressorWrapper):
     extension = '.xz'
 
     def __init__(self):
-        if lzma is not None:
-            self.fileobj_factory = lzma.LZMAFile
-        else:
-            self.fileobj_factory = None
+        self.fileobj_factory = lzma.LZMAFile
 
     def compressor_file(self, fileobj, compresslevel=None):
         """Returns an instance of a compressor file object."""

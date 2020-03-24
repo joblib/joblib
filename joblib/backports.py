@@ -38,9 +38,8 @@ if os.name == 'nt':
     def concurrency_safe_rename(src, dst):
         """Renames ``src`` into ``dst`` overwriting ``dst`` if it exists.
 
-        On Windows os.replace (or for Python 2.7 its implementation
-        through MoveFileExW) can yield permission errors if executed by
-        two different processes.
+        On Windows os.replace can yield permission errors if executed by two
+        different processes.
         """
         max_sleep_time = 1
         total_sleep_time = 0

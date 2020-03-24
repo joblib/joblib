@@ -35,14 +35,6 @@ def is_weakrefable(obj):
         return False
 
 
-try:
-    TimeoutError = TimeoutError
-except NameError:
-    # Python 2 backward compat
-    class TimeoutError(OSError):
-        pass
-
-
 class _WeakKeyDictionary:
     """A variant of weakref.WeakKeyDictionary for unhashable objects.
 
