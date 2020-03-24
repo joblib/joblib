@@ -261,7 +261,7 @@ def format_records(records):   # , print_globals=False):
         try:
             # This builds the names list in-place by capturing it from the
             # enclosing scope.
-            for token in tokenize.tokenize(linereader):
+            for token in tokenize.generate_tokens(linereader):
                 tokeneater(*token)
         except (IndexError, UnicodeDecodeError, SyntaxError):
             # signals exit of tokenizer
