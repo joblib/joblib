@@ -105,8 +105,6 @@ def test_filter_varargs(func, args, filtered_args):
     assert filter_args(func, *args) == filtered_args
 
 
-
-
 test_filter_kwargs_extra_params = [
     (m1, [[], (1,), {'y': 2}], {'x': 1, 'y': 2}),
     (m2, [[], (1,), {'y': 2}], {'x': 1, 'y': 2, 'z': 3})
@@ -169,7 +167,7 @@ def func_with_signature(a: int, b: int) -> None:
     pass
 
 
-def test_filter_args():
+def test_filter_args_edge_cases():
     assert (
         filter_args(func_with_kwonly_args, [], (1, 2),
                     {'kw1': 3, 'kw2': 4}) ==
