@@ -23,8 +23,6 @@ try:
 except NameError:
     WindowsError = type(None)
 
-# Customizable pure Python pickler in Python 2
-# customizable C-optimized pickler under Python 3.3+
 from pickle import Pickler
 
 from pickle import HIGHEST_PROTOCOL
@@ -49,6 +47,8 @@ except ImportError:
 
 class CustomizablePickler(Pickler):
     """Pickler that accepts custom reducers.
+
+    TODO python2_drop : can this be simplified ?
 
     HIGHEST_PROTOCOL is selected by default as this pickler is used
     to pickle ephemeral datastructures for interprocess communication

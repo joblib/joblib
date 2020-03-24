@@ -98,16 +98,14 @@ def test_filter_varargs(func, args, filtered_args):
     assert filter_args(func, *args) == filtered_args
 
 
-test_filter_kwargs_extra_params = []
-m1 = m2 = None
-# The following statements raise SyntaxError in python 2
-# because kwargonly is not supported
-exec("def m1(x, *, y): pass")
-exec("def m2(x, *, y, z=3): pass")
-test_filter_kwargs_extra_params.extend([
+def m1(x, *, y): pass
+
+def m2(x, *, y, z=3): pass
+
+test_filter_kwargs_extra_params = [
     (m1, [[], (1,), {'y': 2}], {'x': 1, 'y': 2}),
     (m2, [[], (1,), {'y': 2}], {'x': 1, 'y': 2, 'z': 3})
-])
+]
 
 
 @parametrize('func,args,filtered_args',
@@ -166,7 +164,7 @@ def func_with_signature(a: int, b: int) -> None:
     pass
 
 
-def test_filter_args_python_3():
+def test_filter_args():
     assert (
         filter_args(func_with_kwonly_args, [], (1, 2),
                     {'kw1': 3, 'kw2': 4}) ==

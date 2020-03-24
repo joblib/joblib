@@ -29,11 +29,6 @@ import time
 import tokenize
 import traceback
 
-try:                           # Python 2
-    generate_tokens = tokenize.generate_tokens
-except AttributeError:         # Python 3
-    generate_tokens = tokenize.tokenize
-
 INDENT = ' ' * 8
 
 
@@ -266,7 +261,7 @@ def format_records(records):   # , print_globals=False):
         try:
             # This builds the names list in-place by capturing it from the
             # enclosing scope.
-            for token in generate_tokens(linereader):
+            for token in tokenize.tokenize(linereader):
                 tokeneater(*token)
         except (IndexError, UnicodeDecodeError, SyntaxError):
             # signals exit of tokenizer

@@ -161,27 +161,6 @@ def get_func_name(func, resolv_alias=True, win_characters=True):
     return module, name
 
 
-def getfullargspec(func):
-    """Compatibility function to provide inspect.getfullargspec in Python 2
-
-    This should be rewritten using a backport of Python 3 signature
-    once we drop support for Python 2.6. We went for a simpler
-    approach at the time of writing because signature uses OrderedDict
-    which is not available in Python 2.6.
-    """
-    try:
-        return inspect.getfullargspec(func)
-    except AttributeError:
-        arg_spec = inspect.getargspec(func)
-        return full_argspec_type(args=arg_spec.args,
-                                 varargs=arg_spec.varargs,
-                                 varkw=arg_spec.keywords,
-                                 defaults=arg_spec.defaults,
-                                 kwonlyargs=[],
-                                 kwonlydefaults=None,
-                                 annotations={})
-
-
 def _signature_str(function_name, arg_spec):
     """Helper function to output a function signature"""
     # inspect.formatargspec can not deal with the same
@@ -236,7 +215,7 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
             warnings.warn('Cannot inspect object %s, ignore list will '
                           'not work.' % func, stacklevel=2)
         return {'*': args, '**': kwargs}
-    arg_spec = getfullargspec(func)
+    arg_spec = inspect.getfullargspec(func)
     arg_names = arg_spec.args + arg_spec.kwonlyargs
     arg_defaults = arg_spec.defaults or ()
     if arg_spec.kwonlydefaults:

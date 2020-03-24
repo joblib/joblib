@@ -186,6 +186,9 @@ BUFFER_SIZE = 2 ** 18  # size of buffer for reading npz files in bytes
 def _read_bytes(fp, size, error_template="ran out of data"):
     """Read from file-like object until size bytes are read.
 
+    TODO python2_drop: is it still needed? The docstring mentions python 2.6
+    and it looks like this can be at least simplified ...
+
     Raises ValueError if not EOF is encountered before size bytes are read.
     Non-blocking objects only supported if they derive from io objects.
 

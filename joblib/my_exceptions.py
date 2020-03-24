@@ -7,7 +7,10 @@ Exceptions
 
 
 class JoblibException(Exception):
-    """A simple exception with an error message that you can get to."""
+    """A simple exception with an error message that you can get to.
+
+    TODO python2_drop: is it still needed?
+    """
     def __init__(self, *args):
         # We need to implement __init__ so that it is picked in the
         # multiple heritance hierarchy in the class created in

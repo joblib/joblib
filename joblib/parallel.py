@@ -16,6 +16,7 @@ import threading
 import itertools
 from numbers import Integral
 import warnings
+import queue
 
 from ._multiprocessing_helpers import mp
 
@@ -33,11 +34,6 @@ from .externals import loky
 # so that 3rd party backend implementers can import them from here.
 from ._parallel_backends import AutoBatchingMixin  # noqa
 from ._parallel_backends import ParallelBackendBase  # noqa
-
-try:
-    import queue
-except ImportError:  # backward compat for Python 2
-    import Queue as queue
 
 
 BACKENDS = {
