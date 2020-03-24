@@ -391,7 +391,7 @@ def _check_pickle(filename, expected_list):
     version_match = re.match(r'.+py(\d)(\d).+', filename)
     py_version_used_for_writing = int(version_match.group(1))
 
-    py_version_to_default_pickle_protocol = {3: 3}
+    py_version_to_default_pickle_protocol = {2: 2, 3: 3}
     pickle_reading_protocol = py_version_to_default_pickle_protocol.get(3, 4)
     pickle_writing_protocol = py_version_to_default_pickle_protocol.get(
         py_version_used_for_writing, 4)
