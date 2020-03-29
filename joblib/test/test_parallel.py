@@ -585,28 +585,6 @@ def test_nested_exception_dispatch(backend):
         assert type(excinfo.value) is JoblibValueError
 
 
-def _reload_joblib():
-    # Retrieve the path of the parallel module in a robust way
-    joblib_path = Parallel.__module__.split(os.sep)
-    joblib_path = joblib_path[:1]
-    joblib_path.append('parallel.py')
-    joblib_path = '/'.join(joblib_path)
-    module = __import__(joblib_path)
-    # Reload the module. This should trigger a fail
-    reload(module)
-
-
-def test_multiple_spawning():
-    # Test that attempting to launch a new Python after spawned
-    # subprocesses will raise an error, to avoid infinite loops on
-    # systems that do not support fork
-    if not int(os.environ.get('JOBLIB_MULTIPROCESSING', 1)):
-        raise SkipTest()
-    with raises(ImportError):
-        Parallel(n_jobs=2, pre_dispatch='all')(
-            [delayed(_reload_joblib)() for i in range(10)])
-
-
 class FakeParallelBackend(SequentialBackend):
     """Pretends to run concurrently while running sequentially."""
 

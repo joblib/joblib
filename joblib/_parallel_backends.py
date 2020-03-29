@@ -418,9 +418,6 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
     However, does not suffer from the Python Global Interpreter Lock.
     """
 
-    # Environment variables to protect against bad situations when nesting
-    JOBLIB_SPAWNED_PROCESS = "__JOBLIB_SPAWNED_PARALLEL__"
-
     supports_timeout = True
 
     def effective_n_jobs(self, n_jobs):
@@ -469,19 +466,6 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
             raise FallbackToBackend(
                 SequentialBackend(nesting_level=self.nesting_level))
 
-        already_forked = int(os.environ.get(self.JOBLIB_SPAWNED_PROCESS, 0))
-        if already_forked:
-            raise ImportError(
-                '[joblib] Attempting to do parallel computing '
-                'without protecting your import on a system that does '
-                'not support forking. To use parallel-computing in a '
-                'script, you must protect your main loop using "if '
-                "__name__ == '__main__'"
-                '". Please see the joblib documentation on Parallel '
-                'for more information')
-        # Set an environment variable to avoid infinite loops
-        os.environ[self.JOBLIB_SPAWNED_PROCESS] = '1'
-
         # Make sure to free as much memory as possible before forking
         gc.collect()
         self._pool = MemmappingPool(n_jobs, **memmappingpool_args)
@@ -491,9 +475,6 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
     def terminate(self):
         """Shutdown the process or thread pool"""
         super(MultiprocessingBackend, self).terminate()
-        if self.JOBLIB_SPAWNED_PROCESS in os.environ:
-            del os.environ[self.JOBLIB_SPAWNED_PROCESS]
-
         self.reset_batch_stats()
 
 
