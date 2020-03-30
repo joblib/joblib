@@ -567,9 +567,12 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
             # Trigger the collection of temporary shared memory created to by
             # joblib by signaling the resource_tracker we don't need it
             # anymore.
-            for filename in JOBLIB_MMAPS:
-                resource_tracker.maybe_unlink(filename, "file")
-            JOBLIB_MMAPS.clear()
+            if os.path.exists(self._workers._temp_folder):
+                for filename in os.listdir(self._workers._temp_folder):
+                    resource_tracker.maybe_unlink(
+                        os.path.join(self._workers._temp_folder, filename),
+                        "file"
+                    )
 
             # XXX: calling shutil.rmtree inside delete_folder is likely to
             # cause a race condition with the lines above.
@@ -593,16 +596,20 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
         """Shutdown the workers and restart a new one with the same parameters
         """
         self._workers.shutdown(kill_workers=True)
-        # The folder can be safely deleted without risk of PermissionError in
-        # Windows as all workers were killed.
-        delete_folder(self._workers._temp_folder, allow_non_empty=True)
-        self._workers = None
 
         # All temporary files have been deleted -- unregister the temporary
         # files from the resource_tracker refcount tables.
-        for filename in JOBLIB_MMAPS:
-            resource_tracker.unregister(filename, "file")
-        JOBLIB_MMAPS.clear()
+        if os.path.exists(self._workers._temp_folder):
+            for filename in os.listdir(self._workers._temp_folder):
+                resource_tracker.unregister(
+                    os.path.join(self._workers._temp_folder, filename), "file"
+                )
+
+        # The folder can be safely deleted without risk of PermissionError in
+        # Windows as all workers were killed.
+        delete_folder(self._workers._temp_folder, allow_non_empty=True)
+
+        self._workers = None
 
         if ensure_ready:
             self.configure(n_jobs=self.parallel.n_jobs, parallel=self.parallel)

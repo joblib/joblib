@@ -8,6 +8,7 @@ copy between the parent and child processes.
 # Copyright: 2017, Thomas Moreau
 # License: BSD 3 clause
 
+import os
 import random
 from ._memmapping_reducer import get_memmapping_reducers, JOBLIB_MMAPS
 from .externals.loky.reusable_executor import get_reusable_executor
@@ -65,13 +66,16 @@ class _TestingMemmappingExecutor():
 
     def terminate(self):
         self._executor.shutdown()
-        for filename in JOBLIB_MMAPS:
-            resource_tracker.maybe_unlink(filename, "file")
-        JOBLIB_MMAPS.clear()
-        try:
-            delete_folder(self._temp_folder, allow_non_empty=False)
-        except OSError:
-            pass
+        if os.path.exists(self._temp_folder):
+            for filename in os.listdir(self._temp_folder):
+                resource_tracker.maybe_unlink(
+                    os.path.join(self._temp_folder, filename), "file"
+                )
+            JOBLIB_MMAPS.clear()
+            try:
+                delete_folder(self._temp_folder, allow_non_empty=False)
+            except OSError:
+                pass
 
     def map(self, f, *args):
         res = self._executor.map(f, *args)

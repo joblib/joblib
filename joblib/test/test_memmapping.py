@@ -19,7 +19,7 @@ from joblib.parallel import Parallel, delayed
 from joblib.pool import MemmappingPool
 from joblib.executor import _TestingMemmappingExecutor
 from joblib._memmapping_reducer import has_shareable_memory
-from joblib._memmapping_reducer import ArrayMemmapReducer
+from joblib._memmapping_reducer import ArrayMemmapForwardReducer
 from joblib._memmapping_reducer import reduce_memmap
 from joblib._memmapping_reducer import _strided_from_memmap
 from joblib._memmapping_reducer import _get_temp_dir
@@ -98,7 +98,7 @@ def test_memmap_based_array_reducing(tmpdir):
     d = c.T
 
     # Array reducer with auto dumping disabled
-    reducer = ArrayMemmapReducer(None, tmpdir.strpath, 'c', True)
+    reducer = ArrayMemmapForwardReducer(None, tmpdir.strpath, 'c', True)
 
     def reconstruct_array(x):
         cons, args = reducer(x)

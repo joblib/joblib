@@ -14,6 +14,7 @@ that uses a custom alternative to SimpleQueue.
 # License: BSD 3 clause
 
 import copyreg
+import os
 import sys
 import warnings
 from time import sleep
@@ -325,10 +326,13 @@ class MemmappingPool(PicklingPool):
                     if i + 1 == n_retries:
                         warnings.warn("Failed to terminate worker processes in"
                                       " multiprocessing pool: %r" % e)
-        for filename in JOBLIB_MMAPS:
-            resource_tracker.maybe_unlink(filename, "file")
-        JOBLIB_MMAPS.clear()
-        try:
-            delete_folder(self._temp_folder, allow_non_empty=False)
-        except OSError:
-            pass
+        if os.path.exists(self._temp_folder):
+            for filename in os.listdir(self._temp_folder):
+                resource_tracker.maybe_unlink(
+                    os.path.join(self._temp_folder, filename), "file"
+                )
+            JOBLIB_MMAPS.clear()
+            try:
+                delete_folder(self._temp_folder, allow_non_empty=False)
+            except OSError:
+                pass

@@ -50,10 +50,10 @@ SYSTEM_SHARED_MEM_FS_MIN_SIZE = int(2e9)
 FOLDER_PERMISSIONS = stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR
 FILE_PERMISSIONS = stat.S_IRUSR | stat.S_IWUSR
 
-# Set referencing the filenames of temporary memmaps created by joblib to speed
-# up data communication between workers. This object need not be specific to a
-# Parallel object unless we decide to support the case of calling several
-# Parallel object run in different threads of a same process.
+# Set used in joblib workers, referencing the filenames of temporary memmaps
+# created by joblib to speed up data communication. In child processes, we add
+# a finalizer to these memmaps that sends a maybe_unlink call to the
+# resource_tracker, in order to free main memory as fast as possible.
 JOBLIB_MMAPS = set()
 
 JOBLIB_MMAPS_FINALIZERS = []
@@ -265,13 +265,6 @@ def _reduce_memmap_backed(a, m):
         strides = a.strides
         total_buffer_len = (a_end - a_start) // a.itemsize
 
-    if m.filename in JOBLIB_MMAPS:
-        # We are trying to pickle a np.memmap object created by joblib, in a
-        # branch that only happens in child processes: in this case, serialize
-        # the memmap as a numpy array: a finalizer should then deleted the
-        # associated memmap.
-        return (loads, (dumps(np.asarray(a), protocol=HIGHEST_PROTOCOL),))
-
     return (_strided_from_memmap,
             (m.filename, a.dtype, m.mode, offset, order, a.shape, strides,
              total_buffer_len, False))
@@ -291,7 +284,24 @@ def reduce_memmap(a):
         return (loads, (dumps(np.asarray(a), protocol=HIGHEST_PROTOCOL),))
 
 
-class ArrayMemmapReducer(object):
+def reduce_memmap_backward(a):
+    """reduce a np.array or a np.memmap from a child process"""
+    m = _get_backing_memmap(a)
+    if isinstance(m, np.memmap) and m.filename not in JOBLIB_MMAPS:
+        # if a is backed by a memmaped file, reconstruct a using the
+        # memmaped file.
+        return _reduce_memmap_backed(a, m)
+    else:
+        # We are trying to pickle a regular np.ndarray, or a np.memmap
+        # object created by joblib from a child process: in this case,
+        # serialize the memmap as a numpy array: a finalizer should then
+        # delete the associated memmap.
+        return (
+            loads, (dumps(np.asarray(a), protocol=HIGHEST_PROTOCOL), )
+        )
+
+
+class ArrayMemmapForwardReducer(object):
     """Reducer callable to dump large arrays to memmap files.
 
     Parameters
@@ -323,12 +333,13 @@ class ArrayMemmapReducer(object):
         self.verbose = int(verbose)
         self._prewarm = prewarm
         self._memmaped_arrays = _WeakArrayKeyMap()
+        self._temporary_memmaped_filenames = set()
         self._track_memmap_in_child = track_memmap_in_child
 
     def __reduce__(self):
-        # The ArrayMemmapReducer is passed to the children processes: it needs
-        # to be pickled but the _WeakArrayKeyMap need to be skipped as it's
-        # only guaranteed to be consistent with the parent process memory
+        # The ArrayMemmapForwardReducer is passed to the children processes: it
+        # needs to be pickled but the _WeakArrayKeyMap need to be skipped as
+        # it's only guaranteed to be consistent with the parent process memory
         # garbage collection.
         args = (self._max_nbytes, self._temp_folder, self._mmap_mode,
                 self._track_memmap_in_child)
@@ -336,7 +347,7 @@ class ArrayMemmapReducer(object):
             'verbose': self.verbose,
             'prewarm': self._prewarm,
         }
-        return ArrayMemmapReducer, args, kwargs
+        return ArrayMemmapForwardReducer, args, kwargs
 
     def __call__(self, a):
         m = _get_backing_memmap(a)
@@ -370,10 +381,10 @@ class ArrayMemmapReducer(object):
             # In case the same array with the same content is passed several
             # times to the pool subprocess children, serialize it only once
 
-            is_new_memmap = filename not in JOBLIB_MMAPS
+            is_new_memmap = filename not in self._temporary_memmaped_filenames
 
             # add the memmap to the list of temporary memmaps created by joblib
-            JOBLIB_MMAPS.add(filename)
+            self._temporary_memmaped_filenames.add(filename)
 
             if self._track_memmap_in_child:
                 # Bump reference count of the memmap by 1 to account for
@@ -490,19 +501,17 @@ def get_memmapping_reducers(
         # arrays over the max_nbytes threshold
         if prewarm == "auto":
             prewarm = not use_shared_mem
-        forward_reduce_ndarray = ArrayMemmapReducer(
+        forward_reduce_ndarray = ArrayMemmapForwardReducer(
             max_nbytes, pool_folder, mmap_mode, track_memmap_in_child, verbose,
             prewarm=prewarm)
         forward_reducers[np.ndarray] = forward_reduce_ndarray
-        forward_reducers[np.memmap] = reduce_memmap
+        forward_reducers[np.memmap] = forward_reduce_ndarray
 
         # Communication from child process to the parent process always
         # pickles in-memory numpy.ndarray without dumping them as memmap
         # to avoid confusing the caller and make it tricky to collect the
         # temporary folder
-        backward_reduce_ndarray = ArrayMemmapReducer(
-            None, pool_folder, mmap_mode, track_memmap_in_child, verbose)
-        backward_reducers[np.ndarray] = backward_reduce_ndarray
-        backward_reducers[np.memmap] = reduce_memmap
+        backward_reducers[np.ndarray] = reduce_memmap_backward
+        backward_reducers[np.memmap] = reduce_memmap_backward
 
     return forward_reducers, backward_reducers, pool_folder
