@@ -12,7 +12,6 @@ from abc import ABCMeta, abstractmethod
 
 from .my_exceptions import WorkerInterrupt
 from ._multiprocessing_helpers import mp
-from ._memmapping_reducer import JOBLIB_MMAPS
 from .externals.loky.backend import resource_tracker
 if mp is not None:
     from .disk import delete_folder
