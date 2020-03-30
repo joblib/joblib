@@ -29,7 +29,7 @@ from pickle import Pickler
 from pickle import HIGHEST_PROTOCOL
 from io import BytesIO
 
-from ._memmapping_reducer import get_memmapping_reducers, JOBLIB_MMAPS
+from ._memmapping_reducer import get_memmapping_reducers
 from ._multiprocessing_helpers import mp, assert_spawning
 from .externals.loky.backend import resource_tracker
 from .disk import delete_folder
@@ -331,7 +331,6 @@ class MemmappingPool(PicklingPool):
                 resource_tracker.maybe_unlink(
                     os.path.join(self._temp_folder, filename), "file"
                 )
-            JOBLIB_MMAPS.clear()
             try:
                 delete_folder(self._temp_folder, allow_non_empty=False)
             except OSError:
