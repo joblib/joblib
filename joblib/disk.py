@@ -122,7 +122,10 @@ def delete_folder(folder_path, onerror=None, allow_non_empty=True):
                             "Sucessfully deleted {}".format(folder_path))
                         break
                     else:
-                        raise OSError
+                        raise OSError(
+                            "Expected empty folder {} but got {} "
+                            "files.".format(folder_path, len(files))
+                        )
                 except (OSError, WindowsError):
                     err_count += 1
                     if err_count > RM_SUBDIRS_N_RETRY:
