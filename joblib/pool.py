@@ -14,7 +14,6 @@ that uses a custom alternative to SimpleQueue.
 # License: BSD 3 clause
 
 import copyreg
-import os
 import sys
 import warnings
 from time import sleep
@@ -30,9 +29,8 @@ from pickle import HIGHEST_PROTOCOL
 from io import BytesIO
 
 from ._memmapping_reducer import get_memmapping_reducers
+from ._memmapping_reducer import TemporaryResourcesManagerMixin
 from ._multiprocessing_helpers import mp, assert_spawning
-from .externals.loky.backend import resource_tracker
-from .disk import delete_folder
 
 # We need the class definition to derive from it, not the multiprocessing.Pool
 # factory function
@@ -216,7 +214,7 @@ class PicklingPool(Pool):
         self._quick_get = self._outqueue._recv
 
 
-class MemmappingPool(PicklingPool):
+class MemmappingPool(PicklingPool, TemporaryResourcesManagerMixin):
     """Process pool that shares large arrays to avoid memory copy.
 
     This drop-in replacement for `multiprocessing.pool.Pool` makes
@@ -326,12 +324,4 @@ class MemmappingPool(PicklingPool):
                     if i + 1 == n_retries:
                         warnings.warn("Failed to terminate worker processes in"
                                       " multiprocessing pool: %r" % e)
-        if os.path.exists(self._temp_folder):
-            for filename in os.listdir(self._temp_folder):
-                resource_tracker.maybe_unlink(
-                    os.path.join(self._temp_folder, filename), "file"
-                )
-            try:
-                delete_folder(self._temp_folder, allow_non_empty=False)
-            except OSError:
-                pass
+        self._unlink_temporary_resources()

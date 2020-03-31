@@ -12,10 +12,10 @@ from abc import ABCMeta, abstractmethod
 
 from .my_exceptions import WorkerInterrupt
 from ._multiprocessing_helpers import mp
-from .externals.loky.backend import resource_tracker
+
 if mp is not None:
-    from .disk import delete_folder
     from .pool import MemmappingPool
+    from ._memmapping_reducer import TemporaryResourcesManagerMixin
     from multiprocessing.pool import ThreadPool
     from .executor import get_memmapping_executor
 
@@ -495,7 +495,8 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
         self.reset_batch_stats()
 
 
-class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
+class LokyBackend(AutoBatchingMixin, ParallelBackendBase,
+                  TemporaryResourcesManagerMixin):
     """Managing pool of workers with loky instead of multiprocessing."""
 
     supports_timeout = True
@@ -513,6 +514,7 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
             n_jobs, timeout=idle_worker_timeout,
             env=self._prepare_worker_env(n_jobs=n_jobs),
             **memmappingexecutor_args)
+        self._temp_folder = self._workers._temp_folder
         self.parallel = parallel
         return n_jobs
 
@@ -563,27 +565,7 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
 
     def terminate(self):
         if self._workers is not None:
-            # Trigger the collection of temporary shared memory created to by
-            # joblib by signaling the resource_tracker we don't need it
-            # anymore.
-            if os.path.exists(self._workers._temp_folder):
-                for filename in os.listdir(self._workers._temp_folder):
-                    resource_tracker.maybe_unlink(
-                        os.path.join(self._workers._temp_folder, filename),
-                        "file"
-                    )
-
-            # XXX: calling shutil.rmtree inside delete_folder is likely to
-            # cause a race condition with the lines above.
-            try:
-                delete_folder(self._workers._temp_folder,
-                              allow_non_empty=False)
-            except OSError:
-                # Temporary folder cannot be deleted right now. No need to
-                # handle it though, as this folder will be cleaned up by an
-                # atexit finalizer registered by the memmapping_reducer.
-                pass
-
+            self._unlink_temporary_resources()
 
             # Terminate does not shutdown the workers as we want to reuse them
             # in latter calls
@@ -595,19 +577,15 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
         """Shutdown the workers and restart a new one with the same parameters
         """
         self._workers.shutdown(kill_workers=True)
-
-        # All temporary files have been deleted -- unregister the temporary
-        # files from the resource_tracker refcount tables.
-        if os.path.exists(self._workers._temp_folder):
-            for filename in os.listdir(self._workers._temp_folder):
-                resource_tracker.unregister(
-                    os.path.join(self._workers._temp_folder, filename), "file"
-                )
-
-        # The folder can be safely deleted without risk of PermissionError in
-        # Windows as all workers were killed.
-        delete_folder(self._workers._temp_folder, allow_non_empty=True)
-
+        # When workers are killed in such a brutal manner, they cannot execute
+        # the finalizer of their shared memmaps. The refcount of those memmaps
+        # may be off by an unknown number, so insted of decref'ing them, we
+        # delete the whole temporary folder, and unregister them. There is no
+        # risk of PermissionError at folder deletion because because at this
+        # point, all child processes are dead, so all references
+        # to temporary memmaps are closed.
+        self._unregister_temporary_resources()
+        self._try_delete_folder()
         self._workers = None
 
         if ensure_ready:

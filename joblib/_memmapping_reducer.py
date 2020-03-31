@@ -515,3 +515,33 @@ def get_memmapping_reducers(
         backward_reducers[np.memmap] = reduce_memmap_backward
 
     return forward_reducers, backward_reducers, pool_folder
+
+
+class TemporaryResourcesManagerMixin(object):
+    def _unlink_temporary_resources(self):
+        """Unlink temporary resources created by a process-based pool"""
+        if os.path.exists(self._temp_folder):
+            for filename in os.listdir(self._temp_folder):
+                resource_tracker.maybe_unlink(
+                    os.path.join(self._temp_folder, filename), "file"
+                )
+            # XXX: calling shutil.rmtree inside delete_folder is likely to
+            # cause a race condition with the lines above.
+            self._try_delete_folder()
+
+    def _unregister_temporary_resources(self):
+        """Unregister temporary resources created by a process-based pool"""
+        if os.path.exists(self._temp_folder):
+            for filename in os.listdir(self._temp_folder):
+                resource_tracker.unregister(
+                    os.path.join(self._temp_folder, filename), "file"
+                )
+
+    def _try_delete_folder(self):
+        try:
+            delete_folder(self._temp_folder, allow_non_empty=False)
+        except OSError:
+            # Temporary folder cannot be deleted right now. No need to
+            # handle it though, as this folder will be cleaned up by an
+            # atexit finalizer registered by the memmapping_reducer.
+            pass

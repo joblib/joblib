@@ -8,12 +8,10 @@ copy between the parent and child processes.
 # Copyright: 2017, Thomas Moreau
 # License: BSD 3 clause
 
-import os
 import random
 from ._memmapping_reducer import get_memmapping_reducers
+from ._memmapping_reducer import TemporaryResourcesManagerMixin
 from .externals.loky.reusable_executor import get_reusable_executor
-from .externals.loky.backend import resource_tracker
-from .disk import delete_folder
 
 
 _executor_args = None
@@ -50,7 +48,7 @@ def get_memmapping_executor(n_jobs, timeout=300, initializer=None, initargs=(),
     return _executor
 
 
-class _TestingMemmappingExecutor():
+class _TestingMemmappingExecutor(TemporaryResourcesManagerMixin):
     """Wrapper around ReusableExecutor to ease memmapping testing with Pool
     and Executor. This is only for testing purposes.
     """
@@ -66,15 +64,7 @@ class _TestingMemmappingExecutor():
 
     def terminate(self):
         self._executor.shutdown()
-        if os.path.exists(self._temp_folder):
-            for filename in os.listdir(self._temp_folder):
-                resource_tracker.maybe_unlink(
-                    os.path.join(self._temp_folder, filename), "file"
-                )
-            try:
-                delete_folder(self._temp_folder, allow_non_empty=False)
-            except OSError:
-                pass
+        self._unlink_temporary_resources()
 
     def map(self, f, *args):
         res = self._executor.map(f, *args)
