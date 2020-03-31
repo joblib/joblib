@@ -23,6 +23,8 @@ if mp is not None:
     from multiprocessing import TimeoutError
     from .externals.loky._base import TimeoutError as LokyTimeoutError
     from .externals.loky import process_executor, cpu_count
+else:
+    TemporaryResourcesManagerMixin = object
 
 
 class ParallelBackendBase(metaclass=ABCMeta):
