@@ -282,10 +282,12 @@ def reduce_array_memmap_backward(a):
         # memmaped file.
         return _reduce_memmap_backed(a, m)
     else:
-        # We are trying to pickle a regular np.ndarray, or a np.memmap
-        # object created by joblib from a child process: in this case,
-        # serialize the memmap as a numpy array: a finalizer should then
-        # delete the associated memmap.
+        # a is either a regular (not memmap-backed) numpy array, or an array
+        # backed by a shared temporary file created by joblib. In the latter
+        # case, in order to limit the lifespan of these temporary files, we
+        # serialize the memmap as a regular numpy array, and decref the
+        # file backing the memmap (done implicitly in a previously registered
+        # finalizer, see ``unlink_on_gc_collect`` for more details)
         return (
             loads, (dumps(np.asarray(a), protocol=HIGHEST_PROTOCOL), )
         )
