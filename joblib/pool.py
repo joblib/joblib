@@ -301,7 +301,7 @@ class MemmappingPool(PicklingPool, TemporaryResourcesManagerMixin):
                 id(self), temp_folder=temp_folder, max_nbytes=max_nbytes,
                 mmap_mode=mmap_mode, forward_reducers=forward_reducers,
                 backward_reducers=backward_reducers, verbose=verbose,
-                track_memmap_in_child=False, prewarm=prewarm)
+                unlink_on_gc_collect=False, prewarm=prewarm)
 
         poolargs = dict(
             processes=processes,

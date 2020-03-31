@@ -519,11 +519,11 @@ def _unpickle(fobj, filename="", mmap_mode=None):
     return obj
 
 
-def load_temporary_memmap(filename, mmap_mode, track):
+def load_temporary_memmap(filename, mmap_mode, unlink_on_gc_collect):
     from ._memmapping_reducer import JOBLIB_MMAPS, add_maybe_unlink_finalizer
     obj = load(filename, mmap_mode)
     JOBLIB_MMAPS.add(obj.filename)
-    if track:
+    if unlink_on_gc_collect:
         add_maybe_unlink_finalizer(obj)
     return obj
 

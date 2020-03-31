@@ -205,12 +205,13 @@ def test__strided_from_memmap(tmpdir):
     memmap_obj = _strided_from_memmap(fname, dtype='uint8', mode='r',
                                       offset=offset, order='C', shape=size,
                                       strides=None, total_buffer_len=None,
-                                      track=False)
+                                      unlink_on_gc_collect=False)
     assert isinstance(memmap_obj, np.memmap)
     assert memmap_obj.offset == offset
     memmap_backed_obj = _strided_from_memmap(
         fname, dtype='uint8', mode='r', offset=offset, order='C',
-        shape=(size // 2,), strides=(2,), total_buffer_len=size, track=False
+        shape=(size // 2,), strides=(2,), total_buffer_len=size,
+        unlink_on_gc_collect=False
     )
     assert _get_backing_memmap(memmap_backed_obj).offset == offset
 

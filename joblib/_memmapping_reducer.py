@@ -213,7 +213,7 @@ def has_shareable_memory(a):
 
 
 def _strided_from_memmap(filename, dtype, mode, offset, order, shape, strides,
-                         total_buffer_len, track):
+                         total_buffer_len, unlink_on_gc_collect):
     """Reconstruct an array view on a memory mapped file."""
     if mode == 'w+':
         # Do not zero the original data when unpickling
@@ -221,13 +221,17 @@ def _strided_from_memmap(filename, dtype, mode, offset, order, shape, strides,
 
     if strides is None:
         # Simple, contiguous memmap
-        return make_memmap(filename, dtype=dtype, shape=shape, mode=mode,
-                           offset=offset, order=order, track=track)
+        return make_memmap(
+            filename, dtype=dtype, shape=shape, mode=mode, offset=offset,
+            order=order, unlink_on_gc_collect=unlink_on_gc_collect
+        )
     else:
         # For non-contiguous data, memmap the total enclosing buffer and then
         # extract the non-contiguous view with the stride-tricks API
-        base = make_memmap(filename, dtype=dtype, shape=total_buffer_len,
-                           mode=mode, offset=offset, order=order, track=track)
+        base = make_memmap(
+            filename, dtype=dtype, shape=total_buffer_len, offset=offset,
+            mode=mode, order=order, unlink_on_gc_collect=unlink_on_gc_collect
+        )
         return as_strided(base, shape=shape, strides=strides)
 
 
@@ -326,7 +330,7 @@ class ArrayMemmapForwardReducer(object):
     """
 
     def __init__(self, max_nbytes, temp_folder, mmap_mode,
-                 track_memmap_in_child, verbose=0, prewarm=True):
+                 unlink_on_gc_collect, verbose=0, prewarm=True):
         self._max_nbytes = max_nbytes
         self._temp_folder = temp_folder
         self._mmap_mode = mmap_mode
@@ -334,7 +338,7 @@ class ArrayMemmapForwardReducer(object):
         self._prewarm = prewarm
         self._memmaped_arrays = _WeakArrayKeyMap()
         self._temporary_memmaped_filenames = set()
-        self._track_memmap_in_child = track_memmap_in_child
+        self._unlink_on_gc_collect = unlink_on_gc_collect
 
     def __reduce__(self):
         # The ArrayMemmapForwardReducer is passed to the children processes: it
@@ -342,7 +346,7 @@ class ArrayMemmapForwardReducer(object):
         # it's only guaranteed to be consistent with the parent process memory
         # garbage collection.
         args = (self._max_nbytes, self._temp_folder, self._mmap_mode,
-                self._track_memmap_in_child)
+                self._unlink_on_gc_collect)
         kwargs = {
             'verbose': self.verbose,
             'prewarm': self._prewarm,
@@ -386,7 +390,7 @@ class ArrayMemmapForwardReducer(object):
             # add the memmap to the list of temporary memmaps created by joblib
             self._temporary_memmaped_filenames.add(filename)
 
-            if self._track_memmap_in_child:
+            if self._unlink_on_gc_collect:
                 # Bump reference count of the memmap by 1 to account for
                 # shared usage of the memmap by a child process. The
                 # corresponding decref call will be executed upon calling
@@ -433,7 +437,7 @@ class ArrayMemmapForwardReducer(object):
             # The worker process will use joblib.load to memmap the data
             return (
                 (load_temporary_memmap, (filename, self._mmap_mode,
-                                         self._track_memmap_in_child))
+                                         self._unlink_on_gc_collect))
             )
         else:
             # do not convert a into memmap, let pickler do its usual copy with
@@ -447,7 +451,7 @@ class ArrayMemmapForwardReducer(object):
 def get_memmapping_reducers(
         pool_id, forward_reducers=None, backward_reducers=None,
         temp_folder=None, max_nbytes=1e6, mmap_mode='r', verbose=0,
-        prewarm=False, track_memmap_in_child=True, **kwargs):
+        prewarm=False, unlink_on_gc_collect=True, **kwargs):
     """Construct a pair of memmapping reducer linked to a tmpdir.
 
     This function manage the creation and the clean up of the temporary folders
@@ -502,7 +506,7 @@ def get_memmapping_reducers(
         if prewarm == "auto":
             prewarm = not use_shared_mem
         forward_reduce_ndarray = ArrayMemmapForwardReducer(
-            max_nbytes, pool_folder, mmap_mode, track_memmap_in_child, verbose,
+            max_nbytes, pool_folder, mmap_mode, unlink_on_gc_collect, verbose,
             prewarm=prewarm)
         forward_reducers[np.ndarray] = forward_reduce_ndarray
         forward_reducers[np.memmap] = forward_reduce_ndarray
