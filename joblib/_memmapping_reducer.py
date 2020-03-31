@@ -274,21 +274,7 @@ def _reduce_memmap_backed(a, m):
              total_buffer_len, False))
 
 
-def reduce_memmap(a):
-    """Pickle the descriptors of a memmap instance to reopen on same file."""
-    m = _get_backing_memmap(a)
-    if m is not None:
-        # m is a real mmap backed memmap instance, reduce a preserving striding
-        # information
-        return _reduce_memmap_backed(a, m)
-    else:
-        # This memmap instance is actually backed by a regular in-memory
-        # buffer: this can happen when using binary operators on numpy.memmap
-        # instances
-        return (loads, (dumps(np.asarray(a), protocol=HIGHEST_PROTOCOL),))
-
-
-def reduce_memmap_backward(a):
+def reduce_array_memmap_backward(a):
     """reduce a np.array or a np.memmap from a child process"""
     m = _get_backing_memmap(a)
     if isinstance(m, np.memmap) and m.filename not in JOBLIB_MMAPS:
@@ -515,8 +501,8 @@ def get_memmapping_reducers(
         # pickles in-memory numpy.ndarray without dumping them as memmap
         # to avoid confusing the caller and make it tricky to collect the
         # temporary folder
-        backward_reducers[np.ndarray] = reduce_memmap_backward
-        backward_reducers[np.memmap] = reduce_memmap_backward
+        backward_reducers[np.ndarray] = reduce_array_memmap_backward
+        backward_reducers[np.memmap] = reduce_array_memmap_backward
 
     return forward_reducers, backward_reducers, pool_folder
 

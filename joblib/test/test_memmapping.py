@@ -20,7 +20,6 @@ from joblib.pool import MemmappingPool
 from joblib.executor import _TestingMemmappingExecutor
 from joblib._memmapping_reducer import has_shareable_memory
 from joblib._memmapping_reducer import ArrayMemmapForwardReducer
-from joblib._memmapping_reducer import reduce_memmap
 from joblib._memmapping_reducer import _strided_from_memmap
 from joblib._memmapping_reducer import _get_temp_dir
 from joblib._memmapping_reducer import _WeakArrayKeyMap
@@ -100,32 +99,28 @@ def test_memmap_based_array_reducing(tmpdir):
     # Array reducer with auto dumping disabled
     reducer = ArrayMemmapForwardReducer(None, tmpdir.strpath, 'c', True)
 
-    def reconstruct_array(x):
+    def reconstruct_array_or_memmap(x):
         cons, args = reducer(x)
         return cons(*args)
 
-    def reconstruct_memmap(x):
-        cons, args = reduce_memmap(x)
-        return cons(*args)
-
     # Reconstruct original memmap
-    a_reconstructed = reconstruct_memmap(a)
+    a_reconstructed = reconstruct_array_or_memmap(a)
     assert has_shareable_memory(a_reconstructed)
     assert isinstance(a_reconstructed, np.memmap)
     assert_array_equal(a_reconstructed, a)
 
     # Reconstruct strided memmap view
-    b_reconstructed = reconstruct_memmap(b)
+    b_reconstructed = reconstruct_array_or_memmap(b)
     assert has_shareable_memory(b_reconstructed)
     assert_array_equal(b_reconstructed, b)
 
     # Reconstruct arrays views on memmap base
-    c_reconstructed = reconstruct_array(c)
+    c_reconstructed = reconstruct_array_or_memmap(c)
     assert not isinstance(c_reconstructed, np.memmap)
     assert has_shareable_memory(c_reconstructed)
     assert_array_equal(c_reconstructed, c)
 
-    d_reconstructed = reconstruct_array(d)
+    d_reconstructed = reconstruct_array_or_memmap(d)
     assert not isinstance(d_reconstructed, np.memmap)
     assert has_shareable_memory(d_reconstructed)
     assert_array_equal(d_reconstructed, d)
@@ -134,7 +129,7 @@ def test_memmap_based_array_reducing(tmpdir):
     # buffers
     a3 = a * 3
     assert not has_shareable_memory(a3)
-    a3_reconstructed = reconstruct_memmap(a3)
+    a3_reconstructed = reconstruct_array_or_memmap(a3)
     assert not has_shareable_memory(a3_reconstructed)
     assert not isinstance(a3_reconstructed, np.memmap)
     assert_array_equal(a3_reconstructed, a * 3)
@@ -143,7 +138,7 @@ def test_memmap_based_array_reducing(tmpdir):
     b3 = np.asarray(a3)
     assert not has_shareable_memory(b3)
 
-    b3_reconstructed = reconstruct_array(b3)
+    b3_reconstructed = reconstruct_array_or_memmap(b3)
     assert isinstance(b3_reconstructed, np.ndarray)
     assert not has_shareable_memory(b3_reconstructed)
     assert_array_equal(b3_reconstructed, b3)
@@ -167,29 +162,31 @@ def test_high_dimension_memmap_array_reducing(tmpdir):
     d = a[:, :, :, 0]
     e = a[1:3:4]
 
-    def reconstruct_memmap(x):
-        cons, args = reduce_memmap(x)
-        res = cons(*args)
-        return res
+    # Array reducer with auto dumping disabled
+    reducer = ArrayMemmapForwardReducer(None, tmpdir.strpath, 'c', True)
 
-    a_reconstructed = reconstruct_memmap(a)
+    def reconstruct_array_or_memmap(x):
+        cons, args = reducer(x)
+        return cons(*args)
+
+    a_reconstructed = reconstruct_array_or_memmap(a)
     assert has_shareable_memory(a_reconstructed)
     assert isinstance(a_reconstructed, np.memmap)
     assert_array_equal(a_reconstructed, a)
 
-    b_reconstructed = reconstruct_memmap(b)
+    b_reconstructed = reconstruct_array_or_memmap(b)
     assert has_shareable_memory(b_reconstructed)
     assert_array_equal(b_reconstructed, b)
 
-    c_reconstructed = reconstruct_memmap(c)
+    c_reconstructed = reconstruct_array_or_memmap(c)
     assert has_shareable_memory(c_reconstructed)
     assert_array_equal(c_reconstructed, c)
 
-    d_reconstructed = reconstruct_memmap(d)
+    d_reconstructed = reconstruct_array_or_memmap(d)
     assert has_shareable_memory(d_reconstructed)
     assert_array_equal(d_reconstructed, d)
 
-    e_reconstructed = reconstruct_memmap(e)
+    e_reconstructed = reconstruct_array_or_memmap(e)
     assert has_shareable_memory(e_reconstructed)
     assert_array_equal(e_reconstructed, e)
 
