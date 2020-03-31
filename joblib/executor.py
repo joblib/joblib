@@ -10,7 +10,7 @@ copy between the parent and child processes.
 
 import os
 import random
-from ._memmapping_reducer import get_memmapping_reducers, JOBLIB_MMAPS
+from ._memmapping_reducer import get_memmapping_reducers
 from .externals.loky.reusable_executor import get_reusable_executor
 from .externals.loky.backend import resource_tracker
 from .disk import delete_folder
@@ -71,7 +71,6 @@ class _TestingMemmappingExecutor():
                 resource_tracker.maybe_unlink(
                     os.path.join(self._temp_folder, filename), "file"
                 )
-            JOBLIB_MMAPS.clear()
             try:
                 delete_folder(self._temp_folder, allow_non_empty=False)
             except OSError:
