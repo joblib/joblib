@@ -355,13 +355,13 @@ def test_permission_error_windows_memmap_sent_to_parent(backend):
         import numpy as np
 
         from joblib import Parallel, delayed
-        from testutils import test_data
+        from testutils import return_slice_of_data
 
         data = np.ones(int(2e6))
 
         if __name__ == '__main__':
             slice_of_data = Parallel(n_jobs=2, verbose=5, backend='{b}')(
-                delayed(test_data)(data) for _ in range(10))
+                delayed(return_slice_of_data)(data, 0, 20) for _ in range(10))
     '''.format(b=backend)
 
     env = os.environ.copy()

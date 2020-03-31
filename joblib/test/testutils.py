@@ -1,5 +1,5 @@
-def test_data(arr):
-    return arr[0:20]
+def return_slice_of_data(arr, start_idx, end_idx):
+    return arr[start_idx:end_idx]
 
 
 def print_filename_and_raise(arr):
