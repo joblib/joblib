@@ -115,7 +115,9 @@ def delete_folder(folder_path, onerror=None, allow_non_empty=True):
                 files = os.listdir(folder_path)
                 try:
                     if len(files) == 0 or allow_non_empty:
-                        shutil.rmtree(folder_path, False, None)
+                        shutil.rmtree(
+                            folder_path, ignore_errors=False, onerror=None
+                        )
                         util.debug(
                             "Sucessfully deleted {}".format(folder_path))
                         break
