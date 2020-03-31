@@ -394,8 +394,9 @@ class ArrayMemmapForwardReducer(object):
             if is_new_memmap:
                 # Incref each temporary memmap created by joblib one extra
                 # time.  This means that these memmaps will only be deleted
-                # once an extra maybe_unlink() is called, which is done when a
-                # Parallel object returns
+                # once an extra maybe_unlink() is called, which is done once
+                # all the jobs have completed (or been canceled) in the
+                # Parallel._terminate_backend() method.
                 resource_tracker.register(filename, "file")
 
             if not os.path.exists(filename):
