@@ -491,6 +491,14 @@ def test_memmapping_pool_for_large_arrays(factory, tmpdir):
 @with_numpy
 @parametrize("backend", ["multiprocessing", "loky"])
 def test_child_raises_no_resources_leaked(backend):
+    # When a task executed by a child process raises an error, the parent
+    # process's backend is notified, and calls abort_everything.
+    # In loky, abort_everything itself calls shutdown(kill_workers=True) which
+    # sends SIGKILL to the worker, preventing it from running the finalizers
+    # supposed to signal the resource_tracker when the worker is done using
+    # objects relying on a shared resource (e.g np.memmaps). Because this
+    # behavior is prone to cause a resource leak, we explicitly test that no
+    # resources are actually leaked when the said situation occurs.
     cmd = """if 1:
         import numpy as np
         from joblib import Parallel, delayed
