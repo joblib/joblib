@@ -372,6 +372,7 @@ def test_permission_error_windows_memmap_sent_to_parent(backend):
     p.wait()
     out, err = p.communicate()
     assert p.returncode == 0, err
+    assert out == b''
     if sys.version_info[:3] not in [(3, 8, 0), (3, 8, 1)]:
         # In early versions of Python 3.8, a reference leak
         # https://github.com/cloudpipe/cloudpickle/issues/327, holds references
