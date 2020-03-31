@@ -14,11 +14,17 @@ try:
 
     def make_memmap(filename, dtype='uint8', mode='r+', offset=0,
                     shape=None, order='C', unlink_on_gc_collect=False):
-        """Backport of numpy memmap offset fix.
+        """Custom memmap constructor compatible with numpy.memmap.
 
-        See https://github.com/numpy/numpy/pull/8443 for more details.
-
-        The numpy fix will be available in numpy 1.13.
+        This function:
+        - is a backport the numpy memmap offset fix (See
+          https://github.com/numpy/numpy/pull/8443 for more details.
+          The numpy fix is available starting numpy 1.13)
+        - adds ``unlink_on_gc_collect``, which specifies  explicitly whether
+          the process re-constructing the memmap owns a reference to the
+          underlying file. If set to True, it adds a finalizer to the
+          newly-created memmap that sends a maybe_unlink request for the
+          memmaped file to resource_tracker.
         """
         util.debug(
             "[MEMMAP READ] creating a memmap (shape {}, filename {}, "
