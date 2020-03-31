@@ -41,8 +41,8 @@ def get_memmapping_executor(n_jobs, timeout=300, initializer=None, initargs=(),
                                       initializer=initializer,
                                       initargs=initargs, env=env)
     # If executor doesn't have a _temp_folder, it means it is a new executor
-    # and the reducers have been used. Else, the previous reducers are used
-    # and we should not change this attibute.
+    # and the reducers have not been used. Else, the previous reducers are used
+    # and we should not change this attribute.
     if not hasattr(_executor, "_temp_folder"):
         _executor._temp_folder = temp_folder
     return _executor
