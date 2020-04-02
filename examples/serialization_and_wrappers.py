@@ -20,13 +20,6 @@ from joblib import Parallel, delayed
 from joblib import wrap_non_picklable_objects
 
 
-# The followings are hacks to allow sphinx-gallery to run the example.
-import os
-sys.path.insert(0, os.getcwd())
-main_dir = os.path.basename(sys.modules['__main__'].__file__)
-IS_RUN_WITH_SPHINX_GALLERY = main_dir != os.getcwd()
-
-
 ###############################################################################
 # First, define functions which cannot be pickled with the standard ``pickle``
 # protocol. They cannot be serialized with ``pickle`` because they are defined
@@ -69,14 +62,8 @@ print("With loky backend and cloudpickle serialization: {:.3f}s"
 #
 
 if sys.platform != 'win32':
-    if IS_RUN_WITH_SPHINX_GALLERY:
-        # When this example is run with sphinx gallery, it breaks the pickling
-        # capacity for multiprocessing backend so we have to modify the way we
-        # define our functions. This has nothing to do with the example.
-        from utils import func_async
-    else:
-        def func_async(i, *args):
-            return 2 * i
+    def func_async(i, *args):
+        return 2 * i
 
     with parallel_backend('multiprocessing'):
         t_start = time.time()
