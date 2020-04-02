@@ -53,7 +53,7 @@ if [[ "$COVERAGE" == "true" ]]; then
     PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES coverage==4.5.4 pytest-cov codecov"
 fi
 
-if [[ "2.7 3.4 pypy3" != *"$PYTHON_VERSION"* ]]; then
+if [[ "pypy3" != *"$PYTHON_VERSION"* ]]; then
     # threadpoolctl is only available for python 3.5+.
     PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES threadpoolctl"
 fi
