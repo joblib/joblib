@@ -45,41 +45,18 @@ _bool = bool(1)
 typelist.append(_bool)
 _int = int(1)
 typelist.append(_int)
-try:
-    _long = long(1)
-    typelist.append(_long)
-except NameError:
-    # long is not defined in python 3
-    pass
 _float = float(1)
 typelist.append(_float)
 _complex = complex(1)
 typelist.append(_complex)
 _string = str(1)
 typelist.append(_string)
-try:
-    _unicode = unicode(1)
-    typelist.append(_unicode)
-except NameError:
-    # unicode is not defined in python 3
-    pass
 _tuple = ()
 typelist.append(_tuple)
 _list = []
 typelist.append(_list)
 _dict = {}
 typelist.append(_dict)
-try:
-    _file = file
-    typelist.append(_file)
-except NameError:
-    pass  # file does not exists in Python 3
-try:
-    _buffer = buffer
-    typelist.append(_buffer)
-except NameError:
-    # buffer does not exists in Python 3
-    pass
 _builtin = len
 typelist.append(_builtin)
 

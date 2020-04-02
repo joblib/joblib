@@ -204,12 +204,9 @@ def test_hash_numpy_performance():
     """
     rnd = np.random.RandomState(0)
     a = rnd.random_sample(1000000)
-    if hasattr(np, 'getbuffer'):
-        # Under python 3, there is no getbuffer
-        getbuffer = np.getbuffer
-    else:
-        getbuffer = memoryview
-    md5_hash = lambda x: hashlib.md5(getbuffer(x)).hexdigest()
+
+    def md5_hash(x):
+        return hashlib.md5(memoryview(x)).hexdigest()
 
     relative_diff = relative_time(md5_hash, hash, a)
     assert relative_diff < 0.3
@@ -426,20 +423,17 @@ def test_hashes_stay_the_same_with_numpy_objects():
     ]
 
     # These expected results have been generated with joblib 0.9.0
-    expected_dict = {
-        'py3': ['10a6afc379ca2708acfbaef0ab676eab',
-                '988a7114f337f381393025911ebc823b',
-                'c6809f4b97e35f2fa0ee8d653cbd025c',
-                'b3ad17348e32728a7eb9cda1e7ede438',
-                '927b3e6b0b6a037e8e035bda134e0b05',
-                '108f6ee98e7db19ea2006ffd208f4bf1',
-                'bd48ccaaff28e16e6badee81041b7180']
-    }
+    expected_hashes = [
+        '10a6afc379ca2708acfbaef0ab676eab',
+        '988a7114f337f381393025911ebc823b',
+        'c6809f4b97e35f2fa0ee8d653cbd025c',
+        'b3ad17348e32728a7eb9cda1e7ede438',
+        '927b3e6b0b6a037e8e035bda134e0b05',
+        '108f6ee98e7db19ea2006ffd208f4bf1',
+        'bd48ccaaff28e16e6badee81041b7180'
+    ]
 
-    py_version_str = 'py3'
-    expected_list = expected_dict[py_version_str]
-
-    for to_hash, expected in zip(to_hash_list, expected_list):
+    for to_hash, expected in zip(to_hash_list, expected_hashes):
         assert hash(to_hash) == expected
 
 
