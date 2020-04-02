@@ -212,8 +212,7 @@ class NumpyPickler(Pickler):
     fp: file
         File object handle used for serializing the input object.
     protocol: int, optional
-        Pickle protocol used. Default is pickle.DEFAULT_PROTOCOL under
-        python 3, pickle.HIGHEST_PROTOCOL otherwise.
+        Pickle protocol used. Default is pickle.DEFAULT_PROTOCOL.
     """
 
     dispatch = Pickler.dispatch.copy()
@@ -422,8 +421,6 @@ def dump(value, filename, compress=0, protocol=None, cache_size=None):
     else:
         compress_level = compress
 
-    # LZ4 compression is only supported and installation checked with
-    # python 3+.
     if compress_method == 'lz4' and lz4 is None:
         raise ValueError(LZ4_NOT_INSTALLED_ERROR)
 
