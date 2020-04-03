@@ -37,30 +37,6 @@ class JoblibException(Exception):
     __str__ = __repr__
 
 
-class TransportableException(JoblibException):
-    """An exception containing all the info to wrap an original
-        exception and recreate it.
-    """
-
-    def __init__(self, message, etype):
-        # The next line set the .args correctly. This is needed to
-        # make the exception loadable with pickle
-        JoblibException.__init__(self, message, etype)
-        self.message = message
-        self.etype = etype
-
-    def unwrap(self, context_message=""):
-        report = """\
-%s
----------------------------------------------------------------------------
-Joblib worker traceback:
----------------------------------------------------------------------------
-%s""" % (context_message, self.message)
-        # Unwrap the exception to a JoblibException
-        exception_type = _mk_exception(self.etype)[0]
-        return exception_type(report)
-
-
 class WorkerInterrupt(Exception):
     """ An exception that is not KeyboardInterrupt to allow subprocesses
         to be interrupted.

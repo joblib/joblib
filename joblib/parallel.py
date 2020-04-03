@@ -20,9 +20,7 @@ import queue
 
 from ._multiprocessing_helpers import mp
 
-from .format_stack import format_outer_frames
 from .logger import Logger, short_format_time
-from .my_exceptions import TransportableException
 from .disk import memstr_to_bytes
 from ._parallel_backends import (FallbackToBackend, MultiprocessingBackend,
                                  ThreadingBackend, SequentialBackend,
@@ -927,15 +925,7 @@ class Parallel(Logger):
                     # scheduling.
                     ensure_ready = self._managed_backend
                     backend.abort_everything(ensure_ready=ensure_ready)
-
-                if isinstance(exception, TransportableException):
-                    # Capture exception to add information on the local
-                    # stack in addition to the distant stack
-                    this_report = format_outer_frames(context=10,
-                                                      stack_start=1)
-                    raise exception.unwrap(this_report)
-                else:
-                    raise
+                raise
 
     def __call__(self, iterable):
         if self._jobs:

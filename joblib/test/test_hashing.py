@@ -24,7 +24,6 @@ from joblib.func_inspect import filter_args
 from joblib.memory import Memory
 from joblib.testing import raises, skipif, fixture, parametrize
 from joblib.test.common import np, with_numpy
-from joblib.my_exceptions import TransportableException
 
 
 def unicode(s):
@@ -346,22 +345,9 @@ def test_dtype():
                'e205227dd82250871fa25aa0ec690aa3'),
               ([random.Random(42).random() for _ in range(5)],
                'a11ffad81f9682a7d901e6edc3d16c84'),
-              ([3, 'abc', None, TransportableException('foo', ValueError)],
-              '994f663c64ba5e64b2a85ebe75287829'),
               ({'abcde': 123, 'sadfas': [-9999, 2, 3]},
                   'aeda150553d4bb5c69f0e69d51b0e2ef')])
 def test_hashes_stay_the_same(to_hash, expected):
-    if expected == "994f663c64ba5e64b2a85ebe75287829":
-        # [3, 'abc', None, TransportableException('foo', ValueError)]
-        # started to fail when distributed is installed for some unknown
-        # reason.
-        # XXX: try to debug what changed.
-        try:
-            import distributed  # noqa
-            pytest.xfail("Known failure")
-        except ImportError:
-            pass
-
     # We want to make sure that hashes don't change with joblib
     # version. For end users, that would mean that they have to
     # regenerate their cache from scratch, which potentially means
