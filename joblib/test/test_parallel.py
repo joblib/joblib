@@ -16,7 +16,6 @@ from math import sqrt
 from time import sleep
 from pickle import PicklingError
 from multiprocessing import TimeoutError
-import pickle
 import pytest
 
 from importlib import reload
