@@ -20,20 +20,15 @@ import time
 # Get some data from real-world use cases
 # ---------------------------------------
 #
-# First fetch the benchmark dataset from an online machine-learning database
-# and load it in a pandas dataframe.
+# First fetch the benchmark dataset (Street trees mapped and identified by
+# Portland Parks & Recreation's Urban Forestry division) and load it into a
+# pandas dataframe.
 
 import pandas as pd
 
-url = ("https://archive.ics.uci.edu/ml/machine-learning-databases/"
-       "kddcup99-mld/kddcup.data.gz")
-names = ("duration, protocol_type, service, flag, src_bytes, "
-         "dst_bytes, land, wrong_fragment, urgent, hot, "
-         "num_failed_logins, logged_in, num_compromised, "
-         "root_shell, su_attempted, num_root, "
-         "num_file_creations, ").split(', ')
-
-data = pd.read_csv(url, names=names, nrows=1e6)
+url = ("https://opendata.arcgis.com/datasets/83a7e3f6a1d94db09f24849ee90f4be2"
+       "_220.csv?outSR=%7B%22latestWkid%22%3A3857%2C%22wkid%22%3A102100%7D")
+data = pd.read_csv(url)
 
 ###############################################################################
 # Dump and load the dataset without compression
@@ -201,8 +196,7 @@ plt.legend((p1[0], p2[0]), ('Dump duration', 'Load duration'))
 
 ###############################################################################
 # Compared with other compressors, LZ4 is clearly the fastest, especially for
-# dumping compressed data on disk. In this particular case, it can even be
-# faster than the raw dump.
+# dumping compressed data on disk.
 # Also note that dump and load durations depend on the I/O speed of the
 # underlying storage: for example, with SSD hard drives the LZ4 compression
 # will be slightly slower than raw dump/load, whereas with spinning hard disk
