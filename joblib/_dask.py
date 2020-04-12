@@ -34,6 +34,7 @@ if distributed is not None:
     except ImportError:
         from tornado.gen import TimeoutError as _TimeoutError
 
+
 def is_weakrefable(obj):
     try:
         weakref.ref(obj)
@@ -178,12 +179,13 @@ class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         while self._continue:
             async for future, result in self.waiting_futures:
                 cf_future = self._results.pop(future)
+                callback = self._callbacks.pop(future)
                 if future.status == "error":
                     typ, exc, tb = result
                     cf_future.set_exception(exc)
                 else:
                     cf_future.set_result(result)
-                self._callbacks.pop(future)(result)
+                    callback(result)
             await asyncio.sleep(0.01)
 
     def __reduce__(self):
@@ -229,7 +231,7 @@ class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
             raise TimeoutError(error_msg)
         return sum(self.client.ncores().values())
 
-    def _to_func_args(self, func):
+    async def _to_func_args(self, func):
         collected_futures = []
         itemgetters = dict()
 
@@ -237,11 +239,12 @@ class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         # Parallel.__call__.
         call_data_futures = getattr(self, 'call_data_futures', None)
 
-        def maybe_to_futures(args):
+        async def maybe_to_futures(args):
+            out = []
             for arg in args:
                 arg_id = id(arg)
                 if arg_id in itemgetters:
-                    yield itemgetters[arg_id]
+                    out.append(itemgetters[arg_id])
                     continue
 
                 f = self.data_futures.get(arg_id, None)
@@ -255,7 +258,10 @@ class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
                             # Rely on automated inter-worker data stealing if
                             # more workers need to reuse this data
                             # concurrently.
-                            [f] = self.client.scatter([arg])
+                            [f] = await self.client.scatter(
+                                [arg],
+                                asynchronous=True
+                            )
                             call_data_futures[arg] = f
 
                 if f is not None:
@@ -263,13 +269,14 @@ class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
                     collected_futures.append(f)
                     itemgetters[arg_id] = getter
                     arg = getter
-                yield arg
+                out.append(arg)
+            return out
 
         tasks = []
         for f, args, kwargs in func.items:
-            args = list(maybe_to_futures(args))
+            args = list(await maybe_to_futures(args))
             kwargs = dict(zip(kwargs.keys(),
-                              maybe_to_futures(kwargs.values())))
+                              await maybe_to_futures(kwargs.values())))
             tasks.append((f, args, kwargs))
 
         if not collected_futures:
@@ -278,15 +285,22 @@ class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
 
     def apply_async(self, func, callback=None):
         key = '%s-batch-%s' % (_funcname(func), uuid4().hex)
-        func, args = self._to_func_args(func)
 
-        dask_future = self.client.submit(func, *args, key=key, **self.submit_kwargs)
-        self.waiting_futures.add(dask_future)
-        self._callbacks[dask_future] = callback
         cf_future = concurrent.futures.Future()
-        self._results[dask_future] = cf_future
+        cf_future.get = cf_future.result  # achieve AsyncResult API
 
-        cf_future.get = cf_future.result  # monkey patch to achieve AsyncResult API
+        async def f(func, callback):
+            func, args = await self._to_func_args(func)
+
+            dask_future = self.client.submit(
+                func, *args, key=key, **self.submit_kwargs
+            )
+            self.waiting_futures.add(dask_future)
+            self._callbacks[dask_future] = callback
+            self._results[dask_future] = cf_future
+
+        self.client.loop.add_callback(f, func, callback)
+
         return cf_future
 
     def abort_everything(self, ensure_ready=True):
