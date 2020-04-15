@@ -100,7 +100,12 @@ class Batch(object):
     def __init__(self, tasks):
         self.tasks = tasks
 
-    def __call__(self, *data):
+        # Ensure each batch is serialized into a unique bytes string.  This is
+        # necessary to prevent distributed to load Batch objects from its
+        # function cache.
+        self.__uuid = uuid4().hex
+
+    def __call__(self, *data, **kwargs):
         results = []
         with parallel_backend('dask'):
             for func, args, kwargs in self.tasks:
@@ -111,8 +116,9 @@ class Batch(object):
                 results.append(func(*args, **kwargs))
         return results
 
-    def __reduce__(self):
-        return Batch, (self.tasks,)
+    def __repr__(self):
+        func, args, kwargs = self.tasks[0]
+        return f"Batched calls containing {func}"
 
 
 def _joblib_probe_task():

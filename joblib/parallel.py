@@ -16,6 +16,7 @@ import threading
 import itertools
 from uuid import uuid4
 from numbers import Integral
+from uuid import uuid4
 import warnings
 import queue
 
@@ -244,6 +245,11 @@ class BatchedCalls(object):
             # nested backends were returned without n_jobs indications.
             self._backend, self._n_jobs = backend_and_jobs, None
         self._pickle_cache = pickle_cache if pickle_cache is not None else {}
+
+        # Ensure each batch is serialized into a unique bytes string.  This is
+        # necessary to prevent distributed to load BatchedCalls objects from
+        # its function cache.
+        self.__uuid = uuid4().hex
 
     def __call__(self):
         # Set the default nested backend to self._backend but do not set the
