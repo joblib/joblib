@@ -3,6 +3,7 @@ import os
 
 import pytest
 from random import random
+from uuid import uuid4
 from time import sleep
 
 from .. import Parallel, delayed, parallel_backend
@@ -23,6 +24,15 @@ def slow_raise_value_error(condition, duration=0.05):
     sleep(duration)
     if condition:
         raise ValueError("condition evaluated to True")
+
+
+def count_events(event_name, client):
+    worker_events = client.run(lambda dask_worker: dask_worker.log)
+    event_counts = {}
+    for w, events in worker_events.items():
+        event_counts[w] = len([event for event in list(events)
+                               if event[1] == event_name])
+    return event_counts
 
 
 def test_simple(loop):
@@ -83,6 +93,57 @@ class CountSerialized(object):
         return (CountSerialized, (self.x,))
 
 
+def test_no_undesired_distributed_cache_hit(loop):
+    # When a user asks a joblib to run f(a) under the dask backend, joblib
+    # submits to dask a BatchCalls/Batch with a __call__(self) instance that
+    # runs f(a, b).  This means that from dask's point of view,  both the
+    # function and its arguments are bundled in the caller. This design
+    # interacts badly with dask's function pickle cache: if two different
+    # arguments a1 and a2 have the same pickle representation (e.g one sklearn
+    # estimator and a ``clone``d variant of itself), then the corresponding
+    # joblib batches B1 and B2 used to have the same bytes representation,
+    # which would trigger a false positive from the distributed function cache
+    # at loading time in the dasks workers, eventually running (possibly
+    # concurrently!) twice f(a1) twice instead of f(a1) and f(a2).  We disable
+    # this behavior artificially in joblib by appending a unique UUID to each
+    # batch -- this test is a non-regression bug reproducing the aforementioned
+    # situation.
+    lists = [[] for _ in range(10)]
+    np = pytest.importorskip('numpy')
+    X = np.arange(int(1e5))
+
+    def isolated_operation(l, X=None):
+        l.append(uuid4().hex)
+        return l
+
+    # Both joblib.parallel.BatchedCalls and joblib._dask.Batch must miss the
+    # distributed cache.
+    cluster = LocalCluster(n_workers=1, threads_per_worker=2)
+    client = Client(cluster)
+    try:
+        with parallel_backend('dask') as (ba, _):
+            # dispatches joblib.parallel.BatchedCalls
+            res = Parallel()(delayed(isolated_operation)(l) for l in lists)
+
+        counts = count_events('receive-from-scatter', client)
+        assert sum(counts.values()) == 0
+        assert all([len(r) == 1 for r in res])
+
+        with parallel_backend('dask') as (ba, _):
+            # Append a large array which will be scattered by dask, and
+            # dispatch joblib._dask.Batch
+            res = Parallel()(
+                delayed(isolated_operation)(l, X=X) for l in lists
+            )
+
+        counts = count_events('receive-from-scatter', client)
+        assert sum(counts.values()) > 0
+        assert all([len(r) == 1 for r in res])
+    finally:
+        client.close()
+        cluster.close()
+
+
 def test_manual_scatter(loop):
     x = CountSerialized(1)
     y = CountSerialized(2)
@@ -118,14 +179,6 @@ def test_auto_scatter(loop):
     data1 = np.ones(int(1e4), dtype=np.uint8)
     data2 = np.ones(int(1e4), dtype=np.uint8)
     data_to_process = ([data1] * 3) + ([data2] * 3)
-
-    def count_events(event_name, client):
-        worker_events = client.run(lambda dask_worker: dask_worker.log)
-        event_counts = {}
-        for w, events in worker_events.items():
-            event_counts[w] = len([event for event in list(events)
-                                   if event[1] == event_name])
-        return event_counts
 
     with cluster() as (s, [a, b]):
         with Client(s['address'], loop=loop) as client:
