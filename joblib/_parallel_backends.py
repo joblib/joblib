@@ -278,7 +278,6 @@ class AutoBatchingMixin(object):
     def __init__(self, **kwargs):
         self._effective_batch_size = self._DEFAULT_EFFECTIVE_BATCH_SIZE
         self._smoothed_batch_duration = self._DEFAULT_SMOOTHED_BATCH_DURATION
-        super(AutoBatchingMixin, self).__init__(**kwargs)
 
     def compute_batch_size(self):
         """Determine the optimal batch size"""
@@ -480,6 +479,13 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
 
     supports_timeout = True
     supports_inner_max_num_threads = True
+
+    def __init__(self, nesting_level=None, inner_max_num_threads=None):
+        AutoBatchingMixin.__init__(self)
+        ParallelBackendBase.__init__(
+            self, nesting_level=nesting_level,
+            inner_max_num_threads=inner_max_num_threads
+        )
 
     def configure(self, n_jobs=1, parallel=None, prefer=None, require=None,
                   idle_worker_timeout=300, **memmappingexecutor_args):
