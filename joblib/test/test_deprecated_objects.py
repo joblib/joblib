@@ -19,8 +19,8 @@ def test_deprecated_joblib_exceptions(capsys):
         obj = getattr(my_exceptions, name)
         assert obj is getattr(_deprecated_my_exceptions, name)
 
-        msg = (f'UserWarning: {name} is deprecated and will be removed from '
-               f'joblib in 0.16')
+        msg = ('UserWarning: {} is deprecated and will be removed from '
+               'joblib in 0.16'.format(name))
         out, err = capsys.readouterr()
         if sys.version_info[:2] >= (3, 7):
             assert msg in err
@@ -34,7 +34,7 @@ def test_deprecated_formatting_utilities(capsys):
         assert obj is getattr(_deprecated_format_stack, name)
 
         out, err = capsys.readouterr()
-        msg = (f'UserWarning: {name} is deprecated and will be removed from '
-               f'joblib in 0.16')
+        msg = ('UserWarning: {} is deprecated and will be removed from '
+               'joblib in 0.16'.format(name))
         if sys.version_info[:2] >= (3, 7):
             assert msg in err
