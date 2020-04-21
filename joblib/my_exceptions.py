@@ -1,3 +1,5 @@
+import sys
+
 from warnings import warn
 from . import _deprecated_my_exceptions
 
@@ -14,11 +16,16 @@ _deprecated_names = [
 ]
 
 
-def __getattr__(name):
-    if not name.startswith("__") and name in _deprecated_names:
-        warn(f"{name} is deprecated and will be removed from joblib in 0.16")
-        return getattr(_deprecated_my_exceptions, name)
-    raise AttributeError
+if sys.version_info[:2] >= (3, 7):
+    def __getattr__(name):
+        if not name.startswith("__") and name in _deprecated_names:
+            warn(f"{name} is deprecated and will be removed from joblib "
+                 f"in 0.16")
+            return getattr(_deprecated_my_exceptions, name)
+        raise AttributeError
+else:
+    for name in _deprecated_names:
+        globals()[name] = getattr(_deprecated_my_exceptions, name)
 
 
 class WorkerInterrupt(Exception):

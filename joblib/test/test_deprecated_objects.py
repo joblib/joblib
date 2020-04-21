@@ -2,6 +2,8 @@
 Tests making sure that deprecated objects properly raise a deprecation warning
 when imported/created.
 """
+import sys
+
 from joblib import my_exceptions
 from joblib import _deprecated_my_exceptions
 from joblib.my_exceptions import _deprecated_names as _deprecated_exceptions
@@ -20,7 +22,8 @@ def test_deprecated_joblib_exceptions(capsys):
         msg = (f'UserWarning: {name} is deprecated and will be removed from '
                f'joblib in 0.16')
         out, err = capsys.readouterr()
-        assert msg in err
+        if sys.version_info[:2] >= (3, 7):
+            assert msg in err
 
 
 def test_deprecated_formatting_utilities(capsys):
@@ -33,4 +36,5 @@ def test_deprecated_formatting_utilities(capsys):
         out, err = capsys.readouterr()
         msg = (f'UserWarning: {name} is deprecated and will be removed from '
                f'joblib in 0.16')
-        assert msg in err
+        if sys.version_info[:2] >= (3, 7):
+            assert msg in err
