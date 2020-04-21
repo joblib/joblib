@@ -28,7 +28,7 @@ if version_info[:2] >= (3, 7):
     def __getattr__(name):
         if not name.startswith("__") and name in _deprecated_names:
             warn("{} is deprecated and will be removed from joblib "
-                 "in 0.16".format(name))
+                 "in 0.16".format(name), DeprecationWarning)
             return getattr(_deprecated_format_stack, name)
         raise AttributeError
 else:
