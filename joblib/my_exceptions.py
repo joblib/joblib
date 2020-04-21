@@ -1,5 +1,4 @@
-import sys
-
+from sys import version_info
 from warnings import warn
 from . import _deprecated_my_exceptions
 
@@ -11,12 +10,12 @@ Exceptions
 # License: BSD 3 clause
 
 _deprecated_names = [
-    name for name in dir(_deprecated_my_exceptions) if not
-    name.startswith("__")
+    name for name in dir(_deprecated_my_exceptions) if
+    not name.startswith("__")
 ]
 
 
-if sys.version_info[:2] >= (3, 7):
+if version_info[:2] >= (3, 7):
     def __getattr__(name):
         if not name.startswith("__") and name in _deprecated_names:
             warn("{} is deprecated and will be removed from joblib "

@@ -1,4 +1,4 @@
-import sys
+from sys import version_info
 
 from warnings import warn
 
@@ -19,12 +19,12 @@ This module is deprecated and will be removed in joblib 0.16.
 from joblib import _deprecated_format_stack
 
 _deprecated_names = [
-    name for name in dir(_deprecated_format_stack) if not
-    name.startswith("__")
+    name for name in dir(_deprecated_format_stack) if
+    not name.startswith("__")  # special attributes
 ]
 
 
-if sys.version_info[:2] >= (3, 7):
+if version_info[:2] >= (3, 7):
     def __getattr__(name):
         if not name.startswith("__") and name in _deprecated_names:
             warn("{} is deprecated and will be removed from joblib "
