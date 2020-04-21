@@ -17,6 +17,7 @@ Adapted from IPython's VerboseTB.
 #            2001-2004, Fernando Perez
 #            2001 Nathaniel Gray
 # License: BSD 3 clause
+# flake8: noqa
 
 
 import inspect
