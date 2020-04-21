@@ -16,7 +16,7 @@ from joblib.format_stack import _deprecated_names as _deprecated_format_utils
 def test_deprecated_joblib_exceptions():
     assert 'JoblibException' in _deprecated_exceptions
     for name in _deprecated_exceptions:
-        msg = ('is deprecated and will be removed from joblib in '
+        msg = ('{} is deprecated and will be removed from joblib in '
                '0.16'.format(name))
         with pytest.warns(DeprecationWarning, match=msg):
             _ = getattr(my_exceptions, name)
