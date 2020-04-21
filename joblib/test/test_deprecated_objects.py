@@ -4,37 +4,30 @@ when imported/created.
 """
 import sys
 
-from joblib import my_exceptions
-from joblib import _deprecated_my_exceptions
-from joblib.my_exceptions import _deprecated_names as _deprecated_exceptions
+import pytest
 
+from joblib import my_exceptions
+from joblib.my_exceptions import _deprecated_names as _deprecated_exceptions
 from joblib import format_stack
-from joblib import _deprecated_format_stack
 from joblib.format_stack import _deprecated_names as _deprecated_format_utils
 
 
-def test_deprecated_joblib_exceptions(capsys):
+@pytest.mark.xfail(sys.version_info < (3, 7), reason="no module-level getattr")
+def test_deprecated_joblib_exceptions():
     assert 'JoblibException' in _deprecated_exceptions
     for name in _deprecated_exceptions:
-        obj = getattr(my_exceptions, name)
-        assert obj is getattr(_deprecated_my_exceptions, name)
-
-        msg = ('UserWarning: {} is deprecated and will be removed from '
-               'joblib in 0.16'.format(name))
-        out, err = capsys.readouterr()
-        if sys.version_info[:2] >= (3, 7):
-            assert msg in err
+        msg = ('is deprecated and will be removed from joblib in '
+               '0.16'.format(name))
+        with pytest.warns(DeprecationWarning, match=msg):
+            _ = getattr(my_exceptions, name)
 
 
+@pytest.mark.xfail(sys.version_info < (3, 7), reason="no module-level getattr")
 def test_deprecated_formatting_utilities(capsys):
     assert 'safe_repr' in _deprecated_format_utils
     assert 'eq_repr' in _deprecated_format_utils
     for name in _deprecated_format_utils:
-        obj = getattr(format_stack, name)
-        assert obj is getattr(_deprecated_format_stack, name)
-
-        out, err = capsys.readouterr()
-        msg = ('UserWarning: {} is deprecated and will be removed from '
-               'joblib in 0.16'.format(name))
-        if sys.version_info[:2] >= (3, 7):
-            assert msg in err
+        msg = ('{} is deprecated and will be removed from joblib in '
+               '0.16'.format(name))
+        with pytest.warns(DeprecationWarning, match=msg):
+            _ = getattr(format_stack, name)
