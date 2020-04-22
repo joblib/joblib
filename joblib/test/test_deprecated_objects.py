@@ -19,7 +19,7 @@ def test_deprecated_joblib_exceptions():
         msg = ('{} is deprecated and will be removed from joblib in '
                '0.16'.format(name))
         with pytest.warns(DeprecationWarning, match=msg):
-            _ = getattr(my_exceptions, name)
+            exec('from joblib.my_exceptions import {}'.format(name))
 
 
 @pytest.mark.xfail(sys.version_info < (3, 7), reason="no module-level getattr")
@@ -30,4 +30,4 @@ def test_deprecated_formatting_utilities(capsys):
         msg = ('{} is deprecated and will be removed from joblib in '
                '0.16'.format(name))
         with pytest.warns(DeprecationWarning, match=msg):
-            _ = getattr(format_stack, name)
+            exec('from joblib.format_stack import {}'.format(name))
