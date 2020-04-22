@@ -6,9 +6,7 @@ import sys
 
 import pytest
 
-from joblib import my_exceptions
 from joblib.my_exceptions import _deprecated_names as _deprecated_exceptions
-from joblib import format_stack
 from joblib.format_stack import _deprecated_names as _deprecated_format_utils
 
 
