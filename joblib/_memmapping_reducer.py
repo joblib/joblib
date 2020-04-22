@@ -56,35 +56,22 @@ FILE_PERMISSIONS = stat.S_IRUSR | stat.S_IWUSR
 # resource_tracker, in order to free main memory as fast as possible.
 JOBLIB_MMAPS = set()
 
-JOBLIB_MMAPS_FINALIZERS = []
+
+def _log_and_unlink(filename):
+    from .externals.loky.backend.resource_tracker import _resource_tracker
+    util.debug(
+        "[FINALIZER CALL] object mapping to {} about to be deleted,"
+        " decrementing the refcount of the file (pid: {})".format(
+            os.path.basename(filename), os.getpid()))
+    _resource_tracker.maybe_unlink(filename, "file")
 
 
 def add_maybe_unlink_finalizer(memmap):
     util.debug(
-        "[FINALIZER ADD] adding finalizer to {} (id {}, filename {}, pid  {} )"
+        "[FINALIZER ADD] adding finalizer to {} (id {}, filename {}, pid  {})"
         "".format(type(memmap), id(memmap), os.path.basename(memmap.filename),
                   os.getpid()))
-    filename = memmap.filename
-
-    def _maybe_unlink(wr):
-        # A weakref callback is constrained to be a function with one
-        # argument that is the weakref itself, while the
-        # resource_tracker.maybe_unlink needs the filename and the type of
-        # the resource to unlink. To workaround this limitation, we create
-        # a nested function whose closure will contain the arguments of
-        # resource_tracker.maybe_unlink.
-        from .externals.loky.backend.resource_tracker import _resource_tracker
-        util.debug(
-            "[FINALIZER CALL] object mapping to {} about to be deleted,"
-            " decrementing the refcount of the file (pid: {})".format(
-                os.path.basename(filename), os.getpid()))
-        _resource_tracker.maybe_unlink(filename, "file")
-
-    if sys.version_info[0] == 2:
-        w = weakref.ref(memmap, _maybe_unlink)
-        JOBLIB_MMAPS_FINALIZERS.append(w)
-    else:
-        weakref.finalize(memmap, _maybe_unlink, (None,))
+    weakref.finalize(memmap, _log_and_unlink, memmap.filename)
 
 
 class _WeakArrayKeyMap:
