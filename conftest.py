@@ -53,16 +53,12 @@ def pytest_configure(config):
 
 
 def pytest_unconfigure(config):
-    try:
-        # Setup a global traceback printer callback to debug deadlocks that
-        # would happen once pytest has completed: for instance in atexit
-        # finalizers. At this point the stdout/stderr capture of pytest
-        # should be disabled.
+    # Setup a global traceback printer callback to debug deadlocks that
+    # would happen once pytest has completed: for instance in atexit
+    # finalizers. At this point the stdout/stderr capture of pytest
+    # should be disabled.
 
-        # Note that we also use a shorter timeout for the per-test callback
-        # configured via the pytest-timeout extension.
-        import faulthandler
-        faulthandler.dump_traceback_later(60, exit=True)
-    except ImportError:
-        # Python 2 backward compat.
-        pass
+    # Note that we also use a shorter timeout for the per-test callback
+    # configured via the pytest-timeout extension.
+    import faulthandler
+    faulthandler.dump_traceback_later(60, exit=True)

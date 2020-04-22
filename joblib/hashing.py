@@ -15,13 +15,8 @@ import struct
 import io
 import decimal
 
-from ._compat import _bytes_or_unicode, PY3_OR_LATER
 
-
-if PY3_OR_LATER:
-    Pickler = pickle._Pickler
-else:
-    Pickler = pickle.Pickler
+Pickler = pickle._Pickler
 
 
 class _ConsistentSet(object):
@@ -58,7 +53,7 @@ class Hasher(Pickler):
         self.stream = io.BytesIO()
         # By default we want a pickle protocol that only changes with
         # the major python version and not the minor one
-        protocol = 3 if PY3_OR_LATER else 2
+        protocol = 3
         Pickler.__init__(self, self.stream, protocol=protocol)
         # Initialise the hash obj
         self._hash = hashlib.new(hash_name)
@@ -98,7 +93,7 @@ class Hasher(Pickler):
         # For example we want ['aa', 'aa'] and ['aa', 'aaZ'[:2]]
         # to hash to the same value and that's why we disable memoization
         # for strings
-        if isinstance(obj, _bytes_or_unicode):
+        if isinstance(obj, (bytes, str)):
             return
         Pickler.memoize(self, obj)
 
@@ -109,8 +104,7 @@ class Hasher(Pickler):
         # defined interactively in IPython that are not injected in
         # __main__
         kwargs = dict(name=name, pack=pack)
-        if sys.version_info >= (3, 4):
-            del kwargs['pack']
+        del kwargs['pack']
         try:
             Pickler.save_global(self, obj, **kwargs)
         except pickle.PicklingError:

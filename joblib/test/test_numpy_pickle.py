@@ -24,7 +24,6 @@ from joblib.testing import parametrize, raises, SkipTest, warns
 from joblib import numpy_pickle, register_compressor
 from joblib.test import data
 
-from joblib._compat import PY3_OR_LATER
 from joblib.numpy_pickle_utils import _IO_BUFFER_SIZE
 from joblib.numpy_pickle_utils import _detect_compressor
 from joblib.compressor import (_COMPRESSORS, _LZ4_PREFIX, CompressorWrapper,
@@ -46,41 +45,18 @@ _bool = bool(1)
 typelist.append(_bool)
 _int = int(1)
 typelist.append(_int)
-try:
-    _long = long(1)
-    typelist.append(_long)
-except NameError:
-    # long is not defined in python 3
-    pass
 _float = float(1)
 typelist.append(_float)
 _complex = complex(1)
 typelist.append(_complex)
 _string = str(1)
 typelist.append(_string)
-try:
-    _unicode = unicode(1)
-    typelist.append(_unicode)
-except NameError:
-    # unicode is not defined in python 3
-    pass
 _tuple = ()
 typelist.append(_tuple)
 _list = []
 typelist.append(_list)
 _dict = {}
 typelist.append(_dict)
-try:
-    _file = file
-    typelist.append(_file)
-except NameError:
-    pass  # file does not exists in Python 3
-try:
-    _buffer = buffer
-    typelist.append(_buffer)
-except NameError:
-    # buffer does not exists in Python 3
-    pass
 _builtin = len
 typelist.append(_builtin)
 
@@ -389,26 +365,11 @@ def _check_pickle(filename, expected_list):
     Note: currently only pickles containing an iterable are supported
     by this function.
     """
-    if not PY3_OR_LATER:
-        if filename.endswith('.xz') or filename.endswith('.lzma'):
-            # lzma is not implemented in python versions < 3.3
-            with raises(NotImplementedError):
-                numpy_pickle.load(filename)
-        elif filename.endswith('.lz4'):
-            # lz4 is not supported for python versions < 3.3
-            with raises(ValueError) as excinfo:
-                numpy_pickle.load(filename)
-            assert excinfo.match("lz4 compression is only available with "
-                                 "python3+")
-        return
-
     version_match = re.match(r'.+py(\d)(\d).+', filename)
     py_version_used_for_writing = int(version_match.group(1))
-    py_version_used_for_reading = sys.version_info[0]
 
     py_version_to_default_pickle_protocol = {2: 2, 3: 3}
-    pickle_reading_protocol = py_version_to_default_pickle_protocol.get(
-        py_version_used_for_reading, 4)
+    pickle_reading_protocol = py_version_to_default_pickle_protocol.get(3, 4)
     pickle_writing_protocol = py_version_to_default_pickle_protocol.get(
         py_version_used_for_writing, 4)
     if pickle_reading_protocol >= pickle_writing_protocol:
@@ -438,8 +399,7 @@ def _check_pickle(filename, expected_list):
         except Exception as exc:
             # When trying to read with python 3 a pickle generated
             # with python 2 we expect a user-friendly error
-            if (py_version_used_for_reading == 3 and
-                    py_version_used_for_writing == 2):
+            if py_version_used_for_writing == 2:
                 assert isinstance(exc, ValueError)
                 message = ('You may be trying to read with '
                            'python 3 a joblib pickle generated with python 2.')
@@ -544,17 +504,7 @@ def test_joblib_compression_formats(tmpdir, compress, cmethod):
 
     dump_filename = filename + "." + cmethod
     for obj in objects:
-        if not PY3_OR_LATER and cmethod in ('lzma', 'xz', 'lz4'):
-            # Lzma module only available for python >= 3.3
-            msg = "{} compression is only available".format(cmethod)
-            error = NotImplementedError
-            if cmethod == 'lz4':
-                error = ValueError
-            with raises(error) as excinfo:
-                numpy_pickle.dump(obj, dump_filename,
-                                  compress=(cmethod, compress))
-            excinfo.match(msg)
-        elif cmethod == 'lz4' and with_lz4.args[0]:
+        if cmethod == 'lz4' and with_lz4.args[0]:
             # Skip the test if lz4 is not installed. We here use the with_lz4
             # skipif fixture whose argument is True when lz4 is not installed
             raise SkipTest("lz4 is not installed.")
@@ -628,21 +578,14 @@ def test_compression_using_file_extension(tmpdir, extension, cmethod):
     obj = "object to dump"
 
     dump_fname = filename + extension
-    if not PY3_OR_LATER and cmethod in ('xz', 'lzma'):
-        # Lzma module only available for python >= 3.3
-        msg = "{} compression is only available".format(cmethod)
-        with raises(NotImplementedError) as excinfo:
-            numpy_pickle.dump(obj, dump_fname)
-        excinfo.match(msg)
-    else:
-        numpy_pickle.dump(obj, dump_fname)
-        # Verify the file contains the right magic number
-        with open(dump_fname, 'rb') as f:
-            assert _detect_compressor(f) == cmethod
-        # Verify the reloaded object is correct
-        obj_reloaded = numpy_pickle.load(dump_fname)
-        assert isinstance(obj_reloaded, type(obj))
-        assert obj_reloaded == obj
+    numpy_pickle.dump(obj, dump_fname)
+    # Verify the file contains the right magic number
+    with open(dump_fname, 'rb') as f:
+        assert _detect_compressor(f) == cmethod
+    # Verify the reloaded object is correct
+    obj_reloaded = numpy_pickle.load(dump_fname)
+    assert isinstance(obj_reloaded, type(obj))
+    assert obj_reloaded == obj
 
 
 @with_numpy
@@ -651,9 +594,8 @@ def test_file_handle_persistence(tmpdir):
             "some data",
             np.matrix([0, 1, 2])]
     fobjs = [bz2.BZ2File, gzip.GzipFile]
-    if PY3_OR_LATER:
-        import lzma
-        fobjs += [lzma.LZMAFile]
+    import lzma
+    fobjs += [lzma.LZMAFile]
     filename = tmpdir.join('test.pkl').strpath
 
     for obj in objs:
@@ -768,18 +710,14 @@ def test_binary_zlibfile(tmpdir, data, compress_level):
     with open(filename, 'rb') as f:
         with BinaryZlibFile(f) as fz:
             assert fz.readable()
-            if PY3_OR_LATER:
-                assert fz.seekable()
+            assert fz.seekable()
             assert fz.fileno() == f.fileno()
             assert fz.read() == data
             with raises(io.UnsupportedOperation):
                 fz._check_can_write()
-            if PY3_OR_LATER:
-                # io.BufferedIOBase doesn't have seekable() method in
-                # python 2
-                assert fz.seekable()
-                fz.seek(0)
-                assert fz.tell() == 0
+            assert fz.seekable()
+            fz.seek(0)
+            assert fz.tell() == 0
         assert fz.closed
 
     # Test with a filename as input
@@ -910,9 +848,6 @@ def test_pickle_highest_protocol(tmpdir):
 @with_numpy
 def test_pickle_in_socket():
     # test that joblib can pickle in sockets
-    if not PY3_OR_LATER:
-        raise SkipTest("Cannot peek or seek in socket in python 2.")
-
     test_array = np.arange(10)
     _ADDR = ("localhost", 12345)
     listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -1063,8 +998,6 @@ def test_lz4_compression_without_lz4(tmpdir):
     fname = tmpdir.join('test.nolz4').strpath
     data = 'test data'
     msg = LZ4_NOT_INSTALLED_ERROR
-    if not PY3_OR_LATER:
-        msg = "lz4 compression is only available with python3+"
     with raises(ValueError) as excinfo:
         numpy_pickle.dump(data, fname, compress='lz4')
     excinfo.match(msg)

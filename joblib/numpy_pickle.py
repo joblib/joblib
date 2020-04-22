@@ -6,7 +6,6 @@
 
 import pickle
 import os
-import sys
 import warnings
 try:
     from pathlib import Path
@@ -28,7 +27,6 @@ from .numpy_pickle_compat import NDArrayWrapper
 # Explicitly skipping next line from flake8 as it triggers an F401 warning
 # which we don't care.
 from .numpy_pickle_compat import ZNDArrayWrapper  # noqa
-from ._compat import _basestring, PY3_OR_LATER
 from .backports import make_memmap
 
 # Register supported compressors
@@ -121,36 +119,26 @@ class NumpyArrayWrapper(object):
             # The array contained Python objects. We need to unpickle the data.
             array = pickle.load(unpickler.file_handle)
         else:
-            if (not PY3_OR_LATER and
-                    unpickler.np.compat.isfileobj(unpickler.file_handle)):
-                # In python 2, gzip.GzipFile is considered as a file so one
-                # can use numpy.fromfile().
-                # For file objects, use np.fromfile function.
-                # This function is faster than the memory-intensive
-                # method below.
-                array = unpickler.np.fromfile(unpickler.file_handle,
-                                              dtype=self.dtype, count=count)
-            else:
-                # This is not a real file. We have to read it the
-                # memory-intensive way.
-                # crc32 module fails on reads greater than 2 ** 32 bytes,
-                # breaking large reads from gzip streams. Chunk reads to
-                # BUFFER_SIZE bytes to avoid issue and reduce memory overhead
-                # of the read. In non-chunked case count < max_read_count, so
-                # only one read is performed.
-                max_read_count = BUFFER_SIZE // min(BUFFER_SIZE,
-                                                    self.dtype.itemsize)
+            # This is not a real file. We have to read it the
+            # memory-intensive way.
+            # crc32 module fails on reads greater than 2 ** 32 bytes,
+            # breaking large reads from gzip streams. Chunk reads to
+            # BUFFER_SIZE bytes to avoid issue and reduce memory overhead
+            # of the read. In non-chunked case count < max_read_count, so
+            # only one read is performed.
+            max_read_count = BUFFER_SIZE // min(BUFFER_SIZE,
+                                                self.dtype.itemsize)
 
-                array = unpickler.np.empty(count, dtype=self.dtype)
-                for i in range(0, count, max_read_count):
-                    read_count = min(max_read_count, count - i)
-                    read_size = int(read_count * self.dtype.itemsize)
-                    data = _read_bytes(unpickler.file_handle,
-                                       read_size, "array data")
-                    array[i:i + read_count] = \
-                        unpickler.np.frombuffer(data, dtype=self.dtype,
-                                                count=read_count)
-                    del data
+            array = unpickler.np.empty(count, dtype=self.dtype)
+            for i in range(0, count, max_read_count):
+                read_count = min(max_read_count, count - i)
+                read_size = int(read_count * self.dtype.itemsize)
+                data = _read_bytes(unpickler.file_handle,
+                                   read_size, "array data")
+                array[i:i + read_count] = \
+                    unpickler.np.frombuffer(data, dtype=self.dtype,
+                                            count=read_count)
+                del data
 
             if self.order == 'F':
                 array.shape = self.shape[::-1]
@@ -224,8 +212,7 @@ class NumpyPickler(Pickler):
     fp: file
         File object handle used for serializing the input object.
     protocol: int, optional
-        Pickle protocol used. Default is pickle.DEFAULT_PROTOCOL under
-        python 3, pickle.HIGHEST_PROTOCOL otherwise.
+        Pickle protocol used. Default is pickle.DEFAULT_PROTOCOL.
     """
 
     dispatch = Pickler.dispatch.copy()
@@ -237,8 +224,7 @@ class NumpyPickler(Pickler):
         # By default we want a pickle protocol that only changes with
         # the major python version and not the minor one
         if protocol is None:
-            protocol = (pickle.DEFAULT_PROTOCOL if PY3_OR_LATER
-                        else pickle.HIGHEST_PROTOCOL)
+            protocol = pickle.DEFAULT_PROTOCOL
 
         Pickler.__init__(self, self.file_handle, protocol=protocol)
         # delayed import of numpy, to avoid tight coupling
@@ -355,10 +341,7 @@ class NumpyUnpickler(Unpickler):
             self.stack.append(array_wrapper.read(self))
 
     # Be careful to register our new method.
-    if PY3_OR_LATER:
-        dispatch[pickle.BUILD[0]] = load_build
-    else:
-        dispatch[pickle.BUILD] = load_build
+    dispatch[pickle.BUILD[0]] = load_build
 
 
 ###############################################################################
@@ -415,7 +398,7 @@ def dump(value, filename, compress=0, protocol=None, cache_size=None):
     if Path is not None and isinstance(filename, Path):
         filename = str(filename)
 
-    is_filename = isinstance(filename, _basestring)
+    is_filename = isinstance(filename, str)
     is_fileobj = hasattr(filename, "write")
 
     compress_method = 'zlib'  # zlib is the default compression method.
@@ -431,16 +414,14 @@ def dump(value, filename, compress=0, protocol=None, cache_size=None):
                 '(compress method, compress level), you passed {}'
                 .format(compress))
         compress_method, compress_level = compress
-    elif isinstance(compress, _basestring):
+    elif isinstance(compress, str):
         compress_method = compress
         compress_level = None  # Use default compress level
         compress = (compress_method, compress_level)
     else:
         compress_level = compress
 
-    # LZ4 compression is only supported and installation checked with
-    # python 3+.
-    if compress_method == 'lz4' and lz4 is None and PY3_OR_LATER:
+    if compress_method == 'lz4' and lz4 is None:
         raise ValueError(LZ4_NOT_INSTALLED_ERROR)
 
     if (compress_level is not None and
@@ -481,13 +462,6 @@ def dump(value, filename, compress=0, protocol=None, cache_size=None):
             # we choose the default compress_level in case it was not given
             # as an argument (using compress).
             compress_level = None
-
-    if not PY3_OR_LATER and compress_method in ('lzma', 'xz'):
-        raise NotImplementedError("{} compression is only available for "
-                                  "python version >= 3.3. You are using "
-                                  "{}.{}".format(compress_method,
-                                                 sys.version_info[0],
-                                                 sys.version_info[1]))
 
     if cache_size is not None:
         # Cache size is deprecated starting from version 0.10
@@ -535,16 +509,12 @@ def _unpickle(fobj, filename="", mmap_mode=None):
                           DeprecationWarning, stacklevel=3)
     except UnicodeDecodeError as exc:
         # More user-friendly error message
-        if PY3_OR_LATER:
-            new_exc = ValueError(
-                'You may be trying to read with '
-                'python 3 a joblib pickle generated with python 2. '
-                'This feature is not supported by joblib.')
-            new_exc.__cause__ = exc
-            raise new_exc
-        # Reraise exception with Python 2
-        raise
-
+        new_exc = ValueError(
+            'You may be trying to read with '
+            'python 3 a joblib pickle generated with python 2. '
+            'This feature is not supported by joblib.')
+        new_exc.__cause__ = exc
+        raise new_exc
     return obj
 
 
@@ -596,7 +566,7 @@ def load(filename, mmap_mode=None):
     else:
         with open(filename, 'rb') as f:
             with _read_fileobject(f, filename, mmap_mode) as fobj:
-                if isinstance(fobj, _basestring):
+                if isinstance(fobj, str):
                     # if the returned file object is a string, this means we
                     # try to load a pickle file generated with an version of
                     # Joblib so we load it with joblib compatibility function.

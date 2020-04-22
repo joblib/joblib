@@ -21,9 +21,7 @@ if [[ "$SKIP_TESTS" != "true" ]]; then
     fi
 
     pytest joblib -vl --timeout=60 --junitxml="${JUNITXML}"
-    if [[ "$PYTHON_VERSION" != "2.7" ]]; then
-        make test-doc
-    fi
+    make test-doc
 fi
 
 if [[ "$SKLEARN_TESTS" == "true" ]]; then

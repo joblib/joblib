@@ -16,7 +16,10 @@ from math import sqrt
 from time import sleep
 from pickle import PicklingError
 from multiprocessing import TimeoutError
+import pickle
 import pytest
+
+from importlib import reload
 
 import joblib
 from joblib import parallel
@@ -27,33 +30,14 @@ from joblib.test.common import np, with_numpy
 from joblib.test.common import with_multiprocessing
 from joblib.testing import (parametrize, raises, check_subprocess_call,
                             skipif, SkipTest, warns)
-from joblib._compat import PY3_OR_LATER, PY27
 
-try:
-    import cPickle as pickle
-except ImportError:
-    import pickle
 
-try:
-    from queue import Queue
-except ImportError:
-    # Backward compat
-    from Queue import Queue
+from queue import Queue
 
 try:
     import posix
 except ImportError:
     posix = None
-
-try:
-    RecursionError
-except NameError:
-    RecursionError = RuntimeError
-
-try:
-    reload         # Python 2
-except NameError:  # Python 3
-    from importlib import reload
 
 try:
     from ._openmp_test_helper.parallel_sum import parallel_sum
@@ -78,8 +62,6 @@ from joblib.parallel import effective_n_jobs, cpu_count
 
 from joblib.parallel import mp, BACKENDS, DEFAULT_BACKEND, EXTERNAL_BACKENDS
 from joblib.my_exceptions import JoblibException
-from joblib.my_exceptions import TransportableException
-from joblib.my_exceptions import JoblibValueError
 from joblib.my_exceptions import WorkerInterrupt
 
 
@@ -551,16 +533,9 @@ def nested_function_outer(i):
 def test_nested_exception_dispatch(backend):
     """Ensure errors for nested joblib cases gets propagated
 
-    For Python 2.7, the TransportableException wrapping and unwrapping should
-    preserve the traceback information of the inner function calls.
-
-    For Python 3, we rely on the built-in __cause__ system that already
+    We rely on the Python 3 built-in __cause__ system that already
     report this kind of information to the user.
     """
-    if PY27 and backend == 'multiprocessing':
-        raise SkipTest("Nested parallel calls can deadlock with the python 2.7"
-                       "multiprocessing backend.")
-
     with raises(ValueError) as excinfo:
         Parallel(n_jobs=2, backend=backend)(
             delayed(nested_function_outer)(i) for i in range(30))
@@ -573,16 +548,7 @@ def test_nested_exception_dispatch(backend):
     assert 'nested_function_inner' in report
     assert 'exception_raiser' in report
 
-    if PY3_OR_LATER:
-        # Under Python 3, there is no need for exception wrapping as the
-        # exception raised in a worker process is transportable by default and
-        # preserves the necessary information via the `__cause__` attribute.
-        assert type(excinfo.value) is ValueError
-    else:
-        # The wrapping mechanism used to make exception of Python2.7
-        # transportable does not create a JoblibJoblibJoblibValueError
-        # despite the 3 nested parallel calls.
-        assert type(excinfo.value) is JoblibValueError
+    assert type(excinfo.value) is ValueError
 
 
 def _reload_joblib():
@@ -883,16 +849,8 @@ def test_joblib_exception():
 
 def test_safe_function():
     safe_division = SafeFunction(division)
-    if PY3_OR_LATER:
-        with raises(ZeroDivisionError):
-            safe_division(1, 0)
-    else:
-        # Under Python 2.7, exception are wrapped with a special wrapper to
-        # preserve runtime information of the worker environment. Python 3 does
-        # not need this as it preserves the traceback information by default.
-        with raises(TransportableException) as excinfo:
-            safe_division(1, 0)
-        assert isinstance(excinfo.value.unwrap(), ZeroDivisionError)
+    with raises(ZeroDivisionError):
+        safe_division(1, 0)
 
     safe_interrupt = SafeFunction(interrupt_raiser)
     with raises(WorkerInterrupt):
@@ -929,16 +887,12 @@ def test_dispatch_race_condition(n_tasks, n_jobs, pre_dispatch, batch_size):
 
 
 @with_multiprocessing
-@skipif(sys.version_info < (3, 5), reason="Bored with Python 2 support")
 def test_default_mp_context():
     mp_start_method = mp.get_start_method()
     p = Parallel(n_jobs=2, backend='multiprocessing')
     context = p._backend_args.get('context')
-    if sys.version_info >= (3, 5):
-        start_method = context.get_start_method()
-        assert start_method == mp_start_method
-    else:
-        assert context is None
+    start_method = context.get_start_method()
+    assert start_method == mp_start_method
 
 
 @with_numpy
@@ -946,9 +900,6 @@ def test_default_mp_context():
 @parametrize('backend', PROCESS_BACKENDS)
 def test_no_blas_crash_or_freeze_with_subprocesses(backend):
     if backend == 'multiprocessing':
-        if sys.version_info < (3, 4):
-            raise SkipTest('multiprocessing can cause BLAS freeze on old '
-                           'Python that relies on fork.')
         # Use the spawn backend that is both robust and available on all
         # platforms
         backend = mp.get_context('spawn')
@@ -988,7 +939,6 @@ print(Parallel(n_jobs=2, backend=backend)(
 
 @with_multiprocessing
 @parametrize('backend', PROCESS_BACKENDS)
-@skipif(sys.version_info < (3, 5), reason="Bored with Python 2 support")
 def test_parallel_with_interactively_defined_functions(backend):
     # When using the "-c" flag, interactive functions defined in __main__
     # should work with any backend.
@@ -1050,9 +1000,7 @@ square = lambda x: x ** 2
 
 
 @with_multiprocessing
-@parametrize('backend', PROCESS_BACKENDS +
-             ([] if sys.version_info[:2] < (3, 4) or mp is None
-              else ['spawn']))
+@parametrize('backend', PROCESS_BACKENDS + ([] if mp is None else ['spawn']))
 @parametrize('define_func', [SQUARE_MAIN, SQUARE_LOCAL, SQUARE_LAMBDA])
 @parametrize('callable_position', ['delayed', 'args', 'kwargs'])
 def test_parallel_with_unpicklable_functions_in_args(
@@ -1278,9 +1226,6 @@ def test_lambda_expression(backend):
 
 
 def test_delayed_check_pickle_deprecated():
-    if sys.version_info < (3, 5):
-        pytest.skip("Warning check unstable under Python 2, life is too short")
-
     class UnpicklableCallable(object):
 
         def __call__(self, *args, **kwargs):
@@ -1657,8 +1602,6 @@ def check_child_num_threads(workers_info, parent_info, num_threads):
 
 @with_numpy
 @with_multiprocessing
-@skipif(sys.version_info < (3, 5),
-        reason='threadpoolctl is a python3.5+ package')
 @parametrize('n_jobs', [2, 4, -2, -1])
 def test_threadpool_limitation_in_child(n_jobs):
     # Check that the protection against oversubscription in workers is working
@@ -1681,8 +1624,6 @@ def test_threadpool_limitation_in_child(n_jobs):
 
 @with_numpy
 @with_multiprocessing
-@skipif(sys.version_info < (3, 5),
-        reason='threadpoolctl is a python3.5+ package')
 @parametrize('inner_max_num_threads', [1, 2, 4, None])
 @parametrize('n_jobs', [2, -1])
 def test_threadpool_limitation_in_child_context(n_jobs, inner_max_num_threads):

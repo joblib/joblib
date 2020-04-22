@@ -16,21 +16,12 @@ import warnings
 import weakref
 from uuid import uuid4
 
+from pickle import whichmodule, loads, dumps, HIGHEST_PROTOCOL, PicklingError
+
 try:
     WindowsError
 except NameError:
     WindowsError = type(None)
-
-from pickle import whichmodule
-try:
-    # Python 2 compat
-    from cPickle import loads
-    from cPickle import dumps
-except ImportError:
-    from pickle import loads
-    from pickle import dumps
-
-from pickle import HIGHEST_PROTOCOL, PicklingError
 
 try:
     import numpy as np

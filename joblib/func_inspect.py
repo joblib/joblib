@@ -6,17 +6,16 @@ My own variation on function-specific inspect-like features.
 # Copyright (c) 2009 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
-from itertools import islice
 import inspect
 import warnings
 import re
 import os
 import collections
 
-from ._compat import _basestring
+from itertools import islice
+from tokenize import open as open_py_source
+
 from .logger import pformat
-from ._memory_helpers import open_py_source
-from ._compat import PY3_OR_LATER
 
 full_argspec_fields = ('args varargs varkw defaults kwonlyargs '
                        'kwonlydefaults annotations')
@@ -162,34 +161,9 @@ def get_func_name(func, resolv_alias=True, win_characters=True):
     return module, name
 
 
-def getfullargspec(func):
-    """Compatibility function to provide inspect.getfullargspec in Python 2
-
-    This should be rewritten using a backport of Python 3 signature
-    once we drop support for Python 2.6. We went for a simpler
-    approach at the time of writing because signature uses OrderedDict
-    which is not available in Python 2.6.
-    """
-    try:
-        return inspect.getfullargspec(func)
-    except AttributeError:
-        arg_spec = inspect.getargspec(func)
-        return full_argspec_type(args=arg_spec.args,
-                                 varargs=arg_spec.varargs,
-                                 varkw=arg_spec.keywords,
-                                 defaults=arg_spec.defaults,
-                                 kwonlyargs=[],
-                                 kwonlydefaults=None,
-                                 annotations={})
-
-
 def _signature_str(function_name, arg_spec):
     """Helper function to output a function signature"""
-    # inspect.formatargspec can not deal with the same
-    # number of arguments in python 2 and 3
-    arg_spec_for_format = arg_spec[:7 if PY3_OR_LATER else 4]
-
-    arg_spec_str = inspect.formatargspec(*arg_spec_for_format)
+    arg_spec_str = inspect.formatargspec(*arg_spec)
     return '{}{}'.format(function_name, arg_spec_str)
 
 
@@ -226,7 +200,7 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
             List of filtered positional and keyword arguments.
     """
     args = list(args)
-    if isinstance(ignore_lst, _basestring):
+    if isinstance(ignore_lst, str):
         # Catch a common mistake
         raise ValueError(
             'ignore_lst must be a list of parameters to ignore '
@@ -237,7 +211,7 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
             warnings.warn('Cannot inspect object %s, ignore list will '
                           'not work.' % func, stacklevel=2)
         return {'*': args, '**': kwargs}
-    arg_spec = getfullargspec(func)
+    arg_spec = inspect.getfullargspec(func)
     arg_names = arg_spec.args + arg_spec.kwonlyargs
     arg_defaults = arg_spec.defaults or ()
     if arg_spec.kwonlydefaults:

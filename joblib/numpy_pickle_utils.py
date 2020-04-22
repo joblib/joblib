@@ -8,24 +8,19 @@ import pickle
 import io
 import warnings
 import contextlib
-from contextlib import closing
 
-from ._compat import PY3_OR_LATER, PY27
 from .compressor import _ZFILE_PREFIX
 from .compressor import _COMPRESSORS
-
-if PY3_OR_LATER:
-    Unpickler = pickle._Unpickler
-    Pickler = pickle._Pickler
-    xrange = range
-else:
-    Unpickler = pickle.Unpickler
-    Pickler = pickle.Pickler
 
 try:
     import numpy as np
 except ImportError:
     np = None
+
+Unpickler = pickle._Unpickler
+Pickler = pickle._Pickler
+xrange = range
+
 
 try:
     # The python standard library can be built without bz2 so we make bz2
@@ -42,11 +37,8 @@ _IO_BUFFER_SIZE = 1024 ** 2
 
 def _is_raw_file(fileobj):
     """Check if fileobj is a raw file object, e.g created with open."""
-    if PY3_OR_LATER:
-        fileobj = getattr(fileobj, 'raw', fileobj)
-        return isinstance(fileobj, io.FileIO)
-    else:
-        return isinstance(fileobj, file)  # noqa
+    fileobj = getattr(fileobj, 'raw', fileobj)
+    return isinstance(fileobj, io.FileIO)
 
 
 def _get_prefixes_max_len():
@@ -92,24 +84,12 @@ def _detect_compressor(fileobj):
 
 def _buffered_read_file(fobj):
     """Return a buffered version of a read file object."""
-    if PY27 and bz2 is not None and isinstance(fobj, bz2.BZ2File):
-        # Python 2.7 doesn't work with BZ2File through a buffer: "no
-        # attribute 'readable'" error.
-        return fobj
-    else:
-        return io.BufferedReader(fobj, buffer_size=_IO_BUFFER_SIZE)
+    return io.BufferedReader(fobj, buffer_size=_IO_BUFFER_SIZE)
 
 
 def _buffered_write_file(fobj):
     """Return a buffered version of a write file object."""
-    if PY27 and bz2 is not None and isinstance(fobj, bz2.BZ2File):
-        # Python 2.7 doesn't work with BZ2File through a buffer: no attribute
-        # 'writable'.
-        # BZ2File doesn't implement the file object context manager in python 2
-        # so we wrap the fileobj using `closing`.
-        return closing(fobj)
-    else:
-        return io.BufferedWriter(fobj, buffer_size=_IO_BUFFER_SIZE)
+    return io.BufferedWriter(fobj, buffer_size=_IO_BUFFER_SIZE)
 
 
 @contextlib.contextmanager
@@ -205,6 +185,9 @@ BUFFER_SIZE = 2 ** 18  # size of buffer for reading npz files in bytes
 
 def _read_bytes(fp, size, error_template="ran out of data"):
     """Read from file-like object until size bytes are read.
+
+    TODO python2_drop: is it still needed? The docstring mentions python 2.6
+    and it looks like this can be at least simplified ...
 
     Raises ValueError if not EOF is encountered before size bytes are read.
     Non-blocking objects only supported if they derive from io objects.

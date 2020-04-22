@@ -4,6 +4,12 @@ Latest changes
 Release 0.14.2
 --------------
 
+- Drop support for Python 2 and Python 3.5. All objects in
+  ``joblib.my_exceptions`` and ``joblib.format_stack`` are now deprecated and
+  will be removed in joblib 0.16. Note that no deprecation warning will be
+  raised for these objects Python < 3.7.
+  https://github.com/joblib/joblib/pull/1018
+
 - Fix the number of jobs reported by ``effective_n_jobs`` when ``n_jobs=None``
   called in a parallel backend context.
   https://github.com/joblib/joblib/pull/985

@@ -10,6 +10,7 @@ import gc
 import shutil
 import os
 import os.path
+import pathlib
 import pickle
 import sys
 import time
@@ -29,11 +30,8 @@ from joblib._store_backends import StoreBackendBase, FileSystemStoreBackend
 from joblib.test.common import with_numpy, np
 from joblib.test.common import with_multiprocessing
 from joblib.testing import parametrize, raises, warns
-from joblib._compat import PY3_OR_LATER
 from joblib.hashing import hash
 
-if sys.version_info[:2] >= (3, 4):
-    import pathlib
 
 
 ###############################################################################
@@ -689,57 +687,47 @@ def test_clear_memory_with_none_location():
     memory.clear()
 
 
-if PY3_OR_LATER:
-    # Avoid flake8 F821 "undefined name" warning. func_with_kwonly_args and
-    # func_with_signature are redefined in the exec statement a few lines below
-    def func_with_kwonly_args():
-        pass
-
-    def func_with_signature():
-        pass
-
-    # exec is needed to define a function with a keyword-only argument and a
-    # function with signature while avoiding a SyntaxError on Python 2
-    exec("""
 def func_with_kwonly_args(a, b, *, kw1='kw1', kw2='kw2'):
     return a, b, kw1, kw2
 
+
 def func_with_signature(a: int, b: float) -> float:
     return a + b
-""")
 
-    def test_memory_func_with_kwonly_args(tmpdir):
-        memory = Memory(location=tmpdir.strpath, verbose=0)
-        func_cached = memory.cache(func_with_kwonly_args)
 
-        assert func_cached(1, 2, kw1=3) == (1, 2, 3, 'kw2')
+def test_memory_func_with_kwonly_args(tmpdir):
+    memory = Memory(location=tmpdir.strpath, verbose=0)
+    func_cached = memory.cache(func_with_kwonly_args)
 
-        # Making sure that providing a keyword-only argument by
-        # position raises an exception
-        with raises(ValueError) as excinfo:
-            func_cached(1, 2, 3, kw2=4)
-        excinfo.match("Keyword-only parameter 'kw1' was passed as positional "
-                      "parameter")
+    assert func_cached(1, 2, kw1=3) == (1, 2, 3, 'kw2')
 
-        # Keyword-only parameter passed by position with cached call
-        # should still raise ValueError
-        func_cached(1, 2, kw1=3, kw2=4)
+    # Making sure that providing a keyword-only argument by
+    # position raises an exception
+    with raises(ValueError) as excinfo:
+        func_cached(1, 2, 3, kw2=4)
+    excinfo.match("Keyword-only parameter 'kw1' was passed as positional "
+                  "parameter")
 
-        with raises(ValueError) as excinfo:
-            func_cached(1, 2, 3, kw2=4)
-        excinfo.match("Keyword-only parameter 'kw1' was passed as positional "
-                      "parameter")
+    # Keyword-only parameter passed by position with cached call
+    # should still raise ValueError
+    func_cached(1, 2, kw1=3, kw2=4)
 
-        # Test 'ignore' parameter
-        func_cached = memory.cache(func_with_kwonly_args, ignore=['kw2'])
-        assert func_cached(1, 2, kw1=3, kw2=4) == (1, 2, 3, 4)
-        assert func_cached(1, 2, kw1=3, kw2='ignored') == (1, 2, 3, 4)
+    with raises(ValueError) as excinfo:
+        func_cached(1, 2, 3, kw2=4)
+    excinfo.match("Keyword-only parameter 'kw1' was passed as positional "
+                  "parameter")
 
-    def test_memory_func_with_signature(tmpdir):
-        memory = Memory(location=tmpdir.strpath, verbose=0)
-        func_cached = memory.cache(func_with_signature)
+    # Test 'ignore' parameter
+    func_cached = memory.cache(func_with_kwonly_args, ignore=['kw2'])
+    assert func_cached(1, 2, kw1=3, kw2=4) == (1, 2, 3, 4)
+    assert func_cached(1, 2, kw1=3, kw2='ignored') == (1, 2, 3, 4)
 
-        assert func_cached(1, 2.) == 3.
+
+def test_memory_func_with_signature(tmpdir):
+    memory = Memory(location=tmpdir.strpath, verbose=0)
+    func_cached = memory.cache(func_with_signature)
+
+    assert func_cached(1, 2.) == 3.
 
 
 def _setup_toy_cache(tmpdir, num_inputs=10):
@@ -1085,8 +1073,6 @@ def test_dummy_store_backend():
     assert isinstance(backend_obj, DummyStoreBackend)
 
 
-@pytest.mark.skipif(sys.version_info[:2] < (3, 4),
-                    reason="pathlib is available for python versions >= 3.4")
 def test_instanciate_store_backend_with_pathlib_path():
     # Instanciate a FileSystemStoreBackend using a pathlib.Path object
     path = pathlib.Path("some_folder")

@@ -8,7 +8,6 @@ import os
 import sys
 import gc
 
-from joblib._compat import PY3_OR_LATER
 from joblib._multiprocessing_helpers import mp
 from joblib.testing import SkipTest, skipif
 
@@ -109,8 +108,7 @@ with_dev_shm = skipif(
     not os.path.exists('/dev/shm'),
     reason='This test requires a large /dev/shm shared memory fs.')
 
-with_lz4 = skipif(
-    lz4 is None or not PY3_OR_LATER, reason='Needs lz4 compression to run')
+with_lz4 = skipif(lz4 is None, reason='Needs lz4 compression to run')
 
 without_lz4 = skipif(
     lz4 is not None, reason='Needs lz4 not being installed to run')

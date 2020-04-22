@@ -24,15 +24,10 @@ from joblib.func_inspect import filter_args
 from joblib.memory import Memory
 from joblib.testing import raises, skipif, fixture, parametrize
 from joblib.test.common import np, with_numpy
-from joblib.my_exceptions import TransportableException
-from joblib._compat import PY3_OR_LATER
 
 
-try:
-    # Python 2/Python 3 compat
-    unicode('str')
-except NameError:
-    unicode = lambda s: s
+def unicode(s):
+    return s
 
 
 ###############################################################################
@@ -208,12 +203,9 @@ def test_hash_numpy_performance():
     """
     rnd = np.random.RandomState(0)
     a = rnd.random_sample(1000000)
-    if hasattr(np, 'getbuffer'):
-        # Under python 3, there is no getbuffer
-        getbuffer = np.getbuffer
-    else:
-        getbuffer = memoryview
-    md5_hash = lambda x: hashlib.md5(getbuffer(x)).hexdigest()
+
+    def md5_hash(x):
+        return hashlib.md5(memoryview(x)).hexdigest()
 
     relative_diff = relative_time(md5_hash, hash, a)
     assert relative_diff < 0.3
@@ -346,42 +338,22 @@ def test_dtype():
 
 @parametrize('to_hash,expected',
              [('This is a string to hash',
-                 {'py2': '80436ada343b0d79a99bfd8883a96e45',
-                  'py3': '71b3f47df22cb19431d85d92d0b230b2'}),
+               '71b3f47df22cb19431d85d92d0b230b2'),
               (u"C'est l\xe9t\xe9",
-                 {'py2': '2ff3a25200eb6219f468de2640913c2d',
-                  'py3': '2d8d189e9b2b0b2e384d93c868c0e576'}),
+               '2d8d189e9b2b0b2e384d93c868c0e576'),
               ((123456, 54321, -98765),
-                 {'py2': '50d81c80af05061ac4dcdc2d5edee6d6',
-                  'py3': 'e205227dd82250871fa25aa0ec690aa3'}),
+               'e205227dd82250871fa25aa0ec690aa3'),
               ([random.Random(42).random() for _ in range(5)],
-                 {'py2': '1a36a691b2e2ba3a9df72de3dccf17ea',
-                  'py3': 'a11ffad81f9682a7d901e6edc3d16c84'}),
-              ([3, 'abc', None, TransportableException('foo', ValueError)],
-                 {'py2': 'adb6ba84990ee5e462dc138383f11802',
-                  'py3': '994f663c64ba5e64b2a85ebe75287829'}),
+               'a11ffad81f9682a7d901e6edc3d16c84'),
               ({'abcde': 123, 'sadfas': [-9999, 2, 3]},
-                 {'py2': 'fc9314a39ff75b829498380850447047',
-                  'py3': 'aeda150553d4bb5c69f0e69d51b0e2ef'})])
+                  'aeda150553d4bb5c69f0e69d51b0e2ef')])
 def test_hashes_stay_the_same(to_hash, expected):
-    py_version_str = 'py3' if PY3_OR_LATER else 'py2'
-    if expected[py_version_str] == "994f663c64ba5e64b2a85ebe75287829":
-        # [3, 'abc', None, TransportableException('foo', ValueError)]
-        # started to fail when distributed is installed for some unknown
-        # reason.
-        # XXX: try to debug what changed.
-        try:
-            import distributed  # noqa
-            pytest.xfail("Known failure")
-        except ImportError:
-            pass
-
     # We want to make sure that hashes don't change with joblib
     # version. For end users, that would mean that they have to
     # regenerate their cache from scratch, which potentially means
     # lengthy recomputations.
     # Expected results have been generated with joblib 0.9.2
-    assert hash(to_hash) == expected[py_version_str]
+    assert hash(to_hash) == expected
 
 
 @with_numpy
@@ -405,7 +377,6 @@ def test_0d_and_1d_array_hashing_is_different():
 
 
 @with_numpy
-@skipif(sys.version_info < (3, 5), reason="Bored with Python 2.7 support")
 def test_hashes_stay_the_same_with_numpy_objects():
     # We want to make sure that hashes don't change with joblib
     # version. For end users, that would mean that they have to
@@ -438,25 +409,17 @@ def test_hashes_stay_the_same_with_numpy_objects():
     ]
 
     # These expected results have been generated with joblib 0.9.0
-    expected_dict = {'py2': ['80f2387e7752abbda2658aafed49e086',
-                             '0d700f7f25ea670fd305e4cd93b0e8cd',
-                             '83a2bdf843e79e4b3e26521db73088b9',
-                             '63e0efd43c0a9ad92a07e8ce04338dd3',
-                             '03fef702946b602c852b8b4e60929914',
-                             '07074691e90d7098a85956367045c81e',
-                             'd264cf79f353aa7bbfa8349e3df72d8f'],
-                     'py3': ['10a6afc379ca2708acfbaef0ab676eab',
-                             '988a7114f337f381393025911ebc823b',
-                             'c6809f4b97e35f2fa0ee8d653cbd025c',
-                             'b3ad17348e32728a7eb9cda1e7ede438',
-                             '927b3e6b0b6a037e8e035bda134e0b05',
-                             '108f6ee98e7db19ea2006ffd208f4bf1',
-                             'bd48ccaaff28e16e6badee81041b7180']}
+    expected_hashes = [
+        '10a6afc379ca2708acfbaef0ab676eab',
+        '988a7114f337f381393025911ebc823b',
+        'c6809f4b97e35f2fa0ee8d653cbd025c',
+        'b3ad17348e32728a7eb9cda1e7ede438',
+        '927b3e6b0b6a037e8e035bda134e0b05',
+        '108f6ee98e7db19ea2006ffd208f4bf1',
+        'bd48ccaaff28e16e6badee81041b7180'
+    ]
 
-    py_version_str = 'py3' if PY3_OR_LATER else 'py2'
-    expected_list = expected_dict[py_version_str]
-
-    for to_hash, expected in zip(to_hash_list, expected_list):
+    for to_hash, expected in zip(to_hash_list, expected_hashes):
         assert hash(to_hash) == expected
 
 

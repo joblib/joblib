@@ -12,6 +12,7 @@ is called with the same input arguments.
 from __future__ import with_statement
 import os
 import time
+import pathlib
 import pydoc
 import re
 import functools
@@ -21,18 +22,16 @@ import inspect
 import sys
 import weakref
 
+from tokenize import open as open_py_source
+
 # Local imports
 from . import hashing
 from .func_inspect import get_func_code, get_func_name, filter_args
 from .func_inspect import format_call
 from .func_inspect import format_signature
-from ._memory_helpers import open_py_source
 from .logger import Logger, format_time, pformat
-from ._compat import _basestring, PY3_OR_LATER
 from ._store_backends import StoreBackendBase, FileSystemStoreBackend
 
-if sys.version_info[:2] >= (3, 4):
-    import pathlib
 
 
 FIRST_LINE_TEXT = "# first line:"
@@ -89,7 +88,7 @@ def register_store_backend(backend_name, backend):
         The name of a class that implements the StoreBackendBase interface.
 
     """
-    if not isinstance(backend_name, _basestring):
+    if not isinstance(backend_name, str):
         raise ValueError("Store backend name should be a string, "
                          "'{0}' given.".format(backend_name))
     if backend is None or not issubclass(backend, StoreBackendBase):
@@ -105,12 +104,12 @@ def _store_backend_factory(backend, location, verbose=0, backend_options=None):
     if backend_options is None:
         backend_options = {}
 
-    if (sys.version_info[:2] >= (3, 4) and isinstance(location, pathlib.Path)):
+    if isinstance(location, pathlib.Path):
         location = str(location)
 
     if isinstance(location, StoreBackendBase):
         return location
-    elif isinstance(location, _basestring):
+    elif isinstance(location, str):
         obj = None
         location = os.path.expanduser(location)
         # The location is not a local file system, we look in the
@@ -151,7 +150,7 @@ def _get_func_fullname(func):
 def _build_func_identifier(func):
     """Build a roughly unique identifier for the cached function."""
     parts = []
-    if isinstance(func, _basestring):
+    if isinstance(func, str):
         parts.append(func)
     else:
         parts.append(_get_func_fullname(func))
@@ -224,7 +223,7 @@ class MemorizedResult(Logger):
                  mmap_mode=None, verbose=0, timestamp=None, metadata=None):
         Logger.__init__(self)
         self.func_id = _build_func_identifier(func)
-        if isinstance(func, _basestring):
+        if isinstance(func, str):
             self.func = func
         else:
             self.func = self.func_id
@@ -264,8 +263,7 @@ class MemorizedResult(Logger):
         try:
             return self.store_backend.load_item(
                 [self.func_id, self.args_id], msg=msg, verbose=self.verbose)
-        except (ValueError, KeyError) as exc:
-            # KeyError is expected under Python 2.7, ValueError under Python 3
+        except ValueError as exc:
             new_exc = KeyError(
                 "Error while trying to load a MemorizedResult's value. "
                 "It seems that this folder is corrupted : {}".format(
@@ -273,8 +271,7 @@ class MemorizedResult(Logger):
                         self.store_backend.location, self.func_id,
                         self.args_id)
                 ))
-            new_exc.__cause__ = exc
-            raise new_exc
+            raise new_exc from exc
 
     def clear(self):
         """Clear value from cache"""
@@ -608,12 +605,8 @@ class MemorizedFunc(Logger):
 
         # Also store in the in-memory store of function hashes
         is_named_callable = False
-        if PY3_OR_LATER:
-            is_named_callable = (hasattr(self.func, '__name__') and
-                                 self.func.__name__ != '<lambda>')
-        else:
-            is_named_callable = (hasattr(self.func, 'func_name') and
-                                 self.func.func_name != '<lambda>')
+        is_named_callable = (hasattr(self.func, '__name__') and
+                             self.func.__name__ != '<lambda>')
         if is_named_callable:
             # Don't do this for lambda functions or strange callable
             # objects, as it ends up being too fragile
@@ -901,7 +894,7 @@ class Memory(Logger):
             location = cachedir
 
         self.location = location
-        if isinstance(location, _basestring):
+        if isinstance(location, str):
             location = os.path.join(location, 'joblib')
 
         self.store_backend = _store_backend_factory(
