@@ -11,7 +11,6 @@ import os
 import stat
 import threading
 import atexit
-import sys
 import tempfile
 import warnings
 import weakref
