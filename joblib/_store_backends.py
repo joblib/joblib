@@ -12,7 +12,6 @@ import operator
 import threading
 from abc import ABCMeta, abstractmethod
 
-from ._compat import with_metaclass, _basestring
 from .backports import concurrency_safe_rename
 from .disk import mkdirp, memstr_to_bytes, rm_subdirs
 from . import numpy_pickle
@@ -31,7 +30,7 @@ def concurrency_safe_write(object_to_write, filename, write_func):
     return temporary_filename
 
 
-class StoreBackendBase(with_metaclass(ABCMeta)):
+class StoreBackendBase(metaclass=ABCMeta):
     """Helper Abstract Base Class which defines all methods that
        a StorageBackend must implement."""
 
@@ -286,16 +285,16 @@ class StoreBackendMixin(object):
                 print('Deleting item {0}'.format(item))
             try:
                 self.clear_location(item.path)
-            except (OSError, IOError):
-                # Even with ignore_errors=True shutil.rmtree
-                # can raise OSError (IOError in python 2) with
-                # [Errno 116] Stale file handle if another process
-                # has deleted the folder already.
+            except OSError:
+                # Even with ignore_errors=True shutil.rmtree can raise OSError
+                # with:
+                # [Errno 116] Stale file handle if another process has deleted
+                # the folder already.
                 pass
 
     def _get_items_to_delete(self, bytes_limit):
         """Get items to delete to keep the store under a size limit."""
-        if isinstance(bytes_limit, _basestring):
+        if isinstance(bytes_limit, str):
             bytes_limit = memstr_to_bytes(bytes_limit)
 
         items = self.get_items()

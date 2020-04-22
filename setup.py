@@ -33,9 +33,7 @@ if __name__ == '__main__':
               'Intended Audience :: Education',
               'License :: OSI Approved :: BSD License',
               'Operating System :: OS Independent',
-              'Programming Language :: Python :: 2.7',
               'Programming Language :: Python :: 3',
-              'Programming Language :: Python :: 3.5',
               'Programming Language :: Python :: 3.6',
               'Programming Language :: Python :: 3.7',
               'Topic :: Scientific/Engineering',
@@ -54,4 +52,5 @@ if __name__ == '__main__':
           packages=['joblib', 'joblib.test', 'joblib.test.data',
                     'joblib.externals', 'joblib.externals.cloudpickle',
                     'joblib.externals.loky', 'joblib.externals.loky.backend'],
+          python_requires='>=3.6',
           **extra_setuptools_args)

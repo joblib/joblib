@@ -16,17 +16,15 @@ import threading
 import itertools
 from numbers import Integral
 import warnings
+import queue
 
 from ._multiprocessing_helpers import mp
 
-from .format_stack import format_outer_frames
 from .logger import Logger, short_format_time
-from .my_exceptions import TransportableException
 from .disk import memstr_to_bytes
 from ._parallel_backends import (FallbackToBackend, MultiprocessingBackend,
                                  ThreadingBackend, SequentialBackend,
                                  LokyBackend)
-from ._compat import _basestring
 from .externals.cloudpickle import dumps, loads
 from .externals import loky
 
@@ -34,11 +32,6 @@ from .externals import loky
 # so that 3rd party backend implementers can import them from here.
 from ._parallel_backends import AutoBatchingMixin  # noqa
 from ._parallel_backends import ParallelBackendBase  # noqa
-
-try:
-    import queue
-except ImportError:  # backward compat for Python 2
-    import Queue as queue
 
 
 BACKENDS = {
@@ -179,7 +172,7 @@ class parallel_backend(object):
     """
     def __init__(self, backend, n_jobs=-1, inner_max_num_threads=None,
                  **backend_params):
-        if isinstance(backend, _basestring):
+        if isinstance(backend, str):
             if backend not in BACKENDS and backend in EXTERNAL_BACKENDS:
                 register = EXTERNAL_BACKENDS[backend]
                 register()
@@ -637,7 +630,7 @@ class Parallel(Logger):
         self.pre_dispatch = pre_dispatch
         self._ready_batches = queue.Queue()
 
-        if isinstance(max_nbytes, _basestring):
+        if isinstance(max_nbytes, str):
             max_nbytes = memstr_to_bytes(max_nbytes)
 
         self._backend_args = dict(
@@ -932,15 +925,7 @@ class Parallel(Logger):
                     # scheduling.
                     ensure_ready = self._managed_backend
                     backend.abort_everything(ensure_ready=ensure_ready)
-
-                if isinstance(exception, TransportableException):
-                    # Capture exception to add information on the local
-                    # stack in addition to the distant stack
-                    this_report = format_outer_frames(context=10,
-                                                      stack_start=1)
-                    raise exception.unwrap(this_report)
-                else:
-                    raise
+                raise
 
     def __call__(self, iterable):
         if self._jobs:

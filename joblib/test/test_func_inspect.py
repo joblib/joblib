@@ -13,7 +13,6 @@ from joblib.func_inspect import _clean_win_chars, format_signature
 from joblib.memory import Memory
 from joblib.test.common import with_numpy
 from joblib.testing import fixture, parametrize, raises
-from joblib._compat import PY3_OR_LATER
 
 
 ###############################################################################
@@ -42,6 +41,14 @@ def k(*args, **kwargs):
     pass
 
 
+def m1(x, *, y):
+    pass
+
+
+def m2(x, *, y, z=3):
+    pass
+
+
 @fixture(scope='module')
 def cached_func(tmpdir_factory):
     # Create a Memory object to test decorated functions.
@@ -65,7 +72,6 @@ class Klass(object):
 
 ###############################################################################
 # Tests
-
 
 @parametrize('func,args,filtered_args',
              [(f, [[], (1, )], {'x': 1, 'y': 0}),
@@ -99,17 +105,10 @@ def test_filter_varargs(func, args, filtered_args):
     assert filter_args(func, *args) == filtered_args
 
 
-test_filter_kwargs_extra_params = []
-if PY3_OR_LATER:
-    m1 = m2 = None
-    # The following statements raise SyntaxError in python 2
-    # because kwargonly is not supported
-    exec("def m1(x, *, y): pass")
-    exec("def m2(x, *, y, z=3): pass")
-    test_filter_kwargs_extra_params.extend([
-        (m1, [[], (1,), {'y': 2}], {'x': 1, 'y': 2}),
-        (m2, [[], (1,), {'y': 2}], {'x': 1, 'y': 2, 'z': 3})
-    ])
+test_filter_kwargs_extra_params = [
+    (m1, [[], (1,), {'y': 2}], {'x': 1, 'y': 2}),
+    (m2, [[], (1,), {'y': 2}], {'x': 1, 'y': 2, 'z': 3})
+]
 
 
 @parametrize('func,args,filtered_args',
@@ -160,42 +159,33 @@ def test_func_inspect_errors():
     assert get_func_code(ff)[1] == __file__.replace('.pyc', '.py')
 
 
-if PY3_OR_LATER:
-    # Avoid flake8 F821 "undefined name" warning. func_with_kwonly_args and
-    # func_with_signature are redefined in the exec statement a few lines below
-    def func_with_kwonly_args():
-        pass
+def func_with_kwonly_args(a, b, *, kw1='kw1', kw2='kw2'):
+    pass
 
-    def func_with_signature():
-        pass
 
-    # exec is needed to define a function with a keyword-only argument and a
-    # function with signature while avoiding a SyntaxError on Python 2
-    exec("""
-def func_with_kwonly_args(a, b, *, kw1='kw1', kw2='kw2'): pass
+def func_with_signature(a: int, b: int) -> None:
+    pass
 
-def func_with_signature(a: int, b: int) -> None: pass
-""")
 
-    def test_filter_args_python_3():
-        assert (
-            filter_args(func_with_kwonly_args, [], (1, 2),
-                        {'kw1': 3, 'kw2': 4}) ==
-            {'a': 1, 'b': 2, 'kw1': 3, 'kw2': 4})
+def test_filter_args_edge_cases():
+    assert (
+        filter_args(func_with_kwonly_args, [], (1, 2),
+                    {'kw1': 3, 'kw2': 4}) ==
+        {'a': 1, 'b': 2, 'kw1': 3, 'kw2': 4})
 
-        # filter_args doesn't care about keyword-only arguments so you
-        # can pass 'kw1' into *args without any problem
-        with raises(ValueError) as excinfo:
-            filter_args(func_with_kwonly_args, [], (1, 2, 3), {'kw2': 2})
-        excinfo.match("Keyword-only parameter 'kw1' was passed as positional "
-                      "parameter")
+    # filter_args doesn't care about keyword-only arguments so you
+    # can pass 'kw1' into *args without any problem
+    with raises(ValueError) as excinfo:
+        filter_args(func_with_kwonly_args, [], (1, 2, 3), {'kw2': 2})
+    excinfo.match("Keyword-only parameter 'kw1' was passed as positional "
+                  "parameter")
 
-        assert (
-            filter_args(func_with_kwonly_args, ['b', 'kw2'], (1, 2),
-                        {'kw1': 3, 'kw2': 4}) ==
-            {'a': 1, 'kw1': 3})
+    assert (
+        filter_args(func_with_kwonly_args, ['b', 'kw2'], (1, 2),
+                    {'kw1': 3, 'kw2': 4}) ==
+        {'a': 1, 'kw1': 3})
 
-        assert (filter_args(func_with_signature, ['b'], (1, 2)) == {'a': 1})
+    assert (filter_args(func_with_signature, ['b'], (1, 2)) == {'a': 1})
 
 
 def test_bound_methods():

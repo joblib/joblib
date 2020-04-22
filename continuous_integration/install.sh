@@ -18,7 +18,7 @@ create_new_conda_env() {
 }
 
 create_new_pypy3_env() {
-    PYPY_FOLDER="pypy3-v6.0.0-linux64"
+    PYPY_FOLDER="pypy3.6-v7.3.1-linux64"
     wget https://bitbucket.org/pypy/pypy/downloads/$PYPY_FOLDER.tar.bz2
     tar xvf $PYPY_FOLDER.tar.bz2
     $PYPY_FOLDER/bin/pypy3 -m venv pypy3
@@ -53,7 +53,7 @@ if [[ "$COVERAGE" == "true" ]]; then
     PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES coverage==4.5.4 pytest-cov codecov"
 fi
 
-if [[ "2.7 3.4 pypy3" != *"$PYTHON_VERSION"* ]]; then
+if [[ "pypy3" != *"$PYTHON_VERSION"* ]]; then
     # threadpoolctl is only available for python 3.5+.
     PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES threadpoolctl"
 fi

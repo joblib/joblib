@@ -4,17 +4,14 @@ Backends for embarrassingly parallel code.
 
 import gc
 import os
-import sys
 import warnings
 import threading
 import functools
 import contextlib
 from abc import ABCMeta, abstractmethod
 
-from .format_stack import format_exc
-from .my_exceptions import WorkerInterrupt, TransportableException
+from .my_exceptions import WorkerInterrupt
 from ._multiprocessing_helpers import mp
-from ._compat import with_metaclass, PY27
 if mp is not None:
     from .disk import delete_folder
     from .pool import MemmappingPool
@@ -27,7 +24,7 @@ if mp is not None:
     from .externals.loky import process_executor, cpu_count
 
 
-class ParallelBackendBase(with_metaclass(ABCMeta)):
+class ParallelBackendBase(metaclass=ABCMeta):
     """Helper abc which defines all methods a ParallelBackend must implement"""
 
     supports_timeout = False
@@ -596,9 +593,14 @@ class ImmediateResult(object):
 class SafeFunction(object):
     """Wrapper that handles the serialization of exception tracebacks.
 
+    TODO python2_drop: check whether SafeFunction is still needed since we
+    dropped support for Python 2. If not needed anymore it should be
+    deprecated.
+
     If an exception is triggered when calling the inner function, a copy of
     the full traceback is captured to make it possible to serialize
     it so that it can be rendered in a different Python process.
+
     """
     def __init__(self, func):
         self.func = func
@@ -612,16 +614,8 @@ class SafeFunction(object):
             # interrupt processing for a KeyboardInterrupt
             raise WorkerInterrupt()
         except BaseException:
-            if PY27:
-                # Capture the traceback of the worker to make it part of
-                # the final exception message.
-                e_type, e_value, e_tb = sys.exc_info()
-                text = format_exc(e_type, e_value, e_tb, context=10,
-                                  tb_offset=1)
-                raise TransportableException(text, e_type)
-            else:
-                # Rely on Python 3 built-in Remote Traceback reporting
-                raise
+            # Rely on Python 3 built-in Remote Traceback reporting
+            raise
 
 
 class FallbackToBackend(Exception):

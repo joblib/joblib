@@ -4,10 +4,7 @@ We use a distinct module to simplify import statements and avoid introducing
 circular dependencies (for instance for the assert_spawning name).
 """
 import os
-import sys
 import warnings
-
-from ._compat import CompatFileExistsError
 
 
 # Obtain possible configuration from the environment, assuming 1 (on)
@@ -30,11 +27,6 @@ if mp is not None:
         # Unix system or changing the default backend.
         import tempfile
         from _multiprocessing import SemLock
-        if sys.version_info < (3,):
-            _SemLock = SemLock
-
-            def SemLock(kind, value, maxvalue, name, unlink):
-                return _SemLock(kind, value, maxvalue)
 
         _rand = tempfile._RandomNameSequence()
         for i in range(100):
@@ -44,21 +36,17 @@ if mp is not None:
                 _sem = SemLock(0, 0, 1, name=name, unlink=True)
                 del _sem  # cleanup
                 break
-            except CompatFileExistsError:  # pragma: no cover
+            except FileExistsError:  # pragma: no cover
                 if i >= 99:
-                    raise CompatFileExistsError(
+                    raise FileExistsError(
                         'cannot find name for semaphore')
-    except (CompatFileExistsError, AttributeError, ImportError, OSError) as e:
+    except (FileExistsError, AttributeError, ImportError, OSError) as e:
         mp = None
         warnings.warn('%s.  joblib will operate in serial mode' % (e,))
 
 
 # 3rd stage: backward compat for the assert_spawning helper
 if mp is not None:
-    try:
-        # Python 3.4+
-        from multiprocessing.context import assert_spawning
-    except ImportError:
-        from multiprocessing.forking import assert_spawning
+    from multiprocessing.context import assert_spawning
 else:
     assert_spawning = None

@@ -13,6 +13,7 @@ that uses a custom alternative to SimpleQueue.
 # Copyright: 2012, Olivier Grisel
 # License: BSD 3 clause
 
+import copyreg
 import sys
 import warnings
 from time import sleep
@@ -22,8 +23,6 @@ try:
 except NameError:
     WindowsError = type(None)
 
-# Customizable pure Python pickler in Python 2
-# customizable C-optimized pickler under Python 3.3+
 from pickle import Pickler
 
 from pickle import HIGHEST_PROTOCOL
@@ -42,15 +41,14 @@ try:
 except ImportError:
     np = None
 
-if sys.version_info[:2] > (2, 7):
-    import copyreg
-
 
 ###############################################################################
 # Enable custom pickling in Pool queues
 
 class CustomizablePickler(Pickler):
     """Pickler that accepts custom reducers.
+
+    TODO python2_drop : can this be simplified ?
 
     HIGHEST_PROTOCOL is selected by default as this pickler is used
     to pickle ephemeral datastructures for interprocess communication
