@@ -482,7 +482,7 @@ def test_memmapping_pool_for_large_arrays(factory, tmpdir):
             sleep(.1)
             if not os.path.exists(p._temp_folder):
                 break
-        else:
+        else:  # pragma: no cover
             raise AssertionError(
                 'temporary folder of {} was not deleted'.format(p)
             )
@@ -602,7 +602,7 @@ def test_memmapping_on_large_enough_dev_shm(factory):
             if not os.path.exists(pool_temp_folder):
                 break
             sleep(.1)
-        else:
+        else:  # pragma: no cover
             raise AssertionError('temporary folder of pool was not deleted')
     finally:
         jmr.SYSTEM_SHARED_MEM_FS_MIN_SIZE = orig_size
