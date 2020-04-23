@@ -337,7 +337,7 @@ def test_permission_error_windows_reference_cycle(backend):
                          stdout=subprocess.PIPE)
     p.wait()
     out, err = p.communicate()
-    assert p.returncode == 0, out.decode()
+    assert p.returncode == 0, out.decode() + "\n\n" + err.decode()
 
 
 @with_numpy
@@ -386,7 +386,7 @@ def test_permission_error_windows_memmap_sent_to_parent(backend):
 @parametrize("backend", ["multiprocessing", "loky"])
 def test_memmap_returned_as_regular_array(backend):
     data = np.ones(int(1e3))
-    # Check that child processes serialize temporary memmaps as numpy arrays.
+    # Check that child processes send temporary memmaps back as numpy arrays.
     [result] = Parallel(n_jobs=2, backend=backend, max_nbytes=100)(
         delayed(check_memmap_and_send_back)(data) for _ in range(1))
     assert _get_backing_memmap(result) is None

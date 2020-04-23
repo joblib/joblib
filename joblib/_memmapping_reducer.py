@@ -406,7 +406,7 @@ class ArrayMemmapForwardReducer(object):
             else:
                 util.debug(
                     "[ARRAY DUMP] Pickling known array (shape={}, dtype={}) "
-                    "retrieving memmap {}".format(
+                    "reusing memmap file: {}".format(
                         a.shape, a.dtype, os.path.basename(filename)))
 
             # The worker process will use joblib.load to memmap the data
