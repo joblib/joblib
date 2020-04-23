@@ -70,6 +70,12 @@ jobs:
         imageName: "vs2017-win2016"
         PYTHON_VERSION: "3.8"
         EXTRA_CONDA_PACKAGES: "numpy=1.18"
+
+      windows_py37:
+        imageName: "vs2017-win2016"
+        PYTHON_VERSION: "3.7"
+        EXTRA_CONDA_PACKAGES: "numpy=1.18"
+
       windows_py36:
         imageName: "vs2017-win2016"
         PYTHON_VERSION: "3.6"
