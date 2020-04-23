@@ -491,28 +491,48 @@ def test_memmapping_pool_for_large_arrays(factory, tmpdir):
 
 @with_numpy
 @parametrize("backend", ["multiprocessing", "loky"])
-def test_child_raises_no_resources_leaked(backend):
+def test_child_raises_parent_exits_cleanly(backend):
     # When a task executed by a child process raises an error, the parent
     # process's backend is notified, and calls abort_everything.
     # In loky, abort_everything itself calls shutdown(kill_workers=True) which
     # sends SIGKILL to the worker, preventing it from running the finalizers
     # supposed to signal the resource_tracker when the worker is done using
     # objects relying on a shared resource (e.g np.memmaps). Because this
-    # behavior is prone to cause a resource leak, we explicitly test that no
-    # resources are actually leaked when the said situation occurs.
+    # behavior is prone to :
+    # - cause a resource leak
+    # - make the resource tracker emit noisy resource warnings
+    # we explicitly test that, when the said situation occurs:
+    # - no resources are actually leaked
+    # - the temporary resources are deleted as soon as possible (typically, at
+    #   the end of the failing Parallel call)
+    # - the resource_tracker does not emit any warnings.
     cmd = """if 1:
+        import os
+
         import numpy as np
         from joblib import Parallel, delayed
         from testutils import print_filename_and_raise
 
-
         data = np.random.rand(1000)
 
+
+        def get_temp_folder(parallel_obj, backend):
+            if "{b}" == "loky":
+                return p._backend._temp_folder
+            else:
+                return p._backend._pool._temp_folder
+
+
         if __name__ == "__main__":
-            Parallel(n_jobs=2, backend="{b}", max_nbytes=100)(
-                delayed(print_filename_and_raise_valueerror)(data)
-                for i in range(1)
-            )
+            try:
+                with Parallel(n_jobs=2, backend="{b}", max_nbytes=100) as p:
+                    temp_folder = get_temp_folder(p, "{b}")
+                    p(delayed(print_filename_and_raise)(data)
+                              for i in range(1))
+            except ValueError:
+                # the temporary folder should be deleted by the end of this
+                # call
+                assert not os.path.exists(temp_folder)
     """.format(b=backend)
     env = os.environ.copy()
     env['PYTHONPATH'] = os.path.dirname(__file__)
@@ -522,9 +542,9 @@ def test_child_raises_no_resources_leaked(backend):
     out, err = p.communicate()
     out, err = out.decode(), err.decode()
     filename = out.split('\n')[0]
-    assert p.returncode == 1, out
+    assert p.returncode == 0, out
+    assert err == ''  # no resource_tracker warnings.
     assert not os.path.exists(filename)
-    assert "resource_tracker" not in err, err
 
 
 @with_numpy
