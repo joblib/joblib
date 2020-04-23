@@ -490,6 +490,7 @@ def test_memmapping_pool_for_large_arrays(factory, tmpdir):
 
 
 @with_numpy
+@with_multiprocessing
 @parametrize("backend", ["multiprocessing", "loky"])
 def test_child_raises_parent_exits_cleanly(backend):
     # When a task executed by a child process raises an error, the parent
