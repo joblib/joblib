@@ -466,7 +466,7 @@ def get_memmapping_reducers(
         delete_folder = __import__(
             pool_module_name, fromlist=['delete_folder']).delete_folder
         try:
-            delete_folder(pool_folder)
+            delete_folder(pool_folder, allow_non_empty=True)
             resource_tracker.unregister(pool_folder, "folder")
         except OSError:
             warnings.warn("Failed to clean temporary folder: {}"
