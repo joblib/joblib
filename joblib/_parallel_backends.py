@@ -587,7 +587,7 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase,
         # point, all child processes are dead, so all references
         # to temporary memmaps are closed.
         self._unregister_temporary_resources()
-        self._try_delete_folder()
+        self._try_delete_folder(allow_non_empty=False)
         self._workers = None
 
         if ensure_ready:

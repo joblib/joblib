@@ -506,7 +506,7 @@ class TemporaryResourcesManagerMixin(object):
                 )
             # XXX: calling shutil.rmtree inside delete_folder is likely to
             # cause a race condition with the lines above.
-            self._try_delete_folder()
+            self._try_delete_folder(allow_non_empty=False)
 
     def _unregister_temporary_resources(self):
         """Unregister temporary resources created by a process-based pool"""
@@ -516,9 +516,9 @@ class TemporaryResourcesManagerMixin(object):
                     os.path.join(self._temp_folder, filename), "file"
                 )
 
-    def _try_delete_folder(self):
+    def _try_delete_folder(self, allow_non_empty):
         try:
-            delete_folder(self._temp_folder, allow_non_empty=False)
+            delete_folder(self._temp_folder, allow_non_empty=allow_non_empty)
         except OSError:
             # Temporary folder cannot be deleted right now. No need to
             # handle it though, as this folder will be cleaned up by an
