@@ -371,7 +371,7 @@ def test_permission_error_windows_memmap_sent_to_parent(backend):
                 delayed(return_slice_of_data)(data, 0, 20) for _ in range(10))
     '''.format(b=backend)
 
-    for _ in range(5):
+    for _ in range(20):
         env = os.environ.copy()
         env['PYTHONPATH'] = os.path.dirname(__file__)
         p = subprocess.Popen([sys.executable, '-c', cmd],
