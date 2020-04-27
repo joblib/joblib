@@ -71,16 +71,6 @@ jobs:
         PYTHON_VERSION: "3.8"
         EXTRA_CONDA_PACKAGES: "numpy=1.18"
 
-      windows_py37:
-        imageName: "vs2017-win2016"
-        PYTHON_VERSION: "3.7"
-        EXTRA_CONDA_PACKAGES: "numpy=1.18"
-
-      windows_py36:
-        imageName: "vs2017-win2016"
-        PYTHON_VERSION: "3.6"
-        EXTRA_CONDA_PACKAGES: "numpy=1.18"
-
       macos_py38:
         imageName: "macos-10.14"
         PYTHON_VERSION: "3.8"
