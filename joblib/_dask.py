@@ -25,6 +25,7 @@ if distributed is not None:
         secede,
         rejoin
     )
+    from distributed import get_worker
     from distributed.utils import thread_state
 
     try:
@@ -41,6 +42,14 @@ def is_weakrefable(obj):
         return True
     except TypeError:
         return False
+
+
+def _in_dask_worker():
+    try:
+        worker = get_worker()
+    except ValueError:
+        worker = None
+    return worker
 
 
 class _WeakKeyDictionary:
@@ -254,12 +263,16 @@ class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
                     except KeyError:
                         pass
                     if f is None:
-                        if is_weakrefable(arg) and sizeof(arg) > 1e3:
+                        if (not _in_dask_worker() and is_weakrefable(arg) and
+                                sizeof(arg) > 1e3):
                             # Automatically scatter large objects to some of
                             # the workers to avoid duplicated data transfers.
                             # Rely on automated inter-worker data stealing if
                             # more workers need to reuse this data
                             # concurrently.
+                            # Because nested scatter call often end up
+                            # cancelling tasks, (distributed/issues/3703), we
+                            # never scatter inside nested Parallel calls.
                             [f] = await self.client.scatter(
                                 [arg],
                                 asynchronous=True
