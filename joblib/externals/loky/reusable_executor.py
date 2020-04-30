@@ -166,8 +166,8 @@ class _ReusablePoolExecutor(ProcessPoolExecutor):
             elif max_workers == self._max_workers:
                 return
 
-            if self._queue_management_thread is None:
-                # If the queue_management_thread has not been started
+            if self._executor_manager_thread is None:
+                # If the executor_manager_thread has not been started
                 # then no processes have been spawned and we can just
                 # update _max_workers and return
                 self._max_workers = max_workers

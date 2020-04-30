@@ -149,6 +149,10 @@ if sys.platform != "win32":
                 reduction._mk_inheritable(child_w)
                 reduction._mk_inheritable(tracker_fd)
                 self._fds.extend([child_r, child_w, tracker_fd])
+                if sys.version_info >= (3, 8) and os.name == 'posix':
+                    mp_tracker_fd = prep_data['mp_tracker_args']['fd']
+                    self.duplicate_for_child(mp_tracker_fd)
+
                 from .fork_exec import fork_exec
                 pid = fork_exec(cmd_python, self._fds, env=process_obj.env)
                 util.debug("launched python with pid {} and cmd:\n{}"
