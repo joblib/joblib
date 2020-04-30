@@ -73,13 +73,14 @@ class NumpyArrayWrapper(object):
         Default: False.
     """
 
-    def __init__(self, subclass, shape, order, dtype, allow_mmap=False):
+    def __init__(self, subclass, shape, order, dtype, allow_mmap=False, protocol=None):
         """Constructor. Store the useful information for later."""
         self.subclass = subclass
         self.shape = shape
         self.order = order
         self.dtype = dtype
         self.allow_mmap = allow_mmap
+        self.protocol = protocol
 
     def write_array(self, array, pickler):
         """Write array bytes to pickler file handle.
@@ -93,7 +94,7 @@ class NumpyArrayWrapper(object):
             # We contain Python objects so we cannot write out the data
             # directly. Instead, we will pickle it out with version 2 of the
             # pickle protocol.
-            pickle.dump(array, pickler.file_handle, protocol=2)
+            pickle.dump(array, pickler.file_handle, protocol=self.protocol or 2)
         else:
             for chunk in pickler.np.nditer(array,
                                            flags=['external_loop',
@@ -255,7 +256,8 @@ class NumpyPickler(Pickler):
         allow_mmap = not self.buffered and not array.dtype.hasobject
         wrapper = NumpyArrayWrapper(type(array),
                                     array.shape, order, array.dtype,
-                                    allow_mmap=allow_mmap)
+                                    allow_mmap=allow_mmap,
+                                    protocol=self.proto)
 
         return wrapper
 
