@@ -524,8 +524,8 @@ def identity(arg):
 @with_multiprocessing
 @parametrize(
     "factory,retry_no",
-    list(itertools.product([MemmappingPool, _TestingMemmappingExecutor], range(50))),  # noqa
-    ids=['{}, {}'.format(x, y) for x, y in itertools.product(["multiprocessing", "loky"], map(str, range(50)))])  # noqa
+    list(itertools.product([MemmappingPool, _TestingMemmappingExecutor], range(3))),  # noqa
+    ids=['{}, {}'.format(x, y) for x, y in itertools.product(["multiprocessing", "loky"], map(str, range(3)))])  # noqa
 def test_pool_memmap_with_big_offset(factory, retry_no, tmpdir):
     # Test that numpy memmap offset is set correctly if greater than
     # mmap.ALLOCATIONGRANULARITY, see
