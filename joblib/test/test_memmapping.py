@@ -528,17 +528,19 @@ def test_pool_memmap_with_big_offset(factory, tmpdir):
     # mmap.ALLOCATIONGRANULARITY, see
     # https://github.com/joblib/joblib/issues/451 and
     # https://github.com/numpy/numpy/pull/8443 for more details.
-    fname = tmpdir.join('test.mmap').strpath
-    size = 5 * mmap.ALLOCATIONGRANULARITY
-    offset = mmap.ALLOCATIONGRANULARITY + 1
-    obj = make_memmap(fname, mode='w+', shape=size, dtype='uint8',
-                      offset=offset)
+    for i in range(50):
+        fname = tmpdir.join('test.mmap').strpath
+        size = 5 * mmap.ALLOCATIONGRANULARITY
+        offset = mmap.ALLOCATIONGRANULARITY + 1
+        obj = make_memmap(fname, mode='w+', shape=size, dtype='uint8',
+                          offset=offset)
 
-    p = factory(2, temp_folder=tmpdir.strpath)
-    result = p.apply_async(identity, args=(obj,)).get()
-    assert isinstance(result, np.memmap)
-    assert result.offset == offset
-    np.testing.assert_array_equal(obj, result)
+        p = factory(2, temp_folder=tmpdir.strpath)
+        result = p.apply_async(identity, args=(obj,)).get()
+        assert isinstance(result, np.memmap)
+        assert result.offset == offset
+        np.testing.assert_array_equal(obj, result)
+        p.terminate()
 
 
 def test_pool_get_temp_dir(tmpdir):
