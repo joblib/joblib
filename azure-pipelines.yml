@@ -33,38 +33,38 @@ jobs:
   displayName: Testing
   strategy:
     matrix:
-      linux_pypy3:
-        imageName: 'ubuntu-latest'
-        PYTHON_VERSION: "pypy3"
-        LOKY_MAX_CPU_COUNT: "2"
+      # linux_pypy3:
+      #   imageName: 'ubuntu-latest'
+      #   PYTHON_VERSION: "pypy3"
+      #   LOKY_MAX_CPU_COUNT: "2"
 
-      linux_py38:
-        imageName: 'ubuntu-latest'
-        PYTHON_VERSION: "3.8"
-        EXTRA_CONDA_PACKAGES: "numpy=1.18"
-      linux_py37_sklearn_tests:
-        imageName: 'ubuntu-latest'
-        PYTHON_VERSION: "3.7"
-        EXTRA_CONDA_PACKAGES: "numpy=1.16"
-        SKIP_TESTS: "true"
-        SKLEARN_TESTS: "true"
-      linux_py37_distributed:
-        imageName: 'ubuntu-latest'
-        PYTHON_VERSION: "3.7"
-        EXTRA_CONDA_PACKAGES: "numpy=1.15 distributed=2.13"
-      linux_py36_cython:
-        imageName: 'ubuntu-latest'
-        PYTHON_VERSION: "3.6"
-        EXTRA_CONDA_PACKAGES: "numpy=1.14"
-        CYTHON: "true"
-      linux_py36_no_multiprocessing:
-        imageName: 'ubuntu-latest'
-        PYTHON_VERSION: "3.6"
-        EXTRA_CONDA_PACKAGES: "numpy=1.14"
-        JOBLIB_MULTIPROCESSING: "0"
-      linux_py36_no_numpy:
-        imageName: 'ubuntu-latest'
-        PYTHON_VERSION: "3.6"
+      # linux_py38:
+      #   imageName: 'ubuntu-latest'
+      #   PYTHON_VERSION: "3.8"
+      #   EXTRA_CONDA_PACKAGES: "numpy=1.18"
+      # linux_py37_sklearn_tests:
+      #   imageName: 'ubuntu-latest'
+      #   PYTHON_VERSION: "3.7"
+      #   EXTRA_CONDA_PACKAGES: "numpy=1.16"
+      #   SKIP_TESTS: "true"
+      #   SKLEARN_TESTS: "true"
+      # linux_py37_distributed:
+      #   imageName: 'ubuntu-latest'
+      #   PYTHON_VERSION: "3.7"
+      #   EXTRA_CONDA_PACKAGES: "numpy=1.15 distributed=2.13"
+      # linux_py36_cython:
+      #   imageName: 'ubuntu-latest'
+      #   PYTHON_VERSION: "3.6"
+      #   EXTRA_CONDA_PACKAGES: "numpy=1.14"
+      #   CYTHON: "true"
+      # linux_py36_no_multiprocessing:
+      #   imageName: 'ubuntu-latest'
+      #   PYTHON_VERSION: "3.6"
+      #   EXTRA_CONDA_PACKAGES: "numpy=1.14"
+      #   JOBLIB_MULTIPROCESSING: "0"
+      # linux_py36_no_numpy:
+      #   imageName: 'ubuntu-latest'
+      #   PYTHON_VERSION: "3.6"
 
       windows_py38:
         imageName: "vs2017-win2016"
@@ -74,13 +74,13 @@ jobs:
         imageName: "vs2017-win2016"
         PYTHON_VERSION: "3.6"
 
-      macos_py38:
-        imageName: "macos-10.14"
-        PYTHON_VERSION: "3.8"
-        EXTRA_CONDA_PACKAGES: "numpy=1.18"
-      macos_py36_no_numpy:
-        imageName: "macos-10.14"
-        PYTHON_VERSION: "3.6"
+        # macos_py38:
+        #   imageName: "macos-10.14"
+        #   PYTHON_VERSION: "3.8"
+        #   EXTRA_CONDA_PACKAGES: "numpy=1.18"
+        # macos_py36_no_numpy:
+        #   imageName: "macos-10.14"
+        #   PYTHON_VERSION: "3.6"
 
   variables:
     JUNITXML: 'test-data.xml'
