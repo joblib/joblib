@@ -20,7 +20,7 @@ if [[ "$SKIP_TESTS" != "true" ]]; then
         export PYTEST_ADDOPTS="--cov=joblib --cov-append"
     fi
 
-    pytest joblib -vl --timeout=60 --junitxml="${JUNITXML}" -k pool_memmap
+    pytest joblib -vl --timeout=60 --junitxml="${JUNITXML}"
     make test-doc
 fi
 
