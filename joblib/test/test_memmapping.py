@@ -4,6 +4,7 @@ import sys
 import platform
 import gc
 import pickle
+import itertools
 from time import sleep
 
 from joblib.test.common import with_numpy, np
@@ -521,26 +522,27 @@ def identity(arg):
 
 @with_numpy
 @with_multiprocessing
-@parametrize("factory", [MemmappingPool, _TestingMemmappingExecutor],
-             ids=["multiprocessing", "loky"])
-def test_pool_memmap_with_big_offset(factory, tmpdir):
+@parametrize(
+    "factory,retry_no",
+    list(itertools.product([MemmappingPool, _TestingMemmappingExecutor], range(50))),  # noqa
+    ids=['{}, {}'.format(x, y) for x, y in itertools.product(["multiprocessing", "loky"], map(str, range(50)))])  # noqa
+def test_pool_memmap_with_big_offset(factory, retry_no, tmpdir):
     # Test that numpy memmap offset is set correctly if greater than
     # mmap.ALLOCATIONGRANULARITY, see
     # https://github.com/joblib/joblib/issues/451 and
     # https://github.com/numpy/numpy/pull/8443 for more details.
-    for i in range(50):
-        fname = tmpdir.join('test.mmap').strpath
-        size = 5 * mmap.ALLOCATIONGRANULARITY
-        offset = mmap.ALLOCATIONGRANULARITY + 1
-        obj = make_memmap(fname, mode='w+', shape=size, dtype='uint8',
-                          offset=offset)
+    fname = tmpdir.join('test.mmap').strpath
+    size = 5 * mmap.ALLOCATIONGRANULARITY
+    offset = mmap.ALLOCATIONGRANULARITY + 1
+    obj = make_memmap(fname, mode='w+', shape=size, dtype='uint8',
+                      offset=offset)
 
-        p = factory(2, temp_folder=tmpdir.strpath)
-        result = p.apply_async(identity, args=(obj,)).get()
-        assert isinstance(result, np.memmap)
-        assert result.offset == offset
-        np.testing.assert_array_equal(obj, result)
-        p.terminate()
+    p = factory(2, temp_folder=tmpdir.strpath)
+    result = p.apply_async(identity, args=(obj,)).get()
+    assert isinstance(result, np.memmap)
+    assert result.offset == offset
+    np.testing.assert_array_equal(obj, result)
+    p.terminate()
 
 
 def test_pool_get_temp_dir(tmpdir):
