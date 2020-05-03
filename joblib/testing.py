@@ -20,6 +20,8 @@ skipif = pytest.mark.skipif
 fixture = pytest.fixture
 parametrize = pytest.mark.parametrize
 timeout = pytest.mark.timeout
+xfail = pytest.mark.xfail
+param = pytest.param
 
 
 def warnings_to_stdout():

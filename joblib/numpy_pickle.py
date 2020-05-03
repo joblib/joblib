@@ -37,6 +37,7 @@ register_compressor('lzma', LZMACompressorWrapper())
 register_compressor('xz', XZCompressorWrapper())
 register_compressor('lz4', LZ4CompressorWrapper())
 
+
 ###############################################################################
 # Utility objects for persistence.
 
@@ -518,6 +519,15 @@ def _unpickle(fobj, filename="", mmap_mode=None):
     return obj
 
 
+def load_temporary_memmap(filename, mmap_mode, unlink_on_gc_collect):
+    from ._memmapping_reducer import JOBLIB_MMAPS, add_maybe_unlink_finalizer
+    obj = load(filename, mmap_mode)
+    JOBLIB_MMAPS.add(obj.filename)
+    if unlink_on_gc_collect:
+        add_maybe_unlink_finalizer(obj)
+    return obj
+
+
 def load(filename, mmap_mode=None):
     """Reconstruct a Python object from a file persisted with joblib.dump.
 
@@ -573,5 +583,4 @@ def load(filename, mmap_mode=None):
                     return load_compatibility(fobj)
 
                 obj = _unpickle(fobj, filename, mmap_mode)
-
     return obj

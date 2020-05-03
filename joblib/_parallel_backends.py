@@ -12,9 +12,10 @@ from abc import ABCMeta, abstractmethod
 
 from .my_exceptions import WorkerInterrupt
 from ._multiprocessing_helpers import mp
+
 if mp is not None:
-    from .disk import delete_folder
     from .pool import MemmappingPool
+    from ._memmapping_reducer import TemporaryResourcesManagerMixin
     from multiprocessing.pool import ThreadPool
     from .executor import get_memmapping_executor
 
@@ -22,6 +23,8 @@ if mp is not None:
     from multiprocessing import TimeoutError
     from concurrent.futures._base import TimeoutError as CfTimeoutError
     from .externals.loky import process_executor, cpu_count
+else:
+    TemporaryResourcesManagerMixin = object
 
 
 class ParallelBackendBase(metaclass=ABCMeta):
@@ -494,7 +497,8 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
         self.reset_batch_stats()
 
 
-class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
+class LokyBackend(AutoBatchingMixin, ParallelBackendBase,
+                  TemporaryResourcesManagerMixin):
     """Managing pool of workers with loky instead of multiprocessing."""
 
     supports_timeout = True
@@ -512,6 +516,7 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
             n_jobs, timeout=idle_worker_timeout,
             env=self._prepare_worker_env(n_jobs=n_jobs),
             **memmappingexecutor_args)
+        self._temp_folder = self._workers._temp_folder
         self.parallel = parallel
         return n_jobs
 
@@ -562,10 +567,10 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
 
     def terminate(self):
         if self._workers is not None:
+            self._unlink_temporary_resources()
+
             # Terminate does not shutdown the workers as we want to reuse them
-            # in latter calls but we free as much memory as we can by deleting
-            # the shared memory
-            delete_folder(self._workers._temp_folder)
+            # in latter calls
             self._workers = None
 
         self.reset_batch_stats()
@@ -574,8 +579,17 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
         """Shutdown the workers and restart a new one with the same parameters
         """
         self._workers.shutdown(kill_workers=True)
-        delete_folder(self._workers._temp_folder)
+        # When workers are killed in such a brutal manner, they cannot execute
+        # the finalizer of their shared memmaps. The refcount of those memmaps
+        # may be off by an unknown number, so insted of decref'ing them, we
+        # delete the whole temporary folder, and unregister them. There is no
+        # risk of PermissionError at folder deletion because because at this
+        # point, all child processes are dead, so all references
+        # to temporary memmaps are closed.
+        self._unregister_temporary_resources()
+        self._try_delete_folder(allow_non_empty=True)
         self._workers = None
+
         if ensure_ready:
             self.configure(n_jobs=self.parallel.n_jobs, parallel=self.parallel)
 

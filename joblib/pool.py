@@ -28,8 +28,8 @@ from pickle import Pickler
 from pickle import HIGHEST_PROTOCOL
 from io import BytesIO
 
-from .disk import delete_folder
 from ._memmapping_reducer import get_memmapping_reducers
+from ._memmapping_reducer import TemporaryResourcesManagerMixin
 from ._multiprocessing_helpers import mp, assert_spawning
 
 # We need the class definition to derive from it, not the multiprocessing.Pool
@@ -214,7 +214,7 @@ class PicklingPool(Pool):
         self._quick_get = self._outqueue._recv
 
 
-class MemmappingPool(PicklingPool):
+class MemmappingPool(PicklingPool, TemporaryResourcesManagerMixin):
     """Process pool that shares large arrays to avoid memory copy.
 
     This drop-in replacement for `multiprocessing.pool.Pool` makes
@@ -301,7 +301,7 @@ class MemmappingPool(PicklingPool):
                 id(self), temp_folder=temp_folder, max_nbytes=max_nbytes,
                 mmap_mode=mmap_mode, forward_reducers=forward_reducers,
                 backward_reducers=backward_reducers, verbose=verbose,
-                prewarm=prewarm)
+                unlink_on_gc_collect=False, prewarm=prewarm)
 
         poolargs = dict(
             processes=processes,
@@ -324,4 +324,4 @@ class MemmappingPool(PicklingPool):
                     if i + 1 == n_retries:
                         warnings.warn("Failed to terminate worker processes in"
                                       " multiprocessing pool: %r" % e)
-        delete_folder(self._temp_folder)
+        self._unlink_temporary_resources()

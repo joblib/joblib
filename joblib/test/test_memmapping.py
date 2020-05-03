@@ -6,25 +6,25 @@ import gc
 import pickle
 import itertools
 from time import sleep
+import subprocess
 
 from joblib.test.common import with_numpy, np
 from joblib.test.common import setup_autokill
 from joblib.test.common import teardown_autokill
 from joblib.test.common import with_multiprocessing
 from joblib.test.common import with_dev_shm
-from joblib.testing import raises, parametrize, skipif
+from joblib.testing import raises, parametrize, skipif, xfail, param
 from joblib.backports import make_memmap
 from joblib.parallel import Parallel, delayed
 
 from joblib.pool import MemmappingPool
 from joblib.executor import _TestingMemmappingExecutor
 from joblib._memmapping_reducer import has_shareable_memory
-from joblib._memmapping_reducer import ArrayMemmapReducer
-from joblib._memmapping_reducer import reduce_memmap
+from joblib._memmapping_reducer import ArrayMemmapForwardReducer
 from joblib._memmapping_reducer import _strided_from_memmap
-from joblib._memmapping_reducer import _get_backing_memmap
 from joblib._memmapping_reducer import _get_temp_dir
 from joblib._memmapping_reducer import _WeakArrayKeyMap
+from joblib._memmapping_reducer import _get_backing_memmap
 import joblib._memmapping_reducer as jmr
 
 
@@ -34,6 +34,11 @@ def setup_module():
 
 def teardown_module():
     teardown_autokill(__name__)
+
+
+def check_memmap_and_send_back(array):
+    assert _get_backing_memmap(array) is not None
+    return array
 
 
 def check_array(args):
@@ -93,34 +98,30 @@ def test_memmap_based_array_reducing(tmpdir):
     d = c.T
 
     # Array reducer with auto dumping disabled
-    reducer = ArrayMemmapReducer(None, tmpdir.strpath, 'c')
+    reducer = ArrayMemmapForwardReducer(None, tmpdir.strpath, 'c', True)
 
-    def reconstruct_array(x):
+    def reconstruct_array_or_memmap(x):
         cons, args = reducer(x)
         return cons(*args)
 
-    def reconstruct_memmap(x):
-        cons, args = reduce_memmap(x)
-        return cons(*args)
-
     # Reconstruct original memmap
-    a_reconstructed = reconstruct_memmap(a)
+    a_reconstructed = reconstruct_array_or_memmap(a)
     assert has_shareable_memory(a_reconstructed)
     assert isinstance(a_reconstructed, np.memmap)
     assert_array_equal(a_reconstructed, a)
 
     # Reconstruct strided memmap view
-    b_reconstructed = reconstruct_memmap(b)
+    b_reconstructed = reconstruct_array_or_memmap(b)
     assert has_shareable_memory(b_reconstructed)
     assert_array_equal(b_reconstructed, b)
 
     # Reconstruct arrays views on memmap base
-    c_reconstructed = reconstruct_array(c)
+    c_reconstructed = reconstruct_array_or_memmap(c)
     assert not isinstance(c_reconstructed, np.memmap)
     assert has_shareable_memory(c_reconstructed)
     assert_array_equal(c_reconstructed, c)
 
-    d_reconstructed = reconstruct_array(d)
+    d_reconstructed = reconstruct_array_or_memmap(d)
     assert not isinstance(d_reconstructed, np.memmap)
     assert has_shareable_memory(d_reconstructed)
     assert_array_equal(d_reconstructed, d)
@@ -129,7 +130,7 @@ def test_memmap_based_array_reducing(tmpdir):
     # buffers
     a3 = a * 3
     assert not has_shareable_memory(a3)
-    a3_reconstructed = reconstruct_memmap(a3)
+    a3_reconstructed = reconstruct_array_or_memmap(a3)
     assert not has_shareable_memory(a3_reconstructed)
     assert not isinstance(a3_reconstructed, np.memmap)
     assert_array_equal(a3_reconstructed, a * 3)
@@ -138,7 +139,7 @@ def test_memmap_based_array_reducing(tmpdir):
     b3 = np.asarray(a3)
     assert not has_shareable_memory(b3)
 
-    b3_reconstructed = reconstruct_array(b3)
+    b3_reconstructed = reconstruct_array_or_memmap(b3)
     assert isinstance(b3_reconstructed, np.ndarray)
     assert not has_shareable_memory(b3_reconstructed)
     assert_array_equal(b3_reconstructed, b3)
@@ -162,29 +163,31 @@ def test_high_dimension_memmap_array_reducing(tmpdir):
     d = a[:, :, :, 0]
     e = a[1:3:4]
 
-    def reconstruct_memmap(x):
-        cons, args = reduce_memmap(x)
-        res = cons(*args)
-        return res
+    # Array reducer with auto dumping disabled
+    reducer = ArrayMemmapForwardReducer(None, tmpdir.strpath, 'c', True)
 
-    a_reconstructed = reconstruct_memmap(a)
+    def reconstruct_array_or_memmap(x):
+        cons, args = reducer(x)
+        return cons(*args)
+
+    a_reconstructed = reconstruct_array_or_memmap(a)
     assert has_shareable_memory(a_reconstructed)
     assert isinstance(a_reconstructed, np.memmap)
     assert_array_equal(a_reconstructed, a)
 
-    b_reconstructed = reconstruct_memmap(b)
+    b_reconstructed = reconstruct_array_or_memmap(b)
     assert has_shareable_memory(b_reconstructed)
     assert_array_equal(b_reconstructed, b)
 
-    c_reconstructed = reconstruct_memmap(c)
+    c_reconstructed = reconstruct_array_or_memmap(c)
     assert has_shareable_memory(c_reconstructed)
     assert_array_equal(c_reconstructed, c)
 
-    d_reconstructed = reconstruct_memmap(d)
+    d_reconstructed = reconstruct_array_or_memmap(d)
     assert has_shareable_memory(d_reconstructed)
     assert_array_equal(d_reconstructed, d)
 
-    e_reconstructed = reconstruct_memmap(e)
+    e_reconstructed = reconstruct_array_or_memmap(e)
     assert has_shareable_memory(e_reconstructed)
     assert_array_equal(e_reconstructed, e)
 
@@ -199,13 +202,15 @@ def test__strided_from_memmap(tmpdir):
     # filename, dtype, mode, offset, order, shape, strides, total_buffer_len
     memmap_obj = _strided_from_memmap(fname, dtype='uint8', mode='r',
                                       offset=offset, order='C', shape=size,
-                                      strides=None, total_buffer_len=None)
+                                      strides=None, total_buffer_len=None,
+                                      unlink_on_gc_collect=False)
     assert isinstance(memmap_obj, np.memmap)
     assert memmap_obj.offset == offset
-    memmap_backed_obj = _strided_from_memmap(fname, dtype='uint8', mode='r',
-                                             offset=offset, order='C',
-                                             shape=(size // 2,), strides=(2,),
-                                             total_buffer_len=size)
+    memmap_backed_obj = _strided_from_memmap(
+        fname, dtype='uint8', mode='r', offset=offset, order='C',
+        shape=(size // 2,), strides=(2,), total_buffer_len=size,
+        unlink_on_gc_collect=False
+    )
     assert _get_backing_memmap(memmap_backed_obj).offset == offset
 
 
@@ -303,6 +308,141 @@ def test_pool_with_memmap_array_view(factory, tmpdir):
 
 
 @with_numpy
+@parametrize("backend", ["multiprocessing", "loky"])
+def test_permission_error_windows_reference_cycle(backend):
+    # Non regression test for:
+    # https://github.com/joblib/joblib/issues/806
+    #
+    # The issue happens when trying to delete a memory mapped file that has
+    # not yet been closed by one of the worker processes.
+    cmd = """if 1:
+        import numpy as np
+        from joblib import Parallel, delayed
+
+
+        data = np.random.rand(int(2e6)).reshape((int(1e6), 2))
+
+        # Build a complex cyclic reference that is likely to delay garbage
+        # collection of the memmapped array in the worker processes.
+        first_list = current_list = [data]
+        for i in range(10):
+            current_list = [current_list]
+        first_list.append(current_list)
+
+        if __name__ == "__main__":
+            results = Parallel(n_jobs=2, backend="{b}")(
+                delayed(len)(current_list) for i in range(10))
+            assert results == [1] * 10
+    """.format(b=backend)
+    p = subprocess.Popen([sys.executable, '-c', cmd], stderr=subprocess.PIPE,
+                         stdout=subprocess.PIPE)
+    p.wait()
+    out, err = p.communicate()
+    assert p.returncode == 0, out.decode() + "\n\n" + err.decode()
+
+
+@with_numpy
+@parametrize("backend", ["multiprocessing", "loky"])
+def test_permission_error_windows_memmap_sent_to_parent(backend):
+    # Second non-regression test for:
+    # https://github.com/joblib/joblib/issues/806
+    # previously, child process would not convert temporary memmaps to numpy
+    # arrays when sending the data back to the parent process. This would lead
+    # to permission errors on windows when deleting joblib's temporary folder,
+    # as the memmaped files handles would still opened in the parent process.
+    cmd = '''if 1:
+        import os
+        import time
+
+        import numpy as np
+
+        from joblib import Parallel, delayed
+        from testutils import return_slice_of_data
+
+        data = np.ones(int(2e6))
+
+        if __name__ == '__main__':
+            # warm-up call to launch the workers and start the resource_tracker
+            _ = Parallel(n_jobs=2, verbose=5, backend='{b}')(
+                delayed(id)(i) for i in range(20))
+
+            time.sleep(0.5)
+
+            slice_of_data = Parallel(n_jobs=2, verbose=5, backend='{b}')(
+                delayed(return_slice_of_data)(data, 0, 20) for _ in range(10))
+    '''.format(b=backend)
+
+    for _ in range(3):
+        env = os.environ.copy()
+        env['PYTHONPATH'] = os.path.dirname(__file__)
+        p = subprocess.Popen([sys.executable, '-c', cmd],
+                             stderr=subprocess.PIPE,
+                             stdout=subprocess.PIPE, env=env)
+        p.wait()
+        out, err = p.communicate()
+        assert p.returncode == 0, err
+        assert out == b''
+        if sys.version_info[:3] not in [(3, 8, 0), (3, 8, 1)]:
+            # In early versions of Python 3.8, a reference leak
+            # https://github.com/cloudpipe/cloudpickle/issues/327, holds
+            # references to pickled objects, generating race condition during
+            # cleanup finalizers of joblib and noisy resource_tracker outputs.
+            assert b'resource_tracker' not in err
+
+
+@with_numpy
+@with_multiprocessing
+@parametrize("backend", ["multiprocessing", "loky"])
+def test_memmap_returned_as_regular_array(backend):
+    data = np.ones(int(1e3))
+    # Check that child processes send temporary memmaps back as numpy arrays.
+    [result] = Parallel(n_jobs=2, backend=backend, max_nbytes=100)(
+        delayed(check_memmap_and_send_back)(data) for _ in range(1))
+    assert _get_backing_memmap(result) is None
+
+
+@with_numpy
+@with_multiprocessing
+@parametrize("backend", ["multiprocessing", param("loky", marks=xfail)])
+def test_resource_tracker_silent_when_reference_cycles(backend):
+    # There is a variety of reasons that can make joblib with loky backend
+    # output noisy warnings when a reference cycle is preventing a memmap from
+    # being garbage collected. Especially, joblib's main process finalizer
+    # deletes the temporary folder if it was not done before, which can
+    # interact badly with the resource_tracker. We don't risk leaking any
+    # resources, but this will likely make joblib output a lot of low-level
+    # confusing messages. This test is marked as xfail for now: but a next PR
+    # should fix this behavior.
+    # Note that the script in ``cmd`` is the exact same script as in
+    # test_permission_error_windows_reference_cycle.
+    cmd = """if 1:
+        import numpy as np
+        from joblib import Parallel, delayed
+
+
+        data = np.random.rand(int(2e6)).reshape((int(1e6), 2))
+
+        # Build a complex cyclic reference that is likely to delay garbage
+        # collection of the memmapped array in the worker processes.
+        first_list = current_list = [data]
+        for i in range(10):
+            current_list = [current_list]
+        first_list.append(current_list)
+
+        if __name__ == "__main__":
+            results = Parallel(n_jobs=2, backend="{b}")(
+                delayed(len)(current_list) for i in range(10))
+            assert results == [1] * 10
+    """.format(b=backend)
+    p = subprocess.Popen([sys.executable, '-c', cmd], stderr=subprocess.PIPE,
+                         stdout=subprocess.PIPE)
+    p.wait()
+    out, err = p.communicate()
+    assert p.returncode == 0, out.decode()
+    assert b"resource_tracker" not in err, err.decode()
+
+
+@with_numpy
 @with_multiprocessing
 @parametrize("factory", [MemmappingPool, _TestingMemmappingExecutor],
              ids=["multiprocessing", "loky"])
@@ -347,8 +487,74 @@ def test_memmapping_pool_for_large_arrays(factory, tmpdir):
     finally:
         # check FS garbage upon pool termination
         p.terminate()
-        assert not os.path.exists(p._temp_folder)
+        for i in range(10):
+            sleep(.1)
+            if not os.path.exists(p._temp_folder):
+                break
+        else:  # pragma: no cover
+            raise AssertionError(
+                'temporary folder of {} was not deleted'.format(p)
+            )
         del p
+
+
+@with_numpy
+@with_multiprocessing
+@parametrize("backend", ["multiprocessing", "loky"])
+def test_child_raises_parent_exits_cleanly(backend):
+    # When a task executed by a child process raises an error, the parent
+    # process's backend is notified, and calls abort_everything.
+    # In loky, abort_everything itself calls shutdown(kill_workers=True) which
+    # sends SIGKILL to the worker, preventing it from running the finalizers
+    # supposed to signal the resource_tracker when the worker is done using
+    # objects relying on a shared resource (e.g np.memmaps). Because this
+    # behavior is prone to :
+    # - cause a resource leak
+    # - make the resource tracker emit noisy resource warnings
+    # we explicitly test that, when the said situation occurs:
+    # - no resources are actually leaked
+    # - the temporary resources are deleted as soon as possible (typically, at
+    #   the end of the failing Parallel call)
+    # - the resource_tracker does not emit any warnings.
+    cmd = """if 1:
+        import os
+
+        import numpy as np
+        from joblib import Parallel, delayed
+        from testutils import print_filename_and_raise
+
+        data = np.random.rand(1000)
+
+
+        def get_temp_folder(parallel_obj, backend):
+            if "{b}" == "loky":
+                return p._backend._temp_folder
+            else:
+                return p._backend._pool._temp_folder
+
+
+        if __name__ == "__main__":
+            try:
+                with Parallel(n_jobs=2, backend="{b}", max_nbytes=100) as p:
+                    temp_folder = get_temp_folder(p, "{b}")
+                    p(delayed(print_filename_and_raise)(data)
+                              for i in range(1))
+            except ValueError:
+                # the temporary folder should be deleted by the end of this
+                # call
+                assert not os.path.exists(temp_folder)
+    """.format(b=backend)
+    env = os.environ.copy()
+    env['PYTHONPATH'] = os.path.dirname(__file__)
+    p = subprocess.Popen([sys.executable, '-c', cmd], stderr=subprocess.PIPE,
+                         stdout=subprocess.PIPE, env=env)
+    p.wait()
+    out, err = p.communicate()
+    out, err = out.decode(), err.decode()
+    filename = out.split('\n')[0]
+    assert p.returncode == 0, out
+    assert err == ''  # no resource_tracker warnings.
+    assert not os.path.exists(filename)
 
 
 @with_numpy
@@ -420,8 +626,14 @@ def test_memmapping_on_large_enough_dev_shm(factory):
             # Cleanup open file descriptors
             p.terminate()
             del p
-        # The temp folder is cleaned up upon pool termination
-        assert not os.path.exists(pool_temp_folder)
+
+        for i in range(100):
+            # The temp folder is cleaned up upon pool termination
+            if not os.path.exists(pool_temp_folder):
+                break
+            sleep(.1)
+        else:  # pragma: no cover
+            raise AssertionError('temporary folder of pool was not deleted')
     finally:
         jmr.SYSTEM_SHARED_MEM_FS_MIN_SIZE = orig_size
 
