@@ -76,6 +76,7 @@ _CLEANUP_FUNCS = {
 if os.name == "posix":
     _CLEANUP_FUNCS['semlock'] = sem_unlink
 
+
 VERBOSE = False
 
 

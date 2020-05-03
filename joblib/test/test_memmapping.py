@@ -4,6 +4,7 @@ import sys
 import platform
 import gc
 import pickle
+import itertools
 from time import sleep
 import subprocess
 
@@ -733,9 +734,13 @@ def identity(arg):
 
 @with_numpy
 @with_multiprocessing
-@parametrize("factory", [MemmappingPool, _TestingMemmappingExecutor],
-             ids=["multiprocessing", "loky"])
-def test_pool_memmap_with_big_offset(factory, tmpdir):
+@parametrize(
+    "factory,retry_no",
+    list(itertools.product([MemmappingPool, _TestingMemmappingExecutor],
+                           range(3))),
+    ids=['{}, {}'.format(x, y) for x, y in itertools.product(
+        ["multiprocessing", "loky"], map(str, range(3)))])
+def test_pool_memmap_with_big_offset(factory, retry_no, tmpdir):
     # Test that numpy memmap offset is set correctly if greater than
     # mmap.ALLOCATIONGRANULARITY, see
     # https://github.com/joblib/joblib/issues/451 and
