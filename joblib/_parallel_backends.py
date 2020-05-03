@@ -20,7 +20,7 @@ if mp is not None:
 
     # Compat between concurrent.futures and multiprocessing TimeoutError
     from multiprocessing import TimeoutError
-    from .externals.loky._base import TimeoutError as LokyTimeoutError
+    from concurrent.futures._base import TimeoutError as CfTimeoutError
     from .externals.loky import process_executor, cpu_count
 
 
@@ -557,7 +557,7 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
         AsyncResults.get from multiprocessing."""
         try:
             return future.result(timeout=timeout)
-        except LokyTimeoutError:
+        except CfTimeoutError:
             raise TimeoutError()
 
     def terminate(self):
