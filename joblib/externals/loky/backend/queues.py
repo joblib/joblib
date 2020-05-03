@@ -209,6 +209,10 @@ class SimpleQueue(mp_SimpleQueue):
         # Add possiblity to use custom reducers
         self._reducers = reducers
 
+    def close(self):
+        self._reader.close()
+        self._writer.close()
+
     # Use custom queue set/get state to be able to reduce the custom reducers
     def __getstate__(self):
         assert_spawning(self)

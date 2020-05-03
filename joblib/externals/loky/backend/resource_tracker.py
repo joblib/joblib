@@ -13,14 +13,31 @@
 #
 # On Unix we run a server process which keeps track of unlinked
 # resources. The server ignores SIGINT and SIGTERM and reads from a
-# pipe.  Every other process of the program has a copy of the writable
-# end of the pipe, so we get EOF when all other processes have exited.
-# Then the server process unlinks any remaining resources.
-#
+# pipe. The resource_tracker implements a reference counting scheme: each time
+# a Python process anticipates the shared usage of a resource by another
+# process, it signals the resource_tracker of this shared usage, and in return,
+# the resource_tracker increments the resource's reference count by 1.
+# Similarly, when access to a resource is closed by a Python process, the
+# process notifies the resource_tracker by asking it to decrement the
+# resource's reference count by 1.  When the reference count drops to 0, the
+# resource_tracker attempts to clean up the underlying resource.
+
+# Finally, every other process connected to the resource tracker has a copy of
+# the writable end of the pipe used to communicate with it, so the resource
+# tracker gets EOF when all other processes have exited. Then the
+# resource_tracker process unlinks any remaining leaked resources (with
+# reference count above 0)
+
 # For semaphores, this is important because the system only supports a limited
 # number of named semaphores, and they will not be automatically removed till
 # the next reboot.  Without this resource tracker process, "killall python"
 # would probably leave unlinked semaphores.
+
+# Note that this behavior differs from CPython's resource_tracker, which only
+# implements list of shared resources, and not a proper refcounting scheme.
+# Also, CPython's resource tracker will only attempt to cleanup those shared
+# resources once all procsses connected to the resouce tracker have exited.
+
 
 import os
 import shutil
@@ -52,11 +69,13 @@ _HAVE_SIGMASK = hasattr(signal, 'pthread_sigmask')
 _IGNORED_SIGNALS = (signal.SIGINT, signal.SIGTERM)
 
 _CLEANUP_FUNCS = {
-    'folder': shutil.rmtree
+    'folder': shutil.rmtree,
+    'file': os.unlink
 }
 
 if os.name == "posix":
     _CLEANUP_FUNCS['semlock'] = sem_unlink
+
 
 VERBOSE = False
 
@@ -167,7 +186,7 @@ class ResourceTracker(object):
             return True
 
     def register(self, name, rtype):
-        '''Register a named resource with resource tracker.'''
+        '''Register a named resource, and increment its refcount.'''
         self.ensure_running()
         self._send('REGISTER', name, rtype)
 
@@ -175,6 +194,11 @@ class ResourceTracker(object):
         '''Unregister a named resource with resource tracker.'''
         self.ensure_running()
         self._send('UNREGISTER', name, rtype)
+
+    def maybe_unlink(self, name, rtype):
+        '''Decrement the refcount of a resource, and delete it if it hits 0'''
+        self.ensure_running()
+        self._send("MAYBE_UNLINK", name, rtype)
 
     def _send(self, cmd, name, rtype):
         msg = '{0}:{1}:{2}\n'.format(cmd, name, rtype).encode('ascii')
@@ -189,6 +213,7 @@ class ResourceTracker(object):
 _resource_tracker = ResourceTracker()
 ensure_running = _resource_tracker.ensure_running
 register = _resource_tracker.register
+maybe_unlink = _resource_tracker.maybe_unlink
 unregister = _resource_tracker.unregister
 getfd = _resource_tracker.getfd
 
@@ -196,6 +221,9 @@ getfd = _resource_tracker.getfd
 def main(fd, verbose=0):
     '''Run resource tracker.'''
     # protect the process from ^C and "killall python" etc
+    if verbose:
+        util.log_to_stderr(level=util.DEBUG)
+
     signal.signal(signal.SIGINT, signal.SIG_IGN)
     signal.signal(signal.SIGTERM, signal.SIG_IGN)
 
@@ -208,17 +236,19 @@ def main(fd, verbose=0):
         except Exception:
             pass
 
-    if verbose:  # pragma: no cover
-        sys.stderr.write("Main resource tracker is running\n")
-        sys.stderr.flush()
+    if verbose:
+        util.debug("Main resource tracker is running")
 
-    cache = {rtype: set() for rtype in _CLEANUP_FUNCS.keys()}
+    registry = {rtype: dict() for rtype in _CLEANUP_FUNCS.keys()}
     try:
         # keep track of registered/unregistered resources
         if sys.platform == "win32":
             fd = msvcrt.open_osfhandle(fd, os.O_RDONLY)
         with open(fd, 'rb') as f:
-            for line in f:
+            while True:
+                line = f.readline()
+                if line == b'':  # EOF
+                    break
                 try:
                     splitted = line.strip().decode('ascii').split(':')
                     # name can potentially contain separator symbols (for
@@ -237,18 +267,42 @@ def main(fd, verbose=0):
                                 name, rtype, list(_CLEANUP_FUNCS.keys())))
 
                     if cmd == 'REGISTER':
-                        cache[rtype].add(name)
-                        if verbose:  # pragma: no cover
-                            sys.stderr.write("[ResourceTracker] register {}"
-                                             " {}\n" .format(rtype, name))
-                            sys.stderr.flush()
+                        if name not in registry[rtype]:
+                            registry[rtype][name] = 1
+                        else:
+                            registry[rtype][name] += 1
+
+                        if verbose:
+                            util.debug(
+                                "[ResourceTracker] incremented refcount of {} "
+                                "{} (current {})".format(
+                                    rtype, name, registry[rtype][name]))
                     elif cmd == 'UNREGISTER':
-                        cache[rtype].remove(name)
-                        if verbose:  # pragma: no cover
-                            sys.stderr.write("[ResourceTracker] unregister {}"
-                                             " {}: cache({})\n"
-                                             .format(name, rtype, len(cache)))
-                            sys.stderr.flush()
+                        del registry[rtype][name]
+                        if verbose:
+                            util.debug(
+                                "[ResourceTracker] unregister {} {}: "
+                                "registry({})".format(name, rtype, len(registry)))
+                    elif cmd == 'MAYBE_UNLINK':
+                        registry[rtype][name] -= 1
+                        if verbose:
+                            util.debug(
+                                "[ResourceTracker] decremented refcount of {} "
+                                "{} (current {})".format(
+                                    rtype, name, registry[rtype][name]))
+
+                        if registry[rtype][name] == 0:
+                            del registry[rtype][name]
+                            try:
+                                if verbose:
+                                    util.debug(
+                                            "[ResourceTracker] unlink {}"
+                                            .format(name))
+                                _CLEANUP_FUNCS[rtype](name)
+                            except Exception as e:
+                                warnings.warn(
+                                    'resource_tracker: %s: %r' % (name, e))
+
                     else:
                         raise RuntimeError('unrecognized command %r' % cmd)
                 except BaseException:
@@ -258,30 +312,43 @@ def main(fd, verbose=0):
                         pass
     finally:
         # all processes have terminated; cleanup any remaining resources
-        for rtype, rtype_cache in cache.items():
-            if rtype_cache:
+        def _unlink_resources(rtype_registry, rtype):
+            if rtype_registry:
                 try:
                     warnings.warn('resource_tracker: There appear to be %d '
                                   'leaked %s objects to clean up at shutdown' %
-                                  (len(rtype_cache), rtype))
+                                  (len(rtype_registry), rtype))
                 except Exception:
                     pass
-            for name in rtype_cache:
+            for name in rtype_registry:
                 # For some reason the process which created and registered this
                 # resource has failed to unregister it. Presumably it has
                 # died.  We therefore clean it up.
                 try:
                     _CLEANUP_FUNCS[rtype](name)
-                    if verbose:  # pragma: no cover
-                        sys.stderr.write("[ResourceTracker] unlink {}\n"
+                    if verbose:
+                        util.debug("[ResourceTracker] unlink {}"
                                          .format(name))
-                        sys.stderr.flush()
                 except Exception as e:
                     warnings.warn('resource_tracker: %s: %r' % (name, e))
 
-    if verbose:  # pragma: no cover
-        sys.stderr.write("resource tracker shut down\n")
-        sys.stderr.flush()
+        for rtype, rtype_registry in registry.items():
+            if rtype == "folder":
+                continue
+            else:
+                _unlink_resources(rtype_registry, rtype)
+
+        # The default cleanup routine for folders deletes everything inside
+        # those folders recursively, which can include other resources tracked
+        # by the resource tracker). To limit the risk of the resource tracker
+        # attempting to delete twice a resource (once as part of a tracked
+        # folder, and once as a resource), we delete the folders after all
+        # other resource types.
+        if "folder" in registry:
+            _unlink_resources(registry["folder"], "folder")
+
+    if verbose:
+        util.debug("resource tracker shut down")
 
 
 #

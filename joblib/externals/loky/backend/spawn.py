@@ -92,6 +92,26 @@ def get_preparation_data(name, init_main_module=True):
     else:
         d["tracker_args"]["fd"] = _resource_tracker._fd
 
+    if sys.version_info >= (3, 8) and os.name == 'posix':
+        # joblib/loky#242: allow loky processes to retrieve the resource
+        # tracker of their parent in case the child processes depickles
+        # shared_memory objects, that are still tracked by multiprocessing's
+        # resource_tracker by default.
+        # XXX: this is a workaround that may be error prone: in the future, it
+        # would be better to have loky subclass multiprocessing's shared_memory
+        # to force registration of shared_memory segments via loky's
+        # resource_tracker.
+        from multiprocessing.resource_tracker import (
+            _resource_tracker as mp_resource_tracker
+        )
+        # multiprocessing's resource_tracker must be running before loky
+        # process is created (othewise the child won't be able to use it if it
+        # is created later on)
+        mp_resource_tracker.ensure_running()
+        d["mp_tracker_args"] = {
+            'fd': mp_resource_tracker._fd, 'pid': mp_resource_tracker._pid
+        }
+
     # Figure out whether to initialise main in the subprocess as a module
     # or through direct execution (or to leave it alone entirely)
     if init_main_module:
@@ -155,6 +175,12 @@ def prepare(data):
     if 'orig_dir' in data:
         process.ORIGINAL_DIR = data['orig_dir']
 
+    if 'mp_tracker_args' in data:
+        from multiprocessing.resource_tracker import (
+            _resource_tracker as mp_resource_tracker
+        )
+        mp_resource_tracker._fd = data['mp_tracker_args']['fd']
+        mp_resource_tracker._pid = data['mp_tracker_args']['pid']
     if 'tracker_args' in data:
         from .resource_tracker import _resource_tracker
         _resource_tracker._pid = data["tracker_args"]['pid']
