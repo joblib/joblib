@@ -38,27 +38,35 @@ class MemmappingExecutor(
             timeout=timeout, initializer=initializer, initargs=initargs))
         reuse = _executor_args is None or _executor_args == executor_args
         _executor_args = executor_args
-
-        id_executor = random.randint(0, int(1e10))
-        temp_folder, use_shared_mem = self.get_temp_dir(
-            executor_args.get('temp_folder'), id_executor
-        )
-        job_reducers, result_reducers = get_memmapping_reducers(
-            id_executor, unlink_on_gc_collect=True,
-            temp_folder=temp_folder, use_shared_mem=use_shared_mem,
-            **backend_args
-        )
-        _executor = super().get_reusable_executor(
-            n_jobs, job_reducers=job_reducers, result_reducers=result_reducers,
-            reuse=reuse, timeout=timeout, initializer=initializer,
-            initargs=initargs, env=env
-        )
-        # If executor doesn't have a _temp_folder, it means it is a new executor
-        # and the reducers have not been used. Else, the previous reducers are used
-        # and we should not change this attribute.
-        if not hasattr(_executor, "_temp_folder"):
-            _executor._temp_folder = temp_folder
-        return _executor
+        if reuse:
+            return super().get_reusable_executor(
+                n_jobs, reuse=reuse, timeout=timeout, initializer=initializer,
+                initargs=initargs, env=env
+            )
+        else:
+            # only create reducers (and configure a new temporary folder) if a
+            # new executor has to be created
+            id_executor = random.randint(0, int(1e10))
+            temp_folder, use_shared_mem = cls.get_temp_dir(
+                executor_args.get('temp_folder'), id_executor
+            )
+            job_reducers, result_reducers = get_memmapping_reducers(
+                id_executor, unlink_on_gc_collect=True,
+                temp_folder=temp_folder, **backend_args)
+            _executor = super().get_reusable_executor(
+                n_jobs, job_reducers=job_reducers,
+                result_reducers=result_reducers, reuse=reuse, timeout=timeout,
+                initializer=initializer, initargs=initargs, env=env
+            )
+            # patch the executor with its temp folder. The whole temporary
+            # folder configuration would be less awkward if we
+            # - first create the reducers without any info about the temp
+            #   folder
+            # - then create the executor
+            # - then create a temp folder
+            # - then "bind" the temp folder to the executor and the reducers.
+            _executor.temp_folder = temp_folder
+            return _executor
 
 
 class _TestingMemmappingExecutor(TemporaryResourcesManagerMixin):
