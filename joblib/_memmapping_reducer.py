@@ -451,28 +451,7 @@ def get_memmapping_reducers(
     # self to ensure that this callback won't prevent garbage collection of
     # the pool instance and related file handler resources such as POSIX
     # semaphores and pipes
-    pool_module_name = whichmodule(delete_folder, 'delete_folder')
     resource_tracker.register(pool_folder, "folder")
-
-    def _cleanup():
-        # In some cases the Python runtime seems to set delete_folder to
-        # None just before exiting when accessing the delete_folder
-        # function from the closure namespace. So instead we reimport
-        # the delete_folder function explicitly.
-        # https://github.com/joblib/joblib/issues/328
-        # We cannot just use from 'joblib.pool import delete_folder'
-        # because joblib should only use relative imports to allow
-        # easy vendoring.
-        delete_folder = __import__(
-            pool_module_name, fromlist=['delete_folder']).delete_folder
-        try:
-            if delete_folder(pool_folder, allow_non_empty=True):
-                resource_tracker.unregister(pool_folder, "folder")
-        except OSError:
-            warnings.warn("Failed to clean temporary folder: {}"
-                          .format(pool_folder))
-
-    atexit.register(_cleanup)
 
     if np is not None:
         # Register smart numpy.ndarray reducers that detects memmap backed
@@ -521,8 +500,34 @@ class TemporaryResourcesManagerMixin(object):
             if delete_folder(self._temp_folder,
                              allow_non_empty=allow_non_empty):
                 resource_tracker.unregister(self._temp_folder, "folder")
+
         except OSError:
             # Temporary folder cannot be deleted right now. No need to
             # handle it though, as this folder will be cleaned up by an
             # atexit finalizer registered by the memmapping_reducer.
-            pass
+            pool_module_name = whichmodule(delete_folder, 'delete_folder')
+
+            def _cleanup():
+                # In some cases the Python runtime seems to set
+                # delete_folder to None just before exiting when accessing
+                # the delete_folder function from the closure namespace. So
+                # instead we reimport the delete_folder function
+                # explicitly.  https://github.com/joblib/joblib/issues/328
+                # We cannot just use from 'joblib.pool import
+                # delete_folder' because joblib should only use relative
+                # imports to allow easy vendoring.
+                delete_folder = __import__(
+                    pool_module_name,
+                    fromlist=['delete_folder']).delete_folder
+                try:
+                    if delete_folder(
+                            self._temp_folder, "folder",
+                            allow_non_empty=True):
+                        resource_tracker.unregister(self._temp_folder,
+                                                    "folder")
+                except OSError:
+                    warnings.warn(
+                        "Failed to clean temporary folder: {}".format(
+                            self._temp_folder))
+
+            atexit.register(_cleanup)
