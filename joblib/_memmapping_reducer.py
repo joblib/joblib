@@ -518,7 +518,8 @@ class TemporaryResourcesManagerMixin(object):
 
     def _try_delete_folder(self, allow_non_empty):
         try:
-            if delete_folder(self._temp_folder, allow_non_empty=allow_non_empty):
+            if delete_folder(self._temp_folder,
+                             allow_non_empty=allow_non_empty):
                 resource_tracker.unregister(self._temp_folder, "folder")
         except OSError:
             # Temporary folder cannot be deleted right now. No need to
