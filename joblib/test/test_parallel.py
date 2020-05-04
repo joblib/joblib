@@ -257,8 +257,8 @@ def nested_loop(backend):
         delayed(square)(.01) for _ in range(2))
 
 
-@parametrize('child_backend', BACKENDS)
-@parametrize('parent_backend', BACKENDS)
+@parametrize('child_backend', ['loky'])
+@parametrize('parent_backend', ['multiprocessing'])
 def test_nested_loop(parent_backend, child_backend):
     Parallel(n_jobs=2, backend=parent_backend)(
         delayed(nested_loop)(child_backend) for _ in range(2))

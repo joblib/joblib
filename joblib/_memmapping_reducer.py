@@ -466,8 +466,8 @@ def get_memmapping_reducers(
         delete_folder = __import__(
             pool_module_name, fromlist=['delete_folder']).delete_folder
         try:
-            delete_folder(pool_folder, allow_non_empty=True)
-            resource_tracker.unregister(pool_folder, "folder")
+            if delete_folder(pool_folder, allow_non_empty=True):
+                resource_tracker.unregister(pool_folder, "folder")
         except OSError:
             warnings.warn("Failed to clean temporary folder: {}"
                           .format(pool_folder))
@@ -518,7 +518,8 @@ class TemporaryResourcesManagerMixin(object):
 
     def _try_delete_folder(self, allow_non_empty):
         try:
-            delete_folder(self._temp_folder, allow_non_empty=allow_non_empty)
+            if delete_folder(self._temp_folder, allow_non_empty=allow_non_empty):
+                resource_tracker.unregister(self._temp_folder, "folder")
         except OSError:
             # Temporary folder cannot be deleted right now. No need to
             # handle it though, as this folder will be cleaned up by an

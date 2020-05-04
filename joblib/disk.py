@@ -103,10 +103,13 @@ def rm_subdirs(path, onerror=None):
 
 
 def delete_folder(folder_path, onerror=None, allow_non_empty=True):
-    """Utility function to cleanup a temporary folder if it still exists."""
+    """Utility function to cleanup a temporary folder if it still exists.
+
+    returns True if the folder was succesfully deleted"""
     if os.path.isdir(folder_path):
         if onerror is not None:
             shutil.rmtree(folder_path, False, onerror)
+            return True
         else:
             # allow the rmtree to fail once, wait and re-try.
             # if the error is raised again, fail
@@ -120,7 +123,7 @@ def delete_folder(folder_path, onerror=None, allow_non_empty=True):
                         )
                         util.debug(
                             "Sucessfully deleted {}".format(folder_path))
-                        break
+                        return True
                     else:
                         raise OSError(
                             "Expected empty folder {} but got {} "
@@ -134,3 +137,4 @@ def delete_folder(folder_path, onerror=None, allow_non_empty=True):
                         # yet.
                         raise
                 time.sleep(RM_SUBDIRS_RETRY_TIME)
+    return False
