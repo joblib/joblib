@@ -12,6 +12,7 @@ import stat
 import threading
 import atexit
 import tempfile
+import time
 import warnings
 import weakref
 from uuid import uuid4
@@ -71,6 +72,32 @@ def add_maybe_unlink_finalizer(memmap):
         "".format(type(memmap), id(memmap), os.path.basename(memmap.filename),
                   os.getpid()))
     weakref.finalize(memmap, _log_and_unlink, memmap.filename)
+
+
+def unlink_file(filename):
+    """Wrapper around os.unlink with a retry mechanism.
+
+    The retry mechanism as been primarily implemented to overcome a race
+    condition happening during the finalizer of a memmap: when a process
+    holding the last reference to a mmap-backed np.array is about to delete
+    this array (and close the reference), it sends a maybe_unlink request to
+    the resource_tracker. This request can be processed faster than it takes
+    for the last reference of the memmap to be closed, yielding (on windows) a
+    PermissionError in the resource_tracker loop.
+    """
+    NUM_RETRIES = 10
+    for retry_no in range(1, NUM_RETRIES + 1):
+        try:
+            os.unlink(filename)
+            break
+        except PermissionError:
+            if retry_no == NUM_RETRIES:
+                raise
+            else:
+                time.sleep(.2)
+
+
+resource_tracker._CLEANUP_FUNCS['file'] = unlink_file
 
 
 class _WeakArrayKeyMap:
