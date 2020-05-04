@@ -77,7 +77,7 @@ def add_maybe_unlink_finalizer(memmap):
 def unlink_file(filename):
     """Wrapper around os.unlink with a retry mechanism.
 
-    The retry mechanism as been primarily implemented to overcome a race
+    The retry mechanism has been implemented primarily to overcome a race
     condition happening during the finalizer of a memmap: when a process
     holding the last reference to a mmap-backed np.array is about to delete
     this array (and close the reference), it sends a maybe_unlink request to
