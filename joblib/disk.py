@@ -105,7 +105,10 @@ def rm_subdirs(path, onerror=None):
 def delete_folder(folder_path, onerror=None, allow_non_empty=True):
     """Utility function to cleanup a temporary folder if it still exists.
 
-    returns True if the folder was succesfully deleted"""
+    Returns
+    - True if the folder was succesfully deleted
+    - False if the folder does not exist, or was not deleted
+    """
     if os.path.isdir(folder_path):
         if onerror is not None:
             shutil.rmtree(folder_path, False, onerror)
