@@ -424,9 +424,10 @@ class ArrayMemmapForwardReducer(object):
 
 
 def get_memmapping_reducers(
-        pool_id, forward_reducers=None, backward_reducers=None,
-        temp_folder=None, max_nbytes=1e6, mmap_mode='r', verbose=0,
-        prewarm=False, unlink_on_gc_collect=True, **kwargs):
+    forward_reducers=None, backward_reducers=None,
+    temp_folder=None, max_nbytes=1e6, mmap_mode='r', verbose=0,
+    prewarm=False, unlink_on_gc_collect=True, use_shared_mem=None, **kwargs
+):
     """Construct a pair of memmapping reducer linked to a tmpdir.
 
     This function manage the creation and the clean up of the temporary folders
@@ -437,22 +438,6 @@ def get_memmapping_reducers(
         forward_reducers = dict()
     if backward_reducers is None:
         backward_reducers = dict()
-
-    # Prepare a sub-folder name for the serialization of this particular
-    # pool instance (do not create in advance to spare FS write access if
-    # no array is to be dumped):
-    pool_folder_name = "joblib_memmapping_folder_{}_{}".format(
-        os.getpid(), pool_id)
-    pool_folder, use_shared_mem = _get_temp_dir(pool_folder_name,
-                                                temp_folder)
-
-    # Register the garbage collector at program exit in case caller forgets
-    # to call terminate explicitly: note we do not pass any reference to
-    # self to ensure that this callback won't prevent garbage collection of
-    # the pool instance and related file handler resources such as POSIX
-    # semaphores and pipes
-    resource_tracker.register(pool_folder, "folder")
-
     if np is not None:
         # Register smart numpy.ndarray reducers that detects memmap backed
         # arrays and that is also able to dump to memmap large in-memory
@@ -476,6 +461,17 @@ def get_memmapping_reducers(
 
 
 class TemporaryResourcesManagerMixin(object):
+
+    @classmethod
+    def get_temp_dir(cls, temp_folder, pool_id):
+        # Prepare a sub-folder name for the serialization of this particular
+        # pool instance (do not create in advance to spare FS write access
+        # if no array is to be dumped):
+        pool_folder_name = "joblib_memmapping_folder_{}_{}".format(
+            os.getpid(), pool_id)
+        pool_folder, use_shared_mem = _get_temp_dir(pool_folder_name,
+                                                    temp_folder)
+
     def _unlink_temporary_resources(self):
         """Unlink temporary resources created by a process-based pool"""
         if os.path.exists(self._temp_folder):

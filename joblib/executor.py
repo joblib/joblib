@@ -33,8 +33,14 @@ def get_memmapping_executor(n_jobs, timeout=300, initializer=None, initargs=(),
     _executor_args = executor_args
 
     id_executor = random.randint(0, int(1e10))
-    job_reducers, result_reducers, temp_folder = get_memmapping_reducers(
-        id_executor, unlink_on_gc_collect=True, **backend_args)
+    temp_folder, use_shared_mem = TemporaryResourcesManagerMixin.get_temp_dir(
+        executor_args.get('temp_folder'), id_executor
+    )
+    job_reducers, result_reducers = get_memmapping_reducers(
+        id_executor, unlink_on_gc_collect=True,
+        temp_folder=temp_folder, use_shared_mem=use_shared_mem,
+        **backend_args
+    )
     _executor = get_reusable_executor(n_jobs, job_reducers=job_reducers,
                                       result_reducers=result_reducers,
                                       reuse=reuse, timeout=timeout,
