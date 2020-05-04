@@ -144,11 +144,12 @@ def test_memmap_based_array_reducing(tmpdir):
     assert not has_shareable_memory(b3_reconstructed)
     assert_array_equal(b3_reconstructed, b3)
 
+
 @skipif(sys.platform != "win32",
         reason="PermissionError only easily triggerable on Windows")
 def test_resource_tracker_retries_when_permissionerror(tmpdir):
-    # Test that the resource_tracker retry mechanism unlinking memmaps.  See
-    # more thorough information in the ``unlink_file`` documentation of joblib.
+    # Test resource_tracker retry mechanism when unlinking memmaps.  See more
+    # thorough information in the ``unlink_file`` documentation of joblib.
     filename = tmpdir.join('test.mmap').strpath
     cmd = """if 1:
     import os
@@ -174,11 +175,10 @@ def test_resource_tracker_retries_when_permissionerror(tmpdir):
 
     # Ask the resource_tracker to delete the file backing the np.memmap , this
     # should raise PermissionError that the resource_tracker will log.
-    # catched by the resource_tracker
     resource_tracker.maybe_unlink(r"{filename}", "file")
 
-    # wait for the resource_tracker to process the message before cleaning up
-    # the memmap
+    # Wait for the resource_tracker to process the maybe_unlink before cleaning
+    # up the memmap
     time.sleep(2)
     """.format(filename=filename)
     p = subprocess.Popen([sys.executable, '-c', cmd], stderr=subprocess.PIPE,
