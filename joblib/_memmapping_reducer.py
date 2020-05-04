@@ -91,6 +91,10 @@ def unlink_file(filename):
             os.unlink(filename)
             break
         except PermissionError:
+            util.debug(
+                '[ResourceTracker] tried to unlink {}, got '
+                'PermissionError'.format(filename)
+            )
             if retry_no == NUM_RETRIES:
                 raise
             else:
