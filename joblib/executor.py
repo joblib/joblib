@@ -48,11 +48,11 @@ class MemmappingExecutor(
             # new executor has to be created
             id_executor = random.randint(0, int(1e10))
             temp_folder, use_shared_mem = cls.get_temp_dir(
-                executor_args.get('temp_folder'), id_executor
+                backend_args.pop('temp_folder', None), id_executor
             )
             job_reducers, result_reducers = get_memmapping_reducers(
-                id_executor, unlink_on_gc_collect=True,
-                temp_folder=temp_folder, **backend_args)
+                unlink_on_gc_collect=True, temp_folder=temp_folder,
+                **backend_args)
             _executor = super().get_reusable_executor(
                 n_jobs, job_reducers=job_reducers,
                 result_reducers=result_reducers, reuse=reuse, timeout=timeout,
