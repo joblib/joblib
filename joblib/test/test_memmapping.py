@@ -145,6 +145,52 @@ def test_memmap_based_array_reducing(tmpdir):
     assert_array_equal(b3_reconstructed, b3)
 
 
+@skipif(sys.platform != "win32",
+        reason="PermissionError only easily triggerable on Windows")
+def test_resource_tracker_retries_when_permissionerror(tmpdir):
+    # Test resource_tracker retry mechanism when unlinking memmaps.  See more
+    # thorough information in the ``unlink_file`` documentation of joblib.
+    filename = tmpdir.join('test.mmap').strpath
+    cmd = """if 1:
+    import os
+    import numpy as np
+    import time
+    from joblib.externals.loky.backend import resource_tracker
+    resource_tracker.VERBOSE = 1
+
+    # Start the resource tracker
+    resource_tracker.ensure_running()
+    time.sleep(1)
+
+    # Create a file containing numpy data
+    memmap = np.memmap(r"{filename}", dtype=np.float64, shape=10, mode='w+')
+    memmap[:] = np.arange(10).astype(np.int8).data
+    memmap.flush()
+    assert os.path.exists(r"{filename}")
+    del memmap
+
+    # Create a np.memmap backed by this file
+    memmap = np.memmap(r"{filename}", dtype=np.float64, shape=10, mode='w+')
+    resource_tracker.register(r"{filename}", "file")
+
+    # Ask the resource_tracker to delete the file backing the np.memmap , this
+    # should raise PermissionError that the resource_tracker will log.
+    resource_tracker.maybe_unlink(r"{filename}", "file")
+
+    # Wait for the resource_tracker to process the maybe_unlink before cleaning
+    # up the memmap
+    time.sleep(2)
+    """.format(filename=filename)
+    p = subprocess.Popen([sys.executable, '-c', cmd], stderr=subprocess.PIPE,
+                         stdout=subprocess.PIPE)
+    p.wait()
+    out, err = p.communicate()
+    assert p.returncode == 0
+    assert out == b''
+    msg = 'tried to unlink {}, got PermissionError'.format(filename)
+    assert msg in err.decode()
+
+
 @with_numpy
 @with_multiprocessing
 def test_high_dimension_memmap_array_reducing(tmpdir):
