@@ -81,7 +81,7 @@ def get_reusable_executor(max_workers=None, context=None, timeout=10,
     in the children before any module is loaded. This only works with with the
     ``loky`` context and it is unreliable on Windows with Python < 3.6.
     """
-    return _ReusablePoolExecutor.get_current_executor(
+    return _ReusablePoolExecutor.get_reusable_executor(
         max_workers=max_workers, context=context, timeout=timeout,
         kill_workers=kill_workers, reuse=reuse, job_reducers=job_reducers,
         result_reducers=result_reducers, initializer=initializer,
@@ -102,10 +102,10 @@ class _ReusablePoolExecutor(ProcessPoolExecutor):
         self._submit_resize_lock = submit_resize_lock
 
     @classmethod
-    def get_current_executor(cls, max_workers=None, context=None, timeout=10,
-                             kill_workers=False, reuse="auto",
-                             job_reducers=None, result_reducers=None,
-                             initializer=None, initargs=(), env=None):
+    def get_reusable_executor(cls, max_workers=None, context=None, timeout=10,
+                              kill_workers=False, reuse="auto",
+                              job_reducers=None, result_reducers=None,
+                              initializer=None, initargs=(), env=None):
         with _executor_lock:
             global _executor, _executor_kwargs
             executor = _executor
@@ -123,8 +123,9 @@ class _ReusablePoolExecutor(ProcessPoolExecutor):
             if isinstance(context, STRING_TYPE):
                 context = get_context(context)
             if context is not None and context.get_start_method() == "fork":
-                raise ValueError("Cannot use reusable executor with the 'fork' "
-                                 "context")
+                raise ValueError(
+                    "Cannot use reusable executor with the 'fork' context"
+                )
 
             kwargs = dict(context=context, timeout=timeout,
                           job_reducers=job_reducers,
@@ -157,8 +158,8 @@ class _ReusablePoolExecutor(ProcessPoolExecutor):
                     executor.shutdown(wait=True, kill_workers=kill_workers)
                     _executor = executor = _executor_kwargs = None
                     # Recursive call to build a new instance
-                    return cls.get_current_executor(max_workers=max_workers,
-                                                    **kwargs)
+                    return cls.get_reusable_executor(max_workers=max_workers,
+                                                     **kwargs)
                 else:
                     mp.util.debug(
                         "Reusing existing executor with max_workers={}."
