@@ -445,7 +445,7 @@ def get_memmapping_reducers(
         if prewarm == "auto":
             prewarm = not use_shared_mem
         forward_reduce_ndarray = ArrayMemmapForwardReducer(
-            max_nbytes, pool_folder, mmap_mode, unlink_on_gc_collect, verbose,
+            max_nbytes, temp_folder, mmap_mode, unlink_on_gc_collect, verbose,
             prewarm=prewarm)
         forward_reducers[np.ndarray] = forward_reduce_ndarray
         forward_reducers[np.memmap] = forward_reduce_ndarray
@@ -457,7 +457,7 @@ def get_memmapping_reducers(
         backward_reducers[np.ndarray] = reduce_array_memmap_backward
         backward_reducers[np.memmap] = reduce_array_memmap_backward
 
-    return forward_reducers, backward_reducers, pool_folder
+    return forward_reducers, backward_reducers
 
 
 class TemporaryResourcesManagerMixin(object):
@@ -471,6 +471,7 @@ class TemporaryResourcesManagerMixin(object):
             os.getpid(), pool_id)
         pool_folder, use_shared_mem = _get_temp_dir(pool_folder_name,
                                                     temp_folder)
+        return pool_folder, use_shared_mem
 
     def _unlink_temporary_resources(self):
         """Unlink temporary resources created by a process-based pool"""

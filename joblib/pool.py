@@ -300,7 +300,7 @@ class MemmappingPool(PicklingPool, TemporaryResourcesManagerMixin):
             temp_folder, id(self)
         )
         forward_reducers, backward_reducers = get_memmapping_reducers(
-            id(self), temp_folder=self._temp_folder, max_nbytes=max_nbytes,
+            temp_folder=self._temp_folder, max_nbytes=max_nbytes,
             mmap_mode=mmap_mode, forward_reducers=forward_reducers,
             backward_reducers=backward_reducers, verbose=verbose,
             unlink_on_gc_collect=False, prewarm=prewarm,
