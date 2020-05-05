@@ -1197,34 +1197,49 @@ def test_memmapping_leaks(backend, tmpdir):
     # does not stay too long in memory
     tmpdir = tmpdir.strpath
 
+    def check_resources_cleaned(backend, tmpdir, pool_temp_folder):
+        for _ in range(100):
+            if backend == "multiprocessing":
+                # multiprocessing backend should have their temporary folder
+                # deleted at the end of a Parallel call
+                if len(os.listdir(tmpdir)) == 0:
+                    break
+            elif backend == "loky":
+                # loky backend will delete their folder later on (when the
+                # reusable executor gets gc'ed), but nothing should be in it
+                # anymore at the end of a Parallel call
+                if len(os.listdir(pool_temp_folder)) == 0:
+                    break
+            sleep(.1)
+        else:
+            raise AssertionError(
+                'temporary directory of Parallel was not removed'
+            )
+
+    def get_temp_folder(p, backend):
+        if backend == "loky":
+            return p._backend._workers._temp_folder
+        else:
+            return p._backend._pool._temp_folder
+
     # Use max_nbytes=1 to force the use of memory-mapping even for small
     # arrays
     with Parallel(n_jobs=2, max_nbytes=1, backend=backend,
                   temp_folder=tmpdir) as p:
         p(delayed(check_memmap)(a) for a in [np.random.random(10)] * 2)
+        pool_temp_folder = get_temp_folder(p, backend)
 
         # The memmap folder should not be clean in the context scope
         assert len(os.listdir(tmpdir)) > 0
-
+        assert len(os.listdir(pool_temp_folder)) > 0
     # Make sure that the shared memory is cleaned at the end when we exit
     # the context
-    for _ in range(100):
-        if not os.listdir(tmpdir):
-            break
-        sleep(.1)
-    else:
-        raise AssertionError('temporary directory of Parallel was not removed')
+    check_resources_cleaned(backend, tmpdir, pool_temp_folder)
 
     # Make sure that the shared memory is cleaned at the end of a call
     p = Parallel(n_jobs=2, max_nbytes=1, backend=backend)
     p(delayed(check_memmap)(a) for a in [np.random.random(10)] * 2)
-
-    for _ in range(100):
-        if not os.listdir(tmpdir):
-            break
-        sleep(.1)
-    else:
-        raise AssertionError('temporary directory of Parallel was not removed')
+    check_resources_cleaned(backend, tmpdir, pool_temp_folder)
 
 
 @parametrize('backend', [None, 'loky', 'threading'])
