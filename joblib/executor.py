@@ -58,14 +58,16 @@ class MemmappingExecutor(
                 result_reducers=result_reducers, reuse=reuse, timeout=timeout,
                 initializer=initializer, initargs=initargs, env=env
             )
-            # patch the executor with its temp folder. The whole temporary
-            # folder configuration would be less awkward if we
+            # The whole temporary folder configuration would be less awkward if
+            # we:
             # - first create the reducers without any info about the temp
             #   folder
             # - then create the executor
             # - then create a temp folder
             # - then "bind" the temp folder to the executor and the reducers.
-            _executor.temp_folder = temp_folder
+            _executor._setup_temp_dir_tracking(
+                temp_folder, delete_folder_upon_gc=True
+            )
             return _executor
 
 
@@ -85,7 +87,7 @@ class _TestingMemmappingExecutor(TemporaryResourcesManagerMixin):
 
     def terminate(self):
         self._executor.shutdown()
-        self._unlink_temporary_resources()
+        self._unlink_temporary_resources(delete_folder=True)
 
     def map(self, f, *args):
         res = self._executor.map(f, *args)

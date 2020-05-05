@@ -296,11 +296,11 @@ class MemmappingPool(PicklingPool, TemporaryResourcesManagerMixin):
                           ' 0.9.4 and will be removed in 0.11',
                           DeprecationWarning)
 
-        self._temp_folder, use_shared_mem = self.get_temp_dir(
+        temp_folder, use_shared_mem = self.get_temp_dir(
             temp_folder, id(self)
         )
         forward_reducers, backward_reducers = get_memmapping_reducers(
-            temp_folder=self._temp_folder, max_nbytes=max_nbytes,
+            temp_folder=temp_folder, max_nbytes=max_nbytes,
             mmap_mode=mmap_mode, forward_reducers=forward_reducers,
             backward_reducers=backward_reducers, verbose=verbose,
             unlink_on_gc_collect=False, prewarm=prewarm,
@@ -312,6 +312,9 @@ class MemmappingPool(PicklingPool, TemporaryResourcesManagerMixin):
             backward_reducers=backward_reducers)
         poolargs.update(kwargs)
         super(MemmappingPool, self).__init__(**poolargs)
+        # multiprocessing pools are not meant to be reused, their folder is
+        # deleted upon when the pool ``terminate()``s
+        self._setup_temp_dir_tracking(temp_folder, delete_folder_upon_gc=False)
 
     def terminate(self):
         n_retries = 10
@@ -327,4 +330,4 @@ class MemmappingPool(PicklingPool, TemporaryResourcesManagerMixin):
                     if i + 1 == n_retries:
                         warnings.warn("Failed to terminate worker processes in"
                                       " multiprocessing pool: %r" % e)
-        self._unlink_temporary_resources()
+        self._unlink_temporary_resources(delete_folder=True)

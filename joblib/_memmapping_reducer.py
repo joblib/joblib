@@ -473,7 +473,17 @@ class TemporaryResourcesManagerMixin(object):
                                                     temp_folder)
         return pool_folder, use_shared_mem
 
-    def _unlink_temporary_resources(self):
+    def _setup_temp_dir_tracking(self, temp_folder, delete_folder_upon_gc):
+        self._temp_folder = temp_folder
+        self._delete_folder_upon_gc = delete_folder_upon_gc
+        resource_tracker.register(self._temp_folder, "folder")
+        if delete_folder_upon_gc:
+            # XXX: maybe overload executor.shutdown instead?
+            self._finalizer = weakref.finalize(
+                self, self._try_delete_folder, allow_non_empty=True
+            )
+
+    def _unlink_temporary_resources(self, delete_folder):
         """Unlink temporary resources created by a process-based pool"""
         if os.path.exists(self._temp_folder):
             for filename in os.listdir(self._temp_folder):
@@ -482,6 +492,7 @@ class TemporaryResourcesManagerMixin(object):
                 )
             # XXX: calling shutil.rmtree inside delete_folder is likely to
             # cause a race condition with the lines above.
+        if delete_folder:
             self._try_delete_folder(allow_non_empty=False)
 
     def _unregister_temporary_resources(self):
@@ -494,9 +505,8 @@ class TemporaryResourcesManagerMixin(object):
 
     def _try_delete_folder(self, allow_non_empty):
         try:
-            if delete_folder(self._temp_folder,
-                             allow_non_empty=allow_non_empty):
-                resource_tracker.unregister(self._temp_folder, "folder")
+            delete_folder(self._temp_folder, allow_non_empty=allow_non_empty)
+            resource_tracker.unregister(self._temp_folder, "folder")
 
         except OSError:
             # Temporary folder cannot be deleted right now. No need to
@@ -517,11 +527,11 @@ class TemporaryResourcesManagerMixin(object):
                     pool_module_name,
                     fromlist=['delete_folder']).delete_folder
                 try:
-                    if delete_folder(
-                            self._temp_folder, "folder",
-                            allow_non_empty=True):
-                        resource_tracker.unregister(self._temp_folder,
-                                                    "folder")
+                    delete_folder(
+                        self._temp_folder, "folder", allow_non_empty=True
+                    )
+                    resource_tracker.unregister(self._temp_folder,
+                                                "folder")
                 except OSError:
                     warnings.warn(
                         "Failed to clean temporary folder: {}".format(
