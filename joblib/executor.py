@@ -36,7 +36,7 @@ class MemmappingExecutor(
         executor_args.update(env if env else {})
         executor_args.update(dict(
             timeout=timeout, initializer=initializer, initargs=initargs))
-        reuse = _executor_args is None or _executor_args == executor_args
+        reuse = _executor_args == executor_args
         _executor_args = executor_args
         if reuse:
             return super().get_reusable_executor(
