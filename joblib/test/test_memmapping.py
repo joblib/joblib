@@ -528,7 +528,7 @@ def test_child_raises_parent_exits_cleanly(backend):
 
         def get_temp_folder(parallel_obj, backend):
             if "{b}" == "loky":
-                return p._backend._temp_folder
+                return p._backend._workers._temp_folder
             else:
                 return p._backend._pool._temp_folder
 
