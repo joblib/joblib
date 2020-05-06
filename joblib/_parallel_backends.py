@@ -23,6 +23,8 @@ if mp is not None:
     from multiprocessing import TimeoutError
     from concurrent.futures._base import TimeoutError as CfTimeoutError
     from .externals.loky import process_executor, cpu_count
+else:
+    TempFolderNameGenerator = object
 
 
 class ParallelBackendBase(metaclass=ABCMeta):
