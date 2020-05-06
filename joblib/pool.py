@@ -29,7 +29,7 @@ from pickle import HIGHEST_PROTOCOL
 from io import BytesIO
 
 from ._memmapping_reducer import get_memmapping_reducers
-from ._memmapping_reducer import TemporaryResourcesManagerMixin
+from ._memmapping_reducer import TemporaryResourcesManager
 from ._multiprocessing_helpers import mp, assert_spawning
 
 # We need the class definition to derive from it, not the multiprocessing.Pool
@@ -214,7 +214,7 @@ class PicklingPool(Pool):
         self._quick_get = self._outqueue._recv
 
 
-class MemmappingPool(PicklingPool, TemporaryResourcesManagerMixin):
+class MemmappingPool(PicklingPool):
     """Process pool that shares large arrays to avoid memory copy.
 
     This drop-in replacement for `multiprocessing.pool.Pool` makes
@@ -302,17 +302,18 @@ class MemmappingPool(PicklingPool, TemporaryResourcesManagerMixin):
                           ' 0.9.4 and will be removed in 0.11',
                           DeprecationWarning)
 
-        if isinstance(temp_folder, str) or temp_folder is None:
-            # backward-compat. joblib codes always uses a
-            # TempFolderNameGenerator
-            from ._memmapping_reducer import TempFolderNameGenerator
-            temp_folder = TempFolderNameGenerator(temp_folder)
-        self._temp_folder_provider = temp_folder
+        manager = TemporaryResourcesManager(temp_folder)
+        self._manager = manager
 
+        # The usage of a temp_folder_resolver over a simple temp_folder is
+        # superfluous for multiprocessing pools, as they don't get reused, see
+        # get_memmapping_executor for more details. We still use if for code
+        # simplicity.
         forward_reducers, backward_reducers = \
             get_memmapping_reducers(
-                temp_folder_provider=temp_folder, max_nbytes=max_nbytes,
-                mmap_mode=mmap_mode, forward_reducers=forward_reducers,
+                temp_folder_resolver=manager.resolve_temp_folder_name,
+                max_nbytes=max_nbytes, mmap_mode=mmap_mode,
+                forward_reducers=forward_reducers,
                 backward_reducers=backward_reducers, verbose=verbose,
                 unlink_on_gc_collect=False, prewarm=prewarm)
 
@@ -337,4 +338,10 @@ class MemmappingPool(PicklingPool, TemporaryResourcesManagerMixin):
                     if i + 1 == n_retries:
                         warnings.warn("Failed to terminate worker processes in"
                                       " multiprocessing pool: %r" % e)
-        self._unlink_temporary_resources()
+        self._manager._unlink_temporary_resources()
+
+    @property
+    def _temp_folder(self):
+        # Legacy property in tests. could be removed if we refactored the
+        # memmapping tests.
+        return self._manager.resolve_temp_folder_name()

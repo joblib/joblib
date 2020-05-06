@@ -8,9 +8,8 @@ copy between the parent and child processes.
 # Copyright: 2017, Thomas Moreau
 # License: BSD 3 clause
 
-import random
 from ._memmapping_reducer import get_memmapping_reducers
-from ._memmapping_reducer import TemporaryResourcesManagerMixin
+from ._memmapping_reducer import TemporaryResourcesManager
 from .externals.loky.reusable_executor import _ReusablePoolExecutor
 
 
@@ -21,9 +20,7 @@ def get_memmapping_executor(n_jobs, **kwargs):
     return MemmappingExecutor.get_memmapping_executor(n_jobs, **kwargs)
 
 
-class MemmappingExecutor(
-        _ReusablePoolExecutor, TemporaryResourcesManagerMixin
-):
+class MemmappingExecutor(_ReusablePoolExecutor):
 
     @classmethod
     def get_memmapping_executor(cls, n_jobs, timeout=300, initializer=None,
@@ -42,50 +39,73 @@ class MemmappingExecutor(
         reuse = _executor_args is None or _executor_args == executor_args
         _executor_args = executor_args
 
-        if isinstance(temp_folder, str) or temp_folder is None:
-            # backward-compat. joblib codes always uses a
-            # TempFolderNameGenerator
-            from ._memmapping_reducer import TempFolderNameGenerator
-            temp_folder = TempFolderNameGenerator(temp_folder)
+        manager = TemporaryResourcesManager(temp_folder)
 
+        # reducers access the temporary folder in which to store temporary
+        # pickles through a call to manager.resolve_temp_folder_name. resolving
+        # the folder name dynamically is useful to use different folders across
+        # calls of a same reusable executor
         job_reducers, result_reducers = get_memmapping_reducers(
-            unlink_on_gc_collect=True, temp_folder_provider=temp_folder,
+            unlink_on_gc_collect=True,
+            temp_folder_resolver=manager.resolve_temp_folder_name,
             **backend_args)
-        _executor, _ = super().get_reusable_executor(
+        _executor, executor_is_reused = super().get_reusable_executor(
             n_jobs, job_reducers=job_reducers, result_reducers=result_reducers,
             reuse=reuse, timeout=timeout, initializer=initializer,
             initargs=initargs, env=env
         )
-        # If executor doesn't have a _temp_folder, it means it is a new
-        # executor and the reducers have not been used. Else, the previous
-        # reducers are used and we should not change this attribute.
-        if not hasattr(_executor, "_temp_folder_provider"):
-            _executor._temp_folder_provider = temp_folder
+
+        if executor_is_reused:
+            # In case of executor reuse, reset the internal state of executor
+            # temporary folder resolver. This means a new temporary folder name
+            # within the root (which may or may not have changed at the
+            # previous call) will be generated upon the next
+            # get_temp_folder_name() call. This call is necessary to ensure
+            # that a reusable executor does not reuse temporary folders across
+            # calls, which itself is necessary to prevent race conditions
+            # happening when the resource_tracker deletes temporary memmaps.
+            _executor._manager.reset_resolver()
+        else:
+            # if _executor is new, the previously created manager will used by
+            # the reducer to resolve temporary folder names. Otherwise, we
+            # musn't patch it, because the reducers will use the manager
+            # instance created by an older `get_memmaping_exeuctor` call.
+            _executor._manager = manager
 
         return _executor
 
-
-class _TestingMemmappingExecutor(TemporaryResourcesManagerMixin):
-    """Wrapper around ReusableExecutor to ease memmapping testing with Pool
-    and Executor. This is only for testing purposes.
-    """
-    def __init__(self, n_jobs, **backend_args):
-        self._executor = get_memmapping_executor(n_jobs, **backend_args)
+    def terminate(self, kill_workers=False):
+        self.shutdown(kill_workers=kill_workers)
+        if kill_workers:
+            # When workers are killed in such a brutal manner, they cannot
+            # execute the finalizer of their shared memmaps. The refcount of
+            # those memmaps may be off by an unknown number, so instead of
+            # decref'ing them, we delete the whole temporary folder, and
+            # unregister them. There is no risk of PermissionError at folder
+            # deletion because because at this point, all child processes are
+            # dead, so all references to temporary memmaps are closed.
+            self._manager._unregister_temporary_resources()
+            self._manager._try_delete_folder(allow_non_empty=True)
+        else:
+            self._manager._unlink_temporary_resources()
 
     @property
     def _temp_folder(self):
-        return self._executor._temp_folder_provider.get_temp_folder_name()
+        # Legacy property in tests. could be removed if we refactored the
+        # memmapping tests.
+        return self._manager.resolve_temp_folder_name()
 
+
+class _TestingMemmappingExecutor(MemmappingExecutor):
+    """Wrapper around ReusableExecutor to ease memmapping testing with Pool
+    and Executor. This is only for testing purposes.
+
+    """
     def apply_async(self, func, args):
         """Schedule a func to be run"""
-        future = self._executor.submit(func, *args)
+        future = self.submit(func, *args)
         future.get = future.result
         return future
 
-    def terminate(self):
-        self._executor.shutdown()
-        self._unlink_temporary_resources()
-
     def map(self, f, *args):
-        res = self._executor.map(f, *args)
-        return list(res)
+        return list(super().map(f, *args))
