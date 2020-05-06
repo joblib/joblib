@@ -18,7 +18,7 @@ from joblib.backports import make_memmap
 from joblib.parallel import Parallel, delayed
 
 from joblib.pool import MemmappingPool
-from joblib.executor import _TestingMemmappingExecutor
+from joblib.executor import _TestingMemmappingExecutor as TestExecutor
 from joblib._memmapping_reducer import has_shareable_memory
 from joblib._memmapping_reducer import ArrayMemmapForwardReducer
 from joblib._memmapping_reducer import _strided_from_memmap
@@ -262,7 +262,7 @@ def test__strided_from_memmap(tmpdir):
 
 @with_numpy
 @with_multiprocessing
-@parametrize("factory", [MemmappingPool, _TestingMemmappingExecutor],
+@parametrize("factory", [MemmappingPool, TestExecutor.get_memmapping_executor],
              ids=["multiprocessing", "loky"])
 def test_pool_with_memmap(factory, tmpdir):
     """Check that subprocess can access and update shared memory memmap"""
@@ -316,7 +316,7 @@ def test_pool_with_memmap(factory, tmpdir):
 
 @with_numpy
 @with_multiprocessing
-@parametrize("factory", [MemmappingPool, _TestingMemmappingExecutor],
+@parametrize("factory", [MemmappingPool, TestExecutor.get_memmapping_executor],
              ids=["multiprocessing", "loky"])
 def test_pool_with_memmap_array_view(factory, tmpdir):
     """Check that subprocess can access and update shared memory array"""
@@ -573,7 +573,7 @@ def test_resource_tracker_silent_when_reference_cycles(backend):
 
 @with_numpy
 @with_multiprocessing
-@parametrize("factory", [MemmappingPool, _TestingMemmappingExecutor],
+@parametrize("factory", [MemmappingPool, TestExecutor.get_memmapping_executor],
              ids=["multiprocessing", "loky"])
 def test_memmapping_pool_for_large_arrays(factory, tmpdir):
     """Check that large arrays are not copied in memory"""
@@ -657,7 +657,7 @@ def test_child_raises_parent_exits_cleanly(backend):
 
         def get_temp_folder(parallel_obj, backend):
             if "{b}" == "loky":
-                return p._backend._temp_folder
+                return p._backend._workers._temp_folder
             else:
                 return p._backend._pool._temp_folder
 
@@ -688,7 +688,7 @@ def test_child_raises_parent_exits_cleanly(backend):
 
 @with_numpy
 @with_multiprocessing
-@parametrize("factory", [MemmappingPool, _TestingMemmappingExecutor],
+@parametrize("factory", [MemmappingPool, TestExecutor.get_memmapping_executor],
              ids=["multiprocessing", "loky"])
 def test_memmapping_pool_for_large_arrays_disabled(factory, tmpdir):
     """Check that large arrays memmapping can be disabled"""
@@ -716,7 +716,7 @@ def test_memmapping_pool_for_large_arrays_disabled(factory, tmpdir):
 @with_numpy
 @with_multiprocessing
 @with_dev_shm
-@parametrize("factory", [MemmappingPool, _TestingMemmappingExecutor],
+@parametrize("factory", [MemmappingPool, TestExecutor.get_memmapping_executor],
              ids=["multiprocessing", "loky"])
 def test_memmapping_on_large_enough_dev_shm(factory):
     """Check that memmapping uses /dev/shm when possible"""
@@ -770,7 +770,7 @@ def test_memmapping_on_large_enough_dev_shm(factory):
 @with_numpy
 @with_multiprocessing
 @with_dev_shm
-@parametrize("factory", [MemmappingPool, _TestingMemmappingExecutor],
+@parametrize("factory", [MemmappingPool, TestExecutor.get_memmapping_executor],
              ids=["multiprocessing", "loky"])
 def test_memmapping_on_too_small_dev_shm(factory):
     orig_size = jmr.SYSTEM_SHARED_MEM_FS_MIN_SIZE
@@ -798,7 +798,7 @@ def test_memmapping_on_too_small_dev_shm(factory):
 
 @with_numpy
 @with_multiprocessing
-@parametrize("factory", [MemmappingPool, _TestingMemmappingExecutor],
+@parametrize("factory", [MemmappingPool, TestExecutor.get_memmapping_executor],
              ids=["multiprocessing", "loky"])
 def test_memmapping_pool_for_large_arrays_in_return(factory, tmpdir):
     """Check that large arrays are not copied in memory in return"""
@@ -830,7 +830,7 @@ def _worker_multiply(a, n_times):
 
 @with_numpy
 @with_multiprocessing
-@parametrize("factory", [MemmappingPool, _TestingMemmappingExecutor],
+@parametrize("factory", [MemmappingPool, TestExecutor.get_memmapping_executor],
              ids=["multiprocessing", "loky"])
 def test_workaround_against_bad_memmap_with_copied_buffers(factory, tmpdir):
     """Check that memmaps with a bad buffer are returned as regular arrays
@@ -865,8 +865,8 @@ def identity(arg):
 @with_multiprocessing
 @parametrize(
     "factory,retry_no",
-    list(itertools.product([MemmappingPool, _TestingMemmappingExecutor],
-                           range(3))),
+    list(itertools.product(
+        [MemmappingPool, TestExecutor.get_memmapping_executor], range(3))),
     ids=['{}, {}'.format(x, y) for x, y in itertools.product(
         ["multiprocessing", "loky"], map(str, range(3)))])
 def test_pool_memmap_with_big_offset(factory, retry_no, tmpdir):
