@@ -17,6 +17,7 @@ if mp is not None:
     from .pool import MemmappingPool
     from multiprocessing.pool import ThreadPool
     from .executor import get_memmapping_executor
+    from ._memmapping_reducer import TempFolderNameGenerator
 
     # Compat between concurrent.futures and multiprocessing TimeoutError
     from multiprocessing import TimeoutError
@@ -416,6 +417,7 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
     """
 
     supports_timeout = True
+    _temp_folder_generator = TempFolderNameGenerator()
 
     def effective_n_jobs(self, n_jobs):
         """Determine the number of jobs which are going to run in parallel.
@@ -456,7 +458,7 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
         return super(MultiprocessingBackend, self).effective_n_jobs(n_jobs)
 
     def configure(self, n_jobs=1, parallel=None, prefer=None, require=None,
-                  **memmappingpool_args):
+                  temp_folder=None, **memmappingpool_args):
         """Build a process or thread pool and return the number of workers"""
         n_jobs = self.effective_n_jobs(n_jobs)
         if n_jobs == 1:
@@ -465,7 +467,22 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
 
         # Make sure to free as much memory as possible before forking
         gc.collect()
-        self._pool = MemmappingPool(n_jobs, **memmappingpool_args)
+
+        # Intercept the temp_folder argument, and instead rely on the class
+        # _temp_folder_generator class attribute, use across all
+        # executor/reducers to ensure easy access and control of the temporary
+        # folders at the backend level.
+        self._temp_folder_generator.set_temp_folders_root(temp_folder)
+        # Reset the internal state of the generator, meaning a new temporary
+        # folder name within the root (which may or may not have changed at the
+        # previous call) will be generated upon the next get_temp_folder_name()
+        # call.
+        self._temp_folder_generator.reset()
+
+        self._pool = MemmappingPool(
+            n_jobs, temp_folder=self._temp_folder_generator,
+            **memmappingpool_args
+        )
         self.parallel = parallel
         return n_jobs
 
@@ -480,17 +497,30 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
 
     supports_timeout = True
     supports_inner_max_num_threads = True
+    _temp_folder_generator = TempFolderNameGenerator()
 
     def configure(self, n_jobs=1, parallel=None, prefer=None, require=None,
-                  idle_worker_timeout=300, **memmappingexecutor_args):
+                  idle_worker_timeout=300, temp_folder=None,
+                  **memmappingexecutor_args):
         """Build a process executor and return the number of workers"""
         n_jobs = self.effective_n_jobs(n_jobs)
         if n_jobs == 1:
             raise FallbackToBackend(
                 SequentialBackend(nesting_level=self.nesting_level))
 
+        # Intercept the temp_folder argument, and instead rely on the class
+        # _temp_folder_generator class attribute, use across all
+        # executor/reducers to ensure easy access and control of the temporary
+        # folders at the backend level.
+        self._temp_folder_generator.set_temp_folders_root(temp_folder)
+        # Reset the internal state of the generator, meaning a new temporary
+        # folder name within the root (which may or may not have changed at the
+        # previous call) will be generated upon the next get_temp_folder_name()
+        # call.
+        self._temp_folder_generator.reset()
         self._workers = get_memmapping_executor(
             n_jobs, timeout=idle_worker_timeout,
+            temp_folder=self._temp_folder_generator,
             env=self._prepare_worker_env(n_jobs=n_jobs),
             **memmappingexecutor_args)
         self._temp_folder = self._workers._temp_folder

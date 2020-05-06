@@ -27,7 +27,8 @@ class MemmappingExecutor(
 
     @classmethod
     def get_memmapping_executor(cls, n_jobs, timeout=300, initializer=None,
-                                initargs=(), env=None, **backend_args):
+                                initargs=(), env=None, temp_folder=None,
+                                **backend_args):
         """Factory for ReusableExecutor with automatic memmapping for large numpy
         arrays.
         """
@@ -41,9 +42,15 @@ class MemmappingExecutor(
         reuse = _executor_args is None or _executor_args == executor_args
         _executor_args = executor_args
 
-        id_executor = random.randint(0, int(1e10))
-        job_reducers, result_reducers, temp_folder = get_memmapping_reducers(
-            id_executor, unlink_on_gc_collect=True, **backend_args)
+        if isinstance(temp_folder, str) or temp_folder is None:
+            # backward-compat. joblib codes always uses a
+            # TempFolderNameGenerator
+            from ._memmapping_reducer import TempFolderNameGenerator
+            temp_folder = TempFolderNameGenerator(temp_folder)
+
+        job_reducers, result_reducers = get_memmapping_reducers(
+            unlink_on_gc_collect=True, temp_folder_provider=temp_folder,
+            **backend_args)
         _executor, _ = super().get_reusable_executor(
             n_jobs, job_reducers=job_reducers, result_reducers=result_reducers,
             reuse=reuse, timeout=timeout, initializer=initializer,
@@ -52,8 +59,8 @@ class MemmappingExecutor(
         # If executor doesn't have a _temp_folder, it means it is a new
         # executor and the reducers have not been used. Else, the previous
         # reducers are used and we should not change this attribute.
-        if not hasattr(_executor, "_temp_folder"):
-            _executor._temp_folder = temp_folder
+        if not hasattr(_executor, "_temp_folder_provider"):
+            _executor._temp_folder_provider = temp_folder
 
         return _executor
 
@@ -64,7 +71,10 @@ class _TestingMemmappingExecutor(TemporaryResourcesManagerMixin):
     """
     def __init__(self, n_jobs, **backend_args):
         self._executor = get_memmapping_executor(n_jobs, **backend_args)
-        self._temp_folder = self._executor._temp_folder
+
+    @property
+    def _temp_folder(self):
+        return self._executor._temp_folder_provider.get_temp_folder_name()
 
     def apply_async(self, func, args):
         """Schedule a func to be run"""

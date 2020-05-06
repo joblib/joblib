@@ -243,16 +243,22 @@ class MemmappingPool(PicklingPool, TemporaryResourcesManagerMixin):
         Callable executed on worker process creation.
     initargs: tuple, optional
         Arguments passed to the initializer callable.
-    temp_folder: str, optional
-        Folder to be used by the pool for memmapping large arrays
-        for sharing memory with worker processes. If None, this will try in
-        order:
-        - a folder pointed by the JOBLIB_TEMP_FOLDER environment variable,
-        - /dev/shm if the folder exists and is writable: this is a RAMdisk
-          filesystem available by default on modern Linux distributions,
-        - the default system temporary folder that can be overridden
-          with TMP, TMPDIR or TEMP environment variables, typically /tmp
-          under Unix operating systems.
+    temp_folder: (str, TempFolderNameGenerator) optional
+        If str:
+          Folder to be used by the pool for memmapping large arrays
+          for sharing memory with worker processes. If None, this will try in
+          order:
+          - a folder pointed by the JOBLIB_TEMP_FOLDER environment variable,
+          - /dev/shm if the folder exists and is writable: this is a RAMdisk
+            filesystem available by default on modern Linux distributions,
+          - the default system temporary folder that can be overridden
+            with TMP, TMPDIR or TEMP environment variables, typically /tmp
+            under Unix operating systems.
+        if TempFolderGenerator:
+          Object used internally by joblib that is in charge of resolving
+          temporary folder names. This object is mutated across Parallel calls
+          to output different folders for each calls, but the same folder
+          within one call.
     max_nbytes int or None, optional, 1e6 by default
         Threshold on the size of arrays passed to the workers that
         triggers automated memory mapping in temp_folder.
@@ -296,9 +302,16 @@ class MemmappingPool(PicklingPool, TemporaryResourcesManagerMixin):
                           ' 0.9.4 and will be removed in 0.11',
                           DeprecationWarning)
 
-        forward_reducers, backward_reducers, self._temp_folder = \
+        if isinstance(temp_folder, str) or temp_folder is None:
+            # backward-compat. joblib codes always uses a
+            # TempFolderNameGenerator
+            from ._memmapping_reducer import TempFolderNameGenerator
+            temp_folder = TempFolderNameGenerator(temp_folder)
+        self._temp_folder_provider = temp_folder
+
+        forward_reducers, backward_reducers = \
             get_memmapping_reducers(
-                id(self), temp_folder=temp_folder, max_nbytes=max_nbytes,
+                temp_folder_provider=temp_folder, max_nbytes=max_nbytes,
                 mmap_mode=mmap_mode, forward_reducers=forward_reducers,
                 backward_reducers=backward_reducers, verbose=verbose,
                 unlink_on_gc_collect=False, prewarm=prewarm)
