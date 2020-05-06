@@ -15,7 +15,6 @@ from ._multiprocessing_helpers import mp
 
 if mp is not None:
     from .pool import MemmappingPool
-    from ._memmapping_reducer import TemporaryResourcesManagerMixin
     from multiprocessing.pool import ThreadPool
     from .executor import get_memmapping_executor
 
@@ -23,8 +22,6 @@ if mp is not None:
     from multiprocessing import TimeoutError
     from concurrent.futures._base import TimeoutError as CfTimeoutError
     from .externals.loky import process_executor, cpu_count
-else:
-    TemporaryResourcesManagerMixin = object
 
 
 class ParallelBackendBase(metaclass=ABCMeta):
@@ -478,8 +475,7 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
         self.reset_batch_stats()
 
 
-class LokyBackend(AutoBatchingMixin, ParallelBackendBase,
-                  TemporaryResourcesManagerMixin):
+class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
     """Managing pool of workers with loky instead of multiprocessing."""
 
     supports_timeout = True
@@ -548,7 +544,7 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase,
 
     def terminate(self):
         if self._workers is not None:
-            self._unlink_temporary_resources()
+            self._workers._unlink_temporary_resources()
 
             # Terminate does not shutdown the workers as we want to reuse them
             # in latter calls
@@ -567,8 +563,8 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase,
         # risk of PermissionError at folder deletion because because at this
         # point, all child processes are dead, so all references
         # to temporary memmaps are closed.
-        self._unregister_temporary_resources()
-        self._try_delete_folder(allow_non_empty=True)
+        self._workers._unregister_temporary_resources()
+        self._workers._try_delete_folder(allow_non_empty=True)
         self._workers = None
 
         if ensure_ready:
