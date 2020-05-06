@@ -439,6 +439,89 @@ def test_permission_error_windows_memmap_sent_to_parent(backend):
 @with_numpy
 @with_multiprocessing
 @parametrize("backend", ["multiprocessing", "loky"])
+def test_parallel_isolated_temp_folders(backend):
+    # Test that consecutive Parallel call use isolated subfolders.
+    array = np.arange(int(1e2))
+    [filename_1] = Parallel(n_jobs=2, backend=backend, max_nbytes=10)(
+        delayed(getattr)(array, 'filename') for _ in range(1)
+    )
+    [filename_2] = Parallel(n_jobs=2, backend=backend, max_nbytes=10)(
+        delayed(getattr)(array, 'filename') for _ in range(1)
+    )
+    assert os.path.dirname(filename_2) != os.path.dirname(filename_1)
+
+
+@with_numpy
+@with_multiprocessing
+@parametrize("backend", ["multiprocessing", "loky"])
+def test_managed_backend_reuse_temp_folder(backend):
+    # Test that calls to a managed parallel object reuse the same memmaps.
+    array = np.arange(int(1e2))
+    with Parallel(n_jobs=2, backend=backend, max_nbytes=10) as p:
+        [filename_1] = p(
+            delayed(getattr)(array, 'filename') for _ in range(1)
+        )
+        [filename_2] = p(
+            delayed(getattr)(array, 'filename') for _ in range(1)
+        )
+    assert os.path.dirname(filename_2) == os.path.dirname(filename_1)
+
+
+@with_numpy
+@with_multiprocessing
+@parametrize("backend", ["multiprocessing", "loky"])
+def test_many_parallel_calls_on_same_object(backend):
+    # After #966 got merged, consecutive Parallel objects were sharing temp
+    # folder, which would lead to race conditions happenning during the
+    # temporary resources management with the resource_tracker. This is a
+    # non-regression test that makes sure that consecutive Parallel operations
+    # on the same object do not error out.
+    cmd = '''if 1:
+        import os
+        import time
+
+        import numpy as np
+
+        from joblib import Parallel, delayed
+        from testutils import return_slice_of_data
+
+        data = np.ones(100)
+
+        if __name__ == '__main__':
+            for i in range(5):
+                slice_of_data = Parallel(
+                    n_jobs=2, max_nbytes=1, backend='{b}')(
+                        delayed(return_slice_of_data)(data, 0, 20)
+                        for _ in range(10)
+                    )
+                slice_of_data = Parallel(
+                    n_jobs=2, max_nbytes=1, backend='{b}')(
+                        delayed(return_slice_of_data)(data, 0, 20)
+                        for _ in range(10)
+                    )
+    '''.format(b=backend)
+
+    for _ in range(3):
+        env = os.environ.copy()
+        env['PYTHONPATH'] = os.path.dirname(__file__)
+        p = subprocess.Popen([sys.executable, '-c', cmd],
+                             stderr=subprocess.PIPE,
+                             stdout=subprocess.PIPE, env=env)
+        p.wait()
+        out, err = p.communicate()
+        assert p.returncode == 0, err
+        assert out == b''
+        if sys.version_info[:3] not in [(3, 8, 0), (3, 8, 1)]:
+            # In early versions of Python 3.8, a reference leak
+            # https://github.com/cloudpipe/cloudpickle/issues/327, holds
+            # references to pickled objects, generating race condition during
+            # cleanup finalizers of joblib and noisy resource_tracker outputs.
+            assert b'resource_tracker' not in err
+
+
+@with_numpy
+@with_multiprocessing
+@parametrize("backend", ["multiprocessing", "loky"])
 def test_memmap_returned_as_regular_array(backend):
     data = np.ones(int(1e3))
     # Check that child processes send temporary memmaps back as numpy arrays.
