@@ -515,13 +515,6 @@ class TemporaryResourcesManager(object):
         # warm-up the manager by resolving a temporary folder and caching it
         self.resolve_temp_folder_name()
 
-    def set_temp_folders_root(self, temp_folder_root):
-        if self._temp_folder_root == temp_folder_root:
-            pass
-        else:
-            self._temp_folder_root = temp_folder_root
-            self.reset()
-
     def reset_resolver(self):
         # ensure that a new call to resolve() returns a NEW temporary folder
         # name
