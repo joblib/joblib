@@ -134,7 +134,7 @@ class _ReusablePoolExecutor(ProcessPoolExecutor):
                           initializer=initializer, initargs=initargs,
                           env=env)
             if executor is None:
-                is_new_executor = False
+                is_reused = False
                 mp.util.debug("Create a executor with max_workers={}."
                               .format(max_workers))
                 executor_id = _get_next_executor_id()
@@ -153,7 +153,6 @@ class _ReusablePoolExecutor(ProcessPoolExecutor):
                         reason = "shutdown"
                     else:
                         reason = "arguments have changed"
-                    is_new_executor = False
                     mp.util.debug(
                         "Creating a new executor with max_workers={} as the "
                         "previous instance cannot be reused ({})."
@@ -168,10 +167,10 @@ class _ReusablePoolExecutor(ProcessPoolExecutor):
                         "Reusing existing executor with max_workers={}."
                         .format(executor._max_workers)
                     )
-                    is_new_executor = True
+                    is_reused = True
                     executor._resize(max_workers)
 
-        return executor, is_new_executor
+        return executor, is_reused
 
     def submit(self, fn, *args, **kwargs):
         with self._submit_resize_lock:
