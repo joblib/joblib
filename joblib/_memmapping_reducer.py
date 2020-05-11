@@ -342,7 +342,7 @@ class ArrayMemmapForwardReducer(object):
         self._mmap_mode = mmap_mode
         self.verbose = int(verbose)
         if prewarm == "auto":
-            self._prewarm = self._temp_folder.startswith(SYSTEM_SHARED_MEM_FS)
+            self._prewarm = not self._temp_folder.startswith(SYSTEM_SHARED_MEM_FS)
         else:
             self._prewarm = prewarm
         self._prewarm = prewarm
@@ -569,7 +569,7 @@ class TemporaryResourcesManager(object):
                 delete_folder(pool_subfolder, allow_non_empty=True)
                 resource_tracker.unregister(pool_subfolder, "folder")
             except OSError:
-                warnings.warn("Failed to clean temporary folder: {}"
+                warnings.warn("Failed to delete temporary folder: {}"
                               .format(pool_subfolder))
 
         atexit.register(_cleanup)

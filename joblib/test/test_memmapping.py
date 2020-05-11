@@ -440,7 +440,8 @@ def test_permission_error_windows_memmap_sent_to_parent(backend):
 @with_multiprocessing
 @parametrize("backend", ["multiprocessing", "loky"])
 def test_parallel_isolated_temp_folders(backend):
-    # Test that consecutive Parallel call use isolated subfolders.
+    # Test that consecutive Parallel call use isolated subfolders, even
+    # for the loky backend that reuses its executor instance across calls.
     array = np.arange(int(1e2))
     [filename_1] = Parallel(n_jobs=2, backend=backend, max_nbytes=10)(
         delayed(getattr)(array, 'filename') for _ in range(1)
