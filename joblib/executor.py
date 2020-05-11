@@ -64,13 +64,13 @@ class MemmappingExecutor(_ReusablePoolExecutor):
             # that a reusable executor does not reuse temporary folders across
             # calls, which itself is necessary to prevent race conditions
             # happening when the resource_tracker deletes temporary memmaps.
-            _executor._manager.reset_resolver()
+            _executor._temp_folder_manager.reset_resolver()
         else:
             # if _executor is new, the previously created manager will used by
             # the reducer to resolve temporary folder names. Otherwise, we
             # musn't patch it, because the reducers will use the manager
             # instance created by an older `get_memmaping_exeuctor` call.
-            _executor._manager = manager
+            _executor._temp_folder_manager = manager
 
         return _executor
 
@@ -84,16 +84,16 @@ class MemmappingExecutor(_ReusablePoolExecutor):
             # unregister them. There is no risk of PermissionError at folder
             # deletion because because at this point, all child processes are
             # dead, so all references to temporary memmaps are closed.
-            self._manager._unregister_temporary_resources()
-            self._manager._try_delete_folder(allow_non_empty=True)
+            self._temp_folder_manager._unregister_temporary_resources()
+            self._temp_folder_manager._try_delete_folder(allow_non_empty=True)
         else:
-            self._manager._unlink_temporary_resources()
+            self._temp_folder_manager._unlink_temporary_resources()
 
     @property
     def _temp_folder(self):
         # Legacy property in tests. could be removed if we refactored the
         # memmapping tests.
-        return self._manager.resolve_temp_folder_name()
+        return self._temp_folder_manager.resolve_temp_folder_name()
 
 
 class _TestingMemmappingExecutor(MemmappingExecutor):

@@ -546,7 +546,7 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
             # Don't terminate the workers as we want to reuse them in later
             # calls, but cleanup the temporary resources that the Parallel call
             # created. This 'hack' requires a private, low-level operation.
-            self._workers._manager._unlink_temporary_resources()
+            self._workers._temp_folder_manager._unlink_temporary_resources()
             self._workers = None
 
         self.reset_batch_stats()

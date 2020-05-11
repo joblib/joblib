@@ -1,3 +1,6 @@
+from joblib._parallel_backends import LokyBackend, MultiprocessingBackend
+
+
 def return_slice_of_data(arr, start_idx, end_idx):
     return arr[start_idx:end_idx]
 
@@ -6,3 +9,12 @@ def print_filename_and_raise(arr):
     from joblib._memmapping_reducer import _get_backing_memmap
     print(_get_backing_memmap(arr).filename)
     raise ValueError
+
+
+def get_temp_folder(p):
+    if isinstance(p._backend, MultiprocessingBackend):
+        return p._backend._pool._temp_folder
+    elif isinstance(p._backend, LokyBackend):
+        return p._backend._workers._temp_folder
+    else:
+        raise ValueError

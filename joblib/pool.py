@@ -303,7 +303,7 @@ class MemmappingPool(PicklingPool):
                           DeprecationWarning)
 
         manager = TemporaryResourcesManager(temp_folder)
-        self._manager = manager
+        self._temp_folder_manager = manager
 
         # The usage of a temp_folder_resolver over a simple temp_folder is
         # superfluous for multiprocessing pools, as they don't get reused, see
@@ -338,10 +338,10 @@ class MemmappingPool(PicklingPool):
                     if i + 1 == n_retries:
                         warnings.warn("Failed to terminate worker processes in"
                                       " multiprocessing pool: %r" % e)
-        self._manager._unlink_temporary_resources()
+        self._temp_folder_manager._unlink_temporary_resources()
 
     @property
     def _temp_folder(self):
         # Legacy property in tests. could be removed if we refactored the
         # memmapping tests.
-        return self._manager.resolve_temp_folder_name()
+        return self._temp_folder_manager.resolve_temp_folder_name()
