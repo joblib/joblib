@@ -1,5 +1,7 @@
 from __future__ import print_function, division, absolute_import
 
+import asyncio
+import concurrent.futures
 import contextlib
 
 from uuid import uuid4
@@ -14,11 +16,16 @@ except ImportError:
     distributed = None
 
 if distributed is not None:
-    from distributed.client import Client, _wait
-    from distributed.utils import funcname, itemgetter
-    from distributed import get_client, secede, rejoin
-    from distributed.worker import thread_state
-    from distributed.sizeof import sizeof
+    from dask.utils import funcname, itemgetter
+    from dask.sizeof import sizeof
+    from dask.distributed import (
+        Client,
+        as_completed,
+        get_client,
+        secede,
+        rejoin
+    )
+    from distributed.utils import thread_state
 
     try:
         # asyncio.TimeoutError, Python3-only error thrown by recent versions of
@@ -26,6 +33,7 @@ if distributed is not None:
         from distributed.utils import TimeoutError as _TimeoutError
     except ImportError:
         from tornado.gen import TimeoutError as _TimeoutError
+
 
 def is_weakrefable(obj):
     try:
@@ -115,6 +123,7 @@ def _joblib_probe_task():
 class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
     MIN_IDEAL_BATCH_DURATION = 0.2
     MAX_IDEAL_BATCH_DURATION = 1.0
+    supports_timeout = True
 
     def __init__(self, scheduler_host=None, scatter=None,
                  client=None, loop=None, wait_for_workers_timeout=10,
@@ -155,9 +164,29 @@ class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         else:
             self._scatter = []
             self.data_futures = {}
-        self.task_futures = set()
         self.wait_for_workers_timeout = wait_for_workers_timeout
         self.submit_kwargs = submit_kwargs
+        self.waiting_futures = as_completed(
+            [],
+            loop=client.loop,
+            with_results=True,
+            raise_errors=False
+        )
+        self._results = {}
+        self._callbacks = {}
+
+    async def _collect(self):
+        while self._continue:
+            async for future, result in self.waiting_futures:
+                cf_future = self._results.pop(future)
+                callback = self._callbacks.pop(future)
+                if future.status == "error":
+                    typ, exc, tb = result
+                    cf_future.set_exception(exc)
+                else:
+                    cf_future.set_result(result)
+                    callback(result)
+            await asyncio.sleep(0.01)
 
     def __reduce__(self):
         return (DaskDistributedBackend, ())
@@ -169,11 +198,14 @@ class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         return self.effective_n_jobs(n_jobs)
 
     def start_call(self):
+        self._continue = True
+        self.client.loop.add_callback(self._collect)
         self.call_data_futures = _WeakKeyDictionary()
 
     def stop_call(self):
         # The explicit call to clear is required to break a cycling reference
         # to the futures.
+        self._continue = False
         self.call_data_futures.clear()
 
     def effective_n_jobs(self, n_jobs):
@@ -199,7 +231,7 @@ class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
             raise TimeoutError(error_msg)
         return sum(self.client.ncores().values())
 
-    def _to_func_args(self, func):
+    async def _to_func_args(self, func):
         collected_futures = []
         itemgetters = dict()
 
@@ -207,11 +239,12 @@ class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         # Parallel.__call__.
         call_data_futures = getattr(self, 'call_data_futures', None)
 
-        def maybe_to_futures(args):
+        async def maybe_to_futures(args):
+            out = []
             for arg in args:
                 arg_id = id(arg)
                 if arg_id in itemgetters:
-                    yield itemgetters[arg_id]
+                    out.append(itemgetters[arg_id])
                     continue
 
                 f = self.data_futures.get(arg_id, None)
@@ -225,7 +258,10 @@ class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
                             # Rely on automated inter-worker data stealing if
                             # more workers need to reuse this data
                             # concurrently.
-                            [f] = self.client.scatter([arg])
+                            [f] = await self.client.scatter(
+                                [arg],
+                                asynchronous=True
+                            )
                             call_data_futures[arg] = f
 
                 if f is not None:
@@ -233,13 +269,14 @@ class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
                     collected_futures.append(f)
                     itemgetters[arg_id] = getter
                     arg = getter
-                yield arg
+                out.append(arg)
+            return out
 
         tasks = []
         for f, args, kwargs in func.items:
-            args = list(maybe_to_futures(args))
+            args = list(await maybe_to_futures(args))
             kwargs = dict(zip(kwargs.keys(),
-                              maybe_to_futures(kwargs.values())))
+                              await maybe_to_futures(kwargs.values())))
             tasks.append((f, args, kwargs))
 
         if not collected_futures:
@@ -248,34 +285,33 @@ class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
 
     def apply_async(self, func, callback=None):
         key = '%s-batch-%s' % (_funcname(func), uuid4().hex)
-        func, args = self._to_func_args(func)
 
-        future = self.client.submit(func, *args, key=key, **self.submit_kwargs)
-        self.task_futures.add(future)
+        cf_future = concurrent.futures.Future()
+        cf_future.get = cf_future.result  # achieve AsyncResult API
 
-        def callback_wrapper(future):
-            result = future.result()
-            self.task_futures.remove(future)
-            if callback is not None:
-                callback(result)
+        async def f(func, callback):
+            func, args = await self._to_func_args(func)
 
-        future.add_done_callback(callback_wrapper)
+            dask_future = self.client.submit(
+                func, *args, key=key, **self.submit_kwargs
+            )
+            self.waiting_futures.add(dask_future)
+            self._callbacks[dask_future] = callback
+            self._results[dask_future] = cf_future
 
-        ref = weakref.ref(future)  # avoid reference cycle
+        self.client.loop.add_callback(f, func, callback)
 
-        def get():
-            return ref().result()
-
-        future.get = get  # monkey patch to achieve AsyncResult API
-        return future
+        return cf_future
 
     def abort_everything(self, ensure_ready=True):
         """ Tell the client to cancel any task submitted via this instance
 
         joblib.Parallel will never access those results
         """
-        self.client.cancel(self.task_futures)
-        self.task_futures.clear()
+        with self.waiting_futures.lock:
+            self.waiting_futures.futures.clear()
+            while not self.waiting_futures.queue.empty():
+                self.waiting_futures.queue.get()
 
     @contextlib.contextmanager
     def retrieval_context(self):
