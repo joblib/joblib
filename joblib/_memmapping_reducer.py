@@ -506,7 +506,7 @@ class TemporaryResourcesManager(object):
     It exposes:
     - a folder name resolving API that memmap-based reducers will rely on
       when to know where to pickle the temporary memmaps
-    - a temporary file/folder managment API that interally uses the
+    - a temporary file/folder management API that internally uses the
       resource_tracker.
     """
     def __init__(self, temp_folder_root=None):

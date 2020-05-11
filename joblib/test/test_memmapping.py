@@ -473,7 +473,7 @@ def test_managed_backend_reuse_temp_folder(backend):
 @parametrize("backend", ["multiprocessing", "loky"])
 def test_many_parallel_calls_on_same_object(backend):
     # After #966 got merged, consecutive Parallel objects were sharing temp
-    # folder, which would lead to race conditions happenning during the
+    # folder, which would lead to race conditions happening during the
     # temporary resources management with the resource_tracker. This is a
     # non-regression test that makes sure that consecutive Parallel operations
     # on the same object do not error out.
