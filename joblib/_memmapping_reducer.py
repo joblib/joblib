@@ -342,7 +342,9 @@ class ArrayMemmapForwardReducer(object):
         self._mmap_mode = mmap_mode
         self.verbose = int(verbose)
         if prewarm == "auto":
-            self._prewarm = not self._temp_folder.startswith(SYSTEM_SHARED_MEM_FS)
+            self._prewarm = not self._temp_folder.startswith(
+                SYSTEM_SHARED_MEM_FS
+            )
         else:
             self._prewarm = prewarm
         self._prewarm = prewarm
