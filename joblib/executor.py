@@ -59,11 +59,14 @@ class MemmappingExecutor(_ReusablePoolExecutor):
         )
 
         if not executor_is_reused:
-            # if _executor is new, the previously created manager will used by
-            # the reducer to resolve temporary folder names. Otherwise, we
-            # musn't patch it, because the reducers will use the manager
-            # instance created by an older `get_memmaping_exeuctor` call.
+            # Only set a _temp_folder_manager for new executors. Reused
+            # executors already have a _temporary_folder_manager that must not
+            # be reset like that because it is referenced in various places in
+            # the reducing machinery of the executor.
             _executor._temp_folder_manager = manager
+        else:
+            # Else, register the new context into the old manager
+            _executor._temp_folder_manager.register_new_context(context_id)
 
         return _executor
 

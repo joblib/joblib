@@ -520,42 +520,34 @@ class TemporaryResourcesManager(object):
             # It would be safer to not assign a default context id (less silent
             # bugs), but doing this while maintaining backward compatibility
             # with the previous, context-unaware version get_memmaping_executor
-            # exposes exposes to many low-level details.
+            # exposes exposes too many low-level details.
             context_id = uuid4().hex
-        self._context_id = context_id
-        # warm-up the manager by resolving a temporary folder and caching it
-        self.resolve_temp_folder_name()
+        self.set_current_context(context_id)
 
-    @property
-    def current_context_id(self):
-        return self._context_id
+    def set_current_context(self, context_id):
+        self._current_context_id = context_id
+        self.register_new_context(context_id)
 
-    def reset_context(self):
-        self._context_id = None
-
-    def set_context(self, context_id):
-        self._context_id = context_id
-        # warm-up the manager by resolving a temporary folder and caching it
-        self.resolve_temp_folder_name()
-
-    def resolve_temp_folder_name(self):
-        if self.current_context_id in self._cached_temp_folders:
-            return self._cached_temp_folders[self.current_context_id]
+    def register_new_context(self, context_id):
+        # Prepare a sub-folder name specific to a context (usually the id of
+        # the Parallel object using the loky executor). Do not create in
+        # advance to spare FS write access if no array is to be dumped).
+        if context_id in self._cached_temp_folders:
+            return
         else:
-            # Prepare a sub-folder name for the serialization of this
-            # particular pool instance (do not create in advance to spare FS
-            # write access if no array is to be dumped):
             new_folder_name = (
-                "joblib_memmapping_folder_{}_{}".format(
-                    os.getpid(), uuid4().hex)
+                "joblib_memmapping_folder_{}_{}_{}".format(
+                    os.getpid(), context_id, uuid4().hex)
             )
             new_folder_path, _ = _get_temp_dir(
                 new_folder_name, self._temp_folder_root
             )
             self.register_folder_finalizer(new_folder_path)
-            self._cached_temp_folders[
-                self.current_context_id] = new_folder_path
-            return new_folder_path
+            self._cached_temp_folders[context_id] = new_folder_path
+
+    def resolve_temp_folder_name(self):
+        """Return a folder name specific to the currently activated context"""
+        return self._cached_temp_folders[self._current_context_id]
 
     # resource management API
 

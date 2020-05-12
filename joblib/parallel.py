@@ -262,7 +262,7 @@ class BatchedCalls(object):
             # where set_context is used) is done from a single thread (the
             # executor manager thread).
             temp_folder_manager, context_id = self._reducer_extra
-            temp_folder_manager.set_context(context_id)
+            temp_folder_manager.set_current_context(context_id)
         return super().__reduce__()
 
     def __len__(self):
