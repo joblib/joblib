@@ -14,6 +14,7 @@ import functools
 import time
 import threading
 import itertools
+from uuid import uuid4
 from numbers import Integral
 import warnings
 import queue
@@ -231,9 +232,11 @@ if hasattr(mp, 'get_context'):
 class BatchedCalls(object):
     """Wrap a sequence of (func, args, kwargs) tuples as a single callable"""
 
-    def __init__(self, iterator_slice, backend_and_jobs, pickle_cache=None):
+    def __init__(self, iterator_slice, backend_and_jobs, reducer_extra,
+                 pickle_cache=None):
         self.items = list(iterator_slice)
         self._size = len(self.items)
+        self._reducer_extra = reducer_extra
         if isinstance(backend_and_jobs, tuple):
             self._backend, self._n_jobs = backend_and_jobs
         else:
@@ -248,6 +251,19 @@ class BatchedCalls(object):
         with parallel_backend(self._backend, n_jobs=self._n_jobs):
             return [func(*args, **kwargs)
                     for func, args, kwargs in self.items]
+
+    def __reduce__(self):
+        if self._reducer_extra is not None:
+            # reducer_extra should be "not None" only with loky backends.
+            # Relevant implementation detail: the following lines are
+            # thread-safe, meaning that the context of the temporary folder
+            # manager will not be changed in between now and the end of the
+            # BatchedCall pickling. The reason is that pickling (the only place
+            # where set_context is used) is done from a single thread (the
+            # executor manager thread).
+            temp_folder_manager, context_id = self._reducer_extra
+            temp_folder_manager.set_context(context_id)
+        return super().__reduce__()
 
     def __len__(self):
         return self._size
@@ -629,6 +645,8 @@ class Parallel(Logger):
         self.timeout = timeout
         self.pre_dispatch = pre_dispatch
         self._ready_batches = queue.Queue()
+        self._id = uuid4().hex
+        self._reducer_extra = None
 
         if isinstance(max_nbytes, str):
             max_nbytes = memstr_to_bytes(max_nbytes)
@@ -819,6 +837,7 @@ class Parallel(Logger):
                 for i in range(0, len(islice), final_batch_size):
                     tasks = BatchedCalls(islice[i:i + final_batch_size],
                                          self._backend.get_nested_backend(),
+                                         self._reducer_extra,
                                          self._pickle_cache)
                     self._ready_batches.put(tasks)
 
@@ -938,6 +957,19 @@ class Parallel(Logger):
             n_jobs = self._initialize_backend()
         else:
             n_jobs = self._effective_n_jobs()
+
+        if (isinstance(self._backend, LokyBackend) and
+                self._reducer_extra is None):
+            # Create a context relative to this Parallel object. This context
+            # will be used when pickling batches to set the path of the folder
+            # where temporary resources created during this Parallel call will
+            # be located.  This is necessary to ensure that several Parallel
+            # object using the same resuable executor don't use the same
+            # temporary resources
+            self._reducer_extra = (
+                self._backend._workers._temp_folder_manager,
+                self._id
+            )
 
         # self._effective_n_jobs should be called in the Parallel.__call__
         # thread only -- store its value in an attribute for further queries.

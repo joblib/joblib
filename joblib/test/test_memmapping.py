@@ -7,6 +7,7 @@ import pickle
 import itertools
 from time import sleep
 import subprocess
+import threading
 
 from joblib.test.common import with_numpy, np
 from joblib.test.common import setup_autokill
@@ -466,6 +467,46 @@ def test_managed_backend_reuse_temp_folder(backend):
             delayed(getattr)(array, 'filename') for _ in range(1)
         )
     assert os.path.dirname(filename_2) == os.path.dirname(filename_1)
+
+
+@with_numpy
+@with_multiprocessing
+def test_memmapping_temp_folder_thread_safety():
+    # Concurrent calls to Parallel with the loky backend will use the same
+    # executor, and thus the same reducers. Make sure that those reducers use
+    # different temporary folders depending on which Parallel objects called
+    # them, which is necessary to limit potential race conditions during the
+    # garbage collection of temporary memmaps.
+    array = np.arange(int(1e2))
+
+    temp_dirs_thread_1 = set()
+    temp_dirs_thread_2 = set()
+
+    def concurrent_get_filename(array, temp_dirs):
+        with Parallel(backend='loky', n_jobs=2, max_nbytes=10) as p:
+            for i in range(10):
+                [filename] = p(
+                    delayed(getattr)(array, 'filename') for _ in range(1)
+                )
+                temp_dirs.add(os.path.dirname(filename))
+
+    t1 = threading.Thread(
+        target=concurrent_get_filename, args=(array, temp_dirs_thread_1)
+    )
+    t2 = threading.Thread(
+        target=concurrent_get_filename, args=(array, temp_dirs_thread_2)
+    )
+
+    t1.start()
+    t2.start()
+
+    t1.join()
+    t2.join()
+
+    assert len(temp_dirs_thread_1) == 1
+    assert len(temp_dirs_thread_2) == 1
+
+    assert temp_dirs_thread_1 != temp_dirs_thread_2
 
 
 @with_numpy

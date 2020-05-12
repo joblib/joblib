@@ -25,7 +25,7 @@ class MemmappingExecutor(_ReusablePoolExecutor):
     @classmethod
     def get_memmapping_executor(cls, n_jobs, timeout=300, initializer=None,
                                 initargs=(), env=None, temp_folder=None,
-                                **backend_args):
+                                context_id=None, **backend_args):
         """Factory for ReusableExecutor with automatic memmapping for large numpy
         arrays.
         """
@@ -39,7 +39,10 @@ class MemmappingExecutor(_ReusablePoolExecutor):
         reuse = _executor_args is None or _executor_args == executor_args
         _executor_args = executor_args
 
-        manager = TemporaryResourcesManager(temp_folder)
+        manager = TemporaryResourcesManager(
+            temp_folder,
+            context_id=context_id
+        )
 
         # reducers access the temporary folder in which to store temporary
         # pickles through a call to manager.resolve_temp_folder_name. resolving
@@ -55,17 +58,7 @@ class MemmappingExecutor(_ReusablePoolExecutor):
             initargs=initargs, env=env
         )
 
-        if executor_is_reused:
-            # In case of executor reuse, reset the internal state of executor
-            # temporary folder resolver. This means a new temporary folder name
-            # within the root (which may or may not have changed at the
-            # previous call) will be generated upon the next
-            # get_temp_folder_name() call. This call is necessary to ensure
-            # that a reusable executor does not reuse temporary folders across
-            # calls, which itself is necessary to prevent race conditions
-            # happening when the resource_tracker deletes temporary memmaps.
-            _executor._temp_folder_manager.reset_resolver()
-        else:
+        if not executor_is_reused:
             # if _executor is new, the previously created manager will used by
             # the reducer to resolve temporary folder names. Otherwise, we
             # musn't patch it, because the reducers will use the manager
@@ -84,6 +77,8 @@ class MemmappingExecutor(_ReusablePoolExecutor):
             # unregister them. There is no risk of PermissionError at folder
             # deletion because because at this point, all child processes are
             # dead, so all references to temporary memmaps are closed.
+
+            # unregister temporary resources from all contexts
             self._temp_folder_manager._unregister_temporary_resources()
             self._temp_folder_manager._try_delete_folder(allow_non_empty=True)
         else:

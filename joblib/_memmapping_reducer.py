@@ -361,7 +361,7 @@ class ArrayMemmapForwardReducer(object):
         # needs to be pickled but the _WeakArrayKeyMap need to be skipped as
         # it's only guaranteed to be consistent with the parent process memory
         # garbage collection.
-        args = (self._max_nbytes, self._temp_folder, self._mmap_mode,
+        args = (self._max_nbytes, self._temp_folder_resolver, self._mmap_mode,
                 self._unlink_on_gc_collect)
         kwargs = {
             'verbose': self.verbose,
@@ -504,33 +504,43 @@ class TemporaryResourcesManager(object):
     """Stateful object able to manage temporary folder and pickles
 
     It exposes:
-    - a folder name resolving API that memmap-based reducers will rely on
-      when to know where to pickle the temporary memmaps
+    - a per-context folder name resolving API that memmap-based reducers will
+      rely on when to know where to pickle the temporary memmaps
     - a temporary file/folder management API that internally uses the
       resource_tracker.
+
     """
-    def __init__(self, temp_folder_root=None):
+
+    def __init__(self, temp_folder_root=None, context_id=None):
         self._current_temp_folder = None
         self._temp_folder_root = temp_folder_root
         self._use_shared_mem = None
-
+        self._cached_temp_folders = dict()
+        if context_id is None:
+            # It would be safer to not assign a default context id (less silent
+            # bugs), but doing this while maintaining backward compatibility
+            # with the previous, context-unaware version get_memmaping_executor
+            # exposes exposes to many low-level details.
+            context_id = uuid4().hex
+        self._context_id = context_id
         # warm-up the manager by resolving a temporary folder and caching it
         self.resolve_temp_folder_name()
 
-    def reset_resolver(self):
-        # ensure that a new call to resolve() returns a NEW temporary folder
-        # name
-        self._current_temp_folder = None
-        self._use_shared_mem = None
+    @property
+    def current_context_id(self):
+        return self._context_id
+
+    def reset_context(self):
+        self._context_id = None
+
+    def set_context(self, context_id):
+        self._context_id = context_id
         # warm-up the manager by resolving a temporary folder and caching it
         self.resolve_temp_folder_name()
-
-    def _should_reuse_current_folder(self):
-        return self._current_temp_folder is not None
 
     def resolve_temp_folder_name(self):
-        if self._should_reuse_current_folder():
-            return self._current_temp_folder
+        if self.current_context_id in self._cached_temp_folders:
+            return self._cached_temp_folders[self.current_context_id]
         else:
             # Prepare a sub-folder name for the serialization of this
             # particular pool instance (do not create in advance to spare FS
@@ -539,11 +549,13 @@ class TemporaryResourcesManager(object):
                 "joblib_memmapping_folder_{}_{}".format(
                     os.getpid(), uuid4().hex)
             )
-            self._current_temp_folder, self._use_shared_mem = _get_temp_dir(
+            new_folder_path, _ = _get_temp_dir(
                 new_folder_name, self._temp_folder_root
             )
-            self.register_folder_finalizer(self._current_temp_folder)
-            return self._current_temp_folder
+            self.register_folder_finalizer(new_folder_path)
+            self._cached_temp_folders[
+                self.current_context_id] = new_folder_path
+            return new_folder_path
 
     # resource management API
 
@@ -576,32 +588,49 @@ class TemporaryResourcesManager(object):
 
         atexit.register(_cleanup)
 
-    def _unlink_temporary_resources(self):
+    def _unlink_temporary_resources(self, context_id=None):
         """Unlink temporary resources created by a process-based pool"""
-        if os.path.exists(self._current_temp_folder):
-            for filename in os.listdir(self._current_temp_folder):
-                resource_tracker.maybe_unlink(
-                    os.path.join(self._current_temp_folder, filename), "file"
+        if context_id is None:
+            for context_id in self._cached_temp_folders:
+                self._unlink_temporary_resources(context_id)
+        else:
+            temp_folder = self._cached_temp_folders[context_id]
+            if os.path.exists(temp_folder):
+                for filename in os.listdir(temp_folder):
+                    resource_tracker.maybe_unlink(
+                        os.path.join(temp_folder, filename), "file"
+                    )
+                self._try_delete_folder(
+                    allow_non_empty=False, context_id=context_id
                 )
-            # XXX: calling shutil.rmtree inside delete_folder is likely to
-            # cause a race condition with the lines above.
-            self._try_delete_folder(allow_non_empty=False)
 
-    def _unregister_temporary_resources(self):
+    def _unregister_temporary_resources(self, context_id=None):
         """Unregister temporary resources created by a process-based pool"""
-        if os.path.exists(self._current_temp_folder):
-            for filename in os.listdir(self._current_temp_folder):
-                resource_tracker.unregister(
-                    os.path.join(self._current_temp_folder, filename), "file"
-                )
+        if context_id is None:
+            for context_id in self._cached_temp_folders:
+                self._unregister_temporary_resources(context_id)
+        else:
+            temp_folder = self._cached_temp_folders[context_id]
+            if os.path.exists(temp_folder):
+                for filename in os.listdir(temp_folder):
+                    resource_tracker.unregister(
+                        os.path.join(temp_folder, filename), "file"
+                    )
 
-    def _try_delete_folder(self, allow_non_empty):
-        try:
-            delete_folder(
-                self._current_temp_folder, allow_non_empty=allow_non_empty
-            )
-        except OSError:
-            # Temporary folder cannot be deleted right now. No need to
-            # handle it though, as this folder will be cleaned up by an
-            # atexit finalizer registered by the memmapping_reducer.
-            pass
+    def _try_delete_folder(self, allow_non_empty, context_id=None):
+        if context_id is None:
+            for context_id in self._cached_temp_folders:
+                self._try_delete_folder(
+                    allow_non_empty=allow_non_empty, context_id=context_id
+                )
+        else:
+            temp_folder = self._cached_temp_folders[context_id]
+            try:
+                delete_folder(
+                    temp_folder, allow_non_empty=allow_non_empty
+                )
+            except OSError:
+                # Temporary folder cannot be deleted right now. No need to
+                # handle it though, as this folder will be cleaned up by an
+                # atexit finalizer registered by the memmapping_reducer.
+                pass
