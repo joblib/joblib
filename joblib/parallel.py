@@ -255,9 +255,12 @@ class BatchedCalls(object):
     def __reduce__(self):
         if self._reducer_callback is not None:
             self._reducer_callback()
-            # No need to pickle the callback
-            self._reducer_callback = None
-        return super().__reduce__()
+        # no need pickle the callback.
+        return (
+            BatchedCalls,
+            (self.items, (self._backend, self._n_jobs), None,
+             self._pickle_cache)
+        )
 
     def __len__(self):
         return self._size
