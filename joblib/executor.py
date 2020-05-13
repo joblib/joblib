@@ -39,10 +39,7 @@ class MemmappingExecutor(_ReusablePoolExecutor):
         reuse = _executor_args is None or _executor_args == executor_args
         _executor_args = executor_args
 
-        manager = TemporaryResourcesManager(
-            temp_folder,
-            context_id=context_id
-        )
+        manager = TemporaryResourcesManager(temp_folder)
 
         # reducers access the temporary folder in which to store temporary
         # pickles through a call to manager.resolve_temp_folder_name. resolving
@@ -61,11 +58,14 @@ class MemmappingExecutor(_ReusablePoolExecutor):
         if not executor_is_reused:
             # Only set a _temp_folder_manager for new executors. Reused
             # executors already have a _temporary_folder_manager that must not
-            # be reset like that because it is referenced in various places in
-            # the reducing machinery of the executor.
+            # be re-assigned like that because it is referenced in various
+            # places in the reducing machinery of the executor.
             _executor._temp_folder_manager = manager
-        else:
-            # Else, register the new context into the old manager
+
+        if context_id is not None:
+            # Only register the specified context once we know which manager
+            # the current executor is using, in order to not register an atexit
+            # finalizer twice for the same folder.
             _executor._temp_folder_manager.register_new_context(context_id)
 
         return _executor

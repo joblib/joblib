@@ -307,7 +307,7 @@ class MemmappingPool(PicklingPool):
 
         # The usage of a temp_folder_resolver over a simple temp_folder is
         # superfluous for multiprocessing pools, as they don't get reused, see
-        # get_memmapping_executor for more details. We still use if for code
+        # get_memmapping_executor for more details. We still use it for code
         # simplicity.
         forward_reducers, backward_reducers = \
             get_memmapping_reducers(
