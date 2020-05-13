@@ -559,6 +559,13 @@ class TemporaryResourcesManager(object):
         """Return a folder name specific to the currently activated context"""
         return self._cached_temp_folders[self._current_context_id]
 
+    def _unregister_context(self, context_id=None):
+        if context_id is None:
+            for context_id in list(self._cached_temp_folders):
+                self._unregister_context(context_id)
+        else:
+            self._cached_temp_folders.pop(context_id)
+
     # resource management API
 
     def register_folder_finalizer(self, pool_subfolder):

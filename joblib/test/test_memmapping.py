@@ -511,6 +511,78 @@ def test_memmapping_temp_folder_thread_safety():
 
 @with_numpy
 @with_multiprocessing
+def test_multithreaded_parallel_termination_resource_tracker_silent():
+    # test that concurrent termination attempts of a same executor does not
+    # emit any spurious error from the resource_tracker. We test various
+    # situations making 0, 1 or both parallel call sending a task that will
+    # make the worker (and thus the whole Parallel call) error out.
+    cmd = '''if 1:
+        import os
+        import numpy as np
+        from joblib import Parallel, delayed
+        from joblib.externals.loky.backend import resource_tracker
+        from concurrent.futures import ThreadPoolExecutor, wait
+
+        resource_tracker.VERBOSE = 0
+
+        array = np.arange(int(1e2))
+
+        temp_dirs_thread_1 = set()
+        temp_dirs_thread_2 = set()
+
+
+        def raise_error(array):
+            raise ValueError
+
+
+        def parallel_get_filename(array, temp_dirs):
+            with Parallel(backend="loky", n_jobs=2, max_nbytes=10) as p:
+                for i in range(10):
+                    [filename] = p(
+                        delayed(getattr)(array, "filename") for _ in range(1)
+                    )
+                    temp_dirs.add(os.path.dirname(filename))
+
+
+        def parallel_raise(array, temp_dirs):
+            with Parallel(backend="loky", n_jobs=2, max_nbytes=10) as p:
+                for i in range(10):
+                    [filename] = p(
+                        delayed(raise_error)(array) for _ in range(1)
+                    )
+                    temp_dirs.add(os.path.dirname(filename))
+
+
+        executor = ThreadPoolExecutor(max_workers=2)
+
+        # both function calls will use the same loky executor, but with a
+        # different Parallel object.
+        future_1 = executor.submit({f1}, array, temp_dirs_thread_1)
+        future_2 = executor.submit({f2}, array, temp_dirs_thread_2)
+
+        # Wait for both threads to terminate their backend
+        wait([future_1, future_2])
+
+        future_1.result()
+        future_2.result()
+    '''
+    functions_and_returncodes = [
+        ("parallel_get_filename", "parallel_get_filename", 0),
+        ("parallel_get_filename", "parallel_raise", 1),
+        ("parallel_raise", "parallel_raise", 1)
+    ]
+
+    for f1, f2, returncode in functions_and_returncodes:
+        p = subprocess.Popen([sys.executable, '-c', cmd.format(f1=f1, f2=f2)],
+                             stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+        p.wait()
+        out, err = p.communicate()
+        assert p.returncode == returncode, out.decode()
+        assert b"resource_tracker" not in err, err.decode()
+
+
+@with_numpy
+@with_multiprocessing
 @parametrize("backend", ["multiprocessing", "loky"])
 def test_many_parallel_calls_on_same_object(backend):
     # After #966 got merged, consecutive Parallel objects were sharing temp

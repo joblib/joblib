@@ -82,10 +82,15 @@ class MemmappingExecutor(_ReusablePoolExecutor):
             # dead, so all references to temporary memmaps are closed.
 
             # unregister temporary resources from all contexts
-            self._temp_folder_manager._unregister_temporary_resources()
-            self._temp_folder_manager._try_delete_folder(allow_non_empty=True)
+            with self._submit_resize_lock:
+                self._temp_folder_manager._unregister_temporary_resources()
+                self._temp_folder_manager._try_delete_folder(
+                    allow_non_empty=True
+                )
+                self._temp_folder_manager._unregister_context()
         else:
             self._temp_folder_manager._unlink_temporary_resources()
+            self._temp_folder_manager._try_delete_folder(allow_non_empty=True)
 
     @property
     def _temp_folder(self):
