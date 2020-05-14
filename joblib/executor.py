@@ -95,8 +95,15 @@ class MemmappingExecutor(_ReusablePoolExecutor):
     @property
     def _temp_folder(self):
         # Legacy property in tests. could be removed if we refactored the
-        # memmapping tests.
-        return self._temp_folder_manager.resolve_temp_folder_name()
+        # memmapping tests. SHOULD ONLY BE USED IN TESTS!
+        # We cache this property because it is called late in the tests - at
+        # this point, all context have been unregistered, and
+        # resolve_temp_folder_name raises an error.
+        if getattr(self, '_cached_temp_folder', None) is not None:
+            return self._cached_temp_folder
+        else:
+            self._cached_temp_folder = self._temp_folder_manager.resolve_temp_folder_name()  # noqa
+            return self._cached_temp_folder
 
 
 class _TestingMemmappingExecutor(MemmappingExecutor):

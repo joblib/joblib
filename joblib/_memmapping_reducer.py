@@ -557,7 +557,7 @@ class TemporaryResourcesManager(object):
             new_folder_path, _ = _get_temp_dir(
                 new_folder_name, self._temp_folder_root
             )
-            self.register_folder_finalizer(new_folder_path)
+            self.register_folder_finalizer(new_folder_path, context_id)
             self._cached_temp_folders[context_id] = new_folder_path
 
     def resolve_temp_folder_name(self):
@@ -569,11 +569,18 @@ class TemporaryResourcesManager(object):
             for context_id in list(self._cached_temp_folders):
                 self._unregister_context(context_id)
         else:
+            temp_folder = self._cached_temp_folders[context_id]
+            finalizer = self._finalizers[context_id]
+
+            resource_tracker.unregister(temp_folder, "folder")
+            atexit.unregister(finalizer)
+
             self._cached_temp_folders.pop(context_id)
+            self._finalizers.pop(context_id)
 
     # resource management API
 
-    def register_folder_finalizer(self, pool_subfolder):
+    def register_folder_finalizer(self, pool_subfolder, context_id):
         # Register the garbage collector at program exit in case caller forgets
         # to call terminate explicitly: note we do not pass any reference to
         # ensure that this callback won't prevent garbage collection of
@@ -600,12 +607,15 @@ class TemporaryResourcesManager(object):
                 warnings.warn("Failed to delete temporary folder: {}"
                               .format(pool_subfolder))
 
-        self._finalizers[pool_subfolder] = atexit.register(_cleanup)
+        self._finalizers[context_id] = atexit.register(_cleanup)
 
     def _unlink_temporary_resources(self, context_id=None):
         """Unlink temporary resources created by a process-based pool"""
         if context_id is None:
-            for context_id in self._cached_temp_folders:
+            # iterate over a copy of the cache keys because
+            # unlink_temporary_resources further deletes an entry in this
+            # cache
+            for context_id in list(self._cached_temp_folders):
                 self._unlink_temporary_resources(context_id)
         else:
             temp_folder = self._cached_temp_folders[context_id]
@@ -621,7 +631,7 @@ class TemporaryResourcesManager(object):
     def _unregister_temporary_resources(self, context_id=None):
         """Unregister temporary resources created by a process-based pool"""
         if context_id is None:
-            for context_id in self._cached_temp_folders:
+            for context_id in list(self._cached_temp_folders):
                 self._unregister_temporary_resources(context_id)
         else:
             temp_folder = self._cached_temp_folders[context_id]
@@ -633,7 +643,8 @@ class TemporaryResourcesManager(object):
 
     def _try_delete_folder(self, allow_non_empty, context_id=None):
         if context_id is None:
-            for context_id in self._cached_temp_folders:
+            # ditto
+            for context_id in list(self._cached_temp_folders):
                 self._try_delete_folder(
                     allow_non_empty=allow_non_empty, context_id=context_id
                 )
@@ -643,12 +654,9 @@ class TemporaryResourcesManager(object):
                 delete_folder(
                     temp_folder, allow_non_empty=allow_non_empty
                 )
-                resource_tracker.unregister(temp_folder, "folder")
-                # upon folder deletion, unregister the atexit finalizer in
-                # charge of deleting the folder during interpreter exit
-                finalizer = self._finalizers.pop(temp_folder, None)
-                if finalizer is not None:
-                    atexit.unregister(finalizer)
+                # Now that this folder is deleted, we can forget about it
+                self._unregister_context(context_id)
+
             except OSError:
                 # Temporary folder cannot be deleted right now. No need to
                 # handle it though, as this folder will be cleaned up by an
