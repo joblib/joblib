@@ -361,7 +361,7 @@ class ArrayMemmapForwardReducer(object):
         # needs to be pickled but the _WeakArrayKeyMap need to be skipped as
         # it's only guaranteed to be consistent with the parent process memory
         # garbage collection.
-        args = (self._max_nbytes, self._temp_folder_resolver, self._mmap_mode,
+        args = (self._max_nbytes, None, self._mmap_mode,
                 self._unlink_on_gc_collect)
         kwargs = {
             'verbose': self.verbose,
@@ -505,10 +505,9 @@ class TemporaryResourcesManager(object):
 
     It exposes:
     - a per-context folder name resolving API that memmap-based reducers will
-      rely on when to know where to pickle the temporary memmaps
+      rely on to know where to pickle the temporary memmaps
     - a temporary file/folder management API that internally uses the
       resource_tracker.
-
     """
 
     def __init__(self, temp_folder_root=None, context_id=None):
@@ -517,6 +516,7 @@ class TemporaryResourcesManager(object):
         self._use_shared_mem = None
         self._cached_temp_folders = dict()
         self._id = uuid4().hex
+        self._finalizers = {}
         if context_id is None:
             # It would be safer to not assign a default context id (less silent
             # bugs), but doing this while maintaining backward compatibility
@@ -595,7 +595,7 @@ class TemporaryResourcesManager(object):
                 warnings.warn("Failed to delete temporary folder: {}"
                               .format(pool_subfolder))
 
-        atexit.register(_cleanup)
+        self._finalizers[pool_subfolder] = atexit.register(_cleanup)
 
     def _unlink_temporary_resources(self, context_id=None):
         """Unlink temporary resources created by a process-based pool"""
@@ -638,6 +638,12 @@ class TemporaryResourcesManager(object):
                 delete_folder(
                     temp_folder, allow_non_empty=allow_non_empty
                 )
+                resource_tracker.unregister(temp_folder, "folder")
+                # upon folder deletion, unregister the atexit finalizer in
+                # charge of deleting the folder during interpreter exit
+                finalizer = self._finalizers.pop(temp_folder, None)
+                if finalizer is not None:
+                    atexit.unregister(finalizer)
             except OSError:
                 # Temporary folder cannot be deleted right now. No need to
                 # handle it though, as this folder will be cleaned up by an
