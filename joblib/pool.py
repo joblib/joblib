@@ -243,7 +243,7 @@ class MemmappingPool(PicklingPool):
         Callable executed on worker process creation.
     initargs: tuple, optional
         Arguments passed to the initializer callable.
-    temp_folder: (str, TempFolderNameGenerator) optional
+    temp_folder: (str, callable) optional
         If str:
           Folder to be used by the pool for memmapping large arrays
           for sharing memory with worker processes. If None, this will try in
@@ -254,11 +254,9 @@ class MemmappingPool(PicklingPool):
           - the default system temporary folder that can be overridden
             with TMP, TMPDIR or TEMP environment variables, typically /tmp
             under Unix operating systems.
-        if TempFolderGenerator:
-          Object used internally by joblib that is in charge of resolving
-          temporary folder names. This object is mutated across Parallel calls
-          to output different folders for each calls, but the same folder
-          within one call.
+        if callable:
+            An callable in charge of dynamically resolving a temporary folder
+            for memmapping large arrays.
     max_nbytes int or None, optional, 1e6 by default
         Threshold on the size of arrays passed to the workers that
         triggers automated memory mapping in temp_folder.
