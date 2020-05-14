@@ -87,7 +87,6 @@ class MemmappingExecutor(_ReusablePoolExecutor):
                 self._temp_folder_manager._try_delete_folder(
                     allow_non_empty=True
                 )
-                self._temp_folder_manager._unregister_context()
         else:
             self._temp_folder_manager._unlink_temporary_resources()
             self._temp_folder_manager._try_delete_folder(allow_non_empty=True)
