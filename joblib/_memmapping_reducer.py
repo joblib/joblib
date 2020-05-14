@@ -318,8 +318,9 @@ class ArrayMemmapForwardReducer(object):
     max_nbytes: int
         Threshold to trigger memmapping of large arrays to files created
         a folder.
-    temp_folder: str
-        Path of a folder where files for backing memmapped arrays are created.
+    temp_folder_resolver: callable
+        An callable in charge of resolving a temporary folder name where files
+        for backing memmapped arrays are created.
     mmap_mode: 'r', 'r+' or 'c'
         Mode for the created memmap datastructure. See the documentation of
         numpy.memmap for more details. Note: 'w+' is coerced to 'r+'
@@ -334,23 +335,38 @@ class ArrayMemmapForwardReducer(object):
         same data array is passed to different worker processes.
     """
 
-    def __init__(self, max_nbytes, temp_folder, mmap_mode,
+    def __init__(self, max_nbytes, temp_folder_resolver, mmap_mode,
                  unlink_on_gc_collect, verbose=0, prewarm=True):
         self._max_nbytes = max_nbytes
-        self._temp_folder = temp_folder
+        self._temp_folder_resolver = temp_folder_resolver
         self._mmap_mode = mmap_mode
         self.verbose = int(verbose)
+        if prewarm == "auto":
+            self._prewarm = not self._temp_folder.startswith(
+                SYSTEM_SHARED_MEM_FS
+            )
+        else:
+            self._prewarm = prewarm
         self._prewarm = prewarm
         self._memmaped_arrays = _WeakArrayKeyMap()
         self._temporary_memmaped_filenames = set()
         self._unlink_on_gc_collect = unlink_on_gc_collect
+
+    @property
+    def _temp_folder(self):
+        return self._temp_folder_resolver()
 
     def __reduce__(self):
         # The ArrayMemmapForwardReducer is passed to the children processes: it
         # needs to be pickled but the _WeakArrayKeyMap need to be skipped as
         # it's only guaranteed to be consistent with the parent process memory
         # garbage collection.
-        args = (self._max_nbytes, self._temp_folder, self._mmap_mode,
+        # Although this reducer is pickled, it is not needed in its destination
+        # process (child processes), as we only use this reducer to send
+        # memmaps from the parent process to the children processes. For this
+        # reason, we can afford skipping the resolver, (which would otherwise
+        # be unpicklable), and pass it as None instead.
+        args = (self._max_nbytes, None, self._mmap_mode,
                 self._unlink_on_gc_collect)
         kwargs = {
             'verbose': self.verbose,
@@ -421,8 +437,8 @@ class ArrayMemmapForwardReducer(object):
             if not os.path.exists(filename):
                 util.debug(
                     "[ARRAY DUMP] Pickling new array (shape={}, dtype={}) "
-                    "creating a new memmap".format(
-                        a.shape, a.dtype, os.path.basename(filename)))
+                    "creating a new memmap at {}".format(
+                        a.shape, a.dtype, filename))
                 for dumped_filename in dump(a, filename):
                     os.chmod(dumped_filename, FILE_PERMISSIONS)
 
@@ -455,8 +471,8 @@ class ArrayMemmapForwardReducer(object):
 
 
 def get_memmapping_reducers(
-        pool_id, forward_reducers=None, backward_reducers=None,
-        temp_folder=None, max_nbytes=1e6, mmap_mode='r', verbose=0,
+        forward_reducers=None, backward_reducers=None,
+        temp_folder_resolver=None, max_nbytes=1e6, mmap_mode='r', verbose=0,
         prewarm=False, unlink_on_gc_collect=True, **kwargs):
     """Construct a pair of memmapping reducer linked to a tmpdir.
 
@@ -469,51 +485,13 @@ def get_memmapping_reducers(
     if backward_reducers is None:
         backward_reducers = dict()
 
-    # Prepare a sub-folder name for the serialization of this particular
-    # pool instance (do not create in advance to spare FS write access if
-    # no array is to be dumped):
-    pool_folder_name = "joblib_memmapping_folder_{}_{}".format(
-        os.getpid(), pool_id)
-    pool_folder, use_shared_mem = _get_temp_dir(pool_folder_name,
-                                                temp_folder)
-
-    # Register the garbage collector at program exit in case caller forgets
-    # to call terminate explicitly: note we do not pass any reference to
-    # self to ensure that this callback won't prevent garbage collection of
-    # the pool instance and related file handler resources such as POSIX
-    # semaphores and pipes
-    pool_module_name = whichmodule(delete_folder, 'delete_folder')
-    resource_tracker.register(pool_folder, "folder")
-
-    def _cleanup():
-        # In some cases the Python runtime seems to set delete_folder to
-        # None just before exiting when accessing the delete_folder
-        # function from the closure namespace. So instead we reimport
-        # the delete_folder function explicitly.
-        # https://github.com/joblib/joblib/issues/328
-        # We cannot just use from 'joblib.pool import delete_folder'
-        # because joblib should only use relative imports to allow
-        # easy vendoring.
-        delete_folder = __import__(
-            pool_module_name, fromlist=['delete_folder']).delete_folder
-        try:
-            delete_folder(pool_folder, allow_non_empty=True)
-            resource_tracker.unregister(pool_folder, "folder")
-        except OSError:
-            warnings.warn("Failed to clean temporary folder: {}"
-                          .format(pool_folder))
-
-    atexit.register(_cleanup)
-
     if np is not None:
         # Register smart numpy.ndarray reducers that detects memmap backed
         # arrays and that is also able to dump to memmap large in-memory
         # arrays over the max_nbytes threshold
-        if prewarm == "auto":
-            prewarm = not use_shared_mem
         forward_reduce_ndarray = ArrayMemmapForwardReducer(
-            max_nbytes, pool_folder, mmap_mode, unlink_on_gc_collect, verbose,
-            prewarm=prewarm)
+            max_nbytes, temp_folder_resolver, mmap_mode, unlink_on_gc_collect,
+            verbose, prewarm=prewarm)
         forward_reducers[np.ndarray] = forward_reduce_ndarray
         forward_reducers[np.memmap] = forward_reduce_ndarray
 
@@ -524,34 +502,163 @@ def get_memmapping_reducers(
         backward_reducers[np.ndarray] = reduce_array_memmap_backward
         backward_reducers[np.memmap] = reduce_array_memmap_backward
 
-    return forward_reducers, backward_reducers, pool_folder
+    return forward_reducers, backward_reducers
 
 
-class TemporaryResourcesManagerMixin(object):
-    def _unlink_temporary_resources(self):
+class TemporaryResourcesManager(object):
+    """Stateful object able to manage temporary folder and pickles
+
+    It exposes:
+    - a per-context folder name resolving API that memmap-based reducers will
+      rely on to know where to pickle the temporary memmaps
+    - a temporary file/folder management API that internally uses the
+      resource_tracker.
+    """
+
+    def __init__(self, temp_folder_root=None, context_id=None):
+        self._current_temp_folder = None
+        self._temp_folder_root = temp_folder_root
+        self._use_shared_mem = None
+        self._cached_temp_folders = dict()
+        self._id = uuid4().hex
+        self._finalizers = {}
+        if context_id is None:
+            # It would be safer to not assign a default context id (less silent
+            # bugs), but doing this while maintaining backward compatibility
+            # with the previous, context-unaware version get_memmaping_executor
+            # exposes exposes too many low-level details.
+            context_id = uuid4().hex
+        self.set_current_context(context_id)
+
+    def set_current_context(self, context_id):
+        self._current_context_id = context_id
+        self.register_new_context(context_id)
+
+    def register_new_context(self, context_id):
+        # Prepare a sub-folder name specific to a context (usually a unique id
+        # generated by each instance of the Parallel class). Do not create in
+        # advance to spare FS write access if no array is to be dumped).
+        if context_id in self._cached_temp_folders:
+            return
+        else:
+            # During its lifecycle, one Parallel object can have several
+            # executors associated to it (for instance, if a loky worker raises
+            # an exception, joblib shutdowns the executor and instantly
+            # recreates a new one before raising the error - see
+            # ``ensure_ready``.  Because we don't want two executors tied to
+            # the same Parallel object (and thus the same context id) to
+            # register/use/delete the same folder, we also add an id specific
+            # to the current Manager (and thus specific to its associated
+            # executor) to the folder name.
+            new_folder_name = (
+                "joblib_memmapping_folder_{}_{}_{}".format(
+                    os.getpid(), self._id, context_id)
+            )
+            new_folder_path, _ = _get_temp_dir(
+                new_folder_name, self._temp_folder_root
+            )
+            self.register_folder_finalizer(new_folder_path, context_id)
+            self._cached_temp_folders[context_id] = new_folder_path
+
+    def resolve_temp_folder_name(self):
+        """Return a folder name specific to the currently activated context"""
+        return self._cached_temp_folders[self._current_context_id]
+
+    def _unregister_context(self, context_id=None):
+        if context_id is None:
+            for context_id in list(self._cached_temp_folders):
+                self._unregister_context(context_id)
+        else:
+            temp_folder = self._cached_temp_folders[context_id]
+            finalizer = self._finalizers[context_id]
+
+            resource_tracker.unregister(temp_folder, "folder")
+            atexit.unregister(finalizer)
+
+            self._cached_temp_folders.pop(context_id)
+            self._finalizers.pop(context_id)
+
+    # resource management API
+
+    def register_folder_finalizer(self, pool_subfolder, context_id):
+        # Register the garbage collector at program exit in case caller forgets
+        # to call terminate explicitly: note we do not pass any reference to
+        # ensure that this callback won't prevent garbage collection of
+        # parallel instance and related file handler resources such as POSIX
+        # semaphores and pipes
+        pool_module_name = whichmodule(delete_folder, 'delete_folder')
+        resource_tracker.register(pool_subfolder, "folder")
+
+        def _cleanup():
+            # In some cases the Python runtime seems to set delete_folder to
+            # None just before exiting when accessing the delete_folder
+            # function from the closure namespace. So instead we reimport
+            # the delete_folder function explicitly.
+            # https://github.com/joblib/joblib/issues/328
+            # We cannot just use from 'joblib.pool import delete_folder'
+            # because joblib should only use relative imports to allow
+            # easy vendoring.
+            delete_folder = __import__(
+                pool_module_name, fromlist=['delete_folder']).delete_folder
+            try:
+                delete_folder(pool_subfolder, allow_non_empty=True)
+                resource_tracker.unregister(pool_subfolder, "folder")
+            except OSError:
+                warnings.warn("Failed to delete temporary folder: {}"
+                              .format(pool_subfolder))
+
+        self._finalizers[context_id] = atexit.register(_cleanup)
+
+    def _unlink_temporary_resources(self, context_id=None):
         """Unlink temporary resources created by a process-based pool"""
-        if os.path.exists(self._temp_folder):
-            for filename in os.listdir(self._temp_folder):
-                resource_tracker.maybe_unlink(
-                    os.path.join(self._temp_folder, filename), "file"
+        if context_id is None:
+            # iterate over a copy of the cache keys because
+            # unlink_temporary_resources further deletes an entry in this
+            # cache
+            for context_id in self._cached_temp_folders.copy():
+                self._unlink_temporary_resources(context_id)
+        else:
+            temp_folder = self._cached_temp_folders[context_id]
+            if os.path.exists(temp_folder):
+                for filename in os.listdir(temp_folder):
+                    resource_tracker.maybe_unlink(
+                        os.path.join(temp_folder, filename), "file"
+                    )
+                self._try_delete_folder(
+                    allow_non_empty=False, context_id=context_id
                 )
-            # XXX: calling shutil.rmtree inside delete_folder is likely to
-            # cause a race condition with the lines above.
-            self._try_delete_folder(allow_non_empty=False)
 
-    def _unregister_temporary_resources(self):
+    def _unregister_temporary_resources(self, context_id=None):
         """Unregister temporary resources created by a process-based pool"""
-        if os.path.exists(self._temp_folder):
-            for filename in os.listdir(self._temp_folder):
-                resource_tracker.unregister(
-                    os.path.join(self._temp_folder, filename), "file"
-                )
+        if context_id is None:
+            for context_id in self._cached_temp_folders:
+                self._unregister_temporary_resources(context_id)
+        else:
+            temp_folder = self._cached_temp_folders[context_id]
+            if os.path.exists(temp_folder):
+                for filename in os.listdir(temp_folder):
+                    resource_tracker.unregister(
+                        os.path.join(temp_folder, filename), "file"
+                    )
 
-    def _try_delete_folder(self, allow_non_empty):
-        try:
-            delete_folder(self._temp_folder, allow_non_empty=allow_non_empty)
-        except OSError:
-            # Temporary folder cannot be deleted right now. No need to
-            # handle it though, as this folder will be cleaned up by an
-            # atexit finalizer registered by the memmapping_reducer.
-            pass
+    def _try_delete_folder(self, allow_non_empty, context_id=None):
+        if context_id is None:
+            # ditto
+            for context_id in self._cached_temp_folders.copy():
+                self._try_delete_folder(
+                    allow_non_empty=allow_non_empty, context_id=context_id
+                )
+        else:
+            temp_folder = self._cached_temp_folders[context_id]
+            try:
+                delete_folder(
+                    temp_folder, allow_non_empty=allow_non_empty
+                )
+                # Now that this folder is deleted, we can forget about it
+                self._unregister_context(context_id)
+
+            except OSError:
+                # Temporary folder cannot be deleted right now. No need to
+                # handle it though, as this folder will be cleaned up by an
+                # atexit finalizer registered by the memmapping_reducer.
+                pass

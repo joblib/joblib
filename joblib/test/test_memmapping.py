@@ -7,6 +7,7 @@ import pickle
 import itertools
 from time import sleep
 import subprocess
+import threading
 
 from joblib.test.common import with_numpy, np
 from joblib.test.common import setup_autokill
@@ -18,7 +19,7 @@ from joblib.backports import make_memmap
 from joblib.parallel import Parallel, delayed
 
 from joblib.pool import MemmappingPool
-from joblib.executor import _TestingMemmappingExecutor
+from joblib.executor import _TestingMemmappingExecutor as TestExecutor
 from joblib._memmapping_reducer import has_shareable_memory
 from joblib._memmapping_reducer import ArrayMemmapForwardReducer
 from joblib._memmapping_reducer import _strided_from_memmap
@@ -262,7 +263,7 @@ def test__strided_from_memmap(tmpdir):
 
 @with_numpy
 @with_multiprocessing
-@parametrize("factory", [MemmappingPool, _TestingMemmappingExecutor],
+@parametrize("factory", [MemmappingPool, TestExecutor.get_memmapping_executor],
              ids=["multiprocessing", "loky"])
 def test_pool_with_memmap(factory, tmpdir):
     """Check that subprocess can access and update shared memory memmap"""
@@ -316,7 +317,7 @@ def test_pool_with_memmap(factory, tmpdir):
 
 @with_numpy
 @with_multiprocessing
-@parametrize("factory", [MemmappingPool, _TestingMemmappingExecutor],
+@parametrize("factory", [MemmappingPool, TestExecutor.get_memmapping_executor],
              ids=["multiprocessing", "loky"])
 def test_pool_with_memmap_array_view(factory, tmpdir):
     """Check that subprocess can access and update shared memory array"""
@@ -439,6 +440,235 @@ def test_permission_error_windows_memmap_sent_to_parent(backend):
 @with_numpy
 @with_multiprocessing
 @parametrize("backend", ["multiprocessing", "loky"])
+def test_parallel_isolated_temp_folders(backend):
+    # Test that consecutive Parallel call use isolated subfolders, even
+    # for the loky backend that reuses its executor instance across calls.
+    array = np.arange(int(1e2))
+    [filename_1] = Parallel(n_jobs=2, backend=backend, max_nbytes=10)(
+        delayed(getattr)(array, 'filename') for _ in range(1)
+    )
+    [filename_2] = Parallel(n_jobs=2, backend=backend, max_nbytes=10)(
+        delayed(getattr)(array, 'filename') for _ in range(1)
+    )
+    assert os.path.dirname(filename_2) != os.path.dirname(filename_1)
+
+
+@with_numpy
+@with_multiprocessing
+@parametrize("backend", ["multiprocessing", "loky"])
+def test_managed_backend_reuse_temp_folder(backend):
+    # Test that calls to a managed parallel object reuse the same memmaps.
+    array = np.arange(int(1e2))
+    with Parallel(n_jobs=2, backend=backend, max_nbytes=10) as p:
+        [filename_1] = p(
+            delayed(getattr)(array, 'filename') for _ in range(1)
+        )
+        [filename_2] = p(
+            delayed(getattr)(array, 'filename') for _ in range(1)
+        )
+    assert os.path.dirname(filename_2) == os.path.dirname(filename_1)
+
+
+@with_numpy
+@with_multiprocessing
+def test_memmapping_temp_folder_thread_safety():
+    # Concurrent calls to Parallel with the loky backend will use the same
+    # executor, and thus the same reducers. Make sure that those reducers use
+    # different temporary folders depending on which Parallel objects called
+    # them, which is necessary to limit potential race conditions during the
+    # garbage collection of temporary memmaps.
+    array = np.arange(int(1e2))
+
+    temp_dirs_thread_1 = set()
+    temp_dirs_thread_2 = set()
+
+    def concurrent_get_filename(array, temp_dirs):
+        with Parallel(backend='loky', n_jobs=2, max_nbytes=10) as p:
+            for i in range(10):
+                [filename] = p(
+                    delayed(getattr)(array, 'filename') for _ in range(1)
+                )
+                temp_dirs.add(os.path.dirname(filename))
+
+    t1 = threading.Thread(
+        target=concurrent_get_filename, args=(array, temp_dirs_thread_1)
+    )
+    t2 = threading.Thread(
+        target=concurrent_get_filename, args=(array, temp_dirs_thread_2)
+    )
+
+    t1.start()
+    t2.start()
+
+    t1.join()
+    t2.join()
+
+    assert len(temp_dirs_thread_1) == 1
+    assert len(temp_dirs_thread_2) == 1
+
+    assert temp_dirs_thread_1 != temp_dirs_thread_2
+
+
+@with_numpy
+@with_multiprocessing
+def test_multithreaded_parallel_termination_resource_tracker_silent():
+    # test that concurrent termination attempts of a same executor does not
+    # emit any spurious error from the resource_tracker. We test various
+    # situations making 0, 1 or both parallel call sending a task that will
+    # make the worker (and thus the whole Parallel call) error out.
+    cmd = '''if 1:
+        import os
+        import numpy as np
+        from joblib import Parallel, delayed
+        from joblib.externals.loky.backend import resource_tracker
+        from concurrent.futures import ThreadPoolExecutor, wait
+
+        resource_tracker.VERBOSE = 0
+
+        array = np.arange(int(1e2))
+
+        temp_dirs_thread_1 = set()
+        temp_dirs_thread_2 = set()
+
+
+        def raise_error(array):
+            raise ValueError
+
+
+        def parallel_get_filename(array, temp_dirs):
+            with Parallel(backend="loky", n_jobs=2, max_nbytes=10) as p:
+                for i in range(10):
+                    [filename] = p(
+                        delayed(getattr)(array, "filename") for _ in range(1)
+                    )
+                    temp_dirs.add(os.path.dirname(filename))
+
+
+        def parallel_raise(array, temp_dirs):
+            with Parallel(backend="loky", n_jobs=2, max_nbytes=10) as p:
+                for i in range(10):
+                    [filename] = p(
+                        delayed(raise_error)(array) for _ in range(1)
+                    )
+                    temp_dirs.add(os.path.dirname(filename))
+
+
+        executor = ThreadPoolExecutor(max_workers=2)
+
+        # both function calls will use the same loky executor, but with a
+        # different Parallel object.
+        future_1 = executor.submit({f1}, array, temp_dirs_thread_1)
+        future_2 = executor.submit({f2}, array, temp_dirs_thread_2)
+
+        # Wait for both threads to terminate their backend
+        wait([future_1, future_2])
+
+        future_1.result()
+        future_2.result()
+    '''
+    functions_and_returncodes = [
+        ("parallel_get_filename", "parallel_get_filename", 0),
+        ("parallel_get_filename", "parallel_raise", 1),
+        ("parallel_raise", "parallel_raise", 1)
+    ]
+
+    for f1, f2, returncode in functions_and_returncodes:
+        p = subprocess.Popen([sys.executable, '-c', cmd.format(f1=f1, f2=f2)],
+                             stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+        p.wait()
+        out, err = p.communicate()
+        assert p.returncode == returncode, out.decode()
+        assert b"resource_tracker" not in err, err.decode()
+
+
+@with_numpy
+@with_multiprocessing
+def test_nested_loop_error_in_grandchild_resource_tracker_silent():
+    # Safety smoke test: test that nested parallel calls using the loky backend
+    # don't yield noisy resource_tracker outputs when the grandchild errors
+    # out.
+    cmd = '''if 1:
+        from joblib import Parallel, delayed
+
+
+        def raise_error(i):
+            raise ValueError
+
+
+        def nested_loop(f):
+            Parallel(backend="loky", n_jobs=2)(
+                delayed(f)(i) for i in range(10)
+            )
+
+
+        if __name__ == "__main__":
+            Parallel(backend="loky", n_jobs=2)(
+                delayed(nested_loop)(func) for func in [raise_error]
+            )
+    '''
+    p = subprocess.Popen([sys.executable, '-c', cmd],
+                         stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+    p.wait()
+    out, err = p.communicate()
+    assert p.returncode == 1, out.decode()
+    assert b"resource_tracker" not in err, err.decode()
+
+
+@with_numpy
+@with_multiprocessing
+@parametrize("backend", ["multiprocessing", "loky"])
+def test_many_parallel_calls_on_same_object(backend):
+    # After #966 got merged, consecutive Parallel objects were sharing temp
+    # folder, which would lead to race conditions happening during the
+    # temporary resources management with the resource_tracker. This is a
+    # non-regression test that makes sure that consecutive Parallel operations
+    # on the same object do not error out.
+    cmd = '''if 1:
+        import os
+        import time
+
+        import numpy as np
+
+        from joblib import Parallel, delayed
+        from testutils import return_slice_of_data
+
+        data = np.ones(100)
+
+        if __name__ == '__main__':
+            for i in range(5):
+                slice_of_data = Parallel(
+                    n_jobs=2, max_nbytes=1, backend='{b}')(
+                        delayed(return_slice_of_data)(data, 0, 20)
+                        for _ in range(10)
+                    )
+                slice_of_data = Parallel(
+                    n_jobs=2, max_nbytes=1, backend='{b}')(
+                        delayed(return_slice_of_data)(data, 0, 20)
+                        for _ in range(10)
+                    )
+    '''.format(b=backend)
+
+    for _ in range(3):
+        env = os.environ.copy()
+        env['PYTHONPATH'] = os.path.dirname(__file__)
+        p = subprocess.Popen([sys.executable, '-c', cmd],
+                             stderr=subprocess.PIPE,
+                             stdout=subprocess.PIPE, env=env)
+        p.wait()
+        out, err = p.communicate()
+        assert p.returncode == 0, err
+        assert out == b''
+        if sys.version_info[:3] not in [(3, 8, 0), (3, 8, 1)]:
+            # In early versions of Python 3.8, a reference leak
+            # https://github.com/cloudpipe/cloudpickle/issues/327, holds
+            # references to pickled objects, generating race condition during
+            # cleanup finalizers of joblib and noisy resource_tracker outputs.
+            assert b'resource_tracker' not in err
+
+
+@with_numpy
+@with_multiprocessing
+@parametrize("backend", ["multiprocessing", "loky"])
 def test_memmap_returned_as_regular_array(backend):
     data = np.ones(int(1e3))
     # Check that child processes send temporary memmaps back as numpy arrays.
@@ -490,7 +720,7 @@ def test_resource_tracker_silent_when_reference_cycles(backend):
 
 @with_numpy
 @with_multiprocessing
-@parametrize("factory", [MemmappingPool, _TestingMemmappingExecutor],
+@parametrize("factory", [MemmappingPool, TestExecutor.get_memmapping_executor],
              ids=["multiprocessing", "loky"])
 def test_memmapping_pool_for_large_arrays(factory, tmpdir):
     """Check that large arrays are not copied in memory"""
@@ -574,7 +804,7 @@ def test_child_raises_parent_exits_cleanly(backend):
 
         def get_temp_folder(parallel_obj, backend):
             if "{b}" == "loky":
-                return p._backend._temp_folder
+                return p._backend._workers._temp_folder
             else:
                 return p._backend._pool._temp_folder
 
@@ -605,7 +835,7 @@ def test_child_raises_parent_exits_cleanly(backend):
 
 @with_numpy
 @with_multiprocessing
-@parametrize("factory", [MemmappingPool, _TestingMemmappingExecutor],
+@parametrize("factory", [MemmappingPool, TestExecutor.get_memmapping_executor],
              ids=["multiprocessing", "loky"])
 def test_memmapping_pool_for_large_arrays_disabled(factory, tmpdir):
     """Check that large arrays memmapping can be disabled"""
@@ -633,7 +863,7 @@ def test_memmapping_pool_for_large_arrays_disabled(factory, tmpdir):
 @with_numpy
 @with_multiprocessing
 @with_dev_shm
-@parametrize("factory", [MemmappingPool, _TestingMemmappingExecutor],
+@parametrize("factory", [MemmappingPool, TestExecutor.get_memmapping_executor],
              ids=["multiprocessing", "loky"])
 def test_memmapping_on_large_enough_dev_shm(factory):
     """Check that memmapping uses /dev/shm when possible"""
@@ -687,7 +917,7 @@ def test_memmapping_on_large_enough_dev_shm(factory):
 @with_numpy
 @with_multiprocessing
 @with_dev_shm
-@parametrize("factory", [MemmappingPool, _TestingMemmappingExecutor],
+@parametrize("factory", [MemmappingPool, TestExecutor.get_memmapping_executor],
              ids=["multiprocessing", "loky"])
 def test_memmapping_on_too_small_dev_shm(factory):
     orig_size = jmr.SYSTEM_SHARED_MEM_FS_MIN_SIZE
@@ -715,7 +945,7 @@ def test_memmapping_on_too_small_dev_shm(factory):
 
 @with_numpy
 @with_multiprocessing
-@parametrize("factory", [MemmappingPool, _TestingMemmappingExecutor],
+@parametrize("factory", [MemmappingPool, TestExecutor.get_memmapping_executor],
              ids=["multiprocessing", "loky"])
 def test_memmapping_pool_for_large_arrays_in_return(factory, tmpdir):
     """Check that large arrays are not copied in memory in return"""
@@ -747,7 +977,7 @@ def _worker_multiply(a, n_times):
 
 @with_numpy
 @with_multiprocessing
-@parametrize("factory", [MemmappingPool, _TestingMemmappingExecutor],
+@parametrize("factory", [MemmappingPool, TestExecutor.get_memmapping_executor],
              ids=["multiprocessing", "loky"])
 def test_workaround_against_bad_memmap_with_copied_buffers(factory, tmpdir):
     """Check that memmaps with a bad buffer are returned as regular arrays
@@ -782,8 +1012,8 @@ def identity(arg):
 @with_multiprocessing
 @parametrize(
     "factory,retry_no",
-    list(itertools.product([MemmappingPool, _TestingMemmappingExecutor],
-                           range(3))),
+    list(itertools.product(
+        [MemmappingPool, TestExecutor.get_memmapping_executor], range(3))),
     ids=['{}, {}'.format(x, y) for x, y in itertools.product(
         ["multiprocessing", "loky"], map(str, range(3)))])
 def test_pool_memmap_with_big_offset(factory, retry_no, tmpdir):

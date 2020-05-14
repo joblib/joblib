@@ -29,7 +29,7 @@ from pickle import HIGHEST_PROTOCOL
 from io import BytesIO
 
 from ._memmapping_reducer import get_memmapping_reducers
-from ._memmapping_reducer import TemporaryResourcesManagerMixin
+from ._memmapping_reducer import TemporaryResourcesManager
 from ._multiprocessing_helpers import mp, assert_spawning
 
 # We need the class definition to derive from it, not the multiprocessing.Pool
@@ -214,7 +214,7 @@ class PicklingPool(Pool):
         self._quick_get = self._outqueue._recv
 
 
-class MemmappingPool(PicklingPool, TemporaryResourcesManagerMixin):
+class MemmappingPool(PicklingPool):
     """Process pool that shares large arrays to avoid memory copy.
 
     This drop-in replacement for `multiprocessing.pool.Pool` makes
@@ -243,16 +243,20 @@ class MemmappingPool(PicklingPool, TemporaryResourcesManagerMixin):
         Callable executed on worker process creation.
     initargs: tuple, optional
         Arguments passed to the initializer callable.
-    temp_folder: str, optional
-        Folder to be used by the pool for memmapping large arrays
-        for sharing memory with worker processes. If None, this will try in
-        order:
-        - a folder pointed by the JOBLIB_TEMP_FOLDER environment variable,
-        - /dev/shm if the folder exists and is writable: this is a RAMdisk
-          filesystem available by default on modern Linux distributions,
-        - the default system temporary folder that can be overridden
-          with TMP, TMPDIR or TEMP environment variables, typically /tmp
-          under Unix operating systems.
+    temp_folder: (str, callable) optional
+        If str:
+          Folder to be used by the pool for memmapping large arrays
+          for sharing memory with worker processes. If None, this will try in
+          order:
+          - a folder pointed by the JOBLIB_TEMP_FOLDER environment variable,
+          - /dev/shm if the folder exists and is writable: this is a RAMdisk
+            filesystem available by default on modern Linux distributions,
+          - the default system temporary folder that can be overridden
+            with TMP, TMPDIR or TEMP environment variables, typically /tmp
+            under Unix operating systems.
+        if callable:
+            An callable in charge of dynamically resolving a temporary folder
+            for memmapping large arrays.
     max_nbytes int or None, optional, 1e6 by default
         Threshold on the size of arrays passed to the workers that
         triggers automated memory mapping in temp_folder.
@@ -296,10 +300,18 @@ class MemmappingPool(PicklingPool, TemporaryResourcesManagerMixin):
                           ' 0.9.4 and will be removed in 0.11',
                           DeprecationWarning)
 
-        forward_reducers, backward_reducers, self._temp_folder = \
+        manager = TemporaryResourcesManager(temp_folder)
+        self._temp_folder_manager = manager
+
+        # The usage of a temp_folder_resolver over a simple temp_folder is
+        # superfluous for multiprocessing pools, as they don't get reused, see
+        # get_memmapping_executor for more details. We still use it for code
+        # simplicity.
+        forward_reducers, backward_reducers = \
             get_memmapping_reducers(
-                id(self), temp_folder=temp_folder, max_nbytes=max_nbytes,
-                mmap_mode=mmap_mode, forward_reducers=forward_reducers,
+                temp_folder_resolver=manager.resolve_temp_folder_name,
+                max_nbytes=max_nbytes, mmap_mode=mmap_mode,
+                forward_reducers=forward_reducers,
                 backward_reducers=backward_reducers, verbose=verbose,
                 unlink_on_gc_collect=False, prewarm=prewarm)
 
@@ -324,4 +336,17 @@ class MemmappingPool(PicklingPool, TemporaryResourcesManagerMixin):
                     if i + 1 == n_retries:
                         warnings.warn("Failed to terminate worker processes in"
                                       " multiprocessing pool: %r" % e)
-        self._unlink_temporary_resources()
+        self._temp_folder_manager._unlink_temporary_resources()
+
+    @property
+    def _temp_folder(self):
+        # Legacy property in tests. could be removed if we refactored the
+        # memmapping tests. SHOULD ONLY BE USED IN TESTS!
+        # We cache this property because it is called late in the tests - at
+        # this point, all context have been unregistered, and
+        # resolve_temp_folder_name raises an error.
+        if getattr(self, '_cached_temp_folder', None) is not None:
+            return self._cached_temp_folder
+        else:
+            self._cached_temp_folder = self._temp_folder_manager.resolve_temp_folder_name()  # noqa
+            return self._cached_temp_folder

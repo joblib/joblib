@@ -14,6 +14,7 @@ import functools
 import time
 import threading
 import itertools
+from uuid import uuid4
 from numbers import Integral
 import warnings
 import queue
@@ -231,9 +232,11 @@ if hasattr(mp, 'get_context'):
 class BatchedCalls(object):
     """Wrap a sequence of (func, args, kwargs) tuples as a single callable"""
 
-    def __init__(self, iterator_slice, backend_and_jobs, pickle_cache=None):
+    def __init__(self, iterator_slice, backend_and_jobs, reducer_callback=None,
+                 pickle_cache=None):
         self.items = list(iterator_slice)
         self._size = len(self.items)
+        self._reducer_callback = reducer_callback
         if isinstance(backend_and_jobs, tuple):
             self._backend, self._n_jobs = backend_and_jobs
         else:
@@ -248,6 +251,16 @@ class BatchedCalls(object):
         with parallel_backend(self._backend, n_jobs=self._n_jobs):
             return [func(*args, **kwargs)
                     for func, args, kwargs in self.items]
+
+    def __reduce__(self):
+        if self._reducer_callback is not None:
+            self._reducer_callback()
+        # no need pickle the callback.
+        return (
+            BatchedCalls,
+            (self.items, (self._backend, self._n_jobs), None,
+             self._pickle_cache)
+        )
 
     def __len__(self):
         return self._size
@@ -629,6 +642,8 @@ class Parallel(Logger):
         self.timeout = timeout
         self.pre_dispatch = pre_dispatch
         self._ready_batches = queue.Queue()
+        self._id = uuid4().hex
+        self._reducer_callback = None
 
         if isinstance(max_nbytes, str):
             max_nbytes = memstr_to_bytes(max_nbytes)
@@ -819,6 +834,7 @@ class Parallel(Logger):
                 for i in range(0, len(islice), final_batch_size):
                     tasks = BatchedCalls(islice[i:i + final_batch_size],
                                          self._backend.get_nested_backend(),
+                                         self._reducer_callback,
                                          self._pickle_cache)
                     self._ready_batches.put(tasks)
 
@@ -938,6 +954,27 @@ class Parallel(Logger):
             n_jobs = self._initialize_backend()
         else:
             n_jobs = self._effective_n_jobs()
+
+        if isinstance(self._backend, LokyBackend):
+            # For the loky backend, we add a callback executed when reducing
+            # BatchCalls, that makes the loky executor use a temporary folder
+            # specific to this Parallel object when pickling temporary memmaps.
+            # This callback is necessary to ensure that several Parallel
+            # objects using the same resuable executor don't use the same
+            # temporary resources.
+
+            def _batched_calls_reducer_callback():
+                # Relevant implementation detail: the following lines, called
+                # when reducing BatchedCalls, are called in a thread-safe
+                # situation, meaning that the context of the temporary folder
+                # manager will not be changed in between the callback execution
+                # and the end of the BatchedCalls pickling. The reason is that
+                # pickling (the only place where set_current_context is used)
+                # is done from a single thread (the queue_feeder_thread).
+                self._backend._workers._temp_folder_manager.set_current_context(  # noqa
+                    self._id
+                )
+            self._reducer_callback = _batched_calls_reducer_callback
 
         # self._effective_n_jobs should be called in the Parallel.__call__
         # thread only -- store its value in an attribute for further queries.
