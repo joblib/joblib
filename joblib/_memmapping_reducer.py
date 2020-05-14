@@ -361,6 +361,11 @@ class ArrayMemmapForwardReducer(object):
         # needs to be pickled but the _WeakArrayKeyMap need to be skipped as
         # it's only guaranteed to be consistent with the parent process memory
         # garbage collection.
+        # Although this reducer is pickled, it is not needed in its destination
+        # process (child processes), as we only use this reducer to send
+        # memmaps from the parent process to the children processes. For this
+        # reason, we can afford skipping the resolver, (which would otherwise
+        # be unpicklable), and pass it as None instead.
         args = (self._max_nbytes, None, self._mmap_mode,
                 self._unlink_on_gc_collect)
         kwargs = {
