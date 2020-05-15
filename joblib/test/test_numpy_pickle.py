@@ -519,8 +519,7 @@ def test_joblib_compression_formats(tmpdir, compress, cmethod):
 
     dump_filename = filename + "." + cmethod
     for obj in objects:
-        numpy_pickle.dump(obj, dump_filename,
-                            compress=(cmethod, compress))
+        numpy_pickle.dump(obj, dump_filename, compress=(cmethod, compress))
         # Verify the file contains the right magic number
         with open(dump_filename, 'rb') as f:
             assert _detect_compressor(f) == cmethod
