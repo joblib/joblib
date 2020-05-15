@@ -3,7 +3,6 @@
 import copy
 import os
 import random
-import sys
 import re
 import io
 import warnings
@@ -14,6 +13,11 @@ import pickle
 import socket
 from contextlib import closing
 import mmap
+try:
+    import lzma
+except ImportError:
+    lzma = None
+import pytest
 
 from joblib.test.common import np, with_numpy, with_lz4, without_lz4
 from joblib.test.common import with_memory_profiler, memory_used
@@ -28,6 +32,7 @@ from joblib.numpy_pickle_utils import _IO_BUFFER_SIZE
 from joblib.numpy_pickle_utils import _detect_compressor
 from joblib.compressor import (_COMPRESSORS, _LZ4_PREFIX, CompressorWrapper,
                                LZ4_NOT_INSTALLED_ERROR, BinaryZlibFile)
+
 
 ###############################################################################
 # Define a list of standard types.
@@ -447,7 +452,9 @@ def test_joblib_pickle_across_python_versions():
     # relevant python, joblib and numpy versions.
     test_data_dir = os.path.dirname(os.path.abspath(data.__file__))
 
-    pickle_extensions = ('.pkl', '.gz', '.gzip', '.bz2', '.xz', '.lzma', 'lz4')
+    pickle_extensions = ('.pkl', '.gz', '.gzip', '.bz2', 'lz4')
+    if lzma is not None:
+        pickle_extensions += ('.xz', '.lzma')
     pickle_filenames = [os.path.join(test_data_dir, fn)
                         for fn in os.listdir(test_data_dir)
                         if any(fn.endswith(ext) for ext in pickle_extensions)]
@@ -502,25 +509,28 @@ def test_joblib_compression_formats(tmpdir, compress, cmethod):
                range(10),
                {'a': 1, 2: 'b'}, [], (), {}, 0, 1.0)
 
+    if cmethod in ("lzma", "xz") and lzma is None:
+        pytest.skip("lzma is support not available")
+
+    elif cmethod == 'lz4' and with_lz4.args[0]:
+        # Skip the test if lz4 is not installed. We here use the with_lz4
+        # skipif fixture whose argument is True when lz4 is not installed
+        pytest.skip("lz4 is not installed.")
+
     dump_filename = filename + "." + cmethod
     for obj in objects:
-        if cmethod == 'lz4' and with_lz4.args[0]:
-            # Skip the test if lz4 is not installed. We here use the with_lz4
-            # skipif fixture whose argument is True when lz4 is not installed
-            raise SkipTest("lz4 is not installed.")
+        numpy_pickle.dump(obj, dump_filename,
+                            compress=(cmethod, compress))
+        # Verify the file contains the right magic number
+        with open(dump_filename, 'rb') as f:
+            assert _detect_compressor(f) == cmethod
+        # Verify the reloaded object is correct
+        obj_reloaded = numpy_pickle.load(dump_filename)
+        assert isinstance(obj_reloaded, type(obj))
+        if isinstance(obj, np.ndarray):
+            np.testing.assert_array_equal(obj_reloaded, obj)
         else:
-            numpy_pickle.dump(obj, dump_filename,
-                              compress=(cmethod, compress))
-            # Verify the file contains the right magic number
-            with open(dump_filename, 'rb') as f:
-                assert _detect_compressor(f) == cmethod
-            # Verify the reloaded object is correct
-            obj_reloaded = numpy_pickle.load(dump_filename)
-            assert isinstance(obj_reloaded, type(obj))
-            if isinstance(obj, np.ndarray):
-                np.testing.assert_array_equal(obj_reloaded, obj)
-            else:
-                assert obj_reloaded == obj
+            assert obj_reloaded == obj
 
 
 def _gzip_file_decompress(source_filename, target_filename):
@@ -573,6 +583,8 @@ def test_load_externally_decompressed_files(tmpdir, extension, decompress):
               ('.pkl', 'not-compressed'),
               ('', 'not-compressed')])
 def test_compression_using_file_extension(tmpdir, extension, cmethod):
+    if cmethod in ("lzma", "xz") and lzma is None:
+        pytest.skip("lzma is missing")
     # test that compression method corresponds to the given filename extension.
     filename = tmpdir.join('test.pkl').strpath
     obj = "object to dump"
@@ -594,8 +606,8 @@ def test_file_handle_persistence(tmpdir):
             "some data",
             np.matrix([0, 1, 2])]
     fobjs = [bz2.BZ2File, gzip.GzipFile]
-    import lzma
-    fobjs += [lzma.LZMAFile]
+    if lzma is not None:
+        fobjs += [lzma.LZMAFile]
     filename = tmpdir.join('test.pkl').strpath
 
     for obj in objs:

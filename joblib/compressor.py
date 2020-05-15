@@ -1,6 +1,5 @@
 """Classes and functions for managing compressors."""
 
-import sys
 import io
 import zlib
 from distutils.version import LooseVersion
@@ -21,7 +20,11 @@ try:
 except ImportError:
     lz4 = None
 
-import lzma
+try:
+    import lzma
+except ImportError:
+    lzma = None
+
 
 LZ4_NOT_INSTALLED_ERROR = ('LZ4 is not installed. Install it with pip: '
                            'https://python-lz4.readthedocs.io/')
@@ -147,7 +150,15 @@ class LZMACompressorWrapper(CompressorWrapper):
     extension = '.lzma'
 
     def __init__(self):
-        self.fileobj_factory = lzma.LZMAFile
+        if lzma is not None:
+            self.fileobj_factory = lzma.LZMAFile
+        else:
+            self.fileobj_factory = None
+
+    def _check_versions(self):
+        if lzma is None:
+            raise ValueError('lzma module is not compiled on your python '
+                             'standard library.')
 
     def compressor_file(self, fileobj, compresslevel=None):
         """Returns an instance of a compressor file object."""
