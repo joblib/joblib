@@ -1,7 +1,7 @@
 Latest changes
 ==============
 
-Release 0.14.2
+Release 0.15.0
 --------------
 
 - Drop support for Python 2 and Python 3.5. All objects in
@@ -10,9 +10,25 @@ Release 0.14.2
   raised for these objects Python < 3.7.
   https://github.com/joblib/joblib/pull/1018
 
+- Fix many bugs related to the temporary files and folder generated when
+  automatically memory mapping large numpy arrays for efficient inter-process
+  communication. In particular, this would cause `PermissionError` exceptions
+  to be raised under Windows and large leaked files in `/dev/shm` under Linux
+  in case of crash.
+  https://github.com/joblib/joblib/pull/966
+
+- Make the dask backend collect results as soon as they complete
+  leading to a performance improvement:
+  https://github.com/joblib/joblib/pull/1025
+
 - Fix the number of jobs reported by ``effective_n_jobs`` when ``n_jobs=None``
   called in a parallel backend context.
   https://github.com/joblib/joblib/pull/985
+
+- Upgraded vendored cloupickle to 1.4.1 and loky to 2.8.0. This allows for
+  Parallel calls of dynamically defined functions with type annotations
+  in particular.
+
 
 Release 0.14.1
 --------------
