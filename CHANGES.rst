@@ -4,7 +4,8 @@ Latest changes
 In development
 --------------
 
-
+- Make joblib work on Python 3 installation that do not ship with the lzma
+  package in their standard library.
 
 Release 0.15.0
 --------------

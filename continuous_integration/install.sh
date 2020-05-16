@@ -60,6 +60,13 @@ fi
 
 pip install $PIP_INSTALL_PACKAGES
 
+if [[ "$NO_LZMA" == "1" ]]; then
+    # Delete the LZMA module from the standard lib to make sure joblib has no
+    # hard dependency on it:
+    LZMA_PATH=`python -c "import lzma; print(lzma.__file__)"`
+    echo "Deleting $LZMA_PATH..."
+    rm $LZMA_PATH
+fi
 
 if [[ "$CYTHON" == "true" ]]; then
     pip install cython

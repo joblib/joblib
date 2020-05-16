@@ -57,11 +57,12 @@ jobs:
         PYTHON_VERSION: "3.6"
         EXTRA_CONDA_PACKAGES: "numpy=1.14"
         CYTHON: "true"
-      linux_py36_no_multiprocessing:
+      linux_py36_no_multiprocessing_no_lzma:
         imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.6"
         EXTRA_CONDA_PACKAGES: "numpy=1.14"
         JOBLIB_MULTIPROCESSING: "0"
+        NO_LZMA: "1"
       linux_py36_no_numpy:
         imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.6"

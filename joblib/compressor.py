@@ -1,6 +1,5 @@
 """Classes and functions for managing compressors."""
 
-import sys
 import io
 import zlib
 from distutils.version import LooseVersion
@@ -21,7 +20,11 @@ try:
 except ImportError:
     lz4 = None
 
-import lzma
+try:
+    import lzma
+except ImportError:
+    lzma = None
+
 
 LZ4_NOT_INSTALLED_ERROR = ('LZ4 is not installed. Install it with pip: '
                            'https://python-lz4.readthedocs.io/')
@@ -145,18 +148,28 @@ class LZMACompressorWrapper(CompressorWrapper):
 
     prefix = _LZMA_PREFIX
     extension = '.lzma'
+    _lzma_format_name = 'FORMAT_ALONE'
 
     def __init__(self):
-        self.fileobj_factory = lzma.LZMAFile
+        if lzma is not None:
+            self.fileobj_factory = lzma.LZMAFile
+            self._lzma_format = getattr(lzma, self._lzma_format_name)
+        else:
+            self.fileobj_factory = None
+
+    def _check_versions(self):
+        if lzma is None:
+            raise ValueError('lzma module is not compiled on your python '
+                             'standard library.')
 
     def compressor_file(self, fileobj, compresslevel=None):
         """Returns an instance of a compressor file object."""
         if compresslevel is None:
             return self.fileobj_factory(fileobj, 'wb',
-                                        format=lzma.FORMAT_ALONE)
+                                        format=self._lzma_format)
         else:
             return self.fileobj_factory(fileobj, 'wb',
-                                        format=lzma.FORMAT_ALONE,
+                                        format=self._lzma_format,
                                         preset=compresslevel)
 
     def decompressor_file(self, fileobj):
@@ -168,17 +181,7 @@ class XZCompressorWrapper(LZMACompressorWrapper):
 
     prefix = _XZ_PREFIX
     extension = '.xz'
-
-    def __init__(self):
-        self.fileobj_factory = lzma.LZMAFile
-
-    def compressor_file(self, fileobj, compresslevel=None):
-        """Returns an instance of a compressor file object."""
-        if compresslevel is None:
-            return self.fileobj_factory(fileobj, 'wb', check=lzma.CHECK_NONE)
-        else:
-            return self.fileobj_factory(fileobj, 'wb', check=lzma.CHECK_NONE,
-                                        preset=compresslevel)
+    _lzma_format_name = 'FORMAT_XZ'
 
 
 class LZ4CompressorWrapper(CompressorWrapper):
