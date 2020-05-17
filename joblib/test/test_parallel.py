@@ -1213,33 +1213,6 @@ def test_lambda_expression(backend):
     assert results == [i ** 2 for i in range(10)]
 
 
-def test_delayed_check_pickle_deprecated():
-    class UnpicklableCallable(object):
-
-        def __call__(self, *args, **kwargs):
-            return 42
-
-        def __reduce__(self):
-            raise ValueError()
-
-    with warns(DeprecationWarning):
-        f, args, kwargs = delayed(lambda x: 42, check_pickle=False)('a')
-    assert f('a') == 42
-    assert args == ('a',)
-    assert kwargs == dict()
-
-    with warns(DeprecationWarning):
-        f, args, kwargs = delayed(UnpicklableCallable(),
-                                  check_pickle=False)('a', option='b')
-        assert f('a', option='b') == 42
-        assert args == ('a',)
-        assert kwargs == dict(option='b')
-
-    with warns(DeprecationWarning):
-        with raises(ValueError):
-            delayed(UnpicklableCallable(), check_pickle=True)
-
-
 @with_multiprocessing
 @parametrize('backend', PROCESS_BACKENDS)
 def test_backend_batch_statistics_reset(backend):
