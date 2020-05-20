@@ -62,7 +62,12 @@ Dependencies
 Examples
 ========
 
-**Transparent and fast disk-caching of output value:** a memoize or make-like functionality for Python functions that works well for arbitrary Python objects, including very large numpy arrays. Separate persistence and flow-execution logic from domain logic or algorithmic code by writing the operations as a set of steps with well-defined inputs and outputs: Python functions. Joblib can save their computation to disk and rerun it only if necessary:
+**Transparent and fast disk-caching of output value:** a memoize or make-like
+functionality for Python functions that works well for arbitrary Python objects,
+including very large numpy arrays. Separate persistence and flow-execution 
+logic from domain logic or algorithmic code by writing the operations as a set 
+of steps with well-defined inputs and outputs: Python functions. Joblib can 
+save their computation to disk and rerun it only if necessary:
 
 .. highlight:: python
 >>> from joblib import Memory
@@ -77,11 +82,12 @@ ________________________________________________________________________________
 square(array([[0., 0., 1.],
        [1., 1., 1.],
        [4., 2., 1.]]))
-___________________________________________________________square - 0...s, 0.0min
+__________________________________________________________square - 1...s, 0.0min
 >>> c = square(a)
 >>> # The above call did not trigger an evaluation
 
-**Embarrassingly parallel helper:** to make it easy to write readable parallel code and debug it quickly:
+**Embarrassingly parallel helper:** to make it easy to write readable parallel
+code and debug it quickly:
 
 .. highlight:: python
 >>> from joblib import Parallel, delayed
