@@ -70,30 +70,32 @@ of steps with well-defined inputs and outputs: Python functions. Joblib can
 save their computation to disk and rerun it only if necessary:
 
 .. highlight:: python
->>> from joblib import Memory
->>> cachedir = 'your_cache_dir_goes_here'
->>> mem = Memory(cachedir)
->>> import numpy as np
->>> a = np.vander(np.arange(3)).astype(np.float)
->>> square = mem.cache(np.square)
->>> b = square(a)                                   
-________________________________________________________________________________
-[Memory] Calling square...
-square(array([[0., 0., 1.],
-       [1., 1., 1.],
-       [4., 2., 1.]]))
-__________________________________________________________square - 1...s, 0.0min
->>> c = square(a)
->>> # The above call did not trigger an evaluation
+
+   >>> from joblib import Memory
+   >>> cachedir = 'your_cache_dir_goes_here'
+   >>> mem = Memory(cachedir)
+   >>> import numpy as np
+   >>> a = np.vander(np.arange(3)).astype(np.float)
+   >>> square = mem.cache(np.square)
+   >>> b = square(a)                                   
+   ________________________________________________________________________________
+   [Memory] Calling square...
+   square(array([[0., 0., 1.],
+          [1., 1., 1.],
+          [4., 2., 1.]]))
+   __________________________________________________________square - 1...s, 0.0min
+   >>> c = square(a)
+   >>> # The above call did not trigger an evaluation
 
 **Embarrassingly parallel helper:** to make it easy to write readable parallel
 code and debug it quickly:
 
 .. highlight:: python
->>> from joblib import Parallel, delayed
->>> from math import sqrt
->>> Parallel(n_jobs=1)(delayed(sqrt)(i**2) for i in range(10))
-[0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
+
+   >>> from joblib import Parallel, delayed
+   >>> from math import sqrt
+   >>> Parallel(n_jobs=1)(delayed(sqrt)(i**2) for i in range(10))
+   [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
 
 Workflow to contribute
 ======================
