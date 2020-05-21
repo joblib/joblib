@@ -69,7 +69,7 @@ logic from domain logic or algorithmic code by writing the operations as a set
 of steps with well-defined inputs and outputs: Python functions. Joblib can 
 save their computation to disk and rerun it only if necessary:
 
-.. highlight:: python
+.. code-block:: python
 
    >>> from joblib import Memory
    >>> cachedir = 'your_cache_dir_goes_here'
@@ -90,7 +90,7 @@ save their computation to disk and rerun it only if necessary:
 **Embarrassingly parallel helper:** to make it easy to write readable parallel
 code and debug it quickly:
 
-.. highlight:: python
+.. code-block:: python
 
    >>> from joblib import Parallel, delayed
    >>> from math import sqrt
