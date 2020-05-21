@@ -97,6 +97,8 @@ code and debug it quickly:
    >>> Parallel(n_jobs=1)(delayed(sqrt)(i**2) for i in range(10))
    [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
 
+In practice one would only use Parallel or Memory to parallelize or cache CPU or IO intensive functions calls that lasts at least a few seconds
+ 
 Workflow to contribute
 ======================
 
