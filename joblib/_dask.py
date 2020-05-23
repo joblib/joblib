@@ -103,7 +103,7 @@ class Batch(object):
         # Ensure each batch is serialized into a unique bytes string.  This is
         # necessary to prevent distributed to load Batch objects from its
         # function cache.
-        self.__uuid = uuid4().hex
+        self._uuid = uuid4().hex
 
     def __call__(self, *data, **kwargs):
         results = []

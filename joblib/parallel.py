@@ -233,7 +233,7 @@ class BatchedCalls(object):
     """Wrap a sequence of (func, args, kwargs) tuples as a single callable"""
 
     def __init__(self, iterator_slice, backend_and_jobs, reducer_callback=None,
-                 pickle_cache=None):
+                 pickle_cache=None, uuid=None):
         self.items = list(iterator_slice)
         self._size = len(self.items)
         self._reducer_callback = reducer_callback
@@ -248,7 +248,10 @@ class BatchedCalls(object):
         # Ensure each batch is serialized into a unique bytes string.  This is
         # necessary to prevent distributed to load BatchedCalls objects from
         # its function cache.
-        self.__uuid = uuid4().hex
+        if uuid is None:
+            self._uuid = uuid4().hex
+        else:
+            self._uuid = uuid
 
     def __call__(self):
         # Set the default nested backend to self._backend but do not set the
@@ -264,7 +267,7 @@ class BatchedCalls(object):
         return (
             BatchedCalls,
             (self.items, (self._backend, self._n_jobs), None,
-             self._pickle_cache)
+             self._pickle_cache, self._uuid)
         )
 
     def __len__(self):
