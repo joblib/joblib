@@ -16,7 +16,6 @@ import threading
 import itertools
 from uuid import uuid4
 from numbers import Integral
-from uuid import uuid4
 import warnings
 import queue
 
