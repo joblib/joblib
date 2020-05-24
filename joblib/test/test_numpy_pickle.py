@@ -340,9 +340,6 @@ def test_compressed_pickle_dump_and_load(tmpdir):
                      np.arange(5, dtype=np.dtype('<f8')),
                      np.arange(5, dtype=np.dtype('>f8')),
                      np.array([1, 'abc', {'a': 1, 'b': 2}], dtype='O'),
-                     # .tobytes actually returns bytes and is a
-                     # compatibility alias for .tobytes which was
-                     # added in 1.9.0
                      np.arange(256, dtype=np.uint8).tobytes(),
                      # np.matrix is a subclass of np.ndarray, here we want
                      # to verify this type of object is correctly unpickled
@@ -436,9 +433,6 @@ def test_joblib_pickle_across_python_versions():
     expected_list = [np.arange(5, dtype=np.dtype('<i8')),
                      np.arange(5, dtype=np.dtype('<f8')),
                      np.array([1, 'abc', {'a': 1, 'b': 2}], dtype='O'),
-                     # .tobytes actually returns bytes and is a
-                     # compatibility alias for .tobytes which was
-                     # added in 1.9.0
                      np.arange(256, dtype=np.uint8).tobytes(),
                      # np.matrix is a subclass of np.ndarray, here we want
                      # to verify this type of object is correctly unpickled
