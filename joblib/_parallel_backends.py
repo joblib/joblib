@@ -416,6 +416,13 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
 
     supports_timeout = True
 
+    def __init__(self, nesting_level=None, inner_max_num_threads=None):
+        AutoBatchingMixin.__init__(self)
+        ParallelBackendBase.__init__(
+            self, nesting_level=nesting_level,
+            inner_max_num_threads=inner_max_num_threads
+        )
+
     def effective_n_jobs(self, n_jobs):
         """Determine the number of jobs which are going to run in parallel.
 
