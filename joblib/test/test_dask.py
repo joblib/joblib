@@ -6,7 +6,7 @@ from random import random
 from time import sleep
 
 from .. import Parallel, delayed, parallel_backend
-from ..parallel import ThreadingBackend
+from ..parallel import ThreadingBackend, AutoBatchingMixin
 from .._dask import DaskDistributedBackend
 
 distributed = pytest.importorskip('distributed')
@@ -23,6 +23,10 @@ def slow_raise_value_error(condition, duration=0.05):
     sleep(duration)
     if condition:
         raise ValueError("condition evaluated to True")
+
+
+def test_dask_backend_uses_autobatching(loop):
+    assert DaskDistributedBackend.compute_batch_size == AutoBatchingMixin.compute_batch_size  # noqa
 
 
 def test_simple(loop):
