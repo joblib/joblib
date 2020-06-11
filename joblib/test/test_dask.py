@@ -25,10 +25,6 @@ def slow_raise_value_error(condition, duration=0.05):
         raise ValueError("condition evaluated to True")
 
 
-def test_dask_backend_uses_autobatching(loop):
-    assert DaskDistributedBackend.compute_batch_size == AutoBatchingMixin.compute_batch_size  # noqa
-
-
 def test_simple(loop):
     with cluster() as (s, [a, b]):
         with Client(s['address'], loop=loop) as client:  # noqa: F841
@@ -42,6 +38,29 @@ def test_simple(loop):
 
                 seq = Parallel()(delayed(inc)(i) for i in range(10))
                 assert seq == [inc(i) for i in range(10)]
+
+
+def test_dask_backend_uses_autobatching(loop):
+    assert (DaskDistributedBackend.compute_batch_size
+            is AutoBatchingMixin.compute_batch_size)
+
+    with cluster() as (s, [a, b]):
+        with Client(s['address'], loop=loop) as client:  # noqa: F841
+            with parallel_backend('dask') as (ba, _):
+                with Parallel() as parallel:
+                    # The backend should be initialized with a default
+                    # batch size of 1:
+                    backend = parallel._backend
+                    assert isinstance(backend, DaskDistributedBackend)
+                    assert backend._effective_batch_size == 1
+
+                    # Launch many short tasks that should trigger
+                    # auto-batching:
+                    parallel(
+                        delayed(lambda: None)()
+                        for _ in range(int(1e4))
+                    )
+                    assert backend._effective_batch_size > 10
 
 
 def random2():
