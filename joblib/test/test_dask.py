@@ -52,6 +52,7 @@ def test_dask_backend_uses_autobatching(loop):
                     # batch size of 1:
                     backend = parallel._backend
                     assert isinstance(backend, DaskDistributedBackend)
+                    assert backend.parallel is parallel
                     assert backend._effective_batch_size == 1
 
                     # Launch many short tasks that should trigger
