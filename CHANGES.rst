@@ -4,6 +4,10 @@ Latest changes
 In development
 --------------
 
+- Fix a problem in the constructors of of Parallel backends classes that
+  inherit from the `AutoBatchingMixin` that prevented the dask backend to
+  properly batch short tasks.
+  https://github.com/joblib/joblib/pull/1062
 
 Release 0.15.1
 --------------
