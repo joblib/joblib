@@ -31,7 +31,9 @@ class ParallelBackendBase(metaclass=ABCMeta):
     supports_inner_max_num_threads = False
     nesting_level = None
 
-    def __init__(self, nesting_level=None, inner_max_num_threads=None):
+    def __init__(self, nesting_level=None, inner_max_num_threads=None,
+                 **kwargs):
+        super().__init__(**kwargs)
         self.nesting_level = nesting_level
         self.inner_max_num_threads = inner_max_num_threads
 
@@ -276,6 +278,7 @@ class AutoBatchingMixin(object):
     _DEFAULT_SMOOTHED_BATCH_DURATION = 0.0
 
     def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self._effective_batch_size = self._DEFAULT_EFFECTIVE_BATCH_SIZE
         self._smoothed_batch_duration = self._DEFAULT_SMOOTHED_BATCH_DURATION
 
@@ -416,13 +419,6 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
 
     supports_timeout = True
 
-    def __init__(self, nesting_level=None, inner_max_num_threads=None):
-        AutoBatchingMixin.__init__(self)
-        ParallelBackendBase.__init__(
-            self, nesting_level=nesting_level,
-            inner_max_num_threads=inner_max_num_threads
-        )
-
     def effective_n_jobs(self, n_jobs):
         """Determine the number of jobs which are going to run in parallel.
 
@@ -486,13 +482,6 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
 
     supports_timeout = True
     supports_inner_max_num_threads = True
-
-    def __init__(self, nesting_level=None, inner_max_num_threads=None):
-        AutoBatchingMixin.__init__(self)
-        ParallelBackendBase.__init__(
-            self, nesting_level=nesting_level,
-            inner_max_num_threads=inner_max_num_threads
-        )
 
     def configure(self, n_jobs=1, parallel=None, prefer=None, require=None,
                   idle_worker_timeout=300, **memmappingexecutor_args):

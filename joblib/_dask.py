@@ -128,7 +128,7 @@ class DaskDistributedBackend(AutoBatchingMixin, ParallelBackendBase):
     def __init__(self, scheduler_host=None, scatter=None,
                  client=None, loop=None, wait_for_workers_timeout=10,
                  **submit_kwargs):
-        AutoBatchingMixin.__init__(self)
+        super().__init__()
 
         if distributed is None:
             msg = ("You are trying to use 'dask' as a joblib parallel backend "
