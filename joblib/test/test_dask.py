@@ -123,7 +123,8 @@ def test_no_undesired_distributed_cache_hit(loop):
     try:
         with parallel_backend('dask') as (ba, _):
             # dispatches joblib.parallel.BatchedCalls
-            res = Parallel()(delayed(isolated_operation)(l) for l in lists)
+            res = Parallel()(delayed(isolated_operation)(
+                list_) for list_ in lists)
 
         # Here we do not pass any large numpy array as argument to
         # isolated_operation so no scattering event should happen under the
@@ -136,7 +137,7 @@ def test_no_undesired_distributed_cache_hit(loop):
             # Append a large array which will be scattered by dask, and
             # dispatch joblib._dask.Batch
             res = Parallel()(
-                delayed(isolated_operation)(l, X=X) for l in lists
+                delayed(isolated_operation)(list_, X=X) for list_ in lists
             )
 
         counts = count_events('receive-from-scatter', client)
