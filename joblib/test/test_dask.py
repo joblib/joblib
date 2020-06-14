@@ -112,9 +112,9 @@ def test_no_undesired_distributed_cache_hit(loop):
     np = pytest.importorskip('numpy')
     X = np.arange(int(1e5))
 
-    def isolated_operation(l, X=None):
-        l.append(uuid4().hex)
-        return l
+    def isolated_operation(list_, X=None):
+        list_.append(uuid4().hex)
+        return list_
 
     # Both joblib.parallel.BatchedCalls and joblib._dask.Batch must miss the
     # distributed cache.
