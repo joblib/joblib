@@ -96,29 +96,15 @@ def _funcname(x):
     return funcname(x)
 
 
-class Batch(object):
-    def __init__(self, tasks):
-        self.tasks = tasks
+class Batch:
+    """dask-compatible wrapper that executes a batch of tasks"""
 
-        # Ensure each batch is serialized into a unique bytes string.  This is
-        # necessary to prevent distributed to load Batch objects from its
-        # function cache.
-        self._uuid = uuid4().hex
-
-    def __call__(self, *data, **kwargs):
+    def __call__(self, tasks=None):
         results = []
         with parallel_backend('dask'):
-            for func, args, kwargs in self.tasks:
-                args = [a(data) if isinstance(a, itemgetter) else a
-                        for a in args]
-                kwargs = {k: v(data) if isinstance(v, itemgetter) else v
-                          for (k, v) in kwargs.items()}
+            for func, args, kwargs in tasks:
                 results.append(func(*args, **kwargs))
         return results
-
-    def __repr__(self):
-        func, args, kwargs = self.tasks[0]
-        return f"Batched calls containing {func}"
 
 
 def _joblib_probe_task():
@@ -238,7 +224,6 @@ class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         return sum(self.client.ncores().values())
 
     async def _to_func_args(self, func):
-        collected_futures = []
         itemgetters = dict()
 
         # Futures that are dynamically generated during a single call to
@@ -271,11 +256,9 @@ class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
                             call_data_futures[arg] = f
 
                 if f is not None:
-                    getter = itemgetter(len(collected_futures))
-                    collected_futures.append(f)
-                    itemgetters[arg_id] = getter
-                    arg = getter
-                out.append(arg)
+                    out.append(f)
+                else:
+                    out.append(arg)
             return out
 
         tasks = []
@@ -285,9 +268,7 @@ class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
                               await maybe_to_futures(kwargs.values())))
             tasks.append((f, args, kwargs))
 
-        if not collected_futures:
-            return func, ()
-        return (Batch(tasks), collected_futures)
+        return (Batch(), tasks)
 
     def apply_async(self, func, callback=None):
         key = '%s-batch-%s' % (_funcname(func), uuid4().hex)
@@ -296,10 +277,10 @@ class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         cf_future.get = cf_future.result  # achieve AsyncResult API
 
         async def f(func, callback):
-            func, args = await self._to_func_args(func)
+            batch, tasks = await self._to_func_args(func)
 
             dask_future = self.client.submit(
-                func, *args, key=key, **self.submit_kwargs
+                batch, tasks=tasks, key=key, **self.submit_kwargs
             )
             self.waiting_futures.add(dask_future)
             self._callbacks[dask_future] = callback

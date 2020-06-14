@@ -245,14 +245,6 @@ class BatchedCalls(object):
             self._backend, self._n_jobs = backend_and_jobs, None
         self._pickle_cache = pickle_cache if pickle_cache is not None else {}
 
-        # Ensure each batch is serialized into a unique bytes string.  This is
-        # necessary to prevent distributed to load BatchedCalls objects from
-        # its function cache.
-        if uuid is None:
-            self._uuid = uuid4().hex
-        else:
-            self._uuid = uuid
-
     def __call__(self):
         # Set the default nested backend to self._backend but do not set the
         # change the default number of processes to -1

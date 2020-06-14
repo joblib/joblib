@@ -173,7 +173,7 @@ def test_manual_scatter(loop):
     # Scattered variables only serialized once
     assert x.count == 1
     assert y.count == 1
-    assert z.count == 4
+    assert z.count == 6
 
 
 def test_auto_scatter(loop):
