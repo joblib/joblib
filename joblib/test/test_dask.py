@@ -126,7 +126,8 @@ def test_no_undesired_distributed_cache_hit(loop):
             res = Parallel()(delayed(isolated_operation)(l) for l in lists)
 
         # Here we do not pass any large numpy array as argument to
-        # isolated_operation so no scattering event should happen under the hood.
+        # isolated_operation so no scattering event should happen under the
+        # hood.
         counts = count_events('receive-from-scatter', client)
         assert sum(counts.values()) == 0
         assert all([len(r) == 1 for r in res])
