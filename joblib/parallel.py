@@ -259,7 +259,7 @@ class BatchedCalls(object):
         return (
             BatchedCalls,
             (self.items, (self._backend, self._n_jobs), None,
-             self._pickle_cache, self._uuid)
+             self._pickle_cache)
         )
 
     def __len__(self):
