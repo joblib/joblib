@@ -78,21 +78,6 @@ def add5(a, b, c, d=0, e=0):
     return a + b + c + d + e
 
 
-class CountSerialized(object):
-    def __init__(self, x):
-        self.x = x
-        self.count = 0
-
-    def __add__(self, other):
-        return self.x + getattr(other, 'x', other)
-
-    __radd__ = __add__
-
-    def __reduce__(self):
-        self.count += 1
-        return (CountSerialized, (self.x,))
-
-
 def test_no_undesired_distributed_cache_hit(loop):
     # When a user asks a joblib to run f(a) under the dask backend, joblib
     # submits to dask a BatchCalls/Batch with a __call__(self) instance that
@@ -146,6 +131,21 @@ def test_no_undesired_distributed_cache_hit(loop):
     finally:
         client.close()
         cluster.close()
+
+
+class CountSerialized(object):
+    def __init__(self, x):
+        self.x = x
+        self.count = 0
+
+    def __add__(self, other):
+        return self.x + getattr(other, 'x', other)
+
+    __radd__ = __add__
+
+    def __reduce__(self):
+        self.count += 1
+        return (CountSerialized, (self.x,))
 
 
 def test_manual_scatter(loop):
