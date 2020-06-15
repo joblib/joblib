@@ -98,44 +98,39 @@ def test_dask_funcname(loop):
             assert all(tup[0].startswith('inc-batch') for tup in log)
 
 
-def add5(a, b, c, d=0, e=0):
-    return a + b + c + d + e
-
-
 def test_no_undesired_distributed_cache_hit(loop):
-    # When a user asks a joblib to run f(a) under the dask backend, joblib
-    # submits to dask a BatchCalls/Batch with a __call__(self) instance that
-    # runs f(a, b).  This means that from dask's point of view,  both the
-    # function and its arguments are bundled in the caller. This design
-    # interacts badly with dask's function pickle cache: if two different
-    # arguments a1 and a2 have the same pickle representation (e.g one sklearn
-    # estimator and a ``clone``d variant of itself), then the corresponding
-    # joblib batches B1 and B2 used to have the same bytes representation,
-    # which would trigger a false positive from the distributed function cache
-    # at loading time in the dasks workers, eventually running (possibly
-    # concurrently!) twice f(a1) twice instead of f(a1) and f(a2).  We disable
-    # this behavior artificially in joblib by appending a unique UUID to each
-    # batch -- this test is a non-regression bug reproducing the aforementioned
-    # situation.
-    lists = [[] for _ in range(10)]
+    # Dask has a pickle cache for callables that are called many times. Because
+    # the dask backends used to wrapp both the functions and the arguments
+    # under instances of the Batch callable class this caching mechanism could
+    # lead to bugs as described in: https://github.com/joblib/joblib/pull/1055
+    # The joblib-dask backend has been refactored to avoid bundling the
+    # arguments as an attribute of the Batch instance to avoid this problem.
+    # This test serves as non-regression problem.
+
+    # Use a large number of input arguments to give the AutoBatchingMixin
+    # enough tasks to kick-in.
+    lists = [[] for _ in range(100)]
     np = pytest.importorskip('numpy')
-    X = np.arange(int(1e5))
+    X = np.arange(int(1e6))
 
     def isolated_operation(list_, X=None):
         list_.append(uuid4().hex)
         return list_
 
-    # Both joblib.parallel.BatchedCalls and joblib._dask.Batch must miss the
-    # distributed cache.
     cluster = LocalCluster(n_workers=1, threads_per_worker=2)
     client = Client(cluster)
     try:
         with parallel_backend('dask') as (ba, _):
             # dispatches joblib.parallel.BatchedCalls
-            res = Parallel()(delayed(isolated_operation)(
-                list_) for list_ in lists)
+            res = Parallel()(
+                delayed(isolated_operation)(list_) for list_ in lists
+            )
 
-        # Here we do not pass any large numpy array as argument to
+        # The original arguments should not have been mutated as the mutation
+        # happens in the dask worker process.
+        assert lists == [[] for _ in range(100)]
+
+        # Here we did not pass any large numpy array as argument to
         # isolated_operation so no scattering event should happen under the
         # hood.
         counts = count_events('receive-from-scatter', client)
@@ -149,6 +144,7 @@ def test_no_undesired_distributed_cache_hit(loop):
                 delayed(isolated_operation)(list_, X=X) for list_ in lists
             )
 
+        # This time, auto-scattering should have kicked it.
         counts = count_events('receive-from-scatter', client)
         assert sum(counts.values()) > 0
         assert all([len(r) == 1 for r in res])
@@ -170,6 +166,10 @@ class CountSerialized(object):
     def __reduce__(self):
         self.count += 1
         return (CountSerialized, (self.x,))
+
+
+def add5(a, b, c, d=0, e=0):
+    return a + b + c + d + e
 
 
 def test_manual_scatter(loop):
@@ -199,7 +199,11 @@ def test_manual_scatter(loop):
     # Scattered variables only serialized once
     assert x.count == 1
     assert y.count == 1
-    assert z.count == 6
+    # Depending on the version of distributed, the unscattered z variable
+    # is either pickled 4 or 6 times, possibly because of the memoization
+    # of objects that appear several times in the arguments of a delayed
+    # task.
+    assert z.count in (4, 6)
 
 
 def test_auto_scatter(loop):
