@@ -112,7 +112,7 @@ def _joblib_probe_task():
     pass
 
 
-class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
+class DaskDistributedBackend(AutoBatchingMixin, ParallelBackendBase):
     MIN_IDEAL_BATCH_DURATION = 0.2
     MAX_IDEAL_BATCH_DURATION = 1.0
     supports_timeout = True
@@ -120,6 +120,8 @@ class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
     def __init__(self, scheduler_host=None, scatter=None,
                  client=None, loop=None, wait_for_workers_timeout=10,
                  **submit_kwargs):
+        super().__init__()
+
         if distributed is None:
             msg = ("You are trying to use 'dask' as a joblib parallel backend "
                    "but dask is not installed. Please install dask "
@@ -187,6 +189,7 @@ class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         return DaskDistributedBackend(client=self.client), -1
 
     def configure(self, n_jobs=1, parallel=None, **backend_args):
+        self.parallel = parallel
         return self.effective_n_jobs(n_jobs)
 
     def start_call(self):

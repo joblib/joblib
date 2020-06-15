@@ -86,10 +86,7 @@ if __name__ == '__main__':
                  np.arange(5, dtype=np.dtype('<f8')),
                  np.array([1, 'abc', {'a': 1, 'b': 2}], dtype='O'),
                  # all possible bytes as a byte string
-                 # .tostring actually returns bytes and is a
-                 # compatibility alias for .tobytes which was
-                 # added in 1.9.0
-                 np.arange(256, dtype=np.uint8).tostring(),
+                 np.arange(256, dtype=np.uint8).tobytes(),
                  np.matrix([0, 1, 2], dtype=np.dtype('<i8')),
                  # unicode string with non-ascii chars
                  u"C'est l'\xe9t\xe9 !"]

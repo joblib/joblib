@@ -126,7 +126,7 @@ class ZNDArrayWrapper(NDArrayWrapper):
     retrieve it.
     The reason that we store the raw buffer data of the array and
     the meta information, rather than array representation routine
-    (tostring) is that it enables us to use completely the strided
+    (tobytes) is that it enables us to use completely the strided
     model to avoid memory copies (a and a.T store as fast). In
     addition saving the heavy information separately can avoid
     creating large temporary buffers when unpickling data with

@@ -31,7 +31,9 @@ class ParallelBackendBase(metaclass=ABCMeta):
     supports_inner_max_num_threads = False
     nesting_level = None
 
-    def __init__(self, nesting_level=None, inner_max_num_threads=None):
+    def __init__(self, nesting_level=None, inner_max_num_threads=None,
+                 **kwargs):
+        super().__init__(**kwargs)
         self.nesting_level = nesting_level
         self.inner_max_num_threads = inner_max_num_threads
 
@@ -276,9 +278,9 @@ class AutoBatchingMixin(object):
     _DEFAULT_SMOOTHED_BATCH_DURATION = 0.0
 
     def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self._effective_batch_size = self._DEFAULT_EFFECTIVE_BATCH_SIZE
         self._smoothed_batch_duration = self._DEFAULT_SMOOTHED_BATCH_DURATION
-        super(AutoBatchingMixin, self).__init__(**kwargs)
 
     def compute_batch_size(self):
         """Determine the optimal batch size"""
