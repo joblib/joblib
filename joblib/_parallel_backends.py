@@ -540,8 +540,8 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
         AsyncResults.get from multiprocessing."""
         try:
             return future.result(timeout=timeout)
-        except CfTimeoutError:
-            raise TimeoutError()
+        except CfTimeoutError as e:
+            raise TimeoutError from e
 
     def terminate(self):
         if self._workers is not None:
@@ -593,11 +593,11 @@ class SafeFunction(object):
     def __call__(self, *args, **kwargs):
         try:
             return self.func(*args, **kwargs)
-        except KeyboardInterrupt:
+        except KeyboardInterrupt as e:
             # We capture the KeyboardInterrupt and reraise it as
             # something different, as multiprocessing does not
             # interrupt processing for a KeyboardInterrupt
-            raise WorkerInterrupt()
+            raise WorkerInterrupt() from e
         except BaseException:
             # Rely on Python 3 built-in Remote Traceback reporting
             raise
