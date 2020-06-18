@@ -536,9 +536,11 @@ def test_nested_exception_dispatch(backend):
     We rely on the Python 3 built-in __cause__ system that already
     report this kind of information to the user.
     """
-    with raises(ValueError) as excinfo:
+    with raises((ValueError, MyExceptionWithFinickyInit)) as excinfo:
         Parallel(n_jobs=2, backend=backend)(
             delayed(nested_function_outer)(i) for i in range(30))
+
+    assert excinfo.value.__cause__ is not None
 
     # Check that important information such as function names are visible
     # in the final error message reported to the user
