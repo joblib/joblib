@@ -38,7 +38,7 @@ jobs:
         PYTHON_VERSION: "pypy3"
         LOKY_MAX_CPU_COUNT: "2"
 
-      linux_py38:
+      linux_py38_distributed:
         # To be updated regularly to use the most recent versions of the
         # dependencies.
         imageName: 'ubuntu-latest'
