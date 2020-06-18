@@ -540,7 +540,8 @@ def test_nested_exception_dispatch(backend):
         Parallel(n_jobs=2, backend=backend)(
             delayed(nested_function_outer)(i) for i in range(30))
 
-    assert excinfo.value.__cause__ is not None
+    if backend != "threading":
+        assert excinfo.value.__cause__ is not None
 
     # Check that important information such as function names are visible
     # in the final error message reported to the user
