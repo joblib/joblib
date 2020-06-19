@@ -530,6 +530,7 @@ def nested_function_outer(i):
 
 @with_multiprocessing
 @parametrize('backend', PARALLEL_BACKENDS)
+@pytest.mark.xfail(reason="https://github.com/joblib/loky/pull/255")
 def test_nested_exception_dispatch(backend):
     """Ensure errors for nested joblib cases gets propagated
 
