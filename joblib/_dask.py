@@ -96,8 +96,22 @@ def _funcname(x):
     return funcname(x)
 
 
+def _make_tasks_summary(tasks):
+    """Summarize of list of (func, args, kwargs) function calls"""
+    unique_funcs = {func for func, args, kwargs in tasks}
+    num_tasks = len(tasks)
+
+    if len(unique_funcs) == 1:
+        return f"Batch of {tasks[0][0]} ({num_tasks} function calls)"
+    else:
+        return (f"Mixed batch containing {tasks[0][0]} ({num_tasks} "
+                f"function calls)")
+
+
 class Batch:
     """dask-compatible wrapper that executes a batch of tasks"""
+    def __init__(self, description):
+        self._description = description
 
     def __call__(self, tasks=None):
         results = []
@@ -105,6 +119,9 @@ class Batch:
             for func, args, kwargs in tasks:
                 results.append(func(*args, **kwargs))
         return results
+
+    def __repr__(self):
+        return self._description
 
 
 def _joblib_probe_task():
@@ -271,7 +288,7 @@ class DaskDistributedBackend(AutoBatchingMixin, ParallelBackendBase):
                               await maybe_to_futures(kwargs.values())))
             tasks.append((f, args, kwargs))
 
-        return (Batch(), tasks)
+        return (Batch(_make_tasks_summary(tasks)), tasks)
 
     def apply_async(self, func, callback=None):
         key = '%s-batch-%s' % (_funcname(func), uuid4().hex)

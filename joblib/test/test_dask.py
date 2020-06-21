@@ -98,6 +98,23 @@ def test_dask_funcname(loop):
             assert all(tup[0].startswith('inc-batch') for tup in log)
 
 
+def test_batch_repr(loop):
+    from joblib._dask import _make_tasks_summary, Batch
+
+    # batch with a single function being called on multiple arguments
+    single_func_tasks = [delayed(id)(i) for i in range(10)]
+    repr_ = 'Batch of <built-in function id> (10 function calls)'
+    assert _make_tasks_summary(single_func_tasks) == repr_
+    assert repr(Batch(_make_tasks_summary(single_func_tasks))) == repr_
+
+    # batch with several different functions being called
+    multiple_funcs_tasks = [
+        delayed(id)(i) if i < 5 else delayed(abs)(i) for i in range(10)
+    ]
+    repr_ = 'Mixed batch containing <built-in function id> (10 function calls)'
+    assert repr(Batch(_make_tasks_summary(multiple_funcs_tasks))) == repr_
+
+
 def test_no_undesired_distributed_cache_hit(loop):
     # Dask has a pickle cache for callables that are called many times. Because
     # the dask backends used to wrapp both the functions and the arguments
