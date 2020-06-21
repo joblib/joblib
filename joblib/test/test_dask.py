@@ -86,33 +86,30 @@ def test_dont_assume_function_purity(loop):
                 assert x != y
 
 
-def test_dask_funcname(loop):
+@pytest.mark.parametrize("mixed", [True, False])
+def test_dask_funcname(loop, mixed):
+    from joblib._dask import Batch
+    if not mixed:
+        tasks = [delayed(inc)(i) for i in range(4)]
+        batch_repr = 'batch-of-inc-4-calls'
+    else:
+        tasks = [
+            delayed(abs)(i) if i % 2 else delayed(inc)(i) for i in range(4)
+        ]
+        batch_repr = 'batch-of-inc-4-calls-mixed'
+
+    assert repr(Batch(tasks)) == batch_repr
+
     with cluster() as (s, [a, b]):
         with Client(s['address'], loop=loop) as client:
             with parallel_backend('dask') as (ba, _):
-                x, y = Parallel()(delayed(inc)(i) for i in range(2))
+                _ = Parallel(batch_size=2, pre_dispatch='all')(tasks)
 
             def f(dask_scheduler):
                 return list(dask_scheduler.transition_log)
+            batch_repr = batch_repr.replace('4', '2')
             log = client.run_on_scheduler(f)
-            assert all(tup[0].startswith('inc-batch') for tup in log)
-
-
-def test_batch_repr(loop):
-    from joblib._dask import _make_tasks_summary, Batch
-
-    # batch with a single function being called on multiple arguments
-    single_func_tasks = [delayed(id)(i) for i in range(10)]
-    repr_ = 'Batch of <built-in function id> (10 function calls)'
-    assert _make_tasks_summary(single_func_tasks) == repr_
-    assert repr(Batch(_make_tasks_summary(single_func_tasks))) == repr_
-
-    # batch with several different functions being called
-    multiple_funcs_tasks = [
-        delayed(id)(i) if i < 5 else delayed(abs)(i) for i in range(10)
-    ]
-    repr_ = 'Mixed batch containing <built-in function id> (10 function calls)'
-    assert repr(Batch(_make_tasks_summary(multiple_funcs_tasks))) == repr_
+            assert all(tup[0].startswith('batch-of-inc') for tup in log)
 
 
 def test_no_undesired_distributed_cache_hit(loop):

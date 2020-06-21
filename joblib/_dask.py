@@ -89,8 +89,8 @@ class _WeakKeyDictionary:
 
 def _funcname(x):
     try:
-        if isinstance(x, BatchedCalls):
-            x = x.items[0][0]
+        if isinstance(x, list):
+            x = x[0][0]
     except Exception:
         pass
     return funcname(x)
@@ -99,19 +99,22 @@ def _funcname(x):
 def _make_tasks_summary(tasks):
     """Summarize of list of (func, args, kwargs) function calls"""
     unique_funcs = {func for func, args, kwargs in tasks}
-    num_tasks = len(tasks)
 
     if len(unique_funcs) == 1:
-        return f"Batch of {tasks[0][0]} ({num_tasks} function calls)"
+        mixed = False
     else:
-        return (f"Mixed batch containing {tasks[0][0]} ({num_tasks} "
-                f"function calls)")
+        mixed = True
+    return len(tasks), mixed, _funcname(tasks)
 
 
 class Batch:
     """dask-compatible wrapper that executes a batch of tasks"""
-    def __init__(self, description):
-        self._description = description
+    def __init__(self, tasks):
+        # collect some metadata from the tasks to ease Batch calls
+        # introspection when debugging
+        self._num_tasks, self._mixed, self._funcname = _make_tasks_summary(
+            tasks
+        )
 
     def __call__(self, tasks=None):
         results = []
@@ -121,7 +124,10 @@ class Batch:
         return results
 
     def __repr__(self):
-        return self._description
+        descr = f"batch-of-{self._funcname}-{self._num_tasks}-calls"
+        if self._mixed:
+            descr += "-mixed"
+        return descr
 
 
 def _joblib_probe_task():
@@ -288,16 +294,16 @@ class DaskDistributedBackend(AutoBatchingMixin, ParallelBackendBase):
                               await maybe_to_futures(kwargs.values())))
             tasks.append((f, args, kwargs))
 
-        return (Batch(_make_tasks_summary(tasks)), tasks)
+        return (Batch(tasks), tasks)
 
     def apply_async(self, func, callback=None):
-        key = '%s-batch-%s' % (_funcname(func), uuid4().hex)
 
         cf_future = concurrent.futures.Future()
         cf_future.get = cf_future.result  # achieve AsyncResult API
 
         async def f(func, callback):
             batch, tasks = await self._to_func_args(func)
+            key = f'{repr(batch)}-{uuid4().hex}'
 
             dask_future = self.client.submit(
                 batch, tasks=tasks, key=key, **self.submit_kwargs
