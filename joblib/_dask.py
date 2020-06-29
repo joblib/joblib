@@ -143,14 +143,14 @@ class DaskDistributedBackend(AutoBatchingMixin, ParallelBackendBase):
             else:
                 try:
                     client = get_client()
-                except ValueError:
+                except ValueError as e:
                     msg = ("To use Joblib with Dask first create a Dask Client"
                            "\n\n"
                            "    from dask.distributed import Client\n"
                            "    client = Client()\n"
                            "or\n"
                            "    client = Client('scheduler-address:8786')")
-                    raise ValueError(msg)
+                    raise ValueError(msg) from e
 
         self.client = client
 
@@ -222,7 +222,7 @@ class DaskDistributedBackend(AutoBatchingMixin, ParallelBackendBase):
         try:
             self.client.submit(_joblib_probe_task).result(
                 timeout=self.wait_for_workers_timeout)
-        except _TimeoutError:
+        except _TimeoutError as e:
             error_msg = (
                 "DaskDistributedBackend has no worker after {} seconds. "
                 "Make sure that workers are started and can properly connect "
@@ -231,7 +231,7 @@ class DaskDistributedBackend(AutoBatchingMixin, ParallelBackendBase):
                 "parallel_backend('dask', wait_for_workers_timeout={})"
             ).format(self.wait_for_workers_timeout,
                      max(10, 2 * self.wait_for_workers_timeout))
-            raise TimeoutError(error_msg)
+            raise TimeoutError(error_msg) from e
         return sum(self.client.ncores().values())
 
     async def _to_func_args(self, func):
