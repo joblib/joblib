@@ -124,9 +124,9 @@ class Batch:
         return results
 
     def __repr__(self):
-        descr = f"batch-of-{self._funcname}-{self._num_tasks}-calls"
+        descr = f"batch_of_{self._funcname}_{self._num_tasks}_calls"
         if self._mixed:
-            descr = "mixed-" + descr
+            descr = "mixed_" + descr
         return descr
 
 
