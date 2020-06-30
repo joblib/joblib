@@ -44,14 +44,6 @@ def is_weakrefable(obj):
         return False
 
 
-def _in_dask_worker():
-    try:
-        worker = get_worker()
-    except ValueError:
-        worker = None
-    return worker
-
-
 class _WeakKeyDictionary:
     """A variant of weakref.WeakKeyDictionary for unhashable objects.
 
@@ -263,19 +255,20 @@ class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
                     except KeyError:
                         pass
                     if f is None:
-                        if (not _in_dask_worker() and is_weakrefable(arg) and
-                                sizeof(arg) > 1e3):
+                        if is_weakrefable(arg) and sizeof(arg) > 1e3:
                             # Automatically scatter large objects to some of
                             # the workers to avoid duplicated data transfers.
                             # Rely on automated inter-worker data stealing if
                             # more workers need to reuse this data
                             # concurrently.
-                            # Because nested scatter call often end up
-                            # cancelling tasks, (distributed/issues/3703), we
-                            # never scatter inside nested Parallel calls.
+                            # set hash=False - nested scatter calls (i.e
+                            # calling client.scatter inside a dask worker)
+                            # using hash=True often raises CancelledError,
+                            # see dask/distributed#3703
                             [f] = await self.client.scatter(
                                 [arg],
-                                asynchronous=True
+                                asynchronous=True,
+                                hash=False
                             )
                             call_data_futures[arg] = f
 
