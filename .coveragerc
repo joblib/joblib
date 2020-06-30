@@ -3,6 +3,7 @@ omit =
   joblib/test/data/*
   joblib/test/_openmp_test_helper/setup.py
   */joblib/externals/*
+  asv_benchmarks/*
 
 [report]
 show_missing = True
