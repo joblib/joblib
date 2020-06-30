@@ -96,7 +96,7 @@ def test_dask_funcname(loop, mixed):
         tasks = [
             delayed(abs)(i) if i % 2 else delayed(inc)(i) for i in range(4)
         ]
-        batch_repr = 'batch-of-inc-4-calls-mixed'
+        batch_repr = 'mixed-batch-of-inc-4-calls'
 
     assert repr(Batch(tasks)) == batch_repr
 
@@ -109,7 +109,7 @@ def test_dask_funcname(loop, mixed):
                 return list(dask_scheduler.transition_log)
             batch_repr = batch_repr.replace('4', '2')
             log = client.run_on_scheduler(f)
-            assert all(tup[0].startswith('batch-of-inc') for tup in log)
+            assert all('batch-of-inc' in tup[0] for tup in log)
 
 
 def test_no_undesired_distributed_cache_hit(loop):
