@@ -10,7 +10,7 @@ from ..parallel import ThreadingBackend
 from .._dask import DaskDistributedBackend
 
 distributed = pytest.importorskip('distributed')
-from distributed import Client, LocalCluster
+from distributed import Client, LocalCluster, get_client
 from distributed.metrics import time
 from distributed.utils_test import cluster, inc
 
@@ -150,6 +150,38 @@ def test_auto_scatter(loop):
             counts = count_events('receive-from-scatter', client)
             assert counts[a['address']] == 0
             assert counts[b['address']] == 0
+
+
+@pytest.mark.parametrize("retry_no", list(range(2)))
+def test_nested_scatter(loop, retry_no):
+
+    np = pytest.importorskip('numpy')
+
+    NUM_INNER_TASKS = 10
+    NUM_OUTER_TASKS = 10
+
+    def my_sum(x, i, j):
+        # print(f"running inner task {j} of outer task {i}")
+        return np.sum(x)
+
+    def outer_function_joblib(array, i):
+        # print(f"running outer task {i}")
+        client = get_client()  # noqa
+        with parallel_backend("dask"):
+            results = Parallel()(
+                delayed(my_sum)(array[j:], i, j) for j in range(
+                    NUM_INNER_TASKS)
+            )
+        return sum(results)
+
+    with cluster() as (s, [a, b]):
+        with Client(s['address'], loop=loop) as _:
+            with parallel_backend("dask"):
+                my_array = np.ones(10000)
+                _ = Parallel()(
+                    delayed(outer_function_joblib)(
+                        my_array[i:], i) for i in range(NUM_OUTER_TASKS)
+                )
 
 
 def test_nested_backend_context_manager(loop):
