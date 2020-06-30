@@ -25,7 +25,6 @@ if distributed is not None:
         secede,
         rejoin
     )
-    from distributed import get_worker
     from distributed.utils import thread_state
 
     try:
