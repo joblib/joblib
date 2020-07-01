@@ -31,6 +31,7 @@ from joblib.test.common import with_multiprocessing
 from joblib.testing import (parametrize, raises, check_subprocess_call,
                             skipif, SkipTest, warns)
 
+from joblib.externals.loky.process_executor import TerminatedWorkerError
 
 from queue import Queue
 
@@ -530,6 +531,7 @@ def nested_function_outer(i):
 
 @with_multiprocessing
 @parametrize('backend', PARALLEL_BACKENDS)
+@pytest.mark.xfail(reason="https://github.com/joblib/loky/pull/255")
 def test_nested_exception_dispatch(backend):
     """Ensure errors for nested joblib cases gets propagated
 
@@ -1468,8 +1470,18 @@ def test_thread_bomb_mitigation(backend):
     # saturating the operating system resources by creating a unbounded number
     # of threads.
     with parallel_backend(backend, n_jobs=2):
-        with raises(RecursionError):
+        with raises(BaseException) as excinfo:
             _recursive_parallel()
+    exc = excinfo.value
+    if backend == "loky" and isinstance(exc, TerminatedWorkerError):
+        # The recursion exception can itself cause an error when pickling it to
+        # be send back to the parent process. In this case the worker crashes
+        # but the original traceback is still printed on stderr. This could be
+        # improved but does not seem simple to do and this is is not critical
+        # for users (as long as there is no process or thread bomb happening).
+        pytest.xfail("Loky worker crash when serializing RecursionError")
+    else:
+        assert isinstance(exc, RecursionError)
 
 
 def _run_parallel_sum():
