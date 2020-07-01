@@ -1,6 +1,9 @@
 Latest changes
 ==============
 
+In development
+--------------
+
 Release 0.16.0
 --------------
 
