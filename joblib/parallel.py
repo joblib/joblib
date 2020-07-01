@@ -60,12 +60,12 @@ def _register_dask():
     try:
         from ._dask import DaskDistributedBackend
         register_parallel_backend('dask', DaskDistributedBackend)
-    except ImportError:
+    except ImportError as e:
         msg = ("To use the dask.distributed backend you must install both "
                "the `dask` and distributed modules.\n\n"
                "See https://dask.pydata.org/en/latest/install.html for more "
                "information.")
-        raise ImportError(msg)
+        raise ImportError(msg) from e
 
 
 EXTERNAL_BACKENDS = {
@@ -679,9 +679,9 @@ class Parallel(Logger):
         else:
             try:
                 backend_factory = BACKENDS[backend]
-            except KeyError:
+            except KeyError as e:
                 raise ValueError("Invalid backend: %s, expected one of %r"
-                                 % (backend, sorted(BACKENDS.keys())))
+                                 % (backend, sorted(BACKENDS.keys()))) from e
             backend = backend_factory(nesting_level=nesting_level)
 
         if (require == 'sharedmem' and

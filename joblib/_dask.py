@@ -89,30 +89,45 @@ class _WeakKeyDictionary:
 
 def _funcname(x):
     try:
-        if isinstance(x, BatchedCalls):
-            x = x.items[0][0]
+        if isinstance(x, list):
+            x = x[0][0]
     except Exception:
         pass
     return funcname(x)
 
 
-class Batch(object):
-    def __init__(self, tasks):
-        self.tasks = tasks
+def _make_tasks_summary(tasks):
+    """Summarize of list of (func, args, kwargs) function calls"""
+    unique_funcs = {func for func, args, kwargs in tasks}
 
-    def __call__(self, *data):
+    if len(unique_funcs) == 1:
+        mixed = False
+    else:
+        mixed = True
+    return len(tasks), mixed, _funcname(tasks)
+
+
+class Batch:
+    """dask-compatible wrapper that executes a batch of tasks"""
+    def __init__(self, tasks):
+        # collect some metadata from the tasks to ease Batch calls
+        # introspection when debugging
+        self._num_tasks, self._mixed, self._funcname = _make_tasks_summary(
+            tasks
+        )
+
+    def __call__(self, tasks=None):
         results = []
         with parallel_backend('dask'):
-            for func, args, kwargs in self.tasks:
-                args = [a(data) if isinstance(a, itemgetter) else a
-                        for a in args]
-                kwargs = {k: v(data) if isinstance(v, itemgetter) else v
-                          for (k, v) in kwargs.items()}
+            for func, args, kwargs in tasks:
                 results.append(func(*args, **kwargs))
         return results
 
-    def __reduce__(self):
-        return Batch, (self.tasks,)
+    def __repr__(self):
+        descr = f"batch_of_{self._funcname}_{self._num_tasks}_calls"
+        if self._mixed:
+            descr = "mixed_" + descr
+        return descr
 
 
 def _joblib_probe_task():
@@ -120,7 +135,7 @@ def _joblib_probe_task():
     pass
 
 
-class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
+class DaskDistributedBackend(AutoBatchingMixin, ParallelBackendBase):
     MIN_IDEAL_BATCH_DURATION = 0.2
     MAX_IDEAL_BATCH_DURATION = 1.0
     supports_timeout = True
@@ -128,6 +143,8 @@ class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
     def __init__(self, scheduler_host=None, scatter=None,
                  client=None, loop=None, wait_for_workers_timeout=10,
                  **submit_kwargs):
+        super().__init__()
+
         if distributed is None:
             msg = ("You are trying to use 'dask' as a joblib parallel backend "
                    "but dask is not installed. Please install dask "
@@ -141,14 +158,14 @@ class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
             else:
                 try:
                     client = get_client()
-                except ValueError:
+                except ValueError as e:
                     msg = ("To use Joblib with Dask first create a Dask Client"
                            "\n\n"
                            "    from dask.distributed import Client\n"
                            "    client = Client()\n"
                            "or\n"
                            "    client = Client('scheduler-address:8786')")
-                    raise ValueError(msg)
+                    raise ValueError(msg) from e
 
         self.client = client
 
@@ -195,6 +212,7 @@ class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         return DaskDistributedBackend(client=self.client), -1
 
     def configure(self, n_jobs=1, parallel=None, **backend_args):
+        self.parallel = parallel
         return self.effective_n_jobs(n_jobs)
 
     def start_call(self):
@@ -219,7 +237,7 @@ class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         try:
             self.client.submit(_joblib_probe_task).result(
                 timeout=self.wait_for_workers_timeout)
-        except _TimeoutError:
+        except _TimeoutError as e:
             error_msg = (
                 "DaskDistributedBackend has no worker after {} seconds. "
                 "Make sure that workers are started and can properly connect "
@@ -228,11 +246,10 @@ class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
                 "parallel_backend('dask', wait_for_workers_timeout={})"
             ).format(self.wait_for_workers_timeout,
                      max(10, 2 * self.wait_for_workers_timeout))
-            raise TimeoutError(error_msg)
+            raise TimeoutError(error_msg) from e
         return sum(self.client.ncores().values())
 
     async def _to_func_args(self, func):
-        collected_futures = []
         itemgetters = dict()
 
         # Futures that are dynamically generated during a single call to
@@ -272,11 +289,9 @@ class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
                             call_data_futures[arg] = f
 
                 if f is not None:
-                    getter = itemgetter(len(collected_futures))
-                    collected_futures.append(f)
-                    itemgetters[arg_id] = getter
-                    arg = getter
-                out.append(arg)
+                    out.append(f)
+                else:
+                    out.append(arg)
             return out
 
         tasks = []
@@ -286,21 +301,19 @@ class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
                               await maybe_to_futures(kwargs.values())))
             tasks.append((f, args, kwargs))
 
-        if not collected_futures:
-            return func, ()
-        return (Batch(tasks), collected_futures)
+        return (Batch(tasks), tasks)
 
     def apply_async(self, func, callback=None):
-        key = '%s-batch-%s' % (_funcname(func), uuid4().hex)
 
         cf_future = concurrent.futures.Future()
         cf_future.get = cf_future.result  # achieve AsyncResult API
 
         async def f(func, callback):
-            func, args = await self._to_func_args(func)
+            batch, tasks = await self._to_func_args(func)
+            key = f'{repr(batch)}-{uuid4().hex}'
 
             dask_future = self.client.submit(
-                func, *args, key=key, **self.submit_kwargs
+                batch, tasks=tasks, key=key, **self.submit_kwargs
             )
             self.waiting_futures.add(dask_future)
             self._callbacks[dask_future] = callback

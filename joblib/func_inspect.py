@@ -253,14 +253,14 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
             else:
                 try:
                     arg_dict[arg_name] = arg_defaults[position]
-                except (IndexError, KeyError):
+                except (IndexError, KeyError) as e:
                     # Missing argument
                     raise ValueError(
                         'Wrong number of arguments for %s:\n'
                         '     %s was called.'
                         % (_signature_str(name, arg_spec),
                            _function_called_str(name, args, kwargs))
-                    )
+                    ) from e
 
     varkwargs = dict()
     for arg_name, arg_value in sorted(kwargs.items()):
