@@ -14,6 +14,10 @@ In development
   results or errors.
   https://github.com/joblib/joblib/pull/1055
 
+- Prevent a dask.distributed bug from surfacing in joblib's dask backend
+  during nested Parallel calls (due to joblib's auto-scattering feature)
+  https://github.com/joblib/joblib/pull/1061
+
 Release 0.15.1
 --------------
 

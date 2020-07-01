@@ -269,15 +269,22 @@ class DaskDistributedBackend(AutoBatchingMixin, ParallelBackendBase):
                     try:
                         f = call_data_futures[arg]
                     except KeyError:
+                        pass
+                    if f is None:
                         if is_weakrefable(arg) and sizeof(arg) > 1e3:
                             # Automatically scatter large objects to some of
                             # the workers to avoid duplicated data transfers.
                             # Rely on automated inter-worker data stealing if
                             # more workers need to reuse this data
                             # concurrently.
+                            # set hash=False - nested scatter calls (i.e
+                            # calling client.scatter inside a dask worker)
+                            # using hash=True often raise CancelledError,
+                            # see dask/distributed#3703
                             [f] = await self.client.scatter(
                                 [arg],
-                                asynchronous=True
+                                asynchronous=True,
+                                hash=False
                             )
                             call_data_futures[arg] = f
 
