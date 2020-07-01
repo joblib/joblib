@@ -279,7 +279,7 @@ class DaskDistributedBackend(AutoBatchingMixin, ParallelBackendBase):
                             # concurrently.
                             # set hash=False - nested scatter calls (i.e
                             # calling client.scatter inside a dask worker)
-                            # using hash=True often raises CancelledError,
+                            # using hash=True often raise CancelledError,
                             # see dask/distributed#3703
                             [f] = await self.client.scatter(
                                 [arg],
