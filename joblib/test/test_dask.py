@@ -260,11 +260,9 @@ def test_nested_scatter(loop, retry_no):
     NUM_OUTER_TASKS = 10
 
     def my_sum(x, i, j):
-        # print(f"running inner task {j} of outer task {i}")
         return np.sum(x)
 
     def outer_function_joblib(array, i):
-        # print(f"running outer task {i}")
         client = get_client()  # noqa
         with parallel_backend("dask"):
             results = Parallel()(
