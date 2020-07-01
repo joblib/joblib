@@ -1,7 +1,7 @@
 Latest changes
 ==============
 
-In development
+Release 0.16.0
 --------------
 
 - Fix a problem in the constructors of of Parallel backends classes that
