@@ -4,6 +4,7 @@ import asyncio
 import concurrent.futures
 import contextlib
 
+import time
 from uuid import uuid4
 import weakref
 
@@ -224,6 +225,10 @@ class DaskDistributedBackend(AutoBatchingMixin, ParallelBackendBase):
         # The explicit call to clear is required to break a cycling reference
         # to the futures.
         self._continue = False
+        # wait for the future collection routine (self._backend._collect) to
+        # finish in order to limit asyncio warnings due to aborting _collect
+        # during a following backend termination call
+        time.sleep(0.01)
         self.call_data_futures.clear()
 
     def effective_n_jobs(self, n_jobs):
