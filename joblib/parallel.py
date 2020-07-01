@@ -1048,6 +1048,7 @@ class Parallel(Logger):
         finally:
             if hasattr(self._backend, 'stop_call'):
                 self._backend.stop_call()
+                time.sleep(0.01)
             if not self._managed_backend:
                 self._terminate_backend()
             self._jobs = list()
