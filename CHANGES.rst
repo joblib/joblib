@@ -9,6 +9,11 @@ In development
   properly batch short tasks.
   https://github.com/joblib/joblib/pull/1062
 
+- Fix a problem in the way the joblib dask backend batches calls that would
+  badly interact with the dask callable pickling cache and lead to wrong
+  results or errors.
+  https://github.com/joblib/joblib/pull/1055
+
 Release 0.15.1
 --------------
 
