@@ -4,6 +4,10 @@ Latest changes
 In development
 --------------
 
+- Fix a problem when hashing numpy 1.20 arrays with non-picklable dtype
+  classes.
+  https://github.com/joblib/joblib/issues/1080
+
 Release 0.16.0
 --------------
 
