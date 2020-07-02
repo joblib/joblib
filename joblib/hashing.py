@@ -151,6 +151,10 @@ class Hasher(Pickler):
     dispatch[type(set())] = save_set
 
 
+def _numpy_dtype_hashing_marker():
+    """Unique symbol to avoid conflicts when hashing numpy dtypes"""
+
+
 class NumpyHasher(Hasher):
     """ Special case the hasher for when numpy is loaded.
     """
@@ -231,8 +235,10 @@ class NumpyHasher(Hasher):
             # To prevent the hash from being sensitive to this, we use
             # .descr which is a full (and never interned) description of
             # the array dtype according to the numpy doc.
-            klass = obj.__class__
-            obj = (klass, ('HASHED', obj.descr))
+            #
+            # See also:
+            # https://github.com/joblib/joblib/issues/1080
+            obj = (_numpy_dtype_hashing_marker, obj.descr)
         Hasher.save(self, obj)
 
 
