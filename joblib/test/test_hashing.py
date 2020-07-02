@@ -9,7 +9,6 @@ Test the hashing module.
 import time
 import hashlib
 import sys
-import os
 import gc
 import io
 import collections
@@ -19,7 +18,7 @@ import random
 from decimal import Decimal
 import pytest
 
-from joblib.hashing import hash
+from joblib.hashing import hash, np_version
 from joblib.func_inspect import filter_args
 from joblib.memory import Memory
 from joblib.testing import raises, skipif, fixture, parametrize
@@ -378,6 +377,8 @@ def test_0d_and_1d_array_hashing_is_different():
 
 @with_numpy
 def test_hashes_stay_the_same_with_numpy_objects():
+    if np_version >= '1.20':
+        pytest.skip("Not possible to preserve old hash values anymore")
     # We want to make sure that hashes don't change with joblib
     # version. For end users, that would mean that they have to
     # regenerate their cache from scratch, which potentially means

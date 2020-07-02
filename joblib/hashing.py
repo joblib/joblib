@@ -14,6 +14,13 @@ import types
 import struct
 import io
 import decimal
+from distutils.version import LooseVersion
+
+try:
+    import numpy as np
+    np_version = LooseVersion(np.__version__)
+except ImportError:
+    np_version = None
 
 
 Pickler = pickle._Pickler
@@ -235,10 +242,14 @@ class NumpyHasher(Hasher):
             # To prevent the hash from being sensitive to this, we use
             # .descr which is a full (and never interned) description of
             # the array dtype according to the numpy doc.
-            #
-            # See also:
-            # https://github.com/joblib/joblib/issues/1080
-            obj = (_numpy_dtype_hashing_marker, obj.descr)
+            if np_version < "1.20":
+                # Backward compat to avoid breaking old hashes
+                klass = obj.__class__
+                obj = (klass, ('HASHED', obj.descr))
+            else:
+                # np.dtype.__class__ not necessarily picklable anymore:
+                # https://github.com/joblib/joblib/issues/1080
+                obj = (_numpy_dtype_hashing_marker, obj.descr)
         Hasher.save(self, obj)
 
 
