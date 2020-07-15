@@ -1,4 +1,4 @@
-sphinx==1.6.3
+sphinx
 numpy
 matplotlib
 pillow
