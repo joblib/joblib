@@ -114,8 +114,13 @@ Making a release and uploading it to PyPI
 This command is only run by project manager, to make a release, and
 upload in to PyPI::
 
-    python setup.py sdist bdist_wheel upload_docs --upload-dir doc/_build/html
+    python setup.py sdist bdist_wheel
     twine upload dist/*
+
+
+Note that the documentation should automatically get updated at each git
+push. If that is not the case, try building th doc locally and resolve
+any doc build error (in particular when running the examples).
 
 Updating the changelog
 ======================
