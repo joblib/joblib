@@ -106,7 +106,7 @@ Main features
 # Dev branch marker is: 'X.Y.dev' or 'X.Y.devN' where N is an integer.
 # 'X.Y.dev0' is the canonical version of 'X.Y.dev'
 #
-__version__ = '0.16.0.dev0'
+__version__ = '0.17.0.dev0'
 
 
 import os

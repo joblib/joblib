@@ -4,10 +4,26 @@ Latest changes
 In development
 --------------
 
+Release 0.16.0
+--------------
+
 - Fix a problem in the constructors of of Parallel backends classes that
   inherit from the `AutoBatchingMixin` that prevented the dask backend to
   properly batch short tasks.
   https://github.com/joblib/joblib/pull/1062
+
+- Fix a problem in the way the joblib dask backend batches calls that would
+  badly interact with the dask callable pickling cache and lead to wrong
+  results or errors.
+  https://github.com/joblib/joblib/pull/1055
+
+- Prevent a dask.distributed bug from surfacing in joblib's dask backend
+  during nested Parallel calls (due to joblib's auto-scattering feature)
+  https://github.com/joblib/joblib/pull/1061
+
+- Workaround for a race condition after Parallel calls with the dask backend
+  that would cause low level warnings from asyncio coroutines:
+  https://github.com/joblib/joblib/pull/1078
 
 Release 0.15.1
 --------------
