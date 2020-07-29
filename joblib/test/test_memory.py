@@ -195,6 +195,10 @@ def test_parallel_call_cached_function_defined_in_jupyter(tmpdir):
     # contains ALL cached functions calls (f(1), f(2), f(3)) and 'func_code.py'
     assert len(os.listdir(f_cache_directory / 'f')) == 4
 
+    # TODO: test the case where f is sent to a Parallel call without being
+    # previously called - to work properly, this requires get_func_code to be
+    # called when during __reduce__'ing the cached function
+
 
 def test_no_memory():
     """ Test memory with location=None: no memoize """
