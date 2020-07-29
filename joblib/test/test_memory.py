@@ -15,6 +15,7 @@ import pickle
 import sys
 import time
 import datetime
+import textwrap
 
 import pytest
 
@@ -122,6 +123,77 @@ def test_memory_integration(tmpdir):
     f.__module__ = '__main__'
     memory = Memory(location=tmpdir.strpath, verbose=0)
     memory.cache(f)(1)
+
+
+def test_parallel_call_cached_function_defined_in_jupyter(tmpdir):
+    # Calling an interactively defined memory.cache()'d function inside a
+    # Parallel call used to clear the existing cache related to the said
+    # function (https://github.com/joblib/joblib/issues/1035)
+
+    # This tests checks that this is no longer the case.
+
+    # TODO: test that the cache related to the function cache persists across
+    # ipython sessions (provided that no code change were made to the
+    # function's source)?
+
+    # The first part of the test makes the necessary low-level calls to emulate
+    # the definition of a function in an jupyter notebook cell. Joblib has
+    # some custom code to treat functions defined specifically in jupyter
+    # notebooks/ipython session -- we want to test this code, which requires
+    # the emulation to be rigorous.
+    ipython_cell_source = '''
+    def f(x):
+        return x
+    '''
+
+    exec(
+        compile(
+            textwrap.dedent(ipython_cell_source),
+            filename='<ipython-input-2-35bd21e0f6ea>',
+            mode='exec'
+        )
+    )
+    # f is now accessible in the locals mapping - but for some unknown reason,
+    # f = locals()['f'] throws a KeyError at runtime, we need to bind
+    # locals()['f'] to a different name in the local namespace
+    aliased_f = locals()['f']
+    aliased_f.__module__ = "__main__"
+
+    # Preliminary sanity checks, and tests checking that joblib properly
+    # identified f as an interactive function defined in a jupyter notebook
+    assert aliased_f(1) == 1
+    assert aliased_f.__code__.co_filename.startswith('<ipython-input')
+
+    memory = Memory(location=tmpdir.strpath, verbose=0)
+    cached_f = memory.cache(aliased_f)
+
+    f_cache_relative_directory = '__main__-{}-__ipython-input__'.format(
+        os.getcwd().replace('/', '-')
+    )
+    f_cache_directory = tmpdir / 'joblib' / f_cache_relative_directory
+    assert os.path.exists(f_cache_directory)
+
+    # The cache should be empty as cached_f has not been called yet.
+    assert os.listdir(f_cache_directory) == ['f']
+    assert os.listdir(f_cache_directory / 'f') == []
+
+    assert cached_f(3)
+
+    # Two files were just created, func_code.py, and a folder containing the
+    # informations (inputs hash/ouptput) of cached_f(1)
+    assert len(os.listdir(f_cache_directory / 'f')) == 2
+
+    # Now, testing  #1035: when calling a cached function, joblib used to
+    # dynamically inspect the underlying function to extract its source code
+    # (to verify it matches the source code of the function as last inspected
+    # by joblib) -- however, source code introspection fails for dynamic
+    # functions sent to child processes - which would eventually make joblib
+    # clear the cache associated to f
+    res = Parallel(n_jobs=2)(delayed(cached_f)(i) for i in [1, 2])
+
+    # making sure f's cache does not get cleared after the parallel calls, and
+    # contains ALL cached functions calls (f(1), f(2), f(3)) and 'func_code.py'
+    assert len(os.listdir(f_cache_directory / 'f')) == 4
 
 
 def test_no_memory():
