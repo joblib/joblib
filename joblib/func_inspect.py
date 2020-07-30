@@ -155,7 +155,7 @@ def get_func_name(func, resolv_alias=True, win_characters=True):
             klass = func.im_class
             module.append(klass.__name__)
     if os.name == 'nt' and win_characters:
-        # Stupid windows can't encode certain characters in filenames
+        # Windows can't encode certain characters in filenames
         name = _clean_win_chars(name)
         module = [_clean_win_chars(s) for s in module]
     return module, name
