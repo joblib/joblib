@@ -180,7 +180,7 @@ def test_parallel_call_cached_function_defined_in_jupyter(tmpdir):
     assert cached_f(3)
 
     # Two files were just created, func_code.py, and a folder containing the
-    # informations (inputs hash/ouptput) of cached_f(1)
+    # informations (inputs hash/ouptput) of cached_f(3)
     assert len(os.listdir(f_cache_directory / 'f')) == 2
 
     # Now, testing  #1035: when calling a cached function, joblib used to
