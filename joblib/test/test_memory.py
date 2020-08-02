@@ -150,10 +150,12 @@ def test_parallel_call_cached_function_defined_in_jupyter(
             return x
         '''
 
+        ipython_cell_id = '<ipython-input-{}-000000000000>'.format(session_no)
+
         exec(
             compile(
                 textwrap.dedent(ipython_cell_source),
-                filename='<ipython-input-{i}-000000000000>',
+                filename=ipython_cell_id,
                 mode='exec'
             )
         )
@@ -162,6 +164,7 @@ def test_parallel_call_cached_function_defined_in_jupyter(
         # bind locals()['f'] to a different name in the local namespace
         aliased_f = locals()['f']
         aliased_f.__module__ = "__main__"
+        assert aliased_f.__code__.co_filename == ipython_cell_id
 
         # Preliminary sanity checks, and tests checking that joblib properly
         # identified f as an interactive function defined in a jupyter notebook
@@ -183,7 +186,7 @@ def test_parallel_call_cached_function_defined_in_jupyter(
             assert os.listdir(f_cache_directory / 'f') == []
 
             if call_before_reducing:
-                assert cached_f(3)
+                cached_f(3)
                 # Two files were just created, func_code.py, and a folder
                 # containing the informations (inputs hash/ouptput) of
                 # cached_f(3)
@@ -207,18 +210,18 @@ def test_parallel_call_cached_function_defined_in_jupyter(
 
                 cached_f(3)
 
-            # making sure f's cache does not get cleared after the parallel
+            # Making sure f's cache does not get cleared after the parallel
             # calls, and contains ALL cached functions calls (f(1), f(2), f(3))
             # and 'func_code.py'
             assert len(os.listdir(f_cache_directory / 'f')) == 4
         else:
-            # for the second session, there should be an already existing cache
+            # For the second session, there should be an already existing cache
             assert len(os.listdir(f_cache_directory / 'f')) == 4
 
             cached_f(3)
 
-            # The previous cache should be invalidated after calling the
-            # function
+            # The previous cache should not be invalidated after calling the
+            # function in a new session
             assert len(os.listdir(f_cache_directory / 'f')) == 4
 
 
