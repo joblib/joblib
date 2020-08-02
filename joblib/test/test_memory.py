@@ -164,12 +164,11 @@ def test_parallel_call_cached_function_defined_in_jupyter(
         # bind locals()['f'] to a different name in the local namespace
         aliased_f = locals()['f']
         aliased_f.__module__ = "__main__"
-        assert aliased_f.__code__.co_filename == ipython_cell_id
 
         # Preliminary sanity checks, and tests checking that joblib properly
         # identified f as an interactive function defined in a jupyter notebook
         assert aliased_f(1) == 1
-        assert aliased_f.__code__.co_filename.startswith('<ipython-input')
+        assert aliased_f.__code__.co_filename == ipython_cell_id
 
         memory = Memory(location=tmpdir.strpath, verbose=0)
         cached_f = memory.cache(aliased_f)
