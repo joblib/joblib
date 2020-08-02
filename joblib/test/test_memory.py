@@ -125,7 +125,10 @@ def test_memory_integration(tmpdir):
     memory.cache(f)(1)
 
 
-def test_parallel_call_cached_function_defined_in_jupyter(tmpdir):
+@parametrize("call_before_reducing", [True, False])
+def test_parallel_call_cached_function_defined_in_jupyter(
+    tmpdir, call_before_reducing
+):
     # Calling an interactively defined memory.cache()'d function inside a
     # Parallel call used to clear the existing cache related to the said
     # function (https://github.com/joblib/joblib/issues/1035)
@@ -179,30 +182,35 @@ def test_parallel_call_cached_function_defined_in_jupyter(tmpdir):
             assert os.listdir(f_cache_directory) == ['f']
             assert os.listdir(f_cache_directory / 'f') == []
 
-            assert cached_f(3)
+            if call_before_reducing:
+                assert cached_f(3)
+                # Two files were just created, func_code.py, and a folder
+                # containing the informations (inputs hash/ouptput) of
+                # cached_f(3)
+                assert len(os.listdir(f_cache_directory / 'f')) == 2
 
-            # Two files were just created, func_code.py, and a folder
-            # containing the informations (inputs hash/ouptput) of cached_f(3)
-            assert len(os.listdir(f_cache_directory / 'f')) == 2
+                # Now, testing  #1035: when calling a cached function, joblib
+                # used to dynamically inspect the underlying function to
+                # extract its source code (to verify it matches the source code
+                # of the function as last inspected by joblib) -- however,
+                # source code introspection fails for dynamic functions sent to
+                # child processes - which would eventually make joblib clear
+                # the cache associated to f
+                res = Parallel(n_jobs=2)(delayed(cached_f)(i) for i in [1, 2])
+            else:
+                # Submit the function to the joblib child processes, although
+                # the function has never been called in the parent yet. This
+                # triggers a specific code branch inside
+                # MemorizedFunc.__reduce__.
+                res = Parallel(n_jobs=2)(delayed(cached_f)(i) for i in [1, 2])
+                assert len(os.listdir(f_cache_directory / 'f')) == 3
 
-            # Now, testing  #1035: when calling a cached function, joblib used
-            # to dynamically inspect the underlying function to extract its
-            # source code (to verify it matches the source code of the function
-            # as last inspected by joblib) -- however, source code
-            # introspection fails for dynamic functions sent to child processes
-            # - which would eventually make joblib clear the cache associated
-            # to f
-            res = Parallel(n_jobs=2)(delayed(cached_f)(i) for i in [1, 2])
+                cached_f(3)
 
             # making sure f's cache does not get cleared after the parallel
             # calls, and contains ALL cached functions calls (f(1), f(2), f(3))
             # and 'func_code.py'
             assert len(os.listdir(f_cache_directory / 'f')) == 4
-
-            # TODO: test the case where f is sent to a Parallel call without
-            # being previously called - to work properly, this requires
-            # get_func_code to be called when during __reduce__'ing the cached
-            # function
         else:
             # for the second session, there should be an already existing cache
             assert len(os.listdir(f_cache_directory / 'f')) == 4
