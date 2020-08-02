@@ -167,11 +167,11 @@ def test_parallel_call_cached_function_defined_in_jupyter(tmpdir):
     memory = Memory(location=tmpdir.strpath, verbose=0)
     cached_f = memory.cache(aliased_f)
 
-    f_cache_relative_directory = '__main__-{}-__ipython-input__'.format(
-        os.getcwd().replace('/', '-')
-    )
+    assert len(os.listdir(tmpdir / 'joblib')) == 1
+    f_cache_relative_directory = os.listdir(tmpdir / 'joblib')[0]
+    assert '__ipython-input__' in f_cache_relative_directory
+
     f_cache_directory = tmpdir / 'joblib' / f_cache_relative_directory
-    assert os.path.exists(f_cache_directory)
 
     # The cache should be empty as cached_f has not been called yet.
     assert os.listdir(f_cache_directory) == ['f']
