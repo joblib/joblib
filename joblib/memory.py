@@ -450,6 +450,7 @@ class MemorizedFunc(Logger):
         self.__doc__ = 'Memoized version of %s' % doc
 
         self._func_code_info = None
+        self._func_code_id = None
 
     def _cached_call(self, args, kwargs, shelving=False):
         """Call wrapped function and cache result, or read cache if available.
@@ -545,7 +546,15 @@ class MemorizedFunc(Logger):
 
     @property
     def func_code_info(self):
-        # 3-tuple property containing: func_code, source_file, first_line
+        # 3-tuple property containing: the function source code, source file,
+        # and first line of the code inside the source file
+        if hasattr(self.func, '__code__'):
+            if self._func_code_id is None:
+                self._func_code_id = id(self.func.__code__)
+            elif id(self.func.__code__) != self._func_code_id:
+                # Be robust to dynamic reassignments of self.func.__code__
+                self._func_code_info = None
+
         if self._func_code_info is None:
             # Cache the source code of self.func . Provided that get_func_code
             # (which should be called once on self) gets called in the process
@@ -591,6 +600,10 @@ class MemorizedFunc(Logger):
         # depending from it.
         state = self.__dict__.copy()
         state['timestamp'] = None
+
+        # Invalidate the code id as id(obj) will be different in the child
+        state['_func_code_id'] = None
+
         return state
 
     # ------------------------------------------------------------------------

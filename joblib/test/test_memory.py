@@ -1252,7 +1252,7 @@ def test_memory_pickle_dump_load(tmpdir, memory_kwargs):
     # Compare Memory instance before and after pickle roundtrip
     compare(memory.store_backend, memory_reloaded.store_backend)
     compare(memory, memory_reloaded,
-            ignored_attrs=set(['store_backend', 'timestamp']))
+            ignored_attrs=set(['store_backend', 'timestamp', '_func_code_id']))
     assert hash(memory) == hash(memory_reloaded)
 
     func_cached = memory.cache(f)
@@ -1262,7 +1262,7 @@ def test_memory_pickle_dump_load(tmpdir, memory_kwargs):
     # Compare MemorizedFunc instance before/after pickle roundtrip
     compare(func_cached.store_backend, func_cached_reloaded.store_backend)
     compare(func_cached, func_cached_reloaded,
-            ignored_attrs=set(['store_backend', 'timestamp']))
+            ignored_attrs=set(['store_backend', 'timestamp', '_func_code_id']))
     assert hash(func_cached) == hash(func_cached_reloaded)
 
     # Compare MemorizedResult instance before/after pickle roundtrip
@@ -1272,5 +1272,5 @@ def test_memory_pickle_dump_load(tmpdir, memory_kwargs):
     compare(memorized_result.store_backend,
             memorized_result_reloaded.store_backend)
     compare(memorized_result, memorized_result_reloaded,
-            ignored_attrs=set(['store_backend', 'timestamp']))
+            ignored_attrs=set(['store_backend', 'timestamp', '_func_code_id']))
     assert hash(memorized_result) == hash(memorized_result_reloaded)
