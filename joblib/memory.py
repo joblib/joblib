@@ -592,7 +592,7 @@ class MemorizedFunc(Logger):
 
     def __getstate__(self):
         # Make sure self.func's source is introspected prior to being pickled -
-        # code introspection utilities typically do not work inside childe
+        # code introspection utilities typically do not work inside child
         # processes
         _ = self.func_code_info
 
