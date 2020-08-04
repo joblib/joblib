@@ -4,6 +4,10 @@ Latest changes
 In development
 --------------
 
+- Fix a spurious invalidation of `Memory.cache`'d functions called with
+  `Parallel` under Jupyter or IPython.
+  https://github.com/joblib/joblib/pull/1093
+
 Release 0.16.0
 --------------
 
