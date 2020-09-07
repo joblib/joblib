@@ -671,6 +671,12 @@ class MemorizedFunc(Logger):
         """
         curr_func_code, source_file, first_line = self.func_code_info
         func_id = _build_func_identifier(self.func)
+        #if not self.store_backend.contains_path([func_id]): # doesnt work. .object_exists not available
+        try:
+            self.store_backend.get_cached_func_code([func_id])
+        except:
+            self._write_func_code(curr_func_code, first_line)
+            return False
         stored_func_code = self.store_backend.get_cached_func_code([func_id])
         if self._hash_ast(curr_func_code) == self._hash_ast(stored_func_code):
             return True
