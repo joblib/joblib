@@ -21,6 +21,8 @@ import warnings
 import inspect
 import sys
 import weakref
+import hashlib
+import ast
 
 from tokenize import open as open_py_source
 
@@ -620,10 +622,21 @@ class MemorizedFunc(Logger):
         argument_hash = self._get_argument_hash(*args, **kwargs)
         return func_id, argument_hash
 
+    @staticmethod
+    def _hash_ast(func_code):
+        _ = ast.parse(func_code)
+        _ = ast.dump(_)
+        _ = _.encode()
+        _ = hashlib.md5(_).hexdigest()
+        return _
+
     def _hash_func(self):
         """Hash a function to key the online cache"""
-        func_code_h = hash(getattr(self.func, '__code__', None))
-        return id(self.func), hash(self.func), func_code_h
+        try:
+            func_code_h = self._hash_ast(get_func_code(self.func)[0])
+        except SyntaxError: # not parsable output from get_func_code
+            func_code_h = hash(getattr(self.func, '__code__', None))
+        return (func_code_h, )
 
     def _write_func_code(self, func_code, first_line):
         """ Write the function code and the filename to a file.
@@ -656,6 +669,17 @@ class MemorizedFunc(Logger):
             stacklevel is the depth a which this function is called, to
             issue useful warnings to the user.
         """
+        curr_func_code, source_file, first_line = self.func_code_info
+        func_id = _build_func_identifier(self.func)
+        stored_func_code = self.store_backend.get_cached_func_code([func_id])
+        if self._hash_ast(curr_func_code) == self._hash_ast(stored_func_code):
+            return True
+        else:
+            # i don't think this mutation should be in a method called 'check_something'
+            self._write_func_code(curr_func_code, first_line)
+            return False
+        # remove the below???
+
         # First check if our function is in the in-memory store.
         # Using the in-memory store not only makes things faster, but it
         # also renders us robust to variations of the files when the
