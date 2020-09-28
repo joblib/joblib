@@ -19,7 +19,6 @@ import functools
 import traceback
 import warnings
 import inspect
-import sys
 import weakref
 
 from tokenize import open as open_py_source
@@ -31,7 +30,6 @@ from .func_inspect import format_call
 from .func_inspect import format_signature
 from .logger import Logger, format_time, pformat
 from ._store_backends import StoreBackendBase, FileSystemStoreBackend
-
 
 
 FIRST_LINE_TEXT = "# first line:"
@@ -135,7 +133,6 @@ def _store_backend_factory(backend, location, verbose=0, backend_options=None):
             "Instanciating a backend using a {} as a location is not "
             "supported by joblib. Returning None instead.".format(
                 location.__class__.__name__), UserWarning)
-
 
     return None
 
@@ -683,8 +680,8 @@ class MemorizedFunc(Logger):
                 extract_first_line(
                     self.store_backend.get_cached_func_code([func_id]))
         except (IOError, OSError):  # some backend can also raise OSError
-                self._write_func_code(func_code, first_line)
-                return False
+            self._write_func_code(func_code, first_line)
+            return False
         if old_func_code == func_code:
             return True
 
@@ -821,7 +818,6 @@ class MemorizedFunc(Logger):
                           % this_duration, stacklevel=5)
         return metadata
 
-    # XXX: Need a method to check if results are available.
     def check_call_in_cache(self, *args, **kwargs):
         """Check if function call is in the memory cache.
 
