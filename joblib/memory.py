@@ -449,6 +449,9 @@ class MemorizedFunc(Logger):
             doc = func.__doc__
         self.__doc__ = 'Memoized version of %s' % doc
 
+        self._func_code_info = None
+        self._func_code_id = None
+
     def _cached_call(self, args, kwargs, shelving=False):
         """Call wrapped function and cache result, or read cache if available.
 
@@ -541,6 +544,29 @@ class MemorizedFunc(Logger):
 
         return (out, args_id, metadata)
 
+    @property
+    def func_code_info(self):
+        # 3-tuple property containing: the function source code, source file,
+        # and first line of the code inside the source file
+        if hasattr(self.func, '__code__'):
+            if self._func_code_id is None:
+                self._func_code_id = id(self.func.__code__)
+            elif id(self.func.__code__) != self._func_code_id:
+                # Be robust to dynamic reassignments of self.func.__code__
+                self._func_code_info = None
+
+        if self._func_code_info is None:
+            # Cache the source code of self.func . Provided that get_func_code
+            # (which should be called once on self) gets called in the process
+            # in which self.func was defined, this caching mechanism prevents
+            # undesired cache clearing when the cached function is called in
+            # an environement where the introspection utilitiees get_func_code
+            # relies on do not work (typicially, in joblib child processes).
+            # See #1035 for  more info
+            # TODO (pierreglaser): do the same with get_func_name?
+            self._func_code_info = get_func_code(self.func)
+        return self._func_code_info
+
     def call_and_shelve(self, *args, **kwargs):
         """Call wrapped function, cache result and return a reference.
 
@@ -565,11 +591,19 @@ class MemorizedFunc(Logger):
         return self._cached_call(args, kwargs)[0]
 
     def __getstate__(self):
-        """ We don't store the timestamp when pickling, to avoid the hash
-            depending from it.
-        """
+        # Make sure self.func's source is introspected prior to being pickled -
+        # code introspection utilities typically do not work inside child
+        # processes
+        _ = self.func_code_info
+
+        # We don't store the timestamp when pickling, to avoid the hash
+        # depending from it.
         state = self.__dict__.copy()
         state['timestamp'] = None
+
+        # Invalidate the code id as id(obj) will be different in the child
+        state['_func_code_id'] = None
+
         return state
 
     # ------------------------------------------------------------------------
@@ -641,7 +675,7 @@ class MemorizedFunc(Logger):
         # Here, we go through some effort to be robust to dynamically
         # changing code and collision. We cannot inspect.getsource
         # because it is not reliable when using IPython's magic "%run".
-        func_code, source_file, first_line = get_func_code(self.func)
+        func_code, source_file, first_line = self.func_code_info
         func_id = _build_func_identifier(self.func)
 
         try:
@@ -713,7 +747,7 @@ class MemorizedFunc(Logger):
             self.warn("Clearing function cache identified by %s" % func_id)
         self.store_backend.clear_path([func_id, ])
 
-        func_code, _, first_line = get_func_code(self.func)
+        func_code, _, first_line = self.func_code_info
         self._write_func_code(func_code, first_line)
 
     def call(self, *args, **kwargs):

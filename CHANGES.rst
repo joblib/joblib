@@ -7,6 +7,9 @@ In development
 - Add check_call_in_cache method to check cache without calling function.
   https://github.com/joblib/joblib/pull/820
 
+- Fix a spurious invalidation of `Memory.cache`'d functions called with
+  `Parallel` under Jupyter or IPython.
+  https://github.com/joblib/joblib/pull/1093
 
 Release 0.16.0
 --------------
