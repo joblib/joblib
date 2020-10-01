@@ -141,6 +141,15 @@ class parallel_backend(object):
     it is possible to use the 'dask' backend for better scheduling of nested
     parallel calls without over-subscription and potentially distribute
     parallel calls over a networked cluster of several hosts.
+  
+    It is also possible to use the distributed 'ray' backend for distributing
+    the workload to a cluster of nodes. To use the 'ray' joblib backend add
+    the following lines:
+    
+    >>> from ray.util.joblib import register_ray
+    >>> register_ray()
+    >>> with parallel_backend("ray"):
+    ...     ...
 
     Alternatively the backend can be passed directly as an instance.
 
