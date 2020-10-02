@@ -14,6 +14,8 @@ from __future__ import division
 
 import os
 import sys
+import subprocess
+import traceback
 import warnings
 import multiprocessing as mp
 
@@ -22,6 +24,10 @@ from .process import LokyProcess, LokyInitMainProcess
 
 START_METHODS = ['loky', 'loky_init_main']
 _DEFAULT_START_METHOD = None
+
+# Cache for the number of physical cores to avoid repeating subprocess calls.
+# It should not change during the lifetime of the program.
+physical_cores_cache = None
 
 if sys.version_info[:2] >= (3, 4):
     from multiprocessing import get_context as mp_get_context
@@ -101,7 +107,7 @@ def get_start_method():
     return _DEFAULT_START_METHOD
 
 
-def cpu_count():
+def cpu_count(only_physical_cores=False):
     """Return the number of CPUs the current process can use.
 
     The returned number of CPUs accounts for:
@@ -113,14 +119,56 @@ def cpu_count():
        set by docker and similar container orchestration systems);
      * the value of the LOKY_MAX_CPU_COUNT environment variable if defined.
     and is given as the minimum of these constraints.
+
+    If ``only_physical_cores`` is True, return the number of physical cores
+    instead of the number of logical cores (hyperthreading / SMT). Note that
+    this option is not enforced if the number of usable cores is controlled in
+    any other way such as: process affinity, restricting CFS scheduler policy
+    or the LOKY_MAX_CPU_COUNT environment variable. If the number of physical
+    cores is not found, return the number of logical cores.
+ 
     It is also always larger or equal to 1.
     """
-    import math
-
+    # TODO: use os.cpu_count when dropping python 2 support
     try:
         cpu_count_mp = mp.cpu_count()
     except NotImplementedError:
         cpu_count_mp = 1
+
+    cpu_count_user = _cpu_count_user(cpu_count_mp)
+    aggregate_cpu_count = min(cpu_count_mp, cpu_count_user)
+
+    if only_physical_cores:
+        cpu_count_physical, exception = _count_physical_cores()
+        if cpu_count_user < cpu_count_mp:
+            # Respect user setting
+            cpu_count = max(cpu_count_user, 1)
+        elif cpu_count_physical == "not found":
+            # Fallback to default behavior
+            if exception is not None:
+                # warns only the first time
+                warnings.warn(
+                    "Could not find the number of physical cores for the "
+                    "following reason:\n" + str(exception) + "\n"
+                    "Returning the number of logical cores instead. You can "
+                    "silence this warning by setting LOKY_MAX_CPU_COUNT to "
+                    "the number of cores you want to use.")
+                if sys.version_info >= (3, 5):
+                    # TODO remove the version check when dropping py2 support
+                    traceback.print_tb(exception.__traceback__)
+
+            cpu_count = max(aggregate_cpu_count, 1)
+        else:
+            return cpu_count_physical
+    else:
+        cpu_count = max(aggregate_cpu_count, 1)
+
+    return cpu_count
+
+
+def _cpu_count_user(cpu_count_mp):
+    """Number of user defined available CPUs"""
+    import math
 
     # Number of available CPUs given affinity settings
     cpu_count_affinity = cpu_count_mp
@@ -146,11 +194,65 @@ def cpu_count():
             # float in python2.7. (See issue #165)
             cpu_count_cfs = int(math.ceil(cfs_quota_us / cfs_period_us))
 
-    # User defined soft-limit passed as an loky specific environment variable.
+    # User defined soft-limit passed as a loky specific environment variable.
     cpu_count_loky = int(os.environ.get('LOKY_MAX_CPU_COUNT', cpu_count_mp))
-    aggregate_cpu_count = min(cpu_count_mp, cpu_count_affinity, cpu_count_cfs,
-                              cpu_count_loky)
-    return max(aggregate_cpu_count, 1)
+
+    return min(cpu_count_affinity, cpu_count_cfs, cpu_count_loky)
+
+
+def _count_physical_cores():
+    """Return a tuple (number of physical cores, exception)
+
+    If the number of physical cores is found, exception is set to None.
+    If it has not been found, return ("not found", exception).
+
+    The number of physical cores is cached to avoid repeating subprocess calls.
+    """
+    exception = None
+
+    # First check if the value is cached
+    global physical_cores_cache
+    if physical_cores_cache is not None:
+        return physical_cores_cache, exception
+
+    # Not cached yet, find it
+    try:
+        if sys.platform == "linux":
+            cpu_info = subprocess.run(
+                "lscpu --parse=core".split(" "), capture_output=True)
+            cpu_info = cpu_info.stdout.decode("utf-8").splitlines()
+            cpu_info = {line for line in cpu_info if not line.startswith("#")}
+            cpu_count_physical = len(cpu_info)
+        elif sys.platform == "win32":
+            cpu_info = subprocess.run(
+                "wmic CPU Get NumberOfCores /Format:csv".split(" "),
+                capture_output=True)
+            cpu_info = cpu_info.stdout.decode('utf-8').splitlines()
+            cpu_info = [l.split(",")[1] for l in cpu_info
+                        if (l and l != "Node,NumberOfCores")]
+            cpu_count_physical = sum(map(int, cpu_info))
+        elif sys.platform == "darwin":
+            cpu_info = subprocess.run(
+                "sysctl -n hw.physicalcpu".split(" "), capture_output=True)
+            cpu_info = cpu_info.stdout.decode('utf-8')
+            cpu_count_physical = int(cpu_info)
+        else:
+            raise NotImplementedError(
+                "unsupported platform: {}".format(sys.platform))
+
+        # if cpu_count_physical < 1, we did not find a valid value
+        if cpu_count_physical < 1:
+            raise ValueError(
+                "found {} physical cores < 1".format(cpu_count_physical))
+        
+    except Exception as e:
+        exception = e
+        cpu_count_physical = "not found"
+
+    # Put the result in cache
+    physical_cores_cache = cpu_count_physical
+    
+    return cpu_count_physical, exception
 
 
 class LokyContext(BaseContext):
