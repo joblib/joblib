@@ -146,10 +146,11 @@ class parallel_backend(object):
     the workload to a cluster of nodes. To use the 'ray' joblib backend add
     the following lines:
 
-    >>> from ray.util.joblib import register_ray
-    >>> register_ray()
-    >>> with parallel_backend("ray"):
-    ...     ...
+    >> from ray.util.joblib import register_ray
+    >> register_ray()
+    >> with parallel_backend("ray"):
+    ..     print(Parallel()(delayed(neg)(i + 1) for i in range(5)))
+    [-1, -2, -3, -4, -5]
 
     Alternatively the backend can be passed directly as an instance.
 
