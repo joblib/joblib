@@ -279,12 +279,21 @@ class BatchedCalls(object):
 ###############################################################################
 # CPU count that works also when multiprocessing has been disabled via
 # the JOBLIB_MULTIPROCESSING environment variable
-def cpu_count():
-    """Return the number of CPUs."""
+def cpu_count(only_physical_cores=False):
+    """Return the number of CPUs.
+
+    This delegates to loky.cpu_count that takes into account additional
+    constraints such as Linux CFS scheduler quotas (typically set by container
+    runtimes such as docker) and CPU affinity (for instance using the taskset
+    command on Linux).
+
+    If only_physical_cores is True, do not take hyperthreading / SMT logical
+    cores into account.
+    """
     if mp is None:
         return 1
 
-    return loky.cpu_count()
+    return loky.cpu_count(only_physical_cores=only_physical_cores)
 
 
 ###############################################################################

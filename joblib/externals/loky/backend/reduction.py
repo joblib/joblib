@@ -13,6 +13,7 @@ import os
 import sys
 import functools
 from multiprocessing import util
+import types
 try:
     # Python 2 compat
     from cPickle import loads as pickle_loads
@@ -21,7 +22,6 @@ except ImportError:
     import copyreg
 
 from pickle import HIGHEST_PROTOCOL
-
 
 if sys.platform == "win32":
     if sys.version_info[:2] > (3, 3):
@@ -170,29 +170,53 @@ def set_loky_pickler(loky_pickler=None):
     class CustomizablePickler(loky_pickler_cls):
         _loky_pickler_cls = loky_pickler_cls
 
-        if sys.version_info < (3,):
-            # Make the dispatch registry an instance level attribute instead of
-            # a reference to the class dictionary under Python 2
-            _dispatch = loky_pickler_cls.dispatch.copy()
-            _dispatch.update(_ReducerRegistry.dispatch_table)
-        else:
-            # Under Python 3 initialize the dispatch table with a copy of the
-            # default registry
-            _dispatch_table = copyreg.dispatch_table.copy()
-            _dispatch_table.update(_ReducerRegistry.dispatch_table)
+        def _set_dispatch_table(self, dispatch_table):
+            for ancestor_class in self._loky_pickler_cls.mro():
+                dt_attribute = getattr(ancestor_class, "dispatch_table", None)
+                if isinstance(dt_attribute, types.MemberDescriptorType):
+                    # Ancestor class (typically _pickle.Pickler) has a
+                    # member_descriptor for its "dispatch_table" attribute. Use
+                    # it to set the dispatch_table as a member instead of a
+                    # dynamic attribute in the __dict__ of the instance,
+                    # otherwise it will not be taken into account by the C
+                    # implementation of the dump method if a subclass defines a
+                    # class-level dispatch_table attribute as was done in
+                    # cloudpickle 1.6.0:
+                    # https://github.com/joblib/loky/pull/260
+                    dt_attribute.__set__(self, dispatch_table)
+                    break
+
+            # On top of member descriptor set, also use setattr such that code
+            # that directly access self.dispatch_table gets a consistent view
+            # of the same table.
+            self.dispatch_table = dispatch_table
 
         def __init__(self, writer, reducers=None, protocol=HIGHEST_PROTOCOL):
             loky_pickler_cls.__init__(self, writer, protocol=protocol)
             if reducers is None:
                 reducers = {}
             if sys.version_info < (3,):
-                self.dispatch = self._dispatch.copy()
+                self.dispatch = loky_pickler_cls.dispatch.copy()
+                self.dispatch.update(_ReducerRegistry.dispatch_table)
             else:
-                if getattr(self, "dispatch_table", None) is not None:
-                    self.dispatch_table.update(self._dispatch_table.copy())
+                if hasattr(self, "dispatch_table"):
+                    # Force a copy that we will update without mutating the
+                    # any class level defined dispatch_table.
+                    loky_dt = dict(self.dispatch_table)
                 else:
-                    self.dispatch_table = self._dispatch_table.copy()
+                    # Use standard reducers as bases
+                    loky_dt = copyreg.dispatch_table.copy()
 
+                # Register loky specific reducers
+                loky_dt.update(_ReducerRegistry.dispatch_table)
+
+                # Set the new dispatch table, taking care of the fact that we
+                # need to use the member_descriptor when we inherit from a
+                # subclass of the C implementation of the Pickler base class
+                # with an class level dispatch_table attribute.
+                self._set_dispatch_table(loky_dt)
+
+            # Register custom reducers
             for type, reduce_func in reducers.items():
                 self.register(type, reduce_func)
 
@@ -202,10 +226,10 @@ def set_loky_pickler(loky_pickler=None):
             if sys.version_info < (3,):
                 # Python 2 pickler dispatching is not explicitly customizable.
                 # Let us use a closure to workaround this limitation.
-                    def dispatcher(self, obj):
-                        reduced = reduce_func(obj)
-                        self.save_reduce(obj=obj, *reduced)
-                    self.dispatch[type] = dispatcher
+                def dispatcher(self, obj):
+                    reduced = reduce_func(obj)
+                    self.save_reduce(obj=obj, *reduced)
+                self.dispatch[type] = dispatcher
             else:
                 self.dispatch_table[type] = reduce_func
 
