@@ -142,6 +142,15 @@ class parallel_backend(object):
     parallel calls without over-subscription and potentially distribute
     parallel calls over a networked cluster of several hosts.
 
+    It is also possible to use the distributed 'ray' backend for distributing
+    the workload to a cluster of nodes. To use the 'ray' joblib backend add
+    the following lines:
+
+    >>> from ray.util.joblib import register_ray
+    >>> register_ray()
+    >>> with parallel_backend("ray"):
+    ...     ...
+
     Alternatively the backend can be passed directly as an instance.
 
     By default all available workers will be used (``n_jobs=-1``) unless the
