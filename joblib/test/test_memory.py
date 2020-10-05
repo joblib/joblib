@@ -594,6 +594,7 @@ def test_check_call_in_cache(tmpdir):
         assert isinstance(result, bool)
         func.clear()
 
+
 def test_call_and_shelve(tmpdir):
     # Test MemorizedFunc outputting a reference to cache.
 

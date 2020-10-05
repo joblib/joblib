@@ -358,6 +358,12 @@ class NotMemorizedFunc(object):
         # Argument "warn" is for compatibility with MemorizedFunc.clear
         pass
 
+    def call(self, *args, **kwargs):
+        return self.func(*args, **kwargs)
+
+    def check_call_in_cache(self, *args, **kwargs):
+        return False
+
 
 ###############################################################################
 # class `MemorizedFunc`
@@ -603,6 +609,21 @@ class MemorizedFunc(Logger):
 
         return state
 
+    def check_call_in_cache(self, *args, **kwargs):
+        """Check if function call is in the memory cache.
+
+        Does not call the function or do any work besides func inspection
+        and arg hashing.
+
+        Returns
+        -------
+        is_called_in_cache: bool
+            whether or not the function has been cached for the input
+            arguments that have been passed.
+        """
+        func_id, args_id = self._get_output_identifiers(*args, **kwargs)
+        return self.store_backend.contains_item((func_id, args_id))
+
     # ------------------------------------------------------------------------
     # Private interface
     # ------------------------------------------------------------------------
@@ -817,19 +838,6 @@ class MemorizedFunc(Logger):
                           " example so that they can fix the problem."
                           % this_duration, stacklevel=5)
         return metadata
-
-    def check_call_in_cache(self, *args, **kwargs):
-        """Check if function call is in the memory cache.
-
-        Does not call the function or do any work besides func inspection
-        and arg hashing.
-
-        Returns
-        -------
-        store_backend.contains_item: bool
-        """
-        func_id, args_id = self._get_output_identifiers(*args, **kwargs)
-        return self.store_backend.contains_item((func_id, args_id))
 
     # ------------------------------------------------------------------------
     # Private `object` interface
