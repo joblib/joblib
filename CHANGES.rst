@@ -6,10 +6,17 @@ In development
 
 - Add check_call_in_cache method to check cache without calling function.
   https://github.com/joblib/joblib/pull/820
+ 
+ 
+Release 0.17.0
+--------------
 
 - Fix a spurious invalidation of `Memory.cache`'d functions called with
   `Parallel` under Jupyter or IPython.
   https://github.com/joblib/joblib/pull/1093
+
+- Bump vendored loky to 2.9.0 and cloudpickle to 1.6.0. In particular
+  this fixes a problem to add compat for Python 3.9.
 
 Release 0.16.0
 --------------

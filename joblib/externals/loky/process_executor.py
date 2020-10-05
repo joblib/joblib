@@ -605,7 +605,7 @@ class _ExecutorManagerThread(threading.Thread):
         result_reader = self.result_queue._reader
         wakeup_reader = self.thread_wakeup._reader
         readers = [result_reader, wakeup_reader]
-        worker_sentinels = [p.sentinel for p in self.processes.values()]
+        worker_sentinels = [p.sentinel for p in list(self.processes.values())]
         ready = wait(readers + worker_sentinels)
 
         bpe = None
@@ -816,7 +816,7 @@ class _ExecutorManagerThread(threading.Thread):
         # If .join() is not called on the created processes then
         # some ctx.Queue methods may deadlock on Mac OS X.
         mp.util.debug("joining processes")
-        for p in self.processes.values():
+        for p in list(self.processes.values()):
             p.join()
 
         mp.util.debug("executor management thread clean shutdown of worker "

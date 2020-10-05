@@ -175,7 +175,7 @@ def test_parallel_call_cached_function_defined_in_jupyter(
 
         assert len(os.listdir(tmpdir / 'joblib')) == 1
         f_cache_relative_directory = os.listdir(tmpdir / 'joblib')[0]
-        assert '__ipython-input__' in f_cache_relative_directory
+        assert 'ipython-input' in f_cache_relative_directory
 
         f_cache_directory = tmpdir / 'joblib' / f_cache_relative_directory
 

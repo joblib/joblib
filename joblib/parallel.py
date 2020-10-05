@@ -142,6 +142,16 @@ class parallel_backend(object):
     parallel calls without over-subscription and potentially distribute
     parallel calls over a networked cluster of several hosts.
 
+    It is also possible to use the distributed 'ray' backend for distributing
+    the workload to a cluster of nodes. To use the 'ray' joblib backend add
+    the following lines:
+
+    >> from ray.util.joblib import register_ray
+    >> register_ray()
+    >> with parallel_backend("ray"):
+    ..     print(Parallel()(delayed(neg)(i + 1) for i in range(5)))
+    [-1, -2, -3, -4, -5]
+
     Alternatively the backend can be passed directly as an instance.
 
     By default all available workers will be used (``n_jobs=-1``) unless the
@@ -269,12 +279,21 @@ class BatchedCalls(object):
 ###############################################################################
 # CPU count that works also when multiprocessing has been disabled via
 # the JOBLIB_MULTIPROCESSING environment variable
-def cpu_count():
-    """Return the number of CPUs."""
+def cpu_count(only_physical_cores=False):
+    """Return the number of CPUs.
+
+    This delegates to loky.cpu_count that takes into account additional
+    constraints such as Linux CFS scheduler quotas (typically set by container
+    runtimes such as docker) and CPU affinity (for instance using the taskset
+    command on Linux).
+
+    If only_physical_cores is True, do not take hyperthreading / SMT logical
+    cores into account.
+    """
     if mp is None:
         return 1
 
-    return loky.cpu_count()
+    return loky.cpu_count(only_physical_cores=only_physical_cores)
 
 
 ###############################################################################
