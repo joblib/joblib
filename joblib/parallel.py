@@ -149,7 +149,7 @@ class parallel_backend(object):
      >>> from ray.util.joblib import register_ray  # doctest: +SKIP
      >>> register_ray()  # doctest: +SKIP
      >>> with parallel_backend("ray"):  # doctest: +SKIP
-     ...     print(Parallel()(delayed(neg)(i + 1) for i in range(5)))  # doctest: +SKIP  # noqa
+     ...     print(Parallel()(delayed(neg)(i + 1) for i in range(5)))
      [-1, -2, -3, -4, -5]
 
     Alternatively the backend can be passed directly as an instance.
