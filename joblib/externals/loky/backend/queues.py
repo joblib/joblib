@@ -72,7 +72,10 @@ class Queue(mp_Queue):
         (self._ignore_epipe, self._maxsize, self._reader, self._writer,
          self._reducers, self._rlock, self._wlock, self._sem,
          self._opid) = state
-        self._after_fork()
+        if sys.version_info >= (3, 9):
+            self._reset()
+        else:
+            self._after_fork()
 
     # Overload _start_thread to correctly call our custom _feed
     def _start_thread(self):

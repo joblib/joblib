@@ -3,14 +3,15 @@ import os
 
 import pytest
 from random import random
+from uuid import uuid4
 from time import sleep
 
 from .. import Parallel, delayed, parallel_backend
-from ..parallel import ThreadingBackend
+from ..parallel import ThreadingBackend, AutoBatchingMixin
 from .._dask import DaskDistributedBackend
 
 distributed = pytest.importorskip('distributed')
-from distributed import Client, LocalCluster
+from distributed import Client, LocalCluster, get_client
 from distributed.metrics import time
 from distributed.utils_test import cluster, inc
 
@@ -23,6 +24,15 @@ def slow_raise_value_error(condition, duration=0.05):
     sleep(duration)
     if condition:
         raise ValueError("condition evaluated to True")
+
+
+def count_events(event_name, client):
+    worker_events = client.run(lambda dask_worker: dask_worker.log)
+    event_counts = {}
+    for w, events in worker_events.items():
+        event_counts[w] = len([event for event in list(events)
+                               if event[1] == event_name])
+    return event_counts
 
 
 def test_simple(loop):
@@ -40,6 +50,30 @@ def test_simple(loop):
                 assert seq == [inc(i) for i in range(10)]
 
 
+def test_dask_backend_uses_autobatching(loop):
+    assert (DaskDistributedBackend.compute_batch_size
+            is AutoBatchingMixin.compute_batch_size)
+
+    with cluster() as (s, [a, b]):
+        with Client(s['address'], loop=loop) as client:  # noqa: F841
+            with parallel_backend('dask') as (ba, _):
+                with Parallel() as parallel:
+                    # The backend should be initialized with a default
+                    # batch size of 1:
+                    backend = parallel._backend
+                    assert isinstance(backend, DaskDistributedBackend)
+                    assert backend.parallel is parallel
+                    assert backend._effective_batch_size == 1
+
+                    # Launch many short tasks that should trigger
+                    # auto-batching:
+                    parallel(
+                        delayed(lambda: None)()
+                        for _ in range(int(1e4))
+                    )
+                    assert backend._effective_batch_size > 10
+
+
 def random2():
     return random()
 
@@ -52,20 +86,85 @@ def test_dont_assume_function_purity(loop):
                 assert x != y
 
 
-def test_dask_funcname(loop):
+@pytest.mark.parametrize("mixed", [True, False])
+def test_dask_funcname(loop, mixed):
+    from joblib._dask import Batch
+    if not mixed:
+        tasks = [delayed(inc)(i) for i in range(4)]
+        batch_repr = 'batch_of_inc_4_calls'
+    else:
+        tasks = [
+            delayed(abs)(i) if i % 2 else delayed(inc)(i) for i in range(4)
+        ]
+        batch_repr = 'mixed_batch_of_inc_4_calls'
+
+    assert repr(Batch(tasks)) == batch_repr
+
     with cluster() as (s, [a, b]):
         with Client(s['address'], loop=loop) as client:
             with parallel_backend('dask') as (ba, _):
-                x, y = Parallel()(delayed(inc)(i) for i in range(2))
+                _ = Parallel(batch_size=2, pre_dispatch='all')(tasks)
 
             def f(dask_scheduler):
                 return list(dask_scheduler.transition_log)
+            batch_repr = batch_repr.replace('4', '2')
             log = client.run_on_scheduler(f)
-            assert all(tup[0].startswith('inc-batch') for tup in log)
+            assert all('batch_of_inc' in tup[0] for tup in log)
 
 
-def add5(a, b, c, d=0, e=0):
-    return a + b + c + d + e
+def test_no_undesired_distributed_cache_hit(loop):
+    # Dask has a pickle cache for callables that are called many times. Because
+    # the dask backends used to wrapp both the functions and the arguments
+    # under instances of the Batch callable class this caching mechanism could
+    # lead to bugs as described in: https://github.com/joblib/joblib/pull/1055
+    # The joblib-dask backend has been refactored to avoid bundling the
+    # arguments as an attribute of the Batch instance to avoid this problem.
+    # This test serves as non-regression problem.
+
+    # Use a large number of input arguments to give the AutoBatchingMixin
+    # enough tasks to kick-in.
+    lists = [[] for _ in range(100)]
+    np = pytest.importorskip('numpy')
+    X = np.arange(int(1e6))
+
+    def isolated_operation(list_, X=None):
+        list_.append(uuid4().hex)
+        return list_
+
+    cluster = LocalCluster(n_workers=1, threads_per_worker=2)
+    client = Client(cluster)
+    try:
+        with parallel_backend('dask') as (ba, _):
+            # dispatches joblib.parallel.BatchedCalls
+            res = Parallel()(
+                delayed(isolated_operation)(list_) for list_ in lists
+            )
+
+        # The original arguments should not have been mutated as the mutation
+        # happens in the dask worker process.
+        assert lists == [[] for _ in range(100)]
+
+        # Here we did not pass any large numpy array as argument to
+        # isolated_operation so no scattering event should happen under the
+        # hood.
+        counts = count_events('receive-from-scatter', client)
+        assert sum(counts.values()) == 0
+        assert all([len(r) == 1 for r in res])
+
+        with parallel_backend('dask') as (ba, _):
+            # Append a large array which will be scattered by dask, and
+            # dispatch joblib._dask.Batch
+            res = Parallel()(
+                delayed(isolated_operation)(list_, X=X) for list_ in lists
+            )
+
+        # This time, auto-scattering should have kicked it.
+        counts = count_events('receive-from-scatter', client)
+        assert sum(counts.values()) > 0
+        assert all([len(r) == 1 for r in res])
+    finally:
+        client.close()
+        cluster.close()
 
 
 class CountSerialized(object):
@@ -81,6 +180,10 @@ class CountSerialized(object):
     def __reduce__(self):
         self.count += 1
         return (CountSerialized, (self.x,))
+
+
+def add5(a, b, c, d=0, e=0):
+    return a + b + c + d + e
 
 
 def test_manual_scatter(loop):
@@ -110,7 +213,11 @@ def test_manual_scatter(loop):
     # Scattered variables only serialized once
     assert x.count == 1
     assert y.count == 1
-    assert z.count == 4
+    # Depending on the version of distributed, the unscattered z variable
+    # is either pickled 4 or 6 times, possibly because of the memoization
+    # of objects that appear several times in the arguments of a delayed
+    # task.
+    assert z.count in (4, 6)
 
 
 def test_auto_scatter(loop):
@@ -118,14 +225,6 @@ def test_auto_scatter(loop):
     data1 = np.ones(int(1e4), dtype=np.uint8)
     data2 = np.ones(int(1e4), dtype=np.uint8)
     data_to_process = ([data1] * 3) + ([data2] * 3)
-
-    def count_events(event_name, client):
-        worker_events = client.run(lambda dask_worker: dask_worker.log)
-        event_counts = {}
-        for w, events in worker_events.items():
-            event_counts[w] = len([event for event in list(events)
-                                   if event[1] == event_name])
-        return event_counts
 
     with cluster() as (s, [a, b]):
         with Client(s['address'], loop=loop) as client:
@@ -150,6 +249,36 @@ def test_auto_scatter(loop):
             counts = count_events('receive-from-scatter', client)
             assert counts[a['address']] == 0
             assert counts[b['address']] == 0
+
+
+@pytest.mark.parametrize("retry_no", list(range(2)))
+def test_nested_scatter(loop, retry_no):
+
+    np = pytest.importorskip('numpy')
+
+    NUM_INNER_TASKS = 10
+    NUM_OUTER_TASKS = 10
+
+    def my_sum(x, i, j):
+        return np.sum(x)
+
+    def outer_function_joblib(array, i):
+        client = get_client()  # noqa
+        with parallel_backend("dask"):
+            results = Parallel()(
+                delayed(my_sum)(array[j:], i, j) for j in range(
+                    NUM_INNER_TASKS)
+            )
+        return sum(results)
+
+    with cluster() as (s, [a, b]):
+        with Client(s['address'], loop=loop) as _:
+            with parallel_backend("dask"):
+                my_array = np.ones(10000)
+                _ = Parallel()(
+                    delayed(outer_function_joblib)(
+                        my_array[i:], i) for i in range(NUM_OUTER_TASKS)
+                )
 
 
 def test_nested_backend_context_manager(loop):

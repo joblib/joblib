@@ -128,10 +128,20 @@ def get_func_name(func, resolv_alias=True, win_characters=True):
             # mangling of full path to filename
             parts = filename.split(os.sep)
             if parts[-1].startswith('<ipython-input'):
-                # function is defined in an IPython session. The filename
-                # will change with every new kernel instance. This hack
-                # always returns the same filename
-                parts[-1] = '__ipython-input__'
+                # We're in a IPython (or notebook) session. parts[-1] comes
+                # from func.__code__.co_filename and is of the form
+                # <ipython-input-N-XYZ>, where:
+                # - N is the cell number where the function was defined
+                # - XYZ is a hash representing the function's code (and name).
+                #   It will be consistent across sessions and kernel restarts,
+                #   and will change if the function's code/name changes
+                # We remove N so that cache is properly hit if the cell where
+                # the func is defined is re-exectuted.
+                # The XYZ hash should avoid collisions between functions with
+                # the same name, both within the same notebook but also across
+                # notebooks
+                splitted = parts[-1].split('-')
+                parts[-1] = '-'.join(splitted[:2] + splitted[3:])
             filename = '-'.join(parts)
             if filename.endswith('.py'):
                 filename = filename[:-3]
@@ -155,7 +165,7 @@ def get_func_name(func, resolv_alias=True, win_characters=True):
             klass = func.im_class
             module.append(klass.__name__)
     if os.name == 'nt' and win_characters:
-        # Stupid windows can't encode certain characters in filenames
+        # Windows can't encode certain characters in filenames
         name = _clean_win_chars(name)
         module = [_clean_win_chars(s) for s in module]
     return module, name
@@ -253,14 +263,14 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
             else:
                 try:
                     arg_dict[arg_name] = arg_defaults[position]
-                except (IndexError, KeyError):
+                except (IndexError, KeyError) as e:
                     # Missing argument
                     raise ValueError(
                         'Wrong number of arguments for %s:\n'
                         '     %s was called.'
                         % (_signature_str(name, arg_spec),
                            _function_called_str(name, args, kwargs))
-                    )
+                    ) from e
 
     varkwargs = dict()
     for arg_name, arg_value in sorted(kwargs.items()):

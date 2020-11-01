@@ -36,10 +36,10 @@ if mp is not None:
                 _sem = SemLock(0, 0, 1, name=name, unlink=True)
                 del _sem  # cleanup
                 break
-            except FileExistsError:  # pragma: no cover
+            except FileExistsError as e:  # pragma: no cover
                 if i >= 99:
                     raise FileExistsError(
-                        'cannot find name for semaphore')
+                        'cannot find name for semaphore') from e
     except (FileExistsError, AttributeError, ImportError, OSError) as e:
         mp = None
         warnings.warn('%s.  joblib will operate in serial mode' % (e,))

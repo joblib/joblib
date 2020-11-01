@@ -15,6 +15,7 @@ import pickle
 import sys
 import time
 import datetime
+import textwrap
 
 import pytest
 
@@ -122,6 +123,105 @@ def test_memory_integration(tmpdir):
     f.__module__ = '__main__'
     memory = Memory(location=tmpdir.strpath, verbose=0)
     memory.cache(f)(1)
+
+
+@parametrize("call_before_reducing", [True, False])
+def test_parallel_call_cached_function_defined_in_jupyter(
+    tmpdir, call_before_reducing
+):
+    # Calling an interactively defined memory.cache()'d function inside a
+    # Parallel call used to clear the existing cache related to the said
+    # function (https://github.com/joblib/joblib/issues/1035)
+
+    # This tests checks that this is no longer the case.
+
+    # TODO: test that the cache related to the function cache persists across
+    # ipython sessions (provided that no code change were made to the
+    # function's source)?
+
+    # The first part of the test makes the necessary low-level calls to emulate
+    # the definition of a function in an jupyter notebook cell. Joblib has
+    # some custom code to treat functions defined specifically in jupyter
+    # notebooks/ipython session -- we want to test this code, which requires
+    # the emulation to be rigorous.
+    for session_no in [0, 1]:
+        ipython_cell_source = '''
+        def f(x):
+            return x
+        '''
+
+        ipython_cell_id = '<ipython-input-{}-000000000000>'.format(session_no)
+
+        exec(
+            compile(
+                textwrap.dedent(ipython_cell_source),
+                filename=ipython_cell_id,
+                mode='exec'
+            )
+        )
+        # f is now accessible in the locals mapping - but for some unknown
+        # reason, f = locals()['f'] throws a KeyError at runtime, we need to
+        # bind locals()['f'] to a different name in the local namespace
+        aliased_f = locals()['f']
+        aliased_f.__module__ = "__main__"
+
+        # Preliminary sanity checks, and tests checking that joblib properly
+        # identified f as an interactive function defined in a jupyter notebook
+        assert aliased_f(1) == 1
+        assert aliased_f.__code__.co_filename == ipython_cell_id
+
+        memory = Memory(location=tmpdir.strpath, verbose=0)
+        cached_f = memory.cache(aliased_f)
+
+        assert len(os.listdir(tmpdir / 'joblib')) == 1
+        f_cache_relative_directory = os.listdir(tmpdir / 'joblib')[0]
+        assert 'ipython-input' in f_cache_relative_directory
+
+        f_cache_directory = tmpdir / 'joblib' / f_cache_relative_directory
+
+        if session_no == 0:
+            # The cache should be empty as cached_f has not been called yet.
+            assert os.listdir(f_cache_directory) == ['f']
+            assert os.listdir(f_cache_directory / 'f') == []
+
+            if call_before_reducing:
+                cached_f(3)
+                # Two files were just created, func_code.py, and a folder
+                # containing the informations (inputs hash/ouptput) of
+                # cached_f(3)
+                assert len(os.listdir(f_cache_directory / 'f')) == 2
+
+                # Now, testing  #1035: when calling a cached function, joblib
+                # used to dynamically inspect the underlying function to
+                # extract its source code (to verify it matches the source code
+                # of the function as last inspected by joblib) -- however,
+                # source code introspection fails for dynamic functions sent to
+                # child processes - which would eventually make joblib clear
+                # the cache associated to f
+                res = Parallel(n_jobs=2)(delayed(cached_f)(i) for i in [1, 2])
+            else:
+                # Submit the function to the joblib child processes, although
+                # the function has never been called in the parent yet. This
+                # triggers a specific code branch inside
+                # MemorizedFunc.__reduce__.
+                res = Parallel(n_jobs=2)(delayed(cached_f)(i) for i in [1, 2])
+                assert len(os.listdir(f_cache_directory / 'f')) == 3
+
+                cached_f(3)
+
+            # Making sure f's cache does not get cleared after the parallel
+            # calls, and contains ALL cached functions calls (f(1), f(2), f(3))
+            # and 'func_code.py'
+            assert len(os.listdir(f_cache_directory / 'f')) == 4
+        else:
+            # For the second session, there should be an already existing cache
+            assert len(os.listdir(f_cache_directory / 'f')) == 4
+
+            cached_f(3)
+
+            # The previous cache should not be invalidated after calling the
+            # function in a new session
+            assert len(os.listdir(f_cache_directory / 'f')) == 4
 
 
 def test_no_memory():
@@ -1176,7 +1276,7 @@ def test_memory_pickle_dump_load(tmpdir, memory_kwargs):
     # Compare Memory instance before and after pickle roundtrip
     compare(memory.store_backend, memory_reloaded.store_backend)
     compare(memory, memory_reloaded,
-            ignored_attrs=set(['store_backend', 'timestamp']))
+            ignored_attrs=set(['store_backend', 'timestamp', '_func_code_id']))
     assert hash(memory) == hash(memory_reloaded)
 
     func_cached = memory.cache(f)
@@ -1186,7 +1286,7 @@ def test_memory_pickle_dump_load(tmpdir, memory_kwargs):
     # Compare MemorizedFunc instance before/after pickle roundtrip
     compare(func_cached.store_backend, func_cached_reloaded.store_backend)
     compare(func_cached, func_cached_reloaded,
-            ignored_attrs=set(['store_backend', 'timestamp']))
+            ignored_attrs=set(['store_backend', 'timestamp', '_func_code_id']))
     assert hash(func_cached) == hash(func_cached_reloaded)
 
     # Compare MemorizedResult instance before/after pickle roundtrip
@@ -1196,5 +1296,5 @@ def test_memory_pickle_dump_load(tmpdir, memory_kwargs):
     compare(memorized_result.store_backend,
             memorized_result_reloaded.store_backend)
     compare(memorized_result, memorized_result_reloaded,
-            ignored_attrs=set(['store_backend', 'timestamp']))
+            ignored_attrs=set(['store_backend', 'timestamp', '_func_code_id']))
     assert hash(memorized_result) == hash(memorized_result_reloaded)

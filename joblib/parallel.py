@@ -60,12 +60,12 @@ def _register_dask():
     try:
         from ._dask import DaskDistributedBackend
         register_parallel_backend('dask', DaskDistributedBackend)
-    except ImportError:
+    except ImportError as e:
         msg = ("To use the dask.distributed backend you must install both "
                "the `dask` and distributed modules.\n\n"
                "See https://dask.pydata.org/en/latest/install.html for more "
                "information.")
-        raise ImportError(msg)
+        raise ImportError(msg) from e
 
 
 EXTERNAL_BACKENDS = {
@@ -141,6 +141,16 @@ class parallel_backend(object):
     it is possible to use the 'dask' backend for better scheduling of nested
     parallel calls without over-subscription and potentially distribute
     parallel calls over a networked cluster of several hosts.
+
+    It is also possible to use the distributed 'ray' backend for distributing
+    the workload to a cluster of nodes. To use the 'ray' joblib backend add
+    the following lines::
+
+     >>> from ray.util.joblib import register_ray  # doctest: +SKIP
+     >>> register_ray()  # doctest: +SKIP
+     >>> with parallel_backend("ray"):  # doctest: +SKIP
+     ...     print(Parallel()(delayed(neg)(i + 1) for i in range(5)))
+     [-1, -2, -3, -4, -5]
 
     Alternatively the backend can be passed directly as an instance.
 
@@ -269,12 +279,21 @@ class BatchedCalls(object):
 ###############################################################################
 # CPU count that works also when multiprocessing has been disabled via
 # the JOBLIB_MULTIPROCESSING environment variable
-def cpu_count():
-    """Return the number of CPUs."""
+def cpu_count(only_physical_cores=False):
+    """Return the number of CPUs.
+
+    This delegates to loky.cpu_count that takes into account additional
+    constraints such as Linux CFS scheduler quotas (typically set by container
+    runtimes such as docker) and CPU affinity (for instance using the taskset
+    command on Linux).
+
+    If only_physical_cores is True, do not take hyperthreading / SMT logical
+    cores into account.
+    """
     if mp is None:
         return 1
 
-    return loky.cpu_count()
+    return loky.cpu_count(only_physical_cores=only_physical_cores)
 
 
 ###############################################################################
@@ -672,9 +691,9 @@ class Parallel(Logger):
         else:
             try:
                 backend_factory = BACKENDS[backend]
-            except KeyError:
+            except KeyError as e:
                 raise ValueError("Invalid backend: %s, expected one of %r"
-                                 % (backend, sorted(BACKENDS.keys())))
+                                 % (backend, sorted(BACKENDS.keys()))) from e
             backend = backend_factory(nesting_level=nesting_level)
 
         if (require == 'sharedmem' and
