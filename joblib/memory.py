@@ -412,17 +412,9 @@ class MemorizedFunc(Logger):
     # Public interface
     # ------------------------------------------------------------------------
 
-    def __init__(
-            self,
-            func,
-            location,
-            backend='local',
-            ignore=None,
-            mmap_mode=None,
-            compress=False,
-            verbose=1,
-            timestamp=None,
-            hash_func=None):
+    def __init__(self, func, location, backend='local', ignore=None,
+                 mmap_mode=None, compress=False, verbose=1,
+                 timestamp=None, hash_func=None):
         Logger.__init__(self)
         self.mmap_mode = mmap_mode
         self.compress = compress
@@ -628,9 +620,9 @@ class MemorizedFunc(Logger):
 
     def _get_argument_hash(self, *args, **kwargs):
         return self.hash_func(
-            filter_args(
-                self.func, self.ignore, args, kwargs), coerce_mmap=(
-                self.mmap_mode is not None))
+            filter_args(self.func, self.ignore, args, kwargs),
+            coerce_mmap=self.mmap_mode is not None
+        )
 
     def _get_output_identifiers(self, *args, **kwargs):
         """Return the func identifier and input parameter hash of a result."""
@@ -908,8 +900,8 @@ class Memory(Logger):
 
         hash_func: callable, optional
             Parameters: (obj: object, hash_name: string, coerce_mmap: Boolean)
-            Return the hash from an object. Default is None.
-            If hash_func is None hashing.hash is used
+            Returns the hash from an object.
+            If hash_func is None (default), hashing.hash is used.
     """
     # ------------------------------------------------------------------------
     # Public interface
@@ -1019,7 +1011,8 @@ class Memory(Logger):
             compress=self.compress,
             verbose=verbose,
             timestamp=self.timestamp,
-            hash_func=self.hash_func)
+            hash_func=self.hash_func
+        )
 
     def clear(self, warn=True):
         """ Erase the complete cache directory.
