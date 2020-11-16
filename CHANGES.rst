@@ -4,6 +4,9 @@ Latest changes
 In development
 --------------
 
+- Remove deprecated `check_pickle` argument in `delayed`.
+  https://github.com/joblib/joblib/pull/903
+
 Release 0.17.0
 --------------
 
