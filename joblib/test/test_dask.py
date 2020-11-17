@@ -220,14 +220,17 @@ def test_manual_scatter(loop):
     assert z.count in (4, 6)
 
 
-def test_auto_scatter(loop):
+# When the same IOLoop is used for multiple clients in a row, use
+# loop_in_thread instead of loop to prevent the Client from closing it.  See
+# dask/distributed #4112
+def test_auto_scatter(loop_in_thread):
     np = pytest.importorskip('numpy')
     data1 = np.ones(int(1e4), dtype=np.uint8)
     data2 = np.ones(int(1e4), dtype=np.uint8)
     data_to_process = ([data1] * 3) + ([data2] * 3)
 
     with cluster() as (s, [a, b]):
-        with Client(s['address'], loop=loop) as client:
+        with Client(s['address'], loop=loop_in_thread) as client:
             with parallel_backend('dask') as (ba, _):
                 # Passing the same data as arg and kwarg triggers a single
                 # scatter operation whose result is reused.
@@ -241,7 +244,7 @@ def test_auto_scatter(loop):
             assert 2 <= counts[a['address']] + counts[b['address']] <= 4
 
     with cluster() as (s, [a, b]):
-        with Client(s['address'], loop=loop) as client:
+        with Client(s['address'], loop=loop_in_thread) as client:
             with parallel_backend('dask') as (ba, _):
                 Parallel()(delayed(noop)(data1[:3], i) for i in range(5))
             # Small arrays are passed within the task definition without going
@@ -281,14 +284,14 @@ def test_nested_scatter(loop, retry_no):
                 )
 
 
-def test_nested_backend_context_manager(loop):
+def test_nested_backend_context_manager(loop_in_thread):
     def get_nested_pids():
         pids = set(Parallel(n_jobs=2)(delayed(os.getpid)() for _ in range(2)))
         pids |= set(Parallel(n_jobs=2)(delayed(os.getpid)() for _ in range(2)))
         return pids
 
     with cluster() as (s, [a, b]):
-        with Client(s['address'], loop=loop) as client:
+        with Client(s['address'], loop=loop_in_thread) as client:
             with parallel_backend('dask') as (ba, _):
                 pid_groups = Parallel(n_jobs=2)(
                     delayed(get_nested_pids)()
@@ -298,7 +301,7 @@ def test_nested_backend_context_manager(loop):
                     assert len(set(pid_group)) <= 2
 
         # No deadlocks
-        with Client(s['address'], loop=loop) as client:  # noqa: F841
+        with Client(s['address'], loop=loop_in_thread) as client:  # noqa: F841
             with parallel_backend('dask') as (ba, _):
                 pid_groups = Parallel(n_jobs=2)(
                     delayed(get_nested_pids)()
