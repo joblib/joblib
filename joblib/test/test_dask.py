@@ -240,8 +240,7 @@ def test_auto_scatter(loop_in_thread):
             # broadcast=1 which means that one worker must directly receive
             # the data from the scatter operation once.
             counts = count_events('receive-from-scatter', client)
-            # assert counts[a['address']] + counts[b['address']] == 2
-            assert 2 <= counts[a['address']] + counts[b['address']] <= 4
+            assert counts[a['address']] + counts[b['address']] == 2
 
     with cluster() as (s, [a, b]):
         with Client(s['address'], loop=loop_in_thread) as client:
