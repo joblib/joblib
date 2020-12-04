@@ -385,6 +385,22 @@ Gotchas
      ``self.method`` does not depend on ``self`` you can use
      ``self.method = memory.cache(self.method, ignore=['self'])``.
 
+* Here are important gotchas about ``joblib`` cache persistence across environment upgrades:
+
+  1. **``joblib.Memory`` get wiped out upon third-party library updates**. If
+       one updates any third-party library of an environment in which
+       ``joblib`` was installed and was maintaining caches, such caches are
+       likely to get invalidated.
+
+  2. **``joblib.Memory`` caches will persist across minor joblib version
+     updates**. If one updates ``joblib`` in an environment in which
+     ``joblib`` was installed and was maintaining caches, existing caches
+     will be conserved and used, unless the ``joblib`` **major** version
+     number changed.
+     Example: A ``joblib`` cache will survive a ``0.15.0`` to ``0.16.0``
+     ``joblib`` upgrade, but will not survive a ``0.15.0`` to ``1.0.0``
+     ``joblib`` upgrade.
+
 
 Ignoring some arguments
 -----------------------
