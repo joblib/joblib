@@ -414,7 +414,7 @@ def test_0d_and_1d_array_hashing_is_different():
 @with_numpy
 def test_hashes_stay_the_same_with_numpy_objects():
     # Note: joblib used to test numpy objects hashing by comparing the produced
-    # hash of an obejct with some hard-coded target value to guarantee that
+    # hash of an object with some hard-coded target value to guarantee that
     # hashing remains the same across joblib versions. However, because since
     # numpy 1.20 and joblib 1.0, joblib relies on potentially unstable
     # implementation details of numpy to hash np.dtype objects, which makes the
@@ -487,7 +487,7 @@ def test_hashes_stay_the_same_with_numpy_objects():
         hash_1, hash_2 = e.map(hash, [obj_1, obj_1])
         assert hash_1 == hash_2
 
-        # Making sure memoization and object identity does not interfere with
+        # Making sure memoization and object identity do not interfere with
         # hashing
         # XXX: this fails on joblib master -- not sure what joblib should do in
         # this case

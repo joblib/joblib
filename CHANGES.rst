@@ -6,7 +6,7 @@ In development
 
 - Make `joblib.Memory` caching system compatible with `numpy >= 1.20.0`.
   In the future, users updating `joblib` to a release that includes this
-  fix will see their previous cache invalidated (and thus wiped out) if they
+  fix will see their previous cache invalidated if they
   contained reference to `numpy` objects.
   https://github.com/joblib/joblib/pull/1136
 
