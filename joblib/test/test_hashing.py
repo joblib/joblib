@@ -463,25 +463,29 @@ def test_hashes_stay_the_same_with_numpy_objects():
     to_hash_list_one = create_objects_to_hash()
     to_hash_list_two = create_objects_to_hash()
 
-    e = ProcessPoolExecutor(max_workers=2)
+    e1 = ProcessPoolExecutor(max_workers=1)
+    e2 = ProcessPoolExecutor(max_workers=1)
+
     try:
         for obj_1, obj_2 in zip(to_hash_list_one, to_hash_list_two):
-            # testing consistency when hashing two copies of the same objects.
-            hash_1, hash_2 = hash(obj_1), hash(obj_2)
+            # testing consistency of hashes across python processes
+            hash_1 = e1.submit(hash, obj_1).result()
+            hash_2 = e2.submit(hash, obj_1).result()
             assert hash_1 == hash_2
 
-            # testing consistency of hashes across python processes
-            hash_1, hash_2 = e.map(hash, [obj_1, obj_1])
-            assert hash_1 == hash_2
+            # testing consistency when hashing two copies of the same objects.
+            hash_3 = e1.submit(hash, obj_2).result()
+            assert hash_1 == hash_3
 
             # Making sure memoization and object identity do not interfere with
             # hashing
             # XXX: this fails on joblib master -- not sure what joblib should
             # do in this case
-            # hash_1, hash_2 = e.map(hash, [[obj_1, obj_1], [obj_1, obj_2]])
+            # hash_1, hash_2 = e1.map(hash, [[obj_1, obj_1], [obj_1, obj_2]])
             # assert hash_1 == hash_2
     finally:
-        e.shutdown()
+        e1.shutdown()
+        e2.shutdown()
 
 
 def test_hashing_pickling_error():
