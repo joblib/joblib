@@ -385,7 +385,8 @@ Gotchas
      ``self.method`` does not depend on ``self`` you can use
      ``self.method = memory.cache(self.method, ignore=['self'])``.
 
-* Here are important gotchas about ``joblib`` cache persistence across environment upgrades:
+* Here are important gotchas about ``joblib`` cache persistence across
+  environment upgrades:
 
   1. **``joblib.Memory`` get wiped out upon third-party library updates**. If
        one updates any third-party library of an environment in which
