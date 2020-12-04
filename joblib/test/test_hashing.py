@@ -329,7 +329,8 @@ def test_string():
 @with_numpy
 def test_numpy_dtype_pickling():
     # numpy dtype hahsing is tricky to get right: see #231, #239, #251 #1080,
-    # #1082, and explanatory comments inside ``joblib.hashing.NumpyHasher.save``.
+    # #1082, and explanatory comments inside
+    # ``joblib.hashing.NumpyHasher.save``.
 
     # In this test, we make sure that the pickling of numpy dtypes robust to
     # object identity and object copy.
@@ -348,8 +349,12 @@ def test_numpy_dtype_pickling():
     assert hash([dt1, dt1]) == hash([dt1_roundtripped, dt1_roundtripped])
     assert hash([dt1, dt1]) == hash([dt1, dt1_roundtripped])
 
-    complex_dt1 = np.dtype([('name', np.str_, 16), ('grades', np.float64, (2,))])
-    complext_dt2 = np.dtype([('name', np.str_, 16), ('grades', np.float64, (2,))])
+    complex_dt1 = np.dtype(
+        [('name', np.str_, 16), ('grades', np.float64, (2,))]
+    )
+    complext_dt2 = np.dtype(
+        [('name', np.str_, 16), ('grades', np.float64, (2,))]
+    )
 
     # complext dtypes objects are not interned
     assert hash(complex_dt1) == hash(complext_dt2)
@@ -418,10 +423,10 @@ def test_hashes_stay_the_same_with_numpy_objects():
     # As a result, joblib now only test the consistency of hashing by making
     # sure
     # - the hash of two copies of the same objects is the same
-    # - hashing some object in two different python processes produces the same value
-    #   this should be viewed as a proxy for testing hash consistency through
-    #   time between Python sessions (provided no change in the environment was
-    #   done between sessions).
+    # - hashing some object in two different python processes produces the same
+    #   value this should be viewed as a proxy for testing hash consistency
+    #   through time between Python sessions (provided no change in the
+    #   environment was done between sessions).
 
     rng = np.random.RandomState(42)
     # Being explicit about dtypes in order to avoid
@@ -450,8 +455,8 @@ def test_hashes_stay_the_same_with_numpy_objects():
     ]
 
     rng = np.random.RandomState(42)
-    # same list of object as previous list. joblib.hash should return the same hash for
-    # to_hash_list_one[i] and to_hash_list_two[i]
+    # same list of object as previous list. joblib.hash should return the same
+    # hash for to_hash_list_one[i] and to_hash_list_two[i]
     to_hash_list_two = [
         rng.randint(-1000, high=1000, size=50).astype('<i8'),
         tuple(rng.randn(3).astype('<f4') for _ in range(5)),
@@ -484,7 +489,8 @@ def test_hashes_stay_the_same_with_numpy_objects():
 
         # Making sure memoization and object identity does not interfere with
         # hashing
-        # XXX: this fails on joblib master -- not sure what joblib should do in this case
+        # XXX: this fails on joblib master -- not sure what joblib should do in
+        # this case
         # hash_1, hash_2 = e.map(hash, [[obj_1, obj_1], [obj_1, obj_2]])
         # assert hash_1 == hash_2
 

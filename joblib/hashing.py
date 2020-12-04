@@ -222,16 +222,17 @@ class NumpyHasher(Hasher):
         elif isinstance(obj, self.np.dtype):
             # numpy.dtype consistent hashing is tricky to get right. This comes
             # from the fact that atomic np.dtype objects are interned:
-            # ``np.dtype('f4') is np.dtype('f4')``. The situation is complicated by the
-            # fact that this interning does not resist a simple pickle.load/dump
-            # roundtrip:
-            # ``pickle.loads(pickle.dumps(np.dtype('f4'))) is not np.dtype('f4')
-            # Because pickle relies on memoization during pickling, it is easy to
+            # ``np.dtype('f4') is np.dtype('f4')``. The situation is
+            # complicated by the fact that this interning does not resist a
+            # simple pickle.load/dump roundtrip:
+            # ``pickle.loads(pickle.dumps(np.dtype('f4'))) is not
+            # np.dtype('f4') Because pickle relies on memoization during
+            # pickling, it is easy to
             # produce different hashes for seemingly identical objects, such as
             # ``[np.dtype('f4'), np.dtype('f4')]``
             # and ``[np.dtype('f4'), pickle.loads(pickle.dumps('f4'))]``.
-            # To prevent memoization from interfering with hashing, we make a deep copy
-            # of the to-be-hashed dtype before hashing it.
+            # To prevent memoization from interfering with hashing, we make a
+            # deep copy of the to-be-hashed dtype before hashing it.
             # obj = deepcopy(obj)
             obj = pickle.loads(pickle.dumps(obj))
         Hasher.save(self, obj)
