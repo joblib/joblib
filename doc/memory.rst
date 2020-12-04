@@ -388,10 +388,10 @@ Gotchas
 * Here are important gotchas about ``joblib`` cache persistence across
   environment upgrades:
 
-  1. **``joblib.Memory`` get wiped out upon third-party library updates**. If
-       one updates any third-party library of an environment in which
-       ``joblib`` was installed and was maintaining caches, such caches are
-       likely to get invalidated.
+  1. **``joblib.Memory`` caches will get wiped out upon third-party library
+       updates**. If one updates any third-party library of an environment in
+       which ``joblib`` was installed and was maintaining caches, such caches
+       are likely to get invalidated.
 
   2. **``joblib.Memory`` caches will persist across minor joblib version
      updates**. If one updates ``joblib`` in an environment in which
