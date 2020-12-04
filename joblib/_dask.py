@@ -287,7 +287,7 @@ class DaskDistributedBackend(AutoBatchingMixin, ParallelBackendBase):
                             # using hash=True often raise CancelledError,
                             # see dask/distributed#3703
                             _coro = self.client.scatter(
-                                [arg],
+                                arg,
                                 asynchronous=True,
                                 hash=False
                             )
