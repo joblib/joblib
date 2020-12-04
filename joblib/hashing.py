@@ -231,10 +231,13 @@ class NumpyHasher(Hasher):
             # produce different hashes for seemingly identical objects, such as
             # ``[np.dtype('f4'), np.dtype('f4')]``
             # and ``[np.dtype('f4'), pickle.loads(pickle.dumps('f4'))]``.
-            # To prevent memoization from interfering with hashing, we make a
-            # deep copy of the to-be-hashed dtype before hashing it.
-            # obj = deepcopy(obj)
-            obj = pickle.loads(pickle.dumps(obj))
+            # To prevent memoization from interfering with hashing, we isolate
+            # the serialization (and thue the pickle memo) of each dtype using
+            # each time a different ``pickle.dumps`` call unrelated to the
+            # current Hahsher/Pickler.
+            self._hash.update("_HASHED_DTYPE".encode('utf-8'))
+            self._hash.update(pickle.dumps(obj))
+            return
         Hasher.save(self, obj)
 
 
