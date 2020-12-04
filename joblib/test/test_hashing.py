@@ -415,13 +415,13 @@ def test_0d_and_1d_array_hashing_is_different():
 def test_hashes_stay_the_same_with_numpy_objects():
     # Note: joblib used to test numpy objects hashing by comparing the produced
     # hash of an object with some hard-coded target value to guarantee that
-    # hashing remains the same across joblib versions. However, because since
-    # numpy 1.20 and joblib 1.0, joblib relies on potentially unstable
-    # implementation details of numpy to hash np.dtype objects, which makes the
-    # stabilility of hash values across different environments hard to
-    # guarantee and to test.
-    # As a result, joblib now only test the consistency of hashing by making
-    # sure
+    # hashing remains the same across joblib versions. However, since numpy
+    # 1.20 and joblib 1.0, joblib relies on potentially unstable implementation
+    # details of numpy to hash np.dtype objects, which makes the stabilility of
+    # hash values across different environments hard to guarantee and to test.
+    # As a result, hashing stability across joblib versions becomes best-effor
+    # only, and we only test the consistency within a single environment by
+    # making sure:
     # - the hash of two copies of the same objects is the same
     # - hashing some object in two different python processes produces the same
     #   value this should be viewed as a proxy for testing hash consistency
