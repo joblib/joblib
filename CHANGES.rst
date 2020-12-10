@@ -5,9 +5,12 @@ In development
 --------------
 
 - Make `joblib.hash` and `joblib.Memory` caching system compatible with `numpy
-  >= 1.20.0`.  In the future, users updating `joblib` to a release that
-  includes this fix will see their previous cache invalidated if they contained
-  reference to `numpy` objects.
+  >= 1.20.0`. Also make it explicit in the documentation that users should now
+  expect to have their `joblib.Memory` cache invalidated when either `joblib`
+  or a third party library involved in the cached values definition is
+  upgraded.  In particular, users updating `joblib` to a release that includes
+  this fix will see their previous cache invalidated if they contained
+  reference to `numpy` objects. 
   https://github.com/joblib/joblib/pull/1136
 
 - Remove deprecated `check_pickle` argument in `delayed`.
