@@ -477,12 +477,6 @@ def test_hashes_stay_the_same_with_numpy_objects():
             hash_3 = e1.submit(hash, obj_2).result()
             assert hash_1 == hash_3
 
-            # Making sure memoization and object identity do not interfere with
-            # hashing
-            # XXX: this fails on joblib master -- not sure what joblib should
-            # do in this case
-            # hash_1, hash_2 = e1.map(hash, [[obj_1, obj_1], [obj_1, obj_2]])
-            # assert hash_1 == hash_2
     finally:
         e1.shutdown()
         e2.shutdown()
