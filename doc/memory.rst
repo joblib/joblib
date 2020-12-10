@@ -385,22 +385,14 @@ Gotchas
      ``self.method`` does not depend on ``self`` you can use
      ``self.method = memory.cache(self.method, ignore=['self'])``.
 
-* Here are important gotchas about ``joblib`` cache persistence across
-  environment upgrades:
-
-  1. **``joblib.Memory`` caches will get invalidated upon third-party library
-     updates**. If one updates any third-party library of an environment in
-     which ``joblib`` was installed and was maintaining caches, such caches
-     are likely to get invalidated.
-
-  2. **``joblib.Memory`` caches will persist across minor joblib version
-     updates**. If one updates ``joblib`` in an environment in which
-     ``joblib`` was installed and was maintaining caches, existing caches
-     will be conserved and used, unless the ``joblib`` **major** version
-     number changed.
-     Example: A ``joblib`` cache will survive a ``0.15.0`` to ``0.16.0``
-     ``joblib`` upgrade, but will not survive a ``0.15.0`` to ``1.0.0``
-     ``joblib`` upgrade.
+* **joblib cache entries may be invalidated after environment updates**.
+  Values returned by ``joblib.hash`` are not guaranteed to stay
+  constant across ``joblib`` versions. This means that **all** entries of a
+  ``joblib.Memory`` cache can get invalidated when upgrading ``joblib``.
+  Invalidation can also happen when upgrading a third party library (such as
+  ``numpy``): in such a case, only the cached function calls with parameters
+  that that are constructs (or contain references to contructs) defined in the
+  upgraded library should potentially be invalidated after the uprade.
 
 
 Ignoring some arguments
