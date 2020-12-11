@@ -332,7 +332,7 @@ def test_numpy_dtype_pickling():
     # #1082, and explanatory comments inside
     # ``joblib.hashing.NumpyHasher.save``.
 
-    # In this test, we make sure that the pickling of numpy dtypes robust to
+    # In this test, we make sure that the pickling of numpy dtypes is robust to
     # object identity and object copy.
 
     dt1 = np.dtype('f4')
