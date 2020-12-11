@@ -328,7 +328,7 @@ def test_string():
 
 @with_numpy
 def test_numpy_dtype_pickling():
-    # numpy dtype hahsing is tricky to get right: see #231, #239, #251 #1080,
+    # numpy dtype hashing is tricky to get right: see #231, #239, #251 #1080,
     # #1082, and explanatory comments inside
     # ``joblib.hashing.NumpyHasher.save``.
 
@@ -352,12 +352,12 @@ def test_numpy_dtype_pickling():
     complex_dt1 = np.dtype(
         [('name', np.str_, 16), ('grades', np.float64, (2,))]
     )
-    complext_dt2 = np.dtype(
+    complex_dt2 = np.dtype(
         [('name', np.str_, 16), ('grades', np.float64, (2,))]
     )
 
-    # complext dtypes objects are not interned
-    assert hash(complex_dt1) == hash(complext_dt2)
+    # complex dtypes objects are not interned
+    assert hash(complex_dt1) == hash(complex_dt2)
 
     complex_dt1_roundtripped = pickle.loads(pickle.dumps(complex_dt1))
     assert complex_dt1_roundtripped is not complex_dt1
@@ -417,14 +417,14 @@ def test_hashes_stay_the_same_with_numpy_objects():
     # hash of an object with some hard-coded target value to guarantee that
     # hashing remains the same across joblib versions. However, since numpy
     # 1.20 and joblib 1.0, joblib relies on potentially unstable implementation
-    # details of numpy to hash np.dtype objects, which makes the stabilility of
+    # details of numpy to hash np.dtype objects, which makes the stability of
     # hash values across different environments hard to guarantee and to test.
-    # As a result, hashing stability across joblib versions becomes best-effor
+    # As a result, hashing stability across joblib versions becomes best-effort
     # only, and we only test the consistency within a single environment by
     # making sure:
     # - the hash of two copies of the same objects is the same
     # - hashing some object in two different python processes produces the same
-    #   value this should be viewed as a proxy for testing hash consistency
+    #   value. This should be viewed as a proxy for testing hash consistency
     #   through time between Python sessions (provided no change in the
     #   environment was done between sessions).
 
@@ -447,8 +447,7 @@ def test_hashes_stay_the_same_with_numpy_objects():
                 ]
             },
             # Non regression cases for
-            # https://github.com/joblib/joblib/issues/308. oekoke
-            # oekoefkhnwoaersifh  oeiqo Generated with joblib 0.9.4.
+            # https://github.com/joblib/joblib/issues/308
             np.arange(100, dtype='<i8').reshape((10, 10)),
             # Fortran contiguous array
             np.asfortranarray(np.arange(100, dtype='<i8').reshape((10, 10))),

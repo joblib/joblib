@@ -232,9 +232,9 @@ class NumpyHasher(Hasher):
             # ``[np.dtype('f4'), np.dtype('f4')]``
             # and ``[np.dtype('f4'), pickle.loads(pickle.dumps('f4'))]``.
             # To prevent memoization from interfering with hashing, we isolate
-            # the serialization (and thue the pickle memo) of each dtype using
-            # each time a different ``pickle.dumps`` call unrelated to the
-            # current Hahsher/Pickler.
+            # the serialization (and thus the pickle memoization) of each dtype
+            # using each time a different ``pickle.dumps`` call unrelated to
+            # the current Hasher instance.
             self._hash.update("_HASHED_DTYPE".encode('utf-8'))
             self._hash.update(pickle.dumps(obj))
             return
