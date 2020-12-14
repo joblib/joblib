@@ -1,8 +1,8 @@
 Latest changes
 ==============
 
-In development
---------------
+1.0.0
+-----
 
 - Make `joblib.hash` and `joblib.Memory` caching system compatible with `numpy
   >= 1.20.0`. Also make it explicit in the documentation that users should now
