@@ -1,6 +1,10 @@
 Latest changes
 ==============
 
+In development
+--------------
+
+
 1.0.0
 -----
 
