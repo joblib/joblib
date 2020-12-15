@@ -36,6 +36,12 @@ class StoreBackendBase(metaclass=ABCMeta):
 
     location = None
 
+    # Default flag to tell whether a given backend instance supports compression
+    # or not. This value is typically updated by the
+    # StoredBackendMixin.configure method for backend implementation that also
+    # inherit from the mixin class.
+    compress = False
+
     @abstractmethod
     def _open_item(self, f, mode):
         """Opens an item on the store and return a file-like object.
