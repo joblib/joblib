@@ -127,7 +127,9 @@ def test_no_undesired_distributed_cache_hit(loop):
     np = pytest.importorskip('numpy')
     X = np.arange(int(1e6))
 
-    def isolated_operation(list_, X=None):
+    def isolated_operation(list_, data=None):
+        if data is not None:
+            np.testing.assert_array_equal(data, X)
         list_.append(uuid4().hex)
         return list_
 
@@ -155,7 +157,7 @@ def test_no_undesired_distributed_cache_hit(loop):
             # Append a large array which will be scattered by dask, and
             # dispatch joblib._dask.Batch
             res = Parallel()(
-                delayed(isolated_operation)(list_, X=X) for list_ in lists
+                delayed(isolated_operation)(list_, data=X) for list_ in lists
             )
 
         # This time, auto-scattering should have kicked it.
@@ -240,8 +242,7 @@ def test_auto_scatter(loop_in_thread):
             # broadcast=1 which means that one worker must directly receive
             # the data from the scatter operation once.
             counts = count_events('receive-from-scatter', client)
-            # assert counts[a['address']] + counts[b['address']] == 2
-            assert 2 <= counts[a['address']] + counts[b['address']] <= 4
+            assert counts[a['address']] + counts[b['address']] == 2
 
     with cluster() as (s, [a, b]):
         with Client(s['address'], loop=loop_in_thread) as client:
