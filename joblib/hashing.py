@@ -220,19 +220,24 @@ class NumpyHasher(Hasher):
             # The object will be pickled by the pickler hashed at the end.
             obj = (klass, ('HASHED', obj.dtype, obj.shape, obj.strides))
         elif isinstance(obj, self.np.dtype):
-            # Atomic dtype objects are interned by their default constructor:
-            # np.dtype('f8') is np.dtype('f8')
-            # This interning is not maintained by a
-            # pickle.loads + pickle.dumps cycle, because __reduce__
-            # uses copy=True in the dtype constructor. This
-            # non-deterministic behavior causes the internal memoizer
-            # of the hasher to generate different hash values
-            # depending on the history of the dtype object.
-            # To prevent the hash from being sensitive to this, we use
-            # .descr which is a full (and never interned) description of
-            # the array dtype according to the numpy doc.
-            klass = obj.__class__
-            obj = (klass, ('HASHED', obj.descr))
+            # numpy.dtype consistent hashing is tricky to get right. This comes
+            # from the fact that atomic np.dtype objects are interned:
+            # ``np.dtype('f4') is np.dtype('f4')``. The situation is
+            # complicated by the fact that this interning does not resist a
+            # simple pickle.load/dump roundtrip:
+            # ``pickle.loads(pickle.dumps(np.dtype('f4'))) is not
+            # np.dtype('f4') Because pickle relies on memoization during
+            # pickling, it is easy to
+            # produce different hashes for seemingly identical objects, such as
+            # ``[np.dtype('f4'), np.dtype('f4')]``
+            # and ``[np.dtype('f4'), pickle.loads(pickle.dumps('f4'))]``.
+            # To prevent memoization from interfering with hashing, we isolate
+            # the serialization (and thus the pickle memoization) of each dtype
+            # using each time a different ``pickle.dumps`` call unrelated to
+            # the current Hasher instance.
+            self._hash.update("_HASHED_DTYPE".encode('utf-8'))
+            self._hash.update(pickle.dumps(obj))
+            return
         Hasher.save(self, obj)
 
 
