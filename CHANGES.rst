@@ -4,6 +4,11 @@ Latest changes
 In development
 --------------
 
+- dask: avoid redundant scattering of large arguments to make a more
+  efficient use of the network resources and avoid
+  "OSError: [Errno 55] No buffer space available" errors on macOS.
+  https://github.com/joblib/joblib/pull/1133
+
 Release 0.17.0
 --------------
 
