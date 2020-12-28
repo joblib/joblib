@@ -560,7 +560,7 @@ class MemorizedFunc(Logger):
             # (which should be called once on self) gets called in the process
             # in which self.func was defined, this caching mechanism prevents
             # undesired cache clearing when the cached function is called in
-            # an environement where the introspection utilitiees get_func_code
+            # an environement where the introspection utilities get_func_code
             # relies on do not work (typicially, in joblib child processes).
             # See #1035 for  more info
             # TODO (pierreglaser): do the same with get_func_name?
