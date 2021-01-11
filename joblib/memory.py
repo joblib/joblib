@@ -20,6 +20,7 @@ import traceback
 import warnings
 import inspect
 import weakref
+from datetime import timedelta
 
 from tokenize import open as open_py_source
 
@@ -405,17 +406,26 @@ class MemorizedFunc(Logger):
     verbose: int, optional
         The verbosity flag, controls messages that are issued as
         the function is evaluated.
+
+    validate_cache: callable, optional
+        Function to validate whether or not the cache is valid. When the cached
+        function is called with arguments for which a cache exists, this
+        callable is called with the metadata of the cached result as its sole
+        argument. If it returns True, then the cached result is returned, else
+        it is cleared and recomputed.
     """
     # ------------------------------------------------------------------------
     # Public interface
     # ------------------------------------------------------------------------
 
     def __init__(self, func, location, backend='local', ignore=None,
-                 mmap_mode=None, compress=False, verbose=1, timestamp=None):
+                 mmap_mode=None, compress=False, verbose=1, timestamp=None,
+                 validate_cache=None):
         Logger.__init__(self)
         self.mmap_mode = mmap_mode
         self.compress = compress
         self.func = func
+        self.validate_cache = validate_cache
 
         if ignore is None:
             ignore = []
@@ -431,15 +441,16 @@ class MemorizedFunc(Logger):
                                                     )
         if self.store_backend is not None:
             # Create func directory on demand.
-            self.store_backend.\
-                store_cached_func_code([_build_func_identifier(self.func)])
+            self.store_backend.store_cached_func_code([
+                _build_func_identifier(self.func)
+            ])
 
         if timestamp is None:
             timestamp = time.time()
         self.timestamp = timestamp
         try:
             functools.update_wrapper(self, func)
-        except:
+        except Exception:
             " Objects like ufunc don't like that "
         if inspect.isfunction(func):
             doc = pydoc.TextDoc().document(func)
@@ -454,6 +465,30 @@ class MemorizedFunc(Logger):
 
         self._func_code_info = None
         self._func_code_id = None
+
+    def _is_in_cache_and_valid(self, path):
+        """Check if the function call is cached and valid for given arguments.
+
+        - Compare the function code with the previous to see if the function
+        code has changed.
+        - Check if the results are present in the cache.
+        - Use `validate_cache` to check for user define cache validation.
+
+        Return False if the cached result does not exists or cannot be used.
+        """
+        if not self._check_previous_func_code(stacklevel=4):
+            return False
+
+        if not self.store_backend.contains_item(path):
+            return False
+
+        metadata = self.store_backend.get_metadata(path)
+        if (self.validate_cache is not None and
+                not self.validate_cache(metadata)):
+            self.store_backend.clear_item(path)
+            return False
+
+        return True
 
     def _cached_call(self, args, kwargs, shelving=False):
         """Call wrapped function and cache result, or read cache if available.
@@ -492,18 +527,9 @@ class MemorizedFunc(Logger):
 
         # FIXME: The statements below should be try/excepted
         # Compare the function code with the previous to see if the
-        # function code has changed
-        if not (self._check_previous_func_code(stacklevel=4) and
-                self.store_backend.contains_item([func_id, args_id])):
-            if self._verbose > 10:
-                _, name = get_func_name(self.func)
-                self.warn('Computing func {0}, argument hash {1} '
-                          'in location {2}'
-                          .format(name, args_id,
-                                  self.store_backend.
-                                  get_cached_func_info([func_id])['location']))
-            must_call = True
-        else:
+        # function code has changed and check if the results are present in
+        # the cache.
+        if self._is_in_cache_and_valid([func_id, args_id]):
             try:
                 t0 = time.time()
                 if self._verbose:
@@ -532,6 +558,15 @@ class MemorizedFunc(Logger):
                           '{}\n {}'.format(signature, traceback.format_exc()))
 
                 must_call = True
+        else:
+            if self._verbose > 10:
+                _, name = get_func_name(self.func)
+                self.warn('Computing func {0}, argument hash {1} '
+                          'in location {2}'
+                          .format(name, args_id,
+                                  self.store_backend.
+                                  get_cached_func_info([func_id])['location']))
+            must_call = True
 
         if must_call:
             out, metadata = self.call(*args, **kwargs)
@@ -813,7 +848,9 @@ class MemorizedFunc(Logger):
         input_repr = dict((k, repr(v)) for k, v in argument_dict.items())
         # This can fail due to race-conditions with multiple
         # concurrent joblibs removing the file or the directory
-        metadata = {"duration": duration, "input_args": input_repr}
+        metadata = {
+            "duration": duration, "input_args": input_repr, "time": start_time,
+        }
 
         func_id, args_id = self._get_output_identifiers(*args, **kwargs)
         self.store_backend.store_metadata([func_id, args_id], metadata)
@@ -968,7 +1005,8 @@ class Memory(Logger):
             return None
         return os.path.join(self.location, 'joblib')
 
-    def cache(self, func=None, ignore=None, verbose=None, mmap_mode=False):
+    def cache(self, func=None, ignore=None, verbose=None, mmap_mode=False,
+              validate_cache=None):
         """ Decorates the given function func to only compute its return
             value for input arguments not cached on disk.
 
@@ -985,6 +1023,12 @@ class Memory(Logger):
                 The memmapping mode used when loading from cache
                 numpy arrays. See numpy.load for the meaning of the
                 arguments. By default that of the memory object is used.
+            validate_cache: callable, optional
+                Function to validate whether or not the cache is valid.
+                When the cached function is called with arguments for which a
+                cache exists, this callable is called with the folder holding
+                the cached result as its sole argument. If it returns True,
+                then the cached result is returned, else it is recomputed.
 
             Returns
             -------
@@ -994,11 +1038,16 @@ class Memory(Logger):
                 methods for cache lookup and management. See the
                 documentation for :class:`joblib.memory.MemorizedFunc`.
         """
+        if validate_cache is not None and not callable(validate_cache):
+            raise ValueError(
+                f"validate_cache needs to be callable. Got {validate_cache}."
+            )
         if func is None:
             # Partial application, to be able to specify extra keyword
             # arguments in decorators
             return functools.partial(self.cache, ignore=ignore,
-                                     verbose=verbose, mmap_mode=mmap_mode)
+                                     verbose=verbose, mmap_mode=mmap_mode,
+                                     validate_cache=validate_cache)
         if self.store_backend is None:
             return NotMemorizedFunc(func)
         if verbose is None:
@@ -1011,7 +1060,8 @@ class Memory(Logger):
                              backend=self.backend,
                              ignore=ignore, mmap_mode=mmap_mode,
                              compress=self.compress,
-                             verbose=verbose, timestamp=self.timestamp)
+                             verbose=verbose, timestamp=self.timestamp,
+                             validate_cache=validate_cache)
 
     def clear(self, warn=True):
         """ Erase the complete cache directory.
@@ -1056,3 +1106,21 @@ class Memory(Logger):
         state = self.__dict__.copy()
         state['timestamp'] = None
         return state
+
+
+###############################################################################
+# validate_cache helpers
+###############################################################################
+
+def expires_after(days=0, seconds=0, microseconds=0, milliseconds=0, minutes=0,
+                  hours=0, weeks=0):
+    delta = timedelta(
+        days=days, seconds=seconds, microseconds=microseconds,
+        milliseconds=milliseconds, minutes=minutes, hours=hours, weeks=weeks
+    )
+
+    def validate_cache(metadata):
+        computation_age = time.time() - metadata['time']
+        return computation_age < delta.total_seconds()
+
+    return validate_cache

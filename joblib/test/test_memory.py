@@ -21,6 +21,7 @@ import textwrap
 import pytest
 
 from joblib.memory import Memory
+from joblib.memory import expires_after
 from joblib.memory import MemorizedFunc, NotMemorizedFunc
 from joblib.memory import MemorizedResult, NotMemorizedResult
 from joblib.memory import _FUNCTION_HASHES
@@ -33,7 +34,6 @@ from joblib.test.common import with_numpy, np
 from joblib.test.common import with_multiprocessing
 from joblib.testing import parametrize, raises, warns
 from joblib.hashing import hash
-
 
 
 ###############################################################################
@@ -91,9 +91,9 @@ def test_memory_integration(tmpdir):
     # thus it serves as a test to see that both are identified
     # as different.
 
-    def f(l):
+    def f(x):
         accumulator.append(1)
-        return l
+        return x
 
     check_identity_lazy(f, accumulator, tmpdir.strpath)
 
@@ -229,9 +229,9 @@ def test_no_memory():
     """ Test memory with location=None: no memoize """
     accumulator = list()
 
-    def ff(l):
+    def ff(x):
         accumulator.append(1)
-        return l
+        return x
 
     memory = Memory(location=None, verbose=0)
     gg = memory.cache(ff)
@@ -245,9 +245,9 @@ def test_memory_kwarg(tmpdir):
     " Test memory with a function with keyword arguments."
     accumulator = list()
 
-    def g(l=None, m=1):
+    def g(x=None, m=1):
         accumulator.append(1)
-        return l
+        return x
 
     check_identity_lazy(g, accumulator, tmpdir.strpath)
 
@@ -267,7 +267,7 @@ def test_memory_lambda(tmpdir):
         accumulator.append(1)
         return x
 
-    l = lambda x: helper(x)
+    l = lambda x: helper(x)  # noqa: E741, E731
 
     check_identity_lazy(l, accumulator, tmpdir.strpath)
 
@@ -303,10 +303,8 @@ def test_memory_name_collision(tmpdir):
 def test_memory_warning_lambda_collisions(tmpdir):
     # Check that multiple use of lambda will raise collisions
     memory = Memory(location=tmpdir.strpath, verbose=0)
-    a = lambda x: x
-    a = memory.cache(a)
-    b = lambda x: x + 1
-    b = memory.cache(b)
+    a = memory.cache(lambda x: x)
+    b = memory.cache(lambda x: x + 1)
 
     with warns(JobLibCollisionWarning) as warninfo:
         assert a(0) == 0
@@ -392,9 +390,9 @@ def test_memory_numpy(tmpdir, mmap_mode):
     " Test memory with a function with numpy arrays."
     accumulator = list()
 
-    def n(l=None):
+    def n(x=None):
         accumulator.append(1)
-        return l
+        return x
 
     memory = Memory(location=tmpdir.strpath, mmap_mode=mmap_mode,
                     verbose=0)
@@ -1338,3 +1336,85 @@ def test_memory_pickle_dump_load(tmpdir, memory_kwargs):
     compare(memorized_result, memorized_result_reloaded,
             ignored_attrs=set(['store_backend', 'timestamp', '_func_code_id']))
     assert hash(memorized_result) == hash(memorized_result_reloaded)
+
+
+class TestValidateCache:
+    "Tests on parameter `validate_cache`"
+
+    def foo(self, x, d, delay=None):
+        d["run"] = True
+        if delay is not None:
+            time.sleep(delay)
+        return x * 2
+
+    def test_invalid_valud(self, tmpdir):
+        "Test invalid values for `validate_cache"
+        memory = Memory(location=tmpdir.strpath)
+
+        match = "validate_cache needs to be callable. Got True."
+        with pytest.raises(ValueError, match=match):
+            memory.cache(validate_cache=True)
+
+    @pytest.mark.parametrize("valid", [True, False])
+    def test_memory_constant_valid(self, tmpdir, valid):
+        "Test expiry of old results"
+        memory = Memory(location=tmpdir.strpath)
+
+        f = memory.cache(
+            self.foo, validate_cache=lambda _: valid, ignore=["d"]
+        )
+
+        d1, d2, d3 = {"run": False}, {"run": False}, {"run": False}
+        assert f(2, d1) == 4
+        assert f(2, d2) == 4
+        time.sleep(.1)
+        assert f(2, d3) == 4
+
+        assert d1["run"]
+        assert d2["run"] != valid
+        assert d3["run"] != valid
+
+    def test_memory_only_cache_long_run(self, tmpdir):
+        "Test valid based on run duration."
+        memory = Memory(location=tmpdir.strpath)
+
+        def validate_cache(metadata):
+            duration = metadata['duration']
+            if duration > 0.1:
+                return True
+
+        f = memory.cache(
+            self.foo, validate_cache=validate_cache, ignore=["d"]
+        )
+
+        # Short run are not cached
+        d1, d2 = {"run": False}, {"run": False}
+        assert f(2, d1, delay=0) == 4
+        assert f(2, d2, delay=0) == 4
+        assert d1["run"]
+        assert d2["run"]
+
+        # Longer run are cached
+        d1, d2 = {"run": False}, {"run": False}
+        assert f(2, d1, delay=0.2) == 4
+        assert f(2, d2, delay=0.2) == 4
+        assert d1["run"]
+        assert not d2["run"]
+
+    def test_memory_expires_after(self, tmpdir):
+        "Test expiry of old results"
+        memory = Memory(location=tmpdir.strpath)
+
+        f = memory.cache(
+            self.foo, validate_cache=expires_after(seconds=.3), ignore=["d"]
+        )
+
+        d1, d2, d3 = {"run": False}, {"run": False}, {"run": False}
+        assert f(2, d1) == 4
+        assert f(2, d2) == 4
+        time.sleep(.5)
+        assert f(2, d3) == 4
+
+        assert d1["run"]
+        assert not d2["run"]
+        assert d3["run"]
