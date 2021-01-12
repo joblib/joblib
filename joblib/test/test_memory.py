@@ -254,7 +254,7 @@ def test_memory_kwarg(tmpdir):
     memory = Memory(location=tmpdir.strpath, verbose=0)
     g = memory.cache(g)
     # Smoke test with an explicit keyword argument:
-    assert g(l=30, m=2) == 30
+    assert g(x=30, m=2) == 30
 
 
 def test_memory_lambda(tmpdir):
@@ -1341,25 +1341,27 @@ def test_memory_pickle_dump_load(tmpdir, memory_kwargs):
 class TestValidateCache:
     "Tests on parameter `validate_cache`"
 
+    @pytest.fixture()
+    def memory(self, tmp_path):
+        mem = Memory(location=tmp_path)
+        yield mem
+        mem.clear()
+
     def foo(self, x, d, delay=None):
         d["run"] = True
         if delay is not None:
             time.sleep(delay)
         return x * 2
 
-    def test_invalid_valud(self, tmpdir):
+    def test_invalid_valid(self, memory):
         "Test invalid values for `validate_cache"
-        memory = Memory(location=tmpdir.strpath)
-
         match = "validate_cache needs to be callable. Got True."
         with pytest.raises(ValueError, match=match):
             memory.cache(validate_cache=True)
 
     @pytest.mark.parametrize("valid", [True, False])
-    def test_memory_constant_valid(self, tmpdir, valid):
+    def test_memory_constant_valid(self, memory, valid):
         "Test expiry of old results"
-        memory = Memory(location=tmpdir.strpath)
-
         f = memory.cache(
             self.foo, validate_cache=lambda _: valid, ignore=["d"]
         )
@@ -1374,9 +1376,8 @@ class TestValidateCache:
         assert d2["run"] != valid
         assert d3["run"] != valid
 
-    def test_memory_only_cache_long_run(self, tmpdir):
+    def test_memory_only_cache_long_run(self, memory):
         "Test valid based on run duration."
-        memory = Memory(location=tmpdir.strpath)
 
         def validate_cache(metadata):
             duration = metadata['duration']
@@ -1401,9 +1402,8 @@ class TestValidateCache:
         assert d1["run"]
         assert not d2["run"]
 
-    def test_memory_expires_after(self, tmpdir):
+    def test_memory_expires_after(self, memory):
         "Test expiry of old results"
-        memory = Memory(location=tmpdir.strpath)
 
         f = memory.cache(
             self.foo, validate_cache=expires_after(seconds=.3), ignore=["d"]
