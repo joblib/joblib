@@ -10,9 +10,10 @@ try:
 except ImportError:
     lz4 = None
 try:
-    from distributed.utils_test import loop
+    from distributed.utils_test import loop, loop_in_thread
 except ImportError:
     loop = None
+    loop_in_thread = None
 
 
 def pytest_collection_modifyitems(config, items):

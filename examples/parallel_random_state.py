@@ -1,3 +1,4 @@
+# %%
 """
 ===================================
 Random state within joblib.Parallel
@@ -15,7 +16,7 @@ import numpy as np
 from joblib import Parallel, delayed
 
 
-###############################################################################
+# %%
 # A utility function for the example
 def print_vector(vector, backend):
     """Helper function to print the generated vector with a given backend."""
@@ -23,9 +24,9 @@ def print_vector(vector, backend):
           .format(backend, np.array(vector)))
 
 
-###############################################################################
+# %%
 # Sequential behavior
-###############################################################################
+#####################
 #
 # ``stochastic_function`` will generate five random integers. When
 # calling the function several times, we are expecting to obtain
@@ -44,9 +45,9 @@ random_vector = [stochastic_function(10) for _ in range(n_vectors)]
 print('\nThe different generated vectors in a sequential manner are:\n {}'
       .format(np.array(random_vector)))
 
-###############################################################################
+# %%
 # Parallel behavior
-###############################################################################
+###################
 #
 # Joblib provides three different backends: loky (default), threading, and
 # multiprocessing.
@@ -63,17 +64,29 @@ random_vector = Parallel(n_jobs=2, backend=backend)(delayed(
     stochastic_function)(10) for _ in range(n_vectors))
 print_vector(random_vector, backend)
 
-###############################################################################
+# %%
 # Loky and the threading backends behave exactly as in the sequential case and
 # do not require more care. However, this is not the case regarding the
-# multiprocessing backend.
+# multiprocessing backend with the "fork" or "forkserver" start method because
+# the state of the global numpy random stated will be exactly duplicated
+# in all the workers
+#
+# Note: on platforms for which the default start method is "spawn", we do not
+# have this problem but we cannot use this in a Python script without
+# using the if __name__ == "__main__" construct. So let's end this example
+# early if that's the case:
+
+import multiprocessing as mp
+if mp.get_start_method() == "spawn":
+    import sys
+    sys.exit(0)
 
 backend = 'multiprocessing'
 random_vector = Parallel(n_jobs=2, backend=backend)(delayed(
     stochastic_function)(10) for _ in range(n_vectors))
 print_vector(random_vector, backend)
 
-###############################################################################
+# %%
 # Some of the generated vectors are exactly the same, which can be a
 # problem for the application.
 #
@@ -89,7 +102,7 @@ def stochastic_function_seeded(max_value, random_state):
     return rng.randint(max_value, size=5)
 
 
-###############################################################################
+# %%
 # ``stochastic_function_seeded`` accepts as argument a random seed. We can
 # reset this seed by passing ``None`` at every function call. In this case, we
 # see that the generated vectors are all different.
@@ -98,9 +111,9 @@ random_vector = Parallel(n_jobs=2, backend=backend)(delayed(
     stochastic_function_seeded)(10, None) for _ in range(n_vectors))
 print_vector(random_vector, backend)
 
-###############################################################################
+# %%
 # Fixing the random state to obtain deterministic results
-###############################################################################
+#########################################################
 #
 # The pattern of ``stochastic_function_seeded`` has another advantage: it
 # allows to control the random_state by passing a known seed. So for instance,

@@ -810,7 +810,7 @@ def test_retrieval_context():
 
     with parallel_backend("retrieval") as (ba, _):
         Parallel(n_jobs=2)(
-            delayed(nested_call, check_pickle=False)(i)
+            delayed(nested_call)(i)
             for i in range(5)
         )
         assert ba.i == 1
@@ -1213,33 +1213,6 @@ def test_lambda_expression(backend):
     results = Parallel(n_jobs=2, backend=backend)(
         delayed(lambda x: x ** 2)(i) for i in range(10))
     assert results == [i ** 2 for i in range(10)]
-
-
-def test_delayed_check_pickle_deprecated():
-    class UnpicklableCallable(object):
-
-        def __call__(self, *args, **kwargs):
-            return 42
-
-        def __reduce__(self):
-            raise ValueError()
-
-    with warns(DeprecationWarning):
-        f, args, kwargs = delayed(lambda x: 42, check_pickle=False)('a')
-    assert f('a') == 42
-    assert args == ('a',)
-    assert kwargs == dict()
-
-    with warns(DeprecationWarning):
-        f, args, kwargs = delayed(UnpicklableCallable(),
-                                  check_pickle=False)('a', option='b')
-        assert f('a', option='b') == 42
-        assert args == ('a',)
-        assert kwargs == dict(option='b')
-
-    with warns(DeprecationWarning):
-        with raises(ValueError):
-            delayed(UnpicklableCallable(), check_pickle=True)
 
 
 @with_multiprocessing

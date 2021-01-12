@@ -7,7 +7,26 @@ In development
 - Add check_call_in_cache method to check cache without calling function.
   https://github.com/joblib/joblib/pull/820
  
- 
+- dask: avoid redundant scattering of large arguments to make a more
+  efficient use of the network resources and avoid
+  "OSError: [Errno 55] No buffer space available" errors on macOS.
+  https://github.com/joblib/joblib/pull/1133
+
+1.0.0
+-----
+
+- Make `joblib.hash` and `joblib.Memory` caching system compatible with `numpy
+  >= 1.20.0`. Also make it explicit in the documentation that users should now
+  expect to have their `joblib.Memory` cache invalidated when either `joblib`
+  or a third party library involved in the cached values definition is
+  upgraded.  In particular, users updating `joblib` to a release that includes
+  this fix will see their previous cache invalidated if they contained
+  reference to `numpy` objects. 
+  https://github.com/joblib/joblib/pull/1136
+
+- Remove deprecated `check_pickle` argument in `delayed`.
+  https://github.com/joblib/joblib/pull/903
+
 Release 0.17.0
 --------------
 
