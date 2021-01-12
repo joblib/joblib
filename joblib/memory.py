@@ -617,9 +617,9 @@ class MemorizedFunc(Logger):
 
         Returns
         -------
-        is_called_in_cache: bool
-            whether or not the function has been cached for the input
-            arguments that have been passed.
+        is_call_in_cache: bool
+            Whether or not the result of the function has been cached
+            for the input arguments that have been passed.
         """
         func_id, args_id = self._get_output_identifiers(*args, **kwargs)
         return self.store_backend.contains_item((func_id, args_id))

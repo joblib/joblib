@@ -114,7 +114,6 @@ Release 0.14.1
   `pkg_resources` that introduced a performance regression under Windows:
   https://github.com/joblib/joblib/issues/965
 
-
 Release 0.14.0
 --------------
 
