@@ -100,7 +100,7 @@ class ParallelBackendBase(metaclass=ABCMeta):
     def abort_everything(self, ensure_ready=True):
         """Abort any running tasks
 
-        This is called when an exception has been raised when executing a tasks
+        This is called when an exception has been raised when executing a task
         and all the remaining tasks will be ignored and can therefore be
         aborted to spare computation resources.
 

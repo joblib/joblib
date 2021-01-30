@@ -260,9 +260,11 @@ def nested_loop(backend):
 
 @parametrize('child_backend', BACKENDS)
 @parametrize('parent_backend', BACKENDS)
-def test_nested_loop(parent_backend, child_backend):
-    Parallel(n_jobs=2, backend=parent_backend)(
-        delayed(nested_loop)(child_backend) for _ in range(2))
+@parametrize('return_generator', [True, False])
+def test_nested_loop(parent_backend, child_backend, return_generator):
+    with Parallel(n_jobs=2, backend=parent_backend,
+                  return_generator=return_generator) as parallel:
+        parallel(delayed(nested_loop)(child_backend) for _ in range(2))
 
 
 def raise_exception(backend):
@@ -1157,6 +1159,23 @@ def test_warning_about_timeout_not_supported_by_backend():
         "will not be used.")
 
 
+def set_list_value(input_list, index, value):
+    input_list[index] = value
+    return value
+
+
+def test_parallel_return_generator():
+    # This test inserts values in a list in some expected order
+    # in sequential computing, and then check that this order has been
+    # respectted by Parallel output generator.
+    with Parallel(n_jobs=1, return_generator=True) as parallel:
+        input_list = [0] * 5
+        result = parallel(
+            delayed(set_list_value)(input_list, i, i) for i in range(5))
+        for i, each in enumerate(result):
+            assert input_list[i] == each
+
+
 @parametrize('backend', ALL_VALID_BACKENDS)
 @parametrize('n_jobs', [1, 2, -2, -1])
 def test_abort_backend(n_jobs, backend):
@@ -1167,6 +1186,36 @@ def test_abort_backend(n_jobs, backend):
             delayed(time.sleep)(i) for i in delays)
     dt = time.time() - t_start
     assert dt < 20
+
+
+def get_large_object(arg):
+    result = np.ones(int(5 * 1e5), dtype=bool)
+    result[0] = False
+    return result
+
+
+@with_numpy
+@parametrize('backend', BACKENDS)
+@parametrize('n_jobs', [1, 2, -2, -1])
+def test_deadlock_with_generator(backend, n_jobs):
+    # Non-regression test for a race condition in the backends when the pickler
+    # is delayed by a large object.
+    with Parallel(n_jobs=n_jobs, backend=backend,
+                  return_generator=True) as parallel:
+        result = parallel(delayed(get_large_object)(i) for i in range(10))
+        next(result)
+        next(result)
+        del result
+
+
+def test_multiple_generator_call():
+    # Non-regression test that ensures the dispatch of the tasks starts
+    # immediately when Parallel.__call__ is called.
+    with raises(ValueError):
+        with Parallel(2, return_generator=True) as parallel:
+            gen = parallel(delayed(sleep)(1) for _ in range(10))
+            gen2 = parallel(delayed(id)(i) for i in range(100))
+            list(gen), list(gen2)
 
 
 @with_numpy
