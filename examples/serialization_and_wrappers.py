@@ -78,7 +78,7 @@ if sys.platform != 'win32':
 # POSIX specification and can have bad interaction with compiled extensions
 # that use ``openmp``. Also, it is not possible to start processes with
 # ``fork`` on windows where only ``spawn`` is available. The ``loky`` backend
-# has been developped to mitigate these issues.
+# has been developed to mitigate these issues.
 #
 # To have fast pickling with ``loky``, it is possible to rely on ``pickle`` to
 # serialize all communications between the main process and the workers with

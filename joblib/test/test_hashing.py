@@ -260,8 +260,8 @@ def test_numpy_scalar():
 
 
 def test_dict_hash(tmpdir):
-    # Check that dictionaries hash consistently, eventhough the ordering
-    # of the keys is not garanteed
+    # Check that dictionaries hash consistently, even though the ordering
+    # of the keys is not guaranteed
     k = KlassWithCachedMethod(tmpdir.strpath)
 
     d = {'#s12069__c_maps.nii.gz': [33],

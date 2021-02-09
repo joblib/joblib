@@ -365,7 +365,7 @@ def test_memory_eval(tmpdir):
 def count_and_append(x=[]):
     """ A function with a side effect in its arguments.
 
-        Return the lenght of its argument and append one element.
+        Return the length of its argument and append one element.
     """
     len_x = len(x)
     x.append(None)
@@ -1157,7 +1157,7 @@ def test_register_invalid_store_backends_object():
 
 
 def test_memory_default_store_backend():
-    # test an unknow backend falls back into a FileSystemStoreBackend
+    # test an unknown backend falls back into a FileSystemStoreBackend
     with raises(TypeError) as excinfo:
         Memory(location='/tmp/joblib', backend='unknown')
     excinfo.match(r"Unknown location*")
