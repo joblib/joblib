@@ -1,12 +1,13 @@
 Latest changes
 ==============
 
-In development
---------------
+1.0.1
+-----
 
 - dask: avoid redundant scattering of large arguments to make a more
-  efficient use of the network resources and avoid
-  "OSError: [Errno 55] No buffer space available" errors on macOS.
+  efficient use of the network resources and avoid crashing dask with
+  "OSError: [Errno 55] No buffer space available"
+  or "ConnectionResetError: [Errno 104] connection reset by peer".
   https://github.com/joblib/joblib/pull/1133
 
 1.0.0
