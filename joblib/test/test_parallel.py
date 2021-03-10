@@ -55,7 +55,6 @@ from joblib._parallel_backends import ThreadingBackend
 from joblib._parallel_backends import MultiprocessingBackend
 from joblib._parallel_backends import ParallelBackendBase
 from joblib._parallel_backends import LokyBackend
-from joblib._parallel_backends import SafeFunction
 
 from joblib.parallel import Parallel, delayed
 from joblib.parallel import register_parallel_backend, parallel_backend
@@ -262,9 +261,8 @@ def nested_loop(backend):
 @parametrize('parent_backend', BACKENDS)
 @parametrize('return_generator', [True, False])
 def test_nested_loop(parent_backend, child_backend, return_generator):
-    with Parallel(n_jobs=2, backend=parent_backend,
-                  return_generator=return_generator) as parallel:
-        parallel(delayed(nested_loop)(child_backend) for _ in range(2))
+    Parallel(n_jobs=2, backend=parent_backend)(
+        delayed(nested_loop)(child_backend) for _ in range(2))
 
 
 def raise_exception(backend):
@@ -363,7 +361,8 @@ def test_error_capture(backend):
             Parallel(n_jobs=2, backend=backend)(
                 [delayed(division)(x, y)
                     for x, y in zip((0, 1), (1, 0))])
-        with raises(WorkerInterrupt):
+
+        with raises(KeyboardInterrupt):
             Parallel(n_jobs=2, backend=backend)(
                 [delayed(interrupt_raiser)(x) for x in (1, 0)])
 
@@ -387,7 +386,7 @@ def test_error_capture(backend):
                     parallel(delayed(f)(x, y=1) for x in range(10)))
 
             original_workers = get_workers(parallel._backend)
-            with raises(WorkerInterrupt):
+            with raises(KeyboardInterrupt):
                 parallel([delayed(interrupt_raiser)(x) for x in (1, 0)])
 
             # The pool should still be available despite the exception
@@ -794,11 +793,13 @@ def test_backend_nesting_level(outer_backend, inner_backend):
 
 
 @with_multiprocessing
-def test_retrieval_context():
+@parametrize('fetch_result_to_callback', [True, False])
+def test_retrieval_context(fetch_result_to_callback):
     import contextlib
 
     class MyBackend(ThreadingBackend):
         i = 0
+        supports_fetch_result_to_callback = fetch_result_to_callback
 
         @contextlib.contextmanager
         def retrieval_context(self):
@@ -827,16 +828,6 @@ def test_joblib_exception():
     repr(e)
     # Test the pickle
     pickle.dumps(e)
-
-
-def test_safe_function():
-    safe_division = SafeFunction(division)
-    with raises(ZeroDivisionError):
-        safe_division(1, 0)
-
-    safe_interrupt = SafeFunction(interrupt_raiser)
-    with raises(WorkerInterrupt):
-        safe_interrupt('x')
 
 
 @parametrize('batch_size', [0, -1, 1.42])
@@ -1145,18 +1136,6 @@ def test_memmap_with_big_offset(tmpdir):
     assert isinstance(memmap[1], np.memmap)
     assert memmap[1].offset > size
     np.testing.assert_array_equal(obj, result)
-
-
-def test_warning_about_timeout_not_supported_by_backend():
-    with warns(None) as warninfo:
-        Parallel(timeout=1)(delayed(square)(i) for i in range(50))
-    assert len(warninfo) == 1
-    w = warninfo[0]
-    assert isinstance(w.message, UserWarning)
-    assert str(w.message) == (
-        "The backend class 'SequentialBackend' does not support timeout. "
-        "You have set 'timeout=1' in Parallel but the 'timeout' parameter "
-        "will not be used.")
 
 
 def set_list_value(input_list, index, value):
@@ -1495,7 +1474,8 @@ def test_thread_bomb_mitigation(backend):
         with raises(BaseException) as excinfo:
             _recursive_parallel()
     exc = excinfo.value
-    if backend == "loky" and isinstance(exc, TerminatedWorkerError):
+    if backend == "loky" and (isinstance(exc, TerminatedWorkerError) or
+                              isinstance(exc, PicklingError)):
         # The recursion exception can itself cause an error when pickling it to
         # be send back to the parent process. In this case the worker crashes
         # but the original traceback is still printed on stderr. This could be

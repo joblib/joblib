@@ -119,10 +119,13 @@ class Batch:
 
     def __call__(self, tasks=None):
         results = []
-        with parallel_backend('dask'):
-            for func, args, kwargs in tasks:
-                results.append(func(*args, **kwargs))
-        return results
+        try:
+            with parallel_backend('dask'):
+                for func, args, kwargs in tasks:
+                    results.append(func(*args, **kwargs))
+            return dict(status="Done", result=results)
+        except BaseException as e:
+            return dict(status="Error", result=e)
 
     def __repr__(self):
         descr = f"batch_of_{self._funcname}_{self._num_tasks}_calls"

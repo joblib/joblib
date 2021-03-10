@@ -29,6 +29,7 @@ class ParallelBackendBase(metaclass=ABCMeta):
 
     supports_timeout = False
     supports_inner_max_num_threads = False
+    supports_fetch_result_to_callback = False
     nesting_level = None
 
     def __init__(self, nesting_level=None, inner_max_num_threads=None,
@@ -66,6 +67,11 @@ class ParallelBackendBase(metaclass=ABCMeta):
     @abstractmethod
     def apply_async(self, func, callback=None):
         """Schedule a func to be run"""
+
+    def fetch_result_to_callback(self, out):
+        """Intended to be called within the callback function passed in
+        apply_async. It takes as input both the object returned by apply_async
+        (job) and the object passed to the callback function (out)."""
 
     def configure(self, n_jobs=1, parallel=None, prefer=None, require=None,
                   **backend_args):
@@ -195,6 +201,7 @@ class SequentialBackend(ParallelBackendBase):
     """
 
     uses_threads = True
+    supports_fetch_result_to_callback = True
     supports_sharedmem = True
 
     def effective_n_jobs(self, n_jobs):
@@ -205,10 +212,13 @@ class SequentialBackend(ParallelBackendBase):
 
     def apply_async(self, func, callback=None):
         """Schedule a func to be run"""
-        result = ImmediateResult(func)
+        result = DelayedResult(func)
         if callback:
             callback(result)
         return result
+
+    def fetch_result_to_callback(self, out):
+        return dict(status="Done", result=out)
 
     def get_nested_backend(self):
         # import is not top level to avoid cyclic import errors.
@@ -250,7 +260,10 @@ class PoolManagerMixin(object):
     def apply_async(self, func, callback=None):
         """Schedule a func to be run"""
         return self._get_pool().apply_async(
-            SafeFunction(func), callback=callback)
+            func, callback=callback)
+
+    def fetch_result_to_callback(self, out):
+        return out
 
     def abort_everything(self, ensure_ready=True):
         """Shutdown the pool and restart a new one with the same parameters"""
@@ -382,7 +395,7 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
     ThreadingBackend is used as the default backend for nested calls.
     """
 
-    supports_timeout = True
+    supports_fetch_result_to_callback = True
     uses_threads = True
     supports_sharedmem = True
 
@@ -417,7 +430,7 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
     However, does not suffer from the Python Global Interpreter Lock.
     """
 
-    supports_timeout = True
+    supports_fetch_result_to_callback = True
 
     def effective_n_jobs(self, n_jobs):
         """Determine the number of jobs which are going to run in parallel.
@@ -480,7 +493,7 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
 class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
     """Managing pool of workers with loky instead of multiprocessing."""
 
-    supports_timeout = True
+    supports_fetch_result_to_callback = True
     supports_inner_max_num_threads = True
 
     def configure(self, n_jobs=1, parallel=None, prefer=None, require=None,
@@ -528,20 +541,13 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
 
     def apply_async(self, func, callback=None):
         """Schedule a func to be run"""
-        future = self._workers.submit(SafeFunction(func))
-        future.get = functools.partial(self.wrap_future_result, future)
+        future = self._workers.submit(func)
         if callback is not None:
             future.add_done_callback(callback)
         return future
 
-    @staticmethod
-    def wrap_future_result(future, timeout=None):
-        """Wrapper for Future.result to implement the same behaviour as
-        AsyncResults.get from multiprocessing."""
-        try:
-            return future.result(timeout=timeout)
-        except CfTimeoutError as e:
-            raise TimeoutError from e
+    def fetch_result_to_callback(self, out):
+        return out.result()
 
     def terminate(self):
         if self._workers is not None:
@@ -565,42 +571,20 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
             self.configure(n_jobs=self.parallel.n_jobs, parallel=self.parallel)
 
 
-class ImmediateResult(object):
+class DelayedResult(object):
     def __init__(self, batch):
         # Don't delay the application, to avoid keeping the input
         # arguments in memory
-        self.results = batch()
+        self.results = batch
+
+    def register_callback(self, cb):
+        self.cb = cb
 
     def get(self):
-        return self.results
-
-
-class SafeFunction(object):
-    """Wrapper that handles the serialization of exception tracebacks.
-
-    TODO python2_drop: check whether SafeFunction is still needed since we
-    dropped support for Python 2. If not needed anymore it should be
-    deprecated.
-
-    If an exception is triggered when calling the inner function, a copy of
-    the full traceback is captured to make it possible to serialize
-    it so that it can be rendered in a different Python process.
-
-    """
-    def __init__(self, func):
-        self.func = func
-
-    def __call__(self, *args, **kwargs):
-        try:
-            return self.func(*args, **kwargs)
-        except KeyboardInterrupt as e:
-            # We capture the KeyboardInterrupt and reraise it as
-            # something different, as multiprocessing does not
-            # interrupt processing for a KeyboardInterrupt
-            raise WorkerInterrupt() from e
-        except BaseException:
-            # Rely on Python 3 built-in Remote Traceback reporting
-            raise
+        ret = self.results()
+        if hasattr(self, "cb"):
+            self.cb()
+        return ret
 
 
 class FallbackToBackend(Exception):
