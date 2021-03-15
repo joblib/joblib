@@ -6,6 +6,7 @@ Test the memory module.
 # Copyright (c) 2009 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
+import functools
 import gc
 import shutil
 import os
@@ -475,6 +476,32 @@ def test_memory_ignore(tmpdir):
     accumulator = list()
 
     @memory.cache(ignore=['y'])
+    def z(x, y=1):
+        accumulator.append(1)
+
+    assert z.ignore == ['y']
+
+    z(0, y=1)
+    assert len(accumulator) == 1
+    z(0, y=1)
+    assert len(accumulator) == 1
+    z(0, y=2)
+    assert len(accumulator) == 1
+
+
+def test_memory_ignore_decorated(tmpdir):
+    " Test the ignore feature of memory on a decorated function "
+    memory = Memory(location=tmpdir.strpath, verbose=0)
+    accumulator = list()
+
+    def decorate(f):
+        @functools.wraps(f)
+        def wrapped(*args, **kwargs):
+            return f(*args, **kwargs)
+        return wrapped
+
+    @memory.cache(ignore=['y'])
+    @decorate
     def z(x, y=1):
         accumulator.append(1)
 
