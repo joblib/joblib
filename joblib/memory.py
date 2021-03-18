@@ -885,8 +885,10 @@ class Memory(Logger):
             Limit in bytes of the size of the cache. By default, the size of
             the cache is unlimited.
 
-            Note: you need to call :meth:`~joblib.Memory.reduce_size` to
-            actually reduce the cache size to be less than ``bytes_limit``.
+            .. note::
+
+               You need to call :meth:`~joblib.Memory.reduce_size` to actually
+               reduce the cache size to be less than ``bytes_limit``.
 
         backend_options: dict, optional
             Contains a dictionnary of named parameters used to configure
