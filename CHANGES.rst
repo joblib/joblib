@@ -1,6 +1,13 @@
 Latest changes
 ==============
 
+Development version
+-------------------
+
+- Fix joblib.Memory bug with the ``ignore`` parameter when the cached function
+  is a decorated function.
+  https://github.com/joblib/joblib/pull/1165
+
 1.0.1
 -----
 
