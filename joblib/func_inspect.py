@@ -242,10 +242,11 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
         # First argument is 'self', it has been removed by Python
         # we need to add it back:
         args = [func.__self__, ] + args
-        # inspect.signature(func) does not include self, so we need to fetch it
-        # from inspect.signature(func.__func__):
-        funcsig = inspect.signature(func.__func__)
-        arg_names = [next(iter(funcsig.parameters.keys()))] + arg_names
+        # func is an instance method, inspect.signature(func) does not
+        # include self, we need to fetch it from the class method
+        class_method_sig = inspect.signature(func.__func__)
+        self_name = next(iter(class_method_sig.parameters))
+        arg_names = [self_name] + arg_names
     # XXX: Maybe I need an inspect.isbuiltin to detect C-level methods, such
     # as on ndarrays.
 
