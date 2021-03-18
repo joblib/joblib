@@ -243,7 +243,8 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
         # we need to add it back:
         args = [func.__self__, ] + args
         # func is an instance method, inspect.signature(func) does not
-        # include self, we need to fetch it from the class method
+        # include self, we need to fetch it from the class method, i.e
+        # func.__func__
         class_method_sig = inspect.signature(func.__func__)
         self_name = next(iter(class_method_sig.parameters))
         arg_names = [self_name] + arg_names
