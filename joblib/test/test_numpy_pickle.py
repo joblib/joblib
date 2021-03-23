@@ -634,6 +634,7 @@ def test_in_memory_persistence():
     for obj in objs:
         f = io.BytesIO()
         numpy_pickle.dump(obj, f)
+        f.seek(0)
         obj_reloaded = numpy_pickle.load(f)
         if isinstance(obj, np.ndarray):
             np.testing.assert_array_equal(obj_reloaded, obj)
@@ -678,6 +679,7 @@ def test_file_handle_persistence_in_memory_mmap():
     buf = io.BytesIO()
 
     numpy_pickle.dump(obj, buf)
+    buf.seek(0)
 
     with warns(UserWarning) as warninfo:
         numpy_pickle.load(buf, mmap_mode='r+')
