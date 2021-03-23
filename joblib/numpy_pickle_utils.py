@@ -69,8 +69,9 @@ def _detect_compressor(fileobj):
         first_bytes = fileobj.peek(max_prefix_len)
     else:
         # Fallback to seek if the fileobject is not peekable.
+        prev_pos = fileobj.tell()
         first_bytes = fileobj.read(max_prefix_len)
-        fileobj.seek(0)
+        fileobj.seek(prev_pos)
 
     if first_bytes.startswith(_ZFILE_PREFIX):
         return "compat"
