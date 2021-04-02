@@ -1353,14 +1353,14 @@ class TestValidateCache:
             time.sleep(delay)
         return x * 2
 
-    def test_invalid_valid(self, memory):
+    def test_invalid_validate_cache(self, memory):
         "Test invalid values for `validate_cache"
         match = "validate_cache needs to be callable. Got True."
         with pytest.raises(ValueError, match=match):
             memory.cache(validate_cache=True)
 
     @pytest.mark.parametrize("valid", [True, False])
-    def test_memory_constant_valid(self, memory, valid):
+    def test_constant_validate_cache(self, memory, valid):
         "Test expiry of old results"
         f = memory.cache(
             self.foo, validate_cache=lambda _: valid, ignore=["d"]

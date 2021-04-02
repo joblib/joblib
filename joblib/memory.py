@@ -476,12 +476,15 @@ class MemorizedFunc(Logger):
 
         Return False if the cached result does not exists or cannot be used.
         """
+        # Check if the code of the function has changed
         if not self._check_previous_func_code(stacklevel=4):
             return False
 
+        # Check if this specific call is in the cache
         if not self.store_backend.contains_item(path):
             return False
 
+        # call the user defined cache validation
         metadata = self.store_backend.get_metadata(path)
         if (self.validate_cache is not None and
                 not self.validate_cache(metadata)):
