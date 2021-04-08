@@ -324,10 +324,10 @@ def delayed(function):
     def delayed_function(*args, **kwargs):
         return function, args, kwargs
     try:
-        delayed_function = functools.wraps(function)(delayed_function)
+        the_delayed_function = functools.wraps(function)(delayed_function)
     except AttributeError:
         " functools.wraps fails on some callable objects "
-    return delayed_function
+    return the_delayed_function
 
 
 ###############################################################################
