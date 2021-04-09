@@ -33,7 +33,8 @@ from .externals import loky
 # so that 3rd party backend implementers can import them from here.
 from ._parallel_backends import AutoBatchingMixin  # noqa
 from ._parallel_backends import ParallelBackendBase  # noqa
-
+from typing import Any, Optional, Callable, Dict, Generator, List, Tuple, TypeVar
+delayedFunctionReturnType = TypeVar("delayedFunctionReturnType")
 
 BACKENDS = {
     'multiprocessing': MultiprocessingBackend,
@@ -318,7 +319,7 @@ def _verbosity_filter(index, verbose):
 
 
 ###############################################################################
-def delayed(function):
+def delayed(whattododelayed: Callable[..., delayedFunctionReturnType]) -> Callable[..., Tuple[Callable[..., delayedFunctionReturnType], Tuple, Dict[str,Any]]]:
     """Decorator used to capture the arguments of a function."""
 
     def delayed_function(*args, **kwargs):
@@ -955,7 +956,7 @@ class Parallel(Logger):
                     backend.abort_everything(ensure_ready=ensure_ready)
                 raise
 
-    def __call__(self, iterable):
+    def __call__(self,iterable: Generator[Tuple[Callable[..., delayedFunctionReturnType], Tuple, Dict[str, Any]],None,None,],) -> List[delayedFunctionReturnType]:
         if self._jobs:
             raise ValueError('This Parallel instance is already running')
         # A flag used to abort the dispatching of jobs in case an
