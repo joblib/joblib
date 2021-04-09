@@ -323,9 +323,9 @@ def delayed(whattododelayed: Callable[..., delayedFunctionReturnType]) -> Callab
     """Decorator used to capture the arguments of a function."""
 
     def delayed_function(*args, **kwargs):
-        return function, args, kwargs
+        return whattododelayed, args, kwargs
     try:
-        delayed_function = functools.wraps(function)(delayed_function)
+        delayed_function = functools.wraps(whattododelayed)(delayed_function)
     except AttributeError:
         " functools.wraps fails on some callable objects "
     return delayed_function
