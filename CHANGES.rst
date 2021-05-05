@@ -4,6 +4,10 @@ Latest changes
 Development version
 -------------------
 
+- Fix byte order inconsistency issue during deserialization using joblib.load
+  in cross-endian environment.
+  https://github.com/joblib/joblib/pull/1181
+
 - Fix joblib.Memory bug with the ``ignore`` parameter when the cached function
   is a decorated function.
   https://github.com/joblib/joblib/pull/1165
