@@ -398,7 +398,7 @@ def _check_pickle(filename, expected_list):
             for result, expected in zip(result_list, expected_list):
                 if isinstance(expected, np.ndarray):
                     if _is_numpy_array_byte_order_mismatch(expected):
-                       expected = expected.byteswap().newbyteorder('=')
+                        expected = expected.byteswap().newbyteorder('=')
                     assert result.dtype == expected.dtype
                     np.testing.assert_equal(result, expected)
                 else:
