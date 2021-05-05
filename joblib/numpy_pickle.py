@@ -20,6 +20,7 @@ from .compressor import (ZlibCompressorWrapper, GzipCompressorWrapper,
 from .numpy_pickle_utils import Unpickler, Pickler
 from .numpy_pickle_utils import _read_fileobject, _write_fileobject
 from .numpy_pickle_utils import _read_bytes, BUFFER_SIZE
+from .numpy_pickle_utils import _is_numpy_array_byte_order_mismatch
 from .numpy_pickle_compat import load_compatibility
 from .numpy_pickle_compat import NDArrayWrapper
 # For compatibility with old versions of joblib, we need ZNDArrayWrapper
@@ -146,6 +147,10 @@ class NumpyArrayWrapper(object):
                 array = array.transpose()
             else:
                 array.shape = self.shape
+
+        # Detect byte order mis-match and swap as needed.
+        if _is_numpy_array_byte_order_mismatch(array):
+           array = array.byteswap().newbyteorder('=')
 
         return array
 

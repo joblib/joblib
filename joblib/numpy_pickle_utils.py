@@ -6,6 +6,7 @@
 
 import pickle
 import io
+import sys
 import warnings
 import contextlib
 
@@ -47,6 +48,17 @@ def _get_prefixes_max_len():
     prefixes += [len(_ZFILE_PREFIX)]
     return max(prefixes)
 
+def _is_numpy_array_byte_order_mismatch(array):
+    """Check if numpy array is having byte order mis-match"""
+    return \
+       (sys.byteorder == 'big' and \
+        (array.dtype.byteorder == '<' or \
+         (array.dtype.byteorder == '|' and array.dtype.fields and \
+          all(e[0].byteorder == '<' for e in array.dtype.fields.values())))) or \
+       (sys.byteorder == 'little' and \
+        (array.dtype.byteorder == '>' or \
+         (array.dtype.byteorder == '|' and array.dtype.fields and \
+          all(e[0].byteorder == '>' for e in array.dtype.fields.values()))))
 
 ###############################################################################
 # Cache file utilities

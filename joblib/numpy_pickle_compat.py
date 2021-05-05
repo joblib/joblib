@@ -9,7 +9,7 @@ from io import BytesIO
 
 from .numpy_pickle_utils import _ZFILE_PREFIX
 from .numpy_pickle_utils import Unpickler
-
+from .numpy_pickle_utils import _is_numpy_array_byte_order_mismatch
 
 def hex_str(an_int):
     """Convert an int to an hexadecimal string."""
@@ -104,6 +104,10 @@ class NDArrayWrapper(object):
             # risk.
             kwargs["allow_pickle"] = True
         array = unpickler.np.load(filename, **kwargs)
+
+        # Detect byte order mis-match and swap as needed.
+        if _is_numpy_array_byte_order_mismatch(array):
+            array = array.byteswap().newbyteorder('=')
 
         # Reconstruct subclasses. This does not work with old
         # versions of numpy

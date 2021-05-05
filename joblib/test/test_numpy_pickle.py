@@ -30,6 +30,7 @@ from joblib.test import data
 
 from joblib.numpy_pickle_utils import _IO_BUFFER_SIZE
 from joblib.numpy_pickle_utils import _detect_compressor
+from joblib.numpy_pickle_utils import _is_numpy_array_byte_order_mismatch
 from joblib.compressor import (_COMPRESSORS, _LZ4_PREFIX, CompressorWrapper,
                                LZ4_NOT_INSTALLED_ERROR, BinaryZlibFile)
 
@@ -355,6 +356,10 @@ def test_compressed_pickle_dump_and_load(tmpdir):
     result_list = numpy_pickle.load(fname)
     for result, expected in zip(result_list, expected_list):
         if isinstance(expected, np.ndarray):
+
+            if _is_numpy_array_byte_order_mismatch(expected):
+               expected = expected.byteswap().newbyteorder('=')
+
             assert result.dtype == expected.dtype
             np.testing.assert_equal(result, expected)
         else:
@@ -394,6 +399,8 @@ def _check_pickle(filename, expected_list):
                         "pickle file.".format(filename))
             for result, expected in zip(result_list, expected_list):
                 if isinstance(expected, np.ndarray):
+                    if _is_numpy_array_byte_order_mismatch(expected):
+                       expected = expected.byteswap().newbyteorder('=')
                     assert result.dtype == expected.dtype
                     np.testing.assert_equal(result, expected)
                 else:
