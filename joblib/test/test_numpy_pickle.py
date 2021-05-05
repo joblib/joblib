@@ -356,10 +356,8 @@ def test_compressed_pickle_dump_and_load(tmpdir):
     result_list = numpy_pickle.load(fname)
     for result, expected in zip(result_list, expected_list):
         if isinstance(expected, np.ndarray):
-
             if _is_numpy_array_byte_order_mismatch(expected):
-               expected = expected.byteswap().newbyteorder('=')
-
+                expected = expected.byteswap().newbyteorder('=')
             assert result.dtype == expected.dtype
             np.testing.assert_equal(result, expected)
         else:

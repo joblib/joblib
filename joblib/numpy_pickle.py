@@ -150,7 +150,7 @@ class NumpyArrayWrapper(object):
 
         # Detect byte order mis-match and swap as needed.
         if _is_numpy_array_byte_order_mismatch(array):
-           array = array.byteswap().newbyteorder('=')
+            array = array.byteswap().newbyteorder('=')
 
         return array
 
