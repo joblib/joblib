@@ -336,8 +336,8 @@ Thomas Moreau
 
     Implement the ``'loky'`` backend with @ogrisel. This backend relies on
     a robust implementation of ``concurrent.futures.ProcessPoolExecutor``
-    with spawned processes that can be reused accross the ``Parallel``
-    calls. This fixes the bad interation with third paty libraries relying on
+    with spawned processes that can be reused across the ``Parallel``
+    calls. This fixes the bad integration with third paty libraries relying on
     thread pools, described in https://pythonhosted.org/joblib/parallel.html#bad-interaction-of-multiprocessing-and-third-party-libraries
 
     Limit the number of threads used in worker processes by C-libraries that
@@ -397,7 +397,7 @@ Alexandre Abadie
 
     Add ``register_compressor`` function for extending available compressors.
 
-    Allow passing a string to ``compress`` parameter in ``dump`` funtion. This
+    Allow passing a string to ``compress`` parameter in ``dump`` function. This
     string should correspond to the compressor used (e.g. zlib, gzip, lz4,
     etc). The default compression level is used in this case.
 
@@ -447,7 +447,7 @@ Loïc Estève
 Loïc Estève
 
     Fix handling of memmap objects with offsets greater than
-    mmap.ALLOCATIONGRANULARITY in ``joblib.Parrallel``. See
+    mmap.ALLOCATIONGRANULARITY in ``joblib.Parallel``. See
     https://github.com/joblib/joblib/issues/451 for more details.
 
 Loïc Estève
@@ -1046,7 +1046,7 @@ Release 0.5.3
 2011-06-25
 Gael varoquaux
 
-   API: All the usefull symbols in the __init__
+   API: All the useful symbols in the __init__
 
 
 Release 0.5.2
