@@ -16,6 +16,10 @@ import os
 import os.path
 import time
 
+import sys
+sys.stderr.write('begin\n')
+print('begin')
+
 ###############################################################################
 # Get some data from real-world use cases
 # ---------------------------------------
@@ -23,17 +27,15 @@ import time
 # First fetch the benchmark dataset from an online machine-learning database
 # and load it in a pandas dataframe.
 
-import pandas as pd
+from sklearn.datasets import fetch_openml
 
-url = ("https://archive.ics.uci.edu/ml/machine-learning-databases/"
-       "kddcup99-mld/kddcup.data.gz")
-names = ("duration, protocol_type, service, flag, src_bytes, "
-         "dst_bytes, land, wrong_fragment, urgent, hot, "
-         "num_failed_logins, logged_in, num_compromised, "
-         "root_shell, su_attempted, num_root, "
-         "num_file_creations, ").split(', ')
+import time
+tic = time.time()
 
-data = pd.read_csv(url, names=names, nrows=1e6)
+data = fetch_openml(data_id='1113')['data']
+toc = time.time()
+print('Time elapsed:', int(toc - tic), 'seconds')
+print('downloaded')
 
 ###############################################################################
 # Dump and load the dataset without compression
@@ -221,11 +223,19 @@ plt.xticks(ind, ('Raw', 'LZ4', 'Zlib', 'LZMA'))
 # is the best compression method in terms of compression rate. Zlib also has a
 # better compression rate than LZ4.
 
+print('before plt.show')
+sys.stderr.write('before plt.show\n')
 plt.show()
 
 ###############################################################################
 # Clear the pickle file
 # ---------------------
 
+print('almost the end')
+sys.stderr.write('almost the end\n')
+
 import os
 os.remove(pickle_file)
+
+print('the end')
+sys.stderr.write('the end\n')

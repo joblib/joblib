@@ -7,3 +7,4 @@ numpydoc
 pandas
 lz4
 distributed
+scikit-learn
