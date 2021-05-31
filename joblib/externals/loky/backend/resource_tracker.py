@@ -36,7 +36,7 @@
 # Note that this behavior differs from CPython's resource_tracker, which only
 # implements list of shared resources, and not a proper refcounting scheme.
 # Also, CPython's resource tracker will only attempt to cleanup those shared
-# resources once all procsses connected to the resouce tracker have exited.
+# resources once all procsses connected to the resource tracker have exited.
 
 
 import os

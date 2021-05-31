@@ -848,7 +848,7 @@ class Memory(Logger):
 
         Parameters
         ----------
-        location: str or None
+        location: str, pathlib.Path or None
             The path of the base directory to use as a data store
             or None. If None is given, no caching is done and
             the Memory object is completely transparent. This option

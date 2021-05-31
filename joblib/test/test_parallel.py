@@ -1347,7 +1347,7 @@ def test_invalid_backend_hinting_and_constraints():
         # requiring shared memory semantics.
         Parallel(prefer='processes', require='sharedmem')
 
-    # It is inconsistent to ask explictly for a process-based parallelism
+    # It is inconsistent to ask explicitly for a process-based parallelism
     # while requiring shared memory semantics.
     with raises(ValueError):
         Parallel(backend='loky', require='sharedmem')
@@ -1563,7 +1563,7 @@ def _parent_max_num_threads_for(child_module, parent_info):
 
 def check_child_num_threads(workers_info, parent_info, num_threads):
     # Check that the number of threads reported in workers_info is consistent
-    # with the expectation. We need to be carefull to handle the cases where
+    # with the expectation. We need to be careful to handle the cases where
     # the requested number of threads is below max_num_thread for the library.
     for child_threadpool_info in workers_info:
         for child_module in child_threadpool_info:
