@@ -466,28 +466,28 @@ def test_joblib_pickle_across_python_versions():
 @with_numpy
 def test_numpy_array_byte_order_mismatch_detection():
     # List of numpy arrays with big endian byteorder.
-    be_arrays = [np.array([(1,2.0),(3,4.0)],dtype=[('','>i8'),('','>f8')]),
+    be_arrays = [np.array([(1, 2.0), (3, 4.0)], dtype=[('', '>i8'), ('', '>f8')]),
                  np.arange(3, dtype=np.dtype('>i8')),
                  np.arange(3, dtype=np.dtype('>f8'))]
 
     # Verify the byteorder mismatch is correctly detected.
     for array in be_arrays:
         if sys.byteorder == 'big':
-            assert _is_numpy_array_byte_order_mismatch(array) == False
+            assert _is_numpy_array_byte_order_mismatch(array) is False 
         else:
-            assert _is_numpy_array_byte_order_mismatch(array) == True
+            assert _is_numpy_array_byte_order_mismatch(array) is True 
 
     # List of numpy arrays with little endian byteorder.
-    le_arrays = [np.array([(1,2.0),(3,4.0)],dtype=[('','<i8'),('','<f8')]),
+    le_arrays = [np.array([(1, 2.0), (3, 4.0)], dtype=[('', '<i8'), ('','<f8')]),
                  np.arange(3, dtype=np.dtype('<i8')),
                  np.arange(3, dtype=np.dtype('<f8'))]
 
     # Verify the byteorder mismatch is correctly detected.
     for array in le_arrays:
         if sys.byteorder == 'little':
-           assert _is_numpy_array_byte_order_mismatch(array) == False
+            assert _is_numpy_array_byte_order_mismatch(array) is False
         else:
-           assert _is_numpy_array_byte_order_mismatch(array) == True
+            assert _is_numpy_array_byte_order_mismatch(array) is True
 
 
 @parametrize('compress_tuple', [('zlib', 3), ('gzip', 3)])
@@ -672,6 +672,7 @@ def test_in_memory_persistence():
             np.testing.assert_array_equal(obj_reloaded, obj)
         else:
             assert obj_reloaded == obj
+
 
 @with_numpy
 def test_file_handle_persistence_mmap(tmpdir):
