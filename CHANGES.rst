@@ -4,6 +4,12 @@ Latest changes
 Development version
 -------------------
 
+- Fix byte order inconsistency issue during deserialization using joblib.load
+  in cross-endian environment: the numpy arrays are now always loaded to
+  use the system byte order, independently of the byte order of the system
+  that serialized the pickle.
+  https://github.com/joblib/joblib/pull/1181
+
 - Fix joblib.Memory bug with the ``ignore`` parameter when the cached function
   is a decorated function.
   https://github.com/joblib/joblib/pull/1165
