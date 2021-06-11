@@ -62,6 +62,17 @@ def _is_numpy_array_byte_order_mismatch(array):
                all(e[0].byteorder == '>'
                    for e in array.dtype.fields.values())))))
 
+
+def _ensure_native_byte_order(array):
+    """Use the byte order of the host while preserving values
+
+    Does nothing if array already uses the system byte order.
+    """
+    if _is_numpy_array_byte_order_mismatch(array):
+        array = array.byteswap().newbyteorder('=')
+    return array
+
+
 ###############################################################################
 # Cache file utilities
 def _detect_compressor(fileobj):
