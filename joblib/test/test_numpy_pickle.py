@@ -474,9 +474,9 @@ def test_numpy_array_byte_order_mismatch_detection():
     # Verify the byteorder mismatch is correctly detected.
     for array in be_arrays:
         if sys.byteorder == 'big':
-            assert _is_numpy_array_byte_order_mismatch(array) is False
+            assert not _is_numpy_array_byte_order_mismatch(array)
         else:
-            assert _is_numpy_array_byte_order_mismatch(array) is True
+            assert _is_numpy_array_byte_order_mismatch(array)
 
     # List of numpy arrays with little endian byteorder.
     le_arrays = [np.array([(1, 2.0), (3, 4.0)],
@@ -487,9 +487,9 @@ def test_numpy_array_byte_order_mismatch_detection():
     # Verify the byteorder mismatch is correctly detected.
     for array in le_arrays:
         if sys.byteorder == 'little':
-            assert _is_numpy_array_byte_order_mismatch(array) is False
+            assert not _is_numpy_array_byte_order_mismatch(array)
         else:
-            assert _is_numpy_array_byte_order_mismatch(array) is True
+            assert _is_numpy_array_byte_order_mismatch(array)
 
 
 @parametrize('compress_tuple', [('zlib', 3), ('gzip', 3)])
