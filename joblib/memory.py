@@ -905,6 +905,15 @@ class Memory(Logger):
             **Note:** You need to call :meth:`joblib.Memory.reduce_size` to
             actually reduce the cache size to be less than ``bytes_limit``.
 
+        files_limit: int, optional
+            Number of files to limit the cache to.  By default, the number of
+            files in the cache is unlimited. When reducing the size of the
+            cache, ``joblib`` keeps the most recently accessed items first.
+
+            **Note:** You need to call :meth:`joblib.Memory.reduce_size` to
+            actually reduce the number of files to be less than
+            ``files_limit``.
+
         backend_options: dict, optional
             Contains a dictionnary of named parameters used to configure
             the store backend.
@@ -915,13 +924,14 @@ class Memory(Logger):
 
     def __init__(self, location=None, backend='local', cachedir=None,
                  mmap_mode=None, compress=False, verbose=1, bytes_limit=None,
-                 backend_options=None):
+                 files_limit=None, backend_options=None):
         # XXX: Bad explanation of the None value of cachedir
         Logger.__init__(self)
         self._verbose = verbose
         self.mmap_mode = mmap_mode
         self.timestamp = time.time()
         self.bytes_limit = bytes_limit
+        self.files_limit = files_limit
         self.backend = backend
         self.compress = compress
         if backend_options is None:
@@ -1022,9 +1032,13 @@ class Memory(Logger):
             self.store_backend.clear()
 
     def reduce_size(self):
-        """Remove cache elements to make cache size fit in ``bytes_limit``."""
-        if self.bytes_limit is not None and self.store_backend is not None:
-            self.store_backend.reduce_store_size(self.bytes_limit)
+        """Remove cache elements to make cache size fit in ``bytes_limit`` and
+        make the number of files no more than ``files_limit``."""
+        if (
+            (self.bytes_limit is not None or self.files_limit is not None)
+            and self.store_backend is not None
+        ):
+            self.store_backend.reduce_store_size(self.bytes_limit, self.files_limit)
 
     def eval(self, func, *args, **kwargs):
         """ Eval function func with arguments `*args` and `**kwargs`,

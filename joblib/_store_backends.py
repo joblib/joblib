@@ -145,6 +145,8 @@ class StoreBackendMixin(object):
     file-like object.
     """
 
+    FILES_PER_ITEM = 2
+
     def load_item(self, path, verbose=1, msg=None):
         """Load an item from the store given its path as a list of
            strings."""
@@ -276,9 +278,9 @@ class StoreBackendMixin(object):
         """Clear the whole store content."""
         self.clear_location(self.location)
 
-    def reduce_store_size(self, bytes_limit):
-        """Reduce store size to keep it under the given bytes limit."""
-        items_to_delete = self._get_items_to_delete(bytes_limit)
+    def reduce_store_size(self, bytes_limit, files_limit=None):
+        """Reduce store size to keep it under the given bytes & files limit."""
+        items_to_delete = self._get_items_to_delete(bytes_limit, files_limit)
 
         for item in items_to_delete:
             if self.verbose > 10:
@@ -292,16 +294,29 @@ class StoreBackendMixin(object):
                 # the folder already.
                 pass
 
-    def _get_items_to_delete(self, bytes_limit):
-        """Get items to delete to keep the store under a size limit."""
+    def _get_items_to_delete(self, bytes_limit, files_limit=None):
+        """Get items to delete to keep the store under a size & file limit."""
         if isinstance(bytes_limit, str):
             bytes_limit = memstr_to_bytes(bytes_limit)
 
         items = self.get_items()
         size = sum(item.size for item in items)
+        files = len(items) * self.FILES_PER_ITEM
 
-        to_delete_size = size - bytes_limit
-        if to_delete_size < 0:
+        if bytes_limit is not None:
+            to_delete_size = size - bytes_limit
+        else:
+            to_delete_size = None
+
+        if files_limit is not None:
+            to_delete_files = files - files_limit
+        else:
+            to_delete_files = None
+
+        if (
+            (to_delete_size is None or to_delete_size < 0)
+            and (to_delete_files is None or to_delete_files < 0)
+        ):
             return []
 
         # We want to delete first the cache items that were accessed a
@@ -310,13 +325,18 @@ class StoreBackendMixin(object):
 
         items_to_delete = []
         size_so_far = 0
+        files_so_far = 0
 
         for item in items:
-            if size_so_far > to_delete_size:
+            if (
+                (to_delete_size is None or size_so_far > to_delete_size)
+                and (to_delete_files is None or files_so_far > to_delete_files)
+            ):
                 break
 
             items_to_delete.append(item)
             size_so_far += item.size
+            files_so_far += self.FILES_PER_ITEM
 
         return items_to_delete
 
