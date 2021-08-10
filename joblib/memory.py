@@ -914,6 +914,14 @@ class Memory(Logger):
             actually reduce the number of files to be less than
             ``files_limit``.
 
+        age_limit: naive datetime, optional
+            Maximum age of entries to limit the cache to.  When reducing the
+            size of the cache, any entries last accessed before the given point
+            in time are deleted.
+
+            **Note:** You need to call :meth:`joblib.Memory.reduce_size` to
+            actually reduce the cache size.
+
         backend_options: dict, optional
             Contains a dictionnary of named parameters used to configure
             the store backend.
@@ -924,7 +932,7 @@ class Memory(Logger):
 
     def __init__(self, location=None, backend='local', cachedir=None,
                  mmap_mode=None, compress=False, verbose=1, bytes_limit=None,
-                 files_limit=None, backend_options=None):
+                 files_limit=None, age_limit=None, backend_options=None):
         # XXX: Bad explanation of the None value of cachedir
         Logger.__init__(self)
         self._verbose = verbose
@@ -932,6 +940,7 @@ class Memory(Logger):
         self.timestamp = time.time()
         self.bytes_limit = bytes_limit
         self.files_limit = files_limit
+        self.age_limit = age_limit
         self.backend = backend
         self.compress = compress
         if backend_options is None:
@@ -1035,10 +1044,10 @@ class Memory(Logger):
         """Remove cache elements to make cache size fit in ``bytes_limit`` and
         make the number of files no more than ``files_limit``."""
         if (
-            (self.bytes_limit is not None or self.files_limit is not None)
+            (self.bytes_limit is not None or self.files_limit is not None or self.age_limit is not None)
             and self.store_backend is not None
         ):
-            self.store_backend.reduce_store_size(self.bytes_limit, self.files_limit)
+            self.store_backend.reduce_store_size(self.bytes_limit, self.files_limit, self.age_limit)
 
     def eval(self, func, *args, **kwargs):
         """ Eval function func with arguments `*args` and `**kwargs`,

@@ -278,9 +278,9 @@ class StoreBackendMixin(object):
         """Clear the whole store content."""
         self.clear_location(self.location)
 
-    def reduce_store_size(self, bytes_limit, files_limit=None):
+    def reduce_store_size(self, bytes_limit, files_limit=None, age_limit=None):
         """Reduce store size to keep it under the given bytes & files limit."""
-        items_to_delete = self._get_items_to_delete(bytes_limit, files_limit)
+        items_to_delete = self._get_items_to_delete(bytes_limit, files_limit, age_limit)
 
         for item in items_to_delete:
             if self.verbose > 10:
@@ -294,8 +294,10 @@ class StoreBackendMixin(object):
                 # the folder already.
                 pass
 
-    def _get_items_to_delete(self, bytes_limit, files_limit=None):
-        """Get items to delete to keep the store under a size & file limit."""
+    def _get_items_to_delete(self, bytes_limit, files_limit=None, age_limit=None):
+        """
+        Get items to delete to keep the store under a size, file, & age limit.
+        """
         if isinstance(bytes_limit, str):
             bytes_limit = memstr_to_bytes(bytes_limit)
 
@@ -331,6 +333,7 @@ class StoreBackendMixin(object):
             if (
                 (to_delete_size is None or size_so_far > to_delete_size)
                 and (to_delete_files is None or files_so_far > to_delete_files)
+                and (age_limit is None or item.last_access >= age_limit)
             ):
                 break
 
