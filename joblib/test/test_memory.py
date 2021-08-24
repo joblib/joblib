@@ -609,6 +609,19 @@ def test_persistence(tmpdir):
     gp(1)
 
 
+def test_check_call_in_cache(tmpdir):
+    for func in (MemorizedFunc(f, tmpdir.strpath),
+                 Memory(location=tmpdir.strpath, verbose=0).cache(f)):
+        result = func.check_call_in_cache(2)
+        assert not result
+        assert isinstance(result, bool)
+        assert func(2) == 5
+        result = func.check_call_in_cache(2)
+        assert result
+        assert isinstance(result, bool)
+        func.clear()
+
+
 def test_call_and_shelve(tmpdir):
     # Test MemorizedFunc outputting a reference to cache.
 

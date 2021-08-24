@@ -427,7 +427,7 @@ objects that, in addition of behaving like normal functions, expose
 methods useful for cache exploration and management.
 
 .. autoclass:: MemorizedFunc
-    :members: __init__, call, clear
+    :members: __init__, call, clear, check_call_in_cache
 
 
 ..

@@ -17,6 +17,9 @@ Development version
 1.0.1
 -----
 
+- Add check_call_in_cache method to check cache without calling function.
+  https://github.com/joblib/joblib/pull/820
+ 
 - dask: avoid redundant scattering of large arguments to make a more
   efficient use of the network resources and avoid crashing dask with
   "OSError: [Errno 55] No buffer space available"
