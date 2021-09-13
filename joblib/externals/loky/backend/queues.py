@@ -209,7 +209,7 @@ class SimpleQueue(mp_SimpleQueue):
             else:
                 self._wlock = ctx.Lock()
 
-        # Add possibility to use custom reducers
+        # Add possiblity to use custom reducers
         self._reducers = reducers
 
     def close(self):
