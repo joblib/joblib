@@ -14,6 +14,10 @@ Development version
   is a decorated function.
   https://github.com/joblib/joblib/pull/1165
 
+- Fix `joblib.Memory` to properly handle caching for functions defined
+  interactively in a IPython session or in Jupyter notebook cell.
+  https://github.com/joblib/joblib/pull/1214
+
 1.0.1
 -----
 
