@@ -515,8 +515,8 @@ class Parallel(Logger):
             Only active when backend="loky" or "multiprocessing".
         mmap_mode: {None, 'r+', 'r', 'w+', 'c'}, default: 'r'
             Memmapping mode for numpy arrays passed to workers. None will 
-            disable memmapping, other modes defined at
-            `numpy.memmap <https://numpy.org/doc/stable/reference/generated/numpy.memmap.html>`_.
+            disable memmapping, other modes defined in the numpy.memmap doc:
+            https://numpy.org/doc/stable/reference/generated/numpy.memmap.html
             Also, see 'max_nbytes' parameter documentation for more details.
 
         Notes
