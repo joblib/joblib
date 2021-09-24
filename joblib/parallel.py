@@ -472,8 +472,12 @@ class Parallel(Logger):
             The frequency of the messages increases with the verbosity level.
             If it more than 10, all iterations are reported.
         timeout: float, optional
-            Timeout limit for each task to complete.  If any task takes longer
-            a TimeOutError will be raised. Only applied when n_jobs != 1
+            Timeout limit for each task to complete.  If any task takes longer,
+            and `timeout_default` is not set, a TimeOutError will be raised.
+            Only applied when n_jobs != 1
+        timeout_default: Any, optional
+            The default value that will be returned if a task is timeout.
+            No TimeOutError will be raised.
         pre_dispatch: {'all', integer, or expression, as in '3*n_jobs'}
             The number of batches (of tasks) to be pre-dispatched.
             Default is '2*n_jobs'. When batch_size="auto" this is reasonable
