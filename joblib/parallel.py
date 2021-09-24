@@ -636,7 +636,8 @@ class Parallel(Logger):
         [Parallel(n_jobs=2)]: Done 6 out of 6 | elapsed:  0.0s finished
 
     '''
-    def __init__(self, n_jobs=None, backend=None, verbose=0, timeout=None,
+    def __init__(self, n_jobs=None, backend=None, verbose=0,
+                 timeout=None, timeout_default=None,
                  pre_dispatch='2 * n_jobs', batch_size='auto',
                  temp_folder=None, max_nbytes='1M', mmap_mode='r',
                  prefer=None, require=None):
@@ -654,6 +655,7 @@ class Parallel(Logger):
         self.n_jobs = n_jobs
         self.verbose = verbose
         self.timeout = timeout
+        self.timeout_default = timeout_default
         self.pre_dispatch = pre_dispatch
         self._ready_batches = queue.Queue()
         self._id = uuid4().hex
@@ -932,7 +934,14 @@ class Parallel(Logger):
 
             try:
                 if getattr(self._backend, 'supports_timeout', False):
-                    self._output.extend(job.get(timeout=self.timeout))
+                    try:
+                        self._output.extend(job.get(timeout=self.timeout))
+                    except TimeoutError as exc:
+                        if self.timeout_default is None:
+                            raise exc
+                        else:
+                            warnings.warn('Job timeout! Returning default returned value.')
+                            self._output.extend(self.timeout_default)
                 else:
                     self._output.extend(job.get())
 
