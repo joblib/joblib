@@ -940,7 +940,9 @@ class Parallel(Logger):
                         if self.timeout_default is None:
                             raise exc
                         else:
-                            warnings.warn('Job timeout! Returning default returned value.')
+                            warnings.warn(
+                                'Job timeout!'
+                                'Returning default returned value.')
                             self._output.extend(self.timeout_default)
                 else:
                     self._output.extend(job.get())
