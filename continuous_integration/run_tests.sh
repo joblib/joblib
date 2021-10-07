@@ -40,7 +40,11 @@ fi
 
 if [[ "$SKIP_TESTS" != "true" && "$COVERAGE" == "true" ]]; then
     echo "Deleting empty coverage files:"
-    find . ! -readable -name ".coverage.*" -size  0 -print -delete
+    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+	find . ! -readable -name ".coverage.*" -size  0 -print -delete
+    else
+	find . -name ".coverage.*" -size  0 -print -delete
+    fi
     echo "Combining .coverage.* files..."
     coverage combine --append  || echo "Found invalid coverage files."
     echo "Generating XML Coverage report..."
