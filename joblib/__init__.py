@@ -59,7 +59,7 @@ Main features
       >>> cachedir = 'your_cache_dir_goes_here'
       >>> mem = Memory(cachedir)
       >>> import numpy as np
-      >>> a = np.vander(np.arange(3)).astype(np.float)
+      >>> a = np.vander(np.arange(3)).astype(float)
       >>> square = mem.cache(np.square)
       >>> b = square(a)                                   # doctest: +ELLIPSIS
       ________________________________________________________________________________

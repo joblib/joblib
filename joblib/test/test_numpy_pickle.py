@@ -152,7 +152,7 @@ def test_numpy_persistence(tmpdir, compress):
     # Now test with array subclasses
     for obj in (np.matrix(np.zeros(10)),
                 np.memmap(filename + 'mmap',
-                          mode='w+', shape=4, dtype=np.float)):
+                          mode='w+', shape=4, dtype=np.float64)):
         filenames = numpy_pickle.dump(obj, filename, compress=compress)
         # All is cached in one file
         assert len(filenames) == 1
