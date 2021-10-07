@@ -4,6 +4,9 @@ Latest changes
 Development version
 -------------------
 
+Release 1.1.0
+--------------
+
 - Fix byte order inconsistency issue during deserialization using joblib.load
   in cross-endian environment: the numpy arrays are now always loaded to
   use the system byte order, independently of the byte order of the system
@@ -18,8 +21,12 @@ Development version
   interactively in a IPython session or in Jupyter notebook cell.
   https://github.com/joblib/joblib/pull/1214
 
-1.0.1
------
+- Update vendored loky (from version 2.9 to 3.0) and cloudpickle (from
+  version 1.6 to 2.0)
+  https://github.com/joblib/joblib/pull/1218
+
+Release 1.0.1
+-------------
 
 - Add check_call_in_cache method to check cache without calling function.
   https://github.com/joblib/joblib/pull/820
@@ -30,8 +37,8 @@ Development version
   or "ConnectionResetError: [Errno 104] connection reset by peer".
   https://github.com/joblib/joblib/pull/1133
 
-1.0.0
------
+Release 1.0.0
+-------------
 
 - Make `joblib.hash` and `joblib.Memory` caching system compatible with `numpy
   >= 1.20.0`. Also make it explicit in the documentation that users should now

@@ -69,7 +69,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'joblib'
-copyright = '2008-2018, Joblib developers'
+copyright = '2008-2021, Joblib developers'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
