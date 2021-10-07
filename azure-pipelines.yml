@@ -42,8 +42,8 @@ jobs:
         imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.9"
         EXTRA_CONDA_PACKAGES: "numpy"
-        SKIP_TESTS: "true"
-        # SKLEARN_TESTS: "true"
+        # SKIP_TESTS: "true"
+        SKLEARN_TESTS: "true"
       linux_py38_distributed:
         # To be updated regularly to use the most recent versions of the
         # dependencies.

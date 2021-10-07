@@ -145,7 +145,7 @@ arrays::
     >>> cachedir2 = 'your_cachedir2_location'
     >>> memory2 = Memory(cachedir2, mmap_mode='r')
     >>> square = memory2.cache(np.square)
-    >>> a = np.vander(np.arange(3)).astype(np.float)
+    >>> a = np.vander(np.arange(3)).astype(float)
     >>> square(a)
     ________________________________________________________________________________
     [Memory] Calling square...
