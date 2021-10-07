@@ -2,7 +2,7 @@
 
 import io
 import zlib
-from distutils.version import LooseVersion
+from packaging.version import Version
 
 try:
     from threading import RLock
@@ -201,7 +201,7 @@ class LZ4CompressorWrapper(CompressorWrapper):
         lz4_version = lz4.__version__
         if lz4_version.startswith("v"):
             lz4_version = lz4_version[1:]
-        if LooseVersion(lz4_version) < LooseVersion('0.19'):
+        if Version(lz4_version) < Version('0.19'):
             raise ValueError(LZ4_NOT_INSTALLED_ERROR)
 
     def compressor_file(self, fileobj, compresslevel=None):

@@ -55,4 +55,5 @@ setup(
         'joblib.externals.loky', 'joblib.externals.loky.backend',
     ],
     python_requires='>=3.6',
+    install_requires=['packaging'],
 )

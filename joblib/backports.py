@@ -4,7 +4,7 @@ Backports of fixes for joblib dependencies
 import os
 import time
 
-from distutils.version import LooseVersion
+from packaging.version import Version
 from os.path import basename
 from multiprocessing import util
 
@@ -33,7 +33,7 @@ try:
 
         mm = np.memmap(filename, dtype=dtype, mode=mode, offset=offset,
                        shape=shape, order=order)
-        if LooseVersion(np.__version__) < '1.13':
+        if Version(np.__version__) < Version('1.13'):
             mm.offset = offset
         if unlink_on_gc_collect:
             from ._memmapping_reducer import add_maybe_unlink_finalizer
