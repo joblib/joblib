@@ -41,7 +41,7 @@ fi
 if [[ "$SKIP_TESTS" != "true" && "$COVERAGE" == "true" ]]; then
     echo "Deleting empty coverage files:"
     if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-	find . ! -readable -name ".coverage.*" -size  0 -print -delete
+	find . -name ".coverage.*" -size 0 ! -readable  -print -delete
     else
 	find . -name ".coverage.*" -size  0 -print -delete
     fi
