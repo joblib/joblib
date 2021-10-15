@@ -15,6 +15,12 @@ import struct
 import sys
 import types
 
+try:
+    import xxhash
+except ImportError:
+    xxhash = None
+
+
 Pickler = pickle._Pickler
 
 _HASHES = {}
@@ -48,6 +54,8 @@ def register_hash(hash_name, hash, force=False):
 
 register_hash('md5', hashlib.md5)
 register_hash('sha1', hashlib.sha1)
+if xxhash:
+    register_hash('xxh32', xxhash.xxh32)
 
 
 class _ConsistentSet(object):
