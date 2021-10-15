@@ -490,6 +490,7 @@ def test_pandas_dataframe():
     b = pd.DataFrame([1, 2, 4, 4])
     assert hash(a) != hash(b)
 
+
 @with_pandas
 def test_pandas_series():
     a = pd.Series([1, 2, 3, 4])

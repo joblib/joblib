@@ -256,7 +256,8 @@ class PandasHasher(NumpyHasher):
                 objects.
         """
         NumpyHasher.__init__(
-            self, hash_name=hash_name, coerce_mmap=coerce_mmap)
+            self, hash_name=hash_name, coerce_mmap=coerce_mmap
+        )
         # delayed import of pandas, to avoid tight coupling
         import pandas as pd
         self.pd = pd
