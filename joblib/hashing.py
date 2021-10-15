@@ -241,6 +241,52 @@ class NumpyHasher(Hasher):
         Hasher.save(self, obj)
 
 
+class PandasHasher(NumpyHasher):
+    """ Special case the hasher for when pandas is loaded.
+    """
+
+    def __init__(self, hash_name='md5', coerce_mmap=False):
+        """
+            Parameters
+            ----------
+            hash_name: string
+                The hash algorithm to be used
+            coerce_mmap: boolean
+                Make no difference between np.memmap and np.ndarray
+                objects.
+        """
+        NumpyHasher.__init__(
+            self, hash_name=hash_name, coerce_mmap=coerce_mmap)
+        # delayed import of pandas, to avoid tight coupling
+        import pandas as pd
+        self.pd = pd
+
+    def save(self, obj):
+        """ Subclass the save method, to hash pandas objects using fast Pandas
+            implementations rather than pickling them. Of course, this is a
+            total abuse of the Pickler class.
+        """
+        if isinstance(obj, self.pd.DataFrame):
+            buf = io.BytesIO()
+            try:
+                # This is by far the fastest way to serialize a Pandas object
+                # but requires Pyarrow to be installed.
+                obj.to_feather(buf)
+            except ImportError:
+                # If to_feather is not availiable, fall back to to_pickle. This
+                # implementation seems to be much faster than the standard call
+                # to Pickle.
+                obj.to_pickle(buf)
+            self._hash.update(buf.getvalue())
+            return
+        elif isinstance(obj, self.pd.Series):
+            buf = io.BytesIO()
+            obj.to_pickle(buf)
+            self._hash.update(buf.getvalue())
+            return
+        NumpyHasher.save(self, obj)
+
+
 def hash(obj, hash_name='md5', coerce_mmap=False):
     """ Quick calculation of a hash to identify uniquely Python objects
         containing numpy arrays.
@@ -259,7 +305,9 @@ def hash(obj, hash_name='md5', coerce_mmap=False):
         raise ValueError("Valid options for 'hash_name' are {}. "
                          "Got hash_name={!r} instead."
                          .format(valid_hash_names, hash_name))
-    if 'numpy' in sys.modules:
+    if 'pandas' in sys.modules:
+        hasher = PandasHasher(hash_name=hash_name, coerce_mmap=coerce_mmap)
+    elif 'numpy' in sys.modules:
         hasher = NumpyHasher(hash_name=hash_name, coerce_mmap=coerce_mmap)
     else:
         hasher = Hasher(hash_name=hash_name)
