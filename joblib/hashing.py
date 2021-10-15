@@ -55,7 +55,7 @@ def register_hash(hash_name, hash, force=False):
 register_hash('md5', hashlib.md5)
 register_hash('sha1', hashlib.sha1)
 if xxhash:
-    register_hash('xxh32', xxhash.xxh32)
+    register_hash('xxh3_64', xxhash.xxh3_64)
 
 
 class _ConsistentSet(object):
