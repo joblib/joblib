@@ -24,7 +24,7 @@ from joblib.hashing import hash
 from joblib.func_inspect import filter_args
 from joblib.memory import Memory
 from joblib.testing import raises, skipif, fixture, parametrize
-from joblib.test.common import np, with_numpy
+from joblib.test.common import np, pd, with_numpy, with_pandas
 
 
 def unicode(s):
@@ -479,6 +479,25 @@ def test_hashes_stay_the_same_with_numpy_objects():
     finally:
         e1.shutdown()
         e2.shutdown()
+
+
+@with_pandas
+def test_pandas_dataframe():
+    a = pd.DataFrame([1, 2, 3, 4])
+    b = pd.DataFrame([1, 2, 3, 4])
+    assert hash(a) == hash(b)
+
+    b = pd.DataFrame([1, 2, 4, 4])
+    assert hash(a) != hash(b)
+
+@with_pandas
+def test_pandas_series():
+    a = pd.Series([1, 2, 3, 4])
+    b = pd.Series([1, 2, 3, 4])
+    assert hash(a) == hash(b)
+
+    b = pd.Series([1, 2, 4, 4])
+    assert hash(a) != hash(b)
 
 
 def test_hashing_pickling_error():
