@@ -273,7 +273,7 @@ class PandasHasher(NumpyHasher):
                 # This is by far the fastest way to serialize a Pandas object
                 # but requires Pyarrow to be installed.
                 obj.to_feather(buf)
-            except ImportError:
+            except (ImportError, ValueError):
                 # If to_feather is not availiable, fall back to to_pickle. This
                 # implementation seems to be much faster than the standard call
                 # to Pickle.
