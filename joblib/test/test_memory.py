@@ -1338,8 +1338,8 @@ def test_memory_pickle_dump_load(tmpdir, memory_kwargs):
     assert hash(memorized_result) == hash(memorized_result_reloaded)
 
 
-class TestValidateCache:
-    "Tests on parameter `validate_cache`"
+class TestCacheValidationCallback:
+    "Tests on parameter `cache_validation_callback`"
 
     @pytest.fixture()
     def memory(self, tmp_path):
@@ -1353,39 +1353,40 @@ class TestValidateCache:
             time.sleep(delay)
         return x * 2
 
-    def test_invalid_validate_cache(self, memory):
-        "Test invalid values for `validate_cache"
-        match = "validate_cache needs to be callable. Got True."
+    def test_invalid_cache_validation_callback(self, memory):
+        "Test invalid values for `cache_validation_callback"
+        match = "cache_validation_callback needs to be callable. Got True."
         with pytest.raises(ValueError, match=match):
-            memory.cache(validate_cache=True)
+            memory.cache(cache_validation_callback=True)
 
-    @pytest.mark.parametrize("valid", [True, False])
-    def test_constant_validate_cache(self, memory, valid):
+    @pytest.mark.parametrize("consider_cache_valid", [True, False])
+    def test_constant_cache_validation_callback(
+            self, memory, consider_cache_valid
+    ):
         "Test expiry of old results"
         f = memory.cache(
-            self.foo, validate_cache=lambda _: valid, ignore=["d"]
+            self.foo, cache_validation_callback=lambda _: consider_cache_valid,
+            ignore=["d"]
         )
 
-        d1, d2, d3 = {"run": False}, {"run": False}, {"run": False}
+        d1, d2 = {"run": False}, {"run": False}
         assert f(2, d1) == 4
         assert f(2, d2) == 4
-        time.sleep(.1)
-        assert f(2, d3) == 4
 
         assert d1["run"]
-        assert d2["run"] != valid
-        assert d3["run"] != valid
+        assert d2["run"] != consider_cache_valid
 
     def test_memory_only_cache_long_run(self, memory):
-        "Test valid based on run duration."
+        "Test cache validity based on run duration."
 
-        def validate_cache(metadata):
+        def cache_validation_callback(metadata):
             duration = metadata['duration']
             if duration > 0.1:
                 return True
 
         f = memory.cache(
-            self.foo, validate_cache=validate_cache, ignore=["d"]
+            self.foo, cache_validation_callback=cache_validation_callback,
+            ignore=["d"]
         )
 
         # Short run are not cached
@@ -1403,10 +1404,11 @@ class TestValidateCache:
         assert not d2["run"]
 
     def test_memory_expires_after(self, memory):
-        "Test expiry of old results"
+        "Test expiry of old cached results"
 
         f = memory.cache(
-            self.foo, validate_cache=expires_after(seconds=.3), ignore=["d"]
+            self.foo, cache_validation_callback=expires_after(seconds=.3),
+            ignore=["d"]
         )
 
         d1, d2, d3 = {"run": False}, {"run": False}, {"run": False}

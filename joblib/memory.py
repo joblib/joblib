@@ -407,12 +407,12 @@ class MemorizedFunc(Logger):
         The verbosity flag, controls messages that are issued as
         the function is evaluated.
 
-    validate_cache: callable, optional
-        Function to validate whether or not the cache is valid. When the cached
+    cache_validation_callback: callable, optional
+        Callable to validate whether or not the cache is valid. When the cached
         function is called with arguments for which a cache exists, this
         callable is called with the metadata of the cached result as its sole
         argument. If it returns True, then the cached result is returned, else
-        it is cleared and recomputed.
+        the cache for these arguments is cleared and recomputed.
     """
     # ------------------------------------------------------------------------
     # Public interface
@@ -420,12 +420,12 @@ class MemorizedFunc(Logger):
 
     def __init__(self, func, location, backend='local', ignore=None,
                  mmap_mode=None, compress=False, verbose=1, timestamp=None,
-                 validate_cache=None):
+                 cache_validation_callback=None):
         Logger.__init__(self)
         self.mmap_mode = mmap_mode
         self.compress = compress
         self.func = func
-        self.validate_cache = validate_cache
+        self.cache_validation_callback = cache_validation_callback
 
         if ignore is None:
             ignore = []
@@ -469,12 +469,13 @@ class MemorizedFunc(Logger):
     def _is_in_cache_and_valid(self, path):
         """Check if the function call is cached and valid for given arguments.
 
-        - Compare the function code with the previous to see if the function
-        code has changed.
-        - Check if the results are present in the cache.
-        - Use `validate_cache` to check for user define cache validation.
+        - Compare the function code with the one from the cached function,
+        asserting if it has changed.
+        - Check if the function call is present in the cache.
+        - Call `cache_validation_callback` for user define cache validation.
 
-        Return False if the cached result does not exists or cannot be used.
+        Returns True if the function call is in cache and can be used, and
+        returns False otherwise.
         """
         # Check if the code of the function has changed
         if not self._check_previous_func_code(stacklevel=4):
@@ -484,10 +485,10 @@ class MemorizedFunc(Logger):
         if not self.store_backend.contains_item(path):
             return False
 
-        # call the user defined cache validation
+        # Call the user defined cache validation callback
         metadata = self.store_backend.get_metadata(path)
-        if (self.validate_cache is not None and
-                not self.validate_cache(metadata)):
+        if (self.cache_validation_callback is not None and
+                not self.cache_validation_callback(metadata)):
             self.store_backend.clear_item(path)
             return False
 
@@ -528,7 +529,6 @@ class MemorizedFunc(Logger):
         # Wether or not the memorized function must be called
         must_call = False
 
-        # FIXME: The statements below should be try/excepted
         # Compare the function code with the previous to see if the
         # function code has changed and check if the results are present in
         # the cache.
@@ -1009,7 +1009,7 @@ class Memory(Logger):
         return os.path.join(self.location, 'joblib')
 
     def cache(self, func=None, ignore=None, verbose=None, mmap_mode=False,
-              validate_cache=None):
+              cache_validation_callback=None):
         """ Decorates the given function func to only compute its return
             value for input arguments not cached on disk.
 
@@ -1026,12 +1026,13 @@ class Memory(Logger):
                 The memmapping mode used when loading from cache
                 numpy arrays. See numpy.load for the meaning of the
                 arguments. By default that of the memory object is used.
-            validate_cache: callable, optional
-                Function to validate whether or not the cache is valid.
-                When the cached function is called with arguments for which a
-                cache exists, this callable is called with the folder holding
-                the cached result as its sole argument. If it returns True,
-                then the cached result is returned, else it is recomputed.
+            cache_validation_callback: callable, optional
+                Callable to validate whether or not the cache is valid. When
+                the cached function is called with arguments for which a cache
+                exists, this callable is called with the metadata of the cached
+                result as its sole argument. If it returns True, then the
+                cached result is returned, else the cache for these arguments
+                is cleared and recomputed.
 
             Returns
             -------
@@ -1041,16 +1042,21 @@ class Memory(Logger):
                 methods for cache lookup and management. See the
                 documentation for :class:`joblib.memory.MemorizedFunc`.
         """
-        if validate_cache is not None and not callable(validate_cache):
+        if (cache_validation_callback is not None and
+                not callable(cache_validation_callback)):
             raise ValueError(
-                f"validate_cache needs to be callable. Got {validate_cache}."
+                "cache_validation_callback needs to be callable. "
+                f"Got {cache_validation_callback}."
             )
         if func is None:
             # Partial application, to be able to specify extra keyword
             # arguments in decorators
-            return functools.partial(self.cache, ignore=ignore,
-                                     verbose=verbose, mmap_mode=mmap_mode,
-                                     validate_cache=validate_cache)
+            return functools.partial(
+                self.cache, ignore=ignore,
+                mmap_mode=mmap_mode,
+                verbose=verbose,
+                cache_validation_callback=cache_validation_callback
+            )
         if self.store_backend is None:
             return NotMemorizedFunc(func)
         if verbose is None:
@@ -1059,12 +1065,12 @@ class Memory(Logger):
             mmap_mode = self.mmap_mode
         if isinstance(func, MemorizedFunc):
             func = func.func
-        return MemorizedFunc(func, location=self.store_backend,
-                             backend=self.backend,
-                             ignore=ignore, mmap_mode=mmap_mode,
-                             compress=self.compress,
-                             verbose=verbose, timestamp=self.timestamp,
-                             validate_cache=validate_cache)
+        return MemorizedFunc(
+            func, location=self.store_backend, backend=self.backend,
+            ignore=ignore, mmap_mode=mmap_mode, compress=self.compress,
+            verbose=verbose, timestamp=self.timestamp,
+            cache_validation_callback=cache_validation_callback
+        )
 
     def clear(self, warn=True):
         """ Erase the complete cache directory.
@@ -1112,7 +1118,7 @@ class Memory(Logger):
 
 
 ###############################################################################
-# validate_cache helpers
+# cache_validation_callback helpers
 ###############################################################################
 
 def expires_after(days=0, seconds=0, microseconds=0, milliseconds=0, minutes=0,
@@ -1122,8 +1128,8 @@ def expires_after(days=0, seconds=0, microseconds=0, milliseconds=0, minutes=0,
         milliseconds=milliseconds, minutes=minutes, hours=hours, weeks=weeks
     )
 
-    def validate_cache(metadata):
+    def cache_validation_callback(metadata):
         computation_age = time.time() - metadata['time']
         return computation_age < delta.total_seconds()
 
-    return validate_cache
+    return cache_validation_callback
