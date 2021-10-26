@@ -1123,6 +1123,13 @@ class Memory(Logger):
 
 def expires_after(days=0, seconds=0, microseconds=0, milliseconds=0, minutes=0,
                   hours=0, weeks=0):
+    """Helper cache_validation_callback to force recompute after a duration.
+
+    Parameters
+    ----------
+    days, seconds, microseconds, milliseconds, minutes, hours, weeks: numbers
+        argument passed to a timedelta.
+    """
     delta = timedelta(
         days=days, seconds=seconds, microseconds=microseconds,
         milliseconds=milliseconds, minutes=minutes, hours=hours, weeks=weeks

@@ -386,9 +386,9 @@ Gotchas
      ``self.method = memory.cache(self.method, ignore=['self'])``.
 
 * **joblib cache entries may be invalidated after environment updates**.
-  Values returned by ``joblib.hash`` are not guaranteed to stay
+  Values returned by :func:`joblib.hash` are not guaranteed to stay
   constant across ``joblib`` versions. This means that **all** entries of a
-  ``joblib.Memory`` cache can get invalidated when upgrading ``joblib``.
+  :class:`Memory` cache can get invalidated when upgrading ``joblib``.
   Invalidation can also happen when upgrading a third party library (such as
   ``numpy``): in such a case, only the cached function calls with parameters
   that are constructs (or contain references to contructs) defined in the
@@ -399,7 +399,8 @@ Ignoring some arguments
 -----------------------
 
 It may be useful not to recalculate a function when certain arguments
-change, for instance a debug flag. `Memory` provides the `ignore` list::
+change, for instance a debug flag. :class:`Memory` provides the ``ignore``
+list::
 
     >>> @memory.cache(ignore=['debug'])
     ... def my_func(x, debug=True):
@@ -413,8 +414,8 @@ change, for instance a debug flag. `Memory` provides the `ignore` list::
 
 .. _memory_reference:
 
-Reference documentation of the `Memory` class
----------------------------------------------
+Reference documentation of the :class:`Memory` class
+-----------------------------------------------------
 
 .. autoclass:: Memory
     :members: __init__, cache, eval, clear
@@ -439,3 +440,54 @@ methods useful for cache exploration and management.
     ...     shutil.rmtree(cachedir2)
     ... except OSError:
     ...     pass  # this can sometimes fail under Windows
+
+
+Custom cache validation
+-----------------------
+
+In some cases, external factors can invalidate the cached results and
+one wants to have more control on whether to reuse a result or not. This
+is for instance the case if the results depends on a database that changes
+across time, a small delay in the updates might be acceptable but after a
+while, the result gets invalid. One can have a finer control on the cache
+validity using a ``cache_validation_callback`` in :meth:`Memory.cache`:
+
+    >>> def cache_validation_cb(metadata):
+            # Only cache results for calls that take more than 1s
+    ...     return metadata['duration'] > 1
+    >>> @memory.cache(cache_validation_callback=cache_validation_cb)
+    ... def my_func(delay=0):
+    ...     time.sleep(delay)
+    ...	    print(f'Called with {x}s delay')
+    >>> my_func(), my_func(1.1) # Put calls in cache
+    Called with 0s delay
+    Called with 1.1s delay
+    >>> my_func() # Result is not cached as it took less than 1s to compute
+    Called with 0s delay
+    >>> my_func(1.1)  # Result is cached as it took more than 1s to compute
+
+This callback will be called with a single argument containing the metadata of
+the cached called as a dictionary containing ``{'duration', 'input_args',
+'time'}``. ``duration`` correspond to the duration of the function call,
+``time`` to the timestamp when the cache called has been recorded and
+``input_args`` is a dictionary of representation of the input arguments for
+the cached function call. Note that a helper is avaible to set an validity
+duration for cached results using :func:`joblib.expires_after`, with
+arguments similar to the one of a ``timedelta``:
+
+    >>> from joblib import expires after
+    >>> @memory.cache(cache_validation_callback=expires_after(seconds=0.5)
+    ... def my_func():
+    ...	    print(f'Function run')
+    >>> my_func()
+    Function run
+    >>> my_func()
+    >>> time.sleep(0.5)
+    >>> my_func()
+    Function run
+
+
+Helper Reference
+~~~~~~~~~~~~~~~~
+
+.. autofunction:: joblib.expires_after

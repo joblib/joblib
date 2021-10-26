@@ -110,13 +110,22 @@ __version__ = '1.1.0'
 
 
 import os
-from .memory import Memory, MemorizedResult, register_store_backend
+
+from .memory import Memory
+from .memory import MemorizedResult
+from .memory import register_store_backend
+from .memory import expires_after
+
 from .logger import PrintTime
 from .logger import Logger
+
 from .hashing import hash
+
 from .numpy_pickle import dump
 from .numpy_pickle import load
+
 from .compressor import register_compressor
+
 from .parallel import Parallel
 from .parallel import delayed
 from .parallel import cpu_count
@@ -129,7 +138,7 @@ from .externals.loky import wrap_non_picklable_objects
 
 __all__ = ['Memory', 'MemorizedResult', 'PrintTime', 'Logger', 'hash', 'dump',
            'load', 'Parallel', 'delayed', 'cpu_count', 'effective_n_jobs',
-           'register_parallel_backend', 'parallel_backend',
+           'register_parallel_backend', 'parallel_backend', 'expires_after',
            'register_store_backend', 'register_compressor',
            'wrap_non_picklable_objects']
 
