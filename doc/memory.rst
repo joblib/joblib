@@ -452,15 +452,17 @@ across time, a small delay in the updates might be acceptable but after a
 while, the result gets invalid. One can have a finer control on the cache
 validity using a ``cache_validation_callback`` in :meth:`Memory.cache`:
 
+    >>> import time
     >>> def cache_validation_cb(metadata):
-            # Only cache results for calls that take more than 1s
+    ...     # Only cache results for calls that take more than 1s
     ...     return metadata['duration'] > 1
     >>> @memory.cache(cache_validation_callback=cache_validation_cb)
     ... def my_func(delay=0):
     ...     time.sleep(delay)
-    ...	    print(f'Called with {x}s delay')
-    >>> my_func(), my_func(1.1) # Put calls in cache
+    ...	    print(f'Called with {delay}s delay')
+    >>> my_func()  # Put calls in cache
     Called with 0s delay
+    >>> my_func(1.1)
     Called with 1.1s delay
     >>> my_func() # Result is not cached as it took less than 1s to compute
     Called with 0s delay
@@ -475,8 +477,8 @@ the cached function call. Note that a helper is avaible to set an validity
 duration for cached results using :func:`joblib.expires_after`, with
 arguments similar to the one of a ``timedelta``:
 
-    >>> from joblib import expires after
-    >>> @memory.cache(cache_validation_callback=expires_after(seconds=0.5)
+    >>> from joblib import expires_after
+    >>> @memory.cache(cache_validation_callback=expires_after(seconds=0.5))
     ... def my_func():
     ...	    print(f'Function run')
     >>> my_func()
