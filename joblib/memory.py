@@ -876,12 +876,6 @@ class Memory(Logger):
             The 'local' backend is using regular filesystem operations to
             manipulate data (open, mv, etc) in the backend.
 
-        cachedir: str or None, optional
-
-            .. deprecated: 0.12
-                'cachedir' has been deprecated in 0.12 and will be
-                removed in 0.14. Use the 'location' parameter instead.
-
         mmap_mode: {None, 'r+', 'r', 'w+', 'c'}, optional
             The memmapping mode used when loading from cache
             numpy arrays. See numpy.load for the meaning of the
@@ -913,10 +907,9 @@ class Memory(Logger):
     # Public interface
     # ------------------------------------------------------------------------
 
-    def __init__(self, location=None, backend='local', cachedir=None,
+    def __init__(self, location=None, backend='local',
                  mmap_mode=None, compress=False, verbose=1, bytes_limit=None,
                  backend_options=None):
-        # XXX: Bad explanation of the None value of cachedir
         Logger.__init__(self)
         self._verbose = verbose
         self.mmap_mode = mmap_mode
@@ -931,22 +924,6 @@ class Memory(Logger):
         if compress and mmap_mode is not None:
             warnings.warn('Compressed results cannot be memmapped',
                           stacklevel=2)
-        if cachedir is not None:
-            if location is not None:
-                raise ValueError(
-                    'You set both "location={0!r} and "cachedir={1!r}". '
-                    "'cachedir' has been deprecated in version "
-                    "0.12 and will be removed in version 0.14.\n"
-                    'Please only set "location={0!r}"'.format(
-                        location, cachedir))
-
-            warnings.warn(
-                "The 'cachedir' parameter has been deprecated in version "
-                "0.12 and will be removed in version 0.14.\n"
-                'You provided "cachedir={0!r}", '
-                'use "location={0!r}" instead.'.format(cachedir),
-                DeprecationWarning, stacklevel=2)
-            location = cachedir
 
         self.location = location
         if isinstance(location, str):
@@ -956,17 +933,6 @@ class Memory(Logger):
             backend, location, verbose=self._verbose,
             backend_options=dict(compress=compress, mmap_mode=mmap_mode,
                                  **backend_options))
-
-    @property
-    def cachedir(self):
-        warnings.warn(
-            "The 'cachedir' attribute has been deprecated in version 0.12 "
-            "and will be removed in version 0.14.\n"
-            "Use os.path.join(memory.location, 'joblib') attribute instead.",
-            DeprecationWarning, stacklevel=2)
-        if self.location is None:
-            return None
-        return os.path.join(self.location, 'joblib')
 
     def cache(self, func=None, ignore=None, verbose=None, mmap_mode=False):
         """ Decorates the given function func to only compute its return
