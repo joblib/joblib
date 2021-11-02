@@ -1043,7 +1043,7 @@ class Memory(Logger):
             (self.bytes_limit is not None or items_limit is not None or age_limit is not None)
             and self.store_backend is not None
         ):
-            self.store_backend.reduce_store_size(self.bytes_limit, items_limit, age_limit)
+            self.store_backend.enforce_store_limits(self.bytes_limit, items_limit, age_limit)
 
     def eval(self, func, *args, **kwargs):
         """ Eval function func with arguments `*args` and `**kwargs`,

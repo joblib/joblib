@@ -278,8 +278,11 @@ class StoreBackendMixin(object):
         """Clear the whole store content."""
         self.clear_location(self.location)
 
-    def reduce_store_size(self, bytes_limit, items_limit=None, age_limit=None):
-        """Reduce store size to keep it under the given bytes & files limit."""
+    def enforce_store_limits(self, bytes_limit, items_limit=None, age_limit=None):
+        """
+        Remove oldest files from the store to keep it under item, byte, and age
+        limits.
+        """
         items_to_delete = self._get_items_to_delete(bytes_limit, items_limit, age_limit)
 
         for item in items_to_delete:
