@@ -328,12 +328,13 @@ class StoreBackendMixin(object):
         items_to_delete = []
         size_so_far = 0
         files_so_far = 0
+        now = datetime.datetime.now()
 
         for item in items:
             if (
                 (to_delete_size is None or size_so_far > to_delete_size)
                 and (to_delete_files is None or files_so_far > to_delete_files)
-                and (age_limit is None or item.last_access >= age_limit)
+                and (age_limit is None or now - item.last_access > age_limit)
             ):
                 break
 

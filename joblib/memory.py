@@ -1034,10 +1034,10 @@ class Memory(Logger):
             files in the cache is unlimited. When reducing the size of the
             cache, ``joblib`` keeps the most recently accessed items first.
 
-        age_limit: naive datetime, optional
+        age_limit: datetime.timedelta, optional
             Maximum age of entries to limit the cache to.  When reducing the
-            size of the cache, any entries last accessed before the given point
-            in time are deleted.
+            size of the cache, any entries last accessed more than the given
+            length of time ago are deleted.
         """
         if (
             (self.bytes_limit is not None or files_limit is not None or age_limit is not None)
