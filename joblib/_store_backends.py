@@ -145,8 +145,6 @@ class StoreBackendMixin(object):
     file-like object.
     """
 
-    FILES_PER_ITEM = 2
-
     def load_item(self, path, verbose=1, msg=None):
         """Load an item from the store given its path as a list of
            strings."""
