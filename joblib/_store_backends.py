@@ -278,9 +278,9 @@ class StoreBackendMixin(object):
         """Clear the whole store content."""
         self.clear_location(self.location)
 
-    def reduce_store_size(self, bytes_limit, files_limit=None, age_limit=None):
+    def reduce_store_size(self, bytes_limit, items_limit=None, age_limit=None):
         """Reduce store size to keep it under the given bytes & files limit."""
-        items_to_delete = self._get_items_to_delete(bytes_limit, files_limit, age_limit)
+        items_to_delete = self._get_items_to_delete(bytes_limit, items_limit, age_limit)
 
         for item in items_to_delete:
             if self.verbose > 10:
@@ -294,7 +294,7 @@ class StoreBackendMixin(object):
                 # the folder already.
                 pass
 
-    def _get_items_to_delete(self, bytes_limit, files_limit=None, age_limit=None):
+    def _get_items_to_delete(self, bytes_limit, items_limit=None, age_limit=None):
         """
         Get items to delete to keep the store under a size, file, & age limit.
         """
@@ -303,21 +303,20 @@ class StoreBackendMixin(object):
 
         items = self.get_items()
         size = sum(item.size for item in items)
-        files = len(items) * self.FILES_PER_ITEM
 
         if bytes_limit is not None:
             to_delete_size = size - bytes_limit
         else:
             to_delete_size = None
 
-        if files_limit is not None:
-            to_delete_files = files - files_limit
+        if items_limit is not None:
+            to_delete_items = len(items) - items_limit
         else:
-            to_delete_files = None
+            to_delete_items = None
 
         if (
             (to_delete_size is None or to_delete_size < 0)
-            and (to_delete_files is None or to_delete_files < 0)
+            and (to_delete_items is None or to_delete_items < 0)
         ):
             return []
 
@@ -327,20 +326,20 @@ class StoreBackendMixin(object):
 
         items_to_delete = []
         size_so_far = 0
-        files_so_far = 0
+        items_so_far = 0
         now = datetime.datetime.now()
 
         for item in items:
             if (
                 (to_delete_size is None or size_so_far > to_delete_size)
-                and (to_delete_files is None or files_so_far > to_delete_files)
+                and (to_delete_items is None or items_so_far > to_delete_items)
                 and (age_limit is None or now - item.last_access > age_limit)
             ):
                 break
 
             items_to_delete.append(item)
             size_so_far += item.size
-            files_so_far += self.FILES_PER_ITEM
+            items_so_far += 1
 
         return items_to_delete
 

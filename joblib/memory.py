@@ -1021,29 +1021,29 @@ class Memory(Logger):
         if self.store_backend is not None:
             self.store_backend.clear()
 
-    def reduce_size(self, files_limit=None, age_limit=None):
+    def reduce_size(self, items_limit=None, age_limit=None):
         """
         Remove cache elements to make cache size fit in ``bytes_limit``, make
-        the number of files no more than ``files_limit``, and delete all files
-        older than ``age_limit``.
+        the number of cache items no more than ``items_limit``, and delete all
+        files older than ``age_limit``.
 
         Parameters
         ----------
-        files_limit: int, optional
-            Number of files to limit the cache to.  By default, the number of
-            files in the cache is unlimited. When reducing the size of the
+        items_limit: int, optional
+            Number of items to limit the cache to.  By default, the number of
+            items in the cache is unlimited.  When reducing the size of the
             cache, ``joblib`` keeps the most recently accessed items first.
 
         age_limit: datetime.timedelta, optional
-            Maximum age of entries to limit the cache to.  When reducing the
-            size of the cache, any entries last accessed more than the given
-            length of time ago are deleted.
+            Maximum age of items to limit the cache to.  When reducing the size
+            of the cache, any items last accessed more than the given length of
+            time ago are deleted.
         """
         if (
-            (self.bytes_limit is not None or files_limit is not None or age_limit is not None)
+            (self.bytes_limit is not None or items_limit is not None or age_limit is not None)
             and self.store_backend is not None
         ):
-            self.store_backend.reduce_store_size(self.bytes_limit, files_limit, age_limit)
+            self.store_backend.reduce_store_size(self.bytes_limit, items_limit, age_limit)
 
     def eval(self, func, *args, **kwargs):
         """ Eval function func with arguments `*args` and `**kwargs`,
