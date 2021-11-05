@@ -444,7 +444,7 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
                 else:
                     msg = (
                         'Multiprocessing-backed parallel loops '
-                        'cannot be nested, setting n_jobs=1',
+                        'cannot be nested, setting n_jobs=1'
                     )
                 warnings.warn(msg, stacklevel=3)
             return 1
@@ -534,7 +534,7 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
                 else:
                     msg = (
                         'Loky-backed parallel loops cannot be called in a'
-                        ' multiprocessing, setting n_jobs=1',
+                        ' multiprocessing, setting n_jobs=1'
                     )
                 warnings.warn(msg, stacklevel=3)
 
