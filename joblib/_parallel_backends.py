@@ -435,15 +435,16 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
                     msg = (
                         "Inside a Dask worker with daemon=True, "
                         "setting n_jobs=1.\nPossible work-arounds:\n"
-                        "- dask.config.set({'distributed.worker.daemon': False})\n"
+                        "- dask.config.set("
+                        "{'distributed.worker.daemon': False})"
                         "- set the environment variable "
                         "DASK_DISTRIBUTED__WORKER__DAEMON=False\n"
                         "before creating your Dask cluster."
                     )
                 else:
                     msg = (
-                        'Multiprocessing-backed parallel loops cannot be nested,'
-                        ' setting n_jobs=1',
+                        'Multiprocessing-backed parallel loops '
+                        'cannot be nested, setting n_jobs=1',
                     )
                 warnings.warn(msg, stacklevel=3)
             return 1
@@ -524,7 +525,8 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
                     msg = (
                         "Inside a Dask worker with daemon=True, "
                         "setting n_jobs=1.\nPossible work-arounds:\n"
-                        "- dask.config.set({'distributed.worker.daemon': False})\n"
+                        "- dask.config.set("
+                        "{'distributed.worker.daemon': False})\n"
                         "- set the environment variable "
                         "DASK_DISTRIBUTED__WORKER__DAEMON=False\n"
                         "before creating your Dask cluster."
