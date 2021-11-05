@@ -462,3 +462,28 @@ def test_wait_for_workers_timeout():
     finally:
         client.close()
         cluster.close()
+
+
+@pytest.mark.parametrize("backend", ["loky", "multiprocessing"])
+def test_joblib_warning_inside_dask_daemonic_worker(backend):
+    cluster = LocalCluster(n_workers=2)
+    client = Client(cluster)
+
+    def func_using_joblib_parallel():
+        # Somehow trying to check the warning type here (e.g. with
+        # pytest.warns(UserWarning)) make the test hang. Work-around: return
+        # the warning record to the client and the warning check is done
+        # client-side.
+        with pytest.warns(None) as record:
+            Parallel(n_jobs=2, backend=backend)(
+                delayed(inc)(i) for i in range(10))
+
+        return record
+
+    fut = client.submit(func_using_joblib_parallel)
+    record = fut.result()
+
+    assert len(record) == 1
+    warning = record[0].message
+    assert isinstance(warning, UserWarning)
+    assert "distributed.worker.daemon" in str(warning)
