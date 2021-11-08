@@ -24,9 +24,11 @@ if distributed is not None:
         as_completed,
         get_client,
         secede,
-        rejoin
+        rejoin,
+        get_worker
     )
     from distributed.utils import thread_state
+
 
     try:
         # asyncio.TimeoutError, Python3-only error thrown by recent versions of
