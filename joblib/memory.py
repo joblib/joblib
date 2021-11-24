@@ -402,6 +402,11 @@ class MemorizedFunc(Logger):
         of compression. Note that compressed arrays cannot be
         read by memmapping.
 
+    hash_name: {'md5', 'sha1'}, optional
+            The name of the hash function to use to hash arguments.
+            Defaults to 'md5'. Additionally, if `xxhash` is installed
+            'xxh3_64' is valid.
+
     verbose: int, optional
         The verbosity flag, controls messages that are issued as
         the function is evaluated.
@@ -411,10 +416,16 @@ class MemorizedFunc(Logger):
     # ------------------------------------------------------------------------
 
     def __init__(self, func, location, backend='local', ignore=None,
-                 mmap_mode=None, compress=False, verbose=1, timestamp=None):
+                 mmap_mode=None, compress=False, hash_name='md5',
+                 verbose=1, timestamp=None):
         Logger.__init__(self)
         self.mmap_mode = mmap_mode
         self.compress = compress
+        if hash_name not in hashing._HASHES:
+            raise ValueError("Valid options for 'hash_name' are {}. "
+                             "Got hash_name={!r} instead."
+                             .format(hash_name, hash_name))
+        self.hash_name = hash_name
         self.func = func
 
         if ignore is None:
@@ -630,7 +641,8 @@ class MemorizedFunc(Logger):
 
     def _get_argument_hash(self, *args, **kwargs):
         return hashing.hash(filter_args(self.func, self.ignore, args, kwargs),
-                            coerce_mmap=(self.mmap_mode is not None))
+                            coerce_mmap=(self.mmap_mode is not None),
+                            hash_name=self.hash_name)
 
     def _get_output_identifiers(self, *args, **kwargs):
         """Return the func identifier and input parameter hash of a result."""
@@ -893,6 +905,11 @@ class Memory(Logger):
             of compression. Note that compressed arrays cannot be
             read by memmapping.
 
+        hash_name: {'md5', 'sha1'}, optional
+            The name of the hash function to use to hash arguments.
+            Defaults to 'md5'. Additionally, if `xxhash` is installed
+            'xxh3_64' is valid.
+
         verbose: int, optional
             Verbosity flag, controls the debug messages that are issued
             as functions are evaluated.
@@ -914,8 +931,8 @@ class Memory(Logger):
     # ------------------------------------------------------------------------
 
     def __init__(self, location=None, backend='local', cachedir=None,
-                 mmap_mode=None, compress=False, verbose=1, bytes_limit=None,
-                 backend_options=None):
+                 mmap_mode=None, compress=False, hash_name='md5', verbose=1,
+                 bytes_limit=None, backend_options=None):
         # XXX: Bad explanation of the None value of cachedir
         Logger.__init__(self)
         self._verbose = verbose
@@ -924,6 +941,11 @@ class Memory(Logger):
         self.bytes_limit = bytes_limit
         self.backend = backend
         self.compress = compress
+        if hash_name not in hashing._HASHES:
+            raise ValueError("Valid options for 'hash_name' are {}. "
+                             "Got hash_name={!r} instead."
+                             .format(hash_name, hash_name))
+        self.hash_name = hash_name
         if backend_options is None:
             backend_options = {}
         self.backend_options = backend_options
@@ -1011,6 +1033,7 @@ class Memory(Logger):
                              backend=self.backend,
                              ignore=ignore, mmap_mode=mmap_mode,
                              compress=self.compress,
+                             hash_name=self.hash_name,
                              verbose=verbose, timestamp=self.timestamp)
 
     def clear(self, warn=True):
