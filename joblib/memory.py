@@ -216,6 +216,7 @@ class MemorizedResult(Logger):
     timestamp, metadata: string
         for internal use only.
     """
+
     def __init__(self, location, func, args_id, backend='local',
                  mmap_mode=None, verbose=0, timestamp=None, metadata=None):
         Logger.__init__(self)
@@ -342,6 +343,7 @@ class NotMemorizedFunc(object):
         Original undecorated function.
     """
     # Should be a light as possible (for speed)
+
     def __init__(self, func):
         self.func = func
 
@@ -405,13 +407,19 @@ class MemorizedFunc(Logger):
     verbose: int, optional
         The verbosity flag, controls messages that are issued as
         the function is evaluated.
+
+    hash_func: callable, optional
+        Parameters: (obj: object, hash_name: string, coerce_mmap: Boolean)
+        Return the hash from an object. Default is None.
+        If hash_func is None hashing.hash is used
     """
     # ------------------------------------------------------------------------
     # Public interface
     # ------------------------------------------------------------------------
 
     def __init__(self, func, location, backend='local', ignore=None,
-                 mmap_mode=None, compress=False, verbose=1, timestamp=None):
+                 mmap_mode=None, compress=False, verbose=1,
+                 timestamp=None, hash_func=None):
         Logger.__init__(self)
         self.mmap_mode = mmap_mode
         self.compress = compress
@@ -437,9 +445,11 @@ class MemorizedFunc(Logger):
         if timestamp is None:
             timestamp = time.time()
         self.timestamp = timestamp
+        self.hash_func = hashing.hash if hash_func is None else hash_func
+
         try:
             functools.update_wrapper(self, func)
-        except:
+        except BaseException:
             " Objects like ufunc don't like that "
         if inspect.isfunction(func):
             doc = pydoc.TextDoc().document(func)
@@ -629,8 +639,10 @@ class MemorizedFunc(Logger):
     # ------------------------------------------------------------------------
 
     def _get_argument_hash(self, *args, **kwargs):
-        return hashing.hash(filter_args(self.func, self.ignore, args, kwargs),
-                            coerce_mmap=(self.mmap_mode is not None))
+        return self.hash_func(
+            filter_args(self.func, self.ignore, args, kwargs),
+            coerce_mmap=self.mmap_mode is not None
+        )
 
     def _get_output_identifiers(self, *args, **kwargs):
         """Return the func identifier and input parameter hash of a result."""
@@ -908,6 +920,11 @@ class Memory(Logger):
         backend_options: dict, optional
             Contains a dictionnary of named parameters used to configure
             the store backend.
+
+        hash_func: callable, optional
+            Parameters: (obj: object, hash_name: string, coerce_mmap: Boolean)
+            Returns the hash from an object.
+            If hash_func is None (default), hashing.hash is used.
     """
     # ------------------------------------------------------------------------
     # Public interface
@@ -915,7 +932,7 @@ class Memory(Logger):
 
     def __init__(self, location=None, backend='local', cachedir=None,
                  mmap_mode=None, compress=False, verbose=1, bytes_limit=None,
-                 backend_options=None):
+                 backend_options=None, hash_func=None):
         # XXX: Bad explanation of the None value of cachedir
         Logger.__init__(self)
         self._verbose = verbose
@@ -927,6 +944,7 @@ class Memory(Logger):
         if backend_options is None:
             backend_options = {}
         self.backend_options = backend_options
+        self.hash_func = hash_func
 
         if compress and mmap_mode is not None:
             warnings.warn('Compressed results cannot be memmapped',
@@ -1007,11 +1025,17 @@ class Memory(Logger):
             mmap_mode = self.mmap_mode
         if isinstance(func, MemorizedFunc):
             func = func.func
-        return MemorizedFunc(func, location=self.store_backend,
-                             backend=self.backend,
-                             ignore=ignore, mmap_mode=mmap_mode,
-                             compress=self.compress,
-                             verbose=verbose, timestamp=self.timestamp)
+        return MemorizedFunc(
+            func,
+            location=self.store_backend,
+            backend=self.backend,
+            ignore=ignore,
+            mmap_mode=mmap_mode,
+            compress=self.compress,
+            verbose=verbose,
+            timestamp=self.timestamp,
+            hash_func=self.hash_func
+        )
 
     def clear(self, warn=True):
         """ Erase the complete cache directory.
