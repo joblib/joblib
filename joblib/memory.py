@@ -408,11 +408,11 @@ class MemorizedFunc(Logger):
         the function is evaluated.
 
     cache_validation_callback: callable, optional
-        Callable to validate whether or not the cache is valid. When the cached
-        function is called with arguments for which a cache exists, this
-        callable is called with the metadata of the cached result as its sole
-        argument. If it returns True, then the cached result is returned, else
-        the cache for these arguments is cleared and recomputed.
+        Callable to check if a result in cache is valid or is to be recomputed.
+        When the function is called with arguments for which a cache exists,
+        the callback is called with the cache entry's metadata as its sole
+        argument. If it returns True, the cached result is returned, else the
+        cache for these arguments is cleared and the result is recomputed.
     """
     # ------------------------------------------------------------------------
     # Public interface
