@@ -17,7 +17,7 @@ def test_missing_multiprocessing(tmp_path):
     Python process. This also ensures that we don't break other tests by
     importing a bad `_multiprocessing` module.
     """
-    (tmp_path / "_multiprocessing").write_text('raise ImportError("No _multiprocessing module!")')
+    (tmp_path / "_multiprocessing.py").write_text('raise ImportError("No _multiprocessing module!")')
     env = dict(os.environ)
     # For subprocess, use current sys.path with our custom version of
     # multiprocessing inserted.
