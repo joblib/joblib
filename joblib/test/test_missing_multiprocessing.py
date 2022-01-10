@@ -22,4 +22,4 @@ def test_missing_multiprocessing():
     # multiprocessing inserted.
     import joblib
     env["PYTHONPATH"] = ":".join([joblib.__path__[0] + "/test/missing_multiprocessing"] + sys.path)
-    subprocess.check_call([sys.executable, "-c", "import joblib; import sys; print(sys.modules['_multiprocessing'])"], env=env)
+    subprocess.check_call([sys.executable, "-c", "import joblib"], env=env)
