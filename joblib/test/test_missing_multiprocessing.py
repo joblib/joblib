@@ -21,5 +21,8 @@ def test_missing_multiprocessing():
     # For subprocess, use current sys.path with our custom version of
     # multiprocessing inserted.
     import joblib
-    env["PYTHONPATH"] = ":".join([joblib.__path__[0] + "/test/missing_multiprocessing"] + sys.path)
+
+    env["PYTHONPATH"] = ":".join(
+        [joblib.__path__[0] + "/test/missing_multiprocessing"] + sys.path
+    )
     subprocess.check_call([sys.executable, "-c", "import joblib"], env=env)
