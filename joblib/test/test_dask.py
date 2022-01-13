@@ -114,7 +114,7 @@ def test_dask_funcname(loop, mixed):
 
 def test_no_undesired_distributed_cache_hit(loop):
     # Dask has a pickle cache for callables that are called many times. Because
-    # the dask backends used to wrapp both the functions and the arguments
+    # the dask backends used to wrap both the functions and the arguments
     # under instances of the Batch callable class this caching mechanism could
     # lead to bugs as described in: https://github.com/joblib/joblib/pull/1055
     # The joblib-dask backend has been refactored to avoid bundling the

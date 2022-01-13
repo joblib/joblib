@@ -1048,7 +1048,7 @@ class ProcessPoolExecutor(_base.Executor):
         if self._executor_manager_thread is None:
             mp.util.debug('_start_executor_manager_thread called')
 
-            # When the executor gets garbarge collected, the weakref callback
+            # When the executor gets garbage collected, the weakref callback
             # will wake up the queue management thread so that it can terminate
             # if there is no pending work item.
             def weakref_cb(
