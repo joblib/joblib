@@ -1124,10 +1124,10 @@ class Parallel(Logger):
             # empty yield that can be consumed early to enter the try/except
             # block
             yield
-            while self._iterating or \
-                    self.n_completed_tasks < self.n_dispatched_tasks or (
+            while (self._iterating or
+                   self.n_completed_tasks < self.n_dispatched_tasks or (
                     len(self._jobs) > 0 and
-                    not self._backend.supports_asynchronous_callback):
+                    not self._backend.supports_asynchronous_callback)):
                 if self._aborting:
                     with self._lock:
                         error_job = next((job for job in self._jobs
@@ -1135,9 +1135,9 @@ class Parallel(Logger):
                         if error_job is not None:
                             error_job.get_result(self.timeout)
                         break
-                if len(self._jobs) == 0 or \
+                if (len(self._jobs) == 0 or
                         self._jobs[0].get_status(
-                            timeout=self.timeout) == TASK_PENDING:
+                            timeout=self.timeout) == TASK_PENDING):
                     # Wait for an async callback to dispatch new jobs
                     time.sleep(0.01)
                     continue
@@ -1156,14 +1156,13 @@ class Parallel(Logger):
             self._abort()
             raise
         finally:
-            _remaining_outputs = ([] if self._exception
-                                  else self._jobs[::-1].copy())
+            _remaining_outputs = ([] if self._exception else self._jobs)
             self._jobs = list()
             retrieval_context.__exit__(None, None, None)
             self._terminate_and_reset()
 
         while len(_remaining_outputs) > 0:
-            result = _remaining_outputs.pop().get_result(self.timeout)
+            result = _remaining_outputs.pop(0).get_result(self.timeout)
             yield result
 
     def _get_outputs(self, retrieval_context):
