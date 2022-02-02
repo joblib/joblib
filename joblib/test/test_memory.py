@@ -365,7 +365,7 @@ def test_memory_eval(tmpdir):
 def count_and_append(x=[]):
     """ A function with a side effect in its arguments.
 
-        Return the lenght of its argument and append one element.
+        Return the length of its argument and append one element.
     """
     len_x = len(x)
     x.append(None)
@@ -607,6 +607,19 @@ def test_persistence(tmpdir):
     g = memory.cache(f)
     gp = pickle.loads(pickle.dumps(g))
     gp(1)
+
+
+def test_check_call_in_cache(tmpdir):
+    for func in (MemorizedFunc(f, tmpdir.strpath),
+                 Memory(location=tmpdir.strpath, verbose=0).cache(f)):
+        result = func.check_call_in_cache(2)
+        assert not result
+        assert isinstance(result, bool)
+        assert func(2) == 5
+        result = func.check_call_in_cache(2)
+        assert result
+        assert isinstance(result, bool)
+        func.clear()
 
 
 def test_call_and_shelve(tmpdir):
@@ -1157,7 +1170,7 @@ def test_register_invalid_store_backends_object():
 
 
 def test_memory_default_store_backend():
-    # test an unknow backend falls back into a FileSystemStoreBackend
+    # test an unknown backend falls back into a FileSystemStoreBackend
     with raises(TypeError) as excinfo:
         Memory(location='/tmp/joblib', backend='unknown')
     excinfo.match(r"Unknown location*")

@@ -142,6 +142,13 @@ def get_func_name(func, resolv_alias=True, win_characters=True):
                 # notebooks
                 splitted = parts[-1].split('-')
                 parts[-1] = '-'.join(splitted[:2] + splitted[3:])
+            elif len(parts) > 2 and parts[-2].startswith('ipykernel_'):
+                # In a notebook session (ipykernel). Filename seems to be 'xyz'
+                # of above. parts[-2] has the structure ipykernel_XXXXXX where
+                # XXXXXX is a six-digit number identifying the current run (?).
+                # If we split it off, the function again has the same
+                # identifier across runs.
+                parts[-2] = 'ipykernel'
             filename = '-'.join(parts)
             if filename.endswith('.py'):
                 filename = filename[:-3]

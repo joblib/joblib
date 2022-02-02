@@ -38,18 +38,18 @@ jobs:
         PYTHON_VERSION: "pypy3"
         LOKY_MAX_CPU_COUNT: "2"
 
+      linux_py39_sklearn_tests:
+        imageName: 'ubuntu-latest'
+        PYTHON_VERSION: "3.9"
+        EXTRA_CONDA_PACKAGES: "numpy"
+        # SKIP_TESTS: "true"
+        SKLEARN_TESTS: "true"
       linux_py38_distributed:
         # To be updated regularly to use the most recent versions of the
         # dependencies.
         imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.8"
         EXTRA_CONDA_PACKAGES: "numpy=1.18 distributed=2.17"
-      linux_py37_sklearn_tests:
-        imageName: 'ubuntu-latest'
-        PYTHON_VERSION: "3.7"
-        EXTRA_CONDA_PACKAGES: "numpy=1.16"
-        SKIP_TESTS: "true"
-        SKLEARN_TESTS: "true"
       linux_py37_distributed:
         imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.7"

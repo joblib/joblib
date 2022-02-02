@@ -4,21 +4,41 @@ Latest changes
 Development version
 -------------------
 
+Release 1.1.0
+--------------
+
+- Fix byte order inconsistency issue during deserialization using joblib.load
+  in cross-endian environment: the numpy arrays are now always loaded to
+  use the system byte order, independently of the byte order of the system
+  that serialized the pickle.
+  https://github.com/joblib/joblib/pull/1181
+
 - Fix joblib.Memory bug with the ``ignore`` parameter when the cached function
   is a decorated function.
   https://github.com/joblib/joblib/pull/1165
 
-1.0.1
------
+- Fix `joblib.Memory` to properly handle caching for functions defined
+  interactively in a IPython session or in Jupyter notebook cell.
+  https://github.com/joblib/joblib/pull/1214
 
+- Update vendored loky (from version 2.9 to 3.0) and cloudpickle (from
+  version 1.6 to 2.0)
+  https://github.com/joblib/joblib/pull/1218
+
+Release 1.0.1
+-------------
+
+- Add check_call_in_cache method to check cache without calling function.
+  https://github.com/joblib/joblib/pull/820
+ 
 - dask: avoid redundant scattering of large arguments to make a more
   efficient use of the network resources and avoid crashing dask with
   "OSError: [Errno 55] No buffer space available"
   or "ConnectionResetError: [Errno 104] connection reset by peer".
   https://github.com/joblib/joblib/pull/1133
 
-1.0.0
------
+Release 1.0.0
+-------------
 
 - Make `joblib.hash` and `joblib.Memory` caching system compatible with `numpy
   >= 1.20.0`. Also make it explicit in the documentation that users should now
@@ -336,8 +356,8 @@ Thomas Moreau
 
     Implement the ``'loky'`` backend with @ogrisel. This backend relies on
     a robust implementation of ``concurrent.futures.ProcessPoolExecutor``
-    with spawned processes that can be reused accross the ``Parallel``
-    calls. This fixes the bad interation with third paty libraries relying on
+    with spawned processes that can be reused across the ``Parallel``
+    calls. This fixes the bad integration with third paty libraries relying on
     thread pools, described in https://pythonhosted.org/joblib/parallel.html#bad-interaction-of-multiprocessing-and-third-party-libraries
 
     Limit the number of threads used in worker processes by C-libraries that
@@ -397,7 +417,7 @@ Alexandre Abadie
 
     Add ``register_compressor`` function for extending available compressors.
 
-    Allow passing a string to ``compress`` parameter in ``dump`` funtion. This
+    Allow passing a string to ``compress`` parameter in ``dump`` function. This
     string should correspond to the compressor used (e.g. zlib, gzip, lz4,
     etc). The default compression level is used in this case.
 
@@ -447,7 +467,7 @@ Loïc Estève
 Loïc Estève
 
     Fix handling of memmap objects with offsets greater than
-    mmap.ALLOCATIONGRANULARITY in ``joblib.Parrallel``. See
+    mmap.ALLOCATIONGRANULARITY in ``joblib.Parallel``. See
     https://github.com/joblib/joblib/issues/451 for more details.
 
 Loïc Estève
@@ -1046,7 +1066,7 @@ Release 0.5.3
 2011-06-25
 Gael varoquaux
 
-   API: All the usefull symbols in the __init__
+   API: All the useful symbols in the __init__
 
 
 Release 0.5.2

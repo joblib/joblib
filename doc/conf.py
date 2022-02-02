@@ -69,7 +69,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'joblib'
-copyright = '2008-2018, Joblib developers'
+copyright = '2008-2021, Joblib developers'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -253,7 +253,7 @@ try:
     shutil.copyfile('../README.rst', 'README.rst')
 except IOError:
     pass
-    # This fails during the tesing, as the code is ran in a different
+    # This fails during the testing, as the code is ran in a different
     # directory
 
 numpydoc_show_class_members = False

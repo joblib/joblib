@@ -59,7 +59,7 @@ Main features
       >>> cachedir = 'your_cache_dir_goes_here'
       >>> mem = Memory(cachedir)
       >>> import numpy as np
-      >>> a = np.vander(np.arange(3)).astype(np.float)
+      >>> a = np.vander(np.arange(3)).astype(float)
       >>> square = mem.cache(np.square)
       >>> b = square(a)                                   # doctest: +ELLIPSIS
       ________________________________________________________________________________
@@ -106,7 +106,7 @@ Main features
 # Dev branch marker is: 'X.Y.dev' or 'X.Y.devN' where N is an integer.
 # 'X.Y.dev0' is the canonical version of 'X.Y.dev'
 #
-__version__ = '1.1.0.dev0'
+__version__ = '1.2.0.dev0'
 
 
 import os

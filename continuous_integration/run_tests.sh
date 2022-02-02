@@ -40,7 +40,9 @@ fi
 
 if [[ "$SKIP_TESTS" != "true" && "$COVERAGE" == "true" ]]; then
     echo "Deleting empty coverage files:"
-    find . -name ".coverage.*" -size  0 -print -delete
+    # the "|| echo" is to avoid having 0 return states that terminate the
+    # script when the find uncounters permission denied
+    find . -name ".coverage.*" -size  0 -print -delete || echo
     echo "Combining .coverage.* files..."
     coverage combine --append  || echo "Found invalid coverage files."
     echo "Generating XML Coverage report..."

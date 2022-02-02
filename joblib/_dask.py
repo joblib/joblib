@@ -24,9 +24,11 @@ if distributed is not None:
         as_completed,
         get_client,
         secede,
-        rejoin
+        rejoin,
+        get_worker
     )
     from distributed.utils import thread_state
+
 
     try:
         # asyncio.TimeoutError, Python3-only error thrown by recent versions of
@@ -51,7 +53,7 @@ class _WeakKeyDictionary:
     such as large numpy arrays or pandas dataframes that are not hashable and
     therefore cannot be used as keys of traditional python dicts.
 
-    Futhermore using a dict with id(array) as key is not safe because the
+    Furthermore using a dict with id(array) as key is not safe because the
     Python is likely to reuse id of recently collected arrays.
     """
 
