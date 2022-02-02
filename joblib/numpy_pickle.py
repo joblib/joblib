@@ -133,7 +133,8 @@ class NumpyArrayWrapper(object):
             current_pos = unpickler.file_handle.tell()
             alignment = current_pos % 8
 
-            if alignment != 0:
+            current_byte = unpickler.file_handle.peek()
+            if alignment != 0 and current_byte == b' ':
                 padding_length = 8 - alignment
                 unpickler.file_handle.seek(current_pos + padding_length)
 
@@ -350,6 +351,7 @@ class NumpyUnpickler(Unpickler):
         replace them directly in the stack of pickler.
         NDArrayWrapper is used for backward compatibility with joblib <= 0.9.
         """
+        print('load_build', self.stack)
         Unpickler.load_build(self)
 
         # For backward compatibility, we support NDArrayWrapper objects.
