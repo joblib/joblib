@@ -10,8 +10,9 @@ import functools
 import contextlib
 from abc import ABCMeta, abstractmethod
 
-from .my_exceptions import WorkerInterrupt
+from .constants import TASK_DONE
 from ._multiprocessing_helpers import mp
+from .my_exceptions import WorkerInterrupt
 
 if mp is not None:
     from .pool import MemmappingPool
@@ -218,7 +219,7 @@ class SequentialBackend(ParallelBackendBase):
         return result
 
     def fetch_result_to_callback(self, out):
-        return dict(status="Done", result=out)
+        return dict(status=TASK_DONE, result=out)
 
     def get_nested_backend(self):
         # import is not top level to avoid cyclic import errors.

@@ -8,8 +8,9 @@ import time
 from uuid import uuid4
 import weakref
 
-from .parallel import AutoBatchingMixin, ParallelBackendBase, BatchedCalls
 from .parallel import parallel_backend
+from .parallel import AutoBatchingMixin, ParallelBackendBase, BatchedCalls
+from .constants import TASK_DONE, TASK_ERROR
 
 try:
     import distributed
@@ -125,9 +126,9 @@ class Batch:
             with parallel_backend('dask'):
                 for func, args, kwargs in tasks:
                     results.append(func(*args, **kwargs))
-            return dict(status="Done", result=results)
+            return dict(status=TASK_DONE, result=results)
         except BaseException as e:
-            return dict(status="Error", result=e)
+            return dict(status=TASK_ERROR, result=e)
 
     def __repr__(self):
         descr = f"batch_of_{self._funcname}_{self._num_tasks}_calls"

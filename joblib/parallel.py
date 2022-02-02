@@ -37,6 +37,8 @@ from .externals import loky
 from ._parallel_backends import AutoBatchingMixin  # noqa
 from ._parallel_backends import ParallelBackendBase  # noqa
 
+from .constants import TASK_DONE, TASK_ERROR, TASK_PENDING
+
 
 BACKENDS = {
     'multiprocessing': MultiprocessingBackend,
@@ -265,9 +267,9 @@ class BatchedCalls(object):
             with parallel_backend(self._backend, n_jobs=self._n_jobs):
                 result = [func(*args, **kwargs)
                           for func, args, kwargs in self.items]
-                return dict(status="Done", result=result)
+                return dict(status=TASK_DONE, result=result)
         except BaseException as e:
-            return dict(status="Error", result=e)
+            return dict(status=TASK_ERROR, result=e)
 
     def __reduce__(self):
         if self._reducer_callback is not None:
@@ -362,7 +364,7 @@ class BatchCompletionCallBack(object):
         if getattr(self.parallel._backend,
                    "supports_fetch_result_to_callback", False):
             delayed = self._fetch_result(out)
-            if self.task_tracker.status == "Error":
+            if self.task_tracker.status == TASK_ERROR:
                 self.parallel._exception = True
                 self.parallel._aborting = True
                 return
@@ -378,7 +380,7 @@ class BatchCompletionCallBack(object):
                 backend = self.parallel._backend
                 outcome = backend.fetch_result_to_callback(out)
         except BaseException as e:
-            outcome = dict(result=e, status="Error")
+            outcome = dict(result=e, status=TASK_ERROR)
         return self.task_tracker.register_outcome(outcome, self._dispatch_new)
 
     def _dispatch_new(self):
@@ -403,7 +405,7 @@ class _TaskTracker:
     def __init__(self, parallel):
         self.parallel = parallel
         backend = parallel._backend
-        self.status = "Pending"
+        self.status = TASK_PENDING
         if not getattr(backend, "supports_fetch_result_to_callback", False):
             self.status = None
         self.job = None
@@ -413,7 +415,7 @@ class _TaskTracker:
 
     def register_outcome(self, outcome, cb=None):
         with self.parallel._lock:
-            if self.status not in ("Pending", None):
+            if self.status not in (TASK_PENDING, None):
                 return False
             delayed = False
             result = outcome["result"]
@@ -434,19 +436,19 @@ class _TaskTracker:
                 else:
                     outcome = self.job.get()
             except BaseException as e:
-                outcome = dict(result=e, status="Error")
+                outcome = dict(result=e, status=TASK_ERROR)
                 self.parallel._aborting = True
             self.register_outcome(outcome)
 
         try:
-            if self.status == "Error":
+            if self.status == TASK_ERROR:
                 raise self._result
             return self._result
         finally:
             del self._result
 
     def get_status(self, timeout):
-        if timeout is None or self.status != "Pending":
+        if timeout is None or self.status != TASK_PENDING:
             return self.status
 
         now = time.time()
@@ -455,7 +457,7 @@ class _TaskTracker:
 
         if (now - self._completion_timeout_counter) > timeout:
             self.register_outcome(dict(result=TimeoutError(),
-                                       status="Error"))
+                                       status=TASK_ERROR))
 
         return self.status
 
@@ -615,7 +617,7 @@ class Parallel(Logger):
             Use None to disable memmapping of large arrays.
             Only active when backend="loky" or "multiprocessing".
         mmap_mode: {None, 'r+', 'r', 'w+', 'c'}, default: 'r'
-            Memmapping mode for numpy arrays passed to workers. None will 
+            Memmapping mode for numpy arrays passed to workers. None will
             disable memmapping, other modes defined in the numpy.memmap doc:
             https://numpy.org/doc/stable/reference/generated/numpy.memmap.html
             Also, see 'max_nbytes' parameter documentation for more details.
@@ -1135,13 +1137,13 @@ class Parallel(Logger):
                 if self._aborting:
                     with self._lock:
                         error_job = next((job for job in self._jobs
-                                          if job.status == "Error"), None)
+                                          if job.status == TASK_ERROR), None)
                         if error_job is not None:
                             error_job.get_result(self.timeout)
                         break
                 if len(self._jobs) == 0 or \
                         self._jobs[0].get_status(
-                            timeout=self.timeout) == "Pending":
+                            timeout=self.timeout) == TASK_PENDING:
                     # Wait for an async callback to dispatch new jobs
                     time.sleep(0.01)
                     continue
@@ -1173,7 +1175,7 @@ class Parallel(Logger):
     def _get_outputs(self, retrieval_context):
         """Main generator that will be returned for `return_generator=True`
         or consumed otherwise.
-        
+
         This chains the results from batched calls and outputs
         the outcome of individual tasks.
         """
@@ -1188,7 +1190,7 @@ class Parallel(Logger):
                 output = output.get()
                 status = output["status"]
                 output = output["result"]
-                if status == "Error":
+                if status == TASK_ERROR:
                     raise output
             elif self._exception:
                 continue
