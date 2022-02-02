@@ -96,8 +96,7 @@ def get_active_backend(prefer=None, require=None, verbose=0):
         # Try to use the backend set by the user with the context manager.
         backend, n_jobs = backend_and_jobs
         nesting_level = backend.nesting_level
-        supports_sharedmem = getattr(backend, 'supports_sharedmem', False)
-        if require == 'sharedmem' and not supports_sharedmem:
+        if require == 'sharedmem' and not backend.supports_sharedmem:
             # This backend does not match the shared memory constraint:
             # fallback to the default thead-based backend.
             sharedmem_backend = BACKENDS[DEFAULT_THREAD_BACKEND](
@@ -114,9 +113,8 @@ def get_active_backend(prefer=None, require=None, verbose=0):
     # We are outside of the scope of any parallel_backend context manager,
     # create the default backend instance now.
     backend = BACKENDS[DEFAULT_BACKEND](nesting_level=0)
-    supports_sharedmem = getattr(backend, 'supports_sharedmem', False)
     uses_threads = getattr(backend, 'uses_threads', False)
-    if ((require == 'sharedmem' and not supports_sharedmem) or
+    if ((require == 'sharedmem' and not backend.supports_sharedmem) or
             (prefer == 'threads' and not uses_threads)):
         # Make sure the selected default backend match the soft hints and
         # hard constraints:
@@ -361,8 +359,7 @@ class BatchCompletionCallBack(object):
         if self.parallel._aborting:
             return
 
-        if getattr(self.parallel._backend,
-                   "supports_fetch_result_to_callback", False):
+        if self.parallel._backend.supports_asynchronous_callback:
             delayed = self._fetch_result(out)
             if self.task_tracker.status == TASK_ERROR:
                 self.parallel._exception = True
@@ -378,7 +375,7 @@ class BatchCompletionCallBack(object):
         try:
             with self.parallel._lock:
                 backend = self.parallel._backend
-                outcome = backend.fetch_result_to_callback(out)
+                outcome = backend.fetch_result_callback(out)
         except BaseException as e:
             outcome = dict(result=e, status=TASK_ERROR)
         return self.task_tracker.register_outcome(outcome, self._dispatch_new)
@@ -406,7 +403,7 @@ class _TaskTracker:
         self.parallel = parallel
         backend = parallel._backend
         self.status = TASK_PENDING
-        if not getattr(backend, "supports_fetch_result_to_callback", False):
+        if not backend.supports_asynchronous_callback:
             self.status = None
         self.job = None
 
@@ -429,9 +426,9 @@ class _TaskTracker:
 
     def get_result(self, timeout):
         backend = self.parallel._backend
-        if not getattr(backend, "supports_fetch_result_to_callback", False):
+        if not backend.supports_asynchronous_callback:
             try:
-                if getattr(backend, 'supports_timeout', False):
+                if backend.supports_timeout:
                     outcome = self.job.get(timeout=timeout)
                 else:
                     outcome = self.job.get()
@@ -805,8 +802,7 @@ class Parallel(Logger):
                                  % (backend, sorted(BACKENDS.keys()))) from e
             backend = backend_factory(nesting_level=nesting_level)
 
-        if (require == 'sharedmem' and
-                not getattr(backend, 'supports_sharedmem', False)):
+        if require == 'sharedmem' and not backend.supports_sharedmem:
             raise ValueError("Backend %s does not support shared memory"
                              % backend)
 
@@ -818,8 +814,7 @@ class Parallel(Logger):
                 "batch_size must be 'auto' or a positive integer, got: %r"
                 % batch_size)
 
-        if not getattr(backend, 'supports_fetch_result_to_callback',
-                       False) and return_generator:
+        if not backend.supports_asynchronous_callback and return_generator:
             raise ValueError(
                 "Backend {} does not support "
                 "return_generator=True".format(backend)
@@ -858,9 +853,8 @@ class Parallel(Logger):
                 **self._backend_args
             )
             if (self.timeout is not None and
-                not getattr(self._backend, "supports_timeout", False) and
-                not getattr(self._backend,
-                            "supports_fetch_result_to_callback", False)):
+                    not self._backend.supports_timeout and
+                    not self._backend.supports_asynchronous_callback):
                 warnings.warn(
                     'The backend class {!r} does not support timeout. '
                     "You have set 'timeout={}' in Parallel but "
@@ -1133,7 +1127,7 @@ class Parallel(Logger):
             while self._iterating or \
                     self.n_completed_tasks < self.n_dispatched_tasks or (
                     len(self._jobs) > 0 and
-                    not self._backend.supports_fetch_result_to_callback):
+                    not self._backend.supports_asynchronous_callback):
                 if self._aborting:
                     with self._lock:
                         error_job = next((job for job in self._jobs

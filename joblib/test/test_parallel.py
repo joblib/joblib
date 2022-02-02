@@ -793,13 +793,13 @@ def test_backend_nesting_level(outer_backend, inner_backend):
 
 
 @with_multiprocessing
-@parametrize('fetch_result_to_callback', [True, False])
-def test_retrieval_context(fetch_result_to_callback):
+@parametrize('async_callback', [True, False])
+def test_retrieval_context(async_callback):
     import contextlib
 
     class MyBackend(ThreadingBackend):
         i = 0
-        supports_fetch_result_to_callback = fetch_result_to_callback
+        supports_asynchronous_callback = async_callback
 
         @contextlib.contextmanager
         def retrieval_context(self):

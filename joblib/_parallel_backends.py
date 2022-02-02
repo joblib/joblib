@@ -29,8 +29,10 @@ class ParallelBackendBase(metaclass=ABCMeta):
     """Helper abc which defines all methods a ParallelBackend must implement"""
 
     supports_timeout = False
+    supports_sharedmem = False
     supports_inner_max_num_threads = False
-    supports_fetch_result_to_callback = False
+    supports_asynchronous_callback = False
+
     nesting_level = None
 
     def __init__(self, nesting_level=None, inner_max_num_threads=None,
@@ -69,7 +71,7 @@ class ParallelBackendBase(metaclass=ABCMeta):
     def apply_async(self, func, callback=None):
         """Schedule a func to be run"""
 
-    def fetch_result_to_callback(self, out):
+    def fetch_result_callback(self, out):
         """Intended to be called within the callback function passed in
         apply_async. It takes as input both the object returned by apply_async
         (job) and the object passed to the callback function (out)."""
@@ -202,7 +204,7 @@ class SequentialBackend(ParallelBackendBase):
     """
 
     uses_threads = True
-    supports_fetch_result_to_callback = True
+    supports_asynchronous_callback = True
     supports_sharedmem = True
 
     def effective_n_jobs(self, n_jobs):
@@ -218,7 +220,7 @@ class SequentialBackend(ParallelBackendBase):
             callback(result)
         return result
 
-    def fetch_result_to_callback(self, out):
+    def fetch_result_callback(self, out):
         return dict(status=TASK_DONE, result=out)
 
     def get_nested_backend(self):
@@ -263,7 +265,7 @@ class PoolManagerMixin(object):
         return self._get_pool().apply_async(
             func, callback=callback)
 
-    def fetch_result_to_callback(self, out):
+    def fetch_result_callback(self, out):
         return out
 
     def abort_everything(self, ensure_ready=True):
@@ -396,7 +398,7 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
     ThreadingBackend is used as the default backend for nested calls.
     """
 
-    supports_fetch_result_to_callback = True
+    supports_asynchronous_callback = True
     uses_threads = True
     supports_sharedmem = True
 
@@ -431,7 +433,7 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
     However, does not suffer from the Python Global Interpreter Lock.
     """
 
-    supports_fetch_result_to_callback = True
+    supports_asynchronous_callback = True
 
     def effective_n_jobs(self, n_jobs):
         """Determine the number of jobs which are going to run in parallel.
@@ -506,7 +508,7 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
 class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
     """Managing pool of workers with loky instead of multiprocessing."""
 
-    supports_fetch_result_to_callback = True
+    supports_asynchronous_callback = True
     supports_inner_max_num_threads = True
 
     def configure(self, n_jobs=1, parallel=None, prefer=None, require=None,
@@ -572,7 +574,7 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
             future.add_done_callback(callback)
         return future
 
-    def fetch_result_to_callback(self, out):
+    def fetch_result_callback(self, out):
         return out.result()
 
     def terminate(self):
