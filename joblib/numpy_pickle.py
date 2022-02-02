@@ -95,6 +95,14 @@ class NumpyArrayWrapper(object):
             # pickle protocol.
             pickle.dump(array, pickler.file_handle, protocol=2)
         else:
+            current_pos = pickler.file_handle.tell()
+            alignment = current_pos % 8
+            # print('write', current_pos)
+            if alignment != 0:
+                padding = b' ' * (8 - alignment)
+                pickler.file_handle.write(padding)
+                # print('after padding write', pickler.file_handle.tell())
+
             for chunk in pickler.np.nditer(array,
                                            flags=['external_loop',
                                                   'buffered',
@@ -121,6 +129,16 @@ class NumpyArrayWrapper(object):
             # The array contained Python objects. We need to unpickle the data.
             array = pickle.load(unpickler.file_handle)
         else:
+            # print('read', unpickler.file_handle.tell())
+            current_pos = unpickler.file_handle.tell()
+            alignment = current_pos % 8
+
+            if alignment != 0:
+                padding_length = 8 - alignment
+                unpickler.file_handle.seek(current_pos + padding_length)
+
+            # print('read after padding', unpickler.file_handle.tell())
+
             # This is not a real file. We have to read it the
             # memory-intensive way.
             # crc32 module fails on reads greater than 2 ** 32 bytes,
@@ -153,7 +171,11 @@ class NumpyArrayWrapper(object):
 
     def read_mmap(self, unpickler):
         """Read an array using numpy memmap."""
-        offset = unpickler.file_handle.tell()
+        current_pos = unpickler.file_handle.tell()
+        offset = current_pos
+        alignment = current_pos % 8
+        if alignment != 0:
+            offset += 8 - alignment
         if unpickler.mmap_mode == 'w+':
             unpickler.mmap_mode = 'r+'
 
