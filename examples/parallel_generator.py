@@ -43,7 +43,7 @@ def accumulator_sum(generator):
     for value in generator:
         result += value
         del value
-        gc.collect()  # make sur to flush value from memory
+        gc.collect()  # make sure to flush value from memory
     return result
 
 

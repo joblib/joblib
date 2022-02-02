@@ -620,7 +620,8 @@ class Parallel(Logger):
             https://numpy.org/doc/stable/reference/generated/numpy.memmap.html
             Also, see 'max_nbytes' parameter documentation for more details.
         return_generator: bool
-            If True, calls to this instance will return a generator.
+            If True, calls to this instance will return a generator, yielding
+            the results as soon as they are available, in the original order.
 
         Notes
         -----
@@ -817,8 +818,10 @@ class Parallel(Logger):
 
         if not getattr(backend, 'supports_fetch_result_to_callback',
                        False) and return_generator:
-            raise ValueError("Backend %s does not support "
-                             "return_generator=True" % backend)
+            raise ValueError(
+                "Backend {} does not support "
+                "return_generator=True".format(backend)
+            )
 
         self._backend = backend
         self._pending_outputs = list()
@@ -848,9 +851,10 @@ class Parallel(Logger):
     def _initialize_backend(self):
         """Build a process or thread pool and return the number of workers"""
         try:
-            n_jobs = self._backend.configure(n_jobs=self.n_jobs,
-                                             parallel=self,
-                                             **self._backend_args)
+            n_jobs = self._backend.configure(
+                n_jobs=self.n_jobs, parallel=self,
+                **self._backend_args
+            )
             if (self.timeout is not None and
                 not getattr(self._backend, "supports_timeout", False) and
                 not getattr(self._backend,
@@ -993,6 +997,7 @@ class Parallel(Logger):
                 return True
 
     def _get_batch_size(self):
+        """Returns the effective batch size for dispatch"""
         if self.batch_size == 'auto':
             return self._backend.compute_batch_size()
         else:
@@ -1013,6 +1018,7 @@ class Parallel(Logger):
         writer('[%s]: %s\n' % (self, msg))
 
     def _is_completed(self):
+        """Check if all tasks have been completed"""
         return self.n_completed_tasks == self.n_dispatched_tasks and not (
             self._iterating or self._aborting)
 
@@ -1165,6 +1171,12 @@ class Parallel(Logger):
             yield result
 
     def _get_outputs(self, retrieval_context):
+        """Main generator that will be returned for `return_generator=True`
+        or consumed otherwise.
+        
+        This chains the results from batched calls and outputs
+        the outcome of individual tasks.
+        """
         outputs = self._get_batched_outputs(retrieval_context)
         nb_consumed = 0
 
@@ -1187,6 +1199,9 @@ class Parallel(Logger):
 
     @contextlib.contextmanager
     def _warn_early_exit(self, nb_consumed):
+        """Warns when the output_generator is closed while some
+        tasks have not been consumed or are still being processed.
+        """
         try:
             yield
         except GeneratorExit:
@@ -1224,7 +1239,7 @@ class Parallel(Logger):
                     "completion of all the previous tasks, or clean all "
                     "references to the output generator.")
 
-            raise ValueError('This Parallel instance is already running !')
+            raise ValueError(msg)
         # A flag used to abort the dispatching of jobs in case an
         # exception is found
         self._aborting = False
