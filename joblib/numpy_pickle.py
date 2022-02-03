@@ -131,7 +131,10 @@ class NumpyArrayWrapper(object):
             current_pos = unpickler.file_handle.tell()
             alignment = current_pos % 8
 
-            current_byte = unpickler.file_handle.peek()
+            # peek not supported in io.BytesIO ...
+            current_byte = unpickler.file_handle.read(1)
+            unpickler.file_handle.seek(current_pos)
+
             if alignment != 0 and current_byte == b' ':
                 padding_length = 8 - alignment
                 unpickler.file_handle.seek(current_pos + padding_length)
