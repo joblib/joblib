@@ -184,9 +184,15 @@ class NumpyArrayWrapper(object):
         current_pos = unpickler.file_handle.tell()
         offset = current_pos
         alignment = current_pos % 8
-        # Do I need to check whether current byte is b' '?
-        if alignment != 0:
-            offset += 8 - alignment
+
+        # peek not supported in io.BytesIO ...
+        current_byte = unpickler.file_handle.read(1)
+        unpickler.file_handle.seek(current_pos)
+
+        if alignment != 0 and current_byte == b' ':
+            padding_length = 8 - alignment
+            offset += padding_length
+
         if unpickler.mmap_mode == 'w+':
             unpickler.mmap_mode = 'r+'
 

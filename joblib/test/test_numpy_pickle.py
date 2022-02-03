@@ -463,6 +463,27 @@ def test_joblib_pickle_across_python_versions():
 
 
 @with_numpy
+def test_joblib_pickle_across_python_versions_with_mmap():
+    expected_list = [np.arange(5, dtype=np.dtype('<i8')),
+                     np.arange(5, dtype=np.dtype('<f8')),
+                     np.array([1, 'abc', {'a': 1, 'b': 2}], dtype='O'),
+                     np.arange(256, dtype=np.uint8).tobytes(),
+                     # np.matrix is a subclass of np.ndarray, here we want
+                     # to verify this type of object is correctly unpickled
+                     # among versions.
+                     np.matrix([0, 1, 2], dtype=np.dtype('<i8')),
+                     u"C'est l'\xe9t\xe9 !"]
+
+    test_data_dir = os.path.dirname(os.path.abspath(data.__file__))
+
+    pickle_filenames = [
+        os.path.join(test_data_dir, fn)
+        for fn in os.listdir(test_data_dir) if fn.endswith('.pkl')]
+    for fname in pickle_filenames:
+        _check_pickle(fname, expected_list)
+
+
+@with_numpy
 def test_numpy_array_byte_order_mismatch_detection():
     # List of numpy arrays with big endian byteorder.
     be_arrays = [np.array([(1, 2.0), (3, 4.0)],
