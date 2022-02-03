@@ -24,4 +24,9 @@ def test_missing_multiprocessing(tmp_path):
     # For subprocess, use current sys.path with our custom version of
     # multiprocessing inserted.
     env["PYTHONPATH"] = ":".join([str(tmp_path)] + sys.path)
-    subprocess.check_call([sys.executable, "-c", "import joblib"], env=env)
+    subprocess.check_call(
+        [sys.executable, "-c",
+         "import joblib, math; "
+         "joblib.Parallel(n_jobs=1)("
+         "joblib.delayed(math.sqrt)(i**2) for i in range(10))"
+         ], env=env)

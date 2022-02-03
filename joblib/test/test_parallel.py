@@ -24,14 +24,17 @@ from importlib import reload
 import joblib
 from joblib import parallel
 from joblib import dump, load
-from joblib.externals.loky import get_reusable_executor
+
+from joblib._multiprocessing_helpers import mp
 
 from joblib.test.common import np, with_numpy
 from joblib.test.common import with_multiprocessing
 from joblib.testing import (parametrize, raises, check_subprocess_call,
                             skipif, SkipTest, warns)
 
-from joblib.externals.loky.process_executor import TerminatedWorkerError
+if mp is not None:
+    # Loky is not available if multiprocessing is not
+    from joblib.externals.loky import get_reusable_executor
 
 from queue import Queue
 
@@ -69,7 +72,10 @@ from joblib.my_exceptions import WorkerInterrupt
 ALL_VALID_BACKENDS = [None] + sorted(BACKENDS.keys())
 # Add instances of backend classes deriving from ParallelBackendBase
 ALL_VALID_BACKENDS += [BACKENDS[backend_str]() for backend_str in BACKENDS]
-PROCESS_BACKENDS = ['multiprocessing', 'loky']
+if mp is None:
+    PROCESS_BACKENDS = []
+else:
+    PROCESS_BACKENDS = ['multiprocessing', 'loky']
 PARALLEL_BACKENDS = PROCESS_BACKENDS + ['threading']
 
 if hasattr(mp, 'get_context'):
@@ -1208,7 +1214,10 @@ def test_memmapping_leaks(backend, tmpdir):
         raise AssertionError('temporary directory of Parallel was not removed')
 
 
-@parametrize('backend', [None, 'loky', 'threading'])
+@parametrize('backend',
+             ([None, 'threading'] if mp is None
+              else [None, 'loky', 'threading'])
+             )
 def test_lambda_expression(backend):
     # cloudpickle is used to pickle delayed callables
     results = Parallel(n_jobs=2, backend=backend)(
@@ -1238,6 +1247,7 @@ def test_backend_batch_statistics_reset(backend):
             p._backend._DEFAULT_SMOOTHED_BATCH_DURATION)
 
 
+@with_multiprocessing
 def test_backend_hinting_and_constraints():
     for n_jobs in [1, 2, -1]:
         assert type(Parallel(n_jobs=n_jobs)._backend) == LokyBackend
@@ -1438,7 +1448,8 @@ def _recursive_parallel(nesting_limit=None):
     return Parallel()(delayed(_recursive_parallel)() for i in range(2))
 
 
-@parametrize('backend', ['loky', 'threading'])
+@parametrize('backend',
+             (['threading'] if mp is None else ['loky', 'threading']))
 def test_thread_bomb_mitigation(backend):
     # Test that recursive parallelism raises a recursion rather than
     # saturating the operating system resources by creating a unbounded number
@@ -1447,13 +1458,18 @@ def test_thread_bomb_mitigation(backend):
         with raises(BaseException) as excinfo:
             _recursive_parallel()
     exc = excinfo.value
-    if backend == "loky" and isinstance(exc, TerminatedWorkerError):
-        # The recursion exception can itself cause an error when pickling it to
-        # be send back to the parent process. In this case the worker crashes
-        # but the original traceback is still printed on stderr. This could be
-        # improved but does not seem simple to do and this is is not critical
-        # for users (as long as there is no process or thread bomb happening).
-        pytest.xfail("Loky worker crash when serializing RecursionError")
+    if backend == "loky":
+        # Local import because loky may not be importable for lack of
+        # multiprocessing
+        from joblib.externals.loky.process_executor import TerminatedWorkerError # noqa
+        if isinstance(exc, TerminatedWorkerError):
+            # The recursion exception can itself cause an error when
+            # pickling it to be send back to the parent process. In this
+            # case the worker crashes but the original traceback is still
+            # printed on stderr. This could be improved but does not seem
+            # simple to do and this is is not critical for users (as long
+            # as there is no process or thread bomb happening).
+            pytest.xfail("Loky worker crash when serializing RecursionError")
     else:
         assert isinstance(exc, RecursionError)
 

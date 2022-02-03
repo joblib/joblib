@@ -146,7 +146,8 @@ def test_memmap_based_array_reducing(tmpdir):
     assert_array_equal(b3_reconstructed, b3)
 
 
-@skipif(sys.platform != "win32",
+@with_multiprocessing
+@skipif((sys.platform != "win32") or (),
         reason="PermissionError only easily triggerable on Windows")
 def test_resource_tracker_retries_when_permissionerror(tmpdir):
     # Test resource_tracker retry mechanism when unlinking memmaps.  See more
@@ -355,6 +356,7 @@ def test_pool_with_memmap_array_view(factory, tmpdir):
 
 
 @with_numpy
+@with_multiprocessing
 @parametrize("backend", ["multiprocessing", "loky"])
 def test_permission_error_windows_reference_cycle(backend):
     # Non regression test for:
@@ -389,6 +391,7 @@ def test_permission_error_windows_reference_cycle(backend):
 
 
 @with_numpy
+@with_multiprocessing
 @parametrize("backend", ["multiprocessing", "loky"])
 def test_permission_error_windows_memmap_sent_to_parent(backend):
     # Second non-regression test for:
