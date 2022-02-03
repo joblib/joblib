@@ -7,6 +7,8 @@
 import pickle
 import os
 import warnings
+import io
+
 try:
     from pathlib import Path
 except ImportError:
@@ -95,12 +97,16 @@ class NumpyArrayWrapper(object):
             # pickle protocol.
             pickle.dump(array, pickler.file_handle, protocol=2)
         else:
-            current_pos = pickler.file_handle.tell()
-            alignment = current_pos % 8
+            try:
+                current_pos = pickler.file_handle.tell()
+                alignment = current_pos % 8
 
-            if alignment != 0:
-                padding = b' ' * (8 - alignment)
-                pickler.file_handle.write(padding)
+                if alignment != 0:
+                    padding = b' ' * (8 - alignment)
+                    pickler.file_handle.write(padding)
+            except io.UnsupportedOperation:
+                # TODO log something somewhere?
+                pass
 
             for chunk in pickler.np.nditer(array,
                                            flags=['external_loop',
@@ -128,16 +134,20 @@ class NumpyArrayWrapper(object):
             # The array contained Python objects. We need to unpickle the data.
             array = pickle.load(unpickler.file_handle)
         else:
-            current_pos = unpickler.file_handle.tell()
-            alignment = current_pos % 8
+            try:
+                current_pos = unpickler.file_handle.tell()
+                alignment = current_pos % 8
 
-            # peek not supported in io.BytesIO ...
-            current_byte = unpickler.file_handle.read(1)
-            unpickler.file_handle.seek(current_pos)
+                # peek not supported in io.BytesIO ...
+                current_byte = unpickler.file_handle.read(1)
+                unpickler.file_handle.seek(current_pos)
 
-            if alignment != 0 and current_byte == b' ':
-                padding_length = 8 - alignment
-                unpickler.file_handle.seek(current_pos + padding_length)
+                if alignment != 0 and current_byte == b' ':
+                    padding_length = 8 - alignment
+                    unpickler.file_handle.seek(current_pos + padding_length)
+            except io.UnsupportedOperation:
+                # TODO log something somewhere?
+                pass
 
             # This is not a real file. We have to read it the
             # memory-intensive way.
@@ -174,6 +184,7 @@ class NumpyArrayWrapper(object):
         current_pos = unpickler.file_handle.tell()
         offset = current_pos
         alignment = current_pos % 8
+        # Do I need to check whether current byte is b' '?
         if alignment != 0:
             offset += 8 - alignment
         if unpickler.mmap_mode == 'w+':
