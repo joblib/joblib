@@ -828,7 +828,7 @@ def test_child_raises_parent_exits_cleanly(backend):
     out, err = p.communicate()
     out, err = out.decode(), err.decode()
     filename = out.split('\n')[0]
-    assert p.returncode == 0, out
+    assert p.returncode == 0, err or out
     assert err == ''  # no resource_tracker warnings.
     assert not os.path.exists(filename)
 
