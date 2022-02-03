@@ -64,10 +64,12 @@ Examples
 
 **Transparent and fast disk-caching of output value:** a memoize or make-like
 functionality for Python functions that works well for arbitrary Python objects,
-including very large numpy arrays. Separate persistence and flow-execution 
-logic from domain logic or algorithmic code by writing the operations as a set 
-of steps with well-defined inputs and outputs: Python functions. Joblib can 
-save their computation to disk and rerun it only if necessary:
+including very large numpy arrays.
+
+This separates persistence and flow-execution logic from domain logic or
+algorithmic code by writing the operations as a set of steps with well-defined
+inputs and outputs: Python functions. Joblib can save their computation to
+disk and rerun it only if necessary:
 
 .. code-block:: python
 
