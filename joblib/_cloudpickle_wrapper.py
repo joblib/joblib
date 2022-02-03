@@ -6,6 +6,7 @@ multiprocessing is not available.
 
 from ._multiprocessing_helpers import mp
 
+
 def my_wrap_non_picklable_objects(obj, keep_wrapper=True):
     return obj
 

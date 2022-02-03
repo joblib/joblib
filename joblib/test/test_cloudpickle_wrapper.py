@@ -6,6 +6,7 @@ properly the loky implementation.
 from .._cloudpickle_wrapper import wrap_non_picklable_objects
 from .._cloudpickle_wrapper import my_wrap_non_picklable_objects
 
+
 def a_function(x):
     return x
 
