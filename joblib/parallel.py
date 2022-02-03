@@ -29,7 +29,6 @@ from .disk import memstr_to_bytes
 from ._parallel_backends import (FallbackToBackend, MultiprocessingBackend,
                                  ThreadingBackend, SequentialBackend,
                                  LokyBackend, DelayedResult)
-from .externals.cloudpickle import dumps, loads
 from .externals import loky
 
 # Make sure that those two classes are part of the public joblib.parallel API
@@ -46,6 +45,7 @@ BACKENDS = {
     'sequential': SequentialBackend,
     'loky': LokyBackend,
 }
+
 # name of the backend used by default by Parallel outside of any context
 # managed by ``parallel_backend``.
 DEFAULT_BACKEND = 'loky'
@@ -259,15 +259,10 @@ class BatchedCalls(object):
         self._pickle_cache = pickle_cache if pickle_cache is not None else {}
 
     def __call__(self):
-        try:
-            # Set the default nested backend to self._backend but do not set
-            # the change the default number of processes to -1
-            with parallel_backend(self._backend, n_jobs=self._n_jobs):
-                result = [func(*args, **kwargs)
-                          for func, args, kwargs in self.items]
-                return dict(status=TASK_DONE, result=result)
-        except BaseException as e:
-            return dict(status=TASK_ERROR, result=e)
+        # Set the default nested backend to self._backend but do not set
+        # the change the default number of processes to -1
+        with parallel_backend(self._backend, n_jobs=self._n_jobs):
+            return [func(*args, **kwargs) for func, args, kwargs in self.items]
 
     def __reduce__(self):
         if self._reducer_callback is not None:
@@ -360,27 +355,24 @@ class BatchCompletionCallBack(object):
             return
 
         if self.parallel._backend.supports_asynchronous_callback:
-            delayed = self._fetch_result(out)
-            if self.task_tracker.status == TASK_ERROR:
-                self.parallel._exception = True
-                self.parallel._aborting = True
-                return
-
-            if delayed:
+            try:
+                with self.parallel._lock:
+                    result = self.parallel._backend.fetch_result_callback(out)
+                    outcome = dict(status=TASK_DONE, result=result)
+            except BaseException as e:
+                # Avoid keeping references to parallel in the error.
+                e.__traceback__ = None
+                outcome = dict(result=e, status=TASK_ERROR)
+            delayed = self.task_tracker.register_outcome(
+                outcome, self._dispatch_new
+            )
+            if delayed or outcome['status'] == TASK_ERROR:
                 return
 
         self._dispatch_new()
 
-    def _fetch_result(self, out):
-        try:
-            with self.parallel._lock:
-                backend = self.parallel._backend
-                outcome = backend.fetch_result_callback(out)
-        except BaseException as e:
-            outcome = dict(result=e, status=TASK_ERROR)
-        return self.task_tracker.register_outcome(outcome, self._dispatch_new)
-
     def _dispatch_new(self):
+
         self.parallel.n_completed_tasks += self.batch_size
         this_batch_duration = time.time() - self.dispatch_timestamp
 
@@ -410,28 +402,43 @@ class _TaskTracker:
     def register_job(self, job):
         self.job = job
 
-    def register_outcome(self, outcome, cb=None):
+    def register_outcome(self, outcome, dispatch_new=None):
         with self.parallel._lock:
             if self.status not in (TASK_PENDING, None):
                 return False
+
+            # SequentialBackend special case: we delay the call to dispatch_new
+            # to after the result is computed using DelayedResult's callback.
+            # The task is flagged as done as the result will be computed as
+            # soon as it is accessed in the generator.
             delayed = False
-            result = outcome["result"]
-            if cb is not None and isinstance(result, DelayedResult):
-                result.register_callback(cb)
+            result, status = outcome["result"], outcome["status"]
+            if isinstance(result, DelayedResult):
                 delayed = True
-            self._result = result
-            self.status = outcome["status"]
+                if dispatch_new is not None:
+                    result.register_callback(dispatch_new)
+
             self.job = None
-            return delayed
+            self._result = result
+            self.status = status
+
+            if self.status == TASK_ERROR:
+                self.parallel._exception = True
+                self.parallel._aborting = True
+
+        return delayed
 
     def get_result(self, timeout):
         backend = self.parallel._backend
         if not backend.supports_asynchronous_callback:
+            # Necessary for backend where the callback is called when the
+            # result is accessed.
             try:
                 if backend.supports_timeout:
-                    outcome = self.job.get(timeout=timeout)
+                    result = self.job.get(timeout=timeout)
                 else:
-                    outcome = self.job.get()
+                    result = self.job.get()
+                outcome = dict(result=result, status=TASK_DONE)
             except BaseException as e:
                 outcome = dict(result=e, status=TASK_ERROR)
                 self.parallel._aborting = True
@@ -453,8 +460,8 @@ class _TaskTracker:
             self._completion_timeout_counter = now
 
         if (now - self._completion_timeout_counter) > timeout:
-            self.register_outcome(dict(result=TimeoutError(),
-                                       status=TASK_ERROR))
+            outcome = dict(result=TimeoutError(), status=TASK_ERROR)
+            self.register_outcome(outcome)
 
         return self.status
 
@@ -738,7 +745,7 @@ class Parallel(Logger):
         [Parallel(n_jobs=2)]: Done 6 out of 6 | elapsed:  0.0s remaining: 0.0s
         [Parallel(n_jobs=2)]: Done 6 out of 6 | elapsed:  0.0s finished
 
-    '''
+    '''  # noqa: E501
     def __init__(self, n_jobs=None, backend=None, verbose=0, timeout=None,
                  pre_dispatch='2 * n_jobs', batch_size='auto',
                  temp_folder=None, max_nbytes='1M', mmap_mode='r',
@@ -878,7 +885,7 @@ class Parallel(Logger):
         if hasattr(self._backend, 'stop_call') and self._calling:
             self._backend.stop_call()
         self._calling = False
-        if not self._managed_backend and self._backend is not None:
+        if not self._managed_backend:
             self._backend.terminate()
 
     def _dispatch(self, batch):
@@ -1078,8 +1085,7 @@ class Parallel(Logger):
         # the exception we got back to the caller instead of returning
         # any result.
         backend = self._backend
-        if (backend is not None and not self._aborted and
-                hasattr(backend, 'abort_everything')):
+        if (not self._aborted and hasattr(backend, 'abort_everything')):
             # If the backend is managed externally we need to make sure
             # to leave it in a working state to allow for future jobs
             # scheduling.
@@ -1181,10 +1187,6 @@ class Parallel(Logger):
         for output in outputs:
             if isinstance(output, DelayedResult):
                 output = output.get()
-                status = output["status"]
-                output = output["result"]
-                if status == TASK_ERROR:
-                    raise output
             elif self._exception:
                 continue
             for out in output:

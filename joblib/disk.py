@@ -119,7 +119,7 @@ def delete_folder(folder_path, onerror=None, allow_non_empty=True):
                             folder_path, ignore_errors=False, onerror=None
                         )
                         util.debug(
-                            "Sucessfully deleted {}".format(folder_path))
+                            "Successfully deleted {}".format(folder_path))
                         break
                     else:
                         raise OSError(

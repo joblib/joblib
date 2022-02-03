@@ -9,8 +9,7 @@ from uuid import uuid4
 import weakref
 
 from .parallel import parallel_backend
-from .parallel import AutoBatchingMixin, ParallelBackendBase, BatchedCalls
-from .constants import TASK_DONE, TASK_ERROR
+from .parallel import AutoBatchingMixin, ParallelBackendBase
 
 try:
     import distributed
@@ -18,18 +17,16 @@ except ImportError:
     distributed = None
 
 if distributed is not None:
-    from dask.utils import funcname, itemgetter
+    from dask.utils import funcname
     from dask.sizeof import sizeof
     from dask.distributed import (
         Client,
         as_completed,
         get_client,
         secede,
-        rejoin,
-        get_worker
+        rejoin
     )
     from distributed.utils import thread_state
-
 
     try:
         # asyncio.TimeoutError, Python3-only error thrown by recent versions of
@@ -122,13 +119,10 @@ class Batch:
 
     def __call__(self, tasks=None):
         results = []
-        try:
-            with parallel_backend('dask'):
-                for func, args, kwargs in tasks:
-                    results.append(func(*args, **kwargs))
-            return dict(status=TASK_DONE, result=results)
-        except BaseException as e:
-            return dict(status=TASK_ERROR, result=e)
+        with parallel_backend('dask'):
+            for func, args, kwargs in tasks:
+                results.append(func(*args, **kwargs))
+            return results
 
     def __repr__(self):
         descr = f"batch_of_{self._funcname}_{self._num_tasks}_calls"

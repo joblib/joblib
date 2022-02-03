@@ -19,8 +19,6 @@ from multiprocessing import TimeoutError
 import pickle
 import pytest
 
-from importlib import reload
-
 import joblib
 from joblib import parallel
 from joblib import dump, load
@@ -29,7 +27,7 @@ from joblib.externals.loky import get_reusable_executor
 from joblib.test.common import np, with_numpy
 from joblib.test.common import with_multiprocessing
 from joblib.testing import (parametrize, raises, check_subprocess_call,
-                            skipif, SkipTest, warns)
+                            skipif, warns)
 
 from joblib.externals.loky.process_executor import TerminatedWorkerError
 
@@ -62,7 +60,6 @@ from joblib.parallel import effective_n_jobs, cpu_count
 
 from joblib.parallel import mp, BACKENDS, DEFAULT_BACKEND, EXTERNAL_BACKENDS
 from joblib.my_exceptions import JoblibException
-from joblib.my_exceptions import WorkerInterrupt
 
 
 ALL_VALID_BACKENDS = [None] + sorted(BACKENDS.keys())
@@ -359,8 +356,8 @@ def test_error_capture(backend):
     if mp is not None:
         with raises(ZeroDivisionError):
             Parallel(n_jobs=2, backend=backend)(
-                [delayed(division)(x, y)
-                    for x, y in zip((0, 1), (1, 0))])
+                [delayed(division)(x, y) for x, y in zip((0, 1), (1, 0))]
+            )
 
         with raises(KeyboardInterrupt):
             Parallel(n_jobs=2, backend=backend)(
@@ -455,7 +452,8 @@ def test_dispatch_one_job(backend, batch_size, expected_queue):
             yield i
 
     Parallel(n_jobs=1, batch_size=batch_size, backend=backend)(
-        delayed(consumer)(queue, x) for x in producer())
+        delayed(consumer)(queue, x) for x in producer()
+    )
     assert queue == expected_queue
     assert len(queue) == 12
 
@@ -812,10 +810,7 @@ def test_retrieval_context(async_callback):
         return Parallel(n_jobs=2)(delayed(id)(i) for i in range(n))
 
     with parallel_backend("retrieval") as (ba, _):
-        Parallel(n_jobs=2)(
-            delayed(nested_call)(i)
-            for i in range(5)
-        )
+        Parallel(n_jobs=2)(delayed(nested_call)(i) for i in range(5))
         assert ba.i == 1
 
 

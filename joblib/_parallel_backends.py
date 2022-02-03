@@ -6,13 +6,12 @@ import gc
 import os
 import warnings
 import threading
-import functools
 import contextlib
 from abc import ABCMeta, abstractmethod
 
-from .constants import TASK_DONE
+
 from ._multiprocessing_helpers import mp
-from .my_exceptions import WorkerInterrupt
+from .externals.loky.process_executor import _ExceptionWithTraceback
 
 if mp is not None:
     from .pool import MemmappingPool
@@ -20,8 +19,6 @@ if mp is not None:
     from .executor import get_memmapping_executor
 
     # Compat between concurrent.futures and multiprocessing TimeoutError
-    from multiprocessing import TimeoutError
-    from concurrent.futures._base import TimeoutError as CfTimeoutError
     from .externals.loky import process_executor, cpu_count
 
 
@@ -221,7 +218,7 @@ class SequentialBackend(ParallelBackendBase):
         return result
 
     def fetch_result_callback(self, out):
-        return dict(status=TASK_DONE, result=out)
+        return out
 
     def get_nested_backend(self):
         # import is not top level to avoid cyclic import errors.
@@ -260,12 +257,31 @@ class PoolManagerMixin(object):
         """Used by apply_async to make it possible to implement lazy init"""
         return self._pool
 
+    @staticmethod
+    def _wrap_func_call(func):
+        """Protect function call and return error with traceback."""
+        try:
+            return func()
+        except BaseException as e:
+            return _ExceptionWithTraceback(e)
+
     def apply_async(self, func, callback=None):
         """Schedule a func to be run"""
+        # Here, we need a wrapper to avoid crashes on KeyboardInterruptErrors.
+        # We also call the callback on error, to make sure the pool does not
+        # wait on crashed jobs.
         return self._get_pool().apply_async(
-            func, callback=callback)
+            self._wrap_func_call, (func,),
+            callback=callback, error_callback=callback
+        )
 
     def fetch_result_callback(self, out):
+        """Mimic concurrent.futures results, raising an error if needed."""
+        if isinstance(out, _ExceptionWithTraceback):
+            rebuild, args = out.__reduce__()
+            out = rebuild(*args)
+        if isinstance(out, BaseException):
+            raise out
         return out
 
     def abort_everything(self, ensure_ready=True):
@@ -603,16 +619,16 @@ class DelayedResult(object):
     def __init__(self, batch):
         # Don't delay the application, to avoid keeping the input
         # arguments in memory
-        self.results = batch
+        self.batch_call = batch
 
     def register_callback(self, cb):
         self.cb = cb
 
     def get(self):
-        ret = self.results()
+        results = self.batch_call()
         if hasattr(self, "cb"):
             self.cb()
-        return ret
+        return results
 
 
 class FallbackToBackend(Exception):
