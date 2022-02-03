@@ -97,11 +97,10 @@ class NumpyArrayWrapper(object):
         else:
             current_pos = pickler.file_handle.tell()
             alignment = current_pos % 8
-            # print('write', current_pos)
+            
             if alignment != 0:
                 padding = b' ' * (8 - alignment)
                 pickler.file_handle.write(padding)
-                # print('after padding write', pickler.file_handle.tell())
 
             for chunk in pickler.np.nditer(array,
                                            flags=['external_loop',
@@ -129,7 +128,6 @@ class NumpyArrayWrapper(object):
             # The array contained Python objects. We need to unpickle the data.
             array = pickle.load(unpickler.file_handle)
         else:
-            # print('read', unpickler.file_handle.tell())
             current_pos = unpickler.file_handle.tell()
             alignment = current_pos % 8
 
@@ -137,8 +135,6 @@ class NumpyArrayWrapper(object):
             if alignment != 0 and current_byte == b' ':
                 padding_length = 8 - alignment
                 unpickler.file_handle.seek(current_pos + padding_length)
-
-            # print('read after padding', unpickler.file_handle.tell())
 
             # This is not a real file. We have to read it the
             # memory-intensive way.
@@ -351,7 +347,6 @@ class NumpyUnpickler(Unpickler):
         replace them directly in the stack of pickler.
         NDArrayWrapper is used for backward compatibility with joblib <= 0.9.
         """
-        print('load_build', self.stack)
         Unpickler.load_build(self)
 
         # For backward compatibility, we support NDArrayWrapper objects.
