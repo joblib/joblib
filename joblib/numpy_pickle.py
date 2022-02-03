@@ -97,7 +97,7 @@ class NumpyArrayWrapper(object):
         else:
             current_pos = pickler.file_handle.tell()
             alignment = current_pos % 8
-            
+
             if alignment != 0:
                 padding = b' ' * (8 - alignment)
                 pickler.file_handle.write(padding)
