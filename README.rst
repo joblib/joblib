@@ -74,9 +74,9 @@ disk and rerun it only if necessary:
 .. code-block:: python
 
    >>> from joblib import Memory
+   >>> import numpy as np
    >>> cachedir = 'your_cache_dir_goes_here'
    >>> mem = Memory(cachedir)
-   >>> import numpy as np
    >>> a = np.vander(np.arange(3)).astype(np.float)
    >>> square = mem.cache(np.square)
    >>> b = square(a)                                   
