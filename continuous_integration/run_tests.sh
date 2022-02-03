@@ -28,14 +28,20 @@ if [[ "$SKLEARN_TESTS" == "true" ]]; then
     # Install scikit-learn from conda and test against the installed
     # development version of joblib.
     conda remove -y numpy
-    conda install -y -c conda-forge cython pillow scikit-learn
+    conda install -y -c conda-forge cython pillow pip
+    pip install --pre --extra-index https://pypi.anaconda.org/scipy-wheels-nightly/simple scikit-learn
     python -c "import sklearn; print('Testing scikit-learn', sklearn.__version__)"
 
     # Move to a dedicated folder to avoid being polluted by joblib specific conftest.py
     # and disable the doctest plugin to avoid issues with doctests in scikit-learn
     # docstrings that require setting print_changed_only=True temporarily.
     cd "/tmp"
-    pytest -vl --maxfail=5 -p no:doctest -k "not test_import_is_deprecated" --pyargs sklearn
+    pytest -vl --maxfail=5 -p no:doctest \
+        # Don't worry about deprecated imports: this is tested for real
+        # in upstream scikit-learn and this is not joblib's responsibility.
+        # Let's skip this test to avoid false positives in joblib's CI.
+        -k "not test_import_is_deprecated" \
+        --pyargs sklearn
 fi
 
 if [[ "$SKIP_TESTS" != "true" && "$COVERAGE" == "true" ]]; then
