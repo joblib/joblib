@@ -1090,7 +1090,8 @@ def test_memmap_alignment_padding(tmpdir, protocol):
     memmap = numpy_pickle.load(fname, mmap_mode='r')
     assert isinstance(memmap, np.memmap)
     np.testing.assert_array_equal(a, memmap)
-    assert memmap.ctypes.data % 8 == 0
+    assert (
+        memmap.ctypes.data % numpy_pickle.NUMPY_ARRAY_ALIGNMENT_BYTES == 0)
     assert memmap.flags.aligned
 
     array_list = [
@@ -1104,8 +1105,8 @@ def test_memmap_alignment_padding(tmpdir, protocol):
     for idx, memmap in enumerate(l_reloaded):
         assert isinstance(memmap, np.memmap)
         np.testing.assert_array_equal(array_list[idx], memmap)
-        print("MODULO: {}".format(memmap.ctypes.data % 8))
-        assert memmap.ctypes.data % 8 == 0
+        assert (
+            memmap.ctypes.data % numpy_pickle.NUMPY_ARRAY_ALIGNMENT_BYTES == 0)
         assert memmap.flags.aligned
 
     array_dict = {
@@ -1121,5 +1122,6 @@ def test_memmap_alignment_padding(tmpdir, protocol):
     for key, memmap in d_reloaded.items():
         assert isinstance(memmap, np.memmap)
         np.testing.assert_array_equal(array_dict[key], memmap)
-        assert memmap.ctypes.data % 8 == 0
+        assert (
+            memmap.ctypes.data % numpy_pickle.NUMPY_ARRAY_ALIGNMENT_BYTES == 0)
         assert memmap.flags.aligned

@@ -44,6 +44,8 @@ register_compressor('lz4', LZ4CompressorWrapper())
 ###############################################################################
 # Utility objects for persistence.
 
+NUMPY_ARRAY_ALIGNMENT_BYTES = 16
+
 
 class NumpyArrayWrapper(object):
     """An object to be persisted instead of numpy arrays.
@@ -99,10 +101,10 @@ class NumpyArrayWrapper(object):
         else:
             try:
                 current_pos = pickler.file_handle.tell()
-                alignment = current_pos % 8
+                alignment = current_pos % NUMPY_ARRAY_ALIGNMENT_BYTES
 
                 if alignment != 0:
-                    padding = b' ' * (8 - alignment)
+                    padding = b' ' * (NUMPY_ARRAY_ALIGNMENT_BYTES - alignment)
                     pickler.file_handle.write(padding)
             except io.UnsupportedOperation:
                 # TODO log something somewhere?
@@ -136,14 +138,14 @@ class NumpyArrayWrapper(object):
         else:
             try:
                 current_pos = unpickler.file_handle.tell()
-                alignment = current_pos % 8
+                alignment = current_pos % NUMPY_ARRAY_ALIGNMENT_BYTES
 
                 # peek not supported in io.BytesIO ...
                 current_byte = unpickler.file_handle.read(1)
                 unpickler.file_handle.seek(current_pos)
 
                 if alignment != 0 and current_byte == b' ':
-                    padding_length = 8 - alignment
+                    padding_length = NUMPY_ARRAY_ALIGNMENT_BYTES - alignment
                     unpickler.file_handle.seek(current_pos + padding_length)
             except io.UnsupportedOperation:
                 # TODO log something somewhere?
@@ -183,14 +185,14 @@ class NumpyArrayWrapper(object):
         """Read an array using numpy memmap."""
         current_pos = unpickler.file_handle.tell()
         offset = current_pos
-        alignment = current_pos % 8
+        alignment = current_pos % NUMPY_ARRAY_ALIGNMENT_BYTES
 
         # peek not supported in io.BytesIO ...
         current_byte = unpickler.file_handle.read(1)
         unpickler.file_handle.seek(current_pos)
 
         if alignment != 0 and current_byte == b' ':
-            padding_length = 8 - alignment
+            padding_length = NUMPY_ARRAY_ALIGNMENT_BYTES - alignment
             offset += padding_length
 
         if unpickler.mmap_mode == 'w+':
