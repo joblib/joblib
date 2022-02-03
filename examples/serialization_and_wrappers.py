@@ -36,7 +36,7 @@ print(Parallel(n_jobs=2)(delayed(func_async)(21) for _ in range(1))[0])
 
 
 ###############################################################################
-# For most use-cases, using ``cloudpickle``` is efficient enough. However, this
+# For most use-cases, using ``cloudpickle`` is efficient enough. However, this
 # solution can be very slow to serialize large python objects, such as dict or
 # list, compared to the standard ``pickle`` serialization.
 #
