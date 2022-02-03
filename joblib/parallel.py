@@ -455,6 +455,8 @@ class _TaskTracker:
         if timeout is None or self.status != TASK_PENDING:
             return self.status
 
+        # The computation are running and the status is pending.
+        # Check that we did not wait for this jobs more than `timeout`.
         now = time.time()
         if not hasattr(self, "_completion_timeout_counter"):
             self._completion_timeout_counter = now
