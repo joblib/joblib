@@ -23,24 +23,26 @@ can be spread over 2 CPUs using the following::
     >>> Parallel(n_jobs=2)(delayed(sqrt)(i ** 2) for i in range(10))
     [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
 
-In managed instances, the output can be a generator that yields the results as
-soon as they're available, even if the subsequent tasks aren't completed yet.
-The order of the outputs always matches the order of the inputs::
+The output can be a generator that yields the results as soon as they're
+available, even if the subsequent tasks aren't completed yet. The order
+of the outputs always matches the order of the inputs::
 
     >>> from math import sqrt
     >>> from joblib import Parallel, delayed
-    >>> with Parallel(n_jobs=2, return_generator=True) as parallel:
-    ...     input_generator = (delayed(sqrt)(i ** 2) for i in range(10))
-    ...     output_generator = parallel(input_generator)
-    ...     print(type(output_generator))
-    ...     print(next(output_generator))
-    ...     print(next(output_generator))
-    ...     print(list(output_generator))
-    ...
+    >>> parallel = Parallel(n_jobs=2, return_generator=True)
+    >>> output_generator = parallel(delayed(sqrt)(i ** 2) for i in range(10))
+    >>> print(type(output_generator))
     <class 'generator'>
+    >>> print(next(output_generator))
     0.0
+    >>> print(next(output_generator))
     1.0
+    >>> print(list(output_generator))
     [2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
+
+This generator allow to reduce the memory footprint of :class:`joblib.Parallel`
+calls in case the results are to be reduced, as illustrated in
+:ref:`sphx_glr_auto_examples_parallel_generator.py`.
 
 Thread-based parallelism vs process-based parallelism
 =====================================================

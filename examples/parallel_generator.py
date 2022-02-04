@@ -4,15 +4,15 @@ Returning a generator in joblib.Parallel
 ========================================
 
 This example illustrates memory optimization enabled by using
- :class:`joblib.Parallel` to get a generator on the outputs of parallel jobs.
- We first create tasks that return results with large memory footprints.
- We parallelize several of those tasks such that we should observe a high
- memory usage if all of the outputs were to stack in RAM. We show that the
- memory is efficiently managed if we use the generator to perform a reduce
- step that progressively consumes the outputs and keeps the memory at an
- acceptable level. The RAM usage can depend on the behavior of the garbage
- collector, whose behavior can be hard to predict. Here we force it to ensure
- a low memory usage.
+:class:`joblib.Parallel` to get a generator on the outputs of parallel jobs.
+We first create tasks that return results with large memory footprints.
+We parallelize several of those tasks such that we should observe a high
+memory usage if all of the outputs were to stack in RAM. We show that the
+memory is efficiently managed if we use the generator to perform a reduce
+step that progressively consumes the outputs and keeps the memory at an
+acceptable level. The RAM usage can depend on the behavior of the garbage
+collector, whose behavior can be hard to predict. Here we force it to ensure
+a low memory usage.
 
 """
 
