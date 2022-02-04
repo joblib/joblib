@@ -188,7 +188,7 @@ def test_parallel_call_cached_function_defined_in_jupyter(
             if call_before_reducing:
                 cached_f(3)
                 # Two files were just created, func_code.py, and a folder
-                # containing the informations (inputs hash/ouptput) of
+                # containing the information (inputs hash/ouptput) of
                 # cached_f(3)
                 assert len(os.listdir(f_cache_directory / 'f')) == 2
 
@@ -1086,7 +1086,7 @@ def test_memory_recomputes_after_an_error_while_loading_results(
 
 
 class IncompleteStoreBackend(StoreBackendBase):
-    """This backend cannot be instanciated and should raise a TypeError."""
+    """This backend cannot be instantiated and should raise a TypeError."""
     pass
 
 
@@ -1157,7 +1157,7 @@ def test_warning_on_unknown_location_type():
     with warns(UserWarning) as warninfo:
         _store_backend_factory("local", location=unsupported_location)
 
-    expected_mesage = ("Instanciating a backend using a "
+    expected_mesage = ("Instantiating a backend using a "
                        "NonSupportedLocationClass as a location is not "
                        "supported by joblib")
     assert expected_mesage in str(warninfo[0].message)
@@ -1165,7 +1165,7 @@ def test_warning_on_unknown_location_type():
 
 def test_instanciate_incomplete_store_backend():
     # Verify that registering an external incomplete store backend raises an
-    # exception when one tries to instanciate it.
+    # exception when one tries to instantiate it.
     backend_name = "isb"
     register_store_backend(backend_name, IncompleteStoreBackend)
     assert (backend_name, IncompleteStoreBackend) in _STORE_BACKENDS.items()
@@ -1187,7 +1187,7 @@ def test_dummy_store_backend():
 
 
 def test_instanciate_store_backend_with_pathlib_path():
-    # Instanciate a FileSystemStoreBackend using a pathlib.Path object
+    # Instantiate a FileSystemStoreBackend using a pathlib.Path object
     path = pathlib.Path("some_folder")
     backend_obj = _store_backend_factory("local", path)
     assert backend_obj.location == "some_folder"
@@ -1204,7 +1204,7 @@ def test_filesystem_store_backend_repr(tmpdir):
 
     assert str(backend) == repr_pattern.format(location=None)
 
-    # backend location is passed explicitely via the configure method (called
+    # backend location is passed explicitly via the configure method (called
     # by the internal _store_backend_factory function)
     backend.configure(tmpdir.strpath)
 

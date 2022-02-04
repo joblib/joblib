@@ -36,7 +36,7 @@
 # Note that this behavior differs from CPython's resource_tracker, which only
 # implements list of shared resources, and not a proper refcounting scheme.
 # Also, CPython's resource tracker will only attempt to cleanup those shared
-# resources once all procsses connected to the resouce tracker have exited.
+# resources once all procsses connected to the resource tracker have exited.
 
 
 import os
@@ -118,7 +118,7 @@ class ResourceTracker(object):
                 self._pid = None
 
                 warnings.warn('resource_tracker: process died unexpectedly, '
-                              'relaunching.  Some folders/sempahores might '
+                              'relaunching.  Some folders/semaphores might '
                               'leak.')
 
             fds_to_pass = []

@@ -64,7 +64,7 @@ def write_test_pickle(to_pickle, args):
         print("Error: cannot generate file '{}' with arguments '{}'. "
               "Error was: {}".format(pickle_filename, kwargs, e))
     else:
-        print("File '{}' generated successfuly.".format(pickle_filename))
+        print("File '{}' generated successfully.".format(pickle_filename))
 
 if __name__ == '__main__':
     import argparse

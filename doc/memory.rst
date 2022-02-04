@@ -391,8 +391,8 @@ Gotchas
   ``joblib.Memory`` cache can get invalidated when upgrading ``joblib``.
   Invalidation can also happen when upgrading a third party library (such as
   ``numpy``): in such a case, only the cached function calls with parameters
-  that are constructs (or contain references to contructs) defined in the
-  upgraded library should potentially be invalidated after the uprade.
+  that are constructs (or contain references to constructs) defined in the
+  upgraded library should potentially be invalidated after the upgrade.
 
 
 Ignoring some arguments

@@ -83,7 +83,7 @@ def test_memmap_based_array_reducing(tmpdir):
     buffer[:] = - 1.0 * np.arange(buffer.shape[0], dtype=buffer.dtype)
     buffer.flush()
 
-    # Memmap a 2D fortran array on a offseted subsection of the previous
+    # Memmap a 2D fortran array on a offsetted subsection of the previous
     # buffer
     a = np.memmap(filename, dtype=np.float64, shape=(3, 5, 4),
                   mode='r+', order='F', offset=4)
@@ -728,7 +728,7 @@ def test_memmapping_pool_for_large_arrays(factory, tmpdir):
     # Check that the tempfolder is empty
     assert os.listdir(tmpdir.strpath) == []
 
-    # Build an array reducers that automaticaly dump large array content
+    # Build an array reducers that automatically dump large array content
     # to filesystem backed memmap instances to avoid memory explosion
     p = factory(3, max_nbytes=40, temp_folder=tmpdir.strpath, verbose=2)
     try:
@@ -954,7 +954,7 @@ def test_memmapping_pool_for_large_arrays_in_return(factory, tmpdir):
     """Check that large arrays are not copied in memory in return"""
     assert_array_equal = np.testing.assert_array_equal
 
-    # Build an array reducers that automaticaly dump large array content
+    # Build an array reducers that automatically dump large array content
     # but check that the returned datastructure are regular arrays to avoid
     # passing a memmap array pointing to a pool controlled temp folder that
     # might be confusing to the user

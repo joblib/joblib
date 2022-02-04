@@ -130,7 +130,7 @@ def _store_backend_factory(backend, location, verbose=0, backend_options=None):
         return obj
     elif location is not None:
         warnings.warn(
-            "Instanciating a backend using a {} as a location is not "
+            "Instantiating a backend using a {} as a location is not "
             "supported by joblib. Returning None instead.".format(
                 location.__class__.__name__), UserWarning)
 
@@ -196,7 +196,7 @@ class MemorizedResult(Logger):
 
     func: function or str
         function whose output is cached. The string case is intended only for
-        instanciation based on the output of repr() on another instance.
+        instantiation based on the output of repr() on another instance.
         (namely eval(repr(memorized_instance)) works).
 
     argument_hash: str
@@ -487,7 +487,7 @@ class MemorizedFunc(Logger):
         metadata = None
         msg = None
 
-        # Wether or not the memorized function must be called
+        # Whether or not the memorized function must be called
         must_call = False
 
         # FIXME: The statements below should be try/excepted
@@ -563,8 +563,8 @@ class MemorizedFunc(Logger):
             # (which should be called once on self) gets called in the process
             # in which self.func was defined, this caching mechanism prevents
             # undesired cache clearing when the cached function is called in
-            # an environement where the introspection utilities get_func_code
-            # relies on do not work (typicially, in joblib child processes).
+            # an environment where the introspection utilities get_func_code
+            # relies on do not work (typically, in joblib child processes).
             # See #1035 for  more info
             # TODO (pierreglaser): do the same with get_func_name?
             self._func_code_info = get_func_code(self.func)
@@ -900,7 +900,7 @@ class Memory(Logger):
             actually reduce the cache size to be less than ``bytes_limit``.
 
         backend_options: dict, optional
-            Contains a dictionnary of named parameters used to configure
+            Contains a dictionary of named parameters used to configure
             the store backend.
     """
     # ------------------------------------------------------------------------
