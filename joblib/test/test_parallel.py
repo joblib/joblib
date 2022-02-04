@@ -10,13 +10,17 @@ import os
 import sys
 import time
 import mmap
+import pickle
+import weakref
 import threading
-from traceback import format_exception
 from math import sqrt
 from time import sleep
+from queue import Queue
 from pickle import PicklingError
+from contextlib import nullcontext
+from traceback import format_exception
 from multiprocessing import TimeoutError
-import pickle
+
 import pytest
 
 import joblib
@@ -31,7 +35,6 @@ from joblib.testing import (parametrize, raises, check_subprocess_call,
 
 from joblib.externals.loky.process_executor import TerminatedWorkerError
 
-from queue import Queue
 
 try:
     import posix
@@ -256,8 +259,7 @@ def nested_loop(backend):
 
 @parametrize('child_backend', BACKENDS)
 @parametrize('parent_backend', BACKENDS)
-@parametrize('return_generator', [True, False])
-def test_nested_loop(parent_backend, child_backend, return_generator):
+def test_nested_loop(parent_backend, child_backend):
     Parallel(n_jobs=2, backend=parent_backend)(
         delayed(nested_loop)(child_backend) for _ in range(2))
 
@@ -1133,21 +1135,35 @@ def test_memmap_with_big_offset(tmpdir):
     np.testing.assert_array_equal(obj, result)
 
 
+def test_warning_about_timeout_not_supported_by_backend():
+    with warns(None) as warninfo:
+        Parallel(n_jobs=1, timeout=1)(delayed(square)(i) for i in range(50))
+    assert len(warninfo) == 1
+    w = warninfo[0]
+    assert isinstance(w.message, UserWarning)
+    assert str(w.message) == (
+        "The backend class 'SequentialBackend' does not support timeout. "
+        "You have set 'timeout=1' in Parallel but the 'timeout' parameter "
+        "will not be used."
+    )
+
+
 def set_list_value(input_list, index, value):
     input_list[index] = value
     return value
 
 
-def test_parallel_return_generator():
+@pytest.mark.parametrize('n_jobs', [1, 2, 4])
+def test_parallel_return_generator(n_jobs):
     # This test inserts values in a list in some expected order
     # in sequential computing, and then check that this order has been
-    # respectted by Parallel output generator.
-    with Parallel(n_jobs=1, return_generator=True) as parallel:
-        input_list = [0] * 5
-        result = parallel(
-            delayed(set_list_value)(input_list, i, i) for i in range(5))
-        for i, each in enumerate(result):
-            assert input_list[i] == each
+    # respected by Parallel output generator.
+    input_list = [0] * 5
+    result = Parallel(n_jobs=n_jobs, return_generator=True,
+                      backend='threading')(
+        delayed(set_list_value)(input_list, i, i) for i in range(5))
+    for i, each in enumerate(result):
+        assert input_list[i] == each
 
 
 @parametrize('backend', ALL_VALID_BACKENDS)
@@ -1157,7 +1173,8 @@ def test_abort_backend(n_jobs, backend):
     with raises(TypeError):
         t_start = time.time()
         Parallel(n_jobs=n_jobs, backend=backend)(
-            delayed(time.sleep)(i) for i in delays)
+            delayed(time.sleep)(i) for i in delays
+        )
     dt = time.time() - t_start
     assert dt < 20
 
@@ -1182,14 +1199,96 @@ def test_deadlock_with_generator(backend, n_jobs):
         del result
 
 
-def test_multiple_generator_call():
+@parametrize('backend', BACKENDS)
+@parametrize('n_jobs', [1, 2, -2, -1])
+def test_multiple_generator_call(backend, n_jobs):
     # Non-regression test that ensures the dispatch of the tasks starts
-    # immediately when Parallel.__call__ is called.
-    with raises(ValueError):
-        with Parallel(2, return_generator=True) as parallel:
-            gen = parallel(delayed(sleep)(1) for _ in range(10))
-            gen2 = parallel(delayed(id)(i) for i in range(100))
-            list(gen), list(gen2)
+    # immediately when Parallel.__call__ is called. This test relies on the
+    # assumption that only one generator can be submitted at a time.
+    with raises(ValueError, match="This Parallel instance is already running"):
+        parallel = Parallel(n_jobs, backend=backend, return_generator=True)
+        g = parallel(delayed(sleep)(1) for _ in range(10))  # noqa: F841
+        t_start = time.time()
+        gen2 = parallel(delayed(id)(i) for i in range(100))  # noqa: F841
+
+    # Make sure that the error is raised quickly
+    assert time.time() - t_start < 2, (
+        "The error should be raised immediatly when submitting a new task "
+        "but it took more than 2s."
+    )
+
+
+@parametrize('backend', BACKENDS)
+@parametrize('n_jobs', [1, 2, -2, -1])
+def test_multiple_generator_call_managed(backend, n_jobs):
+    # Non-regression test that ensures the dispatch of the tasks starts
+    # immediately when Parallel.__call__ is called. This test relies on the
+    # assumption that only one generator can be submitted at a time.
+    with raises(ValueError, match="This Parallel instance is already running"):
+        with Parallel(n_jobs, backend=backend,
+                      return_generator=True) as parallel:
+            g = parallel(delayed(sleep)(1) for _ in range(10))  # noqa: F841
+            t_start = time.time()
+            g2 = parallel(delayed(id)(i) for i in range(100))  # noqa: F841
+
+    # Make sure that the error is raised quickly
+    assert time.time() - t_start < 2, (
+        "The error should be raised immediatly when submitting a new task "
+        "but it took more than 2s."
+    )
+
+
+@parametrize('backend', BACKENDS)
+@parametrize('n_jobs', [1, 2, -2, -1])
+def test_multiple_generator_call_separated(backend, n_jobs):
+    # Check that for separated Parallel, both tasks are correctly returned.
+    g = Parallel(n_jobs, backend=backend, return_generator=True)(
+        delayed(sqrt)(i ** 2) for i in range(10)
+    )
+    g2 = Parallel(n_jobs, backend=backend, return_generator=True)(
+        delayed(sqrt)(i ** 2) for i in range(10, 20)
+    )
+
+    assert all(res == i for res, i in zip(g, range(10)))
+    assert all(res == i for res, i in zip(g2, range(10, 20)))
+
+
+@parametrize('backend, error', [
+    ('loky', True),
+    ('multiprocessing', False),
+    ('threading', False),
+    ('sequential', False),
+])
+def test_multiple_generator_call_separated_gc(backend, error):
+    # Check that in loky, only one call can be run at a time with
+    # a single executor.
+    parallel = Parallel(2, backend=backend, return_generator=True)
+    g = parallel(delayed(sleep)(1) for i in range(10))
+    g_wr = weakref.finalize(g, lambda: None)
+    ctx = (
+        raises(RuntimeError, match="The executor underlying Parallel")
+        if error else nullcontext()
+    )
+    with ctx:
+        # For loky, this call will raise an error as the gc of the previous
+        # generator will shutdown the shared executor.
+        # For the other backend, as the worker pools are not shared between the
+        # two calls, this should proceed correctly.
+        t_start = time.time()
+        g = Parallel(2, backend=backend, return_generator=True)(
+            delayed(sqrt)(i ** 2) for i in range(10, 20)
+        )
+        assert all(res == i for res, i in zip(g, range(10, 20)))
+
+    assert time.time() - t_start < 2
+
+    # Make sure that the computation are stopped for the gc'ed generator
+    retry = 0
+    while g_wr.alive and retry < 3:
+        retry += 1
+        time.sleep(.5)
+    assert parallel._aborted
+    assert time.time() - t_start < 5
 
 
 @with_numpy

@@ -36,8 +36,6 @@ from .externals import loky
 from ._parallel_backends import AutoBatchingMixin  # noqa
 from ._parallel_backends import ParallelBackendBase  # noqa
 
-from .constants import TASK_DONE, TASK_ERROR, TASK_PENDING
-
 
 BACKENDS = {
     'multiprocessing': MultiprocessingBackend,
@@ -52,12 +50,34 @@ DEFAULT_BACKEND = 'loky'
 DEFAULT_N_JOBS = 1
 DEFAULT_THREAD_BACKEND = 'threading'
 
+# Backend hints and constraints to help choose the backend
+VALID_BACKEND_HINTS = ('processes', 'threads', None)
+VALID_BACKEND_CONSTRAINTS = ('sharedmem', None)
+
+# Registry to get external backends
+EXTERNAL_BACKENDS = {}
+
+# Possible exit status for the tasks
+TASK_DONE = "Done"
+TASK_ERROR = "Error"
+TASK_PENDING = "Pending"
+
+
+# Under Linux or OS X the default start method of multiprocessing
+# can cause third party libraries to crash. Under Python 3.4+ it is possible
+# to set an environment variable to switch the default start method from
+# 'fork' to 'forkserver' or 'spawn' to avoid this issue albeit at the cost
+# of causing semantic changes and some additional pool instantiation overhead.
+DEFAULT_MP_CONTEXT = None
+if hasattr(mp, 'get_context'):
+    method = os.environ.get('JOBLIB_START_METHOD', '').strip() or None
+    if method is not None:
+        DEFAULT_MP_CONTEXT = mp.get_context(method=method)
+
+
 # Thread local value that can be overridden by the ``parallel_backend`` context
 # manager
 _backend = threading.local()
-
-VALID_BACKEND_HINTS = ('processes', 'threads', None)
-VALID_BACKEND_CONSTRAINTS = ('sharedmem', None)
 
 
 def _register_dask():
@@ -73,9 +93,7 @@ def _register_dask():
         raise ImportError(msg) from e
 
 
-EXTERNAL_BACKENDS = {
-    'dask': _register_dask,
-}
+EXTERNAL_BACKENDS['dask'] = _register_dask
 
 
 def get_active_backend(prefer=None, require=None, verbose=0):
@@ -228,18 +246,6 @@ class parallel_backend(object):
                 del _backend.backend_and_jobs
         else:
             _backend.backend_and_jobs = self.old_backend_and_jobs
-
-
-# Under Linux or OS X the default start method of multiprocessing
-# can cause third party libraries to crash. Under Python 3.4+ it is possible
-# to set an environment variable to switch the default start method from
-# 'fork' to 'forkserver' or 'spawn' to avoid this issue albeit at the cost
-# of causing semantic changes and some additional pool instantiation overhead.
-DEFAULT_MP_CONTEXT = None
-if hasattr(mp, 'get_context'):
-    method = os.environ.get('JOBLIB_START_METHOD', '').strip() or None
-    if method is not None:
-        DEFAULT_MP_CONTEXT = mp.get_context(method=method)
 
 
 class BatchedCalls(object):
@@ -862,8 +868,7 @@ class Parallel(Logger):
                 **self._backend_args
             )
             if (self.timeout is not None and
-                    not self._backend.supports_timeout and
-                    not self._backend.supports_asynchronous_callback):
+                    not self._backend.supports_timeout):
                 warnings.warn(
                     'The backend class {!r} does not support timeout. '
                     "You have set 'timeout={}' in Parallel but "
@@ -1140,9 +1145,9 @@ class Parallel(Logger):
                     with self._lock:
                         error_job = next((job for job in self._jobs
                                           if job.status == TASK_ERROR), None)
-                        if error_job is not None:
-                            error_job.get_result(self.timeout)
-                        break
+                    if error_job is not None:
+                        error_job.get_result(self.timeout)
+                    break
                 if (len(self._jobs) == 0 or
                         self._jobs[0].get_status(
                             timeout=self.timeout) == TASK_PENDING):
@@ -1220,6 +1225,9 @@ class Parallel(Logger):
                 msg += ("%d tasks which were still being processed by the "
                         "workers have been cancelled."
                         % self.n_dispatched_tasks)
+                # Abort computation to avoid waiting unnecessarily for
+                # the results when they cannot be recovered.
+                self._abort()
 
             if msg:
                 msg += (" You could benefit from adjusting the input task "
@@ -1237,8 +1245,8 @@ class Parallel(Logger):
                     " Before submitting new tasks, you must wait for the "
                     "completion of all the previous tasks, or clean all "
                     "references to the output generator.")
-
             raise ValueError(msg)
+
         # A flag used to abort the dispatching of jobs in case an
         # exception is found
         self._aborting = False
