@@ -54,33 +54,33 @@ jobs:
         imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.7"
         EXTRA_CONDA_PACKAGES: "numpy=1.15 distributed=2.13"
-      linux_py36_cython:
+      linux_py37_cython:
         imageName: 'ubuntu-latest'
-        PYTHON_VERSION: "3.6"
-        EXTRA_CONDA_PACKAGES: "numpy=1.14"
+        PYTHON_VERSION: "3.7"
+        EXTRA_CONDA_PACKAGES: "numpy=1.15"
         CYTHON: "true"
-      linux_py36_no_multiprocessing_no_lzma:
+      linux_py37_no_multiprocessing_no_lzma:
         imageName: 'ubuntu-latest'
-        PYTHON_VERSION: "3.6"
-        EXTRA_CONDA_PACKAGES: "numpy=1.14"
+        PYTHON_VERSION: "3.7"
+        EXTRA_CONDA_PACKAGES: "numpy=1.15"
         JOBLIB_MULTIPROCESSING: "0"
         NO_LZMA: "1"
-      linux_py36_no_numpy:
+      linux_py37_no_numpy:
         imageName: 'ubuntu-latest'
-        PYTHON_VERSION: "3.6"
+        PYTHON_VERSION: "3.7"
 
       windows_py38:
-        imageName: "vs2017-win2016"
+        imageName: "windows-latest"
         PYTHON_VERSION: "3.8"
         EXTRA_CONDA_PACKAGES: "numpy=1.18"
 
       macos_py38:
-        imageName: "macos-10.14"
+        imageName: "macos-latest"
         PYTHON_VERSION: "3.8"
         EXTRA_CONDA_PACKAGES: "numpy=1.18"
-      macos_py36_no_numpy:
-        imageName: "macos-10.14"
-        PYTHON_VERSION: "3.6"
+      macos_py37_no_numpy:
+        imageName: "macos-latest"
+        PYTHON_VERSION: "3.7"
 
   variables:
     JUNITXML: 'test-data.xml'

@@ -815,10 +815,13 @@ def test_child_raises_parent_exits_cleanly(backend):
                     temp_folder = get_temp_folder(p, "{b}")
                     p(delayed(print_filename_and_raise)(data)
                               for i in range(1))
-            except ValueError:
+            except ValueError as e:
                 # the temporary folder should be deleted by the end of this
                 # call
-                assert not os.path.exists(temp_folder)
+                if os.path.exists(temp_folder):
+                    raise AssertionError(
+                        temp_folder + " was not deleted"
+                    ) from e
     """.format(b=backend)
     env = os.environ.copy()
     env['PYTHONPATH'] = os.path.dirname(__file__)
@@ -828,7 +831,7 @@ def test_child_raises_parent_exits_cleanly(backend):
     out, err = p.communicate()
     out, err = out.decode(), err.decode()
     filename = out.split('\n')[0]
-    assert p.returncode == 0, out
+    assert p.returncode == 0, err or out
     assert err == ''  # no resource_tracker warnings.
     assert not os.path.exists(filename)
 
