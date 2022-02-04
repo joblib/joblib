@@ -35,7 +35,8 @@ if [[ "$SKLEARN_TESTS" == "true" ]]; then
     # Move to a dedicated folder to avoid being polluted by joblib specific conftest.py
     # and disable the doctest plugin to avoid issues with doctests in scikit-learn
     # docstrings that require setting print_changed_only=True temporarily.
-    cd "/tmp"
+    NEW_TEST_DIR=$(mktemp -d)
+    cd $NEW_TEST_DIR
     pytest -vl --maxfail=5 -p no:doctest \
         # Don't worry about deprecated imports: this is tested for real
         # in upstream scikit-learn and this is not joblib's responsibility.
