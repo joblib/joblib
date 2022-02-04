@@ -636,6 +636,8 @@ class Parallel(Logger):
         return_generator: bool
             If True, calls to this instance will return a generator, yielding
             the results as soon as they are available, in the original order.
+            Note that the intended usage is to run one call at a time. Multiple
+            calls to the same Parallel object will result in a ``ValueError``
 
         Notes
         -----
@@ -1146,6 +1148,8 @@ class Parallel(Logger):
                         error_job = next((job for job in self._jobs
                                           if job.status == TASK_ERROR), None)
                     if error_job is not None:
+                        # Error job might be None if `abort` has been called
+                        # directly by the user.
                         error_job.get_result(self.timeout)
                     break
                 if (len(self._jobs) == 0 or
@@ -1245,7 +1249,7 @@ class Parallel(Logger):
                     " Before submitting new tasks, you must wait for the "
                     "completion of all the previous tasks, or clean all "
                     "references to the output generator.")
-            raise ValueError(msg)
+            raise RuntimeError(msg)
 
         # A flag used to abort the dispatching of jobs in case an
         # exception is found

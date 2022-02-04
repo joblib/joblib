@@ -804,9 +804,9 @@ def test_child_raises_parent_exits_cleanly(backend):
 
         def get_temp_folder(parallel_obj, backend):
             if "{b}" == "loky":
-                return p._backend._workers._temp_folder
+                return parallel_obj._backend._workers._temp_folder
             else:
-                return p._backend._pool._temp_folder
+                return parallel_obj._backend._pool._temp_folder
 
 
         if __name__ == "__main__":
@@ -814,7 +814,7 @@ def test_child_raises_parent_exits_cleanly(backend):
                 with Parallel(n_jobs=2, backend="{b}", max_nbytes=100) as p:
                     temp_folder = get_temp_folder(p, "{b}")
                     p(delayed(print_filename_and_raise)(data)
-                              for i in range(1))
+                      for i in range(1))
             except ValueError:
                 # the temporary folder should be deleted by the end of this
                 # call

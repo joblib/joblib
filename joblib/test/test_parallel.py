@@ -1205,7 +1205,8 @@ def test_multiple_generator_call(backend, n_jobs):
     # Non-regression test that ensures the dispatch of the tasks starts
     # immediately when Parallel.__call__ is called. This test relies on the
     # assumption that only one generator can be submitted at a time.
-    with raises(ValueError, match="This Parallel instance is already running"):
+    with raises(RuntimeError,
+                match="This Parallel instance is already running"):
         parallel = Parallel(n_jobs, backend=backend, return_generator=True)
         g = parallel(delayed(sleep)(1) for _ in range(10))  # noqa: F841
         t_start = time.time()
@@ -1224,7 +1225,8 @@ def test_multiple_generator_call_managed(backend, n_jobs):
     # Non-regression test that ensures the dispatch of the tasks starts
     # immediately when Parallel.__call__ is called. This test relies on the
     # assumption that only one generator can be submitted at a time.
-    with raises(ValueError, match="This Parallel instance is already running"):
+    with raises(RuntimeError,
+                match="This Parallel instance is already running"):
         with Parallel(n_jobs, backend=backend,
                       return_generator=True) as parallel:
             g = parallel(delayed(sleep)(1) for _ in range(10))  # noqa: F841
