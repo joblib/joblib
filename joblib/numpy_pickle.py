@@ -7,10 +7,7 @@
 import pickle
 import os
 import warnings
-try:
-    from pathlib import Path
-except ImportError:
-    Path = None
+from pathlib import Path
 
 from .compressor import lz4, LZ4_NOT_INSTALLED_ERROR
 from .compressor import _COMPRESSORS, register_compressor, BinaryZlibFile
@@ -148,7 +145,7 @@ class NumpyArrayWrapper(object):
             else:
                 array.shape = self.shape
 
-        # Detect byte order mis-match and swap as needed.
+        # Detect byte order mismatch and swap as needed.
         return _ensure_native_byte_order(array)
 
     def read_mmap(self, unpickler):

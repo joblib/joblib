@@ -14,15 +14,18 @@ import pickle
 import socket
 from contextlib import closing
 import mmap
+from pathlib import Path
+
 try:
     import lzma
 except ImportError:
     lzma = None
+
 import pytest
 
 from joblib.test.common import np, with_numpy, with_lz4, without_lz4
 from joblib.test.common import with_memory_profiler, memory_used
-from joblib.testing import parametrize, raises, SkipTest, warns
+from joblib.testing import parametrize, raises, warns
 
 # numpy_pickle is not a drop-in replacement of pickle, as it takes
 # filenames instead of open files as arguments.
@@ -851,17 +854,12 @@ def test_numpy_subclass(tmpdir):
 
 
 def test_pathlib(tmpdir):
-    try:
-        from pathlib import Path
-    except ImportError:
-        pass
-    else:
-        filename = tmpdir.join('test.pkl').strpath
-        value = 123
-        numpy_pickle.dump(value, Path(filename))
-        assert numpy_pickle.load(filename) == value
-        numpy_pickle.dump(value, filename)
-        assert numpy_pickle.load(Path(filename)) == value
+    filename = tmpdir.join('test.pkl').strpath
+    value = 123
+    numpy_pickle.dump(value, Path(filename))
+    assert numpy_pickle.load(filename) == value
+    numpy_pickle.dump(value, filename)
+    assert numpy_pickle.load(Path(filename)) == value
 
 
 @with_numpy

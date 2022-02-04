@@ -83,7 +83,7 @@ def test_memmap_based_array_reducing(tmpdir):
     buffer[:] = - 1.0 * np.arange(buffer.shape[0], dtype=buffer.dtype)
     buffer.flush()
 
-    # Memmap a 2D fortran array on a offseted subsection of the previous
+    # Memmap a 2D fortran array on a offsetted subsection of the previous
     # buffer
     a = np.memmap(filename, dtype=np.float64, shape=(3, 5, 4),
                   mode='r+', order='F', offset=4)
@@ -728,7 +728,7 @@ def test_memmapping_pool_for_large_arrays(factory, tmpdir):
     # Check that the tempfolder is empty
     assert os.listdir(tmpdir.strpath) == []
 
-    # Build an array reducers that automaticaly dump large array content
+    # Build an array reducers that automatically dump large array content
     # to filesystem backed memmap instances to avoid memory explosion
     p = factory(3, max_nbytes=40, temp_folder=tmpdir.strpath, verbose=2)
     try:
@@ -815,10 +815,13 @@ def test_child_raises_parent_exits_cleanly(backend):
                     temp_folder = get_temp_folder(p, "{b}")
                     p(delayed(print_filename_and_raise)(data)
                       for i in range(1))
-            except ValueError:
+            except ValueError as e:
                 # the temporary folder should be deleted by the end of this
                 # call
-                assert not os.path.exists(temp_folder)
+                if os.path.exists(temp_folder):
+                    raise AssertionError(
+                        temp_folder + " was not deleted"
+                    ) from e
     """.format(b=backend)
     env = os.environ.copy()
     env['PYTHONPATH'] = os.path.dirname(__file__)
@@ -828,7 +831,7 @@ def test_child_raises_parent_exits_cleanly(backend):
     out, err = p.communicate()
     out, err = out.decode(), err.decode()
     filename = out.split('\n')[0]
-    assert p.returncode == 0, out
+    assert p.returncode == 0, err or out
     assert err == ''  # no resource_tracker warnings.
     assert not os.path.exists(filename)
 
@@ -951,7 +954,7 @@ def test_memmapping_pool_for_large_arrays_in_return(factory, tmpdir):
     """Check that large arrays are not copied in memory in return"""
     assert_array_equal = np.testing.assert_array_equal
 
-    # Build an array reducers that automaticaly dump large array content
+    # Build an array reducers that automatically dump large array content
     # but check that the returned datastructure are regular arrays to avoid
     # passing a memmap array pointing to a pool controlled temp folder that
     # might be confusing to the user
