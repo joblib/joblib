@@ -11,7 +11,7 @@ from ._base import ALL_COMPLETED, FIRST_COMPLETED, FIRST_EXCEPTION
 from .backend.context import cpu_count
 from .backend.reduction import set_loky_pickler
 from .reusable_executor import get_reusable_executor
-from .cloudpickle_wrapper import wrap_non_picklable_objects
+from ..cloudpickle_wrapper import wrap_non_picklable_objects
 from .process_executor import BrokenProcessPool, ProcessPoolExecutor
 
 

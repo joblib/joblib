@@ -27,7 +27,13 @@ from ._parallel_backends import (FallbackToBackend, MultiprocessingBackend,
                                  ThreadingBackend, SequentialBackend,
                                  LokyBackend)
 from .externals.cloudpickle import dumps, loads
-from .externals import loky
+
+DEFAULT_BACKEND = 'loky'
+# Don't default to loky if semaphores are not supported
+try:
+    from .externals import loky
+except ImportError:
+    DEFAULT_BACKEND = 'threading'
 
 # Make sure that those two classes are part of the public joblib.parallel API
 # so that 3rd party backend implementers can import them from here.
@@ -43,7 +49,6 @@ BACKENDS = {
 }
 # name of the backend used by default by Parallel outside of any context
 # managed by ``parallel_backend``.
-DEFAULT_BACKEND = 'loky'
 DEFAULT_N_JOBS = 1
 DEFAULT_THREAD_BACKEND = 'threading'
 
