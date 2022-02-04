@@ -28,7 +28,9 @@ if [[ "$SKLEARN_TESTS" == "true" ]]; then
     # Install scikit-learn from conda and test against the installed
     # development version of joblib.
     conda remove -y numpy
-    conda install -y -c conda-forge cython pillow pip numpy scipy
+    # TODO: unpin pip once either https://github.com/pypa/pip/issues/10825
+    # accepts invalid HTML or Anaconda is fixed.
+    conda install -y -c conda-forge cython pillow numpy scipy "pip<22"
     pip install --pre --extra-index https://pypi.anaconda.org/scipy-wheels-nightly/simple scikit-learn
     python -c "import sklearn; print('Testing scikit-learn', sklearn.__version__)"
 
