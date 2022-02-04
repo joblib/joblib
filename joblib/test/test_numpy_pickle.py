@@ -1099,6 +1099,8 @@ def test_memmap_alignment_padding(tmpdir, protocol):
         np.random.randn(2), np.random.randn(2)
     ]
 
+    # On Windows OSError 22 if reusing the same path for memmap ...
+    fname = tmpdir.join('test1.mmap').strpath
     numpy_pickle.dump(array_list, fname, protocol=protocol)
     l_reloaded = numpy_pickle.load(fname, mmap_mode='r')
 
@@ -1116,6 +1118,8 @@ def test_memmap_alignment_padding(tmpdir, protocol):
         'a4': np.random.randn(400)
     }
 
+    # On Windows OSError 22 if reusing the same path for memmap ...
+    fname = tmpdir.join('test2.mmap').strpath
     numpy_pickle.dump(array_dict, fname, protocol=protocol)
     d_reloaded = numpy_pickle.load(fname, mmap_mode='r')
 
