@@ -193,13 +193,14 @@ def _assert_warning_nested(backend, inner_n_jobs, expected):
     with warns(None) as records:
         parallel_func(backend=backend, inner_n_jobs=inner_n_jobs)
 
+    warnings = [w.message for w in records]
     if expected:
         # with threading, we might see more that one records
-        if len(records) > 0:
-            return 'backed parallel loops cannot' in records[0].message.args[0]
+        if warnings:
+            return 'backed parallel loops cannot' in warnings[0].args[0]
         return False
     else:
-        assert len(records) == 0
+        assert not warnings
         return True
 
 
