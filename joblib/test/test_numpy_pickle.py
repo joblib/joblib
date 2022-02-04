@@ -368,7 +368,7 @@ def test_compressed_pickle_dump_and_load(tmpdir):
             assert result == expected
 
 
-def _check_pickle(filename, expected_list):
+def _check_pickle(filename, expected_list, mmap_mode=None):
     """Helper function to test joblib pickle content.
 
     Note: currently only pickles containing an iterable are supported
@@ -388,7 +388,7 @@ def _check_pickle(filename, expected_list):
                 warnings.filterwarnings(
                     'ignore', module='numpy',
                     message='The compiler package is deprecated')
-                result_list = numpy_pickle.load(filename)
+                result_list = numpy_pickle.load(filename, mmap_mode=mmap_mode)
             filename_base = os.path.basename(filename)
             expected_nb_warnings = 1 if ("_0.9" in filename_base or
                                          "_0.8.4" in filename_base) else 0
@@ -483,7 +483,7 @@ def test_joblib_pickle_across_python_versions_with_mmap():
         os.path.join(test_data_dir, fn)
         for fn in os.listdir(test_data_dir) if fn.endswith('.pkl')]
     for fname in pickle_filenames:
-        _check_pickle(fname, expected_list)
+        _check_pickle(fname, expected_list, mmap_mode='r')
 
 
 @with_numpy
