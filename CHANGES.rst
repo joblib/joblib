@@ -4,6 +4,10 @@ Latest changes
 Development version
 -------------------
 
+- Make sure that joblib works even when multiprocessing is not available,
+  for instance with Pyodide
+  https://github.com/joblib/joblib/pull/1256
+
 Release 1.1.0
 --------------
 

@@ -71,6 +71,13 @@ call to :class:`joblib.Parallel` but this is now considered a bad pattern
 (when done in a library) as it does not make it possible to override that
 choice with the ``parallel_backend`` context manager.
 
+
+.. topic:: The loky backend may not always be available
+
+   Some rare systems do not support multiprocessing (for instance
+   pyiodine). In this case the loky backend is not availble and the
+   default backend falls back to threading.
+
 Besides builtin joblib backends, we can use
 `Joblib Apache Spark Backend <https://github.com/joblib/joblib-spark>`_
 to distribute joblib tasks on a Spark cluster.

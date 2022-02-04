@@ -145,7 +145,8 @@ class parallel_backend(object):
     'threading' is a low-overhead alternative that is most efficient for
     functions that release the Global Interpreter Lock: e.g. I/O-bound code or
     CPU-bound code in a few calls to native code that explicitly releases the
-    GIL.
+    GIL. Note that on some rare systems, the loky backend may not be
+    available (systems without multiprocessing, such as pyiodine).
 
     In addition, if the `dask` and `distributed` Python packages are installed,
     it is possible to use the 'dask' backend for better scheduling of nested
@@ -446,7 +447,9 @@ class Parallel(Logger):
 
             - "loky" used by default, can induce some
               communication and memory overhead when exchanging input and
-              output data with the worker Python processes.
+              output data with the worker Python processes. On some rare
+              systems (such as pyiodine), the loky backend may not be
+              available.
             - "multiprocessing" previous process-based backend based on
               `multiprocessing.Pool`. Less robust than `loky`.
             - "threading" is a very low-overhead backend but it suffers
