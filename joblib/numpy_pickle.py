@@ -7,10 +7,7 @@
 import pickle
 import os
 import warnings
-try:
-    from pathlib import Path
-except ImportError:
-    Path = None
+from pathlib import Path
 
 from .compressor import lz4, LZ4_NOT_INSTALLED_ERROR
 from .compressor import _COMPRESSORS, register_compressor, BinaryZlibFile
