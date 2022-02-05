@@ -35,7 +35,6 @@ from ._parallel_backends import ParallelBackendBase  # noqa
 
 
 BACKENDS = {
-    'multiprocessing': MultiprocessingBackend,
     'threading': ThreadingBackend,
     'sequential': SequentialBackend,
 }
@@ -47,9 +46,12 @@ DEFAULT_BACKEND = 'threading'
 
 DEFAULT_N_JOBS = 1
 
+MAYBE_AVAILABLE_BACKENDS = {'multiprocessing', 'loky'}
+
 # if multiprocessing is available, so is loky, we set it as the default
 # backend
 if mp is not None:
+    BACKENDS['multiprocessing'] = MultiprocessingBackend
     from .externals import loky
     BACKENDS['loky'] = LokyBackend
     DEFAULT_BACKEND = 'loky'
@@ -145,8 +147,9 @@ class parallel_backend(object):
     'threading' is a low-overhead alternative that is most efficient for
     functions that release the Global Interpreter Lock: e.g. I/O-bound code or
     CPU-bound code in a few calls to native code that explicitly releases the
-    GIL. Note that on some rare systems, the loky backend may not be
-    available (systems without multiprocessing, such as pyiodine).
+    GIL. Note that on some rare systems (such as pyiodine),
+    multiprocessing and loky may not be available, in which case joblib
+    defaults to threading.
 
     In addition, if the `dask` and `distributed` Python packages are installed,
     it is possible to use the 'dask' backend for better scheduling of nested
@@ -195,9 +198,19 @@ class parallel_backend(object):
     def __init__(self, backend, n_jobs=-1, inner_max_num_threads=None,
                  **backend_params):
         if isinstance(backend, str):
-            if backend not in BACKENDS and backend in EXTERNAL_BACKENDS:
-                register = EXTERNAL_BACKENDS[backend]
-                register()
+            if backend not in BACKENDS:
+                if backend in EXTERNAL_BACKENDS:
+                    register = EXTERNAL_BACKENDS[backend]
+                    register()
+                elif backend in MAYBE_AVAILABLE_BACKENDS:
+                    warnings.warn(
+                        f"joblib backend '{backend}' is not available on ",
+                        f"your system, falling back to {DEFAULT_BACKEND}.",
+                        stacklevel=2)
+                    BACKENDS[backend] = BACKENDS[DEFAULT_BACKEND]
+                else:
+                    raise ValueError("Invalid backend: %s, expected one of %r"
+                                     % (backend, sorted(BACKENDS.keys())))
 
             backend = BACKENDS[backend](**backend_params)
 
@@ -703,6 +716,12 @@ class Parallel(Logger):
             # preload modules on the forkserver helper process.
             self._backend_args['context'] = backend
             backend = MultiprocessingBackend(nesting_level=nesting_level)
+        elif backend not in BACKENDS and backend in MAYBE_AVAILABLE_BACKENDS:
+            warnings.warn(
+                f"joblib backend '{backend}' is not available on ",
+                f"your system, falling back to {DEFAULT_BACKEND}.",
+                stacklevel=2)
+            BACKENDS[backend] = BACKENDS[DEFAULT_BACKEND]
         else:
             try:
                 backend_factory = BACKENDS[backend]

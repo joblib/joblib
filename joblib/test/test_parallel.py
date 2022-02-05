@@ -575,8 +575,14 @@ class FakeParallelBackend(SequentialBackend):
 
 
 def test_invalid_backend():
-    with raises(ValueError):
+    with raises(ValueError) as excinfo:
         Parallel(backend='unit-testing')
+    assert "Invalid backend:" in str(excinfo.value)
+
+    with raises(ValueError) as excinfo:
+        with parallel_backend( 'unit-testing'):
+            pass
+    assert "Invalid backend:" in str(excinfo.value)
 
 
 @parametrize('backend', ALL_VALID_BACKENDS)
@@ -605,6 +611,12 @@ def test_overwrite_default_backend():
         # Restore the global default manually
         parallel.DEFAULT_BACKEND = DEFAULT_BACKEND
     assert _active_backend_type() == DefaultBackend
+
+@skipif(mp is not None)
+def test_backend_no_multiprocessing():
+    with warns(UserWarning,
+               match="joblib backend '.*' is not available on.*"):
+        Parallel(backend='loky')(delayed(square)(i) for i in range(3))
 
 
 def check_backend_context_manager(backend_name):
