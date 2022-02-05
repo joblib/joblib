@@ -14,7 +14,7 @@ create_new_conda_env() {
     conda update --yes conda
     # TODO: unpin pytest once it no longer cause freeze at the end
     # of the tests.
-    TO_INSTALL="python=$PYTHON_VERSION pip "pytest<7." $EXTRA_CONDA_PACKAGES"
+    TO_INSTALL="python=$PYTHON_VERSION pip "pytest<7.0" $EXTRA_CONDA_PACKAGES"
     conda create -n testenv --yes $TO_INSTALL
     source activate testenv
 }
