@@ -580,7 +580,7 @@ def test_invalid_backend():
     assert "Invalid backend:" in str(excinfo.value)
 
     with raises(ValueError) as excinfo:
-        with parallel_backend( 'unit-testing'):
+        with parallel_backend('unit-testing'):
             pass
     assert "Invalid backend:" in str(excinfo.value)
 
@@ -612,7 +612,8 @@ def test_overwrite_default_backend():
         parallel.DEFAULT_BACKEND = DEFAULT_BACKEND
     assert _active_backend_type() == DefaultBackend
 
-@skipif(mp is not None)
+
+@skipif(mp is not None, reason="Only without multiprocessing")
 def test_backend_no_multiprocessing():
     with warns(UserWarning,
                match="joblib backend '.*' is not available on.*"):
