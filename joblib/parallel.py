@@ -462,7 +462,7 @@ class Parallel(Logger):
             - "loky" used by default, can induce some
               communication and memory overhead when exchanging input and
               output data with the worker Python processes. On some rare
-              systems (such as pyiodine), the loky backend may not be
+              systems (such as Pyiodide), the loky backend may not be
               available.
             - "multiprocessing" previous process-based backend based on
               `multiprocessing.Pool`. Less robust than `loky`.
