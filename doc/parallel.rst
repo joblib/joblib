@@ -75,7 +75,7 @@ choice with the ``parallel_backend`` context manager.
 .. topic:: The loky backend may not always be available
 
    Some rare systems do not support multiprocessing (for instance
-   pyiodine). In this case the loky backend is not availble and the
+   Pyodide). In this case the loky backend is not available and the
    default backend falls back to threading.
 
 Besides builtin joblib backends, we can use
