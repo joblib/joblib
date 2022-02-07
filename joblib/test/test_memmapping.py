@@ -9,6 +9,8 @@ from time import sleep
 import subprocess
 import threading
 
+import pytest
+
 from joblib.test.common import with_numpy, np
 from joblib.test.common import setup_autokill
 from joblib.test.common import teardown_autokill
@@ -682,7 +684,7 @@ def test_memmap_returned_as_regular_array(backend):
 
 @with_numpy
 @with_multiprocessing
-@parametrize("backend", ["multiprocessing", param("loky", marks=xfail)])
+@parametrize("backend", ["multiprocessing", "loky"])
 def test_resource_tracker_silent_when_reference_cycles(backend):
     # There is a variety of reasons that can make joblib with loky backend
     # output noisy warnings when a reference cycle is preventing a memmap from
@@ -690,10 +692,22 @@ def test_resource_tracker_silent_when_reference_cycles(backend):
     # deletes the temporary folder if it was not done before, which can
     # interact badly with the resource_tracker. We don't risk leaking any
     # resources, but this will likely make joblib output a lot of low-level
-    # confusing messages. This test is marked as xfail for now: but a next PR
-    # should fix this behavior.
+    # confusing messages.
+    #
+    # This test makes sure that the resource_tracker is silent when a reference
+    # has been collected concurrently on non-Windows platforms.
+    #
     # Note that the script in ``cmd`` is the exact same script as in
     # test_permission_error_windows_reference_cycle.
+    if backend == "loky" and sys.platform.startswith('win'):
+        # XXX: on Windows, reference cycles can delay timely garbage collection
+        # and make it impossible to properly delete the temporary folder in the
+        # main process because of permission errors.
+        pytest.xfail(
+            "The temporary folder cannot be deleted on Windows in the "
+            "presence of a reference cycle"
+        )
+
     cmd = """if 1:
         import numpy as np
         from joblib import Parallel, delayed
@@ -717,8 +731,10 @@ def test_resource_tracker_silent_when_reference_cycles(backend):
                          stdout=subprocess.PIPE)
     p.wait()
     out, err = p.communicate()
-    assert p.returncode == 0, out.decode()
-    assert b"resource_tracker" not in err, err.decode()
+    out = out.decode()
+    err = err.decode()
+    assert p.returncode == 0, out + "\n\n" + err
+    assert "resource_tracker" not in err, err
 
 
 @with_numpy
@@ -820,8 +836,13 @@ def test_child_raises_parent_exits_cleanly(backend):
                               for i in range(1))
             except ValueError as e:
                 # the temporary folder should be deleted by the end of this
-                # call
-                if os.path.exists(temp_folder):
+                # call but apparently on some file systems, this takes
+                # some time to be visible.
+                for i in range(10):
+                    if not os.path.exists(temp_folder):
+                        break
+                    sleep(.1)
+                else:
                     raise AssertionError(
                         temp_folder + " was not deleted"
                     ) from e
