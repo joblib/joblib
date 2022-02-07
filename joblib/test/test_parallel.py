@@ -276,6 +276,7 @@ def raise_exception(backend):
     raise ValueError
 
 
+@with_multiprocessing
 def test_nested_loop_with_exception_with_loky():
     with raises(ValueError):
         with Parallel(n_jobs=2, backend="loky") as parallel:
