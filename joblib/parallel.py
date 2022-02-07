@@ -725,7 +725,7 @@ class Parallel(Logger):
                 UserWarning,
                 stacklevel=2)
             BACKENDS[backend] = BACKENDS[DEFAULT_BACKEND]
-            backend = BACKENDS[DEFAULT_BACKEND]
+            backend = BACKENDS[DEFAULT_BACKEND](nesting_level=nesting_level)
 
         else:
             try:
