@@ -724,7 +724,8 @@ class Parallel(Logger):
                 f"your system, falling back to {DEFAULT_BACKEND}.",
                 UserWarning,
                 stacklevel=2)
-            backend = BACKENDS[backend] = BACKENDS[DEFAULT_BACKEND]
+            BACKENDS[backend] = BACKENDS[DEFAULT_BACKEND]
+            backend = BACKENDS[DEFAULT_BACKEND]
 
         else:
             try:

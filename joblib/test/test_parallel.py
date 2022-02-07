@@ -1375,12 +1375,13 @@ def test_invalid_backend_hinting_and_constraints():
         # requiring shared memory semantics.
         Parallel(prefer='processes', require='sharedmem')
 
-    # It is inconsistent to ask explicitly for a process-based parallelism
-    # while requiring shared memory semantics.
-    with raises(ValueError):
-        Parallel(backend='loky', require='sharedmem')
-    with raises(ValueError):
-        Parallel(backend='multiprocessing', require='sharedmem')
+    if mp is not None:
+        # It is inconsistent to ask explicitly for a process-based
+        # parallelism while requiring shared memory semantics.
+        with raises(ValueError):
+            Parallel(backend='loky', require='sharedmem')
+        with raises(ValueError):
+            Parallel(backend='multiprocessing', require='sharedmem')
 
 
 def test_global_parallel_backend():
