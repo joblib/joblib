@@ -25,12 +25,6 @@ if [[ "$SKIP_TESTS" != "true" ]]; then
 fi
 
 if [[ "$SKLEARN_TESTS" == "true" ]]; then
-    # Move to a dedicated folder to avoid being polluted by joblib specific conftest.py
-    # and disable the doctest plugin to avoid issues with doctests in scikit-learn
-    # docstrings that require setting print_changed_only=True temporarily.
-    NEW_TEST_DIR=$(mktemp -d)
-    cd $NEW_TEST_DIR
-
     # Install the nightly build of scikit-learn and test against the installed
     # development version of joblib.
     # TODO: unpin pip once either https://github.com/pypa/pip/issues/10825
@@ -39,15 +33,16 @@ if [[ "$SKLEARN_TESTS" == "true" ]]; then
     pip install --pre --extra-index https://pypi.anaconda.org/scipy-wheels-nightly/simple scikit-learn
     python -c "import sklearn; print('Testing scikit-learn', sklearn.__version__)"
 
-    # DEBUG env
-    which pip
-    which python
-    which pytest
+    # Move to a dedicated folder to avoid being polluted by joblib specific conftest.py
+    # and disable the doctest plugin to avoid issues with doctests in scikit-learn
+    # docstrings that require setting print_changed_only=True temporarily.
+    NEW_TEST_DIR=$(mktemp -d)
+    cd $NEW_TEST_DIR
 
+    # Don't worry about deprecated imports: this is tested for real
+    # in upstream scikit-learn and this is not joblib's responsibility.
+    # Let's skip this test to avoid false positives in joblib's CI.
     pytest -vl --maxfail=5 -p no:doctest \
-        # Don't worry about deprecated imports: this is tested for real
-        # in upstream scikit-learn and this is not joblib's responsibility.
-        # Let's skip this test to avoid false positives in joblib's CI.
         -k "not test_import_is_deprecated" \
         --pyargs sklearn
 fi
