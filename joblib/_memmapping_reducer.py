@@ -661,7 +661,7 @@ class TemporaryResourcesManager(object):
                 # Now that this folder is deleted, we can forget about it
                 self._unregister_context(context_id)
 
-            except PermissionError:
+            except OSError:
                 # Temporary folder cannot be deleted right now. No need to
                 # handle it though, as this folder will be cleaned up by an
                 # atexit finalizer registered by the memmapping_reducer.
