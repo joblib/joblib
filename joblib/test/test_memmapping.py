@@ -9,6 +9,8 @@ from time import sleep
 import subprocess
 import threading
 
+import pytest
+
 from joblib.test.common import with_numpy, np
 from joblib.test.common import setup_autokill
 from joblib.test.common import teardown_autokill
@@ -690,10 +692,19 @@ def test_resource_tracker_silent_when_reference_cycles(backend):
     # confusing messages.
     #
     # This test makes sure that the resource_tracker is silent when a reference
-    # has been collected concurrently.
+    # has been collected concurrently on non-Windows platforms.
     #
     # Note that the script in ``cmd`` is the exact same script as in
     # test_permission_error_windows_reference_cycle.
+    if backend == "loky" and sys.platform.startswith('win'):
+        # XXX: on Windows, reference cycles can delay timely garbage collection
+        # and make it impossible to properly delete the temporary folder in the
+        # main process because of permission errors.
+        pytest.xfail(
+            "The temporary folder cannot be deleted on Windows in the "
+            "presence of a reference cycle"
+        )
+
     cmd = """if 1:
         import numpy as np
         from joblib import Parallel, delayed
@@ -719,7 +730,7 @@ def test_resource_tracker_silent_when_reference_cycles(backend):
     out, err = p.communicate()
     out = out.decode()
     err = err.decode()
-    assert p.returncode == 0, err or out
+    assert p.returncode == 0, out + "\n\n" + err
     assert "resource_tracker" not in err, err
 
 
