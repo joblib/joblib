@@ -39,12 +39,20 @@ if [[ "$SKLEARN_TESTS" == "true" ]]; then
     NEW_TEST_DIR=$(mktemp -d)
     cd $NEW_TEST_DIR
 
-    # Don't worry about deprecated imports: this is tested for real
-    # in upstream scikit-learn and this is not joblib's responsibility.
-    # Let's skip this test to avoid false positives in joblib's CI.
     pytest -vl --maxfail=5 -p no:doctest \
         -k "not test_import_is_deprecated" \
+        -k "not test_check_memory" \
         --pyargs sklearn
+
+    # Justification for skipping some tests:
+    #
+    # test_import_is_deprecated: Don't worry about deprecated imports: this is
+    # tested for real in upstream scikit-learn and this is not joblib's
+    # responsibility. Let's skip this test to avoid false positives in joblib's
+    # CI.
+    #
+    # test_check_memory: scikit-learn test need to be updated to avoid using
+    # cachedir: https://github.com/scikit-learn/scikit-learn/pull/22365
 fi
 
 if [[ "$SKIP_TESTS" != "true" && "$COVERAGE" == "true" ]]; then
