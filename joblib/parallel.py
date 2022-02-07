@@ -717,13 +717,15 @@ class Parallel(Logger):
             # preload modules on the forkserver helper process.
             self._backend_args['context'] = backend
             backend = MultiprocessingBackend(nesting_level=nesting_level)
+
         elif backend not in BACKENDS and backend in MAYBE_AVAILABLE_BACKENDS:
             warnings.warn(
                 f"joblib backend '{backend}' is not available on "
                 f"your system, falling back to {DEFAULT_BACKEND}.",
                 UserWarning,
                 stacklevel=2)
-            BACKENDS[backend] = BACKENDS[DEFAULT_BACKEND]
+            backend = BACKENDS[backend] = BACKENDS[DEFAULT_BACKEND]
+
         else:
             try:
                 backend_factory = BACKENDS[backend]

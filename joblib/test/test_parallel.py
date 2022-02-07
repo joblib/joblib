@@ -619,6 +619,10 @@ def test_backend_no_multiprocessing():
                match="joblib backend '.*' is not available on.*"):
         Parallel(backend='loky')(delayed(square)(i) for i in range(3))
 
+    # The below should now work without problems
+    with parallel_backend('loky'):
+        Parallel()(delayed(square)(i) for i in range(3))
+
 
 def check_backend_context_manager(backend_name):
     with parallel_backend(backend_name, n_jobs=3):
