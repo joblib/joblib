@@ -726,6 +726,7 @@ class Parallel(Logger):
                 stacklevel=2)
             BACKENDS[backend] = BACKENDS[DEFAULT_BACKEND]
             backend = BACKENDS[DEFAULT_BACKEND](nesting_level=nesting_level)
+            raise ValueError
 
         else:
             try:
