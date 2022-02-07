@@ -822,8 +822,13 @@ def test_child_raises_parent_exits_cleanly(backend):
                               for i in range(1))
             except ValueError as e:
                 # the temporary folder should be deleted by the end of this
-                # call
-                if os.path.exists(temp_folder):
+                # call but apparently on some file systems, this takes
+                # some time to be visible.
+                for i in range(10):
+                    if not os.path.exists(temp_folder):
+                        break
+                    sleep(.1)
+                else:
                     raise AssertionError(
                         temp_folder + " was not deleted"
                     ) from e
