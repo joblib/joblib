@@ -206,7 +206,7 @@ def _assert_warning_nested(backend, inner_n_jobs, expected):
         if warninfo:
             return (
                 len(warninfo) == 1 and
-                'backed parallel loops cannot' in warninfo[0]
+                'backed parallel loops cannot' in warninfo[0].args[0]
             )
         return False
     else:
