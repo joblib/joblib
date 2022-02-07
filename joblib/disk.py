@@ -69,7 +69,7 @@ def mkdirp(d):
 # exception. this mechanism ensures that the sub-process gc have the time to
 # collect and close the memmaps before we fail.
 RM_SUBDIRS_RETRY_TIME = 0.1
-RM_SUBDIRS_N_RETRY = 5
+RM_SUBDIRS_N_RETRY = 10
 
 
 def rm_subdirs(path, onerror=None):
