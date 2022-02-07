@@ -679,7 +679,7 @@ def test_memmap_returned_as_regular_array(backend):
 
 @with_numpy
 @with_multiprocessing
-@parametrize("backend", ["multiprocessing", param("loky", marks=xfail)])
+@parametrize("backend", ["multiprocessing", "loky"])
 def test_resource_tracker_silent_when_reference_cycles(backend):
     # There is a variety of reasons that can make joblib with loky backend
     # output noisy warnings when a reference cycle is preventing a memmap from
@@ -687,8 +687,11 @@ def test_resource_tracker_silent_when_reference_cycles(backend):
     # deletes the temporary folder if it was not done before, which can
     # interact badly with the resource_tracker. We don't risk leaking any
     # resources, but this will likely make joblib output a lot of low-level
-    # confusing messages. This test is marked as xfail for now: but a next PR
-    # should fix this behavior.
+    # confusing messages.
+    #
+    # This test makes sure that the resource_tracker is silent when a reference
+    # has been collected concurrently.
+    #
     # Note that the script in ``cmd`` is the exact same script as in
     # test_permission_error_windows_reference_cycle.
     cmd = """if 1:
@@ -714,8 +717,10 @@ def test_resource_tracker_silent_when_reference_cycles(backend):
                          stdout=subprocess.PIPE)
     p.wait()
     out, err = p.communicate()
-    assert p.returncode == 0, out.decode()
-    assert b"resource_tracker" not in err, err.decode()
+    out = out.decode()
+    err = err.decode()
+    assert p.returncode == 0, err or out
+    assert "resource_tracker" not in err, err
 
 
 @with_numpy
