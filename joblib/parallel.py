@@ -205,7 +205,7 @@ class parallel_backend(object):
                 elif backend in MAYBE_AVAILABLE_BACKENDS:
                     warnings.warn(
                         UserWarning,
-                        f"joblib backend '{backend}' is not available on ",
+                        f"joblib backend '{backend}' is not available on "
                         f"your system, falling back to {DEFAULT_BACKEND}.",
                         stacklevel=2)
                     BACKENDS[backend] = BACKENDS[DEFAULT_BACKEND]
@@ -720,7 +720,7 @@ class Parallel(Logger):
         elif backend not in BACKENDS and backend in MAYBE_AVAILABLE_BACKENDS:
             warnings.warn(
                 UserWarning,
-                f"joblib backend '{backend}' is not available on ",
+                f"joblib backend '{backend}' is not available on "
                 f"your system, falling back to {DEFAULT_BACKEND}.",
                 stacklevel=2)
             BACKENDS[backend] = BACKENDS[DEFAULT_BACKEND]
