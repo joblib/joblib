@@ -4,6 +4,14 @@ Latest changes
 Development version
 -------------------
 
+- Make sure that joblib works even when multiprocessing is not available,
+  for instance with Pyodide
+  https://github.com/joblib/joblib/pull/1256
+
+- Avoid unnecessary warnings when workers and main process delete
+  the temporary memmap folder contents concurrently.
+  https://github.com/joblib/joblib/pull/1263
+
 Release 1.1.0
 --------------
 

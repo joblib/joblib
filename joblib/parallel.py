@@ -29,7 +29,6 @@ from .disk import memstr_to_bytes
 from ._parallel_backends import (FallbackToBackend, MultiprocessingBackend,
                                  ThreadingBackend, SequentialBackend,
                                  LokyBackend, DelayedResult)
-from .externals import loky
 
 # Make sure that those two classes are part of the public joblib.parallel API
 # so that 3rd party backend implementers can import them from here.
@@ -38,16 +37,29 @@ from ._parallel_backends import ParallelBackendBase  # noqa
 
 
 BACKENDS = {
-    'multiprocessing': MultiprocessingBackend,
     'threading': ThreadingBackend,
     'sequential': SequentialBackend,
-    'loky': LokyBackend,
 }
 
 # name of the backend used by default by Parallel outside of any context
 # managed by ``parallel_backend``.
-DEFAULT_BACKEND = 'loky'
+
+# threading is the only backend that is always everywhere
+DEFAULT_BACKEND = 'threading'
+
 DEFAULT_N_JOBS = 1
+
+MAYBE_AVAILABLE_BACKENDS = {'multiprocessing', 'loky'}
+
+# if multiprocessing is available, so is loky, we set it as the default
+# backend
+if mp is not None:
+    BACKENDS['multiprocessing'] = MultiprocessingBackend
+    from .externals import loky
+    BACKENDS['loky'] = LokyBackend
+    DEFAULT_BACKEND = 'loky'
+
+
 DEFAULT_THREAD_BACKEND = 'threading'
 
 # Backend hints and constraints to help choose the backend
@@ -156,7 +168,9 @@ class parallel_backend(object):
     'threading' is a low-overhead alternative that is most efficient for
     functions that release the Global Interpreter Lock: e.g. I/O-bound code or
     CPU-bound code in a few calls to native code that explicitly releases the
-    GIL.
+    GIL. Note that on some rare systems (such as pyiodine),
+    multiprocessing and loky may not be available, in which case joblib
+    defaults to threading.
 
     In addition, if the `dask` and `distributed` Python packages are installed,
     it is possible to use the 'dask' backend for better scheduling of nested
@@ -205,9 +219,20 @@ class parallel_backend(object):
     def __init__(self, backend, n_jobs=-1, inner_max_num_threads=None,
                  **backend_params):
         if isinstance(backend, str):
-            if backend not in BACKENDS and backend in EXTERNAL_BACKENDS:
-                register = EXTERNAL_BACKENDS[backend]
-                register()
+            if backend not in BACKENDS:
+                if backend in EXTERNAL_BACKENDS:
+                    register = EXTERNAL_BACKENDS[backend]
+                    register()
+                elif backend in MAYBE_AVAILABLE_BACKENDS:
+                    warnings.warn(
+                        f"joblib backend '{backend}' is not available on "
+                        f"your system, falling back to {DEFAULT_BACKEND}.",
+                        UserWarning,
+                        stacklevel=2)
+                    BACKENDS[backend] = BACKENDS[DEFAULT_BACKEND]
+                else:
+                    raise ValueError("Invalid backend: %s, expected one of %r"
+                                     % (backend, sorted(BACKENDS.keys())))
 
             backend = BACKENDS[backend](**backend_params)
 
@@ -551,7 +576,9 @@ class Parallel(Logger):
 
             - "loky" used by default, can induce some
               communication and memory overhead when exchanging input and
-              output data with the worker Python processes.
+              output data with the worker Python processes. On some rare
+              systems (such as Pyiodide), the loky backend may not be
+              available.
             - "multiprocessing" previous process-based backend based on
               `multiprocessing.Pool`. Less robust than `loky`.
             - "threading" is a very low-overhead backend but it suffers
@@ -811,6 +838,16 @@ class Parallel(Logger):
             # preload modules on the forkserver helper process.
             self._backend_args['context'] = backend
             backend = MultiprocessingBackend(nesting_level=nesting_level)
+
+        elif backend not in BACKENDS and backend in MAYBE_AVAILABLE_BACKENDS:
+            warnings.warn(
+                f"joblib backend '{backend}' is not available on "
+                f"your system, falling back to {DEFAULT_BACKEND}.",
+                UserWarning,
+                stacklevel=2)
+            BACKENDS[backend] = BACKENDS[DEFAULT_BACKEND]
+            backend = BACKENDS[DEFAULT_BACKEND](nesting_level=nesting_level)
+
         else:
             try:
                 backend_factory = BACKENDS[backend]

@@ -41,7 +41,6 @@ jobs:
       linux_py39_sklearn_tests:
         imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.9"
-        EXTRA_CONDA_PACKAGES: "numpy"
         # SKIP_TESTS: "true"
         SKLEARN_TESTS: "true"
       linux_py38_distributed:

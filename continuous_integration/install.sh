@@ -12,7 +12,9 @@ set -e
 
 create_new_conda_env() {
     conda update --yes conda
-    TO_INSTALL="python=$PYTHON_VERSION pip pytest $EXTRA_CONDA_PACKAGES"
+    # TODO: unpin pytest once it no longer causes test errors because of
+    # PytestRemovedIn8Warning warnings
+    TO_INSTALL="python=$PYTHON_VERSION pip pytest<7.0 $EXTRA_CONDA_PACKAGES"
     conda create -n testenv --yes $TO_INSTALL
     source activate testenv
 }
@@ -23,7 +25,9 @@ create_new_pypy3_env() {
     tar xvf $PYPY_FOLDER.tar.bz2
     $PYPY_FOLDER/bin/pypy3 -m venv pypy3
     source pypy3/bin/activate
-    pip install -U pip pytest
+    # TODO: unpin pytest once it no longer causes test errors because of
+    # PytestRemovedIn8Warning warnings
+    pip install -U pip 'pytest<7.0'
 }
 
 if [[ "$PYTHON_VERSION" == "pypy3" ]]; then

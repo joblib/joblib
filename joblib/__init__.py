@@ -123,8 +123,7 @@ from .parallel import cpu_count
 from .parallel import register_parallel_backend
 from .parallel import parallel_backend
 from .parallel import effective_n_jobs
-
-from .externals.loky import wrap_non_picklable_objects
+from ._cloudpickle_wrapper import wrap_non_picklable_objects
 
 
 __all__ = ['Memory', 'MemorizedResult', 'PrintTime', 'Logger', 'hash', 'dump',
