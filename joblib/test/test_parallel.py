@@ -1605,7 +1605,7 @@ def test_thread_bomb_mitigation(backend):
         # Local import because loky may not be importable for lack of
         # multiprocessing
         from joblib.externals.loky.process_executor import TerminatedWorkerError # noqa
-        if isinstance(exc, TerminatedWorkerError) or isinstance(exc, PicklingError):
+        if isinstance(exc, (TerminatedWorkerError, PicklingError)):
             # The recursion exception can itself cause an error when
             # pickling it to be send back to the parent process. In this
             # case the worker crashes but the original traceback is still
