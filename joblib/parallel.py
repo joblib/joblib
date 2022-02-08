@@ -28,7 +28,7 @@ from .logger import Logger, short_format_time
 from .disk import memstr_to_bytes
 from ._parallel_backends import (FallbackToBackend, MultiprocessingBackend,
                                  ThreadingBackend, SequentialBackend,
-                                 LokyBackend, DelayedResult)
+                                 LokyBackend, SequentialResult)
 
 # Make sure that those two classes are part of the public joblib.parallel API
 # so that 3rd party backend implementers can import them from here.
@@ -439,12 +439,13 @@ class _TaskTracker:
                 return False
 
             # SequentialBackend special case: we delay the call to dispatch_new
-            # to after the result is computed using DelayedResult's callback.
+            # and call it after the result is computed using
+            # SequentialResult's callback.
             # The task is flagged as done as the result will be computed as
             # soon as it is accessed in the generator.
             delayed = False
             result, status = outcome["result"], outcome["status"]
-            if isinstance(result, DelayedResult):
+            if isinstance(result, SequentialResult):
                 delayed = True
                 if dispatch_new is not None:
                     result.register_callback(dispatch_new)
@@ -1233,7 +1234,7 @@ class Parallel(Logger):
             yield next(outputs)
 
         for output in outputs:
-            if isinstance(output, DelayedResult):
+            if isinstance(output, SequentialResult):
                 output = output.get()
             elif self._exception:
                 continue

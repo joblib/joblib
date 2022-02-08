@@ -215,7 +215,7 @@ class SequentialBackend(ParallelBackendBase):
 
     def apply_async(self, func, callback=None):
         """Schedule a func to be run"""
-        result = DelayedResult(func)
+        result = SequentialResult(func)
         if callback:
             callback(result)
         return result
@@ -627,7 +627,7 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
             self.configure(n_jobs=self.parallel.n_jobs, parallel=self.parallel)
 
 
-class DelayedResult(object):
+class SequentialResult(object):
     def __init__(self, batch):
         # Don't delay the application, to avoid keeping the input
         # arguments in memory
