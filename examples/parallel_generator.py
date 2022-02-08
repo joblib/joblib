@@ -75,6 +75,7 @@ import numpy as np
 
 
 def return_big_object(i):
+    time.sleep(.1)
     return i * np.ones((10000, 200), dtype=np.float64)
 
 
