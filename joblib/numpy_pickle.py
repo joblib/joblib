@@ -139,12 +139,15 @@ class NumpyArrayWrapper(object):
                     current_pos = unpickler.file_handle.tell()
                     alignment = current_pos % NUMPY_ARRAY_ALIGNMENT_BYTES
                     if alignment != 0:
-                        padding_length = NUMPY_ARRAY_ALIGNMENT_BYTES - alignment
-                        unpickler.file_handle.seek(current_pos + padding_length)
+                        padding_length = (
+                            NUMPY_ARRAY_ALIGNMENT_BYTES - alignment)
+                        unpickler.file_handle.seek(
+                            current_pos + padding_length)
                 except io.UnsupportedOperation as exc:
                     raise RuntimeError(
                         'Trying to read a joblib pickle with bytes aligned '
-                        'numpy arrays in a file_handle that does not support .tell') from exc
+                        'numpy arrays in a file_handle '
+                        'that does not support .tell') from exc
 
             # This is not a real file. We have to read it the
             # memory-intensive way.
