@@ -1294,8 +1294,8 @@ def test_multiple_generator_call_separated_gc(backend, error):
     # Check that in loky, only one call can be run at a time with
     # a single executor.
     parallel = Parallel(2, backend=backend, return_generator=True)
-    g = parallel(delayed(sleep)(1) for i in range(10))
-    g_wr = weakref.finalize(g, lambda: None)
+    g = parallel(delayed(sleep)(10) for i in range(10))
+    g_wr = weakref.finalize(g, lambda: print("Generator collected"))
     ctx = (
         raises(RuntimeError, match="The executor underlying Parallel")
         if error else nullcontext()
@@ -1309,6 +1309,16 @@ def test_multiple_generator_call_separated_gc(backend, error):
         g = Parallel(2, backend=backend, return_generator=True)(
             delayed(sqrt)(i ** 2) for i in range(10, 20)
         )
+
+        # The gc in pypy can be delayed. Force it to test the behavior when it
+        # will eventually be collected.
+        if hasattr(sys, "pypy_version_info"):
+            # Run gc.collect() twice to make sure the weakref is collected, as
+            # mentionned in the pypy doc:
+            # https://doc.pypy.org/en/latest/config/objspace.usemodules._weakref.html
+            import gc
+            gc.collect()
+            gc.collect()
         assert all(res == i for res, i in zip(g, range(10, 20)))
 
     assert time.time() - t_start < 2
@@ -1318,8 +1328,10 @@ def test_multiple_generator_call_separated_gc(backend, error):
     while g_wr.alive and retry < 3:
         retry += 1
         time.sleep(.5)
-    assert parallel._aborted
     assert time.time() - t_start < 5
+    # check that the first parallel object is aborting (the final _aborted
+    # state might be delayed).
+    assert parallel._aborting
 
 
 @with_numpy
