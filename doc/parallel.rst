@@ -40,9 +40,9 @@ of the outputs always matches the order of the inputs::
     >>> print(list(output_generator))
     [2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
 
-This generator allow to reduce the memory footprint of :class:`joblib.Parallel`
-calls in case the results are to be reduced, as illustrated in
-:ref:`sphx_glr_auto_examples_parallel_generator.py`.
+This generator allows to reduce the memory footprint of :class:`joblib.Parallel`
+calls in case the results can benefit from on-the-fly aggregation, as illustrated
+in :ref:`sphx_glr_auto_examples_parallel_generator.py`.
 
 Thread-based parallelism vs process-based parallelism
 =====================================================
