@@ -1287,6 +1287,10 @@ def test_multiple_generator_call_separated(backend, n_jobs):
     ('sequential', False),
 ])
 def test_multiple_generator_call_separated_gc(backend, error):
+
+    if backend in ['loky', 'multiprocessing'] and mp is None:
+        pytest.skip("Requires multiprocessing")
+
     # Check that in loky, only one call can be run at a time with
     # a single executor.
     parallel = Parallel(2, backend=backend, return_generator=True)
