@@ -30,7 +30,7 @@ from joblib._multiprocessing_helpers import mp
 from joblib.test.common import np, with_numpy
 from joblib.test.common import with_multiprocessing
 from joblib.testing import (parametrize, raises, check_subprocess_call,
-                            skipif)
+                            skipif, warns)
 
 if mp is not None:
     # Loky is not available if multiprocessing is not
