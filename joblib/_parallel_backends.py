@@ -70,9 +70,11 @@ class ParallelBackendBase(metaclass=ABCMeta):
         """Schedule a func to be run"""
 
     def fetch_result_callback(self, out):
-        """Intended to be called within the callback function passed in
-        apply_async. It takes as input both the object returned by apply_async
-        (job) and the object passed to the callback function (out)."""
+        """Called within the callback function passed in apply_async.
+
+        This is typically used to rebuild and raise exceptions wrapped
+        inside the out object.
+        """
 
     def configure(self, n_jobs=1, parallel=None, prefer=None, require=None,
                   **backend_args):
