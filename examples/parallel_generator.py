@@ -27,14 +27,13 @@ import numpy as np
 
 
 def return_big_object(i):
-    time.sleep(1)
+    time.sleep(0.1)
     return i * np.ones((10000, 200), dtype=np.float64)
 
 
 ##############################################################################
 # We create a reduce step. The input will be a generator on big objects
 # generated in parallel by several instances of :func:`return_big_object`.
-
 import gc
 
 
@@ -44,6 +43,8 @@ def accumulator_sum(generator):
         result += value
         del value
         gc.collect()  # make sure to flush value from memory
+        print(".", end="", flush=True)
+    print("")
     return result
 
 
