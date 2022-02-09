@@ -84,7 +84,8 @@ class NumpyArrayWrapper(object):
         self.array_bytes_aligned = array_bytes_aligned
 
     def _array_bytes_aligned(self):
-        # old pickles don't have the array_bytes_aligned attribute
+        # joblib <= 1.1 pickles NumpyArrayWrapper instances don't have an
+        # array_bytes_aligned attribute
         return getattr(self, 'array_bytes_aligned', False)
 
     def write_array(self, array, pickler):
@@ -186,8 +187,6 @@ class NumpyArrayWrapper(object):
         alignment = current_pos % NUMPY_ARRAY_ALIGNMENT_BYTES
 
         if self._array_bytes_aligned():
-            unpickler.file_handle.seek(current_pos)
-
             if alignment != 0:
                 padding_length = NUMPY_ARRAY_ALIGNMENT_BYTES - alignment
                 offset += padding_length
