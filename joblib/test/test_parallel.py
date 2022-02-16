@@ -1257,12 +1257,12 @@ def test_multiple_generator_call_managed(backend, n_jobs):
                 match="This Parallel instance is already running"):
         with Parallel(n_jobs, backend=backend,
                       return_generator=True) as parallel:
-            g = parallel(delayed(sleep)(1) for _ in range(10))  # noqa: F841
+            g = parallel(delayed(sleep)(10) for _ in range(10))  # noqa: F841
             t_start = time.time()
             g2 = parallel(delayed(id)(i) for i in range(100))  # noqa: F841
 
     # Make sure that the error is raised quickly
-    assert time.time() - t_start < 2, (
+    assert time.time() - t_start < 5, (
         "The error should be raised immediatly when submitting a new task "
         "but it took more than 2s."
     )
@@ -1324,7 +1324,7 @@ def test_multiple_generator_call_separated_gc(backend, error):
             gc.collect()
         assert all(res == i for res, i in zip(g, range(10, 20)))
 
-    assert time.time() - t_start < 2
+    assert time.time() - t_start < 5
 
     # Make sure that the computation are stopped for the gc'ed generator
     retry = 0
