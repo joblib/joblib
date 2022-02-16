@@ -403,7 +403,10 @@ def test_error_capture(backend):
             assert get_workers(parallel._backend) is not original_workers
 
             assert ([f(x, y=1) for x in range(10)] ==
-                    parallel(delayed(f)(x, y=1) for x in range(10)))
+                    parallel(delayed(f)(x, y=1) for x in range(10))), (
+                parallel._iterating, parallel.n_completed_tasks,
+                parallel.n_dispatched_tasks, parallel._aborting
+            )
 
         # Check that the inner pool has been terminated when exiting the
         # context manager
