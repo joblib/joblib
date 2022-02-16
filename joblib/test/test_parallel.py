@@ -1329,9 +1329,11 @@ def test_multiple_generator_call_separated_gc(backend, error):
         retry += 1
         time.sleep(.5)
     assert time.time() - t_start < 5
-    # check that the first parallel object is aborting (the final _aborted
-    # state might be delayed).
-    assert parallel._aborting
+
+    if parallel._effective_n_jobs() != 1:
+        # check that the first parallel object is aborting (the final _aborted
+        # state might be delayed).
+        assert parallel._aborting
 
 
 @with_numpy

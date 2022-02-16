@@ -14,7 +14,6 @@ import functools
 import time
 import threading
 import itertools
-import contextlib
 from uuid import uuid4
 from numbers import Integral
 import warnings
@@ -28,7 +27,7 @@ from .logger import Logger, short_format_time
 from .disk import memstr_to_bytes
 from ._parallel_backends import (FallbackToBackend, MultiprocessingBackend,
                                  ThreadingBackend, SequentialBackend,
-                                 LokyBackend, SequentialResult)
+                                 LokyBackend)
 
 # Make sure that those two classes are part of the public joblib.parallel API
 # so that 3rd party backend implementers can import them from here.
@@ -365,7 +364,7 @@ def delayed(function):
 
 ###############################################################################
 class BatchCompletionCallBack(object):
-    """Callback used by joblib.Parallel's multiprocessing backend.
+    """Callback to keep track of finished results and schedule the next tasks.
 
     This callable is executed by the parent process whenever a worker process
     has returned the results of a batch of tasks.
@@ -375,11 +374,20 @@ class BatchCompletionCallBack(object):
     processed.
 
     """
-    def __init__(self, dispatch_timestamp, batch_size, task_tracker, parallel):
+    def __init__(self, dispatch_timestamp, batch_size, parallel):
         self.dispatch_timestamp = dispatch_timestamp
         self.batch_size = batch_size
-        self.task_tracker = task_tracker
         self.parallel = parallel
+
+        # Internals to keep track of the status and outcome of the task.
+        self.job = None
+        self.status = TASK_PENDING
+        if not parallel._backend.supports_asynchronous_callback:
+            self.status = None
+
+    def register_job(self, job):
+        """Register the object returned by `apply_async`."""
+        self.job = job
 
     def __call__(self, out):
         if self.parallel._aborting:
@@ -394,10 +402,9 @@ class BatchCompletionCallBack(object):
                 # Avoid keeping references to parallel in the error.
                 e.__traceback__ = None
                 outcome = dict(result=e, status=TASK_ERROR)
-            delayed = self.task_tracker.register_outcome(
-                outcome, self._dispatch_new
-            )
-            if delayed or outcome['status'] == TASK_ERROR:
+
+            self.register_outcome(outcome)
+            if outcome['status'] == TASK_ERROR:
                 return
 
         self._dispatch_new()
@@ -415,50 +422,18 @@ class BatchCompletionCallBack(object):
             if self.parallel._original_iterator is not None:
                 self.parallel.dispatch_next()
 
-
-###############################################################################
-class _TaskTracker:
-    """Expose the retrieval steps of a job necessary for the expected
-    task flow in Parallel.
-
-    """
-    def __init__(self, parallel):
-        self.parallel = parallel
-        backend = parallel._backend
-        self.status = TASK_PENDING
-        if not backend.supports_asynchronous_callback:
-            self.status = None
-        self.job = None
-
-    def register_job(self, job):
-        self.job = job
-
-    def register_outcome(self, outcome, dispatch_new=None):
+    def register_outcome(self, outcome):
         with self.parallel._lock:
             if self.status not in (TASK_PENDING, None):
-                return False
-
-            # SequentialBackend special case: we delay the call to dispatch_new
-            # and call it after the result is computed using
-            # SequentialResult's callback.
-            # The task is flagged as done as the result will be computed as
-            # soon as it is accessed in the generator.
-            delayed = False
-            result, status = outcome["result"], outcome["status"]
-            if isinstance(result, SequentialResult):
-                delayed = True
-                if dispatch_new is not None:
-                    result.register_callback(dispatch_new)
+                return
 
             self.job = None
-            self._result = result
-            self.status = status
+            self._result = outcome["result"]
+            self.status = outcome["status"]
 
             if self.status == TASK_ERROR:
                 self.parallel._exception = True
                 self.parallel._aborting = True
-
-        return delayed
 
     def get_result(self, timeout):
         backend = self.parallel._backend
@@ -545,6 +520,9 @@ def effective_n_jobs(n_jobs=-1):
     .. versionadded:: 0.10
 
     """
+    if n_jobs == 1:
+        return 1
+
     backend, backend_n_jobs = get_active_backend()
     if n_jobs is None:
         n_jobs = backend_n_jobs
@@ -789,7 +767,8 @@ class Parallel(Logger):
                  temp_folder=None, max_nbytes='1M', mmap_mode='r',
                  return_generator=False, prefer=None, require=None):
         active_backend, context_n_jobs = get_active_backend(
-            prefer=prefer, require=require, verbose=verbose)
+            prefer=prefer, require=require, verbose=verbose
+        )
         nesting_level = active_backend.nesting_level
         if backend is None and n_jobs is None:
             # If we are under a parallel_backend context manager, look up
@@ -878,6 +857,7 @@ class Parallel(Logger):
         self._backend = backend
         self._pending_outputs = list()
         self._jobs = list()
+        self._running = False
         self._managed_backend = False
 
         # This lock is used coordinate the main thread of this process with
@@ -955,18 +935,18 @@ class Parallel(Logger):
 
         dispatch_timestamp = time.time()
 
-        task_tracker = _TaskTracker(self)
-        cb = BatchCompletionCallBack(dispatch_timestamp, batch_size,
-                                     task_tracker, self)
+        batch_tracker = BatchCompletionCallBack(
+            dispatch_timestamp, batch_size, self
+        )
         with self._lock:
             job_idx = len(jobs)
-            job = self._backend.apply_async(batch, callback=cb)
-            task_tracker.register_job(job)
+            job = self._backend.apply_async(batch, callback=batch_tracker)
+            batch_tracker.register_job(job)
             # A job can complete so quickly than its callback is
             # called before we get here, causing self._jobs to
             # grow. To ensure correct results ordering, .insert is
             # used (rather than .append) in the following line
-            jobs.insert(job_idx, task_tracker)
+            jobs.insert(job_idx, batch_tracker)
 
     def dispatch_next(self):
         """Dispatch more data for parallel processing
@@ -1140,11 +1120,8 @@ class Parallel(Logger):
             backend.abort_everything(ensure_ready=ensure_ready)
         self._aborted = True
 
-    def _start(self, iterator, pre_dispatch, n_jobs):
+    def _start(self, iterator, pre_dispatch):
         try:
-            retrieval_context = self._backend.retrieval_context()
-            retrieval_context.__enter__()
-
             # Only set self._iterating to True if at least a batch
             # was dispatched. In particular this covers the edge
             # case of Parallel used with an exhausted iterator. If
@@ -1165,122 +1142,132 @@ class Parallel(Logger):
                 # consumption.
                 self._iterating = False
 
-            return retrieval_context
         except BaseException:
-            retrieval_context.__exit__(None, None, None)
             self._abort()
             self._terminate_and_reset()
             raise
 
-    def _get_batched_outputs(self, retrieval_context):
+    def _get_outputs(self, iterator, pre_dispatch):
         try:
-            # empty yield that can be consumed early to enter the try/except
-            # block
-            yield
-            while (self._iterating or
-                   self.n_completed_tasks < self.n_dispatched_tasks or (
-                    len(self._jobs) > 0 and
-                    not self._backend.supports_asynchronous_callback)):
-                if self._aborting:
+            with self._backend.retrieval_context():
+                self._start(iterator, pre_dispatch)
+                nb_consumed = 0
+                # empty yield that is consumed before returning the generator,
+                # to make sure we to enter the try/except block.
+                yield
+                while (self._iterating or
+                       self.n_completed_tasks < self.n_dispatched_tasks or (
+                        len(self._jobs) > 0 and
+                        not self._backend.supports_asynchronous_callback)):
+                    if self._aborting:
+                        self._raise_error_fast()
+                        break
+                    if (len(self._jobs) == 0 or
+                            self._jobs[0].get_status(
+                                timeout=self.timeout) == TASK_PENDING):
+                        # Wait for an async callback to dispatch new jobs
+                        time.sleep(0.01)
+                        continue
+
+                    # We need to be careful: the job list can be filling up as
+                    # we empty it and Python list are not thread-safe by
+                    # default hence the use of the lock
                     with self._lock:
-                        error_job = next((job for job in self._jobs
-                                          if job.status == TASK_ERROR), None)
-                    if error_job is not None:
-                        # Error job might be None if `abort` has been called
-                        # directly by the user.
-                        error_job.get_result(self.timeout)
-                    break
-                if (len(self._jobs) == 0 or
-                        self._jobs[0].get_status(
-                            timeout=self.timeout) == TASK_PENDING):
-                    # Wait for an async callback to dispatch new jobs
-                    time.sleep(0.01)
-                    continue
-                # We need to be careful: the job list can be filling up as
-                # we empty it and Python list are not thread-safe by default
-                # hence the use of the lock
-                with self._lock:
-                    result = self._jobs.pop(0)
-                result = result.get_result(self.timeout)
-                yield result
+                        batched_results = self._jobs.pop(0)
+
+                    # Flatten the batched results to output one output
+                    # at a time
+                    batched_results = batched_results.get_result(self.timeout)
+                    for result in batched_results:
+                        nb_consumed += 1
+                        yield result
+
         # Note: we catch any BaseException instead of just
-        # Exception instances to also include
-        # KeyboardInterrupt and GeneratorExit
-        except BaseException:
+        # Exception instances to also include KeyboardInterrupt
+        # and GeneratorExit
+        except BaseException as e:
             self._exception = True
             self._abort()
+
+            if self.return_generator and isinstance(e, GeneratorExit):
+                self._warn_exit_early(nb_consumed)
             raise
         finally:
             _remaining_outputs = ([] if self._exception else self._jobs)
             self._jobs = list()
-            retrieval_context.__exit__(None, None, None)
+            self._running = False
             self._terminate_and_reset()
 
         while len(_remaining_outputs) > 0:
-            result = _remaining_outputs.pop(0).get_result(self.timeout)
-            yield result
+            batched_results = _remaining_outputs.pop(0)
+            batched_results = batched_results.get_result(self.timeout)
+            for result in batched_results:
+                yield result
 
-    def _get_outputs(self, retrieval_context):
-        """Main generator that will be returned for `return_generator=True`
-        or consumed otherwise.
+    def _raise_error_fast(self):
+        """If we are aborting, raise if a job caused an error."""
 
-        This chains the results from batched calls and outputs
-        the outcome of individual tasks.
-        """
-        outputs = self._get_batched_outputs(retrieval_context)
-        nb_consumed = 0
+        # Find the first job whose status is TASK_ERROR if it exists.
+        with self._lock:
+            error_job = next((job for job in self._jobs
+                              if job.status == TASK_ERROR), None)
 
-        with self._warn_early_exit(nb_consumed):
-            yield next(outputs)
+        # If this error job exists, immediatly raise the error by
+        #  calling get_result. This jo might not exists if abort has been
+        # called directly or if the generator is gc.
+        if error_job is not None:
+            error_job.get_result(self.timeout)
 
-        for output in outputs:
-            if isinstance(output, SequentialResult):
-                output = output.get()
-            elif self._exception:
-                continue
-            for out in output:
-                with self._warn_early_exit(nb_consumed):
-                    nb_consumed += 1
-                    yield out
-
-    @contextlib.contextmanager
-    def _warn_early_exit(self, nb_consumed):
-        """Warns when the output_generator is closed while some
-        tasks have not been consumed or are still being processed.
-        """
-        try:
-            yield
-        except GeneratorExit:
-            if self.return_generator is False:
-                raise
-
-            ready_outputs = self.n_completed_tasks - nb_consumed
-            is_completed = self._is_completed()
-            msg = ""
-            if ready_outputs:
-                msg += ("%d tasks have been successfully executed and "
-                        "readied but not used." % ready_outputs)
-                if not is_completed:
-                    msg += " Additionally, "
-
+    def _warn_exit_early(self, nb_consumed):
+        ready_outputs = self.n_completed_tasks - nb_consumed
+        is_completed = self._is_completed()
+        msg = ""
+        if ready_outputs:
+            msg += ("%d tasks have been successfully executed and "
+                    "readied but not used." % ready_outputs)
             if not is_completed:
-                msg += ("%d tasks which were still being processed by the "
-                        "workers have been cancelled."
-                        % self.n_dispatched_tasks)
-                # Abort computation to avoid waiting unnecessarily for
-                # the results when they cannot be recovered.
-                self._abort()
+                msg += " Additionally, "
 
-            if msg:
-                msg += (" You could benefit from adjusting the input task "
-                        "iterator to limit unnecessary computation time.")
+        if not is_completed:
+            msg += ("%d tasks which were still being processed by the "
+                    "workers have been cancelled."
+                    % self.n_dispatched_tasks)
+            # Abort computation to avoid waiting unnecessarily for
+            # the results when they cannot be recovered.
+            self._abort()
 
-                warnings.warn(msg)
+        if msg:
+            msg += (" You could benefit from adjusting the input task "
+                    "iterator to limit unnecessary computation time.")
 
-            raise
+            warnings.warn(msg)
+
+    def _get_sequential_output(self, iterable):
+        try:
+            nb_consumed = 0
+            batch_size = self._get_batch_size()
+
+            if batch_size != 1:
+                it = iter(iterable)
+                iterable_batched = iter(
+                    lambda: tuple(itertools.islice(it, batch_size)), ()
+                )
+                iterable = (
+                    task for batch in iterable_batched for task in batch
+                )
+
+            # First empty yield to start executing the generator before
+            # returning it.
+            yield None
+
+            for func, args, kwargs in iterable:
+                nb_consumed += 1
+                yield func(*args, **kwargs)
+        finally:
+            self._running = False
 
     def __call__(self, iterable):
-        if self._jobs:
+        if self._running:
             msg = 'This Parallel instance is already running !'
             if self.return_generator is True:
                 msg += (
@@ -1288,6 +1275,23 @@ class Parallel(Logger):
                     "completion of all the previous tasks, or clean all "
                     "references to the output generator.")
             raise RuntimeError(msg)
+        self._running = True
+
+        if not self._managed_backend:
+            n_jobs = self._initialize_backend()
+        else:
+            n_jobs = self._effective_n_jobs()
+
+        if n_jobs == 1:
+            # If n_jobs==1, run the computation sequentially and return
+            # immediatly to avoid overheads.
+            output = self._get_sequential_output(iterable)
+            next(output)
+            return output if self.return_generator else list(output)
+
+        # self._effective_n_jobs should be called in the Parallel.__call__
+        # thread only -- store its value in an attribute for further queries.
+        self._cached_effective_n_jobs = n_jobs
 
         # A flag used to abort the dispatching of jobs in case an
         # exception is found
@@ -1295,10 +1299,6 @@ class Parallel(Logger):
         self._exception = False
         self._aborted = False
 
-        if not self._managed_backend:
-            n_jobs = self._initialize_backend()
-        else:
-            n_jobs = self._effective_n_jobs()
         if isinstance(self._backend, LokyBackend):
             # For the loky backend, we add a callback executed when reducing
             # BatchCalls, that makes the loky executor use a temporary folder
@@ -1320,10 +1320,6 @@ class Parallel(Logger):
                 )
             self._reducer_callback = _batched_calls_reducer_callback
 
-        # self._effective_n_jobs should be called in the Parallel.__call__
-        # thread only -- store its value in an attribute for further queries.
-        self._cached_effective_n_jobs = n_jobs
-
         backend_name = self._backend.__class__.__name__
         if n_jobs == 0:
             raise RuntimeError("%s has no active worker." % backend_name)
@@ -1335,9 +1331,6 @@ class Parallel(Logger):
         self._calling = True
         iterator = iter(iterable)
         pre_dispatch = self.pre_dispatch
-        if n_jobs == 1:
-            batch_size = self._get_batch_size()
-            pre_dispatch = batch_size
 
         if pre_dispatch == 'all':
             # prevent further dispatch via multiprocessing callback thread
@@ -1365,8 +1358,7 @@ class Parallel(Logger):
         # functions that are defined in the __main__ module, functions that are
         # defined locally (inside another function) and lambda expressions.
         self._pickle_cache = dict()
-        retrieval_context = self._start(iterator, pre_dispatch, n_jobs)
-        output = self._get_outputs(retrieval_context)
+        output = self._get_outputs(iterator, pre_dispatch)
         next(output)
         return output if self.return_generator else list(output)
 

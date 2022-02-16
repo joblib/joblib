@@ -215,13 +215,10 @@ class SequentialBackend(ParallelBackendBase):
 
     def apply_async(self, func, callback=None):
         """Schedule a func to be run"""
-        result = SequentialResult(func)
-        if callback:
-            callback(result)
-        return result
+        raise RuntimeError("Should never be called for SequentialBackend.")
 
     def fetch_result_callback(self, out):
-        return out
+        raise RuntimeError("Should never be called for SequentialBackend.")
 
     def get_nested_backend(self):
         # import is not top level to avoid cyclic import errors.
@@ -427,7 +424,8 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
         if n_jobs == 1:
             # Avoid unnecessary overhead and use sequential backend instead.
             raise FallbackToBackend(
-                SequentialBackend(nesting_level=self.nesting_level))
+                SequentialBackend(nesting_level=self.nesting_level)
+            )
         self.parallel = parallel
         self._n_jobs = n_jobs
         return n_jobs
@@ -510,7 +508,8 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
         n_jobs = self.effective_n_jobs(n_jobs)
         if n_jobs == 1:
             raise FallbackToBackend(
-                SequentialBackend(nesting_level=self.nesting_level))
+                SequentialBackend(nesting_level=self.nesting_level)
+            )
 
         # Make sure to free as much memory as possible before forking
         gc.collect()
@@ -536,7 +535,8 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
         n_jobs = self.effective_n_jobs(n_jobs)
         if n_jobs == 1:
             raise FallbackToBackend(
-                SequentialBackend(nesting_level=self.nesting_level))
+                SequentialBackend(nesting_level=self.nesting_level)
+            )
 
         self._workers = get_memmapping_executor(
             n_jobs, timeout=idle_worker_timeout,
@@ -625,22 +625,6 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
 
         if ensure_ready:
             self.configure(n_jobs=self.parallel.n_jobs, parallel=self.parallel)
-
-
-class SequentialResult(object):
-    def __init__(self, batch):
-        # Don't delay the application, to avoid keeping the input
-        # arguments in memory
-        self.batch_call = batch
-
-    def register_callback(self, cb):
-        self.cb = cb
-
-    def get(self):
-        results = self.batch_call()
-        if hasattr(self, "cb"):
-            self.cb()
-        return results
 
 
 class FallbackToBackend(Exception):
