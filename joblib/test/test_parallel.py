@@ -29,6 +29,7 @@ from joblib import dump, load
 
 from joblib._multiprocessing_helpers import mp
 
+from joblib.test.common import force_gc_pypy
 from joblib.test.common import np, with_numpy
 from joblib.test.common import with_multiprocessing
 from joblib.testing import (parametrize, raises, check_subprocess_call,
@@ -1267,6 +1268,11 @@ def test_multiple_generator_call_managed(backend, n_jobs):
         "but it took more than 2s."
     )
 
+    # The gc in pypy can be delayed. Force it to make sure this test does not
+    # cause timeout on the CI.
+    del g
+    force_gc_pypy()
+
 
 @parametrize('backend', BACKENDS)
 @parametrize('n_jobs', [1, 2, -2, -1])
@@ -1315,13 +1321,7 @@ def test_multiple_generator_call_separated_gc(backend, error):
 
         # The gc in pypy can be delayed. Force it to test the behavior when it
         # will eventually be collected.
-        if hasattr(sys, "pypy_version_info"):
-            # Run gc.collect() twice to make sure the weakref is collected, as
-            # mentionned in the pypy doc:
-            # https://doc.pypy.org/en/latest/config/objspace.usemodules._weakref.html
-            import gc
-            gc.collect()
-            gc.collect()
+        force_gc_pypy()
         assert all(res == i for res, i in zip(g, range(10, 20)))
 
     assert time.time() - t_start < 5

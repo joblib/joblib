@@ -100,6 +100,18 @@ def teardown_autokill(module_name):
         killer.cancel()
 
 
+def force_gc_pypy():
+    # The gc in pypy can be delayed. Force it to test the behavior when it
+    # will eventually be collected.
+    if hasattr(sys, "pypy_version_info"):
+        # Run gc.collect() twice to make sure the weakref is collected, as
+        # mentionned in the pypy doc:
+        # https://doc.pypy.org/en/latest/config/objspace.usemodules._weakref.html
+        import gc
+        gc.collect()
+        gc.collect()
+
+
 with_multiprocessing = skipif(
     mp is None, reason='Needs multiprocessing to run.')
 
