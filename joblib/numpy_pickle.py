@@ -40,6 +40,9 @@ register_compressor('lz4', LZ4CompressorWrapper())
 ###############################################################################
 # Utility objects for persistence.
 
+# For convenience, 16 bytes are used to be sure to cover all the possible
+# dtypes' alignments. For reference, see:
+# https://numpy.org/devdocs/dev/alignment.html
 NUMPY_ARRAY_ALIGNMENT_BYTES = 16
 
 
@@ -74,19 +77,22 @@ class NumpyArrayWrapper(object):
     """
 
     def __init__(self, subclass, shape, order, dtype, allow_mmap=False,
-                 array_bytes_aligned=True):
+                 numpy_array_alignment_bytes=NUMPY_ARRAY_ALIGNMENT_BYTES):
         """Constructor. Store the useful information for later."""
         self.subclass = subclass
         self.shape = shape
         self.order = order
         self.dtype = dtype
         self.allow_mmap = allow_mmap
-        self.array_bytes_aligned = array_bytes_aligned
+        # We make numpy_array_alignment_bytes an instance attribute to allow us
+        # to change our mind about the default alignment and still load the old
+        # pickles (with the previous alignment) correctly
+        self.numpy_array_alignment_bytes = numpy_array_alignment_bytes
 
-    def _array_bytes_aligned(self):
-        # joblib <= 1.1 pickles NumpyArrayWrapper instances don't have an
-        # array_bytes_aligned attribute
-        return getattr(self, 'array_bytes_aligned', False)
+    def safe_get_numpy_array_alignment_bytes(self):
+        # NumpyArrayWrapper instances loaded from joblib <= 1.1 pickles don't
+        # have an numpy_array_alignment_bytes attribute
+        return getattr(self, 'numpy_array_alignment_bytes', None)
 
     def write_array(self, array, pickler):
         """Write array bytes to pickler file handle.
@@ -102,11 +108,13 @@ class NumpyArrayWrapper(object):
             # pickle protocol.
             pickle.dump(array, pickler.file_handle, protocol=2)
         else:
-            if self._array_bytes_aligned():
+            numpy_array_alignment_bytes = \
+                self.safe_get_numpy_array_alignment_bytes()
+            if numpy_array_alignment_bytes is not None:
                 current_pos = pickler.file_handle.tell()
-                alignment = current_pos % NUMPY_ARRAY_ALIGNMENT_BYTES
+                alignment = current_pos % numpy_array_alignment_bytes
                 if alignment != 0:
-                    padding = b' ' * (NUMPY_ARRAY_ALIGNMENT_BYTES - alignment)
+                    padding = b' ' * (numpy_array_alignment_bytes - alignment)
                     pickler.file_handle.write(padding)
 
             for chunk in pickler.np.nditer(array,
@@ -135,13 +143,15 @@ class NumpyArrayWrapper(object):
             # The array contained Python objects. We need to unpickle the data.
             array = pickle.load(unpickler.file_handle)
         else:
-            if self._array_bytes_aligned():
+            numpy_array_alignment_bytes = \
+                self.safe_get_numpy_array_alignment_bytes()
+            if numpy_array_alignment_bytes is not None:
                 try:
                     current_pos = unpickler.file_handle.tell()
-                    alignment = current_pos % NUMPY_ARRAY_ALIGNMENT_BYTES
+                    alignment = current_pos % numpy_array_alignment_bytes
                     if alignment != 0:
                         padding_length = (
-                            NUMPY_ARRAY_ALIGNMENT_BYTES - alignment)
+                            numpy_array_alignment_bytes - alignment)
                         unpickler.file_handle.seek(
                             current_pos + padding_length)
                 except io.UnsupportedOperation as exc:
@@ -184,11 +194,14 @@ class NumpyArrayWrapper(object):
         """Read an array using numpy memmap."""
         current_pos = unpickler.file_handle.tell()
         offset = current_pos
-        alignment = current_pos % NUMPY_ARRAY_ALIGNMENT_BYTES
+        numpy_array_alignment_bytes = \
+            self.safe_get_numpy_array_alignment_bytes()
 
-        if self._array_bytes_aligned():
+        if numpy_array_alignment_bytes is not None:
+            alignment = current_pos % numpy_array_alignment_bytes
+
             if alignment != 0:
-                padding_length = NUMPY_ARRAY_ALIGNMENT_BYTES - alignment
+                padding_length = self.numpy_array_alignment_bytes - alignment
                 offset += padding_length
 
         if unpickler.mmap_mode == 'w+':
@@ -280,16 +293,16 @@ class NumpyPickler(Pickler):
                         not array.flags.c_contiguous) else 'C'
         allow_mmap = not self.buffered and not array.dtype.hasobject
 
+        kwargs = {}
         try:
             self.file_handle.tell()
-            array_bytes_aligned = True
         except io.UnsupportedOperation:
-            array_bytes_aligned = False
+            kwargs = {'numpy_array_alignment_bytes': None}
 
         wrapper = NumpyArrayWrapper(type(array),
                                     array.shape, order, array.dtype,
                                     allow_mmap=allow_mmap,
-                                    array_bytes_aligned=array_bytes_aligned)
+                                    **kwargs)
 
         return wrapper
 
