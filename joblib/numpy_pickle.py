@@ -157,7 +157,7 @@ class NumpyArrayWrapper(object):
                 except io.UnsupportedOperation as exc:
                     raise RuntimeError(
                         'Trying to read a joblib pickle with bytes aligned '
-                        'numpy arrays in a file_handle '
+                        'numpy arrays in a file handle '
                         'that does not support .tell') from exc
 
             # This is not a real file. We have to read it the

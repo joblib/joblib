@@ -935,6 +935,15 @@ def test_pickle_in_socket():
 
     np.testing.assert_array_equal(array_reloaded, test_array)
 
+    bytes_to_send = io.BytesIO()
+    numpy_pickle.dump(test_array, bytes_to_send)
+    server.send(bytes_to_send.getvalue())
+
+    with client.makefile("rb") as cf:
+        match = 'bytes aligned numpy arrays.+does not support .tell'
+        with pytest.raises(RuntimeError, match=match):
+            array_reloaded = numpy_pickle.load(cf)
+
 
 @with_numpy
 def test_load_memmap_with_big_offset(tmpdir):
