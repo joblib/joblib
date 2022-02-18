@@ -868,6 +868,12 @@ class Parallel(Logger):
 
     def _resolve_backend_and_n_jobs(self, backend, n_jobs, prefer, require,
                                     verbose):
+        """Get the effective backend and n_jobs based on the class arguments.
+
+        This method accounts for the preferences, requirements and for the
+        active backend to select the backend and the number of workers that
+        will be used in practice in this class.
+        """
         active_backend, context_n_jobs = get_active_backend(
             prefer=prefer, require=require, verbose=verbose
         )
