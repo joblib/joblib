@@ -570,6 +570,8 @@ class TemporaryResourcesManager(object):
 
     def _unregister_context(self, context_id=None):
         if context_id is None:
+            # Iterates over a copy of the cache keys to avoid Error due to
+            # iterating over a changing size dictionary.
             for context_id in list(self._cached_temp_folders):
                 self._unregister_context(context_id)
         else:
@@ -616,10 +618,9 @@ class TemporaryResourcesManager(object):
     def _unlink_temporary_resources(self, context_id=None):
         """Unlink temporary resources created by a process-based pool"""
         if context_id is None:
-            # iterate over a copy of the cache keys because
-            # unlink_temporary_resources further deletes an entry in this
-            # cache
-            for context_id in self._cached_temp_folders.copy():
+            # Iterates over a copy of the cache keys to avoid Error due to
+            # iterating over a changing size dictionary.
+            for context_id in list(self._cached_temp_folders):
                 self._unlink_temporary_resources(context_id)
         else:
             temp_folder = self._cached_temp_folders[context_id]
@@ -635,7 +636,9 @@ class TemporaryResourcesManager(object):
     def _unregister_temporary_resources(self, context_id=None):
         """Unregister temporary resources created by a process-based pool"""
         if context_id is None:
-            for context_id in self._cached_temp_folders:
+            # Iterates over a copy of the cache keys to avoid Error due to
+            # iterating over a changing size dictionary.
+            for context_id in list(self._cached_temp_folders):
                 self._unregister_temporary_resources(context_id)
         else:
             temp_folder = self._cached_temp_folders[context_id]
@@ -647,8 +650,9 @@ class TemporaryResourcesManager(object):
 
     def _try_delete_folder(self, allow_non_empty, context_id=None):
         if context_id is None:
-            # ditto
-            for context_id in self._cached_temp_folders.copy():
+            # Iterates over a copy of the cache keys to avoid Error due to
+            # iterating over a changing size dictionary.
+            for context_id in list(self._cached_temp_folders):
                 self._try_delete_folder(
                     allow_non_empty=allow_non_empty, context_id=context_id
                 )
