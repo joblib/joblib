@@ -12,6 +12,10 @@ Development version
   the temporary memmap folder contents concurrently.
   https://github.com/joblib/joblib/pull/1263
 
+- Vendor loky 3.1.0 with several fixes to more robustly forcibly terminate
+  worker processes in case of a crash.
+  https://github.com/joblib/joblib/pull/1269
+
 Release 1.1.0
 --------------
 
