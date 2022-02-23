@@ -56,7 +56,7 @@ jobs:
       linux_py310_cython:
         imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.10"
-        EXTRA_CONDA_PACKAGES: "numpy=1.12"
+        EXTRA_CONDA_PACKAGES: "numpy=1.22"
         CYTHON: "true"
       linux_py37_no_multiprocessing_no_lzma:
         imageName: 'ubuntu-latest'
