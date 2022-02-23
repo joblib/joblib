@@ -43,20 +43,20 @@ jobs:
         PYTHON_VERSION: "3.9"
         # SKIP_TESTS: "true"
         SKLEARN_TESTS: "true"
-      linux_py38_distributed:
+      linux_py310_distributed:
         # To be updated regularly to use the most recent versions of the
         # dependencies.
         imageName: 'ubuntu-latest'
-        PYTHON_VERSION: "3.8"
-        EXTRA_CONDA_PACKAGES: "numpy=1.18 distributed=2.17"
+        PYTHON_VERSION: "3.10"
+        EXTRA_CONDA_PACKAGES: "numpy=1.22 distributed=2022.2.0"
       linux_py37_distributed:
         imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.7"
         EXTRA_CONDA_PACKAGES: "numpy=1.15 distributed=2.13"
-      linux_py37_cython:
+      linux_py310_cython:
         imageName: 'ubuntu-latest'
-        PYTHON_VERSION: "3.7"
-        EXTRA_CONDA_PACKAGES: "numpy=1.15"
+        PYTHON_VERSION: "3.10"
+        EXTRA_CONDA_PACKAGES: "numpy=1.22"
         CYTHON: "true"
       linux_py37_no_multiprocessing_no_lzma:
         imageName: 'ubuntu-latest'
@@ -68,15 +68,15 @@ jobs:
         imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.7"
 
-      windows_py38:
+      windows_py310:
         imageName: "windows-latest"
-        PYTHON_VERSION: "3.8"
-        EXTRA_CONDA_PACKAGES: "numpy=1.18"
+        PYTHON_VERSION: "3.10"
+        EXTRA_CONDA_PACKAGES: "numpy=1.22"
 
-      macos_py38:
+      macos_py310:
         imageName: "macos-latest"
-        PYTHON_VERSION: "3.8"
-        EXTRA_CONDA_PACKAGES: "numpy=1.18"
+        PYTHON_VERSION: "3.10"
+        EXTRA_CONDA_PACKAGES: "numpy=1.22"
       macos_py37_no_numpy:
         imageName: "macos-latest"
         PYTHON_VERSION: "3.7"
