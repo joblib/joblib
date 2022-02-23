@@ -15,7 +15,7 @@ create_new_conda_env() {
     # TODO: unpin pytest once it no longer causes test errors because of
     # PytestRemovedIn8Warning warnings
     TO_INSTALL="python=$PYTHON_VERSION pip pytest<7.0 $EXTRA_CONDA_PACKAGES"
-    conda create -n testenv --yes --conda-forge $TO_INSTALL
+    conda create -n testenv --yes -c conda-forge $TO_INSTALL
     source activate testenv
 }
 
