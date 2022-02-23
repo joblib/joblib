@@ -4,6 +4,18 @@ Latest changes
 Development version
 -------------------
 
+- Make sure that joblib works even when multiprocessing is not available,
+  for instance with Pyodide
+  https://github.com/joblib/joblib/pull/1256
+
+- Avoid unnecessary warnings when workers and main process delete
+  the temporary memmap folder contents concurrently.
+  https://github.com/joblib/joblib/pull/1263
+
+- Vendor loky 3.1.0 with several fixes to more robustly forcibly terminate
+  worker processes in case of a crash.
+  https://github.com/joblib/joblib/pull/1269
+
 Release 1.1.0
 --------------
 
@@ -272,7 +284,7 @@ Maxime Weyl
 Maxime Weyl
 
     Loading a corrupted cached file with mmap mode enabled would
-    recompute the results and return them without memmory mapping.
+    recompute the results and return them without memory mapping.
 
 
 Release 0.12.3
@@ -883,7 +895,7 @@ Release 0.6.5
 2012-09-15
 Yannick Schwartz
 
-    BUG: make sure that sets and dictionnaries give reproducible hashes
+    BUG: make sure that sets and dictionaries give reproducible hashes
 
 
 2012-07-18
@@ -914,7 +926,7 @@ GaelVaroquaux
 
     BUG: non-reproducible hashing: order of kwargs
 
-    The ordering of a dictionnary is random. As a result the function hashing
+    The ordering of a dictionary is random. As a result the function hashing
     was not reproducible. Pretty hard to test
 
 Release 0.6.3
@@ -1224,7 +1236,7 @@ Gael varoquaux
 Gael varoquaux
 2010-07-29
 
-    MISC: Silence tests (and hopefuly Yaroslav :P)
+    MISC: Silence tests (and hopefully Yaroslav :P)
 
 Release 0.4.3
 ----------------

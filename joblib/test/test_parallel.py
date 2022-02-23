@@ -24,14 +24,17 @@ from importlib import reload
 import joblib
 from joblib import parallel
 from joblib import dump, load
-from joblib.externals.loky import get_reusable_executor
+
+from joblib._multiprocessing_helpers import mp
 
 from joblib.test.common import np, with_numpy
 from joblib.test.common import with_multiprocessing
 from joblib.testing import (parametrize, raises, check_subprocess_call,
                             skipif, SkipTest, warns)
 
-from joblib.externals.loky.process_executor import TerminatedWorkerError
+if mp is not None:
+    # Loky is not available if multiprocessing is not
+    from joblib.externals.loky import get_reusable_executor
 
 from queue import Queue
 
@@ -69,7 +72,10 @@ from joblib.my_exceptions import WorkerInterrupt
 ALL_VALID_BACKENDS = [None] + sorted(BACKENDS.keys())
 # Add instances of backend classes deriving from ParallelBackendBase
 ALL_VALID_BACKENDS += [BACKENDS[backend_str]() for backend_str in BACKENDS]
-PROCESS_BACKENDS = ['multiprocessing', 'loky']
+if mp is None:
+    PROCESS_BACKENDS = []
+else:
+    PROCESS_BACKENDS = ['multiprocessing', 'loky']
 PARALLEL_BACKENDS = PROCESS_BACKENDS + ['threading']
 
 if hasattr(mp, 'get_context'):
@@ -193,13 +199,14 @@ def _assert_warning_nested(backend, inner_n_jobs, expected):
     with warns(None) as records:
         parallel_func(backend=backend, inner_n_jobs=inner_n_jobs)
 
+    warnings = [w.message for w in records]
     if expected:
         # with threading, we might see more that one records
-        if len(records) > 0:
-            return 'backed parallel loops cannot' in records[0].message.args[0]
+        if warnings:
+            return 'backed parallel loops cannot' in warnings[0].args[0]
         return False
     else:
-        assert len(records) == 0
+        assert not warnings
         return True
 
 
@@ -269,6 +276,7 @@ def raise_exception(backend):
     raise ValueError
 
 
+@with_multiprocessing
 def test_nested_loop_with_exception_with_loky():
     with raises(ValueError):
         with Parallel(n_jobs=2, backend="loky") as parallel:
@@ -568,8 +576,14 @@ class FakeParallelBackend(SequentialBackend):
 
 
 def test_invalid_backend():
-    with raises(ValueError):
+    with raises(ValueError) as excinfo:
         Parallel(backend='unit-testing')
+    assert "Invalid backend:" in str(excinfo.value)
+
+    with raises(ValueError) as excinfo:
+        with parallel_backend('unit-testing'):
+            pass
+    assert "Invalid backend:" in str(excinfo.value)
 
 
 @parametrize('backend', ALL_VALID_BACKENDS)
@@ -598,6 +612,17 @@ def test_overwrite_default_backend():
         # Restore the global default manually
         parallel.DEFAULT_BACKEND = DEFAULT_BACKEND
     assert _active_backend_type() == DefaultBackend
+
+
+@skipif(mp is not None, reason="Only without multiprocessing")
+def test_backend_no_multiprocessing():
+    with warns(UserWarning,
+               match="joblib backend '.*' is not available on.*"):
+        Parallel(backend='loky')(delayed(square)(i) for i in range(3))
+
+    # The below should now work without problems
+    with parallel_backend('loky'):
+        Parallel()(delayed(square)(i) for i in range(3))
 
 
 def check_backend_context_manager(backend_name):
@@ -1207,7 +1232,10 @@ def test_memmapping_leaks(backend, tmpdir):
         raise AssertionError('temporary directory of Parallel was not removed')
 
 
-@parametrize('backend', [None, 'loky', 'threading'])
+@parametrize('backend',
+             ([None, 'threading'] if mp is None
+              else [None, 'loky', 'threading'])
+             )
 def test_lambda_expression(backend):
     # cloudpickle is used to pickle delayed callables
     results = Parallel(n_jobs=2, backend=backend)(
@@ -1237,6 +1265,7 @@ def test_backend_batch_statistics_reset(backend):
             p._backend._DEFAULT_SMOOTHED_BATCH_DURATION)
 
 
+@with_multiprocessing
 def test_backend_hinting_and_constraints():
     for n_jobs in [1, 2, -1]:
         assert type(Parallel(n_jobs=n_jobs)._backend) == LokyBackend
@@ -1347,12 +1376,13 @@ def test_invalid_backend_hinting_and_constraints():
         # requiring shared memory semantics.
         Parallel(prefer='processes', require='sharedmem')
 
-    # It is inconsistent to ask explicitly for a process-based parallelism
-    # while requiring shared memory semantics.
-    with raises(ValueError):
-        Parallel(backend='loky', require='sharedmem')
-    with raises(ValueError):
-        Parallel(backend='multiprocessing', require='sharedmem')
+    if mp is not None:
+        # It is inconsistent to ask explicitly for a process-based
+        # parallelism while requiring shared memory semantics.
+        with raises(ValueError):
+            Parallel(backend='loky', require='sharedmem')
+        with raises(ValueError):
+            Parallel(backend='multiprocessing', require='sharedmem')
 
 
 def test_global_parallel_backend():
@@ -1437,7 +1467,8 @@ def _recursive_parallel(nesting_limit=None):
     return Parallel()(delayed(_recursive_parallel)() for i in range(2))
 
 
-@parametrize('backend', ['loky', 'threading'])
+@parametrize('backend',
+             (['threading'] if mp is None else ['loky', 'threading']))
 def test_thread_bomb_mitigation(backend):
     # Test that recursive parallelism raises a recursion rather than
     # saturating the operating system resources by creating a unbounded number
@@ -1446,13 +1477,18 @@ def test_thread_bomb_mitigation(backend):
         with raises(BaseException) as excinfo:
             _recursive_parallel()
     exc = excinfo.value
-    if backend == "loky" and isinstance(exc, TerminatedWorkerError):
-        # The recursion exception can itself cause an error when pickling it to
-        # be send back to the parent process. In this case the worker crashes
-        # but the original traceback is still printed on stderr. This could be
-        # improved but does not seem simple to do and this is is not critical
-        # for users (as long as there is no process or thread bomb happening).
-        pytest.xfail("Loky worker crash when serializing RecursionError")
+    if backend == "loky":
+        # Local import because loky may not be importable for lack of
+        # multiprocessing
+        from joblib.externals.loky.process_executor import TerminatedWorkerError # noqa
+        if isinstance(exc, TerminatedWorkerError):
+            # The recursion exception can itself cause an error when
+            # pickling it to be send back to the parent process. In this
+            # case the worker crashes but the original traceback is still
+            # printed on stderr. This could be improved but does not seem
+            # simple to do and this is is not critical for users (as long
+            # as there is no process or thread bomb happening).
+            pytest.xfail("Loky worker crash when serializing RecursionError")
     else:
         assert isinstance(exc, RecursionError)
 
@@ -1466,7 +1502,7 @@ def _run_parallel_sum():
     return env_vars, parallel_sum(100)
 
 
-@parametrize("backend", [None, 'loky'])
+@parametrize("backend", ([None, 'loky'] if mp is not None else [None]))
 @skipif(parallel_sum is None, reason="Need OpenMP helper compiled")
 def test_parallel_thread_limit(backend):
     results = Parallel(n_jobs=2, backend=backend)(
