@@ -2,7 +2,7 @@
 
 import io
 import zlib
-from distutils.version import LooseVersion
+from joblib.backports import LooseVersion
 
 try:
     from threading import RLock
