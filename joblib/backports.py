@@ -88,13 +88,13 @@ class LooseVersion(Version):
 
         self.version = components
 
-    def __str__ (self):
+    def __str__(self):
         return self.vstring
 
-    def __repr__ (self):
+    def __repr__(self):
         return "LooseVersion ('%s')" % str(self)
 
-    def _cmp (self, other):
+    def _cmp(self, other):
         if isinstance(other, str):
             other = LooseVersion(other)
         elif not isinstance(other, LooseVersion):
