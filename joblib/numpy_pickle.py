@@ -123,7 +123,7 @@ class NumpyArrayWrapper(object):
                 if padding_length != 0:
                     padding = b'\xff' * padding_length
                     pickler.file_handle.write(padding)
-                
+
             for chunk in pickler.np.nditer(array,
                                            flags=['external_loop',
                                                   'buffered',
@@ -212,6 +212,20 @@ class NumpyArrayWrapper(object):
                              offset=offset)
         # update the offset so that it corresponds to the end of the read array
         unpickler.file_handle.seek(offset + marray.nbytes)
+
+        if (numpy_array_alignment_bytes is None and
+                current_pos % NUMPY_ARRAY_ALIGNMENT_BYTES != 0):
+            message = (
+                'The memmapped array {marray} loaded from the file '
+                f'{unpickler.file_handle.name} is not not bytes aligned. '
+                'This may cause segmentation faults if this memmapped array '
+                'is used in some libraries like BLAS or PyTorch. '
+                'To get rid of this warning, regenerate your pickle file '
+                ' with joblib >= 1.2.0. '
+                'See https://github.com/joblib/joblib/issues/563 '
+                'for more details'
+            )
+            warnings.warn(message)
 
         return marray
 

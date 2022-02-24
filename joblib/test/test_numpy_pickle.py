@@ -392,15 +392,33 @@ def _check_pickle(filename, expected_list, mmap_mode=None):
                     message='The compiler package is deprecated')
                 result_list = numpy_pickle.load(filename, mmap_mode=mmap_mode)
             filename_base = os.path.basename(filename)
-            expected_nb_warnings = 1 if ("_0.9" in filename_base or
-                                         "_0.8.4" in filename_base) else 0
+            expected_nb_deprecation_warnings = 1 if (
+                "_0.9" in filename_base or "_0.8.4" in filename_base) else 0
+
+            expected_nb_user_warnings = 3 if (
+                re.search("_0.1.+.pkl$", filename_base) and
+                mmap_mode is not None) else 0
+            expected_nb_warnings = \
+                expected_nb_deprecation_warnings + expected_nb_user_warnings
             assert len(warninfo) == expected_nb_warnings
-            for w in warninfo:
-                assert w.category == DeprecationWarning
+
+            deprecation_warnings = [
+                w for w in warninfo if issubclass(
+                    w.category, DeprecationWarning)]
+            user_warnings = [
+                w for w in warninfo if issubclass(
+                    w.category, UserWarning)]
+            for w in deprecation_warnings:
                 assert (str(w.message) ==
                         "The file '{0}' has been generated with a joblib "
                         "version less than 0.10. Please regenerate this "
                         "pickle file.".format(filename))
+
+            for w in user_warnings:
+                assert re.search(
+                    f"memmapped.+{filename}.+segmentation fault",
+                    str(w.message))
+
             for result, expected in zip(result_list, expected_list):
                 if isinstance(expected, np.ndarray):
                     expected = _ensure_native_byte_order(expected)
