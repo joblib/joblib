@@ -112,11 +112,18 @@ class NumpyArrayWrapper(object):
                 self.safe_get_numpy_array_alignment_bytes()
             if numpy_array_alignment_bytes is not None:
                 current_pos = pickler.file_handle.tell()
-                alignment = current_pos % numpy_array_alignment_bytes
-                if alignment != 0:
-                    padding = b' ' * (numpy_array_alignment_bytes - alignment)
-                    pickler.file_handle.write(padding)
+                pos_after_padding_byte = current_pos + 1
+                padding_length = numpy_array_alignment_bytes - (
+                    pos_after_padding_byte % numpy_array_alignment_bytes)
+                # TODO: byteorder is a required parameter but it does not matter since it is only one byte
+                padding_length_byte = int.to_bytes(
+                    padding_length, length=1, byteorder='little')
+                pickler.file_handle.write(padding_length_byte)
 
+                if padding_length != 0:
+                    padding = b'\xff' * padding_length
+                    pickler.file_handle.write(padding)
+                
             for chunk in pickler.np.nditer(array,
                                            flags=['external_loop',
                                                   'buffered',
@@ -146,19 +153,10 @@ class NumpyArrayWrapper(object):
             numpy_array_alignment_bytes = \
                 self.safe_get_numpy_array_alignment_bytes()
             if numpy_array_alignment_bytes is not None:
-                try:
-                    current_pos = unpickler.file_handle.tell()
-                    alignment = current_pos % numpy_array_alignment_bytes
-                    if alignment != 0:
-                        padding_length = (
-                            numpy_array_alignment_bytes - alignment)
-                        unpickler.file_handle.seek(
-                            current_pos + padding_length)
-                except io.UnsupportedOperation as exc:
-                    raise RuntimeError(
-                        'Trying to read a joblib pickle with bytes aligned '
-                        'numpy arrays in a file handle '
-                        'that does not support .tell') from exc
+                padding_byte = unpickler.file_handle.read(1)
+                padding_length = int.from_bytes(padding_byte, byteorder='little')
+                if padding_length != 0:
+                    unpickler.file_handle.read(padding_length)
 
             # This is not a real file. We have to read it the
             # memory-intensive way.
@@ -198,11 +196,10 @@ class NumpyArrayWrapper(object):
             self.safe_get_numpy_array_alignment_bytes()
 
         if numpy_array_alignment_bytes is not None:
-            alignment = current_pos % numpy_array_alignment_bytes
-
-            if alignment != 0:
-                padding_length = self.numpy_array_alignment_bytes - alignment
-                offset += padding_length
+            padding_byte = unpickler.file_handle.read(1)
+            padding_length = int.from_bytes(padding_byte, byteorder='little')
+            # + 1 is for the padding byte
+            offset += padding_length + 1
 
         if unpickler.mmap_mode == 'w+':
             unpickler.mmap_mode = 'r+'

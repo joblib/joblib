@@ -937,14 +937,16 @@ def test_pickle_in_socket():
 
     np.testing.assert_array_equal(array_reloaded, test_array)
 
+    # Check that a byte-aligned numpy array written in a file can be send over
+    # a socket and then read on the other side
     bytes_to_send = io.BytesIO()
     numpy_pickle.dump(test_array, bytes_to_send)
     server.send(bytes_to_send.getvalue())
 
     with client.makefile("rb") as cf:
-        match = 'bytes aligned numpy arrays.+does not support .tell'
-        with pytest.raises(RuntimeError, match=match):
-            array_reloaded = numpy_pickle.load(cf)
+        array_reloaded = numpy_pickle.load(cf)
+
+    np.testing.assert_array_equal(array_reloaded, test_array)
 
 
 @with_numpy
@@ -1088,8 +1090,12 @@ def test_lz4_compression_without_lz4(tmpdir):
     excinfo.match(msg)
 
 
+protocols = [pickle.DEFAULT_PROTOCOL]
+if pickle.HIGHEST_PROTOCOL != pickle.DEFAULT_PROTOCOL:
+    protocols.append(pickle.HIGHEST_PROTOCOL)
+
 @with_numpy
-@parametrize('protocol', range(0, pickle.HIGHEST_PROTOCOL + 1))
+@parametrize('protocol', protocols)
 def test_memmap_alignment_padding(tmpdir, protocol):
     # Test that memmaped arrays returned by numpy.load are correctly aligned
     fname = tmpdir.join('test.mmap').strpath
