@@ -221,7 +221,7 @@ class NumpyArrayWrapper(object):
                 'This may cause segmentation faults if this memmapped array '
                 'is used in some libraries like BLAS or PyTorch. '
                 'To get rid of this warning, regenerate your pickle file '
-                ' with joblib >= 1.2.0. '
+                'with joblib >= 1.2.0. '
                 'See https://github.com/joblib/joblib/issues/563 '
                 'for more details'
             )

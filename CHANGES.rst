@@ -16,6 +16,9 @@ Development version
   worker processes in case of a crash.
   https://github.com/joblib/joblib/pull/1269
 
+- Fix memory alignment bug for pickles containing numpy arrays.
+  https://github.com/joblib/joblib/pull/1254/files
+
 Release 1.1.0
 --------------
 
