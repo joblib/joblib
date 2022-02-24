@@ -218,7 +218,7 @@ class NumpyArrayWrapper(object):
         if (numpy_array_alignment_bytes is None and
                 current_pos % NUMPY_ARRAY_ALIGNMENT_BYTES != 0):
             message = (
-                'The memmapped array {marray} loaded from the file '
+                f'The memmapped array {marray} loaded from the file '
                 f'{unpickler.file_handle.name} is not not bytes aligned. '
                 'This may cause segmentation faults if this memmapped array '
                 'is used in some libraries like BLAS or PyTorch. '
