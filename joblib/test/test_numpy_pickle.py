@@ -415,8 +415,9 @@ def _check_pickle(filename, expected_list, mmap_mode=None):
                         "pickle file.".format(filename))
 
             for w in user_warnings:
+                escaped_filename = re.escape(filename)
                 assert re.search(
-                    f"memmapped.+{filename}.+segmentation fault",
+                    f"memmapped.+{escaped_filename}.+segmentation fault",
                     str(w.message))
 
             for result, expected in zip(result_list, expected_list):
