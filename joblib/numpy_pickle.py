@@ -115,7 +115,8 @@ class NumpyArrayWrapper(object):
                 pos_after_padding_byte = current_pos + 1
                 padding_length = numpy_array_alignment_bytes - (
                     pos_after_padding_byte % numpy_array_alignment_bytes)
-                # TODO: byteorder is a required parameter but it does not matter since it is only one byte
+                # A single byte is written that contains the padding length in
+                # bytes
                 padding_length_byte = int.to_bytes(
                     padding_length, length=1, byteorder='little')
                 pickler.file_handle.write(padding_length_byte)
@@ -154,7 +155,8 @@ class NumpyArrayWrapper(object):
                 self.safe_get_numpy_array_alignment_bytes()
             if numpy_array_alignment_bytes is not None:
                 padding_byte = unpickler.file_handle.read(1)
-                padding_length = int.from_bytes(padding_byte, byteorder='little')
+                padding_length = int.from_bytes(
+                    padding_byte, byteorder='little')
                 if padding_length != 0:
                     unpickler.file_handle.read(padding_length)
 

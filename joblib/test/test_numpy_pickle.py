@@ -1112,6 +1112,7 @@ protocols = [pickle.DEFAULT_PROTOCOL]
 if pickle.HIGHEST_PROTOCOL != pickle.DEFAULT_PROTOCOL:
     protocols.append(pickle.HIGHEST_PROTOCOL)
 
+
 @with_numpy
 @parametrize('protocol', protocols)
 def test_memmap_alignment_padding(tmpdir, protocol):
