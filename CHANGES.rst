@@ -17,15 +17,15 @@ Development version
   https://github.com/joblib/joblib/pull/1269
 
 - Fix memory alignment bug for pickles containing numpy arrays.
-  This is especially important when loading the pkl with
-  `mmap_mode != None` as the resulting numpy.memmap object
+  This is especially important when loading the pickle with
+  ``mmap_mode != None`` as the resulting ``numpy.memmap`` object
   would not be able to correct the misalignment without performing
   a memory copy.
   This bug would cause invalid computation and segmentation faults
   with native code that would directly access the underlying data
   buffer of a numpy array, for instance C/C++/Cython code compiled
-  with older GCC versions, some old OpenBLAS written in platform
-  specific assembly...).
+  with older GCC versions or some old OpenBLAS written in platform
+  specific assembly.
   https://github.com/joblib/joblib/pull/1254
 
 Release 1.1.0
