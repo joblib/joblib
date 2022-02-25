@@ -7,6 +7,7 @@
 import pickle
 import os
 import warnings
+import io
 from pathlib import Path
 
 from .compressor import lz4, LZ4_NOT_INSTALLED_ERROR
@@ -39,6 +40,11 @@ register_compressor('lz4', LZ4CompressorWrapper())
 ###############################################################################
 # Utility objects for persistence.
 
+# For convenience, 16 bytes are used to be sure to cover all the possible
+# dtypes' alignments. For reference, see:
+# https://numpy.org/devdocs/dev/alignment.html
+NUMPY_ARRAY_ALIGNMENT_BYTES = 16
+
 
 class NumpyArrayWrapper(object):
     """An object to be persisted instead of numpy arrays.
@@ -70,13 +76,23 @@ class NumpyArrayWrapper(object):
         Default: False.
     """
 
-    def __init__(self, subclass, shape, order, dtype, allow_mmap=False):
+    def __init__(self, subclass, shape, order, dtype, allow_mmap=False,
+                 numpy_array_alignment_bytes=NUMPY_ARRAY_ALIGNMENT_BYTES):
         """Constructor. Store the useful information for later."""
         self.subclass = subclass
         self.shape = shape
         self.order = order
         self.dtype = dtype
         self.allow_mmap = allow_mmap
+        # We make numpy_array_alignment_bytes an instance attribute to allow us
+        # to change our mind about the default alignment and still load the old
+        # pickles (with the previous alignment) correctly
+        self.numpy_array_alignment_bytes = numpy_array_alignment_bytes
+
+    def safe_get_numpy_array_alignment_bytes(self):
+        # NumpyArrayWrapper instances loaded from joblib <= 1.1 pickles don't
+        # have an numpy_array_alignment_bytes attribute
+        return getattr(self, 'numpy_array_alignment_bytes', None)
 
     def write_array(self, array, pickler):
         """Write array bytes to pickler file handle.
@@ -92,6 +108,23 @@ class NumpyArrayWrapper(object):
             # pickle protocol.
             pickle.dump(array, pickler.file_handle, protocol=2)
         else:
+            numpy_array_alignment_bytes = \
+                self.safe_get_numpy_array_alignment_bytes()
+            if numpy_array_alignment_bytes is not None:
+                current_pos = pickler.file_handle.tell()
+                pos_after_padding_byte = current_pos + 1
+                padding_length = numpy_array_alignment_bytes - (
+                    pos_after_padding_byte % numpy_array_alignment_bytes)
+                # A single byte is written that contains the padding length in
+                # bytes
+                padding_length_byte = int.to_bytes(
+                    padding_length, length=1, byteorder='little')
+                pickler.file_handle.write(padding_length_byte)
+
+                if padding_length != 0:
+                    padding = b'\xff' * padding_length
+                    pickler.file_handle.write(padding)
+
             for chunk in pickler.np.nditer(array,
                                            flags=['external_loop',
                                                   'buffered',
@@ -118,6 +151,15 @@ class NumpyArrayWrapper(object):
             # The array contained Python objects. We need to unpickle the data.
             array = pickle.load(unpickler.file_handle)
         else:
+            numpy_array_alignment_bytes = \
+                self.safe_get_numpy_array_alignment_bytes()
+            if numpy_array_alignment_bytes is not None:
+                padding_byte = unpickler.file_handle.read(1)
+                padding_length = int.from_bytes(
+                    padding_byte, byteorder='little')
+                if padding_length != 0:
+                    unpickler.file_handle.read(padding_length)
+
             # This is not a real file. We have to read it the
             # memory-intensive way.
             # crc32 module fails on reads greater than 2 ** 32 bytes,
@@ -150,7 +192,17 @@ class NumpyArrayWrapper(object):
 
     def read_mmap(self, unpickler):
         """Read an array using numpy memmap."""
-        offset = unpickler.file_handle.tell()
+        current_pos = unpickler.file_handle.tell()
+        offset = current_pos
+        numpy_array_alignment_bytes = \
+            self.safe_get_numpy_array_alignment_bytes()
+
+        if numpy_array_alignment_bytes is not None:
+            padding_byte = unpickler.file_handle.read(1)
+            padding_length = int.from_bytes(padding_byte, byteorder='little')
+            # + 1 is for the padding byte
+            offset += padding_length + 1
+
         if unpickler.mmap_mode == 'w+':
             unpickler.mmap_mode = 'r+'
 
@@ -162,6 +214,20 @@ class NumpyArrayWrapper(object):
                              offset=offset)
         # update the offset so that it corresponds to the end of the read array
         unpickler.file_handle.seek(offset + marray.nbytes)
+
+        if (numpy_array_alignment_bytes is None and
+                current_pos % NUMPY_ARRAY_ALIGNMENT_BYTES != 0):
+            message = (
+                f'The memmapped array {marray} loaded from the file '
+                f'{unpickler.file_handle.name} is not not bytes aligned. '
+                'This may cause segmentation faults if this memmapped array '
+                'is used in some libraries like BLAS or PyTorch. '
+                'To get rid of this warning, regenerate your pickle file '
+                'with joblib >= 1.2.0. '
+                'See https://github.com/joblib/joblib/issues/563 '
+                'for more details'
+            )
+            warnings.warn(message)
 
         return marray
 
@@ -239,9 +305,17 @@ class NumpyPickler(Pickler):
         order = 'F' if (array.flags.f_contiguous and
                         not array.flags.c_contiguous) else 'C'
         allow_mmap = not self.buffered and not array.dtype.hasobject
+
+        kwargs = {}
+        try:
+            self.file_handle.tell()
+        except io.UnsupportedOperation:
+            kwargs = {'numpy_array_alignment_bytes': None}
+
         wrapper = NumpyArrayWrapper(type(array),
                                     array.shape, order, array.dtype,
-                                    allow_mmap=allow_mmap)
+                                    allow_mmap=allow_mmap,
+                                    **kwargs)
 
         return wrapper
 
