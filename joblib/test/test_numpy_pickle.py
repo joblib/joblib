@@ -1147,10 +1147,15 @@ def test_memmap_alignment_padding(tmpdir, protocol):
         assert memmap.flags.aligned
 
     array_dict = {
-        'a1': np.random.randn(100),
-        'a2': np.random.randn(200),
-        'a3': np.random.randn(300),
-        'a4': np.random.randn(400)
+        'a0': np.arange(2, dtype=np.uint8),  
+        'a1': np.arange(3, dtype=np.uint8),
+        'a2': np.arange(5, dtype=np.uint8),
+        'a3': np.arange(7, dtype=np.uint8),
+        'a4': np.arange(11, dtype=np.uint8),
+        'a5': np.arange(13, dtype=np.uint8), 
+        'a6': np.arange(17, dtype=np.uint8), 
+        'a7': np.arange(19, dtype=np.uint8), 
+        'a8': np.arange(23, dtype=np.uint8), 
     }
 
     # On Windows OSError 22 if reusing the same path for memmap ...
