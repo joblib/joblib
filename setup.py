@@ -15,6 +15,9 @@ setup(
     author='Gael Varoquaux',
     author_email='gael.varoquaux@normalesup.org',
     url='https://joblib.readthedocs.io',
+    project_urls={
+        'Source': 'https://github.com/joblib/joblib',
+    },
     license='BSD',
     description="Lightweight pipelining with Python functions",
     long_description=long_description,
