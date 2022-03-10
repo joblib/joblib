@@ -1185,7 +1185,7 @@ def set_list_value(input_list, index, value):
 @pytest.mark.parametrize('n_jobs', [1, 2, 4])
 def test_parallel_return_generator(n_jobs):
     # This test inserts values in a list in some expected order
-    # in sequential computing, and then check that this order has been
+    # in sequential computing, and then checks that this order has been
     # respected by Parallel output generator.
     input_list = [0] * 5
     result = Parallel(n_jobs=n_jobs, return_generator=True,
@@ -1265,7 +1265,7 @@ def test_multiple_generator_call_managed(backend, n_jobs):
     # Make sure that the error is raised quickly
     assert time.time() - t_start < 5, (
         "The error should be raised immediatly when submitting a new task "
-        "but it took more than 2s."
+        "but it took more than 5s."
     )
 
     # The gc in pypy can be delayed. Force it to make sure this test does not
@@ -1312,7 +1312,7 @@ def test_multiple_generator_call_separated_gc(backend, error):
     with ctx:
         # For loky, this call will raise an error as the gc of the previous
         # generator will shutdown the shared executor.
-        # For the other backend, as the worker pools are not shared between the
+        # For the other backends, as the worker pools are not shared between the
         # two calls, this should proceed correctly.
         t_start = time.time()
         g = Parallel(2, backend=backend, return_generator=True)(

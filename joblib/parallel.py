@@ -289,8 +289,8 @@ class BatchedCalls(object):
         self._pickle_cache = pickle_cache if pickle_cache is not None else {}
 
     def __call__(self):
-        # Set the default nested backend to self._backend but do not set
-        # the change the default number of processes to -1
+        # Set the default nested backend to self._backend but do not
+        # change the default number of processes to -1
         with parallel_backend(self._backend, n_jobs=self._n_jobs):
             return [func(*args, **kwargs) for func, args, kwargs in self.items]
 
@@ -814,7 +814,7 @@ class Parallel(Logger):
         self._id = uuid4().hex
 
         if not isinstance(backend, SequentialBackend):
-            # This lock is used coordinate the main thread of this process with
+            # This lock is used to coordinate the main thread of this process with
             # the async callback thread of our the pool.
             self._lock = threading.RLock()
             self._jobs = list()
@@ -1231,8 +1231,8 @@ class Parallel(Logger):
                               if job.status == TASK_ERROR), None)
 
         # If this error job exists, immediatly raise the error by
-        #  calling get_result. This jo might not exists if abort has been
-        # called directly or if the generator is gc.
+        # calling get_result. This job might not exists if abort has been
+        # called directly or if the generator is gc'ed.
         if error_job is not None:
             error_job.get_result(self.timeout)
 
