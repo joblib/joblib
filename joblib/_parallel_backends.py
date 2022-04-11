@@ -26,10 +26,13 @@ if mp is not None:
 class ParallelBackendBase(metaclass=ABCMeta):
     """Helper abc which defines all methods a ParallelBackend must implement"""
 
-    supports_timeout = False
     supports_sharedmem = False
     supports_inner_max_num_threads = False
     supports_asynchronous_callback = False
+
+    @property
+    def supports_timeout(self):
+        return self.supports_asynchronous_callback
 
     nesting_level = None
 
@@ -204,6 +207,7 @@ class SequentialBackend(ParallelBackendBase):
     """
 
     uses_threads = True
+    supports_timeout = False
     supports_asynchronous_callback = True
     supports_sharedmem = True
 

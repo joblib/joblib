@@ -1312,8 +1312,8 @@ def test_multiple_generator_call_separated_gc(backend, error):
     with ctx:
         # For loky, this call will raise an error as the gc of the previous
         # generator will shutdown the shared executor.
-        # For the other backends, as the worker pools are not shared between the
-        # two calls, this should proceed correctly.
+        # For the other backends, as the worker pools are not shared between
+        # the two calls, this should proceed correctly.
         t_start = time.time()
         g = Parallel(2, backend=backend, return_generator=True)(
             delayed(sqrt)(i ** 2) for i in range(10, 20)

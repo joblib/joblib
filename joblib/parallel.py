@@ -395,9 +395,8 @@ class BatchCompletionCallBack(object):
 
         if self.parallel._backend.supports_asynchronous_callback:
             try:
-                with self.parallel._lock:
-                    result = self.parallel._backend.fetch_result_callback(out)
-                    outcome = dict(status=TASK_DONE, result=result)
+                result = self.parallel._backend.fetch_result_callback(out)
+                outcome = dict(status=TASK_DONE, result=result)
             except BaseException as e:
                 # Avoid keeping references to parallel in the error.
                 e.__traceback__ = None
@@ -423,17 +422,16 @@ class BatchCompletionCallBack(object):
                 self.parallel.dispatch_next()
 
     def register_outcome(self, outcome):
-        with self.parallel._lock:
-            if self.status not in (TASK_PENDING, None):
-                return
+        if self.status not in (TASK_PENDING, None):
+            return
 
-            self.job = None
-            self._result = outcome["result"]
-            self.status = outcome["status"]
+        self.job = None
+        self._result = outcome["result"]
+        self.status = outcome["status"]
 
-            if self.status == TASK_ERROR:
-                self.parallel._exception = True
-                self.parallel._aborting = True
+        if self.status == TASK_ERROR:
+            self.parallel._exception = True
+            self.parallel._aborting = True
 
     def get_result(self, timeout):
         backend = self.parallel._backend
@@ -448,7 +446,6 @@ class BatchCompletionCallBack(object):
                 outcome = dict(result=result, status=TASK_DONE)
             except BaseException as e:
                 outcome = dict(result=e, status=TASK_ERROR)
-                self.parallel._aborting = True
             self.register_outcome(outcome)
 
         try:
@@ -814,8 +811,8 @@ class Parallel(Logger):
         self._id = uuid4().hex
 
         if not isinstance(backend, SequentialBackend):
-            # This lock is used to coordinate the main thread of this process with
-            # the async callback thread of our the pool.
+            # This lock is used to coordinate the main thread of this process
+            # with the async callback thread of our the pool.
             self._lock = threading.RLock()
             self._jobs = list()
             self._pending_outputs = list()
@@ -1250,9 +1247,6 @@ class Parallel(Logger):
             msg += ("%d tasks which were still being processed by the "
                     "workers have been cancelled."
                     % self.n_dispatched_tasks)
-            # Abort computation to avoid waiting unnecessarily for
-            # the results when they cannot be recovered.
-            self._abort()
 
         if msg:
             msg += (" You could benefit from adjusting the input task "
