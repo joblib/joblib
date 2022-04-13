@@ -28,7 +28,6 @@ collector, whose behavior is hard to predict.
 # code. Make sure it is installed with ``pip install psutil`` for this example.
 #
 
-import gc
 import time
 from psutil import Process
 from threading import Thread
@@ -40,7 +39,6 @@ class MemoryMonitor(Thread):
         super().__init__()
         self.stop = False
         self.memory_buffer = []
-        gc.collect()
         self.start()
 
     def get_memory(self):
@@ -56,7 +54,6 @@ class MemoryMonitor(Thread):
         while not self.stop:
             self.memory_buffer.append(self.get_memory() - memory_start)
             time.sleep(0.2)
-        gc.collect()
 
     def join(self):
         self.stop = True
@@ -150,8 +147,14 @@ print(f"Peak memory usage: {peak:.2f}MB")
 # the results.
 
 import matplotlib.pyplot as plt
-plt.semilogy(monitor.memory_buffer, label='return_generator=False')
-plt.semilogy(monitor_gen.memory_buffer, label='return_generator=True')
+plt.semilogy(
+    np.maximum.accumulate(monitor.memory_buffer),
+    label='return_generator=False'
+)
+plt.semilogy(
+    np.maximum.accumulate(monitor_gen.memory_buffer),
+    label='return_generator=True'
+)
 plt.xlabel("Time")
 plt.xticks([], [])
 plt.ylabel("Memory usage")
