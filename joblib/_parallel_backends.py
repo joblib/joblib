@@ -208,7 +208,7 @@ class SequentialBackend(ParallelBackendBase):
 
     uses_threads = True
     supports_timeout = False
-    supports_asynchronous_callback = True
+    supports_asynchronous_callback = False
     supports_sharedmem = True
 
     def effective_n_jobs(self, n_jobs):

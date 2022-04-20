@@ -11,6 +11,7 @@ import os
 import sys
 from math import sqrt
 import functools
+import collections
 import time
 import threading
 import itertools
@@ -373,6 +374,8 @@ class BatchCompletionCallBack(object):
     processing duration and to schedule the next batch of tasks to be
     processed.
 
+    It is assumed that this callback will always be triggered by the backend
+    right after the end of a task, in case of success and in case of failure.
     """
     def __init__(self, dispatch_timestamp, batch_size, parallel):
         self.dispatch_timestamp = dispatch_timestamp
@@ -538,14 +541,16 @@ class Parallel(Logger):
             The maximum number of concurrently running jobs, such as the number
             of Python worker processes when backend="multiprocessing"
             or the size of the thread-pool when backend="threading".
-            If -1 all CPUs are used. If 1 is given, no parallel computing code
-            is used at all, which is useful for debugging. For n_jobs below -1,
+            If -1 all CPUs are used.
+            If 1 is given, no parallel computing code is used at all, and the
+            behavior amounts to a simple python `for` loop. This mode is not
+            compatible with `timeout` or `verbose` features.
+            which is useful for debugging. For n_jobs below -1,
             (n_cpus + 1 + n_jobs) are used. Thus for n_jobs = -2, all
             CPUs but one are used.
             None is a marker for 'unset' that will be interpreted as n_jobs=1
-            (sequential execution) unless the call is performed under a
-            parallel_backend context manager that sets another value for
-            n_jobs.
+            unless the call is performed under a parallel_backend context manager
+            that sets another value for n_jobs.
         backend: str, ParallelBackendBase instance or None, default: 'loky'
             Specify the parallelization backend implementation.
             Supported backends are:
@@ -796,11 +801,19 @@ class Parallel(Logger):
                 "batch_size must be 'auto' or a positive integer, got: %r"
                 % batch_size)
 
-        if not backend.supports_asynchronous_callback and return_generator:
-            raise ValueError(
-                "Backend {} does not support "
-                "return_generator=True".format(backend)
-            )
+        if not isinstance(backend, SequentialBackend):
+            if not backend.supports_asynchronous_callback and return_generator:
+                raise ValueError(
+                    "Backend {} does not support "
+                    "return_generator=True".format(backend)
+                )
+            # This lock is used to coordinate the main thread of this process
+            # with the async callback thread of our the pool.
+            self._lock = threading.RLock()
+            self._jobs = collections.deque()
+            self._pending_outputs = list()
+            self._ready_batches = queue.Queue()
+            self._reducer_callback = None
 
         self.n_jobs = n_jobs
 
@@ -809,15 +822,6 @@ class Parallel(Logger):
         self._running = False
         self._managed_backend = False
         self._id = uuid4().hex
-
-        if not isinstance(backend, SequentialBackend):
-            # This lock is used to coordinate the main thread of this process
-            # with the async callback thread of our the pool.
-            self._lock = threading.RLock()
-            self._jobs = list()
-            self._pending_outputs = list()
-            self._ready_batches = queue.Queue()
-            self._reducer_callback = None
 
     def __enter__(self):
         self._managed_backend = True
@@ -1188,7 +1192,7 @@ class Parallel(Logger):
                     # we empty it and Python list are not thread-safe by
                     # default hence the use of the lock
                     with self._lock:
-                        batched_results = self._jobs.pop(0)
+                        batched_results = self._jobs.popleft()
 
                     # Flatten the batched results to output one output
                     # at a time
@@ -1209,12 +1213,12 @@ class Parallel(Logger):
             raise
         finally:
             _remaining_outputs = ([] if self._exception else self._jobs)
-            self._jobs = list()
+            self._jobs = collections.deque()
             self._running = False
             self._terminate_and_reset()
 
         while len(_remaining_outputs) > 0:
-            batched_results = _remaining_outputs.pop(0)
+            batched_results = _remaining_outputs.popleft()
             batched_results = batched_results.get_result(self.timeout)
             for result in batched_results:
                 yield result

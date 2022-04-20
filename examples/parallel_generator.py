@@ -11,9 +11,6 @@ observe a high memory usage, as all the results are stacked in RAM.
 
 Using the ``return_generator=True`` option allows to progressively consumes
 the outputs as they arrive and keeps the memory at an acceptable level.
-
-Note that the exact RAM usage can depend on the behavior of the garbage
-collector, whose behavior is hard to predict.
 """
 
 ##############################################################################
@@ -24,9 +21,9 @@ collector, whose behavior is hard to predict.
 # The following class is an helper to monitor the memory of the process and its
 # children in another thread, so we can display it afterward.
 #
-# For this example, we will use ``psutil`` to monitor the memory usage in the
-# code. Make sure it is installed with ``pip install psutil`` for this example.
-#
+# We will use ``psutil`` to monitor the memory usage in the code. Make sure it
+# is installed with ``pip install psutil`` for this example.
+
 
 import time
 from psutil import Process
@@ -34,7 +31,9 @@ from threading import Thread
 
 
 class MemoryMonitor(Thread):
-    """Monitor the memory usage in MB."""
+    """Monitor the memory usage in MB. Note that this class is good enough to
+    highlight the memory profile of Parallel in this example, but is not a
+    general purpose profiler fit for all cases."""
     def __init__(self):
         super().__init__()
         self.stop = False
