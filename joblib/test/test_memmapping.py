@@ -813,6 +813,7 @@ def test_child_raises_parent_exits_cleanly(backend):
     # - the resource_tracker does not emit any warnings.
     cmd = """if 1:
         import os
+        from time import sleep
 
         import numpy as np
         from joblib import Parallel, delayed

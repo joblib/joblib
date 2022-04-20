@@ -12,6 +12,22 @@ Development version
   the temporary memmap folder contents concurrently.
   https://github.com/joblib/joblib/pull/1263
 
+- Vendor loky 3.1.0 with several fixes to more robustly forcibly terminate
+  worker processes in case of a crash.
+  https://github.com/joblib/joblib/pull/1269
+
+- Fix memory alignment bug for pickles containing numpy arrays.
+  This is especially important when loading the pickle with
+  ``mmap_mode != None`` as the resulting ``numpy.memmap`` object
+  would not be able to correct the misalignment without performing
+  a memory copy.
+  This bug would cause invalid computation and segmentation faults
+  with native code that would directly access the underlying data
+  buffer of a numpy array, for instance C/C++/Cython code compiled
+  with older GCC versions or some old OpenBLAS written in platform
+  specific assembly.
+  https://github.com/joblib/joblib/pull/1254
+
 Release 1.1.0
 --------------
 

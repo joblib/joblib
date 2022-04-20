@@ -1,4 +1,3 @@
-from distutils.version import LooseVersion
 
 import logging
 import faulthandler
@@ -7,6 +6,7 @@ import pytest
 from _pytest.doctest import DoctestItem
 
 from joblib.parallel import mp
+from joblib.backports import LooseVersion
 try:
     import lz4
 except ImportError:
