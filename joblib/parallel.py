@@ -172,9 +172,9 @@ class parallel_backend(object):
     caller passes an explicit value for the ``n_jobs`` parameter.
 
     This is an alternative to passing a ``backend='backend_name'`` argument to
-    the ``Parallel`` class constructor. It is particularly useful when calling
-    into library code that uses joblib internally but does not expose the
-    backend argument in its own API.
+    the :class:`Parallel` class constructor. It is particularly useful when
+    calling into library code that uses joblib internally but does not expose
+    the backend argument in its own API.
 
     >>> from operator import neg
     >>> with parallel_backend('threading'):
@@ -389,8 +389,8 @@ def register_parallel_backend(name, factory, make_default=False):
     """Register a new Parallel backend factory.
 
     The new backend can then be selected by passing its name as the backend
-    argument to the Parallel class. Moreover, the default backend can be
-    overwritten globally by setting make_default=True.
+    argument to the :class:`Parallel` class. Moreover, the default backend can
+    be overwritten globally by setting make_default=True.
 
     The factory can be any callable that takes no argument and return an
     instance of ``ParallelBackendBase``.
@@ -453,8 +453,8 @@ class Parallel(Logger):
             CPUs but one are used.
             None is a marker for 'unset' that will be interpreted as n_jobs=1
             (sequential execution) unless the call is performed under a
-            parallel_backend context manager that sets another value for
-            n_jobs.
+            :class:`parallel_backend` context manager that sets another value
+            for n_jobs.
         backend: str, ParallelBackendBase instance or None, default: 'loky'
             Specify the parallelization backend implementation.
             Supported backends are:
@@ -474,18 +474,18 @@ class Parallel(Logger):
               in a "with nogil" block or an expensive call to a library such
               as NumPy).
             - finally, you can register backends by calling
-              register_parallel_backend. This will allow you to implement
-              a backend of your liking.
+              :func:`register_parallel_backend`. This will allow you to
+              implement a backend of your liking.
 
             It is not recommended to hard-code the backend name in a call to
-            Parallel in a library. Instead it is recommended to set soft hints
-            (prefer) or hard constraints (require) so as to make it possible
-            for library users to change the backend from the outside using the
-            parallel_backend context manager.
+            :class:`Parallel` in a library. Instead it is recommended to set
+            soft hints (prefer) or hard constraints (require) so as to make it
+            possible for library users to change the backend from the outside
+            using the :class:`parallel_backend` context manager.
         prefer: str in {'processes', 'threads'} or None, default: None
             Soft hint to choose the default backend if no specific backend
-            was selected with the parallel_backend context manager. The
-            default process-based backend is 'loky' and the default
+            was selected with the :class:`parallel_backend` context manager.
+            The default process-based backend is 'loky' and the default
             thread-based backend is 'threading'. Ignored if the ``backend``
             parameter is specified.
         require: 'sharedmem' or None, default None
@@ -541,7 +541,7 @@ class Parallel(Logger):
             Use None to disable memmapping of large arrays.
             Only active when backend="loky" or "multiprocessing".
         mmap_mode: {None, 'r+', 'r', 'w+', 'c'}, default: 'r'
-            Memmapping mode for numpy arrays passed to workers. None will 
+            Memmapping mode for numpy arrays passed to workers. None will
             disable memmapping, other modes defined in the numpy.memmap doc:
             https://numpy.org/doc/stable/reference/generated/numpy.memmap.html
             Also, see 'max_nbytes' parameter documentation for more details.
