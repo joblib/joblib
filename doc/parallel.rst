@@ -69,7 +69,7 @@ In prior versions, the same effect could be achieved by hardcoding a
 specific backend implementation such as ``backend="threading"`` in the
 call to :class:`joblib.Parallel` but this is now considered a bad pattern
 (when done in a library) as it does not make it possible to override that
-choice with the :class:`~joblib.parallel_backend` context manager.
+choice with the :func:`~joblib.parallel_backend` context manager.
 
 
 .. topic:: The loky backend may not always be available
@@ -199,7 +199,7 @@ libraries:
 
 Since joblib 0.14, it is also possible to programmatically override the default
 number of threads using the ``inner_max_num_threads`` argument of the
-:class:`~joblib.parallel_backend` function as follows:
+:func:`~joblib.parallel_backend` function as follows:
 
 .. code-block:: python
 
@@ -249,7 +249,7 @@ for a remote cluster computing service::
     register_parallel_backend('custom', MyCustomBackend)
 
 The connection parameters can then be passed to the
-:class:`joblib.parallel_backend` context manager::
+:func:`joblib.parallel_backend` context manager::
 
     with parallel_backend('custom', endpoint='http://compute', api_key='42'):
         Parallel()(delayed(some_function)(i) for i in range(10))

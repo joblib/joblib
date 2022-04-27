@@ -453,7 +453,7 @@ class Parallel(Logger):
             CPUs but one are used.
             None is a marker for 'unset' that will be interpreted as n_jobs=1
             (sequential execution) unless the call is performed under a
-            :class:`~parallel_backend` context manager that sets another value
+            :func:`~parallel_backend` context manager that sets another value
             for n_jobs.
         backend: str, ParallelBackendBase instance or None, default: 'loky'
             Specify the parallelization backend implementation.
@@ -481,10 +481,10 @@ class Parallel(Logger):
             :class:`~Parallel` in a library. Instead it is recommended to set
             soft hints (prefer) or hard constraints (require) so as to make it
             possible for library users to change the backend from the outside
-            using the :class:`~parallel_backend` context manager.
+            using the :func:`~parallel_backend` context manager.
         prefer: str in {'processes', 'threads'} or None, default: None
             Soft hint to choose the default backend if no specific backend
-            was selected with the :class:`~parallel_backend` context manager.
+            was selected with the :func:`~parallel_backend` context manager.
             The default process-based backend is 'loky' and the default
             thread-based backend is 'threading'. Ignored if the ``backend``
             parameter is specified.
