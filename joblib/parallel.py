@@ -413,14 +413,14 @@ class BatchCompletionCallBack(object):
 
     def _dispatch_new(self):
 
-        self.parallel.n_completed_tasks += self.batch_size
         this_batch_duration = time.time() - self.dispatch_timestamp
 
         self.parallel._backend.batch_completed(self.batch_size,
                                                this_batch_duration)
-        self.parallel.print_progress()
 
         with self.parallel._lock:
+            self.parallel.n_completed_tasks += self.batch_size
+            self.parallel.print_progress()
             if self.parallel._original_iterator is not None:
                 self.parallel.dispatch_next()
 
@@ -545,9 +545,8 @@ class Parallel(Logger):
             If 1 is given, no parallel computing code is used at all, and the
             behavior amounts to a simple python `for` loop. This mode is not
             compatible with `timeout` or `verbose` features.
-            which is useful for debugging. For n_jobs below -1,
-            (n_cpus + 1 + n_jobs) are used. Thus for n_jobs = -2, all
-            CPUs but one are used.
+            For n_jobs below -1, (n_cpus + 1 + n_jobs) are used. Thus for
+            n_jobs = -2, all CPUs but one are used.
             None is a marker for 'unset' that will be interpreted as n_jobs=1
             unless the call is performed under a parallel_backend context manager
             that sets another value for n_jobs.
@@ -831,10 +830,8 @@ class Parallel(Logger):
 
     def __exit__(self, exc_type, exc_value, traceback):
         self._managed_backend = False
-        # TODO: this step should not be necessary, the generator should be
-        # allowed to keep living outside the context and only terminate when
-        # the input iterator is exhausted. However it seems that this can
-        # cause abortion to run in a separate thread.
+        # TODO: could the generator not be interrupted when exiting
+        # context manager ?
         if self.return_generator and self._calling:
             self._abort()
         self._terminate_and_reset()
@@ -957,15 +954,9 @@ class Parallel(Logger):
         batch_tracker = BatchCompletionCallBack(
             dispatch_timestamp, batch_size, self
         )
-        with self._lock:
-            job_idx = len(jobs)
-            job = self._backend.apply_async(batch, callback=batch_tracker)
-            batch_tracker.register_job(job)
-            # A job can complete so quickly than its callback is
-            # called before we get here, causing self._jobs to
-            # grow. To ensure correct results ordering, .insert is
-            # used (rather than .append) in the following line
-            jobs.insert(job_idx, batch_tracker)
+        jobs.append(batch_tracker)
+        job = self._backend.apply_async(batch, callback=batch_tracker)
+        batch_tracker.register_job(job)
 
     def dispatch_next(self):
         """Dispatch more data for parallel processing
@@ -1140,31 +1131,25 @@ class Parallel(Logger):
         self._aborted = True
 
     def _start(self, iterator, pre_dispatch):
-        try:
-            # Only set self._iterating to True if at least a batch
-            # was dispatched. In particular this covers the edge
-            # case of Parallel used with an exhausted iterator. If
-            # self._original_iterator is None, then this means either
-            # that pre_dispatch == "all", n_jobs == 1 or that the first batch
-            # was very quick and its callback already dispatched all the
-            # remaining jobs.
+        # Only set self._iterating to True if at least a batch
+        # was dispatched. In particular this covers the edge
+        # case of Parallel used with an exhausted iterator. If
+        # self._original_iterator is None, then this means either
+        # that pre_dispatch == "all", n_jobs == 1 or that the first batch
+        # was very quick and its callback already dispatched all the
+        # remaining jobs.
+        self._iterating = False
+        if self.dispatch_one_batch(iterator):
+            self._iterating = self._original_iterator is not None
+
+        while self.dispatch_one_batch(iterator):
+            pass
+
+        if pre_dispatch == "all":
+            # The iterable was consumed all at once by the above for loop.
+            # No need to wait for async callbacks to trigger to
+            # consumption.
             self._iterating = False
-            if self.dispatch_one_batch(iterator):
-                self._iterating = self._original_iterator is not None
-
-            while self.dispatch_one_batch(iterator):
-                pass
-
-            if pre_dispatch == "all":
-                # The iterable was consumed all at once by the above for loop.
-                # No need to wait for async callbacks to trigger to
-                # consumption.
-                self._iterating = False
-
-        except BaseException:
-            self._abort()
-            self._terminate_and_reset()
-            raise
 
     def _get_outputs(self, iterator, pre_dispatch):
         try:
