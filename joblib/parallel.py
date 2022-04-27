@@ -135,7 +135,7 @@ class parallel_backend(object):
     """Change the default backend used by Parallel inside a with block.
 
     If ``backend`` is a string it must match a previously registered
-    implementation using the ``register_parallel_backend`` function.
+    implementation using the :func:`~register_parallel_backend` function.
 
     By default the following backends are available:
 
@@ -172,7 +172,7 @@ class parallel_backend(object):
     caller passes an explicit value for the ``n_jobs`` parameter.
 
     This is an alternative to passing a ``backend='backend_name'`` argument to
-    the :class:`Parallel` class constructor. It is particularly useful when
+    the :class:`~Parallel` class constructor. It is particularly useful when
     calling into library code that uses joblib internally but does not expose
     the backend argument in its own API.
 
@@ -389,7 +389,7 @@ def register_parallel_backend(name, factory, make_default=False):
     """Register a new Parallel backend factory.
 
     The new backend can then be selected by passing its name as the backend
-    argument to the :class:`Parallel` class. Moreover, the default backend can
+    argument to the :class:`~Parallel` class. Moreover, the default backend can
     be overwritten globally by setting make_default=True.
 
     The factory can be any callable that takes no argument and return an
@@ -453,7 +453,7 @@ class Parallel(Logger):
             CPUs but one are used.
             None is a marker for 'unset' that will be interpreted as n_jobs=1
             (sequential execution) unless the call is performed under a
-            :class:`parallel_backend` context manager that sets another value
+            :class:`~parallel_backend` context manager that sets another value
             for n_jobs.
         backend: str, ParallelBackendBase instance or None, default: 'loky'
             Specify the parallelization backend implementation.
@@ -474,17 +474,17 @@ class Parallel(Logger):
               in a "with nogil" block or an expensive call to a library such
               as NumPy).
             - finally, you can register backends by calling
-              :func:`register_parallel_backend`. This will allow you to
+              :func:`~register_parallel_backend`. This will allow you to
               implement a backend of your liking.
 
             It is not recommended to hard-code the backend name in a call to
-            :class:`Parallel` in a library. Instead it is recommended to set
+            :class:`~Parallel` in a library. Instead it is recommended to set
             soft hints (prefer) or hard constraints (require) so as to make it
             possible for library users to change the backend from the outside
-            using the :class:`parallel_backend` context manager.
+            using the :class:`~parallel_backend` context manager.
         prefer: str in {'processes', 'threads'} or None, default: None
             Soft hint to choose the default backend if no specific backend
-            was selected with the :class:`parallel_backend` context manager.
+            was selected with the :class:`~parallel_backend` context manager.
             The default process-based backend is 'loky' and the default
             thread-based backend is 'threading'. Ignored if the ``backend``
             parameter is specified.
