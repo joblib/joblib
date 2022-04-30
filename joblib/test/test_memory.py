@@ -978,10 +978,13 @@ def test_memory_reduce_size(tmpdir):
 
 
 def test_memory_clear(tmpdir):
-    memory, _, _ = _setup_toy_cache(tmpdir)
+    memory, _, g = _setup_toy_cache(tmpdir)
     memory.clear()
 
     assert os.listdir(memory.store_backend.location) == []
+
+    # Check that the cache for functions hash is also reset.
+    assert not g._check_previous_func_code(stacklevel=4)
 
 
 def fast_func_with_complex_output():
