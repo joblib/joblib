@@ -987,6 +987,12 @@ class Memory(Logger):
         if self.store_backend is not None:
             self.store_backend.clear()
 
+            # As the cache in completely clear, make sure the _FUNCTION_HASHES
+            # cache is also reset. Else, for a function that is present in this
+            # table, results cached after this clear will be have cache miss
+            # as the function code is not re-written.
+            _FUNCTION_HASHES.clear()
+
     def reduce_size(self):
         """Remove cache elements to make cache size fit in ``bytes_limit``."""
         if self.bytes_limit is not None and self.store_backend is not None:
