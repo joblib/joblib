@@ -381,6 +381,7 @@ class BatchCompletionCallBack(object):
         self.dispatch_timestamp = dispatch_timestamp
         self.batch_size = batch_size
         self.parallel = parallel
+        self.parallel_call_id = parallel._call_id
 
         # Internals to keep track of the status and outcome of the task.
         self.job = None
@@ -392,27 +393,29 @@ class BatchCompletionCallBack(object):
         """Register the object returned by `apply_async`."""
         self.job = job
 
+    def _asynchronous_register_outcome(self, out):
+        try:
+            result = self.parallel._backend.fetch_result_callback(out)
+            outcome = dict(status=TASK_DONE, result=result)
+        except BaseException as e:
+            # Avoid keeping references to parallel in the error.
+            e.__traceback__ = None
+            outcome = dict(result=e, status=TASK_ERROR)
+
+        self.register_outcome(outcome)
+        return outcome['status'] != TASK_ERROR
+
     def __call__(self, out):
-        if self.parallel._aborting:
-            return
-
         if self.parallel._backend.supports_asynchronous_callback:
-            try:
-                result = self.parallel._backend.fetch_result_callback(out)
-                outcome = dict(status=TASK_DONE, result=result)
-            except BaseException as e:
-                # Avoid keeping references to parallel in the error.
-                e.__traceback__ = None
-                outcome = dict(result=e, status=TASK_ERROR)
-
-            self.register_outcome(outcome)
-            if outcome['status'] == TASK_ERROR:
-                return
+            with self.parallel._lock:
+                if (self.parallel._aborting or
+                        self.parallel._call_id != self.parallel_call_id or
+                        not self._asynchronous_register_outcome(out)):
+                    return
 
         self._dispatch_new()
 
     def _dispatch_new(self):
-
         this_batch_duration = time.time() - self.dispatch_timestamp
 
         self.parallel._backend.batch_completed(self.batch_size,
@@ -938,11 +941,11 @@ class Parallel(Logger):
         indirectly via dispatch_one_batch.
 
         """
-        jobs = self._jobs
-
         # If job.get() catches an exception, it closes the queue:
         if self._aborting:
             return
+
+        jobs = self._jobs
 
         batch_size = len(batch)
 
@@ -955,6 +958,7 @@ class Parallel(Logger):
             dispatch_timestamp, batch_size, self
         )
         jobs.append(batch_tracker)
+
         job = self._backend.apply_async(batch, callback=batch_tracker)
         batch_tracker.register_job(job)
 
@@ -1115,7 +1119,8 @@ class Parallel(Logger):
 
     def _abort(self):
         # Stop dispatching any new job in the async callback thread
-        self._aborting = True
+        with self._lock:
+            self._aborting = True
 
         # If the backend allows it, cancel or kill remaining running
         # tasks without waiting for the results as we will raise
@@ -1289,6 +1294,9 @@ class Parallel(Logger):
             output = self._get_sequential_output(iterable)
             next(output)
             return output if self.return_generator else list(output)
+        else:
+            with self._lock:
+                self._call_id = uuid4().hex
 
         # self._effective_n_jobs should be called in the Parallel.__call__
         # thread only -- store its value in an attribute for further queries.
