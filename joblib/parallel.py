@@ -19,6 +19,8 @@ from uuid import uuid4
 from numbers import Integral
 import warnings
 import queue
+import weakref
+import gc
 
 from multiprocessing import TimeoutError
 
@@ -824,6 +826,7 @@ class Parallel(Logger):
         self._running = False
         self._managed_backend = False
         self._id = uuid4().hex
+        self._call_ref = None
 
     def __enter__(self):
         self._managed_backend = True
@@ -1272,7 +1275,15 @@ class Parallel(Logger):
         finally:
             self._running = False
 
+    def _ensure_pypy_gc(self):
+        if self._call_ref is not None and self._call_ref() is not None:
+            gc.collect()
+            gc.collect()
+        self._call_ref = None
+
     def __call__(self, iterable):
+        self._ensure_pypy_gc()
+
         if self._running:
             msg = 'This Parallel instance is already running !'
             if self.return_generator is True:
@@ -1294,9 +1305,9 @@ class Parallel(Logger):
             output = self._get_sequential_output(iterable)
             next(output)
             return output if self.return_generator else list(output)
-        else:
-            with self._lock:
-                self._call_id = uuid4().hex
+
+        with self._lock:
+            self._call_id = uuid4().hex
 
         # self._effective_n_jobs should be called in the Parallel.__call__
         # thread only -- store its value in an attribute for further queries.
@@ -1368,6 +1379,7 @@ class Parallel(Logger):
         # defined locally (inside another function) and lambda expressions.
         self._pickle_cache = dict()
         output = self._get_outputs(iterator, pre_dispatch)
+        self._call_ref = weakref.ref(output)
         next(output)
         return output if self.return_generator else list(output)
 
