@@ -1226,6 +1226,9 @@ def test_deadlock_with_generator(backend, n_jobs):
         next(result)
         next(result)
         del result
+        # The gc in pypy can be delayed. Force it to make sure this test does
+        # not cause timeout on the CI.
+        force_gc_pypy()
 
 
 @parametrize('backend', BACKENDS)
@@ -1246,6 +1249,11 @@ def test_multiple_generator_call(backend, n_jobs):
         "The error should be raised immediatly when submitting a new task "
         "but it took more than 2s."
     )
+
+    del g
+    # The gc in pypy can be delayed. Force it to make sure this test does not
+    # cause timeout on the CI.
+    force_gc_pypy()
 
 
 @parametrize('backend', BACKENDS)
