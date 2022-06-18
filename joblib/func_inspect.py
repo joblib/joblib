@@ -151,9 +151,9 @@ def get_func_name(func, resolv_alias=True, win_characters=True):
                 # We want keep cache both
                 # - when kernel restarts
                 # - when arbitrary change is made in notebook cell code
-                # The latter is because cache needs to be invalidated when the code
-                # of function changes, rather than *any* code in the notebook cell 
-                # where the function is defined.
+                # The latter is because cache needs to be invalidated when the
+                # code of function changes, rather than *any* code in the
+                # notebook cell where the function is defined.
                 parts[-2] = 'ipykernel'
                 del parts[-1]
             filename = '-'.join(parts)
