@@ -118,6 +118,7 @@ from .numpy_pickle import dump
 from .numpy_pickle import load
 from .compressor import register_compressor
 from .parallel import Parallel
+from .parallel import IterableParallel
 from .parallel import delayed
 from .parallel import cpu_count
 from .parallel import register_parallel_backend
@@ -127,7 +128,7 @@ from ._cloudpickle_wrapper import wrap_non_picklable_objects
 
 
 __all__ = ['Memory', 'MemorizedResult', 'PrintTime', 'Logger', 'hash', 'dump',
-           'load', 'Parallel', 'delayed', 'cpu_count', 'effective_n_jobs',
+           'load', 'Parallel', 'IterableParallel', 'delayed', 'cpu_count', 'effective_n_jobs',
            'register_parallel_backend', 'parallel_backend',
            'register_store_backend', 'register_compressor',
            'wrap_non_picklable_objects']

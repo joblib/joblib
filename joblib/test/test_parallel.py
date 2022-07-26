@@ -60,7 +60,7 @@ from joblib._parallel_backends import ParallelBackendBase
 from joblib._parallel_backends import LokyBackend
 from joblib._parallel_backends import SafeFunction
 
-from joblib.parallel import Parallel, delayed
+from joblib.parallel import Parallel, delayed, IterableParallel
 from joblib.parallel import register_parallel_backend, parallel_backend
 from joblib.parallel import effective_n_jobs, cpu_count
 
@@ -169,6 +169,18 @@ def test_simple_parallel(backend, n_jobs, verbose):
             Parallel(n_jobs=n_jobs, backend=backend,
                      verbose=verbose)(
                 delayed(square)(x) for x in range(5)))
+
+
+@parametrize('backend', ALL_VALID_BACKENDS)
+@parametrize('n_jobs', [1, 2, -1, -2])
+@parametrize('verbose', [2, 11, 100])
+def test_simple_iterable_parallel(backend, n_jobs, verbose):
+    outputs = {
+        v for v in IterableParallel(n_jobs=n_jobs, backend=backend,
+                                    verbose=verbose)(
+            delayed(square)(x) for x in range(5))
+    }
+    assert ({square(x) for x in range(5)} == outputs)
 
 
 @parametrize('backend', ALL_VALID_BACKENDS)

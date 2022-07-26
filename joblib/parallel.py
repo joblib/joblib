@@ -956,6 +956,10 @@ class Parallel(Logger):
 
     def retrieve(self):
         self._output = list()
+        for output in self._generate():
+            self._output.append(output)
+
+    def _generate(self):
         while self._iterating or len(self._jobs) > 0:
             if len(self._jobs) == 0:
                 # Wait for an async callback to dispatch new jobs
@@ -969,9 +973,11 @@ class Parallel(Logger):
 
             try:
                 if getattr(self._backend, 'supports_timeout', False):
-                    self._output.extend(job.get(timeout=self.timeout))
+                    outputs = job.get(timeout=self.timeout)
                 else:
-                    self._output.extend(job.get())
+                    outputs = job.get()
+                for output in outputs:
+                    yield output
 
             except BaseException as exception:
                 # Note: we catch any BaseException instead of just Exception
@@ -1089,23 +1095,87 @@ class Parallel(Logger):
                 # consumption.
                 self._iterating = False
 
-            with self._backend.retrieval_context():
-                self.retrieve()
-            # Make sure that we get a last message telling us we are done
-            elapsed_time = time.time() - self._start_time
-            self._print('Done %3i out of %3i | elapsed: %s finished',
-                        (len(self._output), len(self._output),
-                         short_format_time(elapsed_time)))
+            self._retrieve_outputs()
         finally:
-            if hasattr(self._backend, 'stop_call'):
-                self._backend.stop_call()
-            if not self._managed_backend:
-                self._terminate_backend()
-            self._jobs = list()
-            self._pickle_cache = None
+            self._finalize()
         output = self._output
         self._output = None
         return output
 
+    def _retrieve_outputs(self):
+        with self._backend.retrieval_context():
+            self.retrieve()
+        # Make sure that we get a last message telling us we are done
+        elapsed_time = time.time() - self._start_time
+        self._print('Done %3i out of %3i | elapsed: %s finished',
+                    (len(self._output), len(self._output),
+                     short_format_time(elapsed_time)))
+
+    def _finalize(self):
+        if hasattr(self._backend, 'stop_call'):
+            self._backend.stop_call()
+        if not self._managed_backend:
+            self._terminate_backend()
+        self._jobs = list()
+        self._pickle_cache = None
+
     def __repr__(self):
         return '%s(n_jobs=%s)' % (self.__class__.__name__, self.n_jobs)
+
+
+class IterableParallel(Parallel):
+    """
+    An iterable parallel job executor.
+
+    Examples
+    --------
+    An example of iterating over outputs and write each one to a file, while keeping track of progress using ``tqdm``:
+
+    >>> import time
+    >>> from joblib import IterableParallel, delayed
+    >>> from tqdm.auto import tqdm #doctest: +SKIP
+    >>>
+    >>> def dummy_task(x):
+    ...     time.sleep((x % 3) * 2)
+    ...     return x
+    ...
+    >>> t = tqdm(total=5) #doctest: +SKIP
+    >>> all = list()
+    >>> for out in IterableParallel(-1)(delayed(dummy_task)(x) for x in range(5)): #doctest: +SKIP
+    ...     all.append(out)
+    ...     t.update(1) #doctest: +SKIP
+    ...
+    >>> t.close() #doctest: +SKIP
+    """
+
+    def __call__(self, iterable):
+        super().__call__(iterable)
+        return self
+
+    def __iter__(self):
+        """
+        Retrieve and generate/yield each output to the caller
+
+        Yields
+        ------
+        Any
+            individual output results.
+        """
+        try:
+            count = 0
+            with self._backend.retrieval_context():
+                for output in self._generate():
+                    count += 1
+                    yield output
+            # Make sure that we get a last message telling us we are done
+            elapsed_time = time.time() - self._start_time
+            self._print('Done %3i out of %3i | elapsed: %s finished',
+                        (count, count, short_format_time(elapsed_time)))
+        finally:
+            super()._finalize()
+
+    def _retrieve_outputs(self):
+        pass
+
+    def _finalize(self):
+        pass
