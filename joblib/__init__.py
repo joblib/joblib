@@ -128,7 +128,8 @@ from ._cloudpickle_wrapper import wrap_non_picklable_objects
 
 
 __all__ = ['Memory', 'MemorizedResult', 'PrintTime', 'Logger', 'hash', 'dump',
-           'load', 'Parallel', 'IterableParallel', 'delayed', 'cpu_count', 'effective_n_jobs',
+           'load', 'Parallel', 'IterableParallel', 'delayed',
+           'cpu_count', 'effective_n_jobs',
            'register_parallel_backend', 'parallel_backend',
            'register_store_backend', 'register_compressor',
            'wrap_non_picklable_objects']
