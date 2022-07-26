@@ -1131,7 +1131,7 @@ class IterableParallel(Parallel):
     --------
     An example of iterating over outputs and write each one to a file, while keeping track of progress using ``tqdm``:
 
-    >>> import time
+    >>> import time, tempfile
     >>> from joblib import IterableParallel, delayed
     >>> from tqdm.auto import tqdm #doctest: +SKIP
     >>>
@@ -1140,10 +1140,10 @@ class IterableParallel(Parallel):
     ...     return x
     ...
     >>> t = tqdm(total=5) #doctest: +SKIP
-    >>> all = list()
-    >>> for out in IterableParallel(-1)(delayed(dummy_task)(x) for x in range(5)): #doctest: +SKIP
-    ...     all.append(out)
-    ...     t.update(1) #doctest: +SKIP
+    >>> with open(tempfile.mktemp(), 'w') as f_out:
+    ...     for out in IterableParallel(-1)(delayed(dummy_task)(x) for x in range(5)): #doctest: +SKIP
+    ...         f_out.write(f'got result: {out}')
+    ...         t.update(1) #doctest: +SKIP
     ...
     >>> t.close() #doctest: +SKIP
     """
