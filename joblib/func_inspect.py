@@ -234,7 +234,7 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
     arg_varargs = None
     arg_varkw = None
     for param in arg_sig.parameters.values():
-        if param.kind is param.POSITIONAL_OR_KEYWORD:
+        if param.kind is param.POSITIONAL_OR_KEYWORD or param.kind is param.POSITIONAL_ONLY:
             arg_names.append(param.name)
         elif param.kind is param.KEYWORD_ONLY:
             arg_names.append(param.name)
