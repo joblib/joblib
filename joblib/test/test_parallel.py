@@ -204,7 +204,7 @@ def _assert_warning_nested(backend, inner_n_jobs, expected):
     messages = [w.message for w in records]
     if expected:
         # with threading, we might see more that one records
-        if warnings:
+        if messages:
             return 'backed parallel loops cannot' in messages[0].args[0]
         return False
     else:
