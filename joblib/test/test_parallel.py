@@ -17,6 +17,7 @@ from time import sleep
 from pickle import PicklingError
 from multiprocessing import TimeoutError
 import pickle
+import warnings
 import pytest
 
 from importlib import reload
@@ -196,23 +197,28 @@ def test_main_thread_renamed_no_warning(backend, monkeypatch):
 
 
 def _assert_warning_nested(backend, inner_n_jobs, expected):
-    with warns(None) as records:
+    with warnings.catch_warnings(record=True) as records:
+        warnings.simplefilter("always")
         parallel_func(backend=backend, inner_n_jobs=inner_n_jobs)
 
-    warnings = [w.message for w in records]
+    messages = [w.message for w in records]
     if expected:
         # with threading, we might see more that one records
-        if warnings:
-            return 'backed parallel loops cannot' in warnings[0].args[0]
+        if messages:
+            return 'backed parallel loops cannot' in messages[0].args[0]
         return False
     else:
-        assert not warnings
+        assert not messages
         return True
 
 
 @with_multiprocessing
 @parametrize('parent_backend,child_backend,expected', [
-    ('loky', 'multiprocessing', True), ('loky', 'loky', False),
+    ('loky', 'multiprocessing', True),
+    # XXX: loky nested under loky causes pytest 7+ to freeze after tests end
+    # when using warnings.catch_warnings:
+    # deadlock happens in loky/process_executor.py", line 193, in _python_exit
+    # ('loky', 'loky', False),
     ('multiprocessing', 'multiprocessing', True),
     ('multiprocessing', 'loky', True),
     ('threading', 'multiprocessing', True),
