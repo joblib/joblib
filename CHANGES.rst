@@ -32,6 +32,8 @@ Development version
   arbitrary code. Now only basic numerics are supported.
   https://github.com/joblib/joblib/pull/1321
 
+- Vendor cloudpickle 2.2.0 which adds support for PyPy 3.8+.
+
 Release 1.1.0
 --------------
 

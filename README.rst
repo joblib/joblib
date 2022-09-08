@@ -8,9 +8,9 @@
    :target: https://dev.azure.com/joblib/joblib/_build?definitionId=3&_a=summary&branchFilter=40
    :alt: Azure CI status
 
-.. |ReadTheDocs| image:: https://readthedocs.org/projects/pip/badge/?version=latest
-   :target: https://joblib.readthedocs.io/en/latest/
-   :alt: Doc status
+.. |ReadTheDocs| image:: https://readthedocs.org/projects/joblib/badge/?version=latest
+    :target: https://joblib.readthedocs.io/en/latest/?badge=latest
+    :alt: Documentation Status
 
 .. |Codecov| image:: https://codecov.io/gh/joblib/joblib/branch/master/graph/badge.svg
    :target: https://codecov.io/gh/joblib/joblib
