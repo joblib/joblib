@@ -39,7 +39,7 @@ from .cloudpickle import (
 )
 
 
-if pickle.HIGHEST_PROTOCOL >= 5 and not PYPY:
+if pickle.HIGHEST_PROTOCOL >= 5:
     # Shorthands similar to pickle.dump/pickle.dumps
 
     def dump(obj, file, protocol=None, buffer_callback=None):
@@ -566,7 +566,6 @@ class CloudPickler(Pickler):
     _dispatch_table[abc.abstractstaticmethod] = _classmethod_reduce
     _dispatch_table[abc.abstractproperty] = _property_reduce
 
-
     dispatch_table = ChainMap(_dispatch_table, copyreg.dispatch_table)
 
     # function reducers are defined as instance methods of CloudPickler
@@ -642,6 +641,32 @@ class CloudPickler(Pickler):
                 raise
 
     if pickle.HIGHEST_PROTOCOL >= 5:
+        def __init__(self, file, protocol=None, buffer_callback=None):
+            if protocol is None:
+                protocol = DEFAULT_PROTOCOL
+            Pickler.__init__(
+                self, file, protocol=protocol, buffer_callback=buffer_callback
+            )
+            # map functions __globals__ attribute ids, to ensure that functions
+            # sharing the same global namespace at pickling time also share
+            # their global namespace at unpickling time.
+            self.globals_ref = {}
+            self.proto = int(protocol)
+    else:
+        def __init__(self, file, protocol=None):
+            if protocol is None:
+                protocol = DEFAULT_PROTOCOL
+            Pickler.__init__(self, file, protocol=protocol)
+            # map functions __globals__ attribute ids, to ensure that functions
+            # sharing the same global namespace at pickling time also share
+            # their global namespace at unpickling time.
+            self.globals_ref = {}
+            assert hasattr(self, 'proto')
+
+    if pickle.HIGHEST_PROTOCOL >= 5 and not PYPY:
+        # Pickler is the C implementation of the CPython pickler and therefore
+        # we rely on reduce_override method to customize the pickler behavior.
+
         # `CloudPickler.dispatch` is only left for backward compatibility - note
         # that when using protocol 5, `CloudPickler.dispatch` is not an
         # extension of `Pickler.dispatch` dictionary, because CloudPickler
@@ -662,17 +687,6 @@ class CloudPickler(Pickler):
         # availability of both notions coincide on CPython's pickle and the
         # pickle5 backport, but it may not be the case anymore when pypy
         # implements protocol 5
-        def __init__(self, file, protocol=None, buffer_callback=None):
-            if protocol is None:
-                protocol = DEFAULT_PROTOCOL
-            Pickler.__init__(
-                self, file, protocol=protocol, buffer_callback=buffer_callback
-            )
-            # map functions __globals__ attribute ids, to ensure that functions
-            # sharing the same global namespace at pickling time also share
-            # their global namespace at unpickling time.
-            self.globals_ref = {}
-            self.proto = int(protocol)
 
         def reducer_override(self, obj):
             """Type-agnostic reducing callback for function and classes.
@@ -732,16 +746,6 @@ class CloudPickler(Pickler):
         # must override Pickler.save_global, because pickle.py contains a
         # hard-coded call to save_global when pickling meta-classes.
         dispatch = Pickler.dispatch.copy()
-
-        def __init__(self, file, protocol=None):
-            if protocol is None:
-                protocol = DEFAULT_PROTOCOL
-            Pickler.__init__(self, file, protocol=protocol)
-            # map functions __globals__ attribute ids, to ensure that functions
-            # sharing the same global namespace at pickling time also share
-            # their global namespace at unpickling time.
-            self.globals_ref = {}
-            assert hasattr(self, 'proto')
 
         def _save_reduce_pickle5(self, func, args, state=None, listitems=None,
                                  dictitems=None, state_setter=None, obj=None):
