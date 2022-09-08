@@ -495,9 +495,9 @@ class Parallel(Logger):
             parallel_backend.
         verbose: int, optional
             The verbosity level: if non zero, progress messages are
-            printed. Above 50, the output is sent to stdout.
+            printed. If above 50, the output is sent to stdout.
             The frequency of the messages increases with the verbosity level.
-            If it more than 10, all iterations are reported.
+            If above 10, all iterations are reported.
         timeout: float, optional
             Timeout limit for each task to complete.  If any task takes longer
             a TimeOutError will be raised. Only applied when n_jobs != 1
