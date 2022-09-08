@@ -28,6 +28,10 @@ Development version
   specific assembly.
   https://github.com/joblib/joblib/pull/1254
 
+- Fix a security issue where ``eval(pre_dispatch)`` could potentially run
+  arbitrary code. Now only basic numerics are supported.
+  https://github.com/joblib/joblib/pull/1321
+
 Release 1.1.0
 --------------
 
