@@ -540,7 +540,8 @@ class Parallel(Logger):
             Threshold on the size of arrays passed to the workers that
             triggers automated memory mapping in temp_folder. Can be an int
             in Bytes, or a human-readable string, e.g., '1M' for 1 megabyte.
-            Use None to disable memmapping of large arrays.
+            Use None to disable automatic memmapping of large arrays (small
+            arrays can ignore this argument).
             Only active when backend="loky" or "multiprocessing".
         mmap_mode: {None, 'r+', 'r', 'w+', 'c'}, default: 'r'
             Memmapping mode for numpy arrays passed to workers. None will
@@ -687,6 +688,9 @@ class Parallel(Logger):
         self._ready_batches = queue.Queue()
         self._id = uuid4().hex
         self._reducer_callback = None
+
+        if mmap_mode is None:
+            max_nbytes = None
 
         if isinstance(max_nbytes, str):
             max_nbytes = memstr_to_bytes(max_nbytes)
