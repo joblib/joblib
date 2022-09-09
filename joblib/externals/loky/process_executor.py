@@ -68,7 +68,7 @@ import warnings
 import itertools
 import traceback
 import threading
-from time import time
+from time import time, sleep
 import multiprocessing as mp
 from functools import partial
 from pickle import PicklingError
@@ -776,8 +776,12 @@ class _ExecutorManagerThread(threading.Thread):
         with self.processes_management_lock:
             n_children_to_stop = 0
             for p in list(self.processes.values()):
+                mp.util.debug(f"releasing worker exit lock on {p.pid}: {p.name}")
                 p._worker_exit_lock.release()
                 n_children_to_stop += 1
+
+        mp.util.debug(f"found {n_children_to_stop} processes to stop")
+
 
         # Send the right number of sentinels, to make sure all children are
         # properly terminated. Do it with a mechanism that avoid hanging on
@@ -790,7 +794,13 @@ class _ExecutorManagerThread(threading.Thread):
                     self.call_queue.put_nowait(None)
                     n_sentinels_sent += 1
                 except queue.Full:
+                    mp.util.warning(
+                        f"full call_queue prevented to send all sentinels at once, waiting..."
+                    )
+                    sleep(0.01)
                     break
+
+        mp.util.debug(f"sent {n_sentinels_sent} sentinels to the call queue")
 
     def join_executor_internals(self):
         self.shutdown_workers()
@@ -814,9 +824,12 @@ class _ExecutorManagerThread(threading.Thread):
 
         # If .join() is not called on the created processes then
         # some ctx.Queue methods may deadlock on Mac OS X.
-        mp.util.debug("joining processes")
-        for p in list(self.processes.values()):
+        active_processes = list(self.processes.values())
+        mp.util.debug(f"joining {len(active_processes)} processes")
+        for p in active_processes:
+            mp.util.debug(f"joining process {p.pid}: {p.name}")
             p.join()
+            mp.util.debug(f"joined process {p.pid}: {p.name}")
 
         mp.util.debug("executor management thread clean shutdown of worker "
                       f"processes: {list(self.processes)}")
