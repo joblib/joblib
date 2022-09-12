@@ -1,3 +1,5 @@
+# Adapted from https://stackoverflow.com/a/9558001/2536294
+
 import ast
 import operator as op
 
