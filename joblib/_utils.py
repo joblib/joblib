@@ -28,7 +28,9 @@ def eval_expr(expr):
     try:
         return eval_(ast.parse(expr, mode="eval").body)
     except (TypeError, SyntaxError, KeyError) as e:
-        raise ValueError(f"{expr!r} is not a valid arithmetic expression.") from e
+        raise ValueError(
+            f"{expr!r} is not a valid or supported arithmetic expression."
+        ) from e
 
 
 def eval_(node):
