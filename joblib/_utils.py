@@ -9,6 +9,8 @@ operators = {
     ast.Sub: op.sub,
     ast.Mult: op.mul,
     ast.Div: op.truediv,
+    ast.FloorDiv: op.floordiv,
+    ast.Mod: op.mod,
     ast.Pow: op.pow,
     ast.USub: op.neg,
 }
@@ -23,7 +25,10 @@ def eval_expr(expr):
     >>> eval_expr('1 + 2*3**(4) / (6 + -7)')
     -161.0
     """
-    return eval_(ast.parse(expr, mode="eval").body)
+    try:
+        return eval_(ast.parse(expr, mode="eval").body)
+    except (TypeError, SyntaxError, KeyError) as e:
+        raise ValueError(f"{expr!r} is not a valid arithmetic expression.") from e
 
 
 def eval_(node):
