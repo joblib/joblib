@@ -30,7 +30,7 @@ Development version
 
 - Fix a security issue where ``eval(pre_dispatch)`` could potentially run
   arbitrary code. Now only basic numerics are supported.
-  https://github.com/joblib/joblib/pull/1321
+  https://github.com/joblib/joblib/pull/1327
 
 - Vendor cloudpickle 2.2.0 which adds support for PyPy 3.8+.
 
