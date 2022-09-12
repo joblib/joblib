@@ -28,6 +28,7 @@ from ._parallel_backends import (FallbackToBackend, MultiprocessingBackend,
                                  LokyBackend)
 from .externals.cloudpickle import dumps, loads
 from .externals import loky
+from ._utils import eval_expr
 
 # Make sure that those two classes are part of the public joblib.parallel API
 # so that 3rd party backend implementers can import them from here.
@@ -1014,10 +1015,8 @@ class Parallel(Logger):
         else:
             self._original_iterator = iterator
             if hasattr(pre_dispatch, 'endswith'):
-                pre_dispatch = eval(
-                    pre_dispatch,
-                    {"n_jobs": n_jobs, "__builtins__": {}},  # globals
-                    {}  # locals
+                pre_dispatch = eval_expr(
+                    pre_dispatch.replace("n_jobs", str(n_jobs))
                 )
             self._pre_dispatch_amount = pre_dispatch = int(pre_dispatch)
 
