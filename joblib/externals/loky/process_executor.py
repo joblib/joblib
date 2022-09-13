@@ -360,8 +360,8 @@ def _process_worker(call_queue, result_queue, initializer, initargs,
             to by the worker.
         initializer: A callable initializer, or None
         initargs: A tuple of args for the initializer
-        process_management_lock: A ctx.Lock avoiding worker timeout while some
-            workers are being spawned.
+        processes_management_lock: A ctx.Lock avoiding worker timeout while
+            some workers are being spawned.
         timeout: maximum time to wait for a new item in the call_queue. If that
             time is expired, the worker will shutdown.
         worker_exit_lock: Lock to avoid flagging the executor as broken on
@@ -409,11 +409,20 @@ def _process_worker(call_queue, result_queue, initializer, initargs,
             mp.util.debug('Exiting with code 1')
             sys.exit(1)
         if call_item is None:
-            # Notify queue management thread about clean worker shutdown
+            # Notify queue management thread about worker shutdown
             result_queue.put(pid)
-            with worker_exit_lock:
+            is_clean = worker_exit_lock.acquire(True, timeout=30)
+
+            # Early notify any loky executor running in this worker process
+            # (nested parallelism) that this process is about to shutdown to
+            # avoid a deadlock waiting undifinitely for the worker to finish.
+            _python_exit()
+
+            if is_clean:
                 mp.util.debug('Exited cleanly')
-                return
+            else:
+                mp.util.info('Main process did not release worker_exit')
+            return
         try:
             r = call_item()
         except BaseException as e:
@@ -776,28 +785,32 @@ class _ExecutorManagerThread(threading.Thread):
         with self.processes_management_lock:
             n_children_to_stop = 0
             for p in list(self.processes.values()):
-                mp.util.debug(f"releasing worker exit lock on {p.pid}: {p.name}")
+                mp.util.debug(f"releasing worker exit lock on {p.name}")
                 p._worker_exit_lock.release()
                 n_children_to_stop += 1
 
         mp.util.debug(f"found {n_children_to_stop} processes to stop")
 
-
         # Send the right number of sentinels, to make sure all children are
         # properly terminated. Do it with a mechanism that avoid hanging on
         # Full queue when all workers have already been shutdown.
         n_sentinels_sent = 0
+        cooldown_time = 0.01
         while (n_sentinels_sent < n_children_to_stop
                 and self.get_n_children_alive() > 0):
             for _ in range(n_children_to_stop - n_sentinels_sent):
                 try:
                     self.call_queue.put_nowait(None)
                     n_sentinels_sent += 1
-                except queue.Full:
-                    mp.util.warning(
-                        f"full call_queue prevented to send all sentinels at once, waiting..."
+                except queue.Full as e:
+                    if cooldown_time > 10.0:
+                        raise e
+                    mp.util.info(
+                        "full call_queue prevented to send all sentinels at "
+                        "once, waiting..."
                     )
-                    sleep(0.01)
+                    sleep(cooldown_time)
+                    cooldown_time *= 2
                     break
 
         mp.util.debug(f"sent {n_sentinels_sent} sentinels to the call queue")
@@ -827,12 +840,11 @@ class _ExecutorManagerThread(threading.Thread):
         active_processes = list(self.processes.values())
         mp.util.debug(f"joining {len(active_processes)} processes")
         for p in active_processes:
-            mp.util.debug(f"joining process {p.pid}: {p.name}")
+            mp.util.debug(f"joining process {p.name}")
             p.join()
-            mp.util.debug(f"joined process {p.pid}: {p.name}")
 
         mp.util.debug("executor management thread clean shutdown of worker "
-                      f"processes: {list(self.processes)}")
+                      f"processes: {active_processes}")
 
     def get_n_children_alive(self):
         # This is an upper bound on the number of children alive.
