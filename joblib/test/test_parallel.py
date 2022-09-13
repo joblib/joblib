@@ -201,9 +201,6 @@ def _assert_warning_nested(backend, inner_n_jobs, expected):
         warnings.simplefilter("always")
         parallel_func(backend=backend, inner_n_jobs=inner_n_jobs)
 
-    import faulthandler
-    faulthandler.dump_traceback_later(5, exit=True)
-    print("_assert_warning_nested ok")
     messages = [w.message for w in records]
     if expected:
         # with threading, we might see more that one records
