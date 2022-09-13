@@ -217,15 +217,12 @@ def _assert_warning_nested(backend, inner_n_jobs, expected):
 
 @with_multiprocessing
 @parametrize('parent_backend,child_backend,expected', [
-    # ('loky', 'multiprocessing', True),
-    # XXX: loky nested under loky causes pytest 7+ to freeze after tests end
-    # when using warnings.catch_warnings:
-    # deadlock happens in loky/process_executor.py", line 193, in _python_exit
+    ('loky', 'multiprocessing', True),
     ('loky', 'loky', False),
-    # ('multiprocessing', 'multiprocessing', True),
-    # ('multiprocessing', 'loky', True),
-    # ('threading', 'multiprocessing', True),
-    # ('threading', 'loky', True),
+    ('multiprocessing', 'multiprocessing', True),
+    ('multiprocessing', 'loky', True),
+    ('threading', 'multiprocessing', True),
+    ('threading', 'loky', True),
 ])
 def test_nested_parallel_warnings(parent_backend, child_backend, expected):
 
