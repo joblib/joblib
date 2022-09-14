@@ -184,8 +184,9 @@ def _python_exit():
     global _global_shutdown
     _global_shutdown = True
     items = list(_threads_wakeups.items())
-    mp.util.debug("Interpreter shutting down. Waking up "
-                  f"executor_manager_thread {items}")
+    if len(items) > 0:
+        mp.util.debug("Interpreter shutting down. Waking up "
+                      f"executor_manager_thread {items}")
     for _, (shutdown_lock, thread_wakeup) in items:
         with shutdown_lock:
             thread_wakeup.wakeup()
