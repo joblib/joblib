@@ -796,7 +796,7 @@ class _ExecutorManagerThread(threading.Thread):
         # properly terminated. Do it with a mechanism that avoid hanging on
         # Full queue when all workers have already been shutdown.
         n_sentinels_sent = 0
-        cooldown_time = 0.01
+        cooldown_time = 0.001
         while (n_sentinels_sent < n_children_to_stop
                 and self.get_n_children_alive() > 0):
             for _ in range(n_children_to_stop - n_sentinels_sent):
