@@ -839,7 +839,7 @@ def test_child_raises_parent_exits_cleanly(backend):
                 # the temporary folder should be deleted by the end of this
                 # call but apparently on some file systems, this takes
                 # some time to be visible.
-                for i in range(10):
+                for i in range(100):
                     if not os.path.exists(temp_folder):
                         break
                     sleep(.1)
