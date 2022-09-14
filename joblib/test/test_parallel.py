@@ -215,10 +215,7 @@ def _assert_warning_nested(backend, inner_n_jobs, expected):
 @with_multiprocessing
 @parametrize('parent_backend,child_backend,expected', [
     ('loky', 'multiprocessing', True),
-    # XXX: loky nested under loky causes pytest 7+ to freeze after tests end
-    # when using warnings.catch_warnings:
-    # deadlock happens in loky/process_executor.py", line 193, in _python_exit
-    # ('loky', 'loky', False),
+    ('loky', 'loky', False),
     ('multiprocessing', 'multiprocessing', True),
     ('multiprocessing', 'loky', True),
     ('threading', 'multiprocessing', True),
@@ -1032,6 +1029,7 @@ def test_parallel_with_unpicklable_functions_in_args(
 
 INTERACTIVE_DEFINED_FUNCTION_AND_CLASS_SCRIPT_CONTENT = """\
 import sys
+import faulthandler
 # Make sure that joblib is importable in the subprocess launching this
 # script. This is needed in case we run the tests from the joblib root
 # folder without having installed joblib
@@ -1056,6 +1054,9 @@ square2 = partial(square, ignored2='something')
 # Here, we do not need the `if __name__ == "__main__":` safeguard when
 # using the default `loky` backend (even on Windows).
 
+# To make debugging easier
+faulthandler.dump_traceback_later(30, exit=True)
+
 # The following baroque function call is meant to check that joblib
 # introspection rightfully uses cloudpickle instead of the (faster) pickle
 # module of the standard library when necessary. In particular cloudpickle is
@@ -1078,9 +1079,11 @@ def test_parallel_with_interactively_defined_functions_default_backend(tmpdir):
     # filesystem script.
     script = tmpdir.join('joblib_interactively_defined_function.py')
     script.write(INTERACTIVE_DEFINED_FUNCTION_AND_CLASS_SCRIPT_CONTENT)
-    check_subprocess_call([sys.executable, script.strpath],
-                          stdout_regex=r'\[0, 1, 4, 9, 16\]',
-                          timeout=5)
+    check_subprocess_call(
+        [sys.executable, script.strpath],
+        stdout_regex=r'\[0, 1, 4, 9, 16\]',
+        timeout=None,  # rely on faulthandler to kill the process
+    )
 
 
 INTERACTIVELY_DEFINED_SUBCLASS_WITH_METHOD_SCRIPT_CONTENT = """\

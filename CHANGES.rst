@@ -30,9 +30,12 @@ Development version
 
 - Fix a security issue where ``eval(pre_dispatch)`` could potentially run
   arbitrary code. Now only basic numerics are supported.
-  https://github.com/joblib/joblib/pull/1321
+  https://github.com/joblib/joblib/pull/1327
 
 - Vendor cloudpickle 2.2.0 which adds support for PyPy 3.8+.
+
+- Vendor loky 3.2.0 which fixes a bug with leaking processes in case of
+  nested loky parallel calls.
 
 Release 1.1.0
 --------------
