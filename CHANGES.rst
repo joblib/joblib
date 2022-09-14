@@ -34,6 +34,9 @@ Development version
 
 - Vendor cloudpickle 2.2.0 which adds support for PyPy 3.8+.
 
+- Vendor loky 3.2.0 which fixes a bug with leaking processes in case of
+  nested loky parallel calls.
+
 Release 1.1.0
 --------------
 

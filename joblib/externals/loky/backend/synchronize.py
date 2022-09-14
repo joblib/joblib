@@ -95,8 +95,14 @@ class SemLock:
 
     @staticmethod
     def _cleanup(name):
-        sem_unlink(name)
-        resource_tracker.unregister(name, "semlock")
+        try:
+            sem_unlink(name)
+        except FileNotFoundError:
+            # Already unlinked, possibly by user code: ignore and make sure to
+            # unregister the semaphore from the resource tracker.
+            pass
+        finally:
+            resource_tracker.unregister(name, "semlock")
 
     def _make_methods(self):
         self.acquire = self._semlock.acquire
