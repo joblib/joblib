@@ -813,6 +813,7 @@ def test_child_raises_parent_exits_cleanly(backend):
     # - the resource_tracker does not emit any warnings.
     cmd = """if 1:
         import os
+        from pathlib import Path
         from time import sleep
 
         import numpy as np
@@ -824,9 +825,9 @@ def test_child_raises_parent_exits_cleanly(backend):
 
         def get_temp_folder(parallel_obj, backend):
             if "{b}" == "loky":
-                return p._backend._workers._temp_folder
+                return Path(p._backend._workers._temp_folder)
             else:
-                return p._backend._pool._temp_folder
+                return Path(p._backend._pool._temp_folder)
 
 
         if __name__ == "__main__":
@@ -839,13 +840,22 @@ def test_child_raises_parent_exits_cleanly(backend):
                 # the temporary folder should be deleted by the end of this
                 # call but apparently on some file systems, this takes
                 # some time to be visible.
+                #
+                # We attempt to write into the temporary folder to test for
+                # its existence and we wait for a maximum of 10 seconds.
                 for i in range(100):
-                    if not os.path.exists(temp_folder):
+                    try:
+                        with open(temp_folder / "some_file.txt", "w") as f:
+                            f.write("some content")
+                    except FileNotFoundError:
+                        # temp_folder has been deleted, all is fine
                         break
+
+                    # ... else, wait a bit and try again
                     sleep(.1)
                 else:
                     raise AssertionError(
-                        temp_folder + " was not deleted"
+                        str(temp_folder) + " was not deleted"
                     ) from e
     """.format(b=backend)
     env = os.environ.copy()
