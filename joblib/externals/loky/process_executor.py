@@ -678,9 +678,12 @@ class _ExecutorManagerThread(threading.Thread):
             with self.processes_management_lock:
                 p = self.processes.pop(result_item, None)
 
-            # p can be None is the executor is concurrently shutting down.
+            # p can be None if the executor is concurrently shutting down.
             if p is not None:
                 p._worker_exit_lock.release()
+                mp.util.debug(
+                    f"joining {p.name} when processing {p.pid} as result_item"
+                )
                 p.join()
                 del p
 
@@ -699,7 +702,8 @@ class _ExecutorManagerThread(threading.Thread):
                         "executor. This can be caused by a too short worker "
                         "timeout or by a memory leak.", UserWarning
                     )
-                    executor._adjust_process_count()
+                    with executor._processes_management_lock:
+                        executor._adjust_process_count()
                     executor = None
         else:
             # Received a _ResultItem so mark the future as completed.
@@ -837,15 +841,23 @@ class _ExecutorManagerThread(threading.Thread):
             self.thread_wakeup.close()
 
         # If .join() is not called on the created processes then
-        # some ctx.Queue methods may deadlock on Mac OS X.
-        active_processes = list(self.processes.values())
-        mp.util.debug(f"joining {len(active_processes)} processes")
-        for p in active_processes:
-            mp.util.debug(f"joining process {p.name}")
-            p.join()
+        # some ctx.Queue methods may deadlock on macOS.
+        with self.processes_management_lock:
+            mp.util.debug(f"joining {len(self.processes)} processes")
+            n_joined_processes = 0
+            while True:
+                try:
+                    pid, p = self.processes.popitem()
+                    mp.util.debug(f"joining process {p.name} with pid {pid}")
+                    p.join()
+                    n_joined_processes += 1
+                except KeyError:
+                    break
 
-        mp.util.debug("executor management thread clean shutdown of worker "
-                      f"processes: {active_processes}")
+            mp.util.debug(
+                "executor management thread clean shutdown of "
+                f"{n_joined_processes} workers"
+            )
 
     def get_n_children_alive(self):
         # This is an upper bound on the number of children alive.
@@ -1082,7 +1094,7 @@ class ProcessPoolExecutor(Executor):
                         _python_exit)
 
     def _adjust_process_count(self):
-        for _ in range(len(self._processes), self._max_workers):
+        while len(self._processes) < self._max_workers:
             worker_exit_lock = self._context.BoundedSemaphore(1)
             args = (self._call_queue, self._result_queue, self._initializer,
                     self._initargs, self._processes_management_lock,
@@ -1098,7 +1110,10 @@ class ProcessPoolExecutor(Executor):
             p._worker_exit_lock = worker_exit_lock
             p.start()
             self._processes[p.pid] = p
-        mp.util.debug(f'Adjust process count : {self._processes}')
+        mp.util.debug(
+            f"Adjusted process count to {self._max_workers}: "
+            f"{[(p.name, pid) for pid, p in self._processes.items()]}"
+        )
 
     def _ensure_executor_running(self):
         """ensures all workers and management thread are running
