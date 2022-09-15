@@ -29,4 +29,4 @@ __all__ = ["get_reusable_executor", "cpu_count", "wait", "as_completed",
            "wrap_non_picklable_objects", "set_loky_pickler"]
 
 
-__version__ = '3.3.0.dev0'
+__version__ = '3.3.0'
