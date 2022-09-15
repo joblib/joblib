@@ -762,7 +762,16 @@ def test_memmapping_pool_for_large_arrays(factory, tmpdir):
 
 @with_numpy
 @with_multiprocessing
-@parametrize("backend", ["multiprocessing", "loky"])
+@parametrize(
+    "backend",
+    [
+        pytest.param(
+            "multiprocessing",
+            marks=pytest.mark.xfail(reason='https://github.com/joblib/joblib/issues/1086'),
+        ),
+        "loky",
+    ]
+)
 def test_child_raises_parent_exits_cleanly(backend):
     # When a task executed by a child process raises an error, the parent
     # process's backend is notified, and calls abort_everything.
@@ -788,7 +797,6 @@ def test_child_raises_parent_exits_cleanly(backend):
         from testutils import print_filename_and_raise
 
         data = np.random.rand(1000)
-
 
         def get_temp_folder(parallel_obj, backend):
             if "{b}" == "loky":
