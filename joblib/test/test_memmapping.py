@@ -588,39 +588,6 @@ def test_multithreaded_parallel_termination_resource_tracker_silent():
 
 @with_numpy
 @with_multiprocessing
-def test_nested_loop_error_in_grandchild_resource_tracker_silent():
-    # Safety smoke test: test that nested parallel calls using the loky backend
-    # don't yield noisy resource_tracker outputs when the grandchild errors
-    # out.
-    cmd = '''if 1:
-        from joblib import Parallel, delayed
-
-
-        def raise_error(i):
-            raise ValueError
-
-
-        def nested_loop(f):
-            Parallel(backend="loky", n_jobs=2)(
-                delayed(f)(i) for i in range(10)
-            )
-
-
-        if __name__ == "__main__":
-            Parallel(backend="loky", n_jobs=2)(
-                delayed(nested_loop)(func) for func in [raise_error]
-            )
-    '''
-    p = subprocess.Popen([sys.executable, '-c', cmd],
-                         stderr=subprocess.PIPE, stdout=subprocess.PIPE)
-    p.wait()
-    out, err = p.communicate()
-    assert p.returncode == 1, out.decode()
-    assert b"resource_tracker" not in err, err.decode()
-
-
-@with_numpy
-@with_multiprocessing
 @parametrize("backend", ["multiprocessing", "loky"])
 def test_many_parallel_calls_on_same_object(backend):
     # After #966 got merged, consecutive Parallel objects were sharing temp
