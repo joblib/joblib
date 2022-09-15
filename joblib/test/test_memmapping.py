@@ -767,7 +767,9 @@ def test_memmapping_pool_for_large_arrays(factory, tmpdir):
     [
         pytest.param(
             "multiprocessing",
-            marks=pytest.mark.xfail(reason='https://github.com/joblib/joblib/issues/1086'),
+            marks=pytest.mark.xfail(
+                reason='https://github.com/joblib/joblib/issues/1086'
+            ),
         ),
         "loky",
     ]
