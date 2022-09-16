@@ -144,11 +144,18 @@ def get_func_name(func, resolv_alias=True, win_characters=True):
                 parts[-1] = '-'.join(splitted[:2] + splitted[3:])
             elif len(parts) > 2 and parts[-2].startswith('ipykernel_'):
                 # In a notebook session (ipykernel). Filename seems to be 'xyz'
-                # of above. parts[-2] has the structure ipykernel_XXXXXX where
-                # XXXXXX is a six-digit number identifying the current run (?).
-                # If we split it off, the function again has the same
-                # identifier across runs.
+                # of above. `parts` variable's value is structured like this:
+                # ['', 'tmp', 'ipykernel_25910', '649976777.py']
+                # The numbers in `part[-2]` change change when kernel restarts.
+                # `parts[-1]` changes when any code in notebook cell changes.
+                # We want keep cache both
+                # - when kernel restarts
+                # - when arbitrary change is made in notebook cell code
+                # The latter is because cache needs to be invalidated when the
+                # code of function changes, rather than *any* code in the
+                # notebook cell where the function is defined.
                 parts[-2] = 'ipykernel'
+                del parts[-1]
             filename = '-'.join(parts)
             if filename.endswith('.py'):
                 filename = filename[:-3]
