@@ -613,29 +613,25 @@ def test_many_parallel_calls_on_same_object(backend):
                         delayed(return_slice_of_data)(data, 0, 20)
                         for _ in range(10)
                     )
-                slice_of_data = Parallel(
-                    n_jobs=2, max_nbytes=1, backend='{b}')(
-                        delayed(return_slice_of_data)(data, 0, 20)
-                        for _ in range(10)
-                    )
     '''.format(b=backend)
-
-    for _ in range(3):
-        env = os.environ.copy()
-        env['PYTHONPATH'] = os.path.dirname(__file__)
-        p = subprocess.Popen([sys.executable, '-c', cmd],
-                             stderr=subprocess.PIPE,
-                             stdout=subprocess.PIPE, env=env)
-        p.wait()
-        out, err = p.communicate()
-        assert p.returncode == 0, err
-        assert out == b''
-        if sys.version_info[:3] not in [(3, 8, 0), (3, 8, 1)]:
-            # In early versions of Python 3.8, a reference leak
-            # https://github.com/cloudpipe/cloudpickle/issues/327, holds
-            # references to pickled objects, generating race condition during
-            # cleanup finalizers of joblib and noisy resource_tracker outputs.
-            assert b'resource_tracker' not in err
+    env = os.environ.copy()
+    env['PYTHONPATH'] = os.path.dirname(__file__)
+    p = subprocess.Popen(
+        [sys.executable, '-c', cmd],
+        stderr=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        env=env,
+    )
+    p.wait()
+    out, err = p.communicate()
+    assert p.returncode == 0, err
+    assert out == b''
+    if sys.version_info[:3] not in [(3, 8, 0), (3, 8, 1)]:
+        # In early versions of Python 3.8, a reference leak
+        # https://github.com/cloudpipe/cloudpickle/issues/327, holds
+        # references to pickled objects, generating race condition during
+        # cleanup finalizers of joblib and noisy resource_tracker outputs.
+        assert b'resource_tracker' not in err
 
 
 @with_numpy
