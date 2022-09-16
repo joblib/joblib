@@ -45,11 +45,11 @@ jobs:
         PYTHON_VERSION: "pypy3"
         LOKY_MAX_CPU_COUNT: "2"
 
-      # linux_py39_sklearn_tests:
-      #   imageName: 'ubuntu-latest'
-      #   PYTHON_VERSION: "3.9"
-      #   # SKIP_TESTS: "true"
-      #   SKLEARN_TESTS: "true"
+      linux_py39_sklearn_tests:
+        imageName: 'ubuntu-latest'
+        PYTHON_VERSION: "3.9"
+        # SKIP_TESTS: "true"
+        SKLEARN_TESTS: "true"
       linux_py310_distributed:
         # To be updated regularly to use the most recent versions of the
         # dependencies.
@@ -84,19 +84,6 @@ jobs:
         imageName: "macos-latest"
         PYTHON_VERSION: "3.10"
         EXTRA_CONDA_PACKAGES: "numpy=1.23"
-      macos_py310_2:
-        imageName: "macos-latest"
-        PYTHON_VERSION: "3.10"
-        EXTRA_CONDA_PACKAGES: "numpy=1.23"
-      macos_py310_3:
-        imageName: "macos-latest"
-        PYTHON_VERSION: "3.10"
-        EXTRA_CONDA_PACKAGES: "numpy=1.23"
-      macos_py310_4:
-        imageName: "macos-latest"
-        PYTHON_VERSION: "3.10"
-        EXTRA_CONDA_PACKAGES: "numpy=1.23"
-
       macos_py37_no_numpy:
         imageName: "macos-latest"
         PYTHON_VERSION: "3.7"
