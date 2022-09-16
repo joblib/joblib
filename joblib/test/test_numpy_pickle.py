@@ -300,7 +300,7 @@ def test_cache_size_warning(tmpdir, cache_size):
     a = rnd.random_sample((10, 2))
 
     warnings.simplefilter("always")
-    with warns(None) as warninfo:
+    with warnings.catch_warnings(record=True) as warninfo:
         numpy_pickle.dump(a, filename, cache_size=cache_size)
     expected_nb_warnings = 1 if cache_size is not None else 0
     assert len(warninfo) == expected_nb_warnings
@@ -385,7 +385,7 @@ def _check_pickle(filename, expected_list, mmap_mode=None):
         py_version_used_for_writing, 4)
     if pickle_reading_protocol >= pickle_writing_protocol:
         try:
-            with warns(None) as warninfo:
+            with warnings.catch_warnings(record=True) as warninfo:
                 warnings.simplefilter('always')
                 warnings.filterwarnings(
                     'ignore', module='numpy',
