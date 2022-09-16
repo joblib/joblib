@@ -1,8 +1,12 @@
 Latest changes
 ==============
 
-Development version
--------------------
+Release 1.2.0
+-------------
+
+- Fix a security issue where ``eval(pre_dispatch)`` could potentially run
+  arbitrary code. Now only basic numerics are supported.
+  https://github.com/joblib/joblib/pull/1327
 
 - Make sure that joblib works even when multiprocessing is not available,
   for instance with Pyodide
@@ -27,10 +31,6 @@ Development version
   with older GCC versions or some old OpenBLAS written in platform
   specific assembly.
   https://github.com/joblib/joblib/pull/1254
-
-- Fix a security issue where ``eval(pre_dispatch)`` could potentially run
-  arbitrary code. Now only basic numerics are supported.
-  https://github.com/joblib/joblib/pull/1327
 
 - Vendor cloudpickle 2.2.0 which adds support for PyPy 3.8+.
 
