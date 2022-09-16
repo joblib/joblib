@@ -19,11 +19,7 @@ Release 1.2.0
 
 - Avoid unnecessary warnings when workers and main process delete
   the temporary memmap folder contents concurrently.
-  https://github.com/joblib/joblib/pull/1263
-
-- Vendor loky 3.1.0 with several fixes to more robustly forcibly terminate
-  worker processes in case of a crash.
-  https://github.com/joblib/joblib/pull/1269
+  https://github.com/joblib/joblib/pull/1263 
 
 - Fix memory alignment bug for pickles containing numpy arrays.
   This is especially important when loading the pickle with
@@ -39,9 +35,15 @@ Release 1.2.0
 
 - Vendor cloudpickle 2.2.0 which adds support for PyPy 3.8+.
 
-- Vendor loky 3.3.0 which fixes a bug with leaking processes in case of
-  nested loky parallel calls and more reliability spawn the correct
-  number of reusable workers.
+- Vendor loky 3.3.0 which fixes several bugs including:
+
+  - robustly forcibly terminating worker processes in case of a crash
+    (https://github.com/joblib/joblib/pull/1269);
+
+  - avoiding leaking worker processes in case of nested loky parallel
+    calls;
+
+  - reliability spawn the correct number of reusable workers.
 
 Release 1.1.0
 --------------
