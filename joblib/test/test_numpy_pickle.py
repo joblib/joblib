@@ -152,21 +152,19 @@ def test_numpy_persistence(tmpdir, compress):
         # And finally, check that all the values are equal.
         np.testing.assert_array_equal(np.array(obj), np.array(obj_))
 
-    # Now test with array subclasses
-    for obj in (np.matrix(np.zeros(10)),
-                np.memmap(filename + 'mmap',
-                          mode='w+', shape=4, dtype=np.float64)):
-        filenames = numpy_pickle.dump(obj, filename, compress=compress)
-        # All is cached in one file
-        assert len(filenames) == 1
+    # Now test with an array subclass
+    obj = np.memmap(filename + 'mmap', mode='w+', shape=4, dtype=np.float64)
+    filenames = numpy_pickle.dump(obj, filename, compress=compress)
+    # All is cached in one file
+    assert len(filenames) == 1
 
-        obj_ = numpy_pickle.load(filename)
-        if (type(obj) is not np.memmap and
-                hasattr(obj, '__array_prepare__')):
-            # We don't reconstruct memmaps
-            assert isinstance(obj_, type(obj))
+    obj_ = numpy_pickle.load(filename)
+    if (type(obj) is not np.memmap and
+            hasattr(obj, '__array_prepare__')):
+        # We don't reconstruct memmaps
+        assert isinstance(obj_, type(obj))
 
-        np.testing.assert_array_equal(obj_, obj)
+    np.testing.assert_array_equal(obj_, obj)
 
     # Test with an object containing multiple numpy arrays
     obj = ComplexTestObject()
@@ -320,10 +318,8 @@ def test_memory_usage(tmpdir, compress):
     filename = tmpdir.join('test.pkl').strpath
     small_array = np.ones((10, 10))
     big_array = np.ones(shape=100 * int(1e6), dtype=np.uint8)
-    small_matrix = np.matrix(small_array)
-    big_matrix = np.matrix(big_array)
 
-    for obj in (small_array, big_array, small_matrix, big_matrix):
+    for obj in (small_array, big_array):
         size = obj.nbytes / 1e6
         obj_filename = filename + str(np.random.randint(0, 1000))
         mem_used = memory_used(numpy_pickle.dump,
@@ -349,11 +345,6 @@ def test_compressed_pickle_dump_and_load(tmpdir):
                      np.arange(5, dtype=np.dtype('>f8')),
                      np.array([1, 'abc', {'a': 1, 'b': 2}], dtype='O'),
                      np.arange(256, dtype=np.uint8).tobytes(),
-                     # np.matrix is a subclass of np.ndarray, here we want
-                     # to verify this type of object is correctly unpickled
-                     # among versions.
-                     np.matrix([0, 1, 2], dtype=np.dtype('<i8')),
-                     np.matrix([0, 1, 2], dtype=np.dtype('>i8')),
                      u"C'est l'\xe9t\xe9 !"]
 
     fname = tmpdir.join('temp.pkl.gz').strpath
@@ -686,9 +677,7 @@ def test_compression_using_file_extension(tmpdir, extension, cmethod):
 
 @with_numpy
 def test_file_handle_persistence(tmpdir):
-    objs = [np.random.random((10, 10)),
-            "some data",
-            np.matrix([0, 1, 2])]
+    objs = [np.random.random((10, 10)), "some data"]
     fobjs = [bz2.BZ2File, gzip.GzipFile]
     if lzma is not None:
         fobjs += [lzma.LZMAFile]
@@ -719,9 +708,7 @@ def test_file_handle_persistence(tmpdir):
 
 @with_numpy
 def test_in_memory_persistence():
-    objs = [np.random.random((10, 10)),
-            "some data",
-            np.matrix([0, 1, 2])]
+    objs = [np.random.random((10, 10)), "some data"]
     for obj in objs:
         f = io.BytesIO()
         numpy_pickle.dump(obj, f)
