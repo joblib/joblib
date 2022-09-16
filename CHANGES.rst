@@ -1,6 +1,11 @@
 Latest changes
 ==============
 
+In development
+--------------
+
+- TODO
+
 Release 1.2.0
 -------------
 
