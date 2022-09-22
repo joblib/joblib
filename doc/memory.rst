@@ -437,6 +437,7 @@ without actually needing to call the function itself::
     <class 'joblib.memory.MemorizedFunc'>
     >>> func(1)
     Running func(1)
+    1
     >>> func.check_call_in_cache(1)  # cache hit
     True
     >>> func.check_call_in_cache(2)  # cache miss
