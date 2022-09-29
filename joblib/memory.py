@@ -769,8 +769,22 @@ class MemorizedFunc(Logger):
         self._write_func_code(func_code, first_line)
 
     def call(self, *args, **kwargs):
-        """ Force the execution of the function with the given arguments and
-            persist the output values.
+        """
+        Force the execution of the function with the given arguments.
+
+        Parameters
+        ----------
+        *args: arguments
+            The arguments.
+        **kwargs: keyword arguments
+            Keyword arguments.
+
+        Returns
+        -------
+        output : object
+            The output of the function call.
+        metadata : dict
+            The metadata associated with the call.
         """
         start_time = time.time()
         func_id, args_id = self._get_output_identifiers(*args, **kwargs)
