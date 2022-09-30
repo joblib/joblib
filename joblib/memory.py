@@ -769,8 +769,7 @@ class MemorizedFunc(Logger):
         self._write_func_code(func_code, first_line)
 
     def call(self, *args, **kwargs):
-        """
-        Force the execution of the function with the given arguments.
+        """Force the execution of the function with the given arguments.
 
         The output values will be persisted, i.e., the cache will be updated
         with any new values.
