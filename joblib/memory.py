@@ -772,6 +772,9 @@ class MemorizedFunc(Logger):
         """
         Force the execution of the function with the given arguments.
 
+        The output values will be persisted, i.e., the cache will be updated
+        with any new values.
+
         Parameters
         ----------
         *args: arguments
