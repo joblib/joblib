@@ -4,6 +4,12 @@ Latest changes
 Development version
 -------------------
 
+Release 1.1.1
+
+- Fix a security issue where ``eval(pre_dispatch)`` could potentially run
+  arbitrary code. Now only basic numerics are supported.
+  https://github.com/joblib/joblib/pull/1327
+
 Release 1.1.0
 --------------
 
