@@ -56,7 +56,7 @@ DEFAULT_BACKEND = os.environ.get("JOBLIB_DEFAULT_PARALLEL_BACKEND", None)
 
 # Setting the default backend if not set already by
 # JOBLIB_DEFAULT_PARALLEL_BACKEND environment variable
-if DEFAULT_BACKEND == None:
+if DEFAULT_BACKEND is None:
     # threading is the only backend that is always everywhere
     DEFAULT_BACKEND = 'threading'
 
