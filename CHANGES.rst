@@ -9,7 +9,7 @@ In development
 
 - Add abitilty to change default Parallel backend by setting the
   JOBLIB_DEFAULT_PARALLEL_BACKEND environment variable.
-  https://github.com/joblib/joblib/pull/TODO
+  https://github.com/joblib/joblib/pull/1356
 
 Release 1.2.0
 -------------
