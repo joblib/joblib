@@ -10,6 +10,7 @@ import os
 import sys
 import time
 import mmap
+import weakref
 import threading
 from math import sqrt
 from time import sleep
