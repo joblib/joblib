@@ -808,7 +808,7 @@ def test_child_raises_parent_exits_cleanly(backend):
                 with Parallel(n_jobs=2, backend="{b}", max_nbytes=100) as p:
                     temp_folder = get_temp_folder(p, "{b}")
                     p(delayed(print_filename_and_raise)(data)
-                      for i in range(1))
+                              for i in range(1))
             except ValueError as e:
                 # the temporary folder should be deleted by the end of this
                 # call but apparently on some file systems, this takes
