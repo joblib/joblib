@@ -1,5 +1,6 @@
 from __future__ import print_function, division, absolute_import
 import os
+import warnings
 
 import pytest
 from random import random
@@ -11,6 +12,7 @@ from ..parallel import ThreadingBackend, AutoBatchingMixin
 from .._dask import DaskDistributedBackend
 
 distributed = pytest.importorskip('distributed')
+dask = pytest.importorskip('dask')
 from distributed import Client, LocalCluster, get_client
 from distributed.metrics import time
 from distributed.utils_test import cluster, inc
@@ -474,7 +476,7 @@ def test_joblib_warning_inside_dask_daemonic_worker(backend):
         # pytest.warns(UserWarning)) make the test hang. Work-around: return
         # the warning record to the client and the warning check is done
         # client-side.
-        with pytest.warns(None) as record:
+        with warnings.catch_warnings(record=True) as record:
             Parallel(n_jobs=2, backend=backend)(
                 delayed(inc)(i) for i in range(10))
 

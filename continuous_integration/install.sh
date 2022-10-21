@@ -12,9 +12,7 @@ set -e
 
 create_new_conda_env() {
     conda update --yes conda
-    # TODO: unpin pytest once it no longer causes test errors because of
-    # PytestRemovedIn8Warning warnings
-    TO_INSTALL="python=$PYTHON_VERSION pip pytest<7.0 $EXTRA_CONDA_PACKAGES"
+    TO_INSTALL="python=$PYTHON_VERSION pip pytest $EXTRA_CONDA_PACKAGES"
     conda create -n testenv --yes -c conda-forge $TO_INSTALL
     source activate testenv
 }
@@ -25,9 +23,7 @@ create_new_pypy3_env() {
     tar xvf $PYPY_FOLDER.tar.bz2
     $PYPY_FOLDER/bin/pypy3 -m venv pypy3
     source pypy3/bin/activate
-    # TODO: unpin pytest once it no longer causes test errors because of
-    # PytestRemovedIn8Warning warnings
-    pip install -U pip 'pytest<7.0'
+    pip install -U pip 'pytest'
 }
 
 if [[ "$PYTHON_VERSION" == "pypy3" ]]; then
@@ -51,10 +47,7 @@ if [ -n "$NUMPY_VERSION" ]; then
 fi
 
 if [[ "$COVERAGE" == "true" ]]; then
-    # TODO: unpin when https://github.com/nedbat/coveragepy/issues/883 is fixed
-    # Weird issues with recent version of coverage: unpin when not causing
-    # pytest to raise INTERNALERROR exceptions.
-    PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES coverage==4.5.4 pytest-cov codecov"
+    PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES coverage pytest-cov codecov"
 fi
 
 if [[ "pypy3" != *"$PYTHON_VERSION"* ]]; then

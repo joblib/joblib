@@ -55,7 +55,7 @@ jobs:
         # dependencies.
         imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.10"
-        EXTRA_CONDA_PACKAGES: "numpy=1.22 distributed=2022.2.0"
+        EXTRA_CONDA_PACKAGES: "numpy=1.23 distributed=2022.2.0"
       linux_py37_distributed:
         imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.7"
@@ -63,7 +63,7 @@ jobs:
       linux_py310_cython:
         imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.10"
-        EXTRA_CONDA_PACKAGES: "numpy=1.22"
+        EXTRA_CONDA_PACKAGES: "numpy=1.23"
         CYTHON: "true"
       linux_py37_no_multiprocessing_no_lzma:
         imageName: 'ubuntu-latest'
@@ -78,12 +78,12 @@ jobs:
       windows_py310:
         imageName: "windows-latest"
         PYTHON_VERSION: "3.10"
-        EXTRA_CONDA_PACKAGES: "numpy=1.22"
+        EXTRA_CONDA_PACKAGES: "numpy=1.23"
 
       macos_py310:
         imageName: "macos-latest"
         PYTHON_VERSION: "3.10"
-        EXTRA_CONDA_PACKAGES: "numpy=1.22"
+        EXTRA_CONDA_PACKAGES: "numpy=1.23"
       macos_py37_no_numpy:
         imageName: "macos-latest"
         PYTHON_VERSION: "3.7"

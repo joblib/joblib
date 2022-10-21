@@ -31,6 +31,8 @@ from .disk import memstr_to_bytes
 from ._parallel_backends import (FallbackToBackend, MultiprocessingBackend,
                                  ThreadingBackend, SequentialBackend,
                                  LokyBackend)
+from .externals.cloudpickle import dumps, loads
+from ._utils import eval_expr
 
 # Make sure that those two classes are part of the public joblib.parallel API
 # so that 3rd party backend implementers can import them from here.
@@ -604,7 +606,9 @@ class Parallel(Logger):
         pre_dispatch: {'all', integer, or expression, as in '3*n_jobs'}
             The number of batches (of tasks) to be pre-dispatched.
             Default is '2*n_jobs'. When batch_size="auto" this is reasonable
-            default and the workers should never starve.
+            default and the workers should never starve. Note that only basic
+            arithmetics are allowed here and no modules can be used in this
+            expression.
         batch_size: int or 'auto', default: 'auto'
             The number of atomic tasks to dispatch at once to each
             worker. When individual evaluations are very fast, dispatching
@@ -1359,7 +1363,9 @@ class Parallel(Logger):
         else:
             self._original_iterator = iterator
             if hasattr(pre_dispatch, 'endswith'):
-                pre_dispatch = eval(pre_dispatch)
+                pre_dispatch = eval_expr(
+                    pre_dispatch.replace("n_jobs", str(n_jobs))
+                )
             self._pre_dispatch_amount = pre_dispatch = int(pre_dispatch)
 
             # The main thread will consume the first pre_dispatch items and

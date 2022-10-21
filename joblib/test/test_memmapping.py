@@ -588,39 +588,6 @@ def test_multithreaded_parallel_termination_resource_tracker_silent():
 
 @with_numpy
 @with_multiprocessing
-def test_nested_loop_error_in_grandchild_resource_tracker_silent():
-    # Safety smoke test: test that nested parallel calls using the loky backend
-    # don't yield noisy resource_tracker outputs when the grandchild errors
-    # out.
-    cmd = '''if 1:
-        from joblib import Parallel, delayed
-
-
-        def raise_error(i):
-            raise ValueError
-
-
-        def nested_loop(f):
-            Parallel(backend="loky", n_jobs=2)(
-                delayed(f)(i) for i in range(10)
-            )
-
-
-        if __name__ == "__main__":
-            Parallel(backend="loky", n_jobs=2)(
-                delayed(nested_loop)(func) for func in [raise_error]
-            )
-    '''
-    p = subprocess.Popen([sys.executable, '-c', cmd],
-                         stderr=subprocess.PIPE, stdout=subprocess.PIPE)
-    p.wait()
-    out, err = p.communicate()
-    assert p.returncode == 1, out.decode()
-    assert b"resource_tracker" not in err, err.decode()
-
-
-@with_numpy
-@with_multiprocessing
 @parametrize("backend", ["multiprocessing", "loky"])
 def test_many_parallel_calls_on_same_object(backend):
     # After #966 got merged, consecutive Parallel objects were sharing temp
@@ -646,29 +613,25 @@ def test_many_parallel_calls_on_same_object(backend):
                         delayed(return_slice_of_data)(data, 0, 20)
                         for _ in range(10)
                     )
-                slice_of_data = Parallel(
-                    n_jobs=2, max_nbytes=1, backend='{b}')(
-                        delayed(return_slice_of_data)(data, 0, 20)
-                        for _ in range(10)
-                    )
     '''.format(b=backend)
-
-    for _ in range(3):
-        env = os.environ.copy()
-        env['PYTHONPATH'] = os.path.dirname(__file__)
-        p = subprocess.Popen([sys.executable, '-c', cmd],
-                             stderr=subprocess.PIPE,
-                             stdout=subprocess.PIPE, env=env)
-        p.wait()
-        out, err = p.communicate()
-        assert p.returncode == 0, err
-        assert out == b''
-        if sys.version_info[:3] not in [(3, 8, 0), (3, 8, 1)]:
-            # In early versions of Python 3.8, a reference leak
-            # https://github.com/cloudpipe/cloudpickle/issues/327, holds
-            # references to pickled objects, generating race condition during
-            # cleanup finalizers of joblib and noisy resource_tracker outputs.
-            assert b'resource_tracker' not in err
+    env = os.environ.copy()
+    env['PYTHONPATH'] = os.path.dirname(__file__)
+    p = subprocess.Popen(
+        [sys.executable, '-c', cmd],
+        stderr=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        env=env,
+    )
+    p.wait()
+    out, err = p.communicate()
+    assert p.returncode == 0, err
+    assert out == b''
+    if sys.version_info[:3] not in [(3, 8, 0), (3, 8, 1)]:
+        # In early versions of Python 3.8, a reference leak
+        # https://github.com/cloudpipe/cloudpickle/issues/327, holds
+        # references to pickled objects, generating race condition during
+        # cleanup finalizers of joblib and noisy resource_tracker outputs.
+        assert b'resource_tracker' not in err
 
 
 @with_numpy
@@ -795,7 +758,18 @@ def test_memmapping_pool_for_large_arrays(factory, tmpdir):
 
 @with_numpy
 @with_multiprocessing
-@parametrize("backend", ["multiprocessing", "loky"])
+@parametrize(
+    "backend",
+    [
+        pytest.param(
+            "multiprocessing",
+            marks=pytest.mark.xfail(
+                reason='https://github.com/joblib/joblib/issues/1086'
+            ),
+        ),
+        "loky",
+    ]
+)
 def test_child_raises_parent_exits_cleanly(backend):
     # When a task executed by a child process raises an error, the parent
     # process's backend is notified, and calls abort_everything.
@@ -813,6 +787,7 @@ def test_child_raises_parent_exits_cleanly(backend):
     # - the resource_tracker does not emit any warnings.
     cmd = """if 1:
         import os
+        from pathlib import Path
         from time import sleep
 
         import numpy as np
@@ -821,12 +796,11 @@ def test_child_raises_parent_exits_cleanly(backend):
 
         data = np.random.rand(1000)
 
-
         def get_temp_folder(parallel_obj, backend):
             if "{b}" == "loky":
-                return parallel_obj._backend._workers._temp_folder
+                return Path(parallel_obj._backend._workers._temp_folder)
             else:
-                return parallel_obj._backend._pool._temp_folder
+                return Path(parallel_obj._backend._pool._temp_folder)
 
 
         if __name__ == "__main__":
@@ -839,13 +813,22 @@ def test_child_raises_parent_exits_cleanly(backend):
                 # the temporary folder should be deleted by the end of this
                 # call but apparently on some file systems, this takes
                 # some time to be visible.
-                for i in range(10):
-                    if not os.path.exists(temp_folder):
+                #
+                # We attempt to write into the temporary folder to test for
+                # its existence and we wait for a maximum of 10 seconds.
+                for i in range(100):
+                    try:
+                        with open(temp_folder / "some_file.txt", "w") as f:
+                            f.write("some content")
+                    except FileNotFoundError:
+                        # temp_folder has been deleted, all is fine
                         break
+
+                    # ... else, wait a bit and try again
                     sleep(.1)
                 else:
                     raise AssertionError(
-                        temp_folder + " was not deleted"
+                        str(temp_folder) + " was not deleted"
                     ) from e
     """.format(b=backend)
     env = os.environ.copy()

@@ -10,8 +10,6 @@ import os
 import sys
 import time
 import mmap
-import pickle
-import weakref
 import threading
 from math import sqrt
 from time import sleep
@@ -20,9 +18,9 @@ from pickle import PicklingError
 from contextlib import nullcontext
 from traceback import format_exception
 from multiprocessing import TimeoutError
-
+import pickle
+import warnings
 import pytest
-
 import joblib
 from joblib import parallel
 from joblib import dump, load
@@ -180,7 +178,7 @@ def test_main_thread_renamed_no_warning(backend, monkeypatch):
     monkeypatch.setattr(target=threading.current_thread(), name='name',
                         value='some_new_name_for_the_main_thread')
 
-    with warns(None) as warninfo:
+    with warnings.catch_warnings(record=True) as warninfo:
         results = Parallel(n_jobs=2, backend=backend)(
             delayed(square)(x) for x in range(3))
         assert results == [0, 1, 4]
@@ -196,23 +194,28 @@ def test_main_thread_renamed_no_warning(backend, monkeypatch):
 
 
 def _assert_warning_nested(backend, inner_n_jobs, expected):
-    with warns(None) as records:
+    with warnings.catch_warnings(record=True) as warninfo:
+        warnings.simplefilter("always")
         parallel_func(backend=backend, inner_n_jobs=inner_n_jobs)
 
-    warnings = [w.message for w in records]
+    warninfo = [w.message for w in warninfo]
     if expected:
-        # with threading, we might see more that one records
-        if warnings:
-            return 'backed parallel loops cannot' in warnings[0].args[0]
+        # with threading, we might see more that one warninfo
+        if warninfo:
+            return (
+                len(warninfo) == 1 and
+                'backed parallel loops cannot' in warninfo[0].args[0]
+            )
         return False
     else:
-        assert not warnings
+        assert not warninfo
         return True
 
 
 @with_multiprocessing
 @parametrize('parent_backend,child_backend,expected', [
-    ('loky', 'multiprocessing', True), ('loky', 'loky', False),
+    ('loky', 'multiprocessing', True),
+    ('loky', 'loky', False),
     ('multiprocessing', 'multiprocessing', True),
     ('multiprocessing', 'loky', True),
     ('threading', 'multiprocessing', True),
@@ -248,11 +251,11 @@ def test_background_thread_parallelism(backend):
     is_run_parallel = [False]
 
     def background_thread(is_run_parallel):
-        with warns(None) as records:
+        with warnings.catch_warnings(record=True) as warninfo:
             Parallel(n_jobs=2)(
                 delayed(sleep)(.1) for _ in range(4))
-        print(len(records))
-        is_run_parallel[0] = len(records) == 0
+        print(len(warninfo))
+        is_run_parallel[0] = len(warninfo) == 0
 
     t = threading.Thread(target=background_thread, args=(is_run_parallel,))
     t.start()
@@ -1020,6 +1023,7 @@ def test_parallel_with_unpicklable_functions_in_args(
 
 INTERACTIVE_DEFINED_FUNCTION_AND_CLASS_SCRIPT_CONTENT = """\
 import sys
+import faulthandler
 # Make sure that joblib is importable in the subprocess launching this
 # script. This is needed in case we run the tests from the joblib root
 # folder without having installed joblib
@@ -1044,6 +1048,9 @@ square2 = partial(square, ignored2='something')
 # Here, we do not need the `if __name__ == "__main__":` safeguard when
 # using the default `loky` backend (even on Windows).
 
+# To make debugging easier
+faulthandler.dump_traceback_later(30, exit=True)
+
 # The following baroque function call is meant to check that joblib
 # introspection rightfully uses cloudpickle instead of the (faster) pickle
 # module of the standard library when necessary. In particular cloudpickle is
@@ -1066,9 +1073,11 @@ def test_parallel_with_interactively_defined_functions_default_backend(tmpdir):
     # filesystem script.
     script = tmpdir.join('joblib_interactively_defined_function.py')
     script.write(INTERACTIVE_DEFINED_FUNCTION_AND_CLASS_SCRIPT_CONTENT)
-    check_subprocess_call([sys.executable, script.strpath],
-                          stdout_regex=r'\[0, 1, 4, 9, 16\]',
-                          timeout=5)
+    check_subprocess_call(
+        [sys.executable, script.strpath],
+        stdout_regex=r'\[0, 1, 4, 9, 16\]',
+        timeout=None,  # rely on faulthandler to kill the process
+    )
 
 
 INTERACTIVELY_DEFINED_SUBCLASS_WITH_METHOD_SCRIPT_CONTENT = """\
@@ -1165,7 +1174,7 @@ def test_memmap_with_big_offset(tmpdir):
 
 
 def test_warning_about_timeout_not_supported_by_backend():
-    with warns(None) as warninfo:
+    with warnings.catch_warnings(record=True) as warninfo:
         Parallel(n_jobs=1, timeout=1)(delayed(square)(i) for i in range(50))
     assert len(warninfo) == 1
     w = warninfo[0]

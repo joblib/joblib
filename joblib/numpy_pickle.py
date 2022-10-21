@@ -229,7 +229,7 @@ class NumpyArrayWrapper(object):
             )
             warnings.warn(message)
 
-        return marray
+        return _ensure_native_byte_order(marray)
 
     def read(self, unpickler):
         """Read the array corresponding to this wrapper.

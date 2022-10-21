@@ -68,7 +68,7 @@ import warnings
 import itertools
 import traceback
 import threading
-from time import time
+from time import time, sleep
 import multiprocessing as mp
 from functools import partial
 from pickle import PicklingError
@@ -184,8 +184,9 @@ def _python_exit():
     global _global_shutdown
     _global_shutdown = True
     items = list(_threads_wakeups.items())
-    mp.util.debug("Interpreter shutting down. Waking up "
-                  f"executor_manager_thread {items}")
+    if len(items) > 0:
+        mp.util.debug("Interpreter shutting down. Waking up "
+                      f"executor_manager_thread {items}")
     for _, (shutdown_lock, thread_wakeup) in items:
         with shutdown_lock:
             thread_wakeup.wakeup()
@@ -360,8 +361,8 @@ def _process_worker(call_queue, result_queue, initializer, initargs,
             to by the worker.
         initializer: A callable initializer, or None
         initargs: A tuple of args for the initializer
-        process_management_lock: A ctx.Lock avoiding worker timeout while some
-            workers are being spawned.
+        processes_management_lock: A ctx.Lock avoiding worker timeout while
+            some workers are being spawned.
         timeout: maximum time to wait for a new item in the call_queue. If that
             time is expired, the worker will shutdown.
         worker_exit_lock: Lock to avoid flagging the executor as broken on
@@ -409,11 +410,20 @@ def _process_worker(call_queue, result_queue, initializer, initargs,
             mp.util.debug('Exiting with code 1')
             sys.exit(1)
         if call_item is None:
-            # Notify queue management thread about clean worker shutdown
+            # Notify queue management thread about worker shutdown
             result_queue.put(pid)
-            with worker_exit_lock:
+            is_clean = worker_exit_lock.acquire(True, timeout=30)
+
+            # Early notify any loky executor running in this worker process
+            # (nested parallelism) that this process is about to shutdown to
+            # avoid a deadlock waiting undifinitely for the worker to finish.
+            _python_exit()
+
+            if is_clean:
                 mp.util.debug('Exited cleanly')
-                return
+            else:
+                mp.util.info('Main process did not release worker_exit')
+            return
         try:
             r = call_item()
         except BaseException as e:
@@ -668,9 +678,12 @@ class _ExecutorManagerThread(threading.Thread):
             with self.processes_management_lock:
                 p = self.processes.pop(result_item, None)
 
-            # p can be None is the executor is concurrently shutting down.
+            # p can be None if the executor is concurrently shutting down.
             if p is not None:
                 p._worker_exit_lock.release()
+                mp.util.debug(
+                    f"joining {p.name} when processing {p.pid} as result_item"
+                )
                 p.join()
                 del p
 
@@ -689,7 +702,8 @@ class _ExecutorManagerThread(threading.Thread):
                         "executor. This can be caused by a too short worker "
                         "timeout or by a memory leak.", UserWarning
                     )
-                    executor._adjust_process_count()
+                    with executor._processes_management_lock:
+                        executor._adjust_process_count()
                     executor = None
         else:
             # Received a _ResultItem so mark the future as completed.
@@ -776,21 +790,35 @@ class _ExecutorManagerThread(threading.Thread):
         with self.processes_management_lock:
             n_children_to_stop = 0
             for p in list(self.processes.values()):
+                mp.util.debug(f"releasing worker exit lock on {p.name}")
                 p._worker_exit_lock.release()
                 n_children_to_stop += 1
+
+        mp.util.debug(f"found {n_children_to_stop} processes to stop")
 
         # Send the right number of sentinels, to make sure all children are
         # properly terminated. Do it with a mechanism that avoid hanging on
         # Full queue when all workers have already been shutdown.
         n_sentinels_sent = 0
+        cooldown_time = 0.001
         while (n_sentinels_sent < n_children_to_stop
                 and self.get_n_children_alive() > 0):
             for _ in range(n_children_to_stop - n_sentinels_sent):
                 try:
                     self.call_queue.put_nowait(None)
                     n_sentinels_sent += 1
-                except queue.Full:
+                except queue.Full as e:
+                    if cooldown_time > 10.0:
+                        raise e
+                    mp.util.info(
+                        "full call_queue prevented to send all sentinels at "
+                        "once, waiting..."
+                    )
+                    sleep(cooldown_time)
+                    cooldown_time *= 2
                     break
+
+        mp.util.debug(f"sent {n_sentinels_sent} sentinels to the call queue")
 
     def join_executor_internals(self):
         self.shutdown_workers()
@@ -813,13 +841,23 @@ class _ExecutorManagerThread(threading.Thread):
             self.thread_wakeup.close()
 
         # If .join() is not called on the created processes then
-        # some ctx.Queue methods may deadlock on Mac OS X.
-        mp.util.debug("joining processes")
-        for p in list(self.processes.values()):
-            p.join()
+        # some ctx.Queue methods may deadlock on macOS.
+        with self.processes_management_lock:
+            mp.util.debug(f"joining {len(self.processes)} processes")
+            n_joined_processes = 0
+            while True:
+                try:
+                    pid, p = self.processes.popitem()
+                    mp.util.debug(f"joining process {p.name} with pid {pid}")
+                    p.join()
+                    n_joined_processes += 1
+                except KeyError:
+                    break
 
-        mp.util.debug("executor management thread clean shutdown of worker "
-                      f"processes: {list(self.processes)}")
+            mp.util.debug(
+                "executor management thread clean shutdown of "
+                f"{n_joined_processes} workers"
+            )
 
     def get_n_children_alive(self):
         # This is an upper bound on the number of children alive.
@@ -1056,7 +1094,7 @@ class ProcessPoolExecutor(Executor):
                         _python_exit)
 
     def _adjust_process_count(self):
-        for _ in range(len(self._processes), self._max_workers):
+        while len(self._processes) < self._max_workers:
             worker_exit_lock = self._context.BoundedSemaphore(1)
             args = (self._call_queue, self._result_queue, self._initializer,
                     self._initargs, self._processes_management_lock,
@@ -1072,7 +1110,10 @@ class ProcessPoolExecutor(Executor):
             p._worker_exit_lock = worker_exit_lock
             p.start()
             self._processes[p.pid] = p
-        mp.util.debug(f'Adjust process count : {self._processes}')
+        mp.util.debug(
+            f"Adjusted process count to {self._max_workers}: "
+            f"{[(p.name, pid) for pid, p in self._processes.items()]}"
+        )
 
     def _ensure_executor_running(self):
         """ensures all workers and management thread are running
