@@ -4,7 +4,8 @@ Latest changes
 In development
 --------------
 
-- TODO
+- Ensure native byte order for memmap arrays in `joblib.load`.
+  https://github.com/joblib/joblib/issues/1353
 
 Release 1.2.0
 -------------
