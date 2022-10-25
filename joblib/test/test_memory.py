@@ -700,6 +700,9 @@ def test_memorized_pickling(tmpdir):
         assert result2.get() == result.get()
         os.remove(filename)
 
+def test_func_attrs(tmpdir):
+    assert NotMemorizedFunc(f).__name__ == 'f'
+    assert MemorizedFunc(f, tmpdir.strpath).__name__ == 'f'
 
 def test_memorized_repr(tmpdir):
     func = MemorizedFunc(f, tmpdir.strpath)

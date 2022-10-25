@@ -344,6 +344,10 @@ class NotMemorizedFunc(object):
     # Should be a light as possible (for speed)
     def __init__(self, func):
         self.func = func
+        try:
+            functools.update_wrapper(self, func)
+        except:
+            "Objects like ufunc don't like that"
 
     def __call__(self, *args, **kwargs):
         return self.func(*args, **kwargs)
