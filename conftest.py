@@ -55,7 +55,7 @@ def pytest_configure(config):
 
     DEFAULT_BACKEND = os.environ.get("JOBLIB_DEFAULT_PARALLEL_BACKEND", None)
     if DEFAULT_BACKEND is not None:
-        print(f"Setting joblib parallel default backend to {DEFAULT_BACKEND}"
+        print(f"Setting joblib parallel default backend to {DEFAULT_BACKEND} "
               "from JOBLIB_DEFAULT_PARALLEL_BACKEND environment variable")
         from joblib import parallel
         parallel.DEFAULT_BACKEND = DEFAULT_BACKEND
