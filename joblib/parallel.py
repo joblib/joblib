@@ -42,28 +42,21 @@ BACKENDS = {
 # name of the backend used by default by Parallel outside of any context
 # managed by ``parallel_backend``.
 
+# threading is the only backend that is always everywhere
+DEFAULT_BACKEND = 'threading'
+
 DEFAULT_N_JOBS = 1
 
 MAYBE_AVAILABLE_BACKENDS = {'multiprocessing', 'loky'}
 
-# if multiprocessing is available, so is loky
+# if multiprocessing is available, so is loky, we set it as the default
+# backend
 if mp is not None:
     BACKENDS['multiprocessing'] = MultiprocessingBackend
     from .externals import loky
     BACKENDS['loky'] = LokyBackend
+    DEFAULT_BACKEND = 'loky'
 
-DEFAULT_BACKEND = os.environ.get("JOBLIB_DEFAULT_PARALLEL_BACKEND", None)
-
-# Setting the default backend if not set already by
-# JOBLIB_DEFAULT_PARALLEL_BACKEND environment variable
-if DEFAULT_BACKEND is None:
-    # threading is the only backend that is always everywhere
-    DEFAULT_BACKEND = 'threading'
-
-    # if multiprocessing is available, so is loky, so we set loky it as the
-    # default backend
-    if mp is not None:
-        DEFAULT_BACKEND = 'loky'
 
 DEFAULT_THREAD_BACKEND = 'threading'
 
