@@ -1,5 +1,6 @@
 """Storage providers backends for Memory caching."""
 
+from pickle import PicklingError
 import re
 import os
 import os.path
@@ -189,6 +190,8 @@ class StoreBackendMixin(object):
                                       compress=self.compress)
 
             self._concurrency_safe_write(item, filename, write_func)
+        except PicklingError:
+            raise
         except:  # noqa: E722
             " Race condition in the creation of the directory "
 
