@@ -190,16 +190,20 @@ class StoreBackendMixin(object):
                         numpy_pickle.dump(to_write, f, compress=self.compress)
                     except PicklingError as e:
                         warnings.warn(
-                            'Unable to cache to disk: failed to pickle output. '
-                            'In future versions of joblib this will raise an exception.'
+                            'Unable to cache to disk: '
+                            'failed to pickle output. '
+                            'In future versions of joblib '
+                            'this will raise an exception.'
                             'Exception: %s.' % e,
                             FutureWarning
                         )
 
             self._concurrency_safe_write(item, filename, write_func)
         except Exception as e:  # noqa: E722
-            warnings.warn('Unable to cache to disk. Possibly race condition in the creation of the directory. '
-                          'Exception: %s' % e)
+            warnings.warn(
+                'Unable to cache to disk. '
+                'Possibly a race condition in the creation of the directory. '
+                'Exception: %s' % e)
 
     def clear_item(self, path):
         """Clear the item at the path, given as a list of strings."""

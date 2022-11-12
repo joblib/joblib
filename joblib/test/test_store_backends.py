@@ -15,7 +15,8 @@ from joblib.testing import parametrize, timeout
 from joblib.test.common import with_multiprocessing
 from joblib.backports import concurrency_safe_rename
 from joblib import Parallel, delayed, numpy_pickle
-from joblib._store_backends import concurrency_safe_write, FileSystemStoreBackend
+from joblib._store_backends import concurrency_safe_write, \
+    FileSystemStoreBackend
 
 
 def write_func(output, filename):
