@@ -1,3 +1,7 @@
+import warnings
+from pickle import PicklingError
+from unittest.mock import MagicMock
+
 try:
     # Python 2.7: use the C pickle to speed up
     # test_concurrency_safe_write which pickles big python objects
@@ -10,8 +14,8 @@ import time
 from joblib.testing import parametrize, timeout
 from joblib.test.common import with_multiprocessing
 from joblib.backports import concurrency_safe_rename
-from joblib import Parallel, delayed
-from joblib._store_backends import concurrency_safe_write
+from joblib import Parallel, delayed, numpy_pickle
+from joblib._store_backends import concurrency_safe_write, FileSystemStoreBackend
 
 
 def write_func(output, filename):
@@ -54,3 +58,21 @@ def test_concurrency_safe_write(tmpdir, backend):
              if i % 3 != 2 else load_func for i in range(12)]
     Parallel(n_jobs=2, backend=backend)(
         delayed(func)(obj, filename) for func in funcs)
+
+
+@with_multiprocessing
+def test_warning_on_pickling_error(tmpdir, monkeypatch):
+    backend = FileSystemStoreBackend()
+    backend.location = tmpdir.join('test_warning_on_pickling_error').strpath
+    backend.compress = None
+
+    def monkeypatched_pickle_dump(*args, **kwargs):
+        raise PicklingError
+
+    warnings_mock = MagicMock()
+    monkeypatch.setattr(numpy_pickle, "dump", monkeypatched_pickle_dump)
+    monkeypatch.setattr(warnings, "warn", warnings_mock)
+
+    backend.dump_item("testpath", "testitem")
+
+    warnings_mock.assert_called_once()
