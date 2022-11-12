@@ -81,7 +81,8 @@ def test_warning_on_dump_failure(tmpdir, monkeypatch):
 
 @with_multiprocessing
 def test_warning_on_pickling_error(tmpdir, monkeypatch):
-    # This is separate from test_warning_on_dump_failure because in the future we will turn this into an exception.
+    # This is separate from test_warning_on_dump_failure because in the
+    # future we will turn this into an exception.
     backend = FileSystemStoreBackend()
     backend.location = tmpdir.join('test_warning_on_pickling_error').strpath
     backend.compress = None
