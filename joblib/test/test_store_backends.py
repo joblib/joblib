@@ -62,13 +62,32 @@ def test_concurrency_safe_write(tmpdir, backend):
 
 
 @with_multiprocessing
-def test_warning_on_pickling_error(tmpdir, monkeypatch):
+def test_warning_on_dump_failure(tmpdir, monkeypatch):
     backend = FileSystemStoreBackend()
     backend.location = tmpdir.join('test_warning_on_pickling_error').strpath
     backend.compress = None
 
     def monkeypatched_pickle_dump(*args, **kwargs):
-        raise PicklingError
+        raise Exception()
+
+    warnings_mock = MagicMock()
+    monkeypatch.setattr(numpy_pickle, "dump", monkeypatched_pickle_dump)
+    monkeypatch.setattr(warnings, "warn", warnings_mock)
+
+    backend.dump_item("testpath", "testitem")
+
+    warnings_mock.assert_called_once()
+
+
+@with_multiprocessing
+def test_warning_on_pickling_error(tmpdir, monkeypatch):
+    # This is separate from test_warning_on_dump_failure because in the future we will turn this into an exception.
+    backend = FileSystemStoreBackend()
+    backend.location = tmpdir.join('test_warning_on_pickling_error').strpath
+    backend.compress = None
+
+    def monkeypatched_pickle_dump(*args, **kwargs):
+        raise PicklingError()
 
     warnings_mock = MagicMock()
     monkeypatch.setattr(numpy_pickle, "dump", monkeypatched_pickle_dump)
