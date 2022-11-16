@@ -7,6 +7,13 @@ In development
 - Ensure native byte order for memmap arrays in `joblib.load`.
   https://github.com/joblib/joblib/issues/1353
 
+- Drop runtime dependency on ``distutils``. ``distutils`` is going away
+  in Python 3.12 and is deprecated from Python 3.10 onwards. This import
+  was kept around to avoid breaking scikit-learn, however it's now been
+  long enough since scikit-learn deployed a fixed (verion 1.1 was released
+  in May 2022) that it should be safe to remove this.
+  https://github.com/joblib/joblib/pull/1361
+
 Release 1.2.0
 -------------
 
