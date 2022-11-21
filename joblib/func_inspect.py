@@ -119,7 +119,8 @@ def get_func_name(func, resolv_alias=True, win_characters=True):
     if module is None:
         # Happens in doctests, eg
         module = ''
-    if module == '__main__':
+    module = module.split('.')
+    if module == ['__main__']:
         try:
             filename = os.path.abspath(inspect.getsourcefile(func))
         except:
@@ -152,8 +153,7 @@ def get_func_name(func, resolv_alias=True, win_characters=True):
             filename = '-'.join(parts)
             if filename.endswith('.py'):
                 filename = filename[:-3]
-            module = module + '-' + filename
-    module = module.split('.')
+            module[0] = module[0] + '-' + filename
     if hasattr(func, 'func_name'):
         name = func.func_name
     elif hasattr(func, '__name__'):
