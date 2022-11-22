@@ -53,10 +53,14 @@ def pytest_configure(config):
         log.handlers[0].setFormatter(logging.Formatter(
             '[%(levelname)s:%(processName)s:%(threadName)s] %(message)s'))
 
-    DEFAULT_BACKEND = os.environ.get("JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND", None)
+    DEFAULT_BACKEND = os.environ.get(
+        "JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND", None
+    )
     if DEFAULT_BACKEND is not None:
-        print(f"Setting joblib parallel default backend to {DEFAULT_BACKEND} "
-              "from JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND environment variable")
+        print(
+            f"Setting joblib parallel default backend to {DEFAULT_BACKEND} "
+            "from JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND environment variable"
+        )
         from joblib import parallel
         parallel.DEFAULT_BACKEND = DEFAULT_BACKEND
 
