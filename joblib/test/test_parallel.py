@@ -1225,7 +1225,7 @@ def get_large_object(arg):
 
 
 @with_numpy
-@parametrize('backend', BACKENDS)
+@parametrize('backend', ALL_VALID_BACKENDS)
 @parametrize('n_jobs', [1, 2, -2, -1])
 def test_deadlock_with_generator(backend, n_jobs):
     # Non-regression test for a race condition in the backends when the pickler
