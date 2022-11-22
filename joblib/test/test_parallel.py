@@ -1272,19 +1272,19 @@ def test_multiple_generator_call_managed(backend, n_jobs):
     # Non-regression test that ensures the dispatch of the tasks starts
     # immediately when Parallel.__call__ is called. This test relies on the
     # assumption that only one generator can be submitted at a time.
-    with raises(RuntimeError,
-                match="This Parallel instance is already running"):
-        with Parallel(n_jobs, backend=backend,
-                      return_generator=True) as parallel:
-            g = parallel(delayed(sleep)(10) for _ in range(10))  # noqa: F841
-            t_start = time.time()
+    with Parallel(n_jobs, backend=backend,
+                  return_generator=True) as parallel:
+        g = parallel(delayed(sleep)(10) for _ in range(10))  # noqa: F841
+        t_start = time.time()
+        with raises(RuntimeError,
+                    match="This Parallel instance is already running"):
             g2 = parallel(delayed(id)(i) for i in range(100))  # noqa: F841
 
-    # Make sure that the error is raised quickly
-    assert time.time() - t_start < 5, (
-        "The error should be raised immediatly when submitting a new task "
-        "but it took more than 5s."
-    )
+        # Make sure that the error is raised quickly
+        assert time.time() - t_start < 2, (
+            "The error should be raised immediatly when submitting a new task "
+            "but it took more than 2s."
+        )
 
     # The gc in pypy can be delayed. Force it to make sure this test does not
     # cause timeout on the CI.
