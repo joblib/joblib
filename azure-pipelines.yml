@@ -74,6 +74,10 @@ jobs:
       linux_py37_no_numpy:
         imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.7"
+      linux_py37_default_backend_threading:
+        imageName: 'ubuntu-latest'
+        PYTHON_VERSION: "3.7"
+        JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND: "threading"
 
       windows_py310:
         imageName: "windows-latest"
