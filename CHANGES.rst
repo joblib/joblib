@@ -8,7 +8,7 @@ In development
   https://github.com/joblib/joblib/issues/1353
 
 - Add ability to change default Parallel backend in tests by setting the
-  JOBLIB_DEFAULT_PARALLEL_BACKEND environment variable.
+  JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND environment variable.
   https://github.com/joblib/joblib/pull/1356
 
 Release 1.2.0
