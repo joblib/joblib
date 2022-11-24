@@ -1065,7 +1065,9 @@ def test_pool_get_temp_dir_no_statvfs(tmpdir, monkeypatch):
     """
     pool_folder_name = 'test.tmpdir'
     import joblib._memmapping_reducer
-    monkeypatch.delattr(joblib._memmapping_reducer.os, 'statvfs')
+    if hasattr(joblib._memmapping_reducer.os, 'statvfs'):
+        # We are on Unix, since Windows doesn't have this function
+        monkeypatch.delattr(joblib._memmapping_reducer.os, 'statvfs')
 
     pool_folder, shared_mem = _get_temp_dir(pool_folder_name, temp_folder=None)
     if sys.platform.startswith('win'):
