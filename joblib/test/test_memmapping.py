@@ -1057,6 +1057,7 @@ def test_pool_get_temp_dir(tmpdir):
         assert shared_mem is False
     assert pool_folder.endswith(pool_folder_name)
 
+
 def test_pool_get_temp_dir_no_statvfs(tmpdir, monkeypatch):
     """Check that _get_temp_dir works when os.statvfs is not defined
 
@@ -1070,7 +1071,6 @@ def test_pool_get_temp_dir_no_statvfs(tmpdir, monkeypatch):
     if sys.platform.startswith('win'):
         assert shared_mem is False
     assert pool_folder.endswith(pool_folder_name)
-
 
 
 @with_numpy
