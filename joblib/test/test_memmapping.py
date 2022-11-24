@@ -1057,6 +1057,21 @@ def test_pool_get_temp_dir(tmpdir):
         assert shared_mem is False
     assert pool_folder.endswith(pool_folder_name)
 
+def test_pool_get_temp_dir_no_statvfs(tmpdir, monkeypatch):
+    """Check that _get_temp_dir works when os.statvfs is not defined
+
+    Regression test for #902
+    """
+    pool_folder_name = 'test.tmpdir'
+    import joblib._memmapping_reducer
+    monkeypatch.delattr(joblib._memmapping_reducer.os, 'statvfs')
+
+    pool_folder, shared_mem = _get_temp_dir(pool_folder_name, temp_folder=None)
+    if sys.platform.startswith('win'):
+        assert shared_mem is False
+    assert pool_folder.endswith(pool_folder_name)
+
+
 
 @with_numpy
 @skipif(sys.platform == 'win32', reason='This test fails with a '
