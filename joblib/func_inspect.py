@@ -166,7 +166,9 @@ def get_func_name(func, resolv_alias=True, win_characters=True):
         if hasattr(func, 'func_globals') and name in func.func_globals:
             if not func.func_globals[name] is func:
                 name = '%s-alias' % name
-    if inspect.ismethod(func):
+    if hasattr(func, '__qualname__') and func.__qualname__ != name:
+        module.extend(func.__qualname__.split(".")[:-1])
+    elif inspect.ismethod(func):
         # We need to add the name of the class
         if hasattr(func, 'im_class'):
             klass = func.im_class
