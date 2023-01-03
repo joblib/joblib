@@ -446,11 +446,14 @@ Custom cache validation
 -----------------------
 
 In some cases, external factors can invalidate the cached results and
-one wants to have more control on whether to reuse a result or not. This
-is for instance the case if the results depends on a database that changes
-across time, a small delay in the updates might be acceptable but after a
-while, the result gets invalid. One can have a finer control on the cache
-validity using a ``cache_validation_callback`` in :meth:`Memory.cache`:
+one wants to have more control on whether to reuse a result or not.
+
+This is for instance the case if the results depends on database records
+that change over time: a small delay in the updates might be tolerable
+but after a while, the results might be invalid.
+
+One can have a finer control on the cache validity specifying a function
+via ``cache_validation_callback`` in :meth:`Memory.cache`:
 
     >>> import time
     >>> def cache_validation_cb(metadata):
@@ -460,22 +463,26 @@ validity using a ``cache_validation_callback`` in :meth:`Memory.cache`:
     ... def my_func(delay=0):
     ...     time.sleep(delay)
     ...	    print(f'Called with {delay}s delay')
-    >>> my_func()  # Put calls in cache
+   # Only result that take more than 1s get in the cache. For instance:
+    >>> my_func()
     Called with 0s delay
     >>> my_func(1.1)
     Called with 1.1s delay
-    >>> my_func() # Result is not cached as it took less than 1s to compute
+    >>> my_func() # this one was not cached
     Called with 0s delay
-    >>> my_func(1.1)  # Result is cached as it took more than 1s to compute
+    >>> my_func(1.1)  # but this one was 
 
-This callback will be called with a single argument containing the metadata of
-the cached called as a dictionary containing ``{'duration', 'input_args',
-'time'}``. ``duration`` correspond to the duration of the function call,
-``time`` to the timestamp when the cache called has been recorded and
-``input_args`` is a dictionary of representation of the input arguments for
-the cached function call. Note that a helper is avaible to set an validity
-duration for cached results using :func:`joblib.expires_after`, with
-arguments similar to the one of a ``timedelta``:
+``cache_validation_cb`` will be called with a single argument containing
+the metadata of the cached call as a dictionary containing the following
+keys:
+  
+  - ``duration`: the duration of the function call,
+  - ``time``: the timestamp when the cache called has been recorded
+  - ``input_args``: a dictionary of keywords arguments for the cached function call.
+  
+Note a validity duration for cached results can be defined via
+:func:`joblib.expires_after` by providing similar with arguments similar to the
+ones of a ``datetime.timedelta``:
 
     >>> from joblib import expires_after
     >>> @memory.cache(cache_validation_callback=expires_after(seconds=0.5))
