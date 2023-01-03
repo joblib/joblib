@@ -40,7 +40,7 @@ Tasks at hand on joblib, in increasing order of difficulty.
 
 * add a 'argument_hash' keyword argument to Memory.cache, to be able to
   replace the hashing logic of memory for the input arguments. It should
-  accept as an input the dictionnary of arguments, as returned in
+  accept as an input the dictionary of arguments, as returned in
   func_inspect, and return a string.
 
 * add a sqlite db for provenance tracking. Store computation time and usage 

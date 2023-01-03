@@ -64,7 +64,7 @@ class Klass(object):
 class KlassWithCachedMethod(object):
 
     def __init__(self, cachedir):
-        mem = Memory(cachedir=cachedir)
+        mem = Memory(location=cachedir)
         self.f = mem.cache(self.f)
 
     def f(self, x):

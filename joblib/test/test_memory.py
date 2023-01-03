@@ -188,7 +188,7 @@ def test_parallel_call_cached_function_defined_in_jupyter(
             if call_before_reducing:
                 cached_f(3)
                 # Two files were just created, func_code.py, and a folder
-                # containing the informations (inputs hash/ouptput) of
+                # containing the information (inputs hash/ouptput) of
                 # cached_f(3)
                 assert len(os.listdir(f_cache_directory / 'f')) == 2
 
@@ -562,10 +562,6 @@ def test_func_dir(tmpdir):
     assert location == path
     assert os.path.exists(path)
     assert memory.location == os.path.dirname(g.store_backend.location)
-    with warns(DeprecationWarning) as w:
-        assert memory.cachedir == g.store_backend.location
-    assert len(w) == 1
-    assert "The 'cachedir' attribute has been deprecated" in str(w[-1].message)
 
     # Test that the code is stored.
     # For the following test to be robust to previous execution, we clear
@@ -980,10 +976,13 @@ def test_memory_reduce_size(tmpdir):
 
 
 def test_memory_clear(tmpdir):
-    memory, _, _ = _setup_toy_cache(tmpdir)
+    memory, _, g = _setup_toy_cache(tmpdir)
     memory.clear()
 
     assert os.listdir(memory.store_backend.location) == []
+
+    # Check that the cache for functions hash is also reset.
+    assert not g._check_previous_func_code(stacklevel=4)
 
 
 def fast_func_with_complex_output():
@@ -1087,31 +1086,8 @@ def test_memory_recomputes_after_an_error_while_loading_results(
         assert message in str(e.args)
 
 
-def test_deprecated_cachedir_behaviour(tmpdir):
-    # verify the right deprecation warnings are raised when using cachedir
-    # option instead of new location parameter.
-    with warns(None) as w:
-        memory = Memory(cachedir=tmpdir.strpath, verbose=0)
-        assert memory.store_backend.location.startswith(tmpdir.strpath)
-
-    assert len(w) == 1
-    assert "The 'cachedir' parameter has been deprecated" in str(w[-1].message)
-
-    with warns(None) as w:
-        memory = Memory()
-        assert memory.cachedir is None
-
-    assert len(w) == 1
-    assert "The 'cachedir' attribute has been deprecated" in str(w[-1].message)
-
-    error_regex = """You set both "location='.+ and "cachedir='.+"""
-    with raises(ValueError, match=error_regex):
-        memory = Memory(location=tmpdir.strpath, cachedir=tmpdir.strpath,
-                        verbose=0)
-
-
 class IncompleteStoreBackend(StoreBackendBase):
-    """This backend cannot be instanciated and should raise a TypeError."""
+    """This backend cannot be instantiated and should raise a TypeError."""
     pass
 
 
@@ -1182,7 +1158,7 @@ def test_warning_on_unknown_location_type():
     with warns(UserWarning) as warninfo:
         _store_backend_factory("local", location=unsupported_location)
 
-    expected_mesage = ("Instanciating a backend using a "
+    expected_mesage = ("Instantiating a backend using a "
                        "NonSupportedLocationClass as a location is not "
                        "supported by joblib")
     assert expected_mesage in str(warninfo[0].message)
@@ -1190,7 +1166,7 @@ def test_warning_on_unknown_location_type():
 
 def test_instanciate_incomplete_store_backend():
     # Verify that registering an external incomplete store backend raises an
-    # exception when one tries to instanciate it.
+    # exception when one tries to instantiate it.
     backend_name = "isb"
     register_store_backend(backend_name, IncompleteStoreBackend)
     assert (backend_name, IncompleteStoreBackend) in _STORE_BACKENDS.items()
@@ -1212,7 +1188,7 @@ def test_dummy_store_backend():
 
 
 def test_instanciate_store_backend_with_pathlib_path():
-    # Instanciate a FileSystemStoreBackend using a pathlib.Path object
+    # Instantiate a FileSystemStoreBackend using a pathlib.Path object
     path = pathlib.Path("some_folder")
     backend_obj = _store_backend_factory("local", path)
     assert backend_obj.location == "some_folder"
@@ -1229,7 +1205,7 @@ def test_filesystem_store_backend_repr(tmpdir):
 
     assert str(backend) == repr_pattern.format(location=None)
 
-    # backend location is passed explicitely via the configure method (called
+    # backend location is passed explicitly via the configure method (called
     # by the internal _store_backend_factory function)
     backend.configure(tmpdir.strpath)
 

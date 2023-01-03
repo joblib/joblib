@@ -9,6 +9,8 @@ from time import sleep
 import subprocess
 import threading
 
+import pytest
+
 from joblib.test.common import with_numpy, np
 from joblib.test.common import setup_autokill
 from joblib.test.common import teardown_autokill
@@ -83,7 +85,7 @@ def test_memmap_based_array_reducing(tmpdir):
     buffer[:] = - 1.0 * np.arange(buffer.shape[0], dtype=buffer.dtype)
     buffer.flush()
 
-    # Memmap a 2D fortran array on a offseted subsection of the previous
+    # Memmap a 2D fortran array on a offsetted subsection of the previous
     # buffer
     a = np.memmap(filename, dtype=np.float64, shape=(3, 5, 4),
                   mode='r+', order='F', offset=4)
@@ -146,7 +148,8 @@ def test_memmap_based_array_reducing(tmpdir):
     assert_array_equal(b3_reconstructed, b3)
 
 
-@skipif(sys.platform != "win32",
+@with_multiprocessing
+@skipif((sys.platform != "win32") or (),
         reason="PermissionError only easily triggerable on Windows")
 def test_resource_tracker_retries_when_permissionerror(tmpdir):
     # Test resource_tracker retry mechanism when unlinking memmaps.  See more
@@ -355,6 +358,7 @@ def test_pool_with_memmap_array_view(factory, tmpdir):
 
 
 @with_numpy
+@with_multiprocessing
 @parametrize("backend", ["multiprocessing", "loky"])
 def test_permission_error_windows_reference_cycle(backend):
     # Non regression test for:
@@ -389,6 +393,7 @@ def test_permission_error_windows_reference_cycle(backend):
 
 
 @with_numpy
+@with_multiprocessing
 @parametrize("backend", ["multiprocessing", "loky"])
 def test_permission_error_windows_memmap_sent_to_parent(backend):
     # Second non-regression test for:
@@ -583,39 +588,6 @@ def test_multithreaded_parallel_termination_resource_tracker_silent():
 
 @with_numpy
 @with_multiprocessing
-def test_nested_loop_error_in_grandchild_resource_tracker_silent():
-    # Safety smoke test: test that nested parallel calls using the loky backend
-    # don't yield noisy resource_tracker outputs when the grandchild errors
-    # out.
-    cmd = '''if 1:
-        from joblib import Parallel, delayed
-
-
-        def raise_error(i):
-            raise ValueError
-
-
-        def nested_loop(f):
-            Parallel(backend="loky", n_jobs=2)(
-                delayed(f)(i) for i in range(10)
-            )
-
-
-        if __name__ == "__main__":
-            Parallel(backend="loky", n_jobs=2)(
-                delayed(nested_loop)(func) for func in [raise_error]
-            )
-    '''
-    p = subprocess.Popen([sys.executable, '-c', cmd],
-                         stderr=subprocess.PIPE, stdout=subprocess.PIPE)
-    p.wait()
-    out, err = p.communicate()
-    assert p.returncode == 1, out.decode()
-    assert b"resource_tracker" not in err, err.decode()
-
-
-@with_numpy
-@with_multiprocessing
 @parametrize("backend", ["multiprocessing", "loky"])
 def test_many_parallel_calls_on_same_object(backend):
     # After #966 got merged, consecutive Parallel objects were sharing temp
@@ -641,29 +613,25 @@ def test_many_parallel_calls_on_same_object(backend):
                         delayed(return_slice_of_data)(data, 0, 20)
                         for _ in range(10)
                     )
-                slice_of_data = Parallel(
-                    n_jobs=2, max_nbytes=1, backend='{b}')(
-                        delayed(return_slice_of_data)(data, 0, 20)
-                        for _ in range(10)
-                    )
     '''.format(b=backend)
-
-    for _ in range(3):
-        env = os.environ.copy()
-        env['PYTHONPATH'] = os.path.dirname(__file__)
-        p = subprocess.Popen([sys.executable, '-c', cmd],
-                             stderr=subprocess.PIPE,
-                             stdout=subprocess.PIPE, env=env)
-        p.wait()
-        out, err = p.communicate()
-        assert p.returncode == 0, err
-        assert out == b''
-        if sys.version_info[:3] not in [(3, 8, 0), (3, 8, 1)]:
-            # In early versions of Python 3.8, a reference leak
-            # https://github.com/cloudpipe/cloudpickle/issues/327, holds
-            # references to pickled objects, generating race condition during
-            # cleanup finalizers of joblib and noisy resource_tracker outputs.
-            assert b'resource_tracker' not in err
+    env = os.environ.copy()
+    env['PYTHONPATH'] = os.path.dirname(__file__)
+    p = subprocess.Popen(
+        [sys.executable, '-c', cmd],
+        stderr=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        env=env,
+    )
+    p.wait()
+    out, err = p.communicate()
+    assert p.returncode == 0, err
+    assert out == b''
+    if sys.version_info[:3] not in [(3, 8, 0), (3, 8, 1)]:
+        # In early versions of Python 3.8, a reference leak
+        # https://github.com/cloudpipe/cloudpickle/issues/327, holds
+        # references to pickled objects, generating race condition during
+        # cleanup finalizers of joblib and noisy resource_tracker outputs.
+        assert b'resource_tracker' not in err
 
 
 @with_numpy
@@ -679,7 +647,7 @@ def test_memmap_returned_as_regular_array(backend):
 
 @with_numpy
 @with_multiprocessing
-@parametrize("backend", ["multiprocessing", param("loky", marks=xfail)])
+@parametrize("backend", ["multiprocessing", "loky"])
 def test_resource_tracker_silent_when_reference_cycles(backend):
     # There is a variety of reasons that can make joblib with loky backend
     # output noisy warnings when a reference cycle is preventing a memmap from
@@ -687,10 +655,22 @@ def test_resource_tracker_silent_when_reference_cycles(backend):
     # deletes the temporary folder if it was not done before, which can
     # interact badly with the resource_tracker. We don't risk leaking any
     # resources, but this will likely make joblib output a lot of low-level
-    # confusing messages. This test is marked as xfail for now: but a next PR
-    # should fix this behavior.
+    # confusing messages.
+    #
+    # This test makes sure that the resource_tracker is silent when a reference
+    # has been collected concurrently on non-Windows platforms.
+    #
     # Note that the script in ``cmd`` is the exact same script as in
     # test_permission_error_windows_reference_cycle.
+    if backend == "loky" and sys.platform.startswith('win'):
+        # XXX: on Windows, reference cycles can delay timely garbage collection
+        # and make it impossible to properly delete the temporary folder in the
+        # main process because of permission errors.
+        pytest.xfail(
+            "The temporary folder cannot be deleted on Windows in the "
+            "presence of a reference cycle"
+        )
+
     cmd = """if 1:
         import numpy as np
         from joblib import Parallel, delayed
@@ -714,8 +694,10 @@ def test_resource_tracker_silent_when_reference_cycles(backend):
                          stdout=subprocess.PIPE)
     p.wait()
     out, err = p.communicate()
-    assert p.returncode == 0, out.decode()
-    assert b"resource_tracker" not in err, err.decode()
+    out = out.decode()
+    err = err.decode()
+    assert p.returncode == 0, out + "\n\n" + err
+    assert "resource_tracker" not in err, err
 
 
 @with_numpy
@@ -728,7 +710,7 @@ def test_memmapping_pool_for_large_arrays(factory, tmpdir):
     # Check that the tempfolder is empty
     assert os.listdir(tmpdir.strpath) == []
 
-    # Build an array reducers that automaticaly dump large array content
+    # Build an array reducers that automatically dump large array content
     # to filesystem backed memmap instances to avoid memory explosion
     p = factory(3, max_nbytes=40, temp_folder=tmpdir.strpath, verbose=2)
     try:
@@ -776,7 +758,18 @@ def test_memmapping_pool_for_large_arrays(factory, tmpdir):
 
 @with_numpy
 @with_multiprocessing
-@parametrize("backend", ["multiprocessing", "loky"])
+@parametrize(
+    "backend",
+    [
+        pytest.param(
+            "multiprocessing",
+            marks=pytest.mark.xfail(
+                reason='https://github.com/joblib/joblib/issues/1086'
+            ),
+        ),
+        "loky",
+    ]
+)
 def test_child_raises_parent_exits_cleanly(backend):
     # When a task executed by a child process raises an error, the parent
     # process's backend is notified, and calls abort_everything.
@@ -794,6 +787,8 @@ def test_child_raises_parent_exits_cleanly(backend):
     # - the resource_tracker does not emit any warnings.
     cmd = """if 1:
         import os
+        from pathlib import Path
+        from time import sleep
 
         import numpy as np
         from joblib import Parallel, delayed
@@ -801,12 +796,11 @@ def test_child_raises_parent_exits_cleanly(backend):
 
         data = np.random.rand(1000)
 
-
         def get_temp_folder(parallel_obj, backend):
             if "{b}" == "loky":
-                return p._backend._workers._temp_folder
+                return Path(p._backend._workers._temp_folder)
             else:
-                return p._backend._pool._temp_folder
+                return Path(p._backend._pool._temp_folder)
 
 
         if __name__ == "__main__":
@@ -815,10 +809,27 @@ def test_child_raises_parent_exits_cleanly(backend):
                     temp_folder = get_temp_folder(p, "{b}")
                     p(delayed(print_filename_and_raise)(data)
                               for i in range(1))
-            except ValueError:
+            except ValueError as e:
                 # the temporary folder should be deleted by the end of this
-                # call
-                assert not os.path.exists(temp_folder)
+                # call but apparently on some file systems, this takes
+                # some time to be visible.
+                #
+                # We attempt to write into the temporary folder to test for
+                # its existence and we wait for a maximum of 10 seconds.
+                for i in range(100):
+                    try:
+                        with open(temp_folder / "some_file.txt", "w") as f:
+                            f.write("some content")
+                    except FileNotFoundError:
+                        # temp_folder has been deleted, all is fine
+                        break
+
+                    # ... else, wait a bit and try again
+                    sleep(.1)
+                else:
+                    raise AssertionError(
+                        str(temp_folder) + " was not deleted"
+                    ) from e
     """.format(b=backend)
     env = os.environ.copy()
     env['PYTHONPATH'] = os.path.dirname(__file__)
@@ -828,7 +839,7 @@ def test_child_raises_parent_exits_cleanly(backend):
     out, err = p.communicate()
     out, err = out.decode(), err.decode()
     filename = out.split('\n')[0]
-    assert p.returncode == 0, out
+    assert p.returncode == 0, err or out
     assert err == ''  # no resource_tracker warnings.
     assert not os.path.exists(filename)
 
@@ -951,7 +962,7 @@ def test_memmapping_pool_for_large_arrays_in_return(factory, tmpdir):
     """Check that large arrays are not copied in memory in return"""
     assert_array_equal = np.testing.assert_array_equal
 
-    # Build an array reducers that automaticaly dump large array content
+    # Build an array reducers that automatically dump large array content
     # but check that the returned datastructure are regular arrays to avoid
     # passing a memmap array pointing to a pool controlled temp folder that
     # might be confusing to the user
@@ -1040,6 +1051,23 @@ def test_pool_get_temp_dir(tmpdir):
     pool_folder, shared_mem = _get_temp_dir(pool_folder_name, tmpdir.strpath)
     assert shared_mem is False
     assert pool_folder == tmpdir.join('test.tmpdir').strpath
+
+    pool_folder, shared_mem = _get_temp_dir(pool_folder_name, temp_folder=None)
+    if sys.platform.startswith('win'):
+        assert shared_mem is False
+    assert pool_folder.endswith(pool_folder_name)
+
+
+def test_pool_get_temp_dir_no_statvfs(tmpdir, monkeypatch):
+    """Check that _get_temp_dir works when os.statvfs is not defined
+
+    Regression test for #902
+    """
+    pool_folder_name = 'test.tmpdir'
+    import joblib._memmapping_reducer
+    if hasattr(joblib._memmapping_reducer.os, 'statvfs'):
+        # We are on Unix, since Windows doesn't have this function
+        monkeypatch.delattr(joblib._memmapping_reducer.os, 'statvfs')
 
     pool_folder, shared_mem = _get_temp_dir(pool_folder_name, temp_folder=None)
     if sys.platform.startswith('win'):

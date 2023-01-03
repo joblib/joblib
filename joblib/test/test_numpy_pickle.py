@@ -14,15 +14,18 @@ import pickle
 import socket
 from contextlib import closing
 import mmap
+from pathlib import Path
+
 try:
     import lzma
 except ImportError:
     lzma = None
+
 import pytest
 
 from joblib.test.common import np, with_numpy, with_lz4, without_lz4
 from joblib.test.common import with_memory_profiler, memory_used
-from joblib.testing import parametrize, raises, SkipTest, warns
+from joblib.testing import parametrize, raises, warns
 
 # numpy_pickle is not a drop-in replacement of pickle, as it takes
 # filenames instead of open files as arguments.
@@ -149,21 +152,19 @@ def test_numpy_persistence(tmpdir, compress):
         # And finally, check that all the values are equal.
         np.testing.assert_array_equal(np.array(obj), np.array(obj_))
 
-    # Now test with array subclasses
-    for obj in (np.matrix(np.zeros(10)),
-                np.memmap(filename + 'mmap',
-                          mode='w+', shape=4, dtype=np.float64)):
-        filenames = numpy_pickle.dump(obj, filename, compress=compress)
-        # All is cached in one file
-        assert len(filenames) == 1
+    # Now test with an array subclass
+    obj = np.memmap(filename + 'mmap', mode='w+', shape=4, dtype=np.float64)
+    filenames = numpy_pickle.dump(obj, filename, compress=compress)
+    # All is cached in one file
+    assert len(filenames) == 1
 
-        obj_ = numpy_pickle.load(filename)
-        if (type(obj) is not np.memmap and
-                hasattr(obj, '__array_prepare__')):
-            # We don't reconstruct memmaps
-            assert isinstance(obj_, type(obj))
+    obj_ = numpy_pickle.load(filename)
+    if (type(obj) is not np.memmap and
+            hasattr(obj, '__array_prepare__')):
+        # We don't reconstruct memmaps
+        assert isinstance(obj_, type(obj))
 
-        np.testing.assert_array_equal(obj_, obj)
+    np.testing.assert_array_equal(obj_, obj)
 
     # Test with an object containing multiple numpy arrays
     obj = ComplexTestObject()
@@ -279,11 +280,13 @@ def test_compress_mmap_mode_warning(tmpdir):
     numpy_pickle.dump(a, this_filename, compress=1)
     with warns(UserWarning) as warninfo:
         numpy_pickle.load(this_filename, mmap_mode='r+')
+    warninfo = [w.message for w in warninfo]
     assert len(warninfo) == 1
-    assert (str(warninfo[0].message) ==
-            'mmap_mode "%(mmap_mode)s" is not compatible with compressed '
-            'file %(filename)s. "%(mmap_mode)s" flag will be ignored.' %
-            {'filename': this_filename, 'mmap_mode': 'r+'})
+    assert (
+        str(warninfo[0]) ==
+        'mmap_mode "r+" is not compatible with compressed '
+        f'file {this_filename}. "r+" flag will be ignored.'
+    )
 
 
 @with_numpy
@@ -295,7 +298,7 @@ def test_cache_size_warning(tmpdir, cache_size):
     a = rnd.random_sample((10, 2))
 
     warnings.simplefilter("always")
-    with warns(None) as warninfo:
+    with warnings.catch_warnings(record=True) as warninfo:
         numpy_pickle.dump(a, filename, cache_size=cache_size)
     expected_nb_warnings = 1 if cache_size is not None else 0
     assert len(warninfo) == expected_nb_warnings
@@ -315,10 +318,8 @@ def test_memory_usage(tmpdir, compress):
     filename = tmpdir.join('test.pkl').strpath
     small_array = np.ones((10, 10))
     big_array = np.ones(shape=100 * int(1e6), dtype=np.uint8)
-    small_matrix = np.matrix(small_array)
-    big_matrix = np.matrix(big_array)
 
-    for obj in (small_array, big_array, small_matrix, big_matrix):
+    for obj in (small_array, big_array):
         size = obj.nbytes / 1e6
         obj_filename = filename + str(np.random.randint(0, 1000))
         mem_used = memory_used(numpy_pickle.dump,
@@ -344,11 +345,6 @@ def test_compressed_pickle_dump_and_load(tmpdir):
                      np.arange(5, dtype=np.dtype('>f8')),
                      np.array([1, 'abc', {'a': 1, 'b': 2}], dtype='O'),
                      np.arange(256, dtype=np.uint8).tobytes(),
-                     # np.matrix is a subclass of np.ndarray, here we want
-                     # to verify this type of object is correctly unpickled
-                     # among versions.
-                     np.matrix([0, 1, 2], dtype=np.dtype('<i8')),
-                     np.matrix([0, 1, 2], dtype=np.dtype('>i8')),
                      u"C'est l'\xe9t\xe9 !"]
 
     fname = tmpdir.join('temp.pkl.gz').strpath
@@ -365,7 +361,7 @@ def test_compressed_pickle_dump_and_load(tmpdir):
             assert result == expected
 
 
-def _check_pickle(filename, expected_list):
+def _check_pickle(filename, expected_list, mmap_mode=None):
     """Helper function to test joblib pickle content.
 
     Note: currently only pickles containing an iterable are supported
@@ -380,22 +376,41 @@ def _check_pickle(filename, expected_list):
         py_version_used_for_writing, 4)
     if pickle_reading_protocol >= pickle_writing_protocol:
         try:
-            with warns(None) as warninfo:
+            with warnings.catch_warnings(record=True) as warninfo:
                 warnings.simplefilter('always')
                 warnings.filterwarnings(
                     'ignore', module='numpy',
                     message='The compiler package is deprecated')
-                result_list = numpy_pickle.load(filename)
+                result_list = numpy_pickle.load(filename, mmap_mode=mmap_mode)
             filename_base = os.path.basename(filename)
-            expected_nb_warnings = 1 if ("_0.9" in filename_base or
-                                         "_0.8.4" in filename_base) else 0
+            expected_nb_deprecation_warnings = 1 if (
+                "_0.9" in filename_base or "_0.8.4" in filename_base) else 0
+
+            expected_nb_user_warnings = 3 if (
+                re.search("_0.1.+.pkl$", filename_base) and
+                mmap_mode is not None) else 0
+            expected_nb_warnings = \
+                expected_nb_deprecation_warnings + expected_nb_user_warnings
             assert len(warninfo) == expected_nb_warnings
-            for w in warninfo:
-                assert w.category == DeprecationWarning
+
+            deprecation_warnings = [
+                w for w in warninfo if issubclass(
+                    w.category, DeprecationWarning)]
+            user_warnings = [
+                w for w in warninfo if issubclass(
+                    w.category, UserWarning)]
+            for w in deprecation_warnings:
                 assert (str(w.message) ==
                         "The file '{0}' has been generated with a joblib "
                         "version less than 0.10. Please regenerate this "
                         "pickle file.".format(filename))
+
+            for w in user_warnings:
+                escaped_filename = re.escape(filename)
+                assert re.search(
+                    f"memmapped.+{escaped_filename}.+segmentation fault",
+                    str(w.message))
+
             for result, expected in zip(result_list, expected_list):
                 if isinstance(expected, np.ndarray):
                     expected = _ensure_native_byte_order(expected)
@@ -460,6 +475,27 @@ def test_joblib_pickle_across_python_versions():
 
     for fname in pickle_filenames:
         _check_pickle(fname, expected_list)
+
+
+@with_numpy
+def test_joblib_pickle_across_python_versions_with_mmap():
+    expected_list = [np.arange(5, dtype=np.dtype('<i8')),
+                     np.arange(5, dtype=np.dtype('<f8')),
+                     np.array([1, 'abc', {'a': 1, 'b': 2}], dtype='O'),
+                     np.arange(256, dtype=np.uint8).tobytes(),
+                     # np.matrix is a subclass of np.ndarray, here we want
+                     # to verify this type of object is correctly unpickled
+                     # among versions.
+                     np.matrix([0, 1, 2], dtype=np.dtype('<i8')),
+                     u"C'est l'\xe9t\xe9 !"]
+
+    test_data_dir = os.path.dirname(os.path.abspath(data.__file__))
+
+    pickle_filenames = [
+        os.path.join(test_data_dir, fn)
+        for fn in os.listdir(test_data_dir) if fn.endswith('.pkl')]
+    for fname in pickle_filenames:
+        _check_pickle(fname, expected_list, mmap_mode='r')
 
 
 @with_numpy
@@ -641,9 +677,7 @@ def test_compression_using_file_extension(tmpdir, extension, cmethod):
 
 @with_numpy
 def test_file_handle_persistence(tmpdir):
-    objs = [np.random.random((10, 10)),
-            "some data",
-            np.matrix([0, 1, 2])]
+    objs = [np.random.random((10, 10)), "some data"]
     fobjs = [bz2.BZ2File, gzip.GzipFile]
     if lzma is not None:
         fobjs += [lzma.LZMAFile]
@@ -674,9 +708,7 @@ def test_file_handle_persistence(tmpdir):
 
 @with_numpy
 def test_in_memory_persistence():
-    objs = [np.random.random((10, 10)),
-            "some data",
-            np.matrix([0, 1, 2])]
+    objs = [np.random.random((10, 10)), "some data"]
     for obj in objs:
         f = io.BytesIO()
         numpy_pickle.dump(obj, f)
@@ -851,17 +883,12 @@ def test_numpy_subclass(tmpdir):
 
 
 def test_pathlib(tmpdir):
-    try:
-        from pathlib import Path
-    except ImportError:
-        pass
-    else:
-        filename = tmpdir.join('test.pkl').strpath
-        value = 123
-        numpy_pickle.dump(value, Path(filename))
-        assert numpy_pickle.load(filename) == value
-        numpy_pickle.dump(value, filename)
-        assert numpy_pickle.load(Path(filename)) == value
+    filename = tmpdir.join('test.pkl').strpath
+    value = 123
+    numpy_pickle.dump(value, Path(filename))
+    assert numpy_pickle.load(filename) == value
+    numpy_pickle.dump(value, filename)
+    assert numpy_pickle.load(Path(filename)) == value
 
 
 @with_numpy
@@ -910,6 +937,17 @@ def test_pickle_in_socket():
 
     with server.makefile("wb") as sf:
         numpy_pickle.dump(test_array, sf)
+
+    with client.makefile("rb") as cf:
+        array_reloaded = numpy_pickle.load(cf)
+
+    np.testing.assert_array_equal(array_reloaded, test_array)
+
+    # Check that a byte-aligned numpy array written in a file can be send over
+    # a socket and then read on the other side
+    bytes_to_send = io.BytesIO()
+    numpy_pickle.dump(test_array, bytes_to_send)
+    server.send(bytes_to_send.getvalue())
 
     with client.makefile("rb") as cf:
         array_reloaded = numpy_pickle.load(cf)
@@ -1056,3 +1094,65 @@ def test_lz4_compression_without_lz4(tmpdir):
     with raises(ValueError) as excinfo:
         numpy_pickle.dump(data, fname + '.lz4')
     excinfo.match(msg)
+
+
+protocols = [pickle.DEFAULT_PROTOCOL]
+if pickle.HIGHEST_PROTOCOL != pickle.DEFAULT_PROTOCOL:
+    protocols.append(pickle.HIGHEST_PROTOCOL)
+
+
+@with_numpy
+@parametrize('protocol', protocols)
+def test_memmap_alignment_padding(tmpdir, protocol):
+    # Test that memmaped arrays returned by numpy.load are correctly aligned
+    fname = tmpdir.join('test.mmap').strpath
+
+    a = np.random.randn(2)
+    numpy_pickle.dump(a, fname, protocol=protocol)
+    memmap = numpy_pickle.load(fname, mmap_mode='r')
+    assert isinstance(memmap, np.memmap)
+    np.testing.assert_array_equal(a, memmap)
+    assert (
+        memmap.ctypes.data % numpy_pickle.NUMPY_ARRAY_ALIGNMENT_BYTES == 0)
+    assert memmap.flags.aligned
+
+    array_list = [
+        np.random.randn(2), np.random.randn(2),
+        np.random.randn(2), np.random.randn(2)
+    ]
+
+    # On Windows OSError 22 if reusing the same path for memmap ...
+    fname = tmpdir.join('test1.mmap').strpath
+    numpy_pickle.dump(array_list, fname, protocol=protocol)
+    l_reloaded = numpy_pickle.load(fname, mmap_mode='r')
+
+    for idx, memmap in enumerate(l_reloaded):
+        assert isinstance(memmap, np.memmap)
+        np.testing.assert_array_equal(array_list[idx], memmap)
+        assert (
+            memmap.ctypes.data % numpy_pickle.NUMPY_ARRAY_ALIGNMENT_BYTES == 0)
+        assert memmap.flags.aligned
+
+    array_dict = {
+        'a0': np.arange(2, dtype=np.uint8),
+        'a1': np.arange(3, dtype=np.uint8),
+        'a2': np.arange(5, dtype=np.uint8),
+        'a3': np.arange(7, dtype=np.uint8),
+        'a4': np.arange(11, dtype=np.uint8),
+        'a5': np.arange(13, dtype=np.uint8),
+        'a6': np.arange(17, dtype=np.uint8),
+        'a7': np.arange(19, dtype=np.uint8),
+        'a8': np.arange(23, dtype=np.uint8),
+    }
+
+    # On Windows OSError 22 if reusing the same path for memmap ...
+    fname = tmpdir.join('test2.mmap').strpath
+    numpy_pickle.dump(array_dict, fname, protocol=protocol)
+    d_reloaded = numpy_pickle.load(fname, mmap_mode='r')
+
+    for key, memmap in d_reloaded.items():
+        assert isinstance(memmap, np.memmap)
+        np.testing.assert_array_equal(array_dict[key], memmap)
+        assert (
+            memmap.ctypes.data % numpy_pickle.NUMPY_ARRAY_ALIGNMENT_BYTES == 0)
+        assert memmap.flags.aligned

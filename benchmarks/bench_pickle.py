@@ -1,7 +1,7 @@
 """
 Benching joblib pickle I/O.
 
-Warning: this is slow, and the benchs are easily offset by other disk
+Warning: this is slow, and the benches are easily offset by other disk
 activity.
 """
 import os

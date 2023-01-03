@@ -95,7 +95,7 @@ Using with `numpy`
 
 The original motivation behind the `Memory` context was to have a
 memoize-like pattern on numpy arrays. `Memory` uses fast cryptographic
-hashing of the input arguments to check if they have been computed;
+hashing of the input arguments to check if they have been computed.
 
 An example
 ~~~~~~~~~~
@@ -242,7 +242,7 @@ python interpreter.
 
 
 Gotchas
---------
+-------
 
 * **Across sessions, function cache is identified by the function's name**.
   Thus assigning the same name to different functions, their cache will
@@ -391,8 +391,8 @@ Gotchas
   :class:`Memory` cache can get invalidated when upgrading ``joblib``.
   Invalidation can also happen when upgrading a third party library (such as
   ``numpy``): in such a case, only the cached function calls with parameters
-  that are constructs (or contain references to contructs) defined in the
-  upgraded library should potentially be invalidated after the uprade.
+  that are constructs (or contain references to constructs) defined in the
+  upgraded library should potentially be invalidated after the upgrade.
 
 
 Ignoring some arguments
@@ -423,9 +423,26 @@ Reference documentation of the :class:`Memory` class
 Useful methods of decorated functions
 -------------------------------------
 
-Function decorated by :meth:`Memory.cache` are :class:`MemorizedFunc`
+Functions decorated by :meth:`Memory.cache` are :class:`MemorizedFunc`
 objects that, in addition of behaving like normal functions, expose
-methods useful for cache exploration and management.
+methods useful for cache exploration and management. For example, you can
+use :meth:`func.check_call_in_cache <MemorizedFunc.check_call_in_cache>` to
+check if a cache hit will occur for a decorated ``func`` given a set of inputs
+without actually needing to call the function itself::
+
+    >>> @memory.cache
+    ... def func(x):
+    ...     print('Running func(%s)' % x)
+    ...     return x
+    >>> type(func)
+    <class 'joblib.memory.MemorizedFunc'>
+    >>> func(1)
+    Running func(1)
+    1
+    >>> func.check_call_in_cache(1)  # cache hit
+    True
+    >>> func.check_call_in_cache(2)  # cache miss
+    False
 
 .. autoclass:: MemorizedFunc
     :members: __init__, call, clear, check_call_in_cache

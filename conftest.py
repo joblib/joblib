@@ -1,10 +1,11 @@
-from distutils.version import LooseVersion
+import os
 
 import pytest
 from _pytest.doctest import DoctestItem
 
 import logging
 from joblib.parallel import mp
+from joblib.backports import LooseVersion
 try:
     import lz4
 except ImportError:
@@ -51,6 +52,17 @@ def pytest_configure(config):
         log = mp.util.log_to_stderr(logging.DEBUG)
         log.handlers[0].setFormatter(logging.Formatter(
             '[%(levelname)s:%(processName)s:%(threadName)s] %(message)s'))
+
+    DEFAULT_BACKEND = os.environ.get(
+        "JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND", None
+    )
+    if DEFAULT_BACKEND is not None:
+        print(
+            f"Setting joblib parallel default backend to {DEFAULT_BACKEND} "
+            "from JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND environment variable"
+        )
+        from joblib import parallel
+        parallel.DEFAULT_BACKEND = DEFAULT_BACKEND
 
 
 def pytest_unconfigure(config):

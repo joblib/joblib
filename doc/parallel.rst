@@ -69,7 +69,14 @@ In prior versions, the same effect could be achieved by hardcoding a
 specific backend implementation such as ``backend="threading"`` in the
 call to :class:`joblib.Parallel` but this is now considered a bad pattern
 (when done in a library) as it does not make it possible to override that
-choice with the ``parallel_backend`` context manager.
+choice with the :func:`~joblib.parallel_backend` context manager.
+
+
+.. topic:: The loky backend may not always be available
+
+   Some rare systems do not support multiprocessing (for instance
+   Pyodide). In this case the loky backend is not available and the
+   default backend falls back to threading.
 
 Besides builtin joblib backends, we can use
 `Joblib Apache Spark Backend <https://github.com/joblib/joblib-spark>`_
@@ -192,7 +199,7 @@ libraries:
 
 Since joblib 0.14, it is also possible to programmatically override the default
 number of threads using the ``inner_max_num_threads`` argument of the
-``parallel_backend`` function as follows:
+:func:`~joblib.parallel_backend` function as follows:
 
 .. code-block:: python
 

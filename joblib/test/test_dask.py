@@ -1,5 +1,6 @@
 from __future__ import print_function, division, absolute_import
 import os
+import warnings
 
 import pytest
 from random import random
@@ -11,6 +12,7 @@ from ..parallel import ThreadingBackend, AutoBatchingMixin
 from .._dask import DaskDistributedBackend
 
 distributed = pytest.importorskip('distributed')
+dask = pytest.importorskip('dask')
 from distributed import Client, LocalCluster, get_client
 from distributed.metrics import time
 from distributed.utils_test import cluster, inc
@@ -114,7 +116,7 @@ def test_dask_funcname(loop, mixed):
 
 def test_no_undesired_distributed_cache_hit(loop):
     # Dask has a pickle cache for callables that are called many times. Because
-    # the dask backends used to wrapp both the functions and the arguments
+    # the dask backends used to wrap both the functions and the arguments
     # under instances of the Batch callable class this caching mechanism could
     # lead to bugs as described in: https://github.com/joblib/joblib/pull/1055
     # The joblib-dask backend has been refactored to avoid bundling the
@@ -462,3 +464,28 @@ def test_wait_for_workers_timeout():
     finally:
         client.close()
         cluster.close()
+
+
+@pytest.mark.parametrize("backend", ["loky", "multiprocessing"])
+def test_joblib_warning_inside_dask_daemonic_worker(backend):
+    cluster = LocalCluster(n_workers=2)
+    client = Client(cluster)
+
+    def func_using_joblib_parallel():
+        # Somehow trying to check the warning type here (e.g. with
+        # pytest.warns(UserWarning)) make the test hang. Work-around: return
+        # the warning record to the client and the warning check is done
+        # client-side.
+        with warnings.catch_warnings(record=True) as record:
+            Parallel(n_jobs=2, backend=backend)(
+                delayed(inc)(i) for i in range(10))
+
+        return record
+
+    fut = client.submit(func_using_joblib_parallel)
+    record = fut.result()
+
+    assert len(record) == 1
+    warning = record[0].message
+    assert isinstance(warning, UserWarning)
+    assert "distributed.worker.daemon" in str(warning)

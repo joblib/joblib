@@ -99,6 +99,10 @@ def unlink_file(filename):
                 raise
             else:
                 time.sleep(.2)
+        except FileNotFoundError:
+            # In case of a race condition when deleting the temporary folder,
+            # avoid noisy FileNotFoundError exception in the resource tracker.
+            pass
 
 
 resource_tracker._CLEANUP_FUNCS['file'] = unlink_file
@@ -199,7 +203,7 @@ def _get_temp_dir(pool_folder_name, temp_folder=None):
     if temp_folder is None:
         temp_folder = os.environ.get('JOBLIB_TEMP_FOLDER', None)
     if temp_folder is None:
-        if os.path.exists(SYSTEM_SHARED_MEM_FS):
+        if os.path.exists(SYSTEM_SHARED_MEM_FS) and hasattr(os, 'statvfs'):
             try:
                 shm_stats = os.statvfs(SYSTEM_SHARED_MEM_FS)
                 available_nbytes = shm_stats.f_bsize * shm_stats.f_bavail
