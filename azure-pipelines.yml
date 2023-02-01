@@ -47,7 +47,10 @@ jobs:
 
       linux_py39_sklearn_tests:
         imageName: 'ubuntu-latest'
-        PYTHON_VERSION: "3.9"
+        # If you install python3.9, you get the pypy3.9 implementation.
+        # Pinning to the precise 3.9.15 version prevent this.
+        # Life of a CI is so brittle....
+        PYTHON_VERSION: "3.9.15"
         # SKIP_TESTS: "true"
         SKLEARN_TESTS: "true"
       linux_py310_distributed:

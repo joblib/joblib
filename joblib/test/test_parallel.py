@@ -1655,8 +1655,8 @@ def test_thread_bomb_mitigation(backend):
             # simple to do and this is is not critical for users (as long
             # as there is no process or thread bomb happening).
             pytest.xfail("Loky worker crash when serializing RecursionError")
-    else:
-        assert isinstance(exc, RecursionError)
+
+    assert isinstance(exc, RecursionError)
 
 
 def _run_parallel_sum():
