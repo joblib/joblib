@@ -121,6 +121,9 @@ jobs:
   - bash: bash continuous_integration/run_tests.sh
     displayName: 'Run the tests'
 
+  - bash: cat dump_traceback.log
+    displayName: 'Global Dump Traceback information'
+
   - task: PublishTestResults@2
     inputs:
       testResultsFiles: '$(JUNITXML)'
