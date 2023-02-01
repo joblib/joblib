@@ -810,7 +810,7 @@ class Parallel(Logger):
                 % batch_size)
 
         if not isinstance(backend, SequentialBackend):
-            if not backend.supports_asynchronous_callback and return_generator:
+            if return_generator and not backend.supports_return_generator:
                 raise ValueError(
                     "Backend {} does not support "
                     "return_generator=True".format(backend)

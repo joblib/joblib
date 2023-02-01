@@ -68,6 +68,10 @@ from joblib.parallel import mp, BACKENDS, DEFAULT_BACKEND, EXTERNAL_BACKENDS
 from joblib.my_exceptions import JoblibException
 
 
+RETURN_GENERATOR_BACKENDS = BACKENDS.copy()
+RETURN_GENERATOR_BACKENDS.pop("multiprocessing")
+
+
 ALL_VALID_BACKENDS = [None] + sorted(BACKENDS.keys())
 # Add instances of backend classes deriving from ParallelBackendBase
 ALL_VALID_BACKENDS += [BACKENDS[backend_str]() for backend_str in BACKENDS]
@@ -1193,7 +1197,7 @@ def set_list_value(input_list, index, value):
 
 
 @pytest.mark.parametrize('n_jobs', [1, 2, 4])
-def test_parallel_return_generator(n_jobs):
+def test_parallel_return_generator_order(n_jobs):
     # This test inserts values in a list in some expected order
     # in sequential computing, and then checks that this order has been
     # respected by Parallel output generator.
@@ -1225,7 +1229,7 @@ def get_large_object(arg):
 
 
 @with_numpy
-@parametrize('backend', ALL_VALID_BACKENDS)
+@parametrize('backend', RETURN_GENERATOR_BACKENDS)
 @parametrize('n_jobs', [1, 2, -2, -1])
 def test_deadlock_with_generator(backend, n_jobs):
     # Non-regression test for a race condition in the backends when the pickler
@@ -1241,7 +1245,7 @@ def test_deadlock_with_generator(backend, n_jobs):
         force_gc_pypy()
 
 
-@parametrize('backend', BACKENDS)
+@parametrize('backend', RETURN_GENERATOR_BACKENDS)
 @parametrize('n_jobs', [1, 2, -2, -1])
 def test_multiple_generator_call(backend, n_jobs):
     # Non-regression test that ensures the dispatch of the tasks starts
@@ -1266,7 +1270,7 @@ def test_multiple_generator_call(backend, n_jobs):
     force_gc_pypy()
 
 
-@parametrize('backend', BACKENDS)
+@parametrize('backend', RETURN_GENERATOR_BACKENDS)
 @parametrize('n_jobs', [1, 2, -2, -1])
 def test_multiple_generator_call_managed(backend, n_jobs):
     # Non-regression test that ensures the dispatch of the tasks starts
@@ -1292,7 +1296,7 @@ def test_multiple_generator_call_managed(backend, n_jobs):
     force_gc_pypy()
 
 
-@parametrize('backend', BACKENDS)
+@parametrize('backend', RETURN_GENERATOR_BACKENDS)
 @parametrize('n_jobs', [1, 2, -2, -1])
 def test_multiple_generator_call_separated(backend, n_jobs):
     # Check that for separated Parallel, both tasks are correctly returned.
@@ -1309,7 +1313,6 @@ def test_multiple_generator_call_separated(backend, n_jobs):
 
 @parametrize('backend, error', [
     ('loky', True),
-    ('multiprocessing', False),
     ('threading', False),
     ('sequential', False),
 ])

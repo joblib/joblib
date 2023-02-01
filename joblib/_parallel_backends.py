@@ -31,6 +31,10 @@ class ParallelBackendBase(metaclass=ABCMeta):
     supports_asynchronous_callback = False
 
     @property
+    def supports_return_generator(self):
+        return self.supports_asynchronous_callback
+
+    @property
     def supports_timeout(self):
         return self.supports_asynchronous_callback
 
@@ -455,6 +459,7 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
     """
 
     supports_asynchronous_callback = True
+    supports_return_generator = False
 
     def effective_n_jobs(self, n_jobs):
         """Determine the number of jobs which are going to run in parallel.
