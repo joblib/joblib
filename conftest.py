@@ -19,9 +19,6 @@ except ImportError:
     loop_in_thread = None
 
 
-DUMP_TRACEBACK_LOG_FILE = None
-
-
 def pytest_collection_modifyitems(config, items):
     skip_doctests = True
 
@@ -61,11 +58,7 @@ def pytest_configure(config):
     # Some CI runs failed with hanging processes that were not terminated
     # with the timeout. To make sure we always get a proper trace, set a large
     # enough dump_traceback_later to kill the process with a report.
-    global DUMP_TRACEBACK_LOG_FILE
-    DUMP_TRACEBACK_LOG_FILE = open("dump_traceback.log", "w")
-    faulthandler.dump_traceback_later(
-        2400, exit=True, file=DUMP_TRACEBACK_LOG_FILE
-    )
+    faulthandler.dump_traceback_later(1200, exit=True)
 
     DEFAULT_BACKEND = os.environ.get(
         "JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND", None
@@ -87,9 +80,6 @@ def pytest_unconfigure(config):
     # should be disabled. Note that we cancel the global dump_traceback_later
     # to waiting for too long.
     faulthandler.cancel_dump_traceback_later()
-    global DUMP_TRACEBACK_LOG_FILE
-    DUMP_TRACEBACK_LOG_FILE.close()
-    DUMP_TRACEBACK_LOG_FILE = None
 
     # Note that we also use a shorter timeout for the per-test callback
     # configured via the pytest-timeout extension.
