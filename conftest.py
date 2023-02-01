@@ -1,3 +1,4 @@
+import os
 
 import logging
 import faulthandler
@@ -54,10 +55,23 @@ def pytest_configure(config):
         log.handlers[0].setFormatter(logging.Formatter(
             '[%(levelname)s:%(processName)s:%(threadName)s] %(message)s'))
 
+<<<<<<< HEAD
     # Some CI runs failed with hanging processes that were not terminated
     # with the timeout. To make sure we always get a proper trace, set a large
     # enough dump_traceback_later to kill the process with a report.
     faulthandler.dump_traceback_later(1800, exit=True)
+=======
+    DEFAULT_BACKEND = os.environ.get(
+        "JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND", None
+    )
+    if DEFAULT_BACKEND is not None:
+        print(
+            f"Setting joblib parallel default backend to {DEFAULT_BACKEND} "
+            "from JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND environment variable"
+        )
+        from joblib import parallel
+        parallel.DEFAULT_BACKEND = DEFAULT_BACKEND
+>>>>>>> 6836640abba55611d6e57f20338ea54b3e27f296
 
 
 def pytest_unconfigure(config):
