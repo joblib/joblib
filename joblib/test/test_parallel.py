@@ -69,7 +69,7 @@ from joblib.my_exceptions import JoblibException
 
 
 RETURN_GENERATOR_BACKENDS = BACKENDS.copy()
-RETURN_GENERATOR_BACKENDS.pop("multiprocessing")
+RETURN_GENERATOR_BACKENDS.pop("multiprocessing", None)
 
 
 ALL_VALID_BACKENDS = [None] + sorted(BACKENDS.keys())
