@@ -18,7 +18,7 @@ setup(
     project_urls={
         'Source': 'https://github.com/joblib/joblib',
     },
-    license='BSD',
+    license='BSD-3-Clause',
     description="Lightweight pipelining with Python functions",
     long_description=long_description,
     long_description_content_type="text/x-rst",
