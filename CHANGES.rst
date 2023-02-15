@@ -23,7 +23,7 @@ In development
   https://github.com/joblib/joblib/pull/1361
 
 - A warning is raised when a pickling error occurs during caching operations.
-  In the future, this warning will be turned into an error. For all other
+  In version 1.5, this warning will be turned into an error. For all other
   errors, a new warning has been introduced: `joblib.memory.CacheWarning`.
   https://github.com/joblib/joblib/pull/1359
 

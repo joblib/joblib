@@ -194,10 +194,11 @@ class StoreBackendMixin(object):
                     try:
                         numpy_pickle.dump(to_write, f, compress=self.compress)
                     except PicklingError as e:
+                        #TODO(1.5) turn into error
                         warnings.warn(
                             "Unable to cache to disk: failed to pickle "
-                            "output. In future versions of joblib this "
-                            f"will raise an exception. Exception: {e}.",
+                            "output. In version 1.5 this will raise an "
+                            f"exception. Exception: {e}.",
                             FutureWarning
                         )
 
