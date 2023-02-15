@@ -943,8 +943,8 @@ def test_pickle_in_socket():
 
         np.testing.assert_array_equal(array_reloaded, test_array)
 
-        # Check that a byte-aligned numpy array written in a file can be send over
-        # a socket and then read on the other side
+        # Check that a byte-aligned numpy array written in a file can be send
+        # over a socket and then read on the other side
         bytes_to_send = io.BytesIO()
         numpy_pickle.dump(test_array, bytes_to_send)
         server.send(bytes_to_send.getvalue())
