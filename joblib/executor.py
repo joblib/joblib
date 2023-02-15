@@ -71,25 +71,35 @@ class MemmappingExecutor(_ReusablePoolExecutor):
         return _executor
 
     def terminate(self, kill_workers=False):
-        self.shutdown(kill_workers=kill_workers)
-        if kill_workers:
-            # When workers are killed in such a brutal manner, they cannot
-            # execute the finalizer of their shared memmaps. The refcount of
-            # those memmaps may be off by an unknown number, so instead of
-            # decref'ing them, we delete the whole temporary folder, and
-            # unregister them. There is no risk of PermissionError at folder
-            # deletion because because at this point, all child processes are
-            # dead, so all references to temporary memmaps are closed.
+        # Keep a reference to the lock as shutdown set it to None.
+        processes_management_lock = self._processes_management_lock
 
-            # unregister temporary resources from all contexts
-            with self._submit_resize_lock:
-                self._temp_folder_manager._unregister_temporary_resources()
+        self.shutdown(kill_workers=kill_workers)
+
+        # Need a lock as in pypy, terminate can be called multiple
+        # times concurrently
+        with processes_management_lock:
+            if kill_workers:
+                # When workers are killed in such a brutal manner, they cannot
+                # execute the finalizer of their shared memmaps. The refcount
+                # of those memmaps may be off by an unknown number, so instead
+                # of decref'ing them, we delete the whole temporary folder, and
+                # unregister them. There is no risk of PermissionError at
+                # folder deletion because because at this point, all child
+                # processes are dead, so all references to temporary memmaps
+                # are closed.
+
+                # unregister temporary resources from all contexts
+                with self._submit_resize_lock:
+                    self._temp_folder_manager._unregister_temporary_resources()
+                    self._temp_folder_manager._try_delete_folder(
+                        allow_non_empty=True
+                    )
+            else:
+                self._temp_folder_manager._unlink_temporary_resources()
                 self._temp_folder_manager._try_delete_folder(
                     allow_non_empty=True
                 )
-        else:
-            self._temp_folder_manager._unlink_temporary_resources()
-            self._temp_folder_manager._try_delete_folder(allow_non_empty=True)
 
     @property
     def _temp_folder(self):
