@@ -22,6 +22,11 @@ In development
   in May 2022) that it should be safe to remove this.
   https://github.com/joblib/joblib/pull/1361
 
+- Avoid (module, name) collisions when caching nested functions. This fix
+  changes the module name of nested functions, invalidating caches from
+  previous versions of Joblib.
+  https://github.com/joblib/joblib/pull/1385
+
 Release 1.2.0
 -------------
 
