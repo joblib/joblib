@@ -1134,15 +1134,13 @@ class Parallel(Logger):
         # the exception we got back to the caller instead of returning
         # any result.
         backend = self._backend
-        with self._lock:
-            if (not self._aborted and hasattr(backend, 'abort_everything')):
-                
-                # If the backend is managed externally we need to make sure
-                # to leave it in a working state to allow for future jobs
-                # scheduling.
-                ensure_ready = self._managed_backend
-                backend.abort_everything(ensure_ready=ensure_ready)
-            self._aborted = True
+        if (not self._aborted and hasattr(backend, 'abort_everything')):
+            # If the backend is managed externally we need to make sure
+            # to leave it in a working state to allow for future jobs
+            # scheduling.
+            ensure_ready = self._managed_backend
+            backend.abort_everything(ensure_ready=ensure_ready)
+        self._aborted = True
 
     def _start(self, iterator, pre_dispatch):
         # Only set self._iterating to True if at least a batch
@@ -1204,6 +1202,9 @@ class Parallel(Logger):
         # Exception instances to also include KeyboardInterrupt
         # and GeneratorExit
         except BaseException as e:
+            if self._call_thread_id != threading.get_ident():
+                return
+            
             self._exception = True
             self._abort()
 
@@ -1211,10 +1212,16 @@ class Parallel(Logger):
                 self._warn_exit_early(nb_consumed)
             raise
         finally:
+            if self._call_thread_id != threading.get_ident():
+                return
+
             _remaining_outputs = ([] if self._exception else self._jobs)
             self._jobs = collections.deque()
             self._running = False
             self._terminate_and_reset()
+
+        if self._call_thread_id != threading.get_ident():
+            return
 
         while len(_remaining_outputs) > 0:
             batched_results = _remaining_outputs.popleft()
@@ -1288,6 +1295,8 @@ class Parallel(Logger):
         self._call_ref = None
 
     def __call__(self, iterable):
+        self._call_thread_id = threading.get_ident()
+        
         self._ensure_pypy_gc()
 
         if self._running:
