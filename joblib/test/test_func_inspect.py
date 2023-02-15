@@ -72,7 +72,7 @@ def other_cached_func(tmpdir_factory):
 
     @mem.cache
     def cached_func_inner(x):
-        return x
+        return x  # pragma: no cover
 
     return cached_func_inner
 
