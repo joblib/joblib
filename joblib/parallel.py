@@ -1134,13 +1134,15 @@ class Parallel(Logger):
         # the exception we got back to the caller instead of returning
         # any result.
         backend = self._backend
-        if (not self._aborted and hasattr(backend, 'abort_everything')):
-            # If the backend is managed externally we need to make sure
-            # to leave it in a working state to allow for future jobs
-            # scheduling.
-            ensure_ready = self._managed_backend
-            backend.abort_everything(ensure_ready=ensure_ready)
-        self._aborted = True
+        with self._lock:
+            if (not self._aborted and hasattr(backend, 'abort_everything')):
+                
+                # If the backend is managed externally we need to make sure
+                # to leave it in a working state to allow for future jobs
+                # scheduling.
+                ensure_ready = self._managed_backend
+                backend.abort_everything(ensure_ready=ensure_ready)
+            self._aborted = True
 
     def _start(self, iterator, pre_dispatch):
         # Only set self._iterating to True if at least a batch
