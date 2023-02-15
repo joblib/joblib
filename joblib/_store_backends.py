@@ -21,6 +21,11 @@ CacheItemInfo = collections.namedtuple('CacheItemInfo',
                                        'path size last_access')
 
 
+class CacheWarning(Warning):
+    """Warning to capture dump failures except for PicklingError."""
+    pass
+
+
 def concurrency_safe_write(object_to_write, filename, write_func):
     """Writes an object into a unique file in a concurrency-safe way."""
     thread_id = id(threading.current_thread())
@@ -190,20 +195,19 @@ class StoreBackendMixin(object):
                         numpy_pickle.dump(to_write, f, compress=self.compress)
                     except PicklingError as e:
                         warnings.warn(
-                            'Unable to cache to disk: '
-                            'failed to pickle output. '
-                            'In future versions of joblib '
-                            'this will raise an exception.'
-                            'Exception: %s.' % e,
+                            "Unable to cache to disk: failed to pickle "
+                            "output. In future versions of joblib this "
+                            f"will raise an exception. Exception: {e}.",
                             FutureWarning
                         )
 
             self._concurrency_safe_write(item, filename, write_func)
         except Exception as e:  # noqa: E722
             warnings.warn(
-                'Unable to cache to disk. '
-                'Possibly a race condition in the creation of the directory. '
-                'Exception: %s' % e)
+                "Unable to cache to disk. Possibly a race condition in the "
+                f"creation of the directory. Exception: {e}.",
+                CacheWarning
+            )
 
     def clear_item(self, path):
         """Clear the item at the path, given as a list of strings."""
