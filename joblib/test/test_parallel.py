@@ -1317,46 +1317,47 @@ def test_multiple_generator_call_separated(backend, n_jobs):
     ('sequential', False),
 ])
 def test_multiple_generator_call_separated_gc(backend, error):
-    if backend in ['loky', 'multiprocessing'] and mp is None:
-        pytest.skip("Requires multiprocessing")
-
-    # Check that in loky, only one call can be run at a time with
-    # a single executor.
-    parallel = Parallel(2, backend=backend, return_generator=True)
-    g = parallel(delayed(sleep)(10) for i in range(10))
-    g_wr = weakref.finalize(g, lambda: print("Generator collected"))
-    ctx = (
-        raises(RuntimeError, match="The executor underlying Parallel")
-        if error else nullcontext()
-    )
-    with ctx:
-        # For loky, this call will raise an error as the gc of the previous
-        # generator will shutdown the shared executor.
-        # For the other backends, as the worker pools are not shared between
-        # the two calls, this should proceed correctly.
-        t_start = time.time()
-        g = Parallel(2, backend=backend, return_generator=True)(
-            delayed(sqrt)(i ** 2) for i in range(10, 20)
+    for i in range(100):
+        if backend in ['loky', 'multiprocessing'] and mp is None:
+            pytest.skip("Requires multiprocessing")
+    
+        # Check that in loky, only one call can be run at a time with
+        # a single executor.
+        parallel = Parallel(2, backend=backend, return_generator=True)
+        g = parallel(delayed(sleep)(10) for i in range(10))
+        g_wr = weakref.finalize(g, lambda: print("Generator collected"))
+        ctx = (
+            raises(RuntimeError, match="The executor underlying Parallel")
+            if error else nullcontext()
         )
-
-        # The gc in pypy can be delayed. Force it to test the behavior when it
-        # will eventually be collected.
-        force_gc_pypy()
-        assert all(res == i for res, i in zip(g, range(10, 20)))
-
-    assert time.time() - t_start < 5
-
-    # Make sure that the computation are stopped for the gc'ed generator
-    retry = 0
-    while g_wr.alive and retry < 3:
-        retry += 1
-        time.sleep(.5)
-    assert time.time() - t_start < 5
-
-    if parallel._effective_n_jobs() != 1:
-        # check that the first parallel object is aborting (the final _aborted
-        # state might be delayed).
-        assert parallel._aborting
+        with ctx:
+            # For loky, this call will raise an error as the gc of the previous
+            # generator will shutdown the shared executor.
+            # For the other backends, as the worker pools are not shared between
+            # the two calls, this should proceed correctly.
+            t_start = time.time()
+            g = Parallel(2, backend=backend, return_generator=True)(
+                delayed(sqrt)(i ** 2) for i in range(10, 20)
+            )
+    
+            # The gc in pypy can be delayed. Force it to test the behavior when it
+            # will eventually be collected.
+            force_gc_pypy()
+            assert all(res == i for res, i in zip(g, range(10, 20)))
+    
+        assert time.time() - t_start < 5
+    
+        # Make sure that the computation are stopped for the gc'ed generator
+        retry = 0
+        while g_wr.alive and retry < 3:
+            retry += 1
+            time.sleep(.5)
+        assert time.time() - t_start < 5
+    
+        if parallel._effective_n_jobs() != 1:
+            # check that the first parallel object is aborting (the final _aborted
+            # state might be delayed).
+            assert parallel._aborting
 
 
 @with_numpy
@@ -1635,28 +1636,27 @@ def _recursive_parallel(nesting_limit=None):
 @parametrize('backend',
              (['threading'] if mp is None else ['loky', 'threading']))
 def test_thread_bomb_mitigation(backend):
-    for i in range(100):
-        # Test that recursive parallelism raises a recursion rather than
-        # saturating the operating system resources by creating a unbounded number
-        # of threads.
-        with parallel_backend(backend, n_jobs=2):
-            with raises(BaseException) as excinfo:
-                _recursive_parallel()
-        exc = excinfo.value
-        if backend == "loky":
-            # Local import because loky may not be importable for lack of
-            # multiprocessing
-            from joblib.externals.loky.process_executor import TerminatedWorkerError # noqa
-            if isinstance(exc, (TerminatedWorkerError, PicklingError)):
-                # The recursion exception can itself cause an error when
-                # pickling it to be send back to the parent process. In this
-                # case the worker crashes but the original traceback is still
-                # printed on stderr. This could be improved but does not seem
-                # simple to do and this is is not critical for users (as long
-                # as there is no process or thread bomb happening).
-                pytest.xfail("Loky worker crash when serializing RecursionError")
-    
-        assert isinstance(exc, RecursionError)
+    # Test that recursive parallelism raises a recursion rather than
+    # saturating the operating system resources by creating a unbounded number
+    # of threads.
+    with parallel_backend(backend, n_jobs=2):
+        with raises(BaseException) as excinfo:
+            _recursive_parallel()
+    exc = excinfo.value
+    if backend == "loky":
+        # Local import because loky may not be importable for lack of
+        # multiprocessing
+        from joblib.externals.loky.process_executor import TerminatedWorkerError # noqa
+        if isinstance(exc, (TerminatedWorkerError, PicklingError)):
+            # The recursion exception can itself cause an error when
+            # pickling it to be send back to the parent process. In this
+            # case the worker crashes but the original traceback is still
+            # printed on stderr. This could be improved but does not seem
+            # simple to do and this is is not critical for users (as long
+            # as there is no process or thread bomb happening).
+            pytest.xfail("Loky worker crash when serializing RecursionError")
+
+    assert isinstance(exc, RecursionError)
 
 
 def _run_parallel_sum():

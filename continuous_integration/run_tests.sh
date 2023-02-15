@@ -20,7 +20,7 @@ if [[ "$SKIP_TESTS" != "true" ]]; then
         export PYTEST_ADDOPTS="--cov=joblib --cov-append"
     fi
 
-    pytest joblib -vsl --timeout=240 --junitxml="${JUNITXML}" -k test_thread_bomb_mitigation
+    pytest joblib -vsl --timeout=120 --junitxml="${JUNITXML}" -k test_multiple_generator_call_separated_gc[loky-True]
     make test-doc
 fi
 
