@@ -526,6 +526,7 @@ class TemporaryResourcesManager(object):
         self._cached_temp_folders = dict()
         self._id = uuid4().hex
         self._finalizers = {}
+        self.clean_up_lock = threading.Lock()
         if context_id is None:
             # It would be safer to not assign a default context id (less silent
             # bugs), but doing this while maintaining backward compatibility

@@ -71,14 +71,12 @@ class MemmappingExecutor(_ReusablePoolExecutor):
         return _executor
 
     def terminate(self, kill_workers=False):
-        # Keep a reference to the lock as shutdown set it to None.
-        processes_management_lock = self._processes_management_lock
 
         self.shutdown(kill_workers=kill_workers)
 
-        # Need a lock as in pypy, terminate can be called multiple
-        # times concurrently
-        with processes_management_lock:
+        # Need to protect with a lock to make sure the collection is not called
+        # multiple times.
+        with self._submit_resize_lock:
             if kill_workers:
                 # When workers are killed in such a brutal manner, they cannot
                 # execute the finalizer of their shared memmaps. The refcount
@@ -90,11 +88,10 @@ class MemmappingExecutor(_ReusablePoolExecutor):
                 # are closed.
 
                 # unregister temporary resources from all contexts
-                with self._submit_resize_lock:
-                    self._temp_folder_manager._unregister_temporary_resources()
-                    self._temp_folder_manager._try_delete_folder(
-                        allow_non_empty=True
-                    )
+                self._temp_folder_manager._unregister_temporary_resources()
+                self._temp_folder_manager._try_delete_folder(
+                    allow_non_empty=True
+                )
             else:
                 self._temp_folder_manager._unlink_temporary_resources()
                 self._temp_folder_manager._try_delete_folder(
