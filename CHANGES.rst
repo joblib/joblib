@@ -22,6 +22,11 @@ In development
   in May 2022) that it should be safe to remove this.
   https://github.com/joblib/joblib/pull/1361
 
+- A warning is raised when a pickling error occurs during caching operations.
+  In version 1.5, this warning will be turned into an error. For all other
+  errors, a new warning has been introduced: `joblib.memory.CacheWarning`.
+  https://github.com/joblib/joblib/pull/1359
+
 - Avoid (module, name) collisions when caching nested functions. This fix
   changes the module name of nested functions, invalidating caches from
   previous versions of Joblib.

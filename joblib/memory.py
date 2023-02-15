@@ -30,6 +30,7 @@ from .func_inspect import format_call
 from .func_inspect import format_signature
 from .logger import Logger, format_time, pformat
 from ._store_backends import StoreBackendBase, FileSystemStoreBackend
+from ._store_backends import CacheWarning  # noqa
 
 
 FIRST_LINE_TEXT = "# first line:"
