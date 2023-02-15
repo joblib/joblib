@@ -345,7 +345,8 @@ def test_parallel_pickling():
             raise RuntimeError('123')
 
     with raises(PicklingError, match=r"the task to send"):
-        Parallel(n_jobs=2)(delayed(id)(UnpicklableObject()) for _ in range(10))
+        Parallel(n_jobs=2, backend='loky')(delayed(id)(
+            UnpicklableObject()) for _ in range(10))
 
 
 @parametrize('backend', PARALLEL_BACKENDS)
@@ -788,7 +789,7 @@ def test_nested_backend_in_sequential(backend, n_jobs):
         assert Parallel()._effective_n_jobs() == expected_n_job
 
     Parallel(n_jobs=1)(
-        delayed(check_nested_backend)('loky', 1)
+        delayed(check_nested_backend)(DEFAULT_BACKEND, 1)
         for _ in range(10)
     )
 
@@ -1065,7 +1066,7 @@ faulthandler.dump_traceback_later(30, exit=True)
 # necessary for functions and instances of classes interactively defined in the
 # __main__ module.
 
-print(Parallel(n_jobs=2)(
+print(Parallel(backend="loky", n_jobs=2)(
     delayed(square2)(MyClass(i), ignored=[dict(a=MyClass(1))])
     for i in range(5)
 ))
@@ -1074,11 +1075,10 @@ print(Parallel(n_jobs=2)(
 
 
 @with_multiprocessing
-def test_parallel_with_interactively_defined_functions_default_backend(tmpdir):
-    # The default backend (loky) accepts interactive functions defined in
-    # __main__ and does not require if __name__ == '__main__' even when
-    # the __main__ module is defined by the result of the execution of a
-    # filesystem script.
+def test_parallel_with_interactively_defined_functions_loky(tmpdir):
+    # loky accepts interactive functions defined in __main__ and does not
+    # require if __name__ == '__main__' even when the __main__ module is
+    # defined by the result of the execution of a filesystem script.
     script = tmpdir.join('joblib_interactively_defined_function.py')
     script.write(INTERACTIVE_DEFINED_FUNCTION_AND_CLASS_SCRIPT_CONTENT)
     check_subprocess_call(
@@ -1107,7 +1107,7 @@ class MyList(list):
 
 l = MyList()
 
-print(Parallel(n_jobs=2)(
+print(Parallel(backend="loky", n_jobs=2)(
     delayed(l.append)(i) for i in range(3)
 ))
 """.format(joblib_root_folder=os.path.dirname(
@@ -1115,7 +1115,7 @@ print(Parallel(n_jobs=2)(
 
 
 @with_multiprocessing
-def test_parallel_with_interactively_defined_bound_method(tmpdir):
+def test_parallel_with_interactively_defined_bound_method_loky(tmpdir):
     script = tmpdir.join('joblib_interactive_bound_method_script.py')
     script.write(INTERACTIVELY_DEFINED_SUBCLASS_WITH_METHOD_SCRIPT_CONTENT)
     check_subprocess_call([sys.executable, script.strpath],
@@ -1279,13 +1279,13 @@ def test_backend_batch_statistics_reset(backend):
 @with_multiprocessing
 def test_backend_hinting_and_constraints():
     for n_jobs in [1, 2, -1]:
-        assert type(Parallel(n_jobs=n_jobs)._backend) == LokyBackend
+        assert type(Parallel(n_jobs=n_jobs)._backend) == DefaultBackend
 
         p = Parallel(n_jobs=n_jobs, prefer='threads')
         assert type(p._backend) == ThreadingBackend
 
         p = Parallel(n_jobs=n_jobs, prefer='processes')
-        assert type(p._backend) == LokyBackend
+        assert type(p._backend) == DefaultBackend
 
         p = Parallel(n_jobs=n_jobs, require='sharedmem')
         assert type(p._backend) == ThreadingBackend
@@ -1623,7 +1623,7 @@ def check_child_num_threads(workers_info, parent_info, num_threads):
 @with_numpy
 @with_multiprocessing
 @parametrize('n_jobs', [2, 4, -2, -1])
-def test_threadpool_limitation_in_child(n_jobs):
+def test_threadpool_limitation_in_child_loky(n_jobs):
     # Check that the protection against oversubscription in workers is working
     # using threadpoolctl functionalities.
 
@@ -1632,7 +1632,7 @@ def test_threadpool_limitation_in_child(n_jobs):
     if len(parent_info) == 0:
         pytest.skip(msg="Need a version of numpy linked to BLAS")
 
-    workers_threadpool_infos = Parallel(n_jobs=n_jobs)(
+    workers_threadpool_infos = Parallel(backend="loky", n_jobs=n_jobs)(
         delayed(_check_numpy_threadpool_limits)() for i in range(2))
 
     n_jobs = effective_n_jobs(n_jobs)

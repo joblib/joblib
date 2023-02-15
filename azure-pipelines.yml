@@ -23,7 +23,7 @@ jobs:
       displayName: Add conda to PATH
     - bash: sudo chown -R $USER $CONDA
       displayName: Take ownership of conda installation
-    - bash: conda create --name flake8_env --yes flake8
+    - bash: conda create --name flake8_env --yes "flake8<6"
       displayName: Install flake8
     - bash: |
         if [[ $BUILD_SOURCEVERSIONMESSAGE =~ \[lint\ skip\] ]]; then
@@ -74,6 +74,10 @@ jobs:
       linux_py37_no_numpy:
         imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.7"
+      linux_py37_default_backend_threading:
+        imageName: 'ubuntu-latest'
+        PYTHON_VERSION: "3.7"
+        JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND: "threading"
 
       windows_py310:
         imageName: "windows-latest"
