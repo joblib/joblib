@@ -1164,6 +1164,9 @@ class Parallel(Logger):
             self._iterating = False
 
     def _get_outputs(self, iterator, pre_dispatch):
+        exit_generator = False
+        finally_generator = False
+        generator_lock = threading.Lock()
         try:
             with self._backend.retrieval_context():
                 self._start(iterator, pre_dispatch)
@@ -1202,8 +1205,12 @@ class Parallel(Logger):
         # Exception instances to also include KeyboardInterrupt
         # and GeneratorExit
         except BaseException as e:
-            if self._call_thread_id != threading.get_ident():
-                return
+            with generator_lock:
+                if exit_generator:
+                    finally_generator = False
+                    return
+                exit_generator = True     
+                finally_generator = True
             
             self._exception = True
             self._abort()
@@ -1212,8 +1219,9 @@ class Parallel(Logger):
                 self._warn_exit_early(nb_consumed)
             raise
         finally:
-            if self._call_thread_id != threading.get_ident():
-                return
+            with generator_lock:
+                if not finally_generator:
+                    return
 
             _remaining_outputs = ([] if self._exception else self._jobs)
             self._jobs = collections.deque()
@@ -1294,9 +1302,7 @@ class Parallel(Logger):
             gc.collect()
         self._call_ref = None
 
-    def __call__(self, iterable):
-        self._call_thread_id = threading.get_ident()
-        
+    def __call__(self, iterable):        
         self._ensure_pypy_gc()
 
         if self._running:
