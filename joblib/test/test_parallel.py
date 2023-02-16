@@ -1126,6 +1126,10 @@ def test_parallel_with_exhausted_iterator():
     assert Parallel(n_jobs=2)(exhausted_iterator) == []
 
 
+def _cleanup_worker():
+    force_gc_pypy()
+    time.sleep(.1)
+
 def check_memmap(a):
     if not isinstance(a, np.memmap):
         raise TypeError('Expected np.memmap instance, got %r',
@@ -1377,6 +1381,8 @@ def test_memmapping_leaks(backend, tmpdir):
         # The memmap folder should not be clean in the context scope
         assert len(os.listdir(tmpdir)) > 0
 
+        p(delayed(_cleanup_worker)() for _ in range(2))
+
     # Make sure that the shared memory is cleaned at the end when we exit
     # the context
     for _ in range(100):
@@ -1389,6 +1395,7 @@ def test_memmapping_leaks(backend, tmpdir):
     # Make sure that the shared memory is cleaned at the end of a call
     p = Parallel(n_jobs=2, max_nbytes=1, backend=backend)
     p(delayed(check_memmap)(a) for a in [np.random.random(10)] * 2)
+    p(delayed(_cleanup_worker)() for _ in range(2))
 
     for _ in range(100):
         if not os.listdir(tmpdir):

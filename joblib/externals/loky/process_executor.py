@@ -180,6 +180,9 @@ _threads_wakeups = weakref.WeakKeyDictionary()
 _global_shutdown = False
 
 
+_debug_exit_lock_temp = threading.Lock()
+
+
 def _python_exit():
     global _global_shutdown
     _global_shutdown = True
@@ -191,7 +194,8 @@ def _python_exit():
         with shutdown_lock:
             thread_wakeup.wakeup()
     for thread, _ in items:
-        thread.join()
+        with _debug_exit_lock_temp:
+            thread.join()
 
 
 # With the fork context, _thread_wakeups is propagated to children.
@@ -1195,8 +1199,9 @@ class ProcessPoolExecutor(Executor):
             with self._shutdown_lock:
                 self._executor_manager_thread_wakeup.wakeup()
 
-        if executor_manager_thread is not None and wait:
-            executor_manager_thread.join()
+        with _debug_exit_lock_temp:
+            if executor_manager_thread is not None and wait:
+                executor_manager_thread.join()
 
         # To reduce the risk of opening too many files, remove references to
         # objects that use file descriptors.
