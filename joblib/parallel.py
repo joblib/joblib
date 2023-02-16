@@ -536,6 +536,26 @@ def effective_n_jobs(n_jobs=-1):
     return backend.effective_n_jobs(n_jobs=n_jobs)
 
 
+_DetachedFuncLock = threading.Lock()
+def _pypy_detach(func):
+    
+    def _func_detached_if_pypy(*args, **kwargs):
+        
+        if not hasattr(sys, "pypy_version_info"):
+            return func(*args, **kwargs)
+        
+        
+        
+        class _PypyFuncDetached(threading.Thread):
+            def run(self):
+                with _DetachedFuncLock:
+                    return func(*args, **kwargs)
+        
+        _PypyFuncDetached(name="PypyTerminationThread").start()
+        
+    return _func_detached_if_pypy
+
+
 ###############################################################################
 class Parallel(Logger):
     ''' Helper class for readable parallel mapping.
@@ -934,6 +954,7 @@ class Parallel(Logger):
 
         return backend, n_jobs
 
+    @_pypy_detach
     def _terminate_and_reset(self):
         if hasattr(self._backend, 'stop_call') and self._calling:
             self._backend.stop_call()
@@ -1124,6 +1145,7 @@ class Parallel(Logger):
                          short_format_time(remaining_time),
                          ))
 
+    @_pypy_detach
     def _abort(self):
         # Stop dispatching any new job in the async callback thread
         with self._lock:
@@ -1164,9 +1186,6 @@ class Parallel(Logger):
             self._iterating = False
 
     def _get_outputs(self, iterator, pre_dispatch):
-        exit_generator = False
-        finally_generator = False
-        generator_lock = threading.Lock()
         try:
             with self._backend.retrieval_context():
                 self._start(iterator, pre_dispatch)
@@ -1205,13 +1224,6 @@ class Parallel(Logger):
         # Exception instances to also include KeyboardInterrupt
         # and GeneratorExit
         except BaseException as e:
-            with generator_lock:
-                if exit_generator:
-                    finally_generator = False
-                    return
-                exit_generator = True     
-                finally_generator = True
-            
             self._exception = True
             self._abort()
 
@@ -1219,17 +1231,10 @@ class Parallel(Logger):
                 self._warn_exit_early(nb_consumed)
             raise
         finally:
-            with generator_lock:
-                if not finally_generator:
-                    return
-
             _remaining_outputs = ([] if self._exception else self._jobs)
             self._jobs = collections.deque()
             self._running = False
             self._terminate_and_reset()
-
-        if self._call_thread_id != threading.get_ident():
-            return
 
         while len(_remaining_outputs) > 0:
             batched_results = _remaining_outputs.popleft()
@@ -1297,12 +1302,12 @@ class Parallel(Logger):
             self._running = False
 
     def _ensure_pypy_gc(self):
-        if self._call_ref is not None and self._call_ref() is not None:
+        if hasattr(sys, "pypy_version_info") and self._call_ref is not None and self._call_ref() is not None:
             gc.collect()
             gc.collect()
         self._call_ref = None
 
-    def __call__(self, iterable):        
+    def __call__(self, iterable):
         self._ensure_pypy_gc()
 
         if self._running:

@@ -1195,7 +1195,7 @@ class ProcessPoolExecutor(Executor):
             with self._shutdown_lock:
                 self._executor_manager_thread_wakeup.wakeup()
 
-        if executor_manager_thread is not None and wait:
+        if executor_manager_thread is not None and wait and not (executor_manager_thread is threading.current_thread()):
             executor_manager_thread.join()
 
         # To reduce the risk of opening too many files, remove references to

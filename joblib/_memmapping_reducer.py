@@ -526,7 +526,6 @@ class TemporaryResourcesManager(object):
         self._cached_temp_folders = dict()
         self._id = uuid4().hex
         self._finalizers = {}
-        self.clean_up_lock = threading.Lock()
         if context_id is None:
             # It would be safer to not assign a default context id (less silent
             # bugs), but doing this while maintaining backward compatibility
@@ -576,14 +575,17 @@ class TemporaryResourcesManager(object):
             for context_id in list(self._cached_temp_folders):
                 self._unregister_context(context_id)
         else:
-            temp_folder = self._cached_temp_folders[context_id]
-            finalizer = self._finalizers[context_id]
+            temp_folder = self._cached_temp_folders.get(context_id)
+            finalizer = self._finalizers.get(context_id)
 
-            resource_tracker.unregister(temp_folder, "folder")
-            atexit.unregister(finalizer)
+            if temp_folder is not None:
+                resource_tracker.unregister(temp_folder, "folder")
+                
+            if finalizer is not None:
+                atexit.unregister(finalizer)
 
-            self._cached_temp_folders.pop(context_id)
-            self._finalizers.pop(context_id)
+            self._cached_temp_folders.pop(context_id, None)
+            self._finalizers.pop(context_id, None)
 
     # resource management API
 
@@ -624,7 +626,9 @@ class TemporaryResourcesManager(object):
             for context_id in list(self._cached_temp_folders):
                 self._unlink_temporary_resources(context_id)
         else:
-            temp_folder = self._cached_temp_folders[context_id]
+            temp_folder = self._cached_temp_folders.get(context_id)
+            if temp_folder is None:
+                return
             if os.path.exists(temp_folder):
                 for filename in os.listdir(temp_folder):
                     resource_tracker.maybe_unlink(
@@ -642,7 +646,9 @@ class TemporaryResourcesManager(object):
             for context_id in list(self._cached_temp_folders):
                 self._unregister_temporary_resources(context_id)
         else:
-            temp_folder = self._cached_temp_folders[context_id]
+            temp_folder = self._cached_temp_folders.get(context_id)
+            if temp_folder is None:
+                return
             if os.path.exists(temp_folder):
                 for filename in os.listdir(temp_folder):
                     resource_tracker.unregister(
@@ -658,7 +664,9 @@ class TemporaryResourcesManager(object):
                     allow_non_empty=allow_non_empty, context_id=context_id
                 )
         else:
-            temp_folder = self._cached_temp_folders[context_id]
+            temp_folder = self._cached_temp_folders.get(context_id)
+            if temp_folder is None:
+                return
             try:
                 delete_folder(
                     temp_folder, allow_non_empty=allow_non_empty
