@@ -23,7 +23,8 @@ if mp is not None:
     from .externals.loky.process_executor import _ExceptionWithTraceback
     from .externals.loky.reusable_executor import _executor_lock as LokyLock
 else:
-    from contextlib import nullcontext as LokyLock
+    from contextlib import nullcontext
+    LokyLock = nullcontext()
 
 
 class ParallelBackendBase(metaclass=ABCMeta):
