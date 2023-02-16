@@ -644,11 +644,9 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
     def abort_everything(self, ensure_ready=True):
         """Shutdown the workers and restart a new one with the same parameters
         """
-        if self._workers is None:
-            return
-
-        self._workers.terminate(kill_workers=True)
-        self._workers = None
+        if self._workers is not None:
+            self._workers.terminate(kill_workers=True)
+            self._workers = None
 
         if ensure_ready:
             self.configure(n_jobs=self.parallel.n_jobs, parallel=self.parallel)
