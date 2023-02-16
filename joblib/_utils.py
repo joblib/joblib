@@ -42,3 +42,11 @@ def eval_(node):
         return operators[type(node.op)](eval_(node.operand))
     else:
         raise TypeError(node)
+
+
+class _Sentinel:
+    def __init__(self, default_value):
+        self.default_value = default_value
+    
+    def __repr__(self):
+        return f"default({self.default_value!r})"
