@@ -22,6 +22,8 @@ if mp is not None:
     from .externals.loky.process_executor import ShutdownExecutorError
     from .externals.loky.process_executor import _ExceptionWithTraceback
     from .externals.loky.reusable_executor import _executor_lock as LokyLock
+else:
+    from contextlib import nullcontext as LokyLock
 
 
 class ParallelBackendBase(metaclass=ABCMeta):
