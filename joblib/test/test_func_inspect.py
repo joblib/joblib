@@ -151,12 +151,12 @@ def test_func_name_collision_on_inner_func():
     # with the same do not cause (module, name) collision
     def f():
         def inner_func():
-            return
+            return  # noqa
         return get_func_name(inner_func)
 
     def g():
         def inner_func():
-            return
+            return  # noqa
         return get_func_name(inner_func)
 
     module, name = f()
