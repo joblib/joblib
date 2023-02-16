@@ -537,6 +537,8 @@ def effective_n_jobs(n_jobs=-1):
 
 
 _DetachedFuncLock = threading.Lock()
+
+
 def _pypy_detach(func):
 
     def _func_detached_if_pypy(this, is_generatorexit):
@@ -1305,7 +1307,10 @@ class Parallel(Logger):
             self._running = False
 
     def _ensure_pypy_gc(self):
-        if hasattr(sys, "pypy_version_info") and self._call_ref is not None and self._call_ref() is not None:
+        if (hasattr(sys, "pypy_version_info") and 
+            self._call_ref is not None and 
+            self._call_ref() is not None
+        ):
             gc.collect()
             gc.collect()
         self._call_ref = None

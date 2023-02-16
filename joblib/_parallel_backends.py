@@ -21,6 +21,7 @@ if mp is not None:
     from .externals.loky import process_executor, cpu_count
     from .externals.loky.process_executor import ShutdownExecutorError
     from .externals.loky.process_executor import _ExceptionWithTraceback
+    from .externals.loky.reusable_executor import _executor_lock as LokyLock
 
 
 class ParallelBackendBase(metaclass=ABCMeta):
@@ -530,9 +531,6 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
         """Shutdown the process or thread pool"""
         super(MultiprocessingBackend, self).terminate()
         self.reset_batch_stats()
-
-
-from .externals.loky.reusable_executor import _executor_lock as LokyLock
 
 
 def _with_LokyLock(func):
