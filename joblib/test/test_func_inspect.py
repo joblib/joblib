@@ -64,19 +64,6 @@ def cached_func(tmpdir_factory):
     return cached_func_inner
 
 
-@fixture(scope='module')
-def other_cached_func(tmpdir_factory):
-    # same as cached_func to check name collisions
-    cachedir = tmpdir_factory.mktemp("joblib_test_func_inspect")
-    mem = Memory(cachedir.strpath)
-
-    @mem.cache
-    def cached_func_inner(x):
-        return x  # pragma: no cover
-
-    return cached_func_inner
-
-
 class Klass(object):
 
     def f(self, x):
@@ -159,11 +146,22 @@ def test_func_name_on_inner_func(cached_func):
     assert get_func_name(cached_func)[1] == 'cached_func_inner'
 
 
-def test_func_name_collision_on_inner_func(cached_func, other_cached_func):
+def test_func_name_collision_on_inner_func():
     # Check that two functions defining and caching an inner function
     # with the same do not cause (module, name) collision
-    module, name = get_func_name(cached_func)
-    other_module, other_name = get_func_name(other_cached_func)
+    def f():
+        def inner_func():
+            return
+        return get_func_name(inner_func)
+
+    def g():
+        def inner_func():
+            return
+        return get_func_name(inner_func)
+
+    module, name = f()
+    other_module, other_name = g()
+
     assert name == other_name
     assert module != other_module
 
