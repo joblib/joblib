@@ -849,10 +849,7 @@ class MemorizedFunc(Logger):
                           "(results will be correct in all cases). \n"
                           "The reason for this is probably some large input "
                           "arguments for a wrapped\n"
-                          " function (e.g. large strings).\n"
-                          "THIS IS A JOBLIB ISSUE. If you can, kindly provide "
-                          "the joblib's team with an\n"
-                          " example so that they can fix the problem."
+                          " function."
                           % this_duration, stacklevel=5)
         return metadata
 
