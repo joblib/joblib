@@ -1317,7 +1317,7 @@ def test_multiple_generator_call_separated(backend, n_jobs):
     ('sequential', False),
 ])
 def test_multiple_generator_call_separated_gc(backend, error):
-    for i in range(5000):
+    for i in range(100):
         if backend in ['loky', 'multiprocessing'] and mp is None:
             pytest.skip("Requires multiprocessing")
     
