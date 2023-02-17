@@ -18,6 +18,7 @@ from time import sleep
 from pickle import PicklingError
 from multiprocessing import TimeoutError
 import pickle
+import warnings
 import pytest
 
 import joblib
