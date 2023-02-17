@@ -8,15 +8,14 @@ import itertools
 from time import sleep
 import subprocess
 import threading
+import faulthandler
 
 import pytest
 
 from joblib.test.common import with_numpy, np
-from joblib.test.common import setup_autokill
-from joblib.test.common import teardown_autokill
 from joblib.test.common import with_multiprocessing
 from joblib.test.common import with_dev_shm
-from joblib.testing import raises, parametrize, skipif, xfail, param
+from joblib.testing import raises, parametrize, skipif
 from joblib.backports import make_memmap
 from joblib.parallel import Parallel, delayed
 
@@ -32,11 +31,11 @@ import joblib._memmapping_reducer as jmr
 
 
 def setup_module():
-    setup_autokill(__name__, timeout=300)
+    faulthandler.dump_traceback_later(timeout=300, exit=True)
 
 
 def teardown_module():
-    teardown_autokill(__name__)
+    faulthandler.cancel_dump_traceback_later()
 
 
 def check_memmap_and_send_back(array):
