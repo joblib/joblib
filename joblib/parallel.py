@@ -542,7 +542,7 @@ _DetachedFuncLock = threading.Lock()
 def _pypy_detach(func):
 
     def _func_detached_if_pypy(this, is_generatorexit):
-        if not is_generatorexit or not hasattr(sys, "pypy_version_info"):
+        if not hasattr(sys, "pypy_version_info"):
             return func(this, is_generatorexit)
         elif not is_generatorexit:
             with _DetachedFuncLock:
