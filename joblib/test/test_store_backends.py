@@ -1,3 +1,4 @@
+
 try:
     # Python 2.7: use the C pickle to speed up
     # test_concurrency_safe_write which pickles big python objects
@@ -5,13 +6,20 @@ try:
 except ImportError:
     import pickle as cpickle
 import functools
+from pickle import PicklingError
 import time
+
+import pytest
 
 from joblib.testing import parametrize, timeout
 from joblib.test.common import with_multiprocessing
 from joblib.backports import concurrency_safe_rename
 from joblib import Parallel, delayed
-from joblib._store_backends import concurrency_safe_write
+from joblib._store_backends import (
+    concurrency_safe_write,
+    FileSystemStoreBackend,
+    CacheWarning,
+)
 
 
 def write_func(output, filename):
@@ -54,3 +62,33 @@ def test_concurrency_safe_write(tmpdir, backend):
              if i % 3 != 2 else load_func for i in range(12)]
     Parallel(n_jobs=2, backend=backend)(
         delayed(func)(obj, filename) for func in funcs)
+
+
+def test_warning_on_dump_failure(tmpdir):
+    # Check that a warning is raised when the dump fails for any reason but
+    # a PicklingError.
+    class UnpicklableObject(object):
+        def __reduce__(self):
+            raise RuntimeError("some exception")
+
+    backend = FileSystemStoreBackend()
+    backend.location = tmpdir.join('test_warning_on_pickling_error').strpath
+    backend.compress = None
+
+    with pytest.warns(CacheWarning, match="some exception"):
+        backend.dump_item("testpath", UnpicklableObject())
+
+
+def test_warning_on_pickling_error(tmpdir):
+    # This is separate from test_warning_on_dump_failure because in the
+    # future we will turn this into an exception.
+    class UnpicklableObject(object):
+        def __reduce__(self):
+            raise PicklingError("not picklable")
+
+    backend = FileSystemStoreBackend()
+    backend.location = tmpdir.join('test_warning_on_pickling_error').strpath
+    backend.compress = None
+
+    with pytest.warns(FutureWarning, match="not picklable"):
+        backend.dump_item("testpath", UnpicklableObject())
