@@ -30,7 +30,6 @@ else:
 class ParallelBackendBase(metaclass=ABCMeta):
     """Helper abc which defines all methods a ParallelBackend must implement"""
 
-    supports_sharedmem = False
     supports_inner_max_num_threads = False
     supports_asynchronous_callback = False
 
@@ -120,7 +119,7 @@ class ParallelBackendBase(metaclass=ABCMeta):
     def abort_everything(self, ensure_ready=True):
         """Abort any running tasks
 
-        This is called when an exception has been raised when executing a task
+        This is called when an exception has been raised when executing a tasks
         and all the remaining tasks will be ignored and can therefore be
         aborted to spare computation resources.
 

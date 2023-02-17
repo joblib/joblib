@@ -12,16 +12,16 @@ import time
 import mmap
 import weakref
 import threading
+from traceback import format_exception
 from math import sqrt
 from time import sleep
-from queue import Queue
 from pickle import PicklingError
 from contextlib import nullcontext
-from traceback import format_exception
 from multiprocessing import TimeoutError
 import pickle
 import warnings
 import pytest
+
 import joblib
 from joblib import parallel
 from joblib import dump, load
@@ -38,6 +38,7 @@ if mp is not None:
     # Loky is not available if multiprocessing is not
     from joblib.externals.loky import get_reusable_executor
 
+from queue import Queue
 
 try:
     import posix
@@ -376,8 +377,8 @@ def test_error_capture(backend):
     if mp is not None:
         with raises(ZeroDivisionError):
             Parallel(n_jobs=2, backend=backend)(
-                [delayed(division)(x, y) for x, y in zip((0, 1), (1, 0))]
-            )
+                [delayed(division)(x, y)
+                    for x, y in zip((0, 1), (1, 0))])
 
         with raises(KeyboardInterrupt):
             Parallel(n_jobs=2, backend=backend)(
@@ -475,8 +476,7 @@ def test_dispatch_one_job(backend, batch_size, expected_queue):
             yield i
 
     Parallel(n_jobs=1, batch_size=batch_size, backend=backend)(
-        delayed(consumer)(queue, x) for x in producer()
-    )
+        delayed(consumer)(queue, x) for x in producer())
     assert queue == expected_queue
     assert len(queue) == 12
 
@@ -850,7 +850,10 @@ def test_retrieval_context(async_callback):
         return Parallel(n_jobs=2)(delayed(id)(i) for i in range(n))
 
     with parallel_backend("retrieval") as (ba, _):
-        Parallel(n_jobs=2)(delayed(nested_call)(i) for i in range(5))
+        Parallel(n_jobs=2)(
+            delayed(nested_call)(i)
+            for i in range(5)
+        )
         assert ba.i == 1
 
 
@@ -1191,8 +1194,7 @@ def test_warning_about_timeout_not_supported_by_backend():
     assert str(w.message) == (
         "The backend class 'SequentialBackend' does not support timeout. "
         "You have set 'timeout=1' in Parallel but the 'timeout' parameter "
-        "will not be used."
-    )
+        "will not be used.")
 
 
 def set_list_value(input_list, index, value):
@@ -1220,8 +1222,7 @@ def test_abort_backend(n_jobs, backend):
     with raises(TypeError):
         t_start = time.time()
         Parallel(n_jobs=n_jobs, backend=backend)(
-            delayed(time.sleep)(i) for i in delays
-        )
+            delayed(time.sleep)(i) for i in delays)
     dt = time.time() - t_start
     assert dt < 20
 

@@ -44,7 +44,6 @@ BACKENDS = {
     'threading': ThreadingBackend,
     'sequential': SequentialBackend,
 }
-
 # name of the backend used by default by Parallel outside of any context
 # managed by ``parallel_backend``.
 
@@ -66,34 +65,13 @@ if mp is not None:
 
 DEFAULT_THREAD_BACKEND = 'threading'
 
-# Backend hints and constraints to help choose the backend
-VALID_BACKEND_HINTS = ('processes', 'threads', None)
-VALID_BACKEND_CONSTRAINTS = ('sharedmem', None)
-
-# Registry to get external backends
-EXTERNAL_BACKENDS = {}
-
-# Possible exit status for the tasks
-TASK_DONE = "Done"
-TASK_ERROR = "Error"
-TASK_PENDING = "Pending"
-
-
-# Under Linux or OS X the default start method of multiprocessing
-# can cause third party libraries to crash. Under Python 3.4+ it is possible
-# to set an environment variable to switch the default start method from
-# 'fork' to 'forkserver' or 'spawn' to avoid this issue albeit at the cost
-# of causing semantic changes and some additional pool instantiation overhead.
-DEFAULT_MP_CONTEXT = None
-if hasattr(mp, 'get_context'):
-    method = os.environ.get('JOBLIB_START_METHOD', '').strip() or None
-    if method is not None:
-        DEFAULT_MP_CONTEXT = mp.get_context(method=method)
-
 
 # Thread local value that can be overridden by the ``parallel_backend`` context
 # manager
 _backend = threading.local()
+
+VALID_BACKEND_HINTS = ('processes', 'threads', None)
+VALID_BACKEND_CONSTRAINTS = ('sharedmem', None)
 
 
 def _register_dask():
@@ -109,7 +87,9 @@ def _register_dask():
         raise ImportError(msg) from e
 
 
-EXTERNAL_BACKENDS['dask'] = _register_dask
+EXTERNAL_BACKENDS = {
+    'dask': _register_dask,
+}
 
 
 def get_active_backend(prefer=None, require=None, verbose=0):
@@ -130,7 +110,8 @@ def get_active_backend(prefer=None, require=None, verbose=0):
         # Try to use the backend set by the user with the context manager.
         backend, n_jobs = backend_and_jobs
         nesting_level = backend.nesting_level
-        if require == 'sharedmem' and not backend.supports_sharedmem:
+        supports_sharedmem = getattr(backend, 'supports_sharedmem', False)
+        if require == 'sharedmem' and not supports_sharedmem:
             # This backend does not match the shared memory constraint:
             # fallback to the default thead-based backend.
             sharedmem_backend = BACKENDS[DEFAULT_THREAD_BACKEND](
@@ -147,8 +128,9 @@ def get_active_backend(prefer=None, require=None, verbose=0):
     # We are outside of the scope of any parallel_backend context manager,
     # create the default backend instance now.
     backend = BACKENDS[DEFAULT_BACKEND](nesting_level=0)
+    supports_sharedmem = getattr(backend, 'supports_sharedmem', False)
     uses_threads = getattr(backend, 'uses_threads', False)
-    if ((require == 'sharedmem' and not backend.supports_sharedmem) or
+    if ((require == 'sharedmem' and not supports_sharedmem) or
             (prefer == 'threads' and not uses_threads)):
         # Make sure the selected default backend match the soft hints and
         # hard constraints:
@@ -277,6 +259,18 @@ class parallel_backend(object):
             _backend.backend_and_jobs = self.old_backend_and_jobs
 
 
+# Under Linux or OS X the default start method of multiprocessing
+# can cause third party libraries to crash. Under Python 3.4+ it is possible
+# to set an environment variable to switch the default start method from
+# 'fork' to 'forkserver' or 'spawn' to avoid this issue albeit at the cost
+# of causing semantic changes and some additional pool instantiation overhead.
+DEFAULT_MP_CONTEXT = None
+if hasattr(mp, 'get_context'):
+    method = os.environ.get('JOBLIB_START_METHOD', '').strip() or None
+    if method is not None:
+        DEFAULT_MP_CONTEXT = mp.get_context(method=method)
+
+
 class BatchedCalls(object):
     """Wrap a sequence of (func, args, kwargs) tuples as a single callable"""
 
@@ -294,10 +288,11 @@ class BatchedCalls(object):
         self._pickle_cache = pickle_cache if pickle_cache is not None else {}
 
     def __call__(self):
-        # Set the default nested backend to self._backend but do not
+        # Set the default nested backend to self._backend but do not set the
         # change the default number of processes to -1
         with parallel_backend(self._backend, n_jobs=self._n_jobs):
-            return [func(*args, **kwargs) for func, args, kwargs in self.items]
+            return [func(*args, **kwargs)
+                    for func, args, kwargs in self.items]
 
     def __reduce__(self):
         if self._reducer_callback is not None:
@@ -311,6 +306,13 @@ class BatchedCalls(object):
 
     def __len__(self):
         return self._size
+
+
+# Possible exit status for the tasks
+TASK_DONE = "Done"
+TASK_ERROR = "Error"
+TASK_PENDING = "Pending"
+
 
 
 ###############################################################################
@@ -798,6 +800,18 @@ class Parallel(Logger):
                  pre_dispatch='2 * n_jobs', batch_size='auto',
                  temp_folder=None, max_nbytes='1M', mmap_mode='r',
                  return_generator=False, prefer=None, require=None):
+        active_backend, context_n_jobs = get_active_backend(
+            prefer=prefer, require=require, verbose=verbose)
+        nesting_level = active_backend.nesting_level
+        if backend is None and n_jobs is None:
+            # If we are under a parallel_backend context manager, look up
+            # the default number of jobs and use that instead:
+            n_jobs = context_n_jobs
+        if n_jobs is None:
+            # No specific context override and no specific value request:
+            # default to 1.
+            n_jobs = 1
+        self.n_jobs = n_jobs
         self.verbose = verbose
         self.timeout = timeout
         self.pre_dispatch = pre_dispatch
@@ -819,9 +833,43 @@ class Parallel(Logger):
         elif hasattr(mp, "get_context"):
             self._backend_args['context'] = mp.get_context()
 
-        backend, n_jobs = self._resolve_backend_and_n_jobs(
-            backend, n_jobs, prefer, require, verbose
-        )
+        if backend is None:
+            backend = active_backend
+
+        elif isinstance(backend, ParallelBackendBase):
+            # Use provided backend as is, with the current nesting_level if it
+            # is not set yet.
+            if backend.nesting_level is None:
+                backend.nesting_level = nesting_level
+
+        elif hasattr(backend, 'Pool') and hasattr(backend, 'Lock'):
+            # Make it possible to pass a custom multiprocessing context as
+            # backend to change the start method to forkserver or spawn or
+            # preload modules on the forkserver helper process.
+            self._backend_args['context'] = backend
+            backend = MultiprocessingBackend(nesting_level=nesting_level)
+
+        elif backend not in BACKENDS and backend in MAYBE_AVAILABLE_BACKENDS:
+            warnings.warn(
+                f"joblib backend '{backend}' is not available on "
+                f"your system, falling back to {DEFAULT_BACKEND}.",
+                UserWarning,
+                stacklevel=2)
+            BACKENDS[backend] = BACKENDS[DEFAULT_BACKEND]
+            backend = BACKENDS[DEFAULT_BACKEND](nesting_level=nesting_level)
+
+        else:
+            try:
+                backend_factory = BACKENDS[backend]
+            except KeyError as e:
+                raise ValueError("Invalid backend: %s, expected one of %r"
+                                 % (backend, sorted(BACKENDS.keys()))) from e
+            backend = backend_factory(nesting_level=nesting_level)
+
+        if (require == 'sharedmem' and
+                not getattr(backend, 'supports_sharedmem', False)):
+            raise ValueError("Backend %s does not support shared memory"
+                             % backend)
 
         if (batch_size == 'auto' or isinstance(batch_size, Integral) and
                 batch_size > 0):
@@ -844,8 +892,6 @@ class Parallel(Logger):
             self._pending_outputs = list()
             self._ready_batches = queue.Queue()
             self._reducer_callback = None
-
-        self.n_jobs = n_jobs
 
         # Internal variables
         self._backend = backend
@@ -871,12 +917,9 @@ class Parallel(Logger):
     def _initialize_backend(self):
         """Build a process or thread pool and return the number of workers"""
         try:
-            n_jobs = self._backend.configure(
-                n_jobs=self.n_jobs, parallel=self,
-                **self._backend_args
-            )
-            if (self.timeout is not None and
-                    not self._backend.supports_timeout):
+            n_jobs = self._backend.configure(n_jobs=self.n_jobs, parallel=self,
+                                             **self._backend_args)
+            if self.timeout is not None and not self._backend.supports_timeout:
                 warnings.warn(
                     'The backend class {!r} does not support timeout. '
                     "You have set 'timeout={}' in Parallel but "
@@ -895,66 +938,6 @@ class Parallel(Logger):
         if self._backend:
             return self._backend.effective_n_jobs(self.n_jobs)
         return 1
-
-    def _resolve_backend_and_n_jobs(self, backend, n_jobs, prefer, require,
-                                    verbose):
-        """Get the effective backend and n_jobs based on the class arguments.
-
-        This method accounts for the preferences, requirements and for the
-        active backend to select the backend and the number of workers that
-        will be used in practice in this class.
-        """
-        active_backend, context_n_jobs = get_active_backend(
-            prefer=prefer, require=require, verbose=verbose
-        )
-        if backend is None and n_jobs is None:
-            # If we are under a parallel_backend context manager, look up
-            # the default number of jobs and use that instead:
-            n_jobs = context_n_jobs
-        if n_jobs is None:
-            # No specific context override and no specific value request:
-            # default to 1.
-            n_jobs = 1
-
-        nesting_level = active_backend.nesting_level
-        if backend is None:
-            backend = active_backend
-
-        elif isinstance(backend, ParallelBackendBase):
-            # Use provided backend as is, with the current nesting_level if it
-            # is not set yet.
-            if backend.nesting_level is None:
-                backend.nesting_level = nesting_level
-
-        elif hasattr(backend, 'Pool') and hasattr(backend, 'Lock'):
-            # Make it possible to pass a custom multiprocessing context as
-            # backend to change the start method to forkserver or spawn or
-            # preload modules on the forkserver helper process.
-            self._backend_args['context'] = backend
-            backend = MultiprocessingBackend(nesting_level=nesting_level)
-
-        elif backend not in BACKENDS and backend in MAYBE_AVAILABLE_BACKENDS:
-            warnings.warn(
-                f"joblib backend '{backend}' is not available on "
-                f"your system, falling back to {DEFAULT_BACKEND}.",
-                UserWarning, stacklevel=2
-            )
-            BACKENDS[backend] = BACKENDS[DEFAULT_BACKEND]
-            backend = BACKENDS[DEFAULT_BACKEND](nesting_level=nesting_level)
-
-        else:
-            try:
-                backend_factory = BACKENDS[backend]
-            except KeyError as e:
-                raise ValueError("Invalid backend: %s, expected one of %r"
-                                 % (backend, sorted(BACKENDS.keys()))) from e
-            backend = backend_factory(nesting_level=nesting_level)
-
-        if require == 'sharedmem' and not backend.supports_sharedmem:
-            raise ValueError("Backend %s does not support shared memory"
-                             % backend)
-
-        return backend, n_jobs
 
     @_pypy_detach
     def _terminate_and_reset(self, is_generatorexit):
@@ -1021,7 +1004,7 @@ class Parallel(Logger):
         batch_size = self._get_batch_size()
 
         with self._lock:
-            # to ensure an even distribution of the workload between workers,
+            # to ensure an even distribution of the workolad between workers,
             # we look ahead in the original iterators more than batch_size
             # tasks - However, we keep consuming only one batch at each
             # dispatch_one_batch call. The extra tasks are stored in a local
@@ -1042,8 +1025,8 @@ class Parallel(Logger):
                 islice = list(itertools.islice(iterator, big_batch_size))
                 if len(islice) == 0:
                     return False
-                elif (iterator is self._original_iterator and
-                      len(islice) < big_batch_size):
+                elif (iterator is self._original_iterator
+                      and len(islice) < big_batch_size):
                     # We reached the end of the original iterator (unless
                     # iterator is the ``pre_dispatch``-long initial slice of
                     # the original iterator) -- decrease the batch size to
