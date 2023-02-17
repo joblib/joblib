@@ -40,6 +40,9 @@ from ._parallel_backends import AutoBatchingMixin  # noqa
 from ._parallel_backends import ParallelBackendBase  # noqa
 
 
+IS_PYPY = hasattr(sys, "pypy_version_info")
+
+
 BACKENDS = {
     'threading': ThreadingBackend,
     'sequential': SequentialBackend,
@@ -382,6 +385,10 @@ class BatchCompletionCallBack(object):
     It is assumed that this callback will always be triggered by the backend
     right after the end of a task, in case of success and in case of failure.
     """
+
+    ##########################################################################
+    ##################### METHODS CALLED BY THE MAIN THREAD ##################
+    ##########################################################################
     def __init__(self, dispatch_timestamp, batch_size, parallel):
         self.dispatch_timestamp = dispatch_timestamp
         self.batch_size = batch_size
@@ -389,7 +396,13 @@ class BatchCompletionCallBack(object):
         self.parallel_call_id = parallel._call_id
 
         # Internals to keep track of the status and outcome of the task.
+
+        # Right after a job has been scheduled with this callback, the reference
+        # to the job object can be registered with `register_job`
         self.job = None
+
+        # The latest known status for the job, can be TASK_PENDING, TASK_DONE,
+        # or TASK_ERROR
         self.status = TASK_PENDING
         if not parallel._backend.supports_asynchronous_callback:
             self.status = None
@@ -398,73 +411,33 @@ class BatchCompletionCallBack(object):
         """Register the object returned by `apply_async`."""
         self.job = job
 
-    def _asynchronous_register_outcome(self, out):
-        try:
-            result = self.parallel._backend.fetch_result_callback(out)
-            outcome = dict(status=TASK_DONE, result=result)
-        except BaseException as e:
-            # Avoid keeping references to parallel in the error.
-            e.__traceback__ = None
-            outcome = dict(result=e, status=TASK_ERROR)
-
-        self.register_outcome(outcome)
-        return outcome['status'] != TASK_ERROR
-
-    def __call__(self, out):
-        if self.parallel._backend.supports_asynchronous_callback:
-            with self.parallel._lock:
-                if (self.parallel._aborting or
-                        self.parallel._call_id != self.parallel_call_id or
-                        not self._asynchronous_register_outcome(out)):
-                    return
-
-        self._dispatch_new()
-
-    def _dispatch_new(self):
-        this_batch_duration = time.time() - self.dispatch_timestamp
-
-        self.parallel._backend.batch_completed(self.batch_size,
-                                               this_batch_duration)
-
-        with self.parallel._lock:
-            self.parallel.n_completed_tasks += self.batch_size
-            self.parallel.print_progress()
-            if self.parallel._original_iterator is not None:
-                self.parallel.dispatch_next()
-
-    def register_outcome(self, outcome):
-        if self.status not in (TASK_PENDING, None):
-            return
-
-        self.job = None
-        self._result = outcome["result"]
-        self.status = outcome["status"]
-
-        if self.status == TASK_ERROR:
-            self.parallel._exception = True
-            self.parallel._aborting = True
-
     def get_result(self, timeout):
         backend = self.parallel._backend
-        if not backend.supports_asynchronous_callback:
-            # Necessary for backend where the callback is called when the
-            # result is accessed.
-            try:
-                if backend.supports_timeout:
-                    result = self.job.get(timeout=timeout)
-                else:
-                    result = self.job.get()
-                outcome = dict(result=result, status=TASK_DONE)
-            except BaseException as e:
-                outcome = dict(result=e, status=TASK_ERROR)
-            self.register_outcome(outcome)
 
+        if backend.supports_asynchronous_callback:
+            # The result has already been retrieved by the callback thread, and
+            # is stored internally. It's just waiting to be returned.
+            return self._return_or_raise()
+
+        # For other backends, the main thread still need to run the retrieval
+        # step
         try:
-            if self.status == TASK_ERROR:
-                raise self._result
-            return self._result
-        finally:
-            del self._result
+            if backend.supports_timeout:
+                result = self.job.get(timeout=timeout)
+            else:
+                result = self.job.get()
+            outcome = dict(result=result, status=TASK_DONE)
+        except BaseException as e:
+            outcome = dict(result=e, status=TASK_ERROR)
+        self._register_outcome(outcome)
+
+        def _return_or_raise(self):
+            try:
+                if self.status == TASK_ERROR:
+                    raise self._result
+                return self._result
+            finally:
+                del self._result
 
     def get_status(self, timeout):
         if timeout is None or self.status != TASK_PENDING:
@@ -478,10 +451,95 @@ class BatchCompletionCallBack(object):
 
         if (now - self._completion_timeout_counter) > timeout:
             outcome = dict(result=TimeoutError(), status=TASK_ERROR)
-            self.register_outcome(outcome)
+            self._register_outcome(outcome)
 
         return self.status
 
+    ##########################################################################
+    ################## METHODS CALLED BY CALLBACK THREADS ####################
+    ##########################################################################
+    def __call__(self, out):
+        """Actual function called by the callback thread after a job is
+        completed.
+
+        If the backend supports retrieving the result in the callback, it can
+        tell if it as completed successfully or with an error, in which case
+        it dispatches the next batch of tasks only in case of success.
+
+        If the backend doesn't have the support, the next batch of tasks is
+        dispatched regardless. Retrieving the result is delayed until the
+        `get_result` call, that will be called by the main thread.
+        """
+        with self.parallel._lock:
+            # Edge case where while the task was processing, the `parallel`
+            # instance has been reset and a new call has been issued, but the
+            # worker managed to complete the task and trigger this callback
+            # call just before being aborted by the reset.
+            if self._parallel._call_id != self.parallel_call_id:
+                return
+
+            if self._parallel._aborting:
+                return
+
+        if not self.parallel._backend.supports_asynchronous_callback:
+            self._dispatch_new()
+            return
+
+        with self.parallel._lock:
+            job_succeeded = self._retrieve_result(out)
+
+        if job_succeeded:
+            self._dispatch_new()
+
+    def _dispatch_new(self):
+        this_batch_duration = time.time() - self.dispatch_timestamp
+
+        self.parallel._backend.batch_completed(self.batch_size,
+                                               this_batch_duration)
+
+        with self.parallel._lock:
+            self.parallel.n_completed_tasks += self.batch_size
+            self.parallel.print_progress()
+            if self.parallel._original_iterator is not None:
+                self.parallel.dispatch_next()
+
+    def _retrieve_result(self, out):
+        """This function is only called by backends that support retrieving
+        the task result in the callback thread.
+
+        Then it stores is as an attribute, and return its status.
+        """
+        try:
+            result = self.parallel._backend.fetch_result_callback(out)
+            outcome = dict(status=TASK_DONE, result=result)
+        except BaseException as e:
+            # Avoid keeping references to parallel in the error.
+            e.__traceback__ = None
+            outcome = dict(result=e, status=TASK_ERROR)
+
+        self._register_outcome(outcome)
+        return outcome['status'] != TASK_ERROR
+
+    # This method can be called by both threads
+    def _register_outcome(self, outcome):
+        # Covers the edge case where the main thread tries to register a
+        # `TimeoutError` while the callback thread tries to register a result
+        # at the exact same time.
+        if self.status not in (TASK_PENDING, None):
+            return
+
+        # Once the result and the status are extracted, the last reference to
+        # the job can be deleted.
+        self.job = None
+
+        self._result = outcome["result"]
+        self.status = outcome["status"]
+
+        # As soon as an error as been spotted, early stopping flags are sent to
+        # the `parallel` instance.
+        if self.status == TASK_ERROR:
+            self.parallel._exception = True
+            self.parallel._aborting = True
 
 ###############################################################################
 def register_parallel_backend(name, factory, make_default=False):
@@ -1147,7 +1205,6 @@ class Parallel(Logger):
 
     def _get_outputs(self, iterator, pre_dispatch):
         generator_exit_raised = False
-        is_pypy = hasattr(sys, "pypy_version_info")  # TODO: define global
         current_thread_id = threading.get_ident()
         pypy_workaround = False
         try:
@@ -1178,7 +1235,7 @@ class Parallel(Logger):
             # dedicated thread that is not at risk of deadlocking.
             # TODO: find a minimal reproducer for this occurence and find out
             # wether it is a pypy bug.
-            if is_pypy and generator_exit_raised and (
+            if IS_PYPY and generator_exit_raised and (
                     current_thread_id != threading.get_ident()):
                 pypy_workaround = True
                 _parallel = self
@@ -1332,7 +1389,7 @@ class Parallel(Logger):
 
     def _ensure_pypy_gc(self):
         if (self.return_generator and
-                hasattr(sys, "pypy_version_info") and
+                IS_PYPY and
                 self._call_ref is not None and
                 self._call_ref() is not None):
             gc.collect()
