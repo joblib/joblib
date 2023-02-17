@@ -1,11 +1,7 @@
 """
 Small utilities for testing.
 """
-import threading
-import signal
-import time
 import os
-import sys
 import gc
 
 from joblib._multiprocessing_helpers import mp
@@ -57,10 +53,6 @@ except ImportError:
         return dummy_func
 
     memory_usage = memory_used = None
-
-# A utility to kill the test runner in case a multiprocessing assumption
-# triggers an infinite wait on a pipe by the master process for one of its
-# failed workers
 
 
 with_multiprocessing = skipif(
