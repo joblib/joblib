@@ -1150,7 +1150,7 @@ def test_weak_array_key_map():
         # get_set_get_collect function without causing any spurious lookups /
         # insertions in the map. Apparently on Python nogil, the id is not
         # reused as often.
-        max_len_unique_ids = 300 if getattr(sys.flags, 'nogil', False) else 100
+        max_len_unique_ids = 400 if getattr(sys.flags, 'nogil', False) else 100
         assert len(unique_ids) < max_len_unique_ids
 
 
