@@ -101,6 +101,11 @@ VALID_BACKEND_CONSTRAINTS = ('sharedmem', None)
 
 
 def _get_config_param(param, context_config, key):
+    """Return the value of a parallel config parameter
+
+    Explicitly setting it in Parallel has priority over setting in a
+    parallel_(config/backend) context manager.
+    """
     if param is not default_parallel_config[key]:
         # param is explicitely set, return it
         return param
@@ -197,18 +202,12 @@ def _get_active_backend(
 
 
 class parallel_config:
-    """Change the default backend or configuration used by Parallel
+    """Change the default backend or configuration used by :class:`~Parallel`
 
     This is an alternative to passing a ``backend='backend_name'`` argument to
     the :class:`~Parallel` class constructor. It is particularly useful when
     calling into library code that uses joblib internally but does not expose
     the backend argument in its own API.
-
-    >>> from operator import neg
-    >>> with parallel_config(backend='threading'):
-    ...     print(Parallel()(delayed(neg)(i + 1) for i in range(5)))
-    ...
-    [-1, -2, -3, -4, -5]
 
     Parameters
     ----------
@@ -237,26 +236,20 @@ class parallel_config:
         several hosts.
 
         It is also possible to use the distributed 'ray' backend for
-        distributing the workload to a cluster of nodes. To use the 'ray'
-        joblib backend add the following lines::
-
-        >>> from ray.util.joblib import register_ray  # doctest: +SKIP
-        >>> register_ray()  # doctest: +SKIP
-        >>> with parallel_backend("ray"):  # doctest: +SKIP
-        ...     print(Parallel()(delayed(neg)(i + 1) for i in range(5)))
-        [-1, -2, -3, -4, -5]
+        distributing the workload to a cluster of nodes. See more details
+        in the Examples section below.
 
         Alternatively the backend can be passed directly as an instance.
 
     n_jobs : int, default=None
         The maximum number of concurrently running jobs, such as the number
-        of Python worker processes when backend="multiprocessing"
-        or the size of the thread-pool when backend="threading".
+        of Python worker processes when `backend="multiprocessing"`
+        or the size of the thread-pool when `backend="threading"`.
         If -1 all CPUs are used. If 1 is given, no parallel computing code
-        is used at all, which is useful for debugging. For n_jobs below -1,
-        (n_cpus + 1 + n_jobs) are used. Thus for n_jobs = -2, all
+        is used at all, which is useful for debugging. For `n_jobs` below -1,
+        (n_cpus + 1 + n_jobs) are used. Thus for `n_jobs=-2`, all
         CPUs but one are used.
-        None is a marker for 'unset' that will be interpreted as n_jobs=1.
+        `None` is a marker for 'unset' that will be interpreted as `n_jobs=1`.
 
     verbose : int, default=0
         The verbosity level: if non zero, progress messages are
@@ -269,14 +262,14 @@ class parallel_config:
         for sharing memory with worker processes. If None, this will try in
         order:
 
-        - a folder pointed by the JOBLIB_TEMP_FOLDER environment
-            variable,
-        - /dev/shm if the folder exists and is writable: this is a
-            RAM disk filesystem available by default on modern Linux
-            distributions,
+        - a folder pointed by the `JOBLIB_TEMP_FOLDER` environment
+          variable,
+        - `/dev/shm` if the folder exists and is writable: this is a
+          RAM disk filesystem available by default on modern Linux
+          distributions,
         - the default system temporary folder that can be
-            overridden with TMP, TMPDIR or TEMP environment
-            variables, typically /tmp under Unix operating systems.
+          overridden with `TMP`, `TMPDIR` or `TEMP` environment
+          variables, typically `/tmp` under Unix operating systems.
 
     max_nbytes int, str, or None, optional, default='1M'
         Threshold on the size of arrays passed to the workers that
@@ -298,9 +291,7 @@ class parallel_config:
 
     require: 'sharedmem' or None, default=None
         Hard constraint to select the backend. If set to 'sharedmem',
-        the selected backend will be single-host and thread-based even
-        if the user asked for a non-thread based backend with
-        parallel_backend.
+        the selected backend will be single-host and thread-based.
 
     inner_max_num_threads : int, default=None
         If not None, overwrites the limit set on the number of threads
@@ -320,7 +311,23 @@ class parallel_config:
     overwritten with the ``inner_max_num_threads`` argument which will be used
     to set this limit in the child processes.
 
-    .. versionadded:: 1.13
+    Examples
+    --------
+    >>> from operator import neg
+    >>> with parallel_config(backend='threading'):
+    ...     print(Parallel()(delayed(neg)(i + 1) for i in range(5)))
+    ...
+    [-1, -2, -3, -4, -5]
+
+    To use the 'ray' joblib backend add the following lines::
+
+    >>> from ray.util.joblib import register_ray  # doctest: +SKIP
+    >>> register_ray()  # doctest: +SKIP
+    >>> with parallel_backend("ray"):  # doctest: +SKIP
+    ...     print(Parallel()(delayed(neg)(i + 1) for i in range(5)))
+    [-1, -2, -3, -4, -5]
+
+    .. versionadded:: 1.3
     """
     def __init__(
         self,
@@ -378,14 +385,18 @@ class parallel_config:
                         stacklevel=2)
                     BACKENDS[backend] = BACKENDS[DEFAULT_BACKEND]
                 else:
-                    raise ValueError("Invalid backend: %s, expected one of %r"
-                                     % (backend, sorted(BACKENDS.keys())))
+                    raise ValueError(
+                        f"Invalid backend: {backend}, expected one of "
+                        f"{sorted(BACKENDS.keys())}"
+                    )
 
             backend = BACKENDS[backend](**backend_params)
 
         if inner_max_num_threads is not None:
-            msg = ("{} does not accept setting the inner_max_num_threads "
-                   "argument.".format(backend.__class__.__name__))
+            msg = (
+                f"{backend.__class__.__name__} does not accept setting the "
+                "inner_max_num_threads argument."
+            )
             assert backend.supports_inner_max_num_threads, msg
             backend.inner_max_num_threads = inner_max_num_threads
 
@@ -476,6 +487,10 @@ class parallel_backend(parallel_config):
     ``max(cpu_count() // effective_n_jobs, 1)`` but this limit can be
     overwritten with the ``inner_max_num_threads`` argument which will be used
     to set this limit in the child processes.
+
+    See Also
+    --------
+    parallel_config : context manager to change the backend configuration
 
     .. versionadded:: 0.10
 
@@ -982,17 +997,25 @@ class Parallel(Logger):
             verbose, context_config, "verbose"
         )
 
-        if isinstance(max_nbytes, str):
-            max_nbytes = memstr_to_bytes(max_nbytes)
+        self._backend_args = {
+            k: _get_config_param(param, context_config, k) for param, k in [
+                (max_nbytes, "max_nbytes"),
+                (temp_folder, "temp_folder"),
+                (mmap_mode, "mmap_mode"),
+                (prefer, "prefer"),
+                (require, "require"),
+                (verbose, "verbose"),
+            ]
+        }
 
-        self._backend_args = dict(
-            max_nbytes=max_nbytes,
-            mmap_mode=mmap_mode,
-            temp_folder=temp_folder,
-            prefer=prefer,
-            require=require,
-            verbose=max(0, verbose - 50),
+        if isinstance(self._backend_args["max_nbytes"], str):
+            self._backend_args["max_nbytes"] = memstr_to_bytes(
+                self._backend_args["max_nbytes"]
+            )
+        self._backend_args["verbose"] = max(
+            0, self._backend_args["verbose"] - 50
         )
+
         if DEFAULT_MP_CONTEXT is not None:
             self._backend_args['context'] = DEFAULT_MP_CONTEXT
         elif hasattr(mp, "get_context"):
