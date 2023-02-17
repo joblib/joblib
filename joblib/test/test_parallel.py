@@ -62,6 +62,7 @@ from joblib._parallel_backends import SafeFunction
 
 from joblib.parallel import Parallel, delayed
 from joblib.parallel import register_parallel_backend, parallel_backend
+from joblib.parallel import parallel_config
 from joblib.parallel import effective_n_jobs, cpu_count
 
 from joblib.parallel import mp, BACKENDS, DEFAULT_BACKEND, EXTERNAL_BACKENDS
@@ -141,16 +142,17 @@ def test_effective_n_jobs():
     assert effective_n_jobs() > 0
 
 
+@parametrize("context", [parallel_config, parallel_backend])
 @pytest.mark.parametrize(
     "backend_n_jobs, expected_n_jobs",
     [(3, 3), (-1, effective_n_jobs(n_jobs=-1)), (None, 1)],
     ids=["positive-int", "negative-int", "None"]
 )
 @with_multiprocessing
-def test_effective_n_jobs_None(backend_n_jobs, expected_n_jobs):
+def test_effective_n_jobs_None(context, backend_n_jobs, expected_n_jobs):
     # check the number of effective jobs when `n_jobs=None`
     # non-regression test for https://github.com/joblib/joblib/issues/984
-    with parallel_backend("threading", n_jobs=backend_n_jobs):
+    with context("threading", n_jobs=backend_n_jobs):
         # when using a backend, the default of number jobs will be the one set
         # in the backend
         assert effective_n_jobs(n_jobs=None) == expected_n_jobs
@@ -591,6 +593,11 @@ def test_invalid_backend():
             pass
     assert "Invalid backend:" in str(excinfo.value)
 
+    with raises(ValueError) as excinfo:
+        with parallel_config('unit-testing'):
+            pass
+    assert "Invalid backend:" in str(excinfo.value)
+
 
 @parametrize('backend', ALL_VALID_BACKENDS)
 def test_invalid_njobs(backend):
@@ -631,8 +638,8 @@ def test_backend_no_multiprocessing():
         Parallel()(delayed(square)(i) for i in range(3))
 
 
-def check_backend_context_manager(backend_name):
-    with parallel_backend(backend_name, n_jobs=3):
+def check_backend_context_manager(context, backend_name):
+    with context(backend_name, n_jobs=3):
         active_backend, active_n_jobs = parallel.get_active_backend()
         assert active_n_jobs == 3
         assert effective_n_jobs(3) == 3
@@ -660,20 +667,21 @@ all_backends_for_context_manager.extend(
 
 @with_multiprocessing
 @parametrize('backend', all_backends_for_context_manager)
-def test_backend_context_manager(monkeypatch, backend):
+@parametrize('context', [parallel_backend, parallel_config])
+def test_backend_context_manager(monkeypatch, backend, context):
     if backend not in BACKENDS:
         monkeypatch.setitem(BACKENDS, backend, FakeParallelBackend)
 
     assert _active_backend_type() == DefaultBackend
     # check that this possible to switch parallel backends sequentially
-    check_backend_context_manager(backend)
+    check_backend_context_manager(context, backend)
 
     # The default backend is restored
     assert _active_backend_type() == DefaultBackend
 
     # Check that context manager switching is thread safe:
     Parallel(n_jobs=2, backend='threading')(
-        delayed(check_backend_context_manager)(b)
+        delayed(check_backend_context_manager)(context, b)
         for b in all_backends_for_context_manager if not b)
 
     # The default backend is again restored
@@ -689,12 +697,13 @@ class ParameterizedParallelBackend(SequentialBackend):
         self.param = param
 
 
-def test_parameterized_backend_context_manager(monkeypatch):
+@parametrize("context", [parallel_config, parallel_backend])
+def test_parameterized_backend_context_manager(monkeypatch, context):
     monkeypatch.setitem(BACKENDS, 'param_backend',
                         ParameterizedParallelBackend)
     assert _active_backend_type() == DefaultBackend
 
-    with parallel_backend('param_backend', param=42, n_jobs=3):
+    with context('param_backend', param=42, n_jobs=3):
         active_backend, active_n_jobs = parallel.get_active_backend()
         assert type(active_backend) == ParameterizedParallelBackend
         assert active_backend.param == 42
@@ -709,12 +718,13 @@ def test_parameterized_backend_context_manager(monkeypatch):
     assert _active_backend_type() == DefaultBackend
 
 
-def test_directly_parameterized_backend_context_manager():
+@parametrize("context", [parallel_config, parallel_backend])
+def test_directly_parameterized_backend_context_manager(context):
     assert _active_backend_type() == DefaultBackend
 
     # Check that it's possible to pass a backend instance directly,
     # without registration
-    with parallel_backend(ParameterizedParallelBackend(param=43), n_jobs=5):
+    with context(ParameterizedParallelBackend(param=43), n_jobs=5):
         active_backend, active_n_jobs = parallel.get_active_backend()
         assert type(active_backend) == ParameterizedParallelBackend
         assert active_backend.param == 43
@@ -758,11 +768,12 @@ register_parallel_backend('back_compat_backend', MyBackend)
 @with_multiprocessing
 @parametrize('backend', ['threading', 'loky', 'multiprocessing',
                          'back_compat_backend'])
-def test_nested_backend_context_manager(backend):
+@parametrize("context", [parallel_config, parallel_backend])
+def test_nested_backend_context_manager(context, backend):
     # Check that by default, nested parallel calls will always use the
     # ThreadingBackend
 
-    with parallel_backend(backend):
+    with context(backend):
         pid_groups = Parallel(n_jobs=2)(
             delayed(get_nested_pids)()
             for _ in range(10)
@@ -774,7 +785,8 @@ def test_nested_backend_context_manager(backend):
 @with_multiprocessing
 @parametrize('n_jobs', [2, -1, None])
 @parametrize('backend', PARALLEL_BACKENDS)
-def test_nested_backend_in_sequential(backend, n_jobs):
+@parametrize("context", [parallel_config, parallel_backend])
+def test_nested_backend_in_sequential(backend, n_jobs, context):
     # Check that by default, nested parallel calls will always use the
     # ThreadingBackend
 
@@ -793,37 +805,43 @@ def test_nested_backend_in_sequential(backend, n_jobs):
         for _ in range(10)
     )
 
-    with parallel_backend(backend, n_jobs=n_jobs):
+    with context(backend, n_jobs=n_jobs):
         Parallel(n_jobs=1)(
             delayed(check_nested_backend)(backend, n_jobs)
             for _ in range(10)
         )
 
 
-def check_nesting_level(inner_backend, expected_level):
-    with parallel_backend(inner_backend) as (backend, n_jobs):
+def check_nesting_level(context, inner_backend, expected_level):
+    with context(inner_backend) as ctx:
+        if context is parallel_config:
+            backend = ctx["backend"]
+        if context is parallel_backend:
+            backend = ctx[0]
         assert backend.nesting_level == expected_level
 
 
 @with_multiprocessing
 @parametrize('outer_backend', PARALLEL_BACKENDS)
 @parametrize('inner_backend', PARALLEL_BACKENDS)
-def test_backend_nesting_level(outer_backend, inner_backend):
+@parametrize("context", [parallel_config, parallel_backend])
+def test_backend_nesting_level(context, outer_backend, inner_backend):
     # Check that the nesting level for the backend is correctly set
-    check_nesting_level(outer_backend, 0)
+    check_nesting_level(context, outer_backend, 0)
 
     Parallel(n_jobs=2, backend=outer_backend)(
-        delayed(check_nesting_level)(inner_backend, 1)
+        delayed(check_nesting_level)(context, inner_backend, 1)
         for _ in range(10)
     )
 
-    with parallel_backend(inner_backend, n_jobs=2):
-        Parallel()(delayed(check_nesting_level)(inner_backend, 1)
+    with context(inner_backend, n_jobs=2):
+        Parallel()(delayed(check_nesting_level)(context, inner_backend, 1)
                    for _ in range(10))
 
 
 @with_multiprocessing
-def test_retrieval_context():
+@parametrize("context", [parallel_config, parallel_backend])
+def test_retrieval_context(context):
     import contextlib
 
     class MyBackend(ThreadingBackend):
@@ -839,12 +857,15 @@ def test_retrieval_context():
     def nested_call(n):
         return Parallel(n_jobs=2)(delayed(id)(i) for i in range(n))
 
-    with parallel_backend("retrieval") as (ba, _):
+    with context("retrieval") as ctx:
         Parallel(n_jobs=2)(
             delayed(nested_call)(i)
             for i in range(5)
         )
-        assert ba.i == 1
+        if context is parallel_config:
+            assert ctx["backend"].i == 1
+        if context is parallel_backend:
+            assert ctx[0].i == 1
 
 
 ###############################################################################
@@ -1277,7 +1298,8 @@ def test_backend_batch_statistics_reset(backend):
 
 
 @with_multiprocessing
-def test_backend_hinting_and_constraints():
+@parametrize("context", [parallel_config, parallel_backend])
+def test_backend_hinting_and_constraints(context):
     for n_jobs in [1, 2, -1]:
         assert type(Parallel(n_jobs=n_jobs)._backend) == DefaultBackend
 
@@ -1295,20 +1317,20 @@ def test_backend_hinting_and_constraints():
     p = Parallel(n_jobs=2, backend='loky', prefer='threads')
     assert type(p._backend) == LokyBackend
 
-    with parallel_backend('loky', n_jobs=2):
+    with context('loky', n_jobs=2):
         # Explicit backend selection by the user with the context manager
         # should be respected when combined with backend hints only.
         p = Parallel(prefer='threads')
         assert type(p._backend) == LokyBackend
         assert p.n_jobs == 2
 
-    with parallel_backend('loky', n_jobs=2):
+    with context('loky', n_jobs=2):
         # Locally hard-coded n_jobs value is respected.
         p = Parallel(n_jobs=3, prefer='threads')
         assert type(p._backend) == LokyBackend
         assert p.n_jobs == 3
 
-    with parallel_backend('loky', n_jobs=2):
+    with context('loky', n_jobs=2):
         # Explicit backend selection by the user with the context manager
         # should be ignored when the Parallel call has hard constraints.
         # In this case, the default backend that supports shared mem is
@@ -1317,13 +1339,16 @@ def test_backend_hinting_and_constraints():
         assert type(p._backend) == ThreadingBackend
         assert p.n_jobs == 1
 
-    with parallel_backend('loky', n_jobs=2):
+    with context('loky', n_jobs=2):
         p = Parallel(n_jobs=3, require='sharedmem')
         assert type(p._backend) == ThreadingBackend
         assert p.n_jobs == 3
 
 
-def test_backend_hinting_and_constraints_with_custom_backends(capsys):
+@parametrize("context", [parallel_config, parallel_backend])
+def test_backend_hinting_and_constraints_with_custom_backends(
+    capsys, context
+):
     # Custom backends can declare that they use threads and have shared memory
     # semantics:
     class MyCustomThreadingBackend(ParallelBackendBase):
@@ -1336,7 +1361,7 @@ def test_backend_hinting_and_constraints_with_custom_backends(capsys):
         def effective_n_jobs(self, n_jobs):
             return n_jobs
 
-    with parallel_backend(MyCustomThreadingBackend()):
+    with context(MyCustomThreadingBackend()):
         p = Parallel(n_jobs=2, prefer='processes')  # ignored
         assert type(p._backend) == MyCustomThreadingBackend
 
@@ -1353,7 +1378,7 @@ def test_backend_hinting_and_constraints_with_custom_backends(capsys):
         def effective_n_jobs(self, n_jobs):
             return n_jobs
 
-    with parallel_backend(MyCustomProcessingBackend()):
+    with context(MyCustomProcessingBackend()):
         p = Parallel(n_jobs=2, prefer='processes')
         assert type(p._backend) == MyCustomProcessingBackend
 
@@ -1396,23 +1421,25 @@ def test_invalid_backend_hinting_and_constraints():
             Parallel(backend='multiprocessing', require='sharedmem')
 
 
-def test_global_parallel_backend():
+@parametrize("context", [parallel_config, parallel_backend])
+def test_global_parallel_backend(context):
     default = Parallel()._backend
 
-    pb = parallel_backend('threading')
+    pb = context('threading')
     assert isinstance(Parallel()._backend, ThreadingBackend)
 
     pb.unregister()
     assert type(Parallel()._backend) is type(default)
 
 
-def test_external_backends():
+@parametrize("context", [parallel_config, parallel_backend])
+def test_external_backends(context):
     def register_foo():
         BACKENDS['foo'] = ThreadingBackend
 
     EXTERNAL_BACKENDS['foo'] = register_foo
 
-    with parallel_backend('foo'):
+    with context('foo'):
         assert isinstance(Parallel()._backend, ThreadingBackend)
 
 
@@ -1430,8 +1457,9 @@ def _recursive_backend_info(limit=3, **kwargs):
 
 @with_multiprocessing
 @parametrize('backend', ['loky', 'threading'])
-def test_nested_parallelism_limit(backend):
-    with parallel_backend(backend, n_jobs=2):
+@parametrize("context", [parallel_config, parallel_backend])
+def test_nested_parallelism_limit(context, backend):
+    with context(backend, n_jobs=2):
         backend_types_and_levels = _recursive_backend_info()
 
     if cpu_count() == 1:
@@ -1453,20 +1481,21 @@ def test_nested_parallelism_limit(backend):
 
 @with_numpy
 @skipif(distributed is None, reason='This test requires dask')
-def test_nested_parallelism_with_dask():
+@parametrize("context", [parallel_config, parallel_backend])
+def test_nested_parallelism_with_dask(context):
     client = distributed.Client(n_workers=2, threads_per_worker=2)  # noqa
 
     # 10 MB of data as argument to trigger implicit scattering
     data = np.ones(int(1e7), dtype=np.uint8)
     for i in range(2):
-        with parallel_backend('dask'):
+        with context('dask'):
             backend_types_and_levels = _recursive_backend_info(data=data)
         assert len(backend_types_and_levels) == 4
         assert all(name == 'DaskDistributedBackend'
                    for name, _ in backend_types_and_levels)
 
     # No argument
-    with parallel_backend('dask'):
+    with context('dask'):
         backend_types_and_levels = _recursive_backend_info()
     assert len(backend_types_and_levels) == 4
     assert all(name == 'DaskDistributedBackend'
@@ -1480,11 +1509,12 @@ def _recursive_parallel(nesting_limit=None):
 
 @parametrize('backend',
              (['threading'] if mp is None else ['loky', 'threading']))
-def test_thread_bomb_mitigation(backend):
+@parametrize("context", [parallel_config, parallel_backend])
+def test_thread_bomb_mitigation(context, backend):
     # Test that recursive parallelism raises a recursion rather than
     # saturating the operating system resources by creating a unbounded number
     # of threads.
-    with parallel_backend(backend, n_jobs=2):
+    with context(backend, n_jobs=2):
         with raises(BaseException) as excinfo:
             _recursive_parallel()
     exc = excinfo.value
@@ -1532,12 +1562,14 @@ def test_parallel_thread_limit(backend):
 
 @skipif(distributed is not None,
         reason='This test requires dask NOT installed')
-def test_dask_backend_when_dask_not_installed():
+@parametrize("context", [parallel_config, parallel_backend])
+def test_dask_backend_when_dask_not_installed(context):
     with raises(ValueError, match='Please install dask'):
-        parallel_backend('dask')
+        context('dask')
 
 
-def test_zero_worker_backend():
+@parametrize("context", [parallel_config, parallel_backend])
+def test_zero_worker_backend(context):
     # joblib.Parallel should reject with an explicit error message parallel
     # backends that have no worker.
     class ZeroWorkerBackend(ThreadingBackend):
@@ -1551,7 +1583,7 @@ def test_zero_worker_backend():
             return 0
 
     expected_msg = "ZeroWorkerBackend has no active worker"
-    with parallel_backend(ZeroWorkerBackend()):
+    with context(ZeroWorkerBackend()):
         with pytest.raises(RuntimeError, match=expected_msg):
             Parallel(n_jobs=2)(delayed(id)(i) for i in range(2))
 
@@ -1646,7 +1678,10 @@ def test_threadpool_limitation_in_child_loky(n_jobs):
 @with_multiprocessing
 @parametrize('inner_max_num_threads', [1, 2, 4, None])
 @parametrize('n_jobs', [2, -1])
-def test_threadpool_limitation_in_child_context(n_jobs, inner_max_num_threads):
+@parametrize("context", [parallel_config, parallel_backend])
+def test_threadpool_limitation_in_child_context(
+    context, n_jobs, inner_max_num_threads
+):
     # Check that the protection against oversubscription in workers is working
     # using threadpoolctl functionalities.
 
@@ -1655,7 +1690,7 @@ def test_threadpool_limitation_in_child_context(n_jobs, inner_max_num_threads):
     if len(parent_info) == 0:
         pytest.skip(msg="Need a version of numpy linked to BLAS")
 
-    with parallel_backend('loky', inner_max_num_threads=inner_max_num_threads):
+    with context('loky', inner_max_num_threads=inner_max_num_threads):
         workers_threadpool_infos = Parallel(n_jobs=n_jobs)(
             delayed(_check_numpy_threadpool_limits)() for i in range(2))
 
@@ -1674,7 +1709,8 @@ def test_threadpool_limitation_in_child_context(n_jobs, inner_max_num_threads):
 @parametrize('var_name', ["OPENBLAS_NUM_THREADS",
                           "MKL_NUM_THREADS",
                           "OMP_NUM_THREADS"])
-def test_threadpool_limitation_in_child_override(n_jobs, var_name):
+@parametrize("context", [parallel_config, parallel_backend])
+def test_threadpool_limitation_in_child_override(context, n_jobs, var_name):
     # Check that environment variables set by the user on the main process
     # always have the priority.
 
@@ -1693,7 +1729,7 @@ def test_threadpool_limitation_in_child_override(n_jobs, var_name):
             delayed(_get_env)(var_name) for i in range(2))
         assert results == ["4", "4"]
 
-        with parallel_backend('loky', inner_max_num_threads=1):
+        with context('loky', inner_max_num_threads=1):
             results = Parallel(n_jobs=n_jobs)(
                 delayed(_get_env)(var_name) for i in range(2))
         assert results == ["1", "1"]
@@ -1709,10 +1745,11 @@ def test_threadpool_limitation_in_child_override(n_jobs, var_name):
 @with_multiprocessing
 @parametrize('backend', ['multiprocessing', 'threading',
                          MultiprocessingBackend(), ThreadingBackend()])
-def test_threadpool_limitation_in_child_context_error(backend):
+@parametrize("context", [parallel_config, parallel_backend])
+def test_threadpool_limitation_in_child_context_error(context, backend):
 
     with raises(AssertionError, match=r"does not acc.*inner_max_num_threads"):
-        parallel_backend(backend, inner_max_num_threads=1)
+        context(backend, inner_max_num_threads=1)
 
 
 @with_multiprocessing
