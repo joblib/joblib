@@ -978,25 +978,6 @@ class Parallel(Logger):
         # Check if we are under a parallel_config or parallel_backend
         # context manager and use the config from the context manager
         # for arguments that are not explicitly set.
-        max_nbytes = _get_config_param(
-            max_nbytes, context_config, "max_nbytes"
-        )
-        temp_folder = _get_config_param(
-            temp_folder, context_config, "temp_folder"
-        )
-        mmap_mode = _get_config_param(
-            mmap_mode, context_config, "mmap_mode"
-        )
-        prefer = _get_config_param(
-            prefer, context_config, "prefer"
-        )
-        require = _get_config_param(
-            require, context_config, "require"
-        )
-        verbose = _get_config_param(
-            verbose, context_config, "verbose"
-        )
-
         self._backend_args = {
             k: _get_config_param(param, context_config, k) for param, k in [
                 (max_nbytes, "max_nbytes"),
