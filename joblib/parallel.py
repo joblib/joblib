@@ -1148,6 +1148,7 @@ class Parallel(Logger):
     def _get_outputs(self, iterator, pre_dispatch):
         generator_exit_raised = False
         is_pypy = hasattr(sys, "pypy_version_info")  # TODO: define global
+        current_thread_id = threading.get_ident()
         try:
             self._start(iterator, pre_dispatch)
             # first yield returns None, for internal use only. This ensures that
@@ -1164,21 +1165,27 @@ class Parallel(Logger):
             generator_exit_raised = isinstance(e, GeneratorExit)
 
             # In case the generator is garbage collected, the generator exit
-            # exception is expected to be caught by the thread that execute the
-            # generator loop. This is true with CPython but sometimes it's not
-            # with pypy, where sometimes the exception is caught in a random
+            # exception is expected to be caught by the thread that executes the
+            # generator loop. This is true for CPython but sometimes it's not
+            # for pypy, where sometimes the exception is caught in a random
             # thread among all those that are currently alive. But threads
             # that are supposed to be terminated by this `except` block as a
             # side effect of the `_abort` and `_terminate_and_reset` calls (such
             # as the ExecutorManagerThread in Loky backend) will hang when
-            # executing the block that is supposed to terminates them. This
+            # executing the block that is supposed to terminate them. This
             # issue is worked around by detaching the execution to yet another
-            # thread that is not at risk of deadlocking.
-            if is_pypy and generator_exit_raised:
+            # dedicated thread that is not at risk of deadlocking.
+            # TODO: find a minimal reproducer for this occurence and find out
+            # wether it is a pypy bug.
+            if is_pypy and generator_exit_raised and (
+                    current_thread_id != threading.get_ident()):
+                _parallel = self
                 class _PypyGeneratorExitThread(threading.Thread):
                     def run(self):
-                        self._abort()
-                        self._terminate_and_reset()
+                        _parallel._abort()
+                        if _parallel.return_generator:
+                            _parallel._warn_exit_early()
+                        _parallel._terminate_and_reset()
                 _PypyGeneratorExitThread(
                     name="PypyGeneratorExitThread"
                 ).start()
@@ -1188,12 +1195,13 @@ class Parallel(Logger):
 
             if self.return_generator and generator_exit_raised:
                 self._warn_exit_early()
-            raise
+
+            raisez
         finally:
             _remaining_outputs = ([] if self._exception else self._jobs)
             self._jobs = collections.deque()
             self._running = False
-            if not is_pypy and not generator_exit_raised:
+            if not (is_pypy and generator_exit_raised):
                 self._terminate_and_reset()
 
         while len(_remaining_outputs) > 0:
