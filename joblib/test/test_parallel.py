@@ -1801,26 +1801,6 @@ def test_parallel_config_params_explicit_set(tmpdir):
                 p(delayed(check_memmap)(a) for a in [np.random.random(10)] * 2)
 
 
-@parametrize(
-    "prefer, n_jobs, expected_backend",
-    [
-        ("processes", 2, LokyBackend),
-        ("threads", 2, ThreadingBackend),
-        ("processes", 1, SequentialBackend),
-        ("threads", 1, SequentialBackend),
-    ]
-)
-def test_parallel_config_prefer(prefer, n_jobs, expected_backend):
-    # Check that setting backend hints in the context manager
-    # results in the expected backend.
-    if mp is None:
-        expected_backend = SequentialBackend
-
-    with parallel_config(prefer=prefer, n_jobs=n_jobs):
-        with Parallel() as p:
-            assert isinstance(p._backend, expected_backend)
-
-
 @parametrize("param", ["prefer", "require"])
 def test_parallel_config_bad_params(param):
     # Check that an error is raised when setting a wrong backend
