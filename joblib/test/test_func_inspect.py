@@ -146,6 +146,26 @@ def test_func_name_on_inner_func(cached_func):
     assert get_func_name(cached_func)[1] == 'cached_func_inner'
 
 
+def test_func_name_collision_on_inner_func():
+    # Check that two functions defining and caching an inner function
+    # with the same do not cause (module, name) collision
+    def f():
+        def inner_func():
+            return  # pragma: no cover
+        return get_func_name(inner_func)
+
+    def g():
+        def inner_func():
+            return  # pragma: no cover
+        return get_func_name(inner_func)
+
+    module, name = f()
+    other_module, other_name = g()
+
+    assert name == other_name
+    assert module != other_module
+
+
 def test_func_inspect_errors():
     # Check that func_inspect is robust and will work on weird objects
     assert get_func_name('a'.lower)[-1] == 'lower'

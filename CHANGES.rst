@@ -27,6 +27,11 @@ In development
   errors, a new warning has been introduced: `joblib.memory.CacheWarning`.
   https://github.com/joblib/joblib/pull/1359
 
+- Avoid (module, name) collisions when caching nested functions. This fix
+  changes the module name of nested functions, invalidating caches from
+  previous versions of Joblib.
+  https://github.com/joblib/joblib/pull/1374
+
 Release 1.2.0
 -------------
 
