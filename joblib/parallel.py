@@ -1196,7 +1196,7 @@ class Parallel(Logger):
             if self.return_generator and generator_exit_raised:
                 self._warn_exit_early()
 
-            raisez
+            raise
         finally:
             _remaining_outputs = ([] if self._exception else self._jobs)
             self._jobs = collections.deque()
