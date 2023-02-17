@@ -589,7 +589,8 @@ class TemporaryResourcesManager(object):
             # because joblib should only use relative imports to allow
             # easy vendoring.
             delete_folder = __import__(
-                pool_module_name, fromlist=['delete_folder']).delete_folder
+                pool_module_name, fromlist=['delete_folder']
+            ).delete_folder
             try:
                 delete_folder(pool_subfolder, allow_non_empty=True)
                 resource_tracker.unregister(pool_subfolder, "folder")
@@ -611,33 +612,34 @@ class TemporaryResourcesManager(object):
                     allow_non_empty=allow_non_empty
                 )
         else:
-            temp_folder = self._cached_temp_folders[context_id]
-            if os.path.exists(temp_folder):
+            temp_folder = self._cached_temp_folders.get(context_id)
+            if temp_folder and os.path.exists(temp_folder):
                 for filename in os.listdir(temp_folder):
                     if force:
-                        resource_tracker.maybe_unlink(
-                            os.path.join(temp_folder, filename), "file"
-                        )
-                    else:
                         resource_tracker.unregister(
                             os.path.join(temp_folder, filename), "file"
                         )
-                if delete or force:
-
-                    try:
-                        delete_folder(
-                            temp_folder, allow_non_empty=allow_non_empty
+                    else:
+                        resource_tracker.maybe_unlink(
+                            os.path.join(temp_folder, filename), "file"
                         )
-                        # Forget the folder once it has been deleted
-                        self._cached_temp_folders.pop(context_id, None)
-                        resource_tracker.unregister(temp_folder, "folder")
 
-                        finalizer = self._finalizers.pop(context_id, None)
-                        if finalizer is not None:
-                            atexit.unregister(finalizer)
+                allow_non_empty |= force
 
-                    except OSError:
-                        # Temporary folder cannot be deleted right now.
-                        # This folder will be cleaned up by an atexit
-                        # finalizer registered by the memmapping_reducer.
-                        pass
+                try:
+                    delete_folder(
+                        temp_folder, allow_non_empty=allow_non_empty
+                    )
+                    # Forget the folder once it has been deleted
+                    self._cached_temp_folders.pop(context_id, None)
+                    resource_tracker.unregister(temp_folder, "folder")
+
+                    finalizer = self._finalizers.pop(context_id, None)
+                    if finalizer is not None:
+                        atexit.unregister(finalizer)
+
+                except OSError:
+                    # Temporary folder cannot be deleted right now.
+                    # This folder will be cleaned up by an atexit
+                    # finalizer registered by the memmapping_reducer.
+                    pass

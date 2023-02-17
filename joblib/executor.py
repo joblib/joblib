@@ -82,9 +82,10 @@ class MemmappingExecutor(_ReusablePoolExecutor):
         # folder deletion because because at this point, all child
         # processes are dead, so all references to temporary memmaps
         # are closed.
-        self._temp_folder_manager._clean_temporary_resources(
-            force=kill_workers, delete=True, allow_non_empty=True
-        )
+        with self._submit_resize_lock:
+            self._temp_folder_manager._clean_temporary_resources(
+                force=kill_workers, delete=True, allow_non_empty=True
+            )
 
     @property
     def _temp_folder(self):
