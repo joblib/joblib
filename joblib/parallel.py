@@ -96,12 +96,8 @@ default_parallel_config = {
 }
 
 
-VALID_BACKEND_HINTS = (
-    'processes', 'threads', default_parallel_config["prefer"], None
-)
-VALID_BACKEND_CONSTRAINTS = (
-    'sharedmem', default_parallel_config["require"], None
-)
+VALID_BACKEND_HINTS = ('processes', 'threads', None)
+VALID_BACKEND_CONSTRAINTS = ('sharedmem', None)
 
 
 def _get_config_param(param, context_config, key):
@@ -137,6 +133,17 @@ def _get_active_backend(
     verbose=default_parallel_config["verbose"],
 ):
     """Return the active default backend"""
+    backend_config = getattr(_backend, 'config', None)
+    if backend_config is not None:
+        backend = backend_config['backend']
+        config = {k: v for k, v in backend_config.items() if k != 'backend'}
+    else:
+        backend, config = None, None
+
+    prefer = _get_config_param(prefer, config, "prefer")
+    require = _get_config_param(require, config, "require")
+    verbose = _get_config_param(verbose, config, "verbose")
+
     if prefer not in VALID_BACKEND_HINTS:
         raise ValueError(
             f"prefer={prefer} is not a valid backend hint, "
@@ -152,17 +159,6 @@ def _get_active_backend(
             "prefer == 'processes' and require == 'sharedmem'"
             " are inconsistent settings"
         )
-
-    backend_config = getattr(_backend, 'config', None)
-    if backend_config is not None:
-        backend = backend_config['backend']
-        config = {k: v for k, v in backend_config.items() if k != 'backend'}
-    else:
-        backend, config = None, None
-
-    prefer = _get_config_param(prefer, config, "prefer")
-    require = _get_config_param(require, config, "require")
-    verbose = _get_config_param(verbose, config, "verbose")
 
     if backend is not None:
         # Try to use the backend set by the user with the context manager.

@@ -1797,7 +1797,7 @@ def test_parallel_config_params_explicit_set(tmpdir):
                 p(delayed(check_memmap)(a) for a in [np.random.random(10)] * 2)
 
 
-@pytest.mark.parametrize(
+@parametrize(
     "prefer, n_jobs, expected_backend",
     [
         ("processes", 2, LokyBackend),
@@ -1812,6 +1812,15 @@ def test_parallel_config_prefer(prefer, n_jobs, expected_backend):
     with parallel_config(prefer=prefer, n_jobs=n_jobs):
         with Parallel() as p:
             assert isinstance(p._backend, expected_backend)
+
+
+@parametrize("param", ["prefer", "require"])
+def test_parallel_config_bad_params(param):
+    # Check that an error is raised when setting a wrong backend
+    # hint or constraint
+    with raises(ValueError, match=f"{param}=wrong is not a valid"):
+        with parallel_config(**{param: "wrong"}):
+            Parallel()
 
 
 def test_parallel_config_constructor_params():
