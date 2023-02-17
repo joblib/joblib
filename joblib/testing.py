@@ -40,8 +40,8 @@ def check_subprocess_call(cmd, timeout=5, stdout_regex=None,
                           stderr_regex=None):
     """Runs a command in a subprocess with timeout in seconds.
 
-    A SIGTERM is sent after `2 * timeout` and if it does not terminate, a
-    SIGKILL is sent after `3 * timeout`.
+    A SIGTERM is sent after `timeout` and if it does not terminate, a
+    SIGKILL is sent after `2 * timeout`.
 
     Also checks returncode is zero, stdout if stdout_regex is set, and
     stderr if stderr_regex is set.
@@ -59,9 +59,9 @@ def check_subprocess_call(cmd, timeout=5, stdout_regex=None,
 
     try:
         if timeout is not None:
-            terminate_timer = threading.Timer(2 * timeout, terminate_process)
+            terminate_timer = threading.Timer(timeout, terminate_process)
             terminate_timer.start()
-            kill_timer = threading.Timer(3 * timeout, kill_process)
+            kill_timer = threading.Timer(2 * timeout, kill_process)
             kill_timer.start()
         stdout, stderr = proc.communicate()
         stdout, stderr = stdout.decode(), stderr.decode()

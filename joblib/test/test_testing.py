@@ -58,9 +58,9 @@ def test_check_subprocess_call_timeout():
         'sys.stdout.flush()',
         'sys.stderr.write("before sleep on stderr")',
         'sys.stderr.flush()',
-        # TODO: changes in check_subprocess_call impacted this test
-        # with no particular reason, fix that.
-        'time.sleep(5)',
+        # We need to sleep for at least 2 * timeout seconds in case the SIGKILL
+        # is triggered.
+        'time.sleep(2.1)',
         'print("process should have be killed before")',
         'sys.stdout.flush()'])
 
