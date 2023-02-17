@@ -1094,12 +1094,17 @@ class Parallel(Logger):
     def _is_completed(self):
         """Check if all tasks have been completed"""
         return self.n_completed_tasks == self.n_dispatched_tasks and not (
-            self._iterating or self._aborting)
+            self._iterating or self._aborting
+        )
 
     def print_progress(self):
         """Display the process of the parallel execution only a fraction
            of time, controlled by self.verbose.
         """
+
+        if not self.verbose:
+            return
+
         elapsed_time = time.time() - self._start_time
 
         if self._is_completed():
@@ -1107,9 +1112,6 @@ class Parallel(Logger):
             self._print('Done %3i out of %3i | elapsed: %s finished',
                         (self.n_completed_tasks, self.n_completed_tasks,
                          short_format_time(elapsed_time)))
-            return
-
-        if not self.verbose:
             return
 
         # Original job iterator becomes None once it has been fully
@@ -1284,27 +1286,28 @@ class Parallel(Logger):
 
     def _get_sequential_output(self, iterable):
         try:
-            nb_consumed = 0
-            batch_size = self._get_batch_size()
-
-            if batch_size != 1:
-                it = iter(iterable)
-                iterable_batched = iter(
-                    lambda: tuple(itertools.islice(it, batch_size)), ()
-                )
-                iterable = (
-                    task for batch in iterable_batched for task in batch
-                )
+            # these flags are used to report progress
+            self._aborting = False
+            self._iterating = True
+            self._original_iterator = iterable
+            self._reset_run_tracking()
 
             # First empty yield to start executing the generator before
             # returning it.
             yield None
 
             for func, args, kwargs in iterable:
-                nb_consumed += 1
-                yield func(*args, **kwargs)
+                self.n_dispatched_batches += 1
+                self.n_dispatched_tasks += 1
+                res = func(*args, **kwargs)
+                self.n_completed_tasks += 1
+                self.print_progress()
+                yield res
         finally:
+            self.print_progress()
             self._running = False
+            self._iterating = False
+            self._original_iterator = None
 
     def _ensure_pypy_gc(self):
         if (hasattr(sys, "pypy_version_info") and
@@ -1313,6 +1316,12 @@ class Parallel(Logger):
             gc.collect()
             gc.collect()
         self._call_ref = None
+
+    def _reset_run_tracking(self):
+        self.n_dispatched_batches = 0
+        self.n_dispatched_tasks = 0
+        self.n_completed_tasks = 0
+        self._start_time = time.time()
 
     def __call__(self, iterable):
         self._ensure_pypy_gc()
@@ -1404,10 +1413,7 @@ class Parallel(Logger):
             # TODO: this iterator should be batch_size * n_jobs
             iterator = itertools.islice(iterator, self._pre_dispatch_amount)
 
-        self._start_time = time.time()
-        self.n_dispatched_batches = 0
-        self.n_dispatched_tasks = 0
-        self.n_completed_tasks = 0
+        self._reset_run_tracking()
         # Use a caching dict for callables that are pickled with cloudpickle to
         # improve performances. This cache is used only in the case of
         # functions that are defined in the __main__ module, functions that are

@@ -18,17 +18,19 @@ from matplotlib.cm import ScalarMappable
 
 
 from joblib import Parallel, delayed
+import joblib
+print(joblib)
 
 # Style for plots
-LINE_STYLES = {'iter': '--', 'parallel': '-'}
+LINE_STYLES = {'iter': '--', 'parallel': '-', 'loop': ':'}
 COLORS = {'none': 'k'}
 CMAP = plt.colormaps['viridis']
 
 # Generate functions that are more and more complex, to see
 # the relative impact depending on the task complexity
 funcs = [("none", lambda x: None, None)]
-n_size = 11
-for i, n in enumerate(np.linspace(0, 200, n_size, dtype=int)):
+n_size = 3
+for i, n in enumerate(np.logspace(0, 2, n_size, dtype=int)):
     n = max(1, n)
     label = f'mat({n:3d}, {n:3d})'
     A = np.random.randn(n, n)
@@ -39,21 +41,24 @@ for i, n in enumerate(np.linspace(0, 200, n_size, dtype=int)):
 # time the Parallel call.
 results = []
 for f_name, func, arg in funcs:
+    print('Benchmarking:', f_name)
+    f_delayed = delayed(func)
     for N in np.logspace(1, 4, 7, dtype=int):
+        print('# tasks:', N)
         for _ in range(10):
-            f_delayed = delayed(func)
-            t_start = time.perf_counter()
-            Parallel(n_jobs=1)(f_delayed(arg) for _ in range(N))
-            runtime = time.perf_counter() - t_start
-            results.append(dict(
-                method="parallel", N=N, func=f_name, runtime=runtime
-            ))
 
             t_start = time.perf_counter()
             list((func(arg) for _ in range(N)))
             runtime = time.perf_counter() - t_start
             results.append(dict(
-                method="iter", N=N, func=f_name, runtime=runtime
+                method="iter", N=N, func=f_name, runtime=runtime / N
+            ))
+
+            t_start = time.perf_counter()
+            Parallel(n_jobs=1)(f_delayed(arg) for _ in range(N))
+            runtime = time.perf_counter() - t_start
+            results.append(dict(
+                method="parallel", N=N, func=f_name, runtime=runtime / N
             ))
 
 # Use a DataFrame to manipulate the results.
@@ -86,8 +91,8 @@ for key, grp in curve.groupby(["method", "func"]):
         color=COLORS[key[1]],
     )
 
-ax.set_xlabel("# Repetitions")
-ax.set_ylabel("Runtime")
+ax.set_xlabel("# Tasks")
+ax.set_ylabel("Runtime per task")
 ax.legend(
     (plt.Line2D([], [], ls=ls, c="k") for ls in LINE_STYLES.values()),
     LINE_STYLES,
