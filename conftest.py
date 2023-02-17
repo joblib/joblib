@@ -58,7 +58,7 @@ def pytest_configure(config):
     # Some CI runs failed with hanging processes that were not terminated
     # with the timeout. To make sure we always get a proper trace, set a large
     # enough dump_traceback_later to kill the process with a report.
-    faulthandler.dump_traceback_later(1800, exit=True)
+    faulthandler.dump_traceback_later(30 * 60, exit=True)
 
     DEFAULT_BACKEND = os.environ.get(
         "JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND", None

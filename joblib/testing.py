@@ -49,11 +49,21 @@ def check_subprocess_call(cmd, timeout=5, stdout_regex=None,
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE)
 
-    def terminate_process():
+    def terminate_process():  # pragma: no cover
+        """
+        Attempt to terminate a leftover process spawned during test execution:
+        ideally this should not be needed but can help avoid clogging the CI
+        workers in case of deadlocks.
+        """
         warnings.warn(f"Timeout running {cmd}")
         proc.terminate()
 
-    def kill_process():
+    def kill_process():  # pragma: no cover
+        """
+        Kill a leftover process spawned during test execution: ideally this
+        should not be needed but can help avoid clogging the CI workers in
+        case of deadlocks.
+        """
         warnings.warn(f"Timeout running {cmd}")
         proc.kill()
 
