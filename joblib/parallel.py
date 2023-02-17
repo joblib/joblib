@@ -85,7 +85,7 @@ EXTERNAL_BACKENDS = {
 
 # Sentinels for the default values of the Parallel constructor and
 # the parallel_config and parallel_backend context managers
-default_parallel_config_params = {
+default_parallel_config = {
     "n_jobs": _Sentinel(default_value=None),
     "verbose": _Sentinel(default_value=0),
     "temp_folder": _Sentinel(default_value=None),
@@ -97,15 +97,15 @@ default_parallel_config_params = {
 
 
 VALID_BACKEND_HINTS = (
-    'processes', 'threads', default_parallel_config_params["prefer"], None
+    'processes', 'threads', default_parallel_config["prefer"], None
 )
 VALID_BACKEND_CONSTRAINTS = (
-    'sharedmem', default_parallel_config_params["require"], None
+    'sharedmem', default_parallel_config["require"], None
 )
 
 
 def _get_config_param(param, context_config, key):
-    if param is not default_parallel_config_params[key]:
+    if param is not default_parallel_config[key]:
         # param is explicitely set, return it
         return param
 
@@ -113,7 +113,7 @@ def _get_config_param(param, context_config, key):
         # no context manager just return the default value.
         return param.default_value
 
-    if context_config[key] is not default_parallel_config_params[key]:
+    if context_config[key] is not default_parallel_config[key]:
         # there's a context manager and the key is set, return it
         return context_config[key]
 
@@ -121,16 +121,20 @@ def _get_config_param(param, context_config, key):
     return param.default_value
 
 
-def get_active_backend(prefer=None, require=None, verbose=0):
+def get_active_backend(
+    prefer=default_parallel_config["prefer"],
+    require=default_parallel_config["require"],
+    verbose=default_parallel_config["verbose"],
+):
     """Return the active default backend"""
     backend, config = _get_active_backend(prefer, require, verbose)
     return backend, config["n_jobs"]
 
 
 def _get_active_backend(
-    prefer=default_parallel_config_params["prefer"],
-    require=default_parallel_config_params["require"],
-    verbose=default_parallel_config_params["verbose"],
+    prefer=default_parallel_config["prefer"],
+    require=default_parallel_config["require"],
+    verbose=default_parallel_config["verbose"],
 ):
     """Return the active default backend"""
     if prefer not in VALID_BACKEND_HINTS:
@@ -175,7 +179,7 @@ def _get_active_backend(
                       "as the latter does not provide shared memory semantics."
                       % (sharedmem_backend.__class__.__name__,
                          backend.__class__.__name__))
-            return sharedmem_backend, config
+            return sharedmem_backend, {"n_jobs": DEFAULT_N_JOBS}
         else:
             return backend, config
 
@@ -200,13 +204,13 @@ class parallel_config:
     def __init__(
         self,
         backend=None,
-        n_jobs=default_parallel_config_params["n_jobs"],
-        verbose=default_parallel_config_params["verbose"],
-        temp_folder=default_parallel_config_params["temp_folder"],
-        max_nbytes=default_parallel_config_params["max_nbytes"],
-        mmap_mode=default_parallel_config_params["mmap_mode"],
-        prefer=default_parallel_config_params["prefer"],
-        require=default_parallel_config_params["require"],
+        n_jobs=default_parallel_config["n_jobs"],
+        verbose=default_parallel_config["verbose"],
+        temp_folder=default_parallel_config["temp_folder"],
+        max_nbytes=default_parallel_config["max_nbytes"],
+        mmap_mode=default_parallel_config["mmap_mode"],
+        prefer=default_parallel_config["prefer"],
+        require=default_parallel_config["require"],
         inner_max_num_threads=None,
         **backend_params
     ):
@@ -796,34 +800,35 @@ class Parallel(Logger):
     '''
     def __init__(
         self,
-        n_jobs=default_parallel_config_params["n_jobs"],
+        n_jobs=default_parallel_config["n_jobs"],
         backend=None,
-        verbose=default_parallel_config_params["verbose"],
+        verbose=default_parallel_config["verbose"],
         timeout=None,
         pre_dispatch='2 * n_jobs',
         batch_size='auto',
-        temp_folder=default_parallel_config_params["temp_folder"],
-        max_nbytes=default_parallel_config_params["max_nbytes"],
-        mmap_mode=default_parallel_config_params["mmap_mode"],
-        prefer=default_parallel_config_params["prefer"],
-        require=default_parallel_config_params["require"],
+        temp_folder=default_parallel_config["temp_folder"],
+        max_nbytes=default_parallel_config["max_nbytes"],
+        mmap_mode=default_parallel_config["mmap_mode"],
+        prefer=default_parallel_config["prefer"],
+        require=default_parallel_config["require"],
     ):
         active_backend, context_config = _get_active_backend(
-            prefer=prefer, require=require, verbose=verbose)
+            prefer=prefer, require=require, verbose=verbose
+        )
 
         nesting_level = active_backend.nesting_level
 
-        if backend is None and n_jobs is default_parallel_config_params["n_jobs"]:
+        if backend is None and n_jobs is default_parallel_config["n_jobs"]:
             # If we are under a parallel_backend context manager, look up
             # the default number of jobs and use that instead:
             n_jobs = context_config["n_jobs"]
-        if n_jobs is None or n_jobs is default_parallel_config_params["n_jobs"]:
+        if n_jobs is None or n_jobs is default_parallel_config["n_jobs"]:
             # No specific context override and no specific value request:
             # default to 1.
             n_jobs = 1
         self.n_jobs = n_jobs
 
-        if verbose is default_parallel_config_params["verbose"]:
+        if verbose is default_parallel_config["verbose"]:
             self.verbose = verbose.default_value
         else:
             self.verbose = verbose
@@ -837,12 +842,24 @@ class Parallel(Logger):
         # Check if we are under a parallel_config or parallel_backend
         # context manager and use the config from the context manager
         # for arguments that are not explicitly set.
-        max_nbytes = _get_config_param(max_nbytes, context_config, "max_nbytes")
-        temp_folder = _get_config_param(temp_folder, context_config, "temp_folder")
-        mmap_mode = _get_config_param(mmap_mode, context_config, "mmap_mode")
-        prefer = _get_config_param(prefer, context_config, "prefer")
-        require = _get_config_param(require, context_config, "require")
-        verbose = _get_config_param(verbose, context_config, "verbose")
+        max_nbytes = _get_config_param(
+            max_nbytes, context_config, "max_nbytes"
+        )
+        temp_folder = _get_config_param(
+            temp_folder, context_config, "temp_folder"
+        )
+        mmap_mode = _get_config_param(
+            mmap_mode, context_config, "mmap_mode"
+        )
+        prefer = _get_config_param(
+            prefer, context_config, "prefer"
+        )
+        require = _get_config_param(
+            require, context_config, "require"
+        )
+        verbose = _get_config_param(
+            verbose, context_config, "verbose"
+        )
 
         if isinstance(max_nbytes, str):
             max_nbytes = memstr_to_bytes(max_nbytes)
