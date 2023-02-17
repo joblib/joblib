@@ -1774,6 +1774,7 @@ def test_loky_reuse_workers(n_jobs):
 
 
 @with_numpy
+@with_multiprocessing
 def test_parallel_config_no_backend(tmpdir):
     # Check that parallel_config allows to change the config
     # even if no backend is set.
@@ -1788,6 +1789,7 @@ def test_parallel_config_no_backend(tmpdir):
 
 
 @with_numpy
+@with_multiprocessing
 def test_parallel_config_params_explicit_set(tmpdir):
     with parallel_config(n_jobs=3, max_nbytes=1, temp_folder=tmpdir):
         with Parallel(n_jobs=2, prefer="processes", max_nbytes='1M') as p:
@@ -1812,7 +1814,7 @@ def test_parallel_config_prefer(prefer, n_jobs, expected_backend):
     # Check that setting backend hints in the context manager
     # results in the expected backend.
     if mp is None:
-        expected_backend = ThreadingBackend
+        expected_backend = SequentialBackend
 
     with parallel_config(prefer=prefer, n_jobs=n_jobs):
         with Parallel() as p:
