@@ -314,7 +314,6 @@ TASK_ERROR = "Error"
 TASK_PENDING = "Pending"
 
 
-
 ###############################################################################
 # CPU count that works also when multiprocessing has been disabled via
 # the JOBLIB_MULTIPROCESSING environment variable
