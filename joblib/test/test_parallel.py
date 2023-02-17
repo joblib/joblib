@@ -1811,6 +1811,9 @@ def test_parallel_config_params_explicit_set(tmpdir):
 def test_parallel_config_prefer(prefer, n_jobs, expected_backend):
     # Check that setting backend hints in the context manager
     # results in the expected backend.
+    if mp is None:
+        expected_backend = ThreadingBackend
+
     with parallel_config(prefer=prefer, n_jobs=n_jobs):
         with Parallel() as p:
             assert isinstance(p._backend, expected_backend)
