@@ -602,7 +602,7 @@ class TemporaryResourcesManager(object):
 
     def _clean_temporary_resources(self, context_id=None, force=False,
                                    allow_non_empty=False):
-        """Unlink temporary resources created by a process-based pool"""
+        """Clean temporary resources created by a process-based pool"""
         if context_id is None:
             # Iterates over a copy of the cache keys to avoid Error due to
             # iterating over a changing size dictionary.
@@ -626,8 +626,12 @@ class TemporaryResourcesManager(object):
                             os.path.join(temp_folder, filename), "file"
                         )
 
+                # When forcing clean-up, try to delete the folder even if some
+                # files are still in it. Otherwise, try to delete the folder
                 allow_non_empty |= force
 
+                # Clean up the folder if possible, either if it is empty or
+                # if none of the files in it are in used and allow_non_empty.
                 try:
                     delete_folder(
                         temp_folder, allow_non_empty=allow_non_empty
@@ -636,6 +640,7 @@ class TemporaryResourcesManager(object):
                     self._cached_temp_folders.pop(context_id, None)
                     resource_tracker.unregister(temp_folder, "folder")
 
+                    # Also cancel the finalizers  that gets triggered at gc.
                     finalizer = self._finalizers.pop(context_id, None)
                     if finalizer is not None:
                         atexit.unregister(finalizer)

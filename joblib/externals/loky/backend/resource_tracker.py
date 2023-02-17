@@ -275,12 +275,7 @@ def main(fd, verbose=0):
                                 f"registry({len(registry)})"
                             )
                     elif cmd == 'MAYBE_UNLINK':
-                        try:
-                            registry[rtype][name] -= 1
-                        except KeyError:
-                            # This resource has already been unregister,
-                            # no need to keep track of references.
-                            continue
+                        registry[rtype][name] -= 1
                         if verbose:
                             util.debug(
                                 "[ResourceTracker] decremented refcount of "
