@@ -601,21 +601,23 @@ class TemporaryResourcesManager(object):
         self._finalizers[context_id] = atexit.register(_cleanup)
 
     def _clean_temporary_resources(self, context_id=None, force=False,
-                                   delete=False, allow_non_empty=False):
+                                   allow_non_empty=False):
         """Unlink temporary resources created by a process-based pool"""
         if context_id is None:
             # Iterates over a copy of the cache keys to avoid Error due to
             # iterating over a changing size dictionary.
             for context_id in list(self._cached_temp_folders):
                 self._clean_temporary_resources(
-                    context_id, force=force, delete=delete,
-                    allow_non_empty=allow_non_empty
+                    context_id, force=force, allow_non_empty=allow_non_empty
                 )
         else:
             temp_folder = self._cached_temp_folders.get(context_id)
             if temp_folder and os.path.exists(temp_folder):
                 for filename in os.listdir(temp_folder):
                     if force:
+                        # Some workers have failed and the ref counted might
+                        # be off. The workers should have shut down by this
+                        # time so forcefully clean up the files.
                         resource_tracker.unregister(
                             os.path.join(temp_folder, filename), "file"
                         )
