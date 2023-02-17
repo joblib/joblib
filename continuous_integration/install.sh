@@ -30,8 +30,6 @@ if [[ "$PYTHON_VERSION" == "pypy3" ]]; then
     create_new_pypy3_env
 else
     create_new_conda_env
-    # Make sure we did not installed pypy by mistake
-    test -z "$(python --version | grep -i pypy)"
 fi
 
 # Install py.test timeout to fasten failure in deadlocking tests

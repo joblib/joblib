@@ -1,11 +1,9 @@
 import os
 
-import logging
-import faulthandler
-
 import pytest
 from _pytest.doctest import DoctestItem
 
+import logging
 from joblib.parallel import mp
 from joblib.backports import LooseVersion
 try:
@@ -55,11 +53,6 @@ def pytest_configure(config):
         log.handlers[0].setFormatter(logging.Formatter(
             '[%(levelname)s:%(processName)s:%(threadName)s] %(message)s'))
 
-    # Some CI runs failed with hanging processes that were not terminated
-    # with the timeout. To make sure we always get a proper trace, set a large
-    # enough dump_traceback_later to kill the process with a report.
-    faulthandler.dump_traceback_later(1200, exit=True)
-
     DEFAULT_BACKEND = os.environ.get(
         "JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND", None
     )
@@ -73,14 +66,12 @@ def pytest_configure(config):
 
 
 def pytest_unconfigure(config):
-
     # Setup a global traceback printer callback to debug deadlocks that
     # would happen once pytest has completed: for instance in atexit
     # finalizers. At this point the stdout/stderr capture of pytest
-    # should be disabled. Note that we cancel the global dump_traceback_later
-    # to waiting for too long.
-    faulthandler.cancel_dump_traceback_later()
+    # should be disabled.
 
     # Note that we also use a shorter timeout for the per-test callback
     # configured via the pytest-timeout extension.
+    import faulthandler
     faulthandler.dump_traceback_later(60, exit=True)
