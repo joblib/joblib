@@ -16,6 +16,8 @@ try:
 except ImportError:
     lz4 = None
 
+IS_PYPY = hasattr(sys, "pypy_version_info")
+
 # A decorator to run tests only when numpy is available
 try:
     import numpy as np
@@ -103,7 +105,7 @@ def teardown_autokill(module_name):
 def force_gc_pypy():
     # The gc in pypy can be delayed. Force it to test the behavior when it
     # will eventually be collected.
-    if hasattr(sys, "pypy_version_info"):
+    if IS_PYPY:
         # Run gc.collect() twice to make sure the weakref is collected, as
         # mentionned in the pypy doc:
         # https://doc.pypy.org/en/latest/config/objspace.usemodules._weakref.html
