@@ -995,7 +995,7 @@ class Parallel(Logger):
             temp_folder=temp_folder,
             prefer=prefer,
             require=require,
-            verbose=max(0, self.verbose - 50),
+            verbose=max(0, verbose - 50),
         )
         if DEFAULT_MP_CONTEXT is not None:
             self._backend_args['context'] = DEFAULT_MP_CONTEXT

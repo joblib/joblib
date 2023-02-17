@@ -18,7 +18,6 @@ from time import sleep
 from pickle import PicklingError
 from multiprocessing import TimeoutError
 import pickle
-import warnings
 import pytest
 
 import joblib
@@ -1772,3 +1771,52 @@ def test_loky_reuse_workers(n_jobs):
         parallel_call(n_jobs)
         executor = get_reusable_executor(reuse=True)
         assert executor == first_executor
+
+
+def test_parallel_config_no_backend(tmpdir):
+    # Check that parallel_config allows to change the config
+    # even if no backend is set.
+    with parallel_config(n_jobs=2, max_nbytes=1, temp_folder=tmpdir):
+        with Parallel(prefer="processes") as p:
+            assert isinstance(p._backend, LokyBackend)
+            assert p.n_jobs == 2
+
+            # Checks that memmapping is enabled
+            p(delayed(check_memmap)(a) for a in [np.random.random(10)] * 2)
+            assert len(os.listdir(tmpdir)) > 0
+
+
+def test_parallel_config_params_explicit_set(tmpdir):
+    with parallel_config(n_jobs=3, max_nbytes=1, temp_folder=tmpdir):
+        with Parallel(n_jobs=2, prefer="processes", max_nbytes='1M') as p:
+            assert isinstance(p._backend, LokyBackend)
+            assert p.n_jobs == 2
+
+            # Checks that memmapping is disabled
+            with raises(TypeError, match="Expected np.memmap instance"):
+                p(delayed(check_memmap)(a) for a in [np.random.random(10)] * 2)
+
+
+@pytest.mark.parametrize(
+    "prefer, n_jobs, expected_backend",
+    [
+        ("processes", 2, LokyBackend),
+        ("threads", 2, ThreadingBackend),
+        ("processes", 1, SequentialBackend),
+        ("threads", 1, SequentialBackend),
+    ]
+)
+def test_parallel_config_prefer(prefer, n_jobs, expected_backend):
+    # Check that setting backend hints in the context manager
+    # results in the expected backend.
+    with parallel_config(prefer=prefer, n_jobs=n_jobs):
+        with Parallel() as p:
+            assert isinstance(p._backend, expected_backend)
+
+
+def test_parallel_config_constructor_params():
+    # Check that an error is raised when backend is None
+    # but backend constructor params are given
+    with raises(ValueError, match="only supported when backend is not None"):
+        with parallel_config(inner_max_num_threads=1):
+            pass
