@@ -62,43 +62,6 @@ except ImportError:
 # triggers an infinite wait on a pipe by the master process for one of its
 # failed workers
 
-_KILLER_THREADS = dict()
-
-
-def setup_autokill(module_name, timeout=30):
-    """Timeout based suiciding thread to kill the test runner process
-
-    If some subprocess dies in an unexpected way we don't want the
-    parent process to block indefinitely.
-    """
-    if "NO_AUTOKILL" in os.environ or "--pdb" in sys.argv:
-        # Do not install the autokiller
-        return
-
-    # Renew any previous contract under that name by first cancelling the
-    # previous version (that should normally not happen in practice)
-    teardown_autokill(module_name)
-
-    def autokill():
-        pid = os.getpid()
-        print("Timeout exceeded: terminating stalled process: %d" % pid)
-        os.kill(pid, signal.SIGTERM)
-
-        # If were are still there ask the OS to kill ourself for real
-        time.sleep(0.5)
-        print("Timeout exceeded: killing stalled process: %d" % pid)
-        os.kill(pid, signal.SIGKILL)
-
-    _KILLER_THREADS[module_name] = t = threading.Timer(timeout, autokill)
-    t.start()
-
-
-def teardown_autokill(module_name):
-    """Cancel a previously started killer thread"""
-    killer = _KILLER_THREADS.get(module_name)
-    if killer is not None:
-        killer.cancel()
-
 
 with_multiprocessing = skipif(
     mp is None, reason='Needs multiprocessing to run.')
