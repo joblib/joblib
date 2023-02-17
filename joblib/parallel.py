@@ -1149,6 +1149,7 @@ class Parallel(Logger):
         generator_exit_raised = False
         is_pypy = hasattr(sys, "pypy_version_info")  # TODO: define global
         current_thread_id = threading.get_ident()
+        pypy_workaround = False
         try:
             self._start(iterator, pre_dispatch)
             # first yield returns None, for internal use only. This ensures that
@@ -1179,6 +1180,7 @@ class Parallel(Logger):
             # wether it is a pypy bug.
             if is_pypy and generator_exit_raised and (
                     current_thread_id != threading.get_ident()):
+                pypy_workaround = True
                 _parallel = self
                 class _PypyGeneratorExitThread(threading.Thread):
                     def run(self):
@@ -1201,7 +1203,7 @@ class Parallel(Logger):
             _remaining_outputs = ([] if self._exception else self._jobs)
             self._jobs = collections.deque()
             self._running = False
-            if not (is_pypy and generator_exit_raised):
+            if not pypy_workaround:
                 self._terminate_and_reset()
 
         while len(_remaining_outputs) > 0:
