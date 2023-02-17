@@ -386,9 +386,11 @@ class BatchCompletionCallBack(object):
     right after the end of a task, in case of success and in case of failure.
     """
 
+    """
     ##########################################################################
     ##################### METHODS CALLED BY THE MAIN THREAD ##################
     ##########################################################################
+    """
     def __init__(self, dispatch_timestamp, batch_size, parallel):
         self.dispatch_timestamp = dispatch_timestamp
         self.batch_size = batch_size
@@ -397,8 +399,8 @@ class BatchCompletionCallBack(object):
 
         # Internals to keep track of the status and outcome of the task.
 
-        # Right after a job has been scheduled with this callback, the reference
-        # to the job object can be registered with `register_job`
+        # Right after a job has been scheduled with this callback, the
+        # reference to the job object can be registered with `register_job`
         self.job = None
 
         # The latest known status for the job, can be TASK_PENDING, TASK_DONE,
@@ -431,13 +433,15 @@ class BatchCompletionCallBack(object):
             outcome = dict(result=e, status=TASK_ERROR)
         self._register_outcome(outcome)
 
-        def _return_or_raise(self):
-            try:
-                if self.status == TASK_ERROR:
-                    raise self._result
-                return self._result
-            finally:
-                del self._result
+        return self._return_or_raise()
+
+    def _return_or_raise(self):
+        try:
+            if self.status == TASK_ERROR:
+                raise self._result
+            return self._result
+        finally:
+            del self._result
 
     def get_status(self, timeout):
         if timeout is None or self.status != TASK_PENDING:
@@ -455,9 +459,11 @@ class BatchCompletionCallBack(object):
 
         return self.status
 
+    """
     ##########################################################################
     ################## METHODS CALLED BY CALLBACK THREADS ####################
     ##########################################################################
+    """
     def __call__(self, out):
         """Actual function called by the callback thread after a job is
         completed.
@@ -470,22 +476,21 @@ class BatchCompletionCallBack(object):
         dispatched regardless. Retrieving the result is delayed until the
         `get_result` call, that will be called by the main thread.
         """
-        with self.parallel._lock:
-            # Edge case where while the task was processing, the `parallel`
-            # instance has been reset and a new call has been issued, but the
-            # worker managed to complete the task and trigger this callback
-            # call just before being aborted by the reset.
-            if self._parallel._call_id != self.parallel_call_id:
-                return
-
-            if self._parallel._aborting:
-                return
-
         if not self.parallel._backend.supports_asynchronous_callback:
             self._dispatch_new()
             return
 
         with self.parallel._lock:
+            # Edge case where while the task was processing, the `parallel`
+            # instance has been reset and a new call has been issued, but the
+            # worker managed to complete the task and trigger this callback
+            # call just before being aborted by the reset.
+            if self.parallel._call_id != self.parallel_call_id:
+                return
+
+            if self.parallel._aborting:
+                return
+
             job_succeeded = self._retrieve_result(out)
 
         if job_succeeded:
@@ -540,6 +545,7 @@ class BatchCompletionCallBack(object):
         if self.status == TASK_ERROR:
             self.parallel._exception = True
             self.parallel._aborting = True
+
 
 ###############################################################################
 def register_parallel_backend(name, factory, make_default=False):
@@ -1059,8 +1065,8 @@ class Parallel(Logger):
                 islice = list(itertools.islice(iterator, big_batch_size))
                 if len(islice) == 0:
                     return False
-                elif (iterator is self._original_iterator
-                      and len(islice) < big_batch_size):
+                elif (iterator is self._original_iterator and
+                      len(islice) < big_batch_size):
                     # We reached the end of the original iterator (unless
                     # iterator is the ``pre_dispatch``-long initial slice of
                     # the original iterator) -- decrease the batch size to
@@ -1209,8 +1215,9 @@ class Parallel(Logger):
         pypy_workaround = False
         try:
             self._start(iterator, pre_dispatch)
-            # first yield returns None, for internal use only. This ensures that
-            # we enter the try/except block and start dispatching the tasks.
+            # first yield returns None, for internal use only. This ensures
+            # that we enter the try/except block and start dispatching the
+            # tasks.
             yield
 
             with self._backend.retrieval_context():
@@ -1223,13 +1230,13 @@ class Parallel(Logger):
             generator_exit_raised = isinstance(e, GeneratorExit)
 
             # In case the generator is garbage collected, the generator exit
-            # exception is expected to be caught by the thread that executes the
-            # generator loop. This is true for CPython but sometimes it's not
-            # for pypy, where sometimes the exception is caught in a random
+            # exception is expected to be caught by the thread that executes
+            # the generator loop. This is true for CPython but sometimes it's
+            # not for pypy, where sometimes the exception is caught in a random
             # thread among all those that are currently alive. But threads
             # that are supposed to be terminated by this `except` block as a
-            # side effect of the `_abort` and `_terminate_and_reset` calls (such
-            # as the ExecutorManagerThread in Loky backend) will hang when
+            # side effect of the `_abort` and `_terminate_and_reset` calls (
+            # such as the ExecutorManagerThread in Loky backend) will hang when
             # executing the block that is supposed to terminate them. This
             # issue is worked around by detaching the execution to yet another
             # dedicated thread that is not at risk of deadlocking.
@@ -1239,12 +1246,14 @@ class Parallel(Logger):
                     current_thread_id != threading.get_ident()):
                 pypy_workaround = True
                 _parallel = self
+
                 class _PypyGeneratorExitThread(threading.Thread):
                     def run(self):
                         _parallel._abort()
                         if _parallel.return_generator:
                             _parallel._warn_exit_early()
                         _parallel._terminate_and_reset()
+
                 _PypyGeneratorExitThread(
                     name="PypyGeneratorExitThread"
                 ).start()
@@ -1311,8 +1320,8 @@ class Parallel(Logger):
             # If the next job is not ready for retrieval yet, we just wait for
             # async callbacks to progress.
             if ((len(self._jobs) == 0) or
-                (self._jobs[0].get_status(timeout=self.timeout) == TASK_PENDING)
-            ):
+                (self._jobs[0].get_status(
+                    timeout=self.timeout) == TASK_PENDING)):
                 time.sleep(0.01)
                 continue
 
@@ -1398,10 +1407,10 @@ class Parallel(Logger):
 
     def __call__(self, iterable):
         # The parallel call assumes that previous calls, if any, have been
-        # garbage collected, which in turn ensures that the previously scheduled
-        # loads have been properly terminated. Because of implementation
-        # differences in pypy this step is sometimes delayed, so we prefer
-        # forcing garbage collection steps.
+        # garbage collected, which in turn ensures that the previously
+        # scheduled loads have been properly terminated. Because of
+        # implementation differences in pypy this step is sometimes delayed,
+        # so we prefer forcing garbage collection steps.
         # TODO review: is that still necessary ?
         self._ensure_pypy_gc()
 
@@ -1440,9 +1449,9 @@ class Parallel(Logger):
         # thread only -- store its value in an attribute for further queries.
         self._cached_effective_n_jobs = n_jobs
 
-        # Following flags are used to synchronize the threads in case one of the
-        # tasks error-out to ensure that all workers abort fast and that the
-        # backend terminates properly.
+        # Following flags are used to synchronize the threads in case one of
+        # the tasks error-out to ensure that all workers abort fast and that
+        # the backend terminates properly.
 
         # Set to True as soon as a worker signals that a task errors-out
         self._exception = False
@@ -1452,9 +1461,9 @@ class Parallel(Logger):
         self._aborted = False
 
         # Following count is incremented by one each time the user iterates
-        # on the output generator, it is used to prepare an  informative warning
-        # message in case the generator is deleted before all the dispatched
-        # tasks have been consumed.
+        # on the output generator, it is used to prepare an  informative
+        # warning message in case the generator is deleted before all the
+        # dispatched tasks have been consumed.
         self._nb_consumed = 0
 
         if isinstance(self._backend, LokyBackend):
@@ -1521,9 +1530,9 @@ class Parallel(Logger):
         self.n_dispatched_tasks = 0
         self.n_completed_tasks = 0
         # Use a caching dict for callables that are pickled with cloudpickle to
-        # improve performances. This cache is used only in the case of functions
-        # that are defined in the __main__ module, functions that are
-        # defined locally (inside another function) and lambda expressions.
+        # improve performances. This cache is used only in the case of
+        # functions that are defined in the __main__ module, functions that
+        # are defined locally (inside another function) and lambda expressions.
         self._pickle_cache = dict()
 
         output = self._get_outputs(iterator, pre_dispatch)
