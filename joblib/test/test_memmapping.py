@@ -8,7 +8,6 @@ import itertools
 from time import sleep
 import subprocess
 import threading
-import faulthandler
 
 import pytest
 
@@ -28,14 +27,6 @@ from joblib._memmapping_reducer import _get_temp_dir
 from joblib._memmapping_reducer import _WeakArrayKeyMap
 from joblib._memmapping_reducer import _get_backing_memmap
 import joblib._memmapping_reducer as jmr
-
-
-def setup_module():
-    faulthandler.dump_traceback_later(timeout=300, exit=True)
-
-
-def teardown_module():
-    faulthandler.cancel_dump_traceback_later()
 
 
 def check_memmap_and_send_back(array):
