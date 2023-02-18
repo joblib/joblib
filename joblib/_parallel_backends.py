@@ -21,10 +21,6 @@ if mp is not None:
     from .externals.loky import process_executor, cpu_count
     from .externals.loky.process_executor import ShutdownExecutorError
     from .externals.loky.process_executor import _ExceptionWithTraceback
-    from .externals.loky.reusable_executor import _executor_lock as LokyLock
-else:
-    from contextlib import nullcontext
-    LokyLock = nullcontext()
 
 
 class ParallelBackendBase(metaclass=ABCMeta):
@@ -535,22 +531,12 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
         self.reset_batch_stats()
 
 
-def _with_LokyLock(func):
-
-    def _func_with_LokyLock(*args, **kwargs):
-        with LokyLock:
-            return func(*args, **kwargs)
-
-    return _func_with_LokyLock
-
-
 class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
     """Managing pool of workers with loky instead of multiprocessing."""
 
     supports_asynchronous_callback = True
     supports_inner_max_num_threads = True
 
-    @_with_LokyLock
     def configure(self, n_jobs=1, parallel=None, prefer=None, require=None,
                   idle_worker_timeout=300, **memmappingexecutor_args):
         """Build a process executor and return the number of workers"""
@@ -627,7 +613,6 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
                 "submitting a new job or that it is first properly exhausted."
             )
 
-    @_with_LokyLock
     def terminate(self):
         if self._workers is not None:
             # Don't terminate the workers as we want to reuse them in later
@@ -640,7 +625,6 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
 
         self.reset_batch_stats()
 
-    @_with_LokyLock
     def abort_everything(self, ensure_ready=True):
         """Shutdown the workers and restart a new one with the same parameters
         """
