@@ -25,11 +25,3 @@ if version_info[:2] >= (3, 7):
 else:
     for name in _deprecated_names:
         globals()[name] = getattr(_deprecated_my_exceptions, name)
-
-
-class WorkerInterrupt(Exception):
-    """ An exception that is not KeyboardInterrupt to allow subprocesses
-        to be interrupted.
-    """
-
-    pass

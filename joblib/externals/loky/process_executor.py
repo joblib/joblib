@@ -179,8 +179,10 @@ class _ExecutorFlags:
 _threads_wakeups = weakref.WeakKeyDictionary()
 _global_shutdown = False
 
-
-_debug_exit_lock_temp = threading.Lock()
+# This lock is used to prevent race conditions when two threads try to join
+# the executor manager thread at the same time.
+# This can happens in joblib with the pypy backend (PypyGeneratorExitThread).
+_shutdown_lock = threading.Lock()
 
 
 def _python_exit():
@@ -194,7 +196,7 @@ def _python_exit():
         with shutdown_lock:
             thread_wakeup.wakeup()
     for thread, _ in items:
-        with _debug_exit_lock_temp:
+        with _shutdown_lock:
             thread.join()
 
 
@@ -1199,8 +1201,8 @@ class ProcessPoolExecutor(Executor):
             with self._shutdown_lock:
                 self._executor_manager_thread_wakeup.wakeup()
 
-        with _debug_exit_lock_temp:
-            if executor_manager_thread is not None and wait:
+        if executor_manager_thread is not None and wait:
+            with _shutdown_lock:
                 executor_manager_thread.join()
 
         # To reduce the risk of opening too many files, remove references to

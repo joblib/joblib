@@ -431,8 +431,7 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
         if n_jobs == 1:
             # Avoid unnecessary overhead and use sequential backend instead.
             raise FallbackToBackend(
-                SequentialBackend(nesting_level=self.nesting_level)
-            )
+                SequentialBackend(nesting_level=self.nesting_level))
         self.parallel = parallel
         self._n_jobs = n_jobs
         return n_jobs
@@ -516,8 +515,7 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
         n_jobs = self.effective_n_jobs(n_jobs)
         if n_jobs == 1:
             raise FallbackToBackend(
-                SequentialBackend(nesting_level=self.nesting_level)
-            )
+                SequentialBackend(nesting_level=self.nesting_level))
 
         # Make sure to free as much memory as possible before forking
         gc.collect()
@@ -543,8 +541,7 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
         n_jobs = self.effective_n_jobs(n_jobs)
         if n_jobs == 1:
             raise FallbackToBackend(
-                SequentialBackend(nesting_level=self.nesting_level)
-            )
+                SequentialBackend(nesting_level=self.nesting_level))
 
         self._workers = get_memmapping_executor(
             n_jobs, timeout=idle_worker_timeout,
