@@ -1298,8 +1298,8 @@ class Parallel(Logger):
             # For backends that does not support retrieving asynchronously the
             # result to the main process, all results must be carefully
             # retrieved in this loop while the backend is alive.
-            # For other backends, the actual retrieval is done asynchronously 
-            # in the callback thread, and we can terminate the backend before 
+            # For other backends, the actual retrieval is done asynchronously
+            # in the callback thread, and we can terminate the backend before
             # the `self._jobs` result list has been emptied.
             # The remaining results will be collected in the `finally` step of
             # the generator.
