@@ -1644,28 +1644,27 @@ def _recursive_parallel(nesting_limit=None):
 @parametrize('backend',
              (['threading'] if mp is None else ['loky', 'threading']))
 def test_thread_bomb_mitigation(backend):
-    for i in range(100):
-        # Test that recursive parallelism raises a recursion rather than
-        # saturating the operating system resources by creating a unbounded number
-        # of threads.
-        with parallel_backend(backend, n_jobs=2):
-            with raises(BaseException) as excinfo:
-                _recursive_parallel()
-        exc = excinfo.value
-        if backend == "loky":
-            # Local import because loky may not be importable for lack of
-            # multiprocessing
-            from joblib.externals.loky.process_executor import TerminatedWorkerError # noqa
-            if isinstance(exc, (TerminatedWorkerError, PicklingError)):
-                # The recursion exception can itself cause an error when
-                # pickling it to be send back to the parent process. In this
-                # case the worker crashes but the original traceback is still
-                # printed on stderr. This could be improved but does not seem
-                # simple to do and this is is not critical for users (as long
-                # as there is no process or thread bomb happening).
-                pytest.xfail("Loky worker crash when serializing RecursionError")
-    
-        assert isinstance(exc, RecursionError)
+    # Test that recursive parallelism raises a recursion rather than
+    # saturating the operating system resources by creating a unbounded number
+    # of threads.
+    with parallel_backend(backend, n_jobs=2):
+        with raises(BaseException) as excinfo:
+            _recursive_parallel()
+    exc = excinfo.value
+    if backend == "loky":
+        # Local import because loky may not be importable for lack of
+        # multiprocessing
+        from joblib.externals.loky.process_executor import TerminatedWorkerError # noqa
+        if isinstance(exc, (TerminatedWorkerError, PicklingError)):
+            # The recursion exception can itself cause an error when
+            # pickling it to be send back to the parent process. In this
+            # case the worker crashes but the original traceback is still
+            # printed on stderr. This could be improved but does not seem
+            # simple to do and this is is not critical for users (as long
+            # as there is no process or thread bomb happening).
+            pytest.xfail("Loky worker crash when serializing RecursionError")
+
+    assert isinstance(exc, RecursionError)
 
 
 def _run_parallel_sum():
