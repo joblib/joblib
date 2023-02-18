@@ -406,7 +406,7 @@ class BatchCompletionCallBack(object):
         # The latest known status for the job, can be TASK_PENDING, TASK_DONE,
         # or TASK_ERROR
         self.status = TASK_PENDING
-        if not parallel._backend.supports_asynchronous_callback:
+        if not parallel._backend.supports_retrieve_callback:
             self.status = None
 
     def register_job(self, job):
@@ -416,7 +416,7 @@ class BatchCompletionCallBack(object):
     def get_result(self, timeout):
         backend = self.parallel._backend
 
-        if backend.supports_asynchronous_callback:
+        if backend.supports_retrieve_callback:
             # The result has already been retrieved by the callback thread, and
             # is stored internally. It's just waiting to be returned.
             return self._return_or_raise()
@@ -476,7 +476,7 @@ class BatchCompletionCallBack(object):
         dispatched regardless. Retrieving the result is delayed until the
         `get_result` call, that will be called by the main thread.
         """
-        if not self.parallel._backend.supports_asynchronous_callback:
+        if not self.parallel._backend.supports_retrieve_callback:
             self._dispatch_new()
             return
 
@@ -515,7 +515,7 @@ class BatchCompletionCallBack(object):
         Then it stores is as an attribute, and return its status.
         """
         try:
-            result = self.parallel._backend.fetch_result_callback(out)
+            result = self.parallel._backend.retrieve_result_callback(out)
             outcome = dict(status=TASK_DONE, result=result)
         except BaseException as e:
             # Avoid keeping references to parallel in the error.
@@ -1295,15 +1295,15 @@ class Parallel(Logger):
                 self.n_completed_tasks < self.n_dispatched_tasks
             )
 
-            # For backends that does not support asynchronously fetching the
+            # For backends that does not support retrieving asynchronously the
             # result to the main process, all results must be carefully
             # retrieved in this loop while the backend is alive.
-            # For asynchronous backends, the actual retrieval is done
-            # asynchronously in the callback thread, and we can terminate the
-            # backend before the `self._jobs` result list has been emptied.
+            # For other backends, the actual retrieval is done asynchronously 
+            # in the callback thread, and we can terminate the backend before 
+            # the `self._jobs` result list has been emptied.
             # The remaining results will be collected in the `finally` step of
             # the generator.
-            if not self._backend.supports_asynchronous_callback:
+            if not self._backend.supports_retrieve_callback:
                 wait_retrieval |= (len(self._jobs) > 0)
 
             if not wait_retrieval:
