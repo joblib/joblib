@@ -204,10 +204,10 @@ def _get_active_backend(
 class parallel_config:
     """Change the default backend or configuration used by :class:`~Parallel`
 
-    This is an alternative to passing a ``backend='backend_name'`` argument to
-    the :class:`~Parallel` class constructor. It is particularly useful when
+    This is an alternative to directly passing keyword arguments to the
+    :class:`~Parallel` class constructor. It is particularly useful when
     calling into library code that uses joblib internally but does not expose
-    the backend argument in its own API.
+    the various parallel configuration arguments in its own API.
 
     Parameters
     ----------
@@ -296,7 +296,7 @@ class parallel_config:
     inner_max_num_threads : int, default=None
         If not None, overwrites the limit set on the number of threads
         usable in some third-party library threadpools like OpenBLAS,
-        MKL or OpenMP.
+        MKL or OpenMP. This is only used with the `loky` backend.
 
     backend_params : dict
         Additional parameters to pass to the backend constructor when
