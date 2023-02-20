@@ -1123,6 +1123,10 @@ class Parallel(Logger):
         """Display the process of the parallel execution only a fraction
            of time, controlled by self.verbose.
         """
+
+        if not self.verbose:
+            return
+
         elapsed_time = time.time() - self._start_time
 
         if self._is_completed():
@@ -1130,9 +1134,6 @@ class Parallel(Logger):
             self._print('Done %3i out of %3i | elapsed: %s finished',
                         (self.n_completed_tasks, self.n_completed_tasks,
                          short_format_time(elapsed_time)))
-            return
-
-        if not self.verbose:
             return
 
         # Original job iterator becomes None once it has been fully
@@ -1374,7 +1375,8 @@ class Parallel(Logger):
 
     def _get_sequential_output(self, iterable):
         try:
-            nb_consumed = 0
+            self._iterating = True
+            self._original_iterator = iterable
             batch_size = self._get_batch_size()
 
             if batch_size != 1:
@@ -1386,15 +1388,28 @@ class Parallel(Logger):
                     task for batch in iterable_batched for task in batch
                 )
 
-            # First empty yield to start executing the generator before
-            # returning it.
+            # first yield returns None, for internal use only. This ensures
+            # that we enter the try/except block and set the generator up.
             yield None
 
             for func, args, kwargs in iterable:
-                nb_consumed += 1
-                yield func(*args, **kwargs)
+                self.n_dispatched_batches += 1
+                self.n_dispatched_tasks += 1
+                res = func(*args, **kwargs)
+                self.n_completed_tasks += 1
+                self.print_progress()
+                yield res
+                self._nb_consumed += 1
+        except BaseException:
+            self._exception = True
+            self._aborting = True
+            self._aborted = True
+            raise
         finally:
+            self.print_progress()
             self._running = False
+            self._iterating = False
+            self._original_iterator = None
 
     def _ensure_pypy_gc(self):
         if (self.return_generator and
@@ -1404,6 +1419,32 @@ class Parallel(Logger):
             gc.collect()
             gc.collect()
         self._call_ref = None
+
+    def _reset_run_tracking(self):
+        self.n_dispatched_batches = 0
+        self.n_dispatched_tasks = 0
+        self.n_completed_tasks = 0
+
+        # Following flags are used to synchronize the threads in case one of
+        # the tasks error-out to ensure that all workers abort fast and that
+        # the backend terminates properly.
+
+        # Set to True as soon as a worker signals that a task errors-out
+        self._exception = False
+        # Set to True in case of early termination following an incident
+        self._aborting = False
+        # Set to True after abortion is complete
+        self._aborted = False
+
+        # Following count is incremented by one each time the user iterates
+        # on the output generator, it is used to prepare an informative
+        # warning message in case the generator is deleted before all the
+        # dispatched tasks have been consumed.
+        self._nb_consumed = 0
+
+        self._start_time = time.time()
+
+        self._running = True
 
     def __call__(self, iterable):
         # The parallel call assumes that previous calls, if any, have been
@@ -1423,7 +1464,8 @@ class Parallel(Logger):
                     "references to the output generator."
                 )
             raise RuntimeError(msg)
-        self._running = True
+
+        self._reset_run_tracking()
 
         if not self._managed_backend:
             n_jobs = self._initialize_backend()
@@ -1448,23 +1490,6 @@ class Parallel(Logger):
         # self._effective_n_jobs should be called in the Parallel.__call__
         # thread only -- store its value in an attribute for further queries.
         self._cached_effective_n_jobs = n_jobs
-
-        # Following flags are used to synchronize the threads in case one of
-        # the tasks error-out to ensure that all workers abort fast and that
-        # the backend terminates properly.
-
-        # Set to True as soon as a worker signals that a task errors-out
-        self._exception = False
-        # Set to True in case of early termination following an incident
-        self._aborting = False
-        # Set to True after abortion is complete
-        self._aborted = False
-
-        # Following count is incremented by one each time the user iterates
-        # on the output generator, it is used to prepare an  informative
-        # warning message in case the generator is deleted before all the
-        # dispatched tasks have been consumed.
-        self._nb_consumed = 0
 
         if isinstance(self._backend, LokyBackend):
             # For the loky backend, we add a callback executed when reducing
@@ -1525,10 +1550,6 @@ class Parallel(Logger):
             # TODO: this iterator should be batch_size * n_jobs
             iterator = itertools.islice(iterator, self._pre_dispatch_amount)
 
-        self._start_time = time.time()
-        self.n_dispatched_batches = 0
-        self.n_dispatched_tasks = 0
-        self.n_completed_tasks = 0
         # Use a caching dict for callables that are pickled with cloudpickle to
         # improve performances. This cache is used only in the case of
         # functions that are defined in the __main__ module, functions that
