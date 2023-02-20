@@ -202,12 +202,18 @@ def _assert_warning_nested(backend, inner_n_jobs, expected):
 
     warninfo = [w.message for w in warninfo]
     if expected:
-        # with threading, we might see more that one warninfo
         if warninfo:
-            return (
-                len(warninfo) == 1 and
-                'backed parallel loops cannot' in warninfo[0].args[0]
+            warnings_are_correct = all(
+                'backed parallel loops cannot' in each.args[0]
+                for each in warninfo
             )
+            # With Python nogil, when the outer backend is threading, we might
+            # see more that one warning
+            warnings_have_the_right_length = (
+                len(warninfo) >= 1 if getattr(sys.flags, 'nogil', False)
+                else len(warninfo) == 1)
+            return warnings_are_correct and warnings_have_the_right_length
+
         return False
     else:
         assert not warninfo
