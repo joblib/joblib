@@ -1213,7 +1213,7 @@ class Parallel(Logger):
     def _get_outputs(self, iterator, pre_dispatch):
         generator_exit_raised = False
         current_thread_id = threading.get_ident()
-        pypy_workaround = False
+        pypy_detach_generator_exit = False
         try:
             self._start(iterator, pre_dispatch)
             # first yield returns None, for internal use only. This ensures
@@ -1245,7 +1245,7 @@ class Parallel(Logger):
             # wether it is a pypy bug.
             if IS_PYPY and generator_exit_raised and (
                     current_thread_id != threading.get_ident()):
-                pypy_workaround = True
+                pypy_detach_generator_exit = True
                 _parallel = self
 
                 class _PypyGeneratorExitThread(threading.Thread):
@@ -1270,7 +1270,7 @@ class Parallel(Logger):
             _remaining_outputs = ([] if self._exception else self._jobs)
             self._jobs = collections.deque()
             self._running = False
-            if not pypy_workaround:
+            if not pypy_detach_generator_exit:
                 self._terminate_and_reset()
 
         while len(_remaining_outputs) > 0:
