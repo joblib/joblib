@@ -13,6 +13,51 @@ Using the ``return_generator=True`` option allows to progressively consumes
 the outputs as they arrive and keeps the memory at an acceptable level.
 """
 
+##############################################################################
+# ``MemoryMonitor`` helper
+##############################################################################
+
+##############################################################################
+# The following class is an helper to monitor the memory of the process and its
+# children in another thread, so we can display it afterward.
+#
+# We will use ``psutil`` to monitor the memory usage in the code. Make sure it
+# is installed with ``pip install psutil`` for this example.
+
+
+import time
+from psutil import Process
+from threading import Thread
+
+
+class MemoryMonitor(Thread):
+    """Monitor the memory usage in MB. Note that this class is good enough to
+    highlight the memory profile of Parallel in this example, but is not a
+    general purpose profiler fit for all cases."""
+    def __init__(self):
+        super().__init__()
+        self.stop = False
+        self.memory_buffer = []
+        self.start()
+
+    def get_memory(self):
+        "Get memory of a process and its children."
+        p = Process()
+        memory = p.memory_info().rss
+        for c in p.children():
+            memory += c.memory_info().rss
+        return memory
+
+    def run(self):
+        memory_start = self.get_memory()
+        while not self.stop:
+            self.memory_buffer.append(self.get_memory() - memory_start)
+            time.sleep(0.2)
+
+    def join(self):
+        self.stop = True
+        super().join()
+
 
 ##############################################################################
 # Save memory by consuming the outputs of the tasks as fast as possible
@@ -23,7 +68,6 @@ the outputs as they arrive and keeps the memory at an acceptable level.
 #
 
 import numpy as np
-import time
 
 
 def return_big_object(i):
@@ -51,8 +95,6 @@ def accumulator_sum(generator):
 # collected by the gc.
 
 from joblib import Parallel, delayed
-from .helpers.memory_monitor import MemoryMonitor
-
 
 monitor = MemoryMonitor()
 print("Running tasks with return_generator=False...")
