@@ -47,7 +47,7 @@ for f_name, func, arg in funcs:
         for _ in range(10):
 
             t_start = time.perf_counter()
-            list((func(arg) for _ in range(N)))
+            list(func(arg) for _ in range(N))
             runtime = time.perf_counter() - t_start
             results.append(dict(
                 method="iter", N=N, func=f_name, runtime=runtime / N
