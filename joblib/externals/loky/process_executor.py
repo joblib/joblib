@@ -182,7 +182,7 @@ _global_shutdown = False
 # This lock is used to prevent race conditions when two threads try to join
 # the executor manager thread at the same time.
 # This can happens in joblib with the pypy backend (PypyGeneratorExitThread).
-_shutdown_lock = threading.Lock()
+_executor_manager_join_lock = threading.Lock()
 
 
 def _python_exit():
@@ -196,7 +196,7 @@ def _python_exit():
         with shutdown_lock:
             thread_wakeup.wakeup()
     for thread, _ in items:
-        with _shutdown_lock:
+        with _executor_manager_join_lock:
             thread.join()
 
 
@@ -1202,7 +1202,7 @@ class ProcessPoolExecutor(Executor):
                 self._executor_manager_thread_wakeup.wakeup()
 
         if executor_manager_thread is not None and wait:
-            with _shutdown_lock:
+            with _executor_manager_join_lock:
                 executor_manager_thread.join()
 
         # To reduce the risk of opening too many files, remove references to

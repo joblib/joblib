@@ -7,7 +7,8 @@ This example illustrates memory optimization enabled by using
 :class:`joblib.Parallel` to get a generator on the outputs of parallel jobs.
 We first create tasks that return results with large memory footprints.
 If we call :class:`~joblib.Parallel` for several of these tasks directly, we
-observe a high memory usage, as all the results are stacked in RAM.
+observe a high memory usage, as all the results are held in RAM before being
+processed
 
 Using the ``return_generator=True`` option allows to progressively consumes
 the outputs as they arrive and keeps the memory at an acceptable level.
@@ -31,9 +32,12 @@ from threading import Thread
 
 
 class MemoryMonitor(Thread):
-    """Monitor the memory usage in MB. Note that this class is good enough to
-    highlight the memory profile of Parallel in this example, but is not a
-    general purpose profiler fit for all cases."""
+    """Monitor the memory usage in MB in a separate thread.
+
+    Note that this class is good enough to highlight the memory profile of
+    Parallel in this example, but is not a general purpose profiler fit for
+    all cases.
+    """
     def __init__(self):
         super().__init__()
         self.stop = False
@@ -91,8 +95,8 @@ def accumulator_sum(generator):
 ##############################################################################
 # We process many of the tasks in parallel. If `return_generator=False`
 # (default), we should expect a usage of more than 2GB in RAM. Indeed, all the
-# results are computed and stored in ``res`` before being accumulated and
-# collected by the gc.
+# results are computed and stored in ``res`` before being processed by
+# `accumulator_sum` and collected by the gc.
 
 from joblib import Parallel, delayed
 
@@ -116,7 +120,7 @@ print(f"Peak memory usage: {peak:.2f}GB")
 # If we use ``return_generator=True``, ``res`` is simply a generator with the
 # results that are ready. Here we consume the results as soon as they arrive
 # with the ``accumulator_sum`` and once they have been used, they are collected
-# by the gc. The memory footprint is thus less than 300MB.
+# by the gc. The memory footprint is thus reduced, typically around 300MB.
 
 monitor_gen = MemoryMonitor()
 print("Create result generator with return_generator=True...")
@@ -164,5 +168,5 @@ plt.show()
 ##############################################################################
 # It is important to note that with ``return_generator``, the results are
 # still accumulated in RAM after computation. But as we asynchronously process
-# them, they can be freed sooner. However, if the generator is not consomated,
+# them, they can be freed sooner. However, if the generator is not consumed
 # the memory still grows linearly.

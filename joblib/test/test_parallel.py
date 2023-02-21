@@ -1136,6 +1136,7 @@ def test_parallel_with_exhausted_iterator():
 
 
 def _cleanup_worker():
+    """Helper function to force gc in each worker."""
     force_gc_pypy()
     time.sleep(.1)
 
@@ -1217,8 +1218,11 @@ def test_parallel_return_generator_order(n_jobs):
     result = Parallel(n_jobs=n_jobs, return_generator=True,
                       backend='threading')(
         delayed(set_list_value)(input_list, i, i) for i in range(5))
-    for i, each in enumerate(result):
-        assert input_list[i] == each
+
+    # Ensure that all the tasks are completed before checking the result
+    result = list(result)
+
+    assert all(v == r for v, r in zip(input_list, result))
 
 
 @parametrize('backend', ALL_VALID_BACKENDS)
@@ -1329,7 +1333,7 @@ def test_multiple_generator_call_separated(backend, n_jobs):
 ])
 def test_multiple_generator_call_separated_gc(backend, error):
 
-    if backend in ['loky', 'multiprocessing'] and mp is None:
+    if (backend == 'loky') and (mp is None):
         pytest.skip("Requires multiprocessing")
 
     # Check that in loky, only one call can be run at a time with
@@ -1388,6 +1392,11 @@ def test_memmapping_leaks(backend, tmpdir):
         # The memmap folder should not be clean in the context scope
         assert len(os.listdir(tmpdir)) > 0
 
+        # Cleaning of the memmap folder is triggered by the garbage
+        # collection. With pypy the garbage collection has been observed to be
+        # delayed, sometimes up until the shutdown of the interpreter. This
+        # cleanup job executed in the worker ensures that it's triggered
+        # immediately.
         p(delayed(_cleanup_worker)() for _ in range(2))
 
     # Make sure that the shared memory is cleaned at the end when we exit
