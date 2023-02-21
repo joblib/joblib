@@ -66,12 +66,10 @@ from joblib.parallel import register_parallel_backend, parallel_backend
 from joblib.parallel import effective_n_jobs, cpu_count
 
 from joblib.parallel import mp, BACKENDS, DEFAULT_BACKEND, EXTERNAL_BACKENDS
-from joblib.my_exceptions import JoblibException
 
 
 RETURN_GENERATOR_BACKENDS = BACKENDS.copy()
 RETURN_GENERATOR_BACKENDS.pop("multiprocessing", None)
-
 
 ALL_VALID_BACKENDS = [None] + sorted(BACKENDS.keys())
 # Add instances of backend classes deriving from ParallelBackendBase
@@ -443,15 +441,6 @@ def test_error_capture(backend):
         Parallel(n_jobs=2, verbose=0)(
             (delayed(exception_raiser)(i, custom_exception=True)
              for i in range(30)))
-
-    try:
-        # JoblibException wrapping is disabled in sequential mode:
-        Parallel(n_jobs=1)(
-            delayed(division)(x, y) for x, y in zip((0, 1), (1, 0)))
-    except Exception as ex:
-        assert not isinstance(ex, JoblibException)
-    else:
-        raise ValueError("The excepted error has not been raised.")
 
 
 def consumer(queue, item):
@@ -865,14 +854,6 @@ def test_retrieval_context(with_retrieve_callback):
 
 ###############################################################################
 # Test helpers
-def test_joblib_exception():
-    # Smoke-test the custom exception
-    e = JoblibException('foobar')
-    # Test the repr
-    repr(e)
-    # Test the pickle
-    pickle.dumps(e)
-
 
 @parametrize('batch_size', [0, -1, 1.42])
 def test_invalid_batch_size(batch_size):
