@@ -78,8 +78,9 @@ class ParallelBackendBase(metaclass=ABCMeta):
     def retrieve_result_callback(self, out):
         """Called within the callback function passed in apply_async.
 
-        This is typically used to rebuild and raise exceptions wrapped
-        inside the out object.
+        The argument of this function is the argument given to a callback in
+        the considered backend. It is supposed to return the outcome of a task
+        if it succeeded or raise the exception if it failed.
         """
 
     def configure(self, n_jobs=1, parallel=None, prefer=None, require=None,

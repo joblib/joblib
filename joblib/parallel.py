@@ -386,11 +386,9 @@ class BatchCompletionCallBack(object):
     right after the end of a task, in case of success and in case of failure.
     """
 
-    """
     ##########################################################################
-    ##################### METHODS CALLED BY THE MAIN THREAD ##################
+    #                   METHODS CALLED BY THE MAIN THREAD                    #
     ##########################################################################
-    """
     def __init__(self, dispatch_timestamp, batch_size, parallel):
         self.dispatch_timestamp = dispatch_timestamp
         self.batch_size = batch_size
@@ -459,27 +457,22 @@ class BatchCompletionCallBack(object):
 
         return self.status
 
-    """
     ##########################################################################
-    ################## METHODS CALLED BY CALLBACK THREADS ####################
+    #                     METHODS CALLED BY CALLBACK THREADS                 #
     ##########################################################################
-    """
     def __call__(self, out):
-        """Actual function called by the callback thread after a job is
-        completed.
+        """Function called by the callback thread after a job is completed."""
 
-        If the backend supports retrieving the result in the callback, it can
-        tell if it as completed successfully or with an error, in which case
-        it dispatches the next batch of tasks only in case of success.
-
-        If the backend doesn't have the support, the next batch of tasks is
-        dispatched regardless. Retrieving the result is delayed until the
-        `get_result` call, that will be called by the main thread.
-        """
+        # If the backend doesn't support callback retrievals, the next batch of
+        # tasks is dispatched regardless. The result will be retrieved by the
+        # main thread when calling `get_result`.
         if not self.parallel._backend.supports_retrieve_callback:
             self._dispatch_new()
             return
 
+        # If the backend supports retrieving the result in the callback, it
+        # registers the task outcome (TASK_ERROR or TASK_DONE), and schedules
+        # the next batch if needed.
         with self.parallel._lock:
             # Edge case where while the task was processing, the `parallel`
             # instance has been reset and a new call has been issued, but the
@@ -488,6 +481,8 @@ class BatchCompletionCallBack(object):
             if self.parallel._call_id != self.parallel_call_id:
                 return
 
+            # When aborting, stop as fast as possible and do not retrieve the
+            # result as it won't be returned by the Parallel call.
             if self.parallel._aborting:
                 return
 
@@ -497,11 +492,14 @@ class BatchCompletionCallBack(object):
             self._dispatch_new()
 
     def _dispatch_new(self):
-        this_batch_duration = time.time() - self.dispatch_timestamp
+        """Schedule the next batch of tasks to be processed."""
 
+        # This steps ensure that auto-baching works as expected.
+        this_batch_duration = time.time() - self.dispatch_timestamp
         self.parallel._backend.batch_completed(self.batch_size,
                                                this_batch_duration)
 
+        # Schedule the next batch of tasks.
         with self.parallel._lock:
             self.parallel.n_completed_tasks += self.batch_size
             self.parallel.print_progress()
@@ -509,10 +507,11 @@ class BatchCompletionCallBack(object):
                 self.parallel.dispatch_next()
 
     def _retrieve_result(self, out):
-        """This function is only called by backends that support retrieving
-        the task result in the callback thread.
+        """Fetch and register the outcome of a task.
 
-        Then it stores is as an attribute, and return its status.
+        Return True if the task succeeded, False otherwise.
+        This function is only called by backends that support retrieving
+        the task result in the callback thread.
         """
         try:
             result = self.parallel._backend.retrieve_result_callback(out)
@@ -525,20 +524,28 @@ class BatchCompletionCallBack(object):
         self._register_outcome(outcome)
         return outcome['status'] != TASK_ERROR
 
-    # This method can be called by both threads
+    ##########################################################################
+    #            This method can be called either in the main thread         #
+    #                        or in the callback thread.                      #
+    ##########################################################################
     def _register_outcome(self, outcome):
+        """Register the outcome of a task.
+
+        This method can be called only once, future calls will be ignored.
+        """
         # Covers the edge case where the main thread tries to register a
         # `TimeoutError` while the callback thread tries to register a result
-        # at the exact same time.
-        if self.status not in (TASK_PENDING, None):
-            return
+        # at the same time.
+        with self.parallel._lock:
+            if self.status not in (TASK_PENDING, None):
+                return
+            self.status = outcome["status"]
+
+        self._result = outcome["result"]
 
         # Once the result and the status are extracted, the last reference to
         # the job can be deleted.
         self.job = None
-
-        self._result = outcome["result"]
-        self.status = outcome["status"]
 
         # As soon as an error as been spotted, early stopping flags are sent to
         # the `parallel` instance.
