@@ -514,8 +514,8 @@ class BatchCompletionCallBack(object):
             if self.parallel._aborting:
                 return
 
-           # Retrieves the result of the task in the main process and dispatch
-           # a new batch if needed.
+            # Retrieves the result of the task in the main process and dispatch
+            # a new batch if needed.
             job_succeeded = self._retrieve_result(out)
 
         if job_succeeded:
