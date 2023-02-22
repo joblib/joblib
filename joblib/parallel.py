@@ -311,7 +311,7 @@ class BatchedCalls(object):
         return self._size
 
 
-# Possible exit status for the tasks
+# Possible exit status for a task
 TASK_DONE = "Done"
 TASK_ERROR = "Error"
 TASK_PENDING = "Pending"
@@ -376,14 +376,15 @@ class BatchCompletionCallBack(object):
     """Callback to keep track of finished results and schedule the next tasks.
 
     This callable is executed by the parent process whenever a worker process
-    has returned the results of a batch of tasks.
+    has completed a batch of tasks.
 
     It is used for progress reporting, to update estimate of the batch
     processing duration and to schedule the next batch of tasks to be
     processed.
 
     It is assumed that this callback will always be triggered by the backend
-    right after the end of a task, in case of success and in case of failure.
+    right after the end of a task, in case of success as well as in case of
+    failure.
     """
 
     ##########################################################################
@@ -397,30 +398,52 @@ class BatchCompletionCallBack(object):
 
         # Internals to keep track of the status and outcome of the task.
 
-        # Right after a job has been scheduled with this callback, the
-        # reference to the job object can be registered with `register_job`
+        # Used to hold a reference to the future-like object returned by the
+        # backend after launching this task
+        # This will be set later when calling `register_job`, as it is only
+        # created once the task has been submitted.
         self.job = None
 
-        # The latest known status for the job, can be TASK_PENDING, TASK_DONE,
-        # or TASK_ERROR
-        self.status = TASK_PENDING
         if not parallel._backend.supports_retrieve_callback:
+            # The status is only used for asynchronous result retrieval in the
+            # callback.
             self.status = None
+        else:
+            # The initial status for the job is TASK_PENDING.
+            # Once it is done, it will be either TASK_DONE, or TASK_ERROR.
+            self.status = TASK_PENDING
 
     def register_job(self, job):
         """Register the object returned by `apply_async`."""
         self.job = job
 
     def get_result(self, timeout):
+        """Returns the raw result of the task that was submitted.
+
+        If the task raised an exception rather than returning, this same
+        exception will be raised instead.
+
+        If the backend supports the retrieval callback, it is assumed that this
+        method is only called after the result has been registered. It is
+        ensured by checking that `self.status(timeout)` does not return
+        TASK_PENDING. In this case, `get_result` directly returns the
+        registered result (or raise the registered exception).
+
+        For other backends, there are no such assumptions, but `get_result`
+        still needs to synchronously retrieve the result before it can
+        return it or raise. It will block at most `self.timeout` seconds
+        waiting for retrieval to complete, after that it raises a TimeoutError.
+        """
+
         backend = self.parallel._backend
 
         if backend.supports_retrieve_callback:
-            # The result has already been retrieved by the callback thread, and
-            # is stored internally. It's just waiting to be returned.
+            # We assume that the result has already been retrieved by the
+            # callback thread, and is stored internally. It's just waiting to
+            # be returned.
             return self._return_or_raise()
 
-        # For other backends, the main thread still need to run the retrieval
-        # step
+        # For other backends, the main thread needs to run the retrieval step.
         try:
             if backend.supports_timeout:
                 result = self.job.get(timeout=timeout)
@@ -442,6 +465,11 @@ class BatchCompletionCallBack(object):
             del self._result
 
     def get_status(self, timeout):
+        """Get the status of the task.
+
+        This function also checks if the timeout has been reached and register
+        the TimeoutError outcome when it is the case.
+        """
         if timeout is None or self.status != TASK_PENDING:
             return self.status
 
@@ -486,6 +514,8 @@ class BatchCompletionCallBack(object):
             if self.parallel._aborting:
                 return
 
+           # Retrieves the result of the task in the main process and dispatch
+           # a new batch if needed.
             job_succeeded = self._retrieve_result(out)
 
         if job_succeeded:
