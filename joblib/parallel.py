@@ -20,7 +20,7 @@ from numbers import Integral
 import warnings
 import queue
 import weakref
-import gc
+from contextlib import nullcontext
 
 from multiprocessing import TimeoutError
 
@@ -300,7 +300,7 @@ class BatchedCalls(object):
     def __reduce__(self):
         if self._reducer_callback is not None:
             self._reducer_callback()
-        # no need pickle the callback.
+        # no need to pickle the callback.
         return (
             BatchedCalls,
             (self.items, (self._backend, self._n_jobs), None,
@@ -686,6 +686,11 @@ class Parallel(Logger):
             soft hints (prefer) or hard constraints (require) so as to make it
             possible for library users to change the backend from the outside
             using the :func:`~parallel_backend` context manager.
+        return_generator: bool
+            If True, calls to this instance will return a generator, yielding
+            the results as soon as they are available, in the original order.
+            Note that the intended usage is to run one call at a time. Multiple
+            calls to the same Parallel object will result in a ``ValueError``
         prefer: str in {'processes', 'threads'} or None, default: None
             Soft hint to choose the default backend if no specific backend
             was selected with the :func:`~parallel_backend` context manager.
@@ -751,11 +756,6 @@ class Parallel(Logger):
             disable memmapping, other modes defined in the numpy.memmap doc:
             https://numpy.org/doc/stable/reference/generated/numpy.memmap.html
             Also, see 'max_nbytes' parameter documentation for more details.
-        return_generator: bool
-            If True, calls to this instance will return a generator, yielding
-            the results as soon as they are available, in the original order.
-            Note that the intended usage is to run one call at a time. Multiple
-            calls to the same Parallel object will result in a ``ValueError``
 
         Notes
         -----
@@ -874,10 +874,10 @@ class Parallel(Logger):
         [Parallel(n_jobs=2)]: Done 6 out of 6 | elapsed:  0.0s finished
 
     '''  # noqa: E501
-    def __init__(self, n_jobs=None, backend=None, verbose=0, timeout=None,
-                 pre_dispatch='2 * n_jobs', batch_size='auto',
-                 temp_folder=None, max_nbytes='1M', mmap_mode='r',
-                 return_generator=False, prefer=None, require=None):
+    def __init__(self, n_jobs=None, backend=None, return_generator=False,
+                 verbose=0, timeout=None, pre_dispatch='2 * n_jobs',
+                 batch_size='auto', temp_folder=None, max_nbytes='1M',
+                 mmap_mode='r', prefer=None, require=None):
         active_backend, context_n_jobs = get_active_backend(
             prefer=prefer, require=require, verbose=verbose)
         nesting_level = active_backend.nesting_level
@@ -1209,9 +1209,8 @@ class Parallel(Logger):
                          ))
 
     def _abort(self):
-        # Stop dispatching any new job in the async callback thread
-        with self._lock:
-            self._aborting = True
+        # Stop dispatching new jobs in the async callback thread
+        self._aborting = True
 
         # If the backend allows it, cancel or kill remaining running
         # tasks without waiting for the results as we will raise
@@ -1248,7 +1247,7 @@ class Parallel(Logger):
             self._iterating = False
 
     def _get_outputs(self, iterator, pre_dispatch):
-        generator_exit_raised = False
+        """Iterator returning the tasks' output as soon as they are ready."""
         current_thread_id = threading.get_ident()
         pypy_detach_generator_exit = False
         try:
@@ -1261,27 +1260,20 @@ class Parallel(Logger):
             with self._backend.retrieval_context():
                 yield from self._retrieve()
 
-        # Note: we catch any BaseException instead of just Exception instances
-        # to also include KeyboardInterrupt and GeneratorExit
-        except BaseException as e:
+        except GeneratorExit:
+            # The generator has been garbage collected before being fully
+            # consumned. This aborts the remaining tasks if possible and warn
+            # the user if necessary.
             self._exception = True
-            generator_exit_raised = isinstance(e, GeneratorExit)
 
-            # In case the generator is garbage collected, the generator exit
-            # exception is expected to be caught by the thread that executes
-            # the generator loop. This is true for CPython but sometimes it's
-            # not for pypy, where sometimes the exception is caught in a random
-            # thread among all those that are currently alive. But threads
-            # that are supposed to be terminated by this `except` block as a
-            # side effect of the `_abort` and `_terminate_and_reset` calls (
-            # such as the ExecutorManagerThread in Loky backend) will hang when
-            # executing the block that is supposed to terminate them. This
-            # issue is worked around by detaching the execution to yet another
-            # dedicated thread that is not at risk of deadlocking.
-            # TODO: find a minimal reproducer for this occurence and find out
-            # wether it is a pypy bug.
-            if IS_PYPY and generator_exit_raised and (
-                    current_thread_id != threading.get_ident()):
+            # In CPython, the gc and the error happen in the main thread.
+            # However, this is not the case for other interpreters such as in
+            # PyPy, where this block can be executed in arbitrary threads. This
+            # can lead to hang when a process tries to join itself. As a
+            # workaround, we detach the execution of the aborting code to a
+            # dedicated thread. We then need to make sure the rest of the
+            # function does not call `_terminate_and_reset` in finally.
+            if IS_PYPY and current_thread_id != threading.get_ident():
                 pypy_detach_generator_exit = True
                 _parallel = self
 
@@ -1297,13 +1289,22 @@ class Parallel(Logger):
                 ).start()
                 return
 
+            # Otherwise, we are in CPython or in PyPy in the main thread and
+            # we can safely abort the execution and warn the user.
             self._abort()
-
-            if self.return_generator and generator_exit_raised:
+            if self.return_generator:
                 self._warn_exit_early()
 
             raise
+
+        # Note: we catch any BaseException instead of just Exception instances
+        # to also include KeyboardInterrupt
+        except BaseException:
+            self._exception = True
+            self._abort()
+            raise
         finally:
+            # Store the unconsumed tasks and terminate the workers if necessary
             _remaining_outputs = ([] if self._exception else self._jobs)
             self._jobs = collections.deque()
             self._running = False
@@ -1316,36 +1317,35 @@ class Parallel(Logger):
             for result in batched_results:
                 yield result
 
+    def _wait_retrieval(self):
+        """Return True if we need to continue retriving some tasks."""
+
+        # If the input load is still being iterated over, it means that tasks
+        # are still on the dispatch wait list and their results will need to
+        # be retrieved later on.
+        if self._iterating:
+            return True
+
+        # If some of the dispatched tasks are still being processed by the
+        # workers, wait for the compute to finish before starting retrieval
+        if self.n_completed_tasks < self.n_dispatched_tasks:
+            return True
+
+        # For backends that does not support retrieving asynchronously the
+        # result to the main process, all results must be carefully retrieved
+        # in this loop while the backend is alive.
+        # For other backends, the actual retrieval is done asynchronously in
+        # the callback thread, and we can terminate the backend before the
+        # `self._jobs` result list has been emptied. The remaining results
+        # will be collected in the `finally` step of the generator.
+        if not self._backend.supports_retrieve_callback:
+            if len(self._jobs) > 0:
+                return True
+
+        return False
+
     def _retrieve(self):
-        while True:
-            # After the result of all tasks is retrieved, this variable will
-            # remain False and the loop will exit
-            wait_retrieval = False
-
-            # If the input load is still being iterated over, it means that
-            # tasks are still on the dispatch wait list and their results will
-            # need to be retrieved later on.
-            wait_retrieval |= self._iterating
-
-            # If some of the dispatched tasks are still being processed by the
-            # workers, wait for the compute to finish before starting retrieval
-            wait_retrieval |= (
-                self.n_completed_tasks < self.n_dispatched_tasks
-            )
-
-            # For backends that does not support retrieving asynchronously the
-            # result to the main process, all results must be carefully
-            # retrieved in this loop while the backend is alive.
-            # For other backends, the actual retrieval is done asynchronously
-            # in the callback thread, and we can terminate the backend before
-            # the `self._jobs` result list has been emptied.
-            # The remaining results will be collected in the `finally` step of
-            # the generator.
-            if not self._backend.supports_retrieve_callback:
-                wait_retrieval |= (len(self._jobs) > 0)
-
-            if not wait_retrieval:
-                break
+        while self._wait_retrieval():
 
             # If the callback thread of a worker has signaled that its task
             # triggerd an exception, or if the retrieval loop has raised an
@@ -1390,27 +1390,39 @@ class Parallel(Logger):
             error_job.get_result(self.timeout)
 
     def _warn_exit_early(self):
+        """Warn the user if the generator is gc'ed before being consumned."""
         ready_outputs = self.n_completed_tasks - self._nb_consumed
         is_completed = self._is_completed()
         msg = ""
         if ready_outputs:
-            msg += ("%d tasks have been successfully executed and "
-                    "readied but not used." % ready_outputs)
+            msg += (
+                f"{ready_outputs} tasks have been successfully executed "
+                " but not used."
+            )
             if not is_completed:
                 msg += " Additionally, "
 
         if not is_completed:
-            msg += ("%d tasks which were still being processed by the "
-                    "workers have been cancelled."
-                    % self.n_dispatched_tasks)
+            msg += (
+                f"{self.n_dispatched_tasks - self.n_completed_tasks} tasks "
+                "which were still being processed by the workers have been "
+                "cancelled."
+            )
 
         if msg:
-            msg += (" You could benefit from adjusting the input task "
-                    "iterator to limit unnecessary computation time.")
+            msg += (
+                " You could benefit from adjusting the input task "
+                "iterator to limit unnecessary computation time."
+            )
 
             warnings.warn(msg)
 
     def _get_sequential_output(self, iterable):
+        """Separate loop for sequential output.
+
+        This simplifies the traceback in case of errors and reduces the
+        overhead of calling sequential tasks with `joblib`.
+        """
         try:
             self._iterating = True
             self._original_iterator = iterable
@@ -1426,9 +1438,10 @@ class Parallel(Logger):
                 )
 
             # first yield returns None, for internal use only. This ensures
-            # that we enter the try/except block and set the generator up.
+            # that we enter the try/except block and setup the generator.
             yield None
 
+            # Sequentially call the tasks and yield the results.
             for func, args, kwargs in iterable:
                 self.n_dispatched_batches += 1
                 self.n_dispatched_tasks += 1
@@ -1448,19 +1461,33 @@ class Parallel(Logger):
             self._iterating = False
             self._original_iterator = None
 
-    def _ensure_pypy_gc(self):
-        if (self.return_generator and
-                IS_PYPY and
-                self._call_ref is not None and
-                self._call_ref() is not None):
-            gc.collect()
-            gc.collect()
-        self._call_ref = None
-
     def _reset_run_tracking(self):
+        """Reset the counters and flags used to track the execution."""
+
+        # Makes sur the parallel instance was not previously running in a
+        # thread-safe way.
+        with getattr(self, '_lock', nullcontext()):
+            if self._running:
+                msg = 'This Parallel instance is already running !'
+                if self.return_generator is True:
+                    msg += (
+                        " Before submitting new tasks, you must wait for the "
+                        "completion of all the previous tasks, or clean all "
+                        "references to the output generator."
+                    )
+                raise RuntimeError(msg)
+            self._running = True
+
+        # Counter to keep track of the task dispatched and completed.
         self.n_dispatched_batches = 0
         self.n_dispatched_tasks = 0
         self.n_completed_tasks = 0
+
+        # Following count is incremented by one each time the user iterates
+        # on the output generator, it is used to prepare an informative
+        # warning message in case the generator is deleted before all the
+        # dispatched tasks have been consumed.
+        self._nb_consumed = 0
 
         # Following flags are used to synchronize the threads in case one of
         # the tasks error-out to ensure that all workers abort fast and that
@@ -1473,36 +1500,11 @@ class Parallel(Logger):
         # Set to True after abortion is complete
         self._aborted = False
 
-        # Following count is incremented by one each time the user iterates
-        # on the output generator, it is used to prepare an informative
-        # warning message in case the generator is deleted before all the
-        # dispatched tasks have been consumed.
-        self._nb_consumed = 0
-
-        self._start_time = time.time()
-
-        self._running = True
-
     def __call__(self, iterable):
-        # The parallel call assumes that previous calls, if any, have been
-        # garbage collected, which in turn ensures that the previously
-        # scheduled loads have been properly terminated. Because of
-        # implementation differences in pypy this step is sometimes delayed,
-        # so we prefer forcing garbage collection steps.
-        # TODO review: is that still necessary ?
-        self._ensure_pypy_gc()
-
-        if self._running:
-            msg = 'This Parallel instance is already running !'
-            if self.return_generator is True:
-                msg += (
-                    " Before submitting new tasks, you must wait for the "
-                    "completion of all the previous tasks, or clean all "
-                    "references to the output generator."
-                )
-            raise RuntimeError(msg)
+        """Main function to dispatch parallel tasks."""
 
         self._reset_run_tracking()
+        self._start_time = time.time()
 
         if not self._managed_backend:
             n_jobs = self._initialize_backend()
