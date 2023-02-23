@@ -373,7 +373,7 @@ def delayed(function):
 
 ###############################################################################
 class BatchCompletionCallBack(object):
-    """Callback to keep track of finished results and schedule the next tasks.
+    """Callback to keep track of completed results and schedule the next tasks.
 
     This callable is executed by the parent process whenever a worker process
     has completed a batch of tasks.
@@ -653,7 +653,7 @@ class Parallel(Logger):
             If -1 all CPUs are used.
             If 1 is given, no parallel computing code is used at all, and the
             behavior amounts to a simple python `for` loop. This mode is not
-            compatible with `timeout` or `verbose` features.
+            compatible with `timeout`.
             For n_jobs below -1, (n_cpus + 1 + n_jobs) are used. Thus for
             n_jobs = -2, all CPUs but one are used.
             None is a marker for 'unset' that will be interpreted as n_jobs=1
@@ -690,7 +690,7 @@ class Parallel(Logger):
             If True, calls to this instance will return a generator, yielding
             the results as soon as they are available, in the original order.
             Note that the intended usage is to run one call at a time. Multiple
-            calls to the same Parallel object will result in a ``ValueError``
+            calls to the same Parallel object will result in a ``RuntimeError``
         prefer: str in {'processes', 'threads'} or None, default: None
             Soft hint to choose the default backend if no specific backend
             was selected with the :func:`~parallel_backend` context manager.
@@ -1165,9 +1165,11 @@ class Parallel(Logger):
 
         if self._is_completed():
             # Make sure that we get a last message telling us we are done
-            self._print('Done %3i out of %3i | elapsed: %s finished',
-                        (self.n_completed_tasks, self.n_completed_tasks,
-                         short_format_time(elapsed_time)))
+            self._print(
+                f"Done {self.n_completed_tasks:3d} out of "
+                f"{self.n_completed_tasks:3d} | elapsed: "
+                f"{short_format_time(elapsed_time)} finished"
+            )
             return
 
         # Original job iterator becomes None once it has been fully
@@ -1178,9 +1180,10 @@ class Parallel(Logger):
         elif self._original_iterator is not None:
             if _verbosity_filter(self.n_dispatched_batches, self.verbose):
                 return
-            self._print('Done %3i tasks      | elapsed: %s',
-                        (self.n_completed_tasks,
-                         short_format_time(elapsed_time), ))
+            self._print(
+                f"Done {self.n_completed_tasks:3d} tasks      | elapsed: "
+                f"{short_format_time(elapsed_time)}"
+            )
         else:
             index = self.n_completed_tasks
             # We are finished dispatching
@@ -1198,12 +1201,11 @@ class Parallel(Logger):
             remaining_time = (elapsed_time / index) * \
                              (self.n_dispatched_tasks - index * 1.0)
             # only display status if remaining time is greater or equal to 0
-            self._print('Done %3i out of %3i | elapsed: %s remaining: %s',
-                        (index,
-                         total_tasks,
-                         short_format_time(elapsed_time),
-                         short_format_time(remaining_time),
-                         ))
+            self._print(
+                f"Done {index:3d} out of {total_tasks:3d} | elapsed: "
+                f"{short_format_time(elapsed_time)} remaining: "
+                f"{short_format_time(remaining_time)}"
+            )
 
     def _abort(self):
         # Stop dispatching new jobs in the async callback thread
@@ -1330,7 +1332,7 @@ class Parallel(Logger):
 
         # For backends that does not support retrieving asynchronously the
         # result to the main process, all results must be carefully retrieved
-        # in this loop while the backend is alive.
+        # in the _retrieve loop in the main thread while the backend is alive.
         # For other backends, the actual retrieval is done asynchronously in
         # the callback thread, and we can terminate the backend before the
         # `self._jobs` result list has been emptied. The remaining results
