@@ -1168,7 +1168,7 @@ class Parallel(Logger):
             self._print(
                 f"Done {self.n_completed_tasks:3d} out of "
                 f"{self.n_completed_tasks:3d} | elapsed: "
-                f"{short_format_time(elapsed_time)} finished"
+                f"{short_format_time(elapsed_time)} finished", ()
             )
             return
 
@@ -1182,7 +1182,7 @@ class Parallel(Logger):
                 return
             self._print(
                 f"Done {self.n_completed_tasks:3d} tasks      | elapsed: "
-                f"{short_format_time(elapsed_time)}"
+                f"{short_format_time(elapsed_time)}", ()
             )
         else:
             index = self.n_completed_tasks
@@ -1204,7 +1204,7 @@ class Parallel(Logger):
             self._print(
                 f"Done {index:3d} out of {total_tasks:3d} | elapsed: "
                 f"{short_format_time(elapsed_time)} remaining: "
-                f"{short_format_time(remaining_time)}"
+                f"{short_format_time(remaining_time)}", ()
             )
 
     def _abort(self):
