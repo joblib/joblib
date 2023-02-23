@@ -986,8 +986,6 @@ class Parallel(Logger):
 
     def __exit__(self, exc_type, exc_value, traceback):
         self._managed_backend = False
-        # TODO: could the generator not be interrupted when exiting
-        # context manager ?
         if self.return_generator and self._calling:
             self._abort()
         self._terminate_and_reset()
@@ -1035,8 +1033,6 @@ class Parallel(Logger):
         if self._aborting:
             return
 
-        jobs = self._jobs
-
         batch_size = len(batch)
 
         self.n_dispatched_tasks += batch_size
@@ -1047,7 +1043,7 @@ class Parallel(Logger):
         batch_tracker = BatchCompletionCallBack(
             dispatch_timestamp, batch_size, self
         )
-        jobs.append(batch_tracker)
+        self._jobs.append(batch_tracker)
 
         job = self._backend.apply_async(batch, callback=batch_tracker)
         batch_tracker.register_job(job)
@@ -1154,7 +1150,8 @@ class Parallel(Logger):
     def _is_completed(self):
         """Check if all tasks have been completed"""
         return self.n_completed_tasks == self.n_dispatched_tasks and not (
-            self._iterating or self._aborting)
+            self._iterating or self._aborting
+        )
 
     def print_progress(self):
         """Display the process of the parallel execution only a fraction
