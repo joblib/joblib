@@ -346,8 +346,9 @@ class AutoBatchingMixin(object):
             self._effective_batch_size = batch_size
             if self.parallel.verbose >= 10:
                 self.parallel._print(
-                    "Batch computation too fast (%.4fs.) "
-                    "Setting batch_size=%d.", (batch_duration, batch_size))
+                    f"Batch computation too fast ({batch_duration}s.) "
+                    f"Setting batch_size={batch_size}."
+                )
         elif (batch_duration > self.MAX_IDEAL_BATCH_DURATION and
               old_batch_size >= 2):
             # The current batch size is too big. If we schedule overly long
@@ -365,8 +366,9 @@ class AutoBatchingMixin(object):
             self._effective_batch_size = batch_size
             if self.parallel.verbose >= 10:
                 self.parallel._print(
-                    "Batch computation too slow (%.4fs.) "
-                    "Setting batch_size=%d.", (batch_duration, batch_size))
+                    f"Batch computation too slow ({batch_duration}s.) "
+                    f"Setting batch_size={batch_size}."
+                )
         else:
             # No batch size adjustment
             batch_size = old_batch_size
