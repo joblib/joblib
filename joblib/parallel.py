@@ -1134,7 +1134,7 @@ class Parallel(Logger):
             # Fixed batch size strategy
             return self.batch_size
 
-    def _print(self, msg, msg_args):
+    def _print(self, msg):
         """Display the message on stout or stderr depending on verbosity"""
         # XXX: Not using the logger framework: need to
         # learn to use logger better.
@@ -1144,8 +1144,7 @@ class Parallel(Logger):
             writer = sys.stderr.write
         else:
             writer = sys.stdout.write
-        msg = msg % msg_args
-        writer('[%s]: %s\n' % (self, msg))
+        writer(f"[{self}]: {msg}\n")
 
     def _is_completed(self):
         """Check if all tasks have been completed"""
@@ -1168,7 +1167,7 @@ class Parallel(Logger):
             self._print(
                 f"Done {self.n_completed_tasks:3d} out of "
                 f"{self.n_completed_tasks:3d} | elapsed: "
-                f"{short_format_time(elapsed_time)} finished", ()
+                f"{short_format_time(elapsed_time)} finished"
             )
             return
 
@@ -1182,7 +1181,7 @@ class Parallel(Logger):
                 return
             self._print(
                 f"Done {self.n_completed_tasks:3d} tasks      | elapsed: "
-                f"{short_format_time(elapsed_time)}", ()
+                f"{short_format_time(elapsed_time)}"
             )
         else:
             index = self.n_completed_tasks
@@ -1204,7 +1203,7 @@ class Parallel(Logger):
             self._print(
                 f"Done {index:3d} out of {total_tasks:3d} | elapsed: "
                 f"{short_format_time(elapsed_time)} remaining: "
-                f"{short_format_time(remaining_time)}", ()
+                f"{short_format_time(remaining_time)}"
             )
 
     def _abort(self):
@@ -1558,8 +1557,9 @@ class Parallel(Logger):
         if n_jobs == 0:
             raise RuntimeError("%s has no active worker." % backend_name)
 
-        self._print("Using backend %s with %d concurrent workers.",
-                    (backend_name, n_jobs))
+        self._print(
+            f"Using backend {backend_name} with {n_jobs} concurrent workers."
+        )
         if hasattr(self._backend, 'start_call'):
             self._backend.start_call()
 
