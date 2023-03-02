@@ -631,13 +631,14 @@ class MemorizedFunc(Logger):
     # ------------------------------------------------------------------------
 
     def _get_argument_hash(self, *args, pre_hashed: Dict[str, str] = None, **kwargs):
-        f = lambda x: pre_hashed.get(x) if x in pre_hashed else hashing.hash(x)
+        hash_ = functools.partial(hashing.hash, coerce_mmap=(self.mmap_mode is not None))
+        f = lambda x: pre_hashed.get(x) if x in pre_hashed else hash_(x)
 
-        return hashing.hash(
+        return hash_(
             list(sorted(map(
-                    hashing.hash if pre_hashed is None else f,
+                    hash_ if pre_hashed is None else f,
                     filter_args(self.func, self.ignore, args, kwargs),))),
-            coerce_mmap=(self.mmap_mode is not None))
+            )
 
     def _get_output_identifiers(self, *args, **kwargs):
         """Return the func identifier and input parameter hash of a result."""
