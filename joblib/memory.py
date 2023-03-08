@@ -843,12 +843,12 @@ class MemorizedFunc(Logger):
             # for which repr() always output a short representation, but can
             # be with complex dictionaries. Fixing the problem should be a
             # matter of replacing repr() above by something smarter.
-            warnings.warn("Persisting input arguments took %.2fs to run.\n"
+            warnings.warn("Persisting input arguments took %.2fs to run."
                           "If this happens often in your code, it can cause "
-                          "performance problems \n"
-                          "(results will be correct in all cases). \n"
+                          "performance problems "
+                          "(results will be correct in all cases). "
                           "The reason for this is probably some large input "
-                          "arguments for a wrapped\n"
+                          "arguments for a wrapped"
                           " function."
                           % this_duration, stacklevel=5)
         return metadata
