@@ -8,15 +8,14 @@ import itertools
 from time import sleep
 import subprocess
 import threading
+import faulthandler
 
 import pytest
 
 from joblib.test.common import with_numpy, np
-from joblib.test.common import setup_autokill
-from joblib.test.common import teardown_autokill
 from joblib.test.common import with_multiprocessing
 from joblib.test.common import with_dev_shm
-from joblib.testing import raises, parametrize, skipif, xfail, param
+from joblib.testing import raises, parametrize, skipif
 from joblib.backports import make_memmap
 from joblib.parallel import Parallel, delayed
 
@@ -32,11 +31,11 @@ import joblib._memmapping_reducer as jmr
 
 
 def setup_module():
-    setup_autokill(__name__, timeout=300)
+    faulthandler.dump_traceback_later(timeout=300, exit=True)
 
 
 def teardown_module():
-    teardown_autokill(__name__)
+    faulthandler.cancel_dump_traceback_later()
 
 
 def check_memmap_and_send_back(array):
@@ -751,7 +750,7 @@ def test_memmapping_pool_for_large_arrays(factory, tmpdir):
                 break
         else:  # pragma: no cover
             raise AssertionError(
-                'temporary folder of {} was not deleted'.format(p)
+                'temporary folder {} was not deleted'.format(p._temp_folder)
             )
         del p
 
@@ -798,9 +797,9 @@ def test_child_raises_parent_exits_cleanly(backend):
 
         def get_temp_folder(parallel_obj, backend):
             if "{b}" == "loky":
-                return Path(p._backend._workers._temp_folder)
+                return Path(parallel_obj._backend._workers._temp_folder)
             else:
-                return Path(p._backend._pool._temp_folder)
+                return Path(parallel_obj._backend._pool._temp_folder)
 
 
         if __name__ == "__main__":
@@ -1148,8 +1147,10 @@ def test_weak_array_key_map():
         # On CPython (at least) the same id is often reused many times for the
         # temporary arrays created under the local scope of the
         # get_set_get_collect function without causing any spurious lookups /
-        # insertions in the map.
-        assert len(unique_ids) < 100
+        # insertions in the map. Apparently on Python nogil, the id is not
+        # reused as often.
+        max_len_unique_ids = 400 if getattr(sys.flags, 'nogil', False) else 100
+        assert len(unique_ids) < max_len_unique_ids
 
 
 def test_weak_array_key_map_no_pickling():
