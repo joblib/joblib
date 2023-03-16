@@ -126,7 +126,7 @@ def _posix_recursive_kill(pid):
 
 
 def get_exitcodes_terminated_worker(processes):
-    """Return a formated string with the exitcodes of terminated workers.
+    """Return a formatted string with the exitcodes of terminated workers.
 
     If necessary, wait (up to .25s) for the system to correctly set the
     exitcode of one terminated worker.
