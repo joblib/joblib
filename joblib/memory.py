@@ -848,8 +848,7 @@ class MemorizedFunc(Logger):
                           "performance problems "
                           "(results will be correct in all cases). "
                           "The reason for this is probably some large input "
-                          "arguments for a wrapped"
-                          " function."
+                          "arguments for a wrapped function."
                           % this_duration, stacklevel=5)
         return metadata
 
