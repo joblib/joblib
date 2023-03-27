@@ -162,7 +162,8 @@ class parallel_backend(object):
 
     >>> # create a local Dask cluster
     >>> client = Client()  # doctest: +SKIP
-    >>> grid_search = GridSearchCV(estimator, param_grid, n_jobs=-1)  # doctest: +SKIP
+    >>> grid_search = GridSearchCV(estimator, param_grid, n_jobs=-1)
+    ... # doctest: +SKIP
     >>> with joblib.parallel_backend("dask", scatter=[X, y]):  # doctest: +SKIP
     ...     grid_search.fit(X, y)
 
