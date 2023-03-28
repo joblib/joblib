@@ -7,9 +7,8 @@ This example shows the simplest usage of the
 backend on your local machine.
 
 This is useful for prototyping a solution, to later be run on a truly
-`distributed Dask cluster`_, as the only change needed is the cluster class.
-
-.. _distributed Dask cluster: https://docs.dask.org/en/stable/deploying.html#distributed-computing  # noqa: E501
+`distributed Dask cluster <https://docs.dask.org/en/stable/deploying.html#distributed-computing>`_,
+as the only change needed is the cluster class.
 
 Another realistic usage scenario: combining dask code with joblib code,
 for instance using dask for preprocessing data, and scikit-learn for
