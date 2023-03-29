@@ -7,7 +7,7 @@ This example shows the simplest usage of the
 backend on your local machine.
 
 This is useful for prototyping a solution, to later be run on a truly
-distributed Dask cluster (see the Dask_ documentation on deployment),
+`distributed Dask cluster <https://docs.dask.org/en/stable/deploying.html#distributed-computing>`_, # noqa: E501
 as the only change needed is the cluster class.
 
 Another realistic usage scenario: combining dask code with joblib code,
@@ -15,8 +15,6 @@ for instance using dask for preprocessing data, and scikit-learn for
 machine learning. In such a setting, it may be interesting to use
 distributed as a backend scheduler for both dask and joblib, to
 orchestrate the computation.
-
-.. _Dask: https://docs.dask.org/en/stable/deploying.html#distributed-computing
 
 """
 
