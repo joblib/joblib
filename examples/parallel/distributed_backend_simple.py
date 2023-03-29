@@ -7,7 +7,7 @@ This example shows the simplest usage of the
 backend on your local machine.
 
 This is useful for prototyping a solution, to later be run on a truly
-distributed Dask cluster (see the `Dask`_ documentation on deployment),
+distributed Dask cluster (see the Dask_ documentation on deployment),
 as the only change needed is the cluster class.
 
 Another realistic usage scenario: combining dask code with joblib code,
