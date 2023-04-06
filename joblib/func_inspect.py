@@ -25,10 +25,6 @@ full_argspec_type = collections.namedtuple('FullArgSpec', full_argspec_fields)
 def get_func_code(func):
     """ Attempts to retrieve a reliable function code hash.
 
-        The reason we don't use inspect.getsource is that it caches the
-        source, whereas we want this to be modified on the fly when the
-        function is modified.
-
         Returns
         -------
         func_code: string
@@ -45,25 +41,9 @@ def get_func_code(func):
     """
     source_file = None
     try:
-        code = func.__code__
-        source_file = code.co_filename
-        if not os.path.exists(source_file):
-            # Use inspect for lambda functions and functions defined in an
-            # interactive shell, or in doctests
-            source_code = ''.join(inspect.getsourcelines(func)[0])
-            line_no = 1
-            if source_file.startswith('<doctest '):
-                source_file, line_no = re.match(
-                    r'\<doctest (.*\.rst)\[(.*)\]\>', source_file).groups()
-                line_no = int(line_no)
-                source_file = '<doctest %s>' % source_file
-            return source_code, source_file, line_no
-        # Try to retrieve the source code.
-        with open_py_source(source_file) as source_file_obj:
-            first_line = code.co_firstlineno
-            # All the lines after the function definition:
-            source_lines = list(islice(source_file_obj, first_line - 1, None))
-        return ''.join(inspect.getblock(source_lines)), source_file, first_line
+        source_file = inspect.getsourcefile(func)
+        code, first_line = inspect.getsourcefile(func)
+        return ''.join(code), source_file, first_line
     except:
         # If the source code fails, we use the hash. This is fragile and
         # might change from one session to another.
