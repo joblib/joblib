@@ -301,8 +301,7 @@ def test_memory_warning_lambda_collisions(tmpdir):
     # Check that multiple use of lambda will raise collisions
     memory = Memory(location=tmpdir.strpath, verbose=0)
      a = memory.cache(lambda x: x)
-    b = lambda x: x + 1  # noqa: 731
-    b = memory.cache(b)
+    b = memory.cache(lambda x: x + 1)
 
     with warns(JobLibCollisionWarning) as warninfo:
         assert a(0) == 0
