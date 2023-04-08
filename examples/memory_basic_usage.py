@@ -11,7 +11,7 @@ functions and methods.
 ###############################################################################
 # Without :class:`joblib.Memory`
 ###############################################################################
-# 
+#
 # ``costly_compute`` emulates a computationally expensive process which later
 # will benefit from caching using :class:`joblib.Memory`.
 
@@ -42,7 +42,7 @@ print('\nThe transformed data are:\n {}'.format(data_trans))
 ###############################################################################
 # Caching the result of a function to avoid recomputing
 ###############################################################################
-# 
+#
 # If we need to call our function several time with the same input data, it is
 # beneficial to avoid recomputing the same results over and over since it is
 # expensive. :class:`joblib.Memory` enables to cache results from a function
@@ -87,7 +87,7 @@ print('\nThe transformed data are:\n {}'.format(data_trans))
 ###############################################################################
 # Using :class:`joblib.Memory` with a method
 ###############################################################################
-# 
+#
 # :class:`joblib.Memory` is designed to work with functions with no side
 # effects. When dealing with class, the computationally expensive part of a
 # method has to be moved to a function and decorated in the class method.

@@ -7,4 +7,3 @@ def big5_f():
     """
     # µùÄÀ
     return 0
-
