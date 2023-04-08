@@ -300,8 +300,7 @@ def test_memory_name_collision(tmpdir):
 def test_memory_warning_lambda_collisions(tmpdir):
     # Check that multiple use of lambda will raise collisions
     memory = Memory(location=tmpdir.strpath, verbose=0)
-    a = lambda x: x  # noqa: 731
-    a = memory.cache(a)
+     a = memory.cache(lambda x: x)
     b = lambda x: x + 1  # noqa: 731
     b = memory.cache(b)
 
