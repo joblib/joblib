@@ -11,6 +11,7 @@ import sys
 import time
 import mmap
 import weakref
+import warnings
 import threading
 from traceback import format_exception
 from math import sqrt
@@ -1119,6 +1120,7 @@ def _cleanup_worker():
     """Helper function to force gc in each worker."""
     force_gc_pypy()
     time.sleep(.1)
+
 
 def check_memmap(a):
     if not isinstance(a, np.memmap):
