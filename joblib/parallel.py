@@ -31,7 +31,6 @@ from .disk import memstr_to_bytes
 from ._parallel_backends import (FallbackToBackend, MultiprocessingBackend,
                                  ThreadingBackend, SequentialBackend,
                                  LokyBackend)
-from .externals.cloudpickle import dumps, loads
 from ._utils import eval_expr
 
 # Make sure that those two classes are part of the public joblib.parallel API
@@ -722,10 +721,10 @@ class Parallel(Logger):
             calls to workers can be slower than sequential computation because
             of the overhead. Batching fast computations together can mitigate
             this.
-            The ``'auto'`` strategy keeps track of the time it takes for a batch
-            to complete, and dynamically adjusts the batch size to keep the time
-            on the order of half a second, using a heuristic. The initial batch
-            size is 1.
+            The ``'auto'`` strategy keeps track of the time it takes for a
+            batch to complete, and dynamically adjusts the batch size to keep
+            the time on the order of half a second, using a heuristic. The
+            initial batch size is 1.
             ``batch_size="auto"`` with ``backend="threading"`` will dispatch
             batches of a single task at a time as the threading backend has
             very little overhead and using larger batch size has not proved to
@@ -812,7 +811,8 @@ class Parallel(Logger):
 
         >>> from time import sleep
         >>> from joblib import Parallel, delayed
-        >>> r = Parallel(n_jobs=2, verbose=10)(delayed(sleep)(.2) for _ in range(10)) #doctest: +SKIP
+        >>> r = Parallel(n_jobs=2, verbose=10)(
+        ...     delayed(sleep)(.2) for _ in range(10)) #doctest: +SKIP
         [Parallel(n_jobs=2)]: Done   1 tasks      | elapsed:    0.6s
         [Parallel(n_jobs=2)]: Done   4 tasks      | elapsed:    0.8s
         [Parallel(n_jobs=2)]: Done  10 out of  10 | elapsed:    1.4s finished
@@ -824,27 +824,28 @@ class Parallel(Logger):
 
         >>> from heapq import nlargest
         >>> from joblib import Parallel, delayed
-        >>> Parallel(n_jobs=2)(delayed(nlargest)(2, n) for n in (range(4), 'abcde', 3)) #doctest: +SKIP
-        #...
-        ---------------------------------------------------------------------------
+        >>> Parallel(n_jobs=2)(
+        ... delayed(nlargest)(2, n) for n in (range(4), 'abcde', 3))
+        ... # doctest: +SKIP
+        -----------------------------------------------------------------------
         Sub-process traceback:
-        ---------------------------------------------------------------------------
-        TypeError                                          Mon Nov 12 11:37:46 2012
-        PID: 12934                                    Python 2.7.3: /usr/bin/python
-        ...........................................................................
+        -----------------------------------------------------------------------
+        TypeError                                      Mon Nov 12 11:37:46 2012
+        PID: 12934                                Python 2.7.3: /usr/bin/python
+        ........................................................................
         /usr/lib/python2.7/heapq.pyc in nlargest(n=2, iterable=3, key=None)
             419         if n >= size:
             420             return sorted(iterable, key=key, reverse=True)[:n]
             421
             422     # When key is none, use simpler decoration
             423     if key is None:
-        --> 424         it = izip(iterable, count(0,-1))                    # decorate
+        --> 424         it = izip(iterable, count(0,-1))           # decorate
             425         result = _nlargest(n, it)
-            426         return map(itemgetter(0), result)                   # undecorate
+            426         return map(itemgetter(0), result)          # undecorate
             427
             428     # General case, slowest method
          TypeError: izip argument #1 must support iteration
-        ___________________________________________________________________________
+        _______________________________________________________________________
 
 
         Using pre_dispatch in a producer/consumer situation, where the
@@ -859,7 +860,7 @@ class Parallel(Logger):
         ...         print('Produced %s' % i)
         ...         yield i
         >>> out = Parallel(n_jobs=2, verbose=100, pre_dispatch='1.5*n_jobs')(
-        ...                delayed(sqrt)(i) for i in producer()) #doctest: +SKIP
+        ...     delayed(sqrt)(i) for i in producer()) #doctest: +SKIP
         Produced 0
         Produced 1
         Produced 2

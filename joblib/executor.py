@@ -26,8 +26,8 @@ class MemmappingExecutor(_ReusablePoolExecutor):
     def get_memmapping_executor(cls, n_jobs, timeout=300, initializer=None,
                                 initargs=(), env=None, temp_folder=None,
                                 context_id=None, **backend_args):
-        """Factory for ReusableExecutor with automatic memmapping for large numpy
-        arrays.
+        """Factory for ReusableExecutor with automatic memmapping for large
+        numpy arrays.
         """
         global _executor_args
         # Check if we can reuse the executor here instead of deferring the test

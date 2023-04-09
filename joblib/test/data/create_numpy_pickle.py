@@ -66,6 +66,7 @@ def write_test_pickle(to_pickle, args):
     else:
         print("File '{}' generated successfully.".format(pickle_filename))
 
+
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description="Joblib pickle data "

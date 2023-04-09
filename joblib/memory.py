@@ -440,7 +440,7 @@ class MemorizedFunc(Logger):
         self.timestamp = timestamp
         try:
             functools.update_wrapper(self, func)
-        except:
+        except:  # noqa: E722
             " Objects like ufunc don't like that "
         if inspect.isfunction(func):
             doc = pydoc.TextDoc().document(func)
@@ -843,16 +843,12 @@ class MemorizedFunc(Logger):
             # for which repr() always output a short representation, but can
             # be with complex dictionaries. Fixing the problem should be a
             # matter of replacing repr() above by something smarter.
-            warnings.warn("Persisting input arguments took %.2fs to run.\n"
+            warnings.warn("Persisting input arguments took %.2fs to run."
                           "If this happens often in your code, it can cause "
-                          "performance problems \n"
-                          "(results will be correct in all cases). \n"
+                          "performance problems "
+                          "(results will be correct in all cases). "
                           "The reason for this is probably some large input "
-                          "arguments for a wrapped\n"
-                          " function (e.g. large strings).\n"
-                          "THIS IS A JOBLIB ISSUE. If you can, kindly provide "
-                          "the joblib's team with an\n"
-                          " example so that they can fix the problem."
+                          "arguments for a wrapped function."
                           % this_duration, stacklevel=5)
         return metadata
 

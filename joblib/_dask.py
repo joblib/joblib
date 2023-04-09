@@ -26,7 +26,7 @@ if dask is not None and distributed is not None:
         as_completed,
         get_client,
         secede,
-        rejoin
+        rejoin,
     )
     from distributed.utils import thread_state
 
