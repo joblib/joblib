@@ -495,18 +495,18 @@ class MemorizedFunc(Logger):
         if self._verbose >= 20:
             logging.basicConfig(level=logging.INFO)
             _, name = get_func_name(self.func)
-            location = self.store_backend.get_cached_func_info([func_id])['location']
-            path, signature = format_signature(self.func, *args, **kwargs)
+            location = self.store_backend.get_cached_func_info([func_id])[
+                'location']
+            _, signature = format_signature(self.func, *args, **kwargs)
 
             self.info(f"""
-Querying {name} with signature 
+Querying {name} with signature
 {signature}.
 
-(argument hash {args_id}) 
+(argument hash {args_id})
 
-The store location is {location}. 
-            """
-            )
+The store location is {location}.
+            """)
 
         # FIXME: The statements below should be try/excepted
         # Compare the function code with the previous to see if the
