@@ -84,7 +84,7 @@ def test_info_log(tmpdir, caplog):
     def f(x):
         return x ** 2
 
-    y = f(x)
+    _ = f(x)
     assert "Querying" in caplog.text
     caplog.clear()
 
@@ -94,6 +94,6 @@ def test_info_log(tmpdir, caplog):
     def f(x):
         return x ** 2
 
-    y = f(x)
+    _ = f(x)
     assert "Querying" not in caplog.text
     caplog.clear()
