@@ -151,10 +151,21 @@ class parallel_backend(object):
     multiprocessing and loky may not be available, in which case joblib
     defaults to threading.
 
-    In addition, if the `dask` and `distributed` Python packages are installed,
-    it is possible to use the 'dask' backend for better scheduling of nested
-    parallel calls without over-subscription and potentially distribute
-    parallel calls over a networked cluster of several hosts.
+    You can also use the `Dask <https://docs.dask.org/en/stable/>`_ joblib
+    backend to distribute work across machines. This works well with
+    scikit-learn estimators with the ``n_jobs`` parameter, for example::
+
+    >>> import joblib  # doctest: +SKIP
+    >>> from sklearn.model_selection import GridSearchCV  # doctest: +SKIP
+    >>> from dask.distributed import Client, LocalCluster # doctest: +SKIP
+
+    >>> # create a local Dask cluster
+    >>> cluster = LocalCluster()  # doctest: +SKIP
+    >>> client = Client(cluster)  # doctest: +SKIP
+    >>> grid_search = GridSearchCV(estimator, param_grid, n_jobs=-1)
+    ... # doctest: +SKIP
+    >>> with joblib.parallel_backend("dask", scatter=[X, y]):  # doctest: +SKIP
+    ...     grid_search.fit(X, y)
 
     It is also possible to use the distributed 'ray' backend for distributing
     the workload to a cluster of nodes. To use the 'ray' joblib backend add
