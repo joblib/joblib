@@ -440,7 +440,7 @@ class MemorizedFunc(Logger):
         self.timestamp = timestamp
         try:
             functools.update_wrapper(self, func)
-        except:
+        except:  # noqa: E722
             " Objects like ufunc don't like that "
         if inspect.isfunction(func):
             doc = pydoc.TextDoc().document(func)

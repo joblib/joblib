@@ -419,6 +419,7 @@ def run(args):
                       tries=args.tries)
             del obj
 
+
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Joblib benchmark script")

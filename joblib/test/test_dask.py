@@ -13,9 +13,11 @@ from .._dask import DaskDistributedBackend
 
 distributed = pytest.importorskip('distributed')
 dask = pytest.importorskip('dask')
-from distributed import Client, LocalCluster, get_client
-from distributed.metrics import time
-from distributed.utils_test import cluster, inc
+
+# These imports need to be after the pytest.importorskip hence the noqa: E402
+from distributed import Client, LocalCluster, get_client  # noqa: E402
+from distributed.metrics import time  # noqa: E402
+from distributed.utils_test import cluster, inc  # noqa: E402
 
 
 def noop(*args, **kwargs):
