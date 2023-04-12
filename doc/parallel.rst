@@ -84,7 +84,7 @@ backends you can use:
 * `Joblib Apache Spark Backend <https://github.com/joblib/joblib-spark>`_
   to distribute joblib tasks on a Spark cluster
 * `Dask <https://docs.dask.org/en/stable/>`_ backend for Dask clusters
-  (see :ref:`sphx_glr_auto_examples_distributed_backend_simple.py` for an example)
+  (see :ref:`sphx_glr_auto_examples_parallel_distributed_backend_simple.py` for an example)
 * `Ray <https://docs.ray.io/en/latest/index.html>`_ backend for Ray clusters
 
 .. _serialization_and_processes:
