@@ -148,7 +148,7 @@ class parallel_backend(object):
     'threading' is a low-overhead alternative that is most efficient for
     functions that release the Global Interpreter Lock: e.g. I/O-bound code or
     CPU-bound code in a few calls to native code that explicitly releases the
-    GIL. Note that on some rare systems (such as pyiodine),
+    GIL. Note that on some rare systems (such as pyodide),
     multiprocessing and loky may not be available, in which case joblib
     defaults to threading.
 
@@ -161,7 +161,8 @@ class parallel_backend(object):
     >>> from dask.distributed import Client # doctest: +SKIP
 
     >>> # create a local Dask cluster
-    >>> client = Client()  # doctest: +SKIP
+    >>> cluster = LocalCluster()  # doctest: +SKIP
+    >>> client = Client(cluster)  # doctest: +SKIP
     >>> grid_search = GridSearchCV(estimator, param_grid, n_jobs=-1)
     ... # doctest: +SKIP
     >>> with joblib.parallel_backend("dask", scatter=[X, y]):  # doctest: +SKIP

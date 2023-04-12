@@ -25,6 +25,7 @@ orchestrate the computation.
 from dask.distributed import Client, LocalCluster
 
 # replace with whichever cluster class you're using
+# https://docs.dask.org/en/stable/deploying.html#distributed-computing
 cluster = LocalCluster()
 # connect client to your cluster
 client = Client(cluster)

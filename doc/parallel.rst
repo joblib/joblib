@@ -78,9 +78,13 @@ choice with the :func:`~joblib.parallel_backend` context manager.
    Pyodide). In this case the loky backend is not available and the
    default backend falls back to threading.
 
-Besides builtin joblib backends, we can use
-`Joblib Apache Spark Backend <https://github.com/joblib/joblib-spark>`_
-to distribute joblib tasks on a Spark cluster.
+In addition to the builtin joblib backends, there are several cluster-specific
+backends you can use:
+- `Joblib Apache Spark Backend <https://github.com/joblib/joblib-spark>`_
+to distribute joblib tasks on a Spark cluster
+- `Dask <https://docs.dask.org/en/stable/>`_ backend for Dask clusters
+(see :ref:`sphx-glr-auto-examples-parallel-distributed-backend-simple-py` for an example)
+- `Ray <https://docs.ray.io/en/latest/index.html>`_ backend for Ray clusters
 
 .. _serialization_and_processes:
 
