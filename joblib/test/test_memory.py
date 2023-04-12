@@ -35,7 +35,6 @@ from joblib.testing import parametrize, raises, warns
 from joblib.hashing import hash
 
 
-
 ###############################################################################
 # Module-level variables for the tests
 def f(x, y=1):
@@ -91,9 +90,9 @@ def test_memory_integration(tmpdir):
     # thus it serves as a test to see that both are identified
     # as different.
 
-    def f(l):
+    def f(arg):
         accumulator.append(1)
-        return l
+        return arg
 
     check_identity_lazy(f, accumulator, tmpdir.strpath)
 
@@ -229,9 +228,9 @@ def test_no_memory():
     """ Test memory with location=None: no memoize """
     accumulator = list()
 
-    def ff(l):
+    def ff(arg):
         accumulator.append(1)
-        return l
+        return arg
 
     memory = Memory(location=None, verbose=0)
     gg = memory.cache(ff)
@@ -245,16 +244,16 @@ def test_memory_kwarg(tmpdir):
     " Test memory with a function with keyword arguments."
     accumulator = list()
 
-    def g(l=None, m=1):
+    def g(arg1=None, arg2=1):
         accumulator.append(1)
-        return l
+        return arg1
 
     check_identity_lazy(g, accumulator, tmpdir.strpath)
 
     memory = Memory(location=tmpdir.strpath, verbose=0)
     g = memory.cache(g)
     # Smoke test with an explicit keyword argument:
-    assert g(l=30, m=2) == 30
+    assert g(arg1=30, arg2=2) == 30
 
 
 def test_memory_lambda(tmpdir):
@@ -267,9 +266,7 @@ def test_memory_lambda(tmpdir):
         accumulator.append(1)
         return x
 
-    l = lambda x: helper(x)
-
-    check_identity_lazy(l, accumulator, tmpdir.strpath)
+    check_identity_lazy(lambda x: helper(x), accumulator, tmpdir.strpath)
 
 
 def test_memory_name_collision(tmpdir):
@@ -303,10 +300,8 @@ def test_memory_name_collision(tmpdir):
 def test_memory_warning_lambda_collisions(tmpdir):
     # Check that multiple use of lambda will raise collisions
     memory = Memory(location=tmpdir.strpath, verbose=0)
-    a = lambda x: x
-    a = memory.cache(a)
-    b = lambda x: x + 1
-    b = memory.cache(b)
+    a = memory.cache(lambda x: x)
+    b = memory.cache(lambda x: x + 1)
 
     with warns(JobLibCollisionWarning) as warninfo:
         assert a(0) == 0
@@ -392,9 +387,9 @@ def test_memory_numpy(tmpdir, mmap_mode):
     " Test memory with a function with numpy arrays."
     accumulator = list()
 
-    def n(l=None):
+    def n(arg=None):
         accumulator.append(1)
-        return l
+        return arg
 
     memory = Memory(location=tmpdir.strpath, mmap_mode=mmap_mode,
                     verbose=0)

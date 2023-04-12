@@ -9,7 +9,6 @@ Test the hashing module.
 import time
 import hashlib
 import sys
-import os
 import gc
 import io
 import collections
@@ -18,7 +17,6 @@ import pickle
 import random
 from concurrent.futures import ProcessPoolExecutor
 from decimal import Decimal
-import pytest
 
 from joblib.hashing import hash
 from joblib.func_inspect import filter_args

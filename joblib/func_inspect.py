@@ -64,7 +64,7 @@ def get_func_code(func):
             # All the lines after the function definition:
             source_lines = list(islice(source_file_obj, first_line - 1, None))
         return ''.join(inspect.getblock(source_lines)), source_file, first_line
-    except:
+    except:  # noqa: E722
         # If the source code fails, we use the hash. This is fragile and
         # might change from one session to another.
         if hasattr(func, '__code__'):
@@ -122,7 +122,7 @@ def get_func_name(func, resolv_alias=True, win_characters=True):
     if module == '__main__':
         try:
             filename = os.path.abspath(inspect.getsourcefile(func))
-        except:
+        except:  # noqa: E722
             filename = None
         if filename is not None:
             # mangling of full path to filename

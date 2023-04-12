@@ -170,7 +170,7 @@ def test_func_inspect_errors():
     # Check that func_inspect is robust and will work on weird objects
     assert get_func_name('a'.lower)[-1] == 'lower'
     assert get_func_code('a'.lower)[1:] == (None, -1)
-    ff = lambda x: x
+    ff = lambda x: x  # noqa: E731
     assert get_func_name(ff, win_characters=False)[-1] == '<lambda>'
     assert get_func_code(ff)[1] == __file__.replace('.pyc', '.py')
     # Simulate a function defined in __main__
