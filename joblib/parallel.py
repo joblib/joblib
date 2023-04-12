@@ -158,7 +158,7 @@ class parallel_backend(object):
 
     >>> import joblib  # doctest: +SKIP
     >>> from sklearn.model_selection import GridSearchCV  # doctest: +SKIP
-    >>> from dask.distributed import Client # doctest: +SKIP
+    >>> from dask.distributed import Client, LocalCluster # doctest: +SKIP
 
     >>> # create a local Dask cluster
     >>> cluster = LocalCluster()  # doctest: +SKIP
