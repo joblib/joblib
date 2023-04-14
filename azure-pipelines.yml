@@ -94,7 +94,7 @@ jobs:
 
   variables:
     JUNITXML: 'test-data.xml'
-    COVERAGE: "true"
+    COVERAGE: "false"
 
   pool:
     vmImage: $(imageName)
