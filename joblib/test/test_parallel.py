@@ -1468,11 +1468,6 @@ def _recursive_parallel(nesting_limit=None):
 @parametrize(
         'backend', (['threading'] if mp is None else ['loky', 'threading'])
 )
-# XXX: unskip once issue #1150 is closed.
-@skipif(
-    hasattr(sys, "pypy_version_info"),
-    reason="this test causes a deadlock on PyPy."
-)
 def test_thread_bomb_mitigation(backend):
     # Test that recursive parallelism raises a recursion rather than
     # saturating the operating system resources by creating a unbounded number
