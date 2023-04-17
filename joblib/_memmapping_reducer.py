@@ -570,17 +570,22 @@ class TemporaryResourcesManager(object):
 
     def _unregister_context(self, context_id=None):
         if context_id is None:
+            # Iterates over a copy of the cache keys to avoid Error due to
+            # iterating over a changing size dictionary.
             for context_id in list(self._cached_temp_folders):
                 self._unregister_context(context_id)
         else:
-            temp_folder = self._cached_temp_folders[context_id]
-            finalizer = self._finalizers[context_id]
+            temp_folder = self._cached_temp_folders.get(context_id)
+            finalizer = self._finalizers.get(context_id)
 
-            resource_tracker.unregister(temp_folder, "folder")
-            atexit.unregister(finalizer)
+            if temp_folder is not None:
+                resource_tracker.unregister(temp_folder, "folder")
 
-            self._cached_temp_folders.pop(context_id)
-            self._finalizers.pop(context_id)
+            if finalizer is not None:
+                atexit.unregister(finalizer)
+
+            self._cached_temp_folders.pop(context_id, None)
+            self._finalizers.pop(context_id, None)
 
     # resource management API
 
@@ -616,13 +621,14 @@ class TemporaryResourcesManager(object):
     def _unlink_temporary_resources(self, context_id=None):
         """Unlink temporary resources created by a process-based pool"""
         if context_id is None:
-            # iterate over a copy of the cache keys because
-            # unlink_temporary_resources further deletes an entry in this
-            # cache
-            for context_id in self._cached_temp_folders.copy():
+            # Iterates over a copy of the cache keys to avoid Error due to
+            # iterating over a changing size dictionary.
+            for context_id in list(self._cached_temp_folders):
                 self._unlink_temporary_resources(context_id)
         else:
-            temp_folder = self._cached_temp_folders[context_id]
+            temp_folder = self._cached_temp_folders.get(context_id)
+            if temp_folder is None:
+                return
             if os.path.exists(temp_folder):
                 for filename in os.listdir(temp_folder):
                     resource_tracker.maybe_unlink(
@@ -635,10 +641,14 @@ class TemporaryResourcesManager(object):
     def _unregister_temporary_resources(self, context_id=None):
         """Unregister temporary resources created by a process-based pool"""
         if context_id is None:
-            for context_id in self._cached_temp_folders:
+            # Iterates over a copy of the cache keys to avoid Error due to
+            # iterating over a changing size dictionary.
+            for context_id in list(self._cached_temp_folders):
                 self._unregister_temporary_resources(context_id)
         else:
-            temp_folder = self._cached_temp_folders[context_id]
+            temp_folder = self._cached_temp_folders.get(context_id)
+            if temp_folder is None:
+                return
             if os.path.exists(temp_folder):
                 for filename in os.listdir(temp_folder):
                     resource_tracker.unregister(
@@ -647,13 +657,16 @@ class TemporaryResourcesManager(object):
 
     def _try_delete_folder(self, allow_non_empty, context_id=None):
         if context_id is None:
-            # ditto
-            for context_id in self._cached_temp_folders.copy():
+            # Iterates over a copy of the cache keys to avoid Error due to
+            # iterating over a changing size dictionary.
+            for context_id in list(self._cached_temp_folders):
                 self._try_delete_folder(
                     allow_non_empty=allow_non_empty, context_id=context_id
                 )
         else:
-            temp_folder = self._cached_temp_folders[context_id]
+            temp_folder = self._cached_temp_folders.get(context_id)
+            if temp_folder is None:
+                return
             try:
                 delete_folder(
                     temp_folder, allow_non_empty=allow_non_empty
