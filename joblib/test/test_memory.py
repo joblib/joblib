@@ -1316,6 +1316,7 @@ def test_memory_pickle_dump_load(tmpdir, memory_kwargs):
             ignored_attrs=set(['store_backend', 'timestamp', '_func_code_id']))
     assert hash(memorized_result) == hash(memorized_result_reloaded)
 
+
 def test_info_log(tmpdir, caplog):
     caplog.set_level(logging.INFO)
     x = 3

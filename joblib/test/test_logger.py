@@ -9,6 +9,7 @@ import re
 
 from joblib.logger import PrintTime
 
+
 def test_print_time(tmpdir, capsys):
     # A simple smoke test for PrintTime.
     logfile = tmpdir.join('test.log').strpath
