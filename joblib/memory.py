@@ -12,6 +12,7 @@ is called with the same input arguments.
 from __future__ import with_statement
 import logging
 import os
+from textwrap import dedent
 import time
 import pathlib
 import pydoc
@@ -499,14 +500,18 @@ class MemorizedFunc(Logger):
                 'location']
             _, signature = format_signature(self.func, *args, **kwargs)
 
-            self.info(f"""
-Querying {name} with signature
-{signature}.
+            self.info(
+                dedent(
+                    f"""
+                        Querying {name} with signature
+                        {signature}.
 
-(argument hash {args_id})
+                        (argument hash {args_id})
 
-The store location is {location}.
-            """)
+                        The store location is {location}.
+                        """
+                )
+            )
 
         # FIXME: The statements below should be try/excepted
         # Compare the function code with the previous to see if the
