@@ -750,7 +750,7 @@ def test_memmapping_pool_for_large_arrays(factory, tmpdir):
                 break
         else:  # pragma: no cover
             raise AssertionError(
-                'temporary folder {} was not deleted'.format(p._temp_folder)
+                'temporary folder of {} was not deleted'.format(p)
             )
         del p
 
