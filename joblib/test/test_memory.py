@@ -8,6 +8,7 @@ Test the memory module.
 
 import functools
 import gc
+import logging
 import shutil
 import os
 import os.path
@@ -1309,3 +1310,28 @@ def test_memory_pickle_dump_load(tmpdir, memory_kwargs):
     compare(memorized_result, memorized_result_reloaded,
             ignored_attrs=set(['store_backend', 'timestamp', '_func_code_id']))
     assert hash(memorized_result) == hash(memorized_result_reloaded)
+
+
+def test_info_log(tmpdir, caplog):
+    caplog.set_level(logging.INFO)
+    x = 3
+
+    memory = Memory(location=tmpdir.strpath, verbose=20)
+
+    @memory.cache
+    def f(x):
+        return x ** 2
+
+    _ = f(x)
+    assert "Querying" in caplog.text
+    caplog.clear()
+
+    memory = Memory(location=tmpdir.strpath, verbose=0)
+
+    @memory.cache
+    def f(x):
+        return x ** 2
+
+    _ = f(x)
+    assert "Querying" not in caplog.text
+    caplog.clear()

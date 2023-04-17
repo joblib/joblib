@@ -10,7 +10,9 @@ is called with the same input arguments.
 
 
 from __future__ import with_statement
+import logging
 import os
+from textwrap import dedent
 import time
 import pathlib
 import pydoc
@@ -490,6 +492,26 @@ class MemorizedFunc(Logger):
 
         # Whether or not the memorized function must be called
         must_call = False
+
+        if self._verbose >= 20:
+            logging.basicConfig(level=logging.INFO)
+            _, name = get_func_name(self.func)
+            location = self.store_backend.get_cached_func_info([func_id])[
+                'location']
+            _, signature = format_signature(self.func, *args, **kwargs)
+
+            self.info(
+                dedent(
+                    f"""
+                        Querying {name} with signature
+                        {signature}.
+
+                        (argument hash {args_id})
+
+                        The store location is {location}.
+                        """
+                )
+            )
 
         # FIXME: The statements below should be try/excepted
         # Compare the function code with the previous to see if the
