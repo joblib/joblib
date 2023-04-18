@@ -11,6 +11,7 @@ import os
 import sys
 from math import sqrt
 import functools
+import collections
 import time
 import threading
 import itertools
@@ -18,6 +19,10 @@ from uuid import uuid4
 from numbers import Integral
 import warnings
 import queue
+import weakref
+from contextlib import nullcontext
+
+from multiprocessing import TimeoutError
 
 from ._multiprocessing_helpers import mp
 
@@ -32,6 +37,9 @@ from ._utils import eval_expr
 # so that 3rd party backend implementers can import them from here.
 from ._parallel_backends import AutoBatchingMixin  # noqa
 from ._parallel_backends import ParallelBackendBase  # noqa
+
+
+IS_PYPY = hasattr(sys, "pypy_version_info")
 
 
 BACKENDS = {
@@ -58,6 +66,7 @@ if mp is not None:
 
 
 DEFAULT_THREAD_BACKEND = 'threading'
+
 
 # Thread local value that can be overridden by the ``parallel_backend`` context
 # manager
@@ -301,7 +310,7 @@ class BatchedCalls(object):
     def __reduce__(self):
         if self._reducer_callback is not None:
             self._reducer_callback()
-        # no need pickle the callback.
+        # no need to pickle the callback.
         return (
             BatchedCalls,
             (self.items, (self._backend, self._n_jobs), None,
@@ -310,6 +319,12 @@ class BatchedCalls(object):
 
     def __len__(self):
         return self._size
+
+
+# Possible exit status for a task
+TASK_DONE = "Done"
+TASK_ERROR = "Error"
+TASK_PENDING = "Pending"
 
 
 ###############################################################################
@@ -368,31 +383,215 @@ def delayed(function):
 
 ###############################################################################
 class BatchCompletionCallBack(object):
-    """Callback used by joblib.Parallel's multiprocessing backend.
+    """Callback to keep track of completed results and schedule the next tasks.
 
     This callable is executed by the parent process whenever a worker process
-    has returned the results of a batch of tasks.
+    has completed a batch of tasks.
 
     It is used for progress reporting, to update estimate of the batch
     processing duration and to schedule the next batch of tasks to be
     processed.
 
+    It is assumed that this callback will always be triggered by the backend
+    right after the end of a task, in case of success as well as in case of
+    failure.
     """
+
+    ##########################################################################
+    #                   METHODS CALLED BY THE MAIN THREAD                    #
+    ##########################################################################
     def __init__(self, dispatch_timestamp, batch_size, parallel):
         self.dispatch_timestamp = dispatch_timestamp
         self.batch_size = batch_size
         self.parallel = parallel
+        self.parallel_call_id = parallel._call_id
 
+        # Internals to keep track of the status and outcome of the task.
+
+        # Used to hold a reference to the future-like object returned by the
+        # backend after launching this task
+        # This will be set later when calling `register_job`, as it is only
+        # created once the task has been submitted.
+        self.job = None
+
+        if not parallel._backend.supports_retrieve_callback:
+            # The status is only used for asynchronous result retrieval in the
+            # callback.
+            self.status = None
+        else:
+            # The initial status for the job is TASK_PENDING.
+            # Once it is done, it will be either TASK_DONE, or TASK_ERROR.
+            self.status = TASK_PENDING
+
+    def register_job(self, job):
+        """Register the object returned by `apply_async`."""
+        self.job = job
+
+    def get_result(self, timeout):
+        """Returns the raw result of the task that was submitted.
+
+        If the task raised an exception rather than returning, this same
+        exception will be raised instead.
+
+        If the backend supports the retrieval callback, it is assumed that this
+        method is only called after the result has been registered. It is
+        ensured by checking that `self.status(timeout)` does not return
+        TASK_PENDING. In this case, `get_result` directly returns the
+        registered result (or raise the registered exception).
+
+        For other backends, there are no such assumptions, but `get_result`
+        still needs to synchronously retrieve the result before it can
+        return it or raise. It will block at most `self.timeout` seconds
+        waiting for retrieval to complete, after that it raises a TimeoutError.
+        """
+
+        backend = self.parallel._backend
+
+        if backend.supports_retrieve_callback:
+            # We assume that the result has already been retrieved by the
+            # callback thread, and is stored internally. It's just waiting to
+            # be returned.
+            return self._return_or_raise()
+
+        # For other backends, the main thread needs to run the retrieval step.
+        try:
+            if backend.supports_timeout:
+                result = self.job.get(timeout=timeout)
+            else:
+                result = self.job.get()
+            outcome = dict(result=result, status=TASK_DONE)
+        except BaseException as e:
+            outcome = dict(result=e, status=TASK_ERROR)
+        self._register_outcome(outcome)
+
+        return self._return_or_raise()
+
+    def _return_or_raise(self):
+        try:
+            if self.status == TASK_ERROR:
+                raise self._result
+            return self._result
+        finally:
+            del self._result
+
+    def get_status(self, timeout):
+        """Get the status of the task.
+
+        This function also checks if the timeout has been reached and register
+        the TimeoutError outcome when it is the case.
+        """
+        if timeout is None or self.status != TASK_PENDING:
+            return self.status
+
+        # The computation are running and the status is pending.
+        # Check that we did not wait for this jobs more than `timeout`.
+        now = time.time()
+        if not hasattr(self, "_completion_timeout_counter"):
+            self._completion_timeout_counter = now
+
+        if (now - self._completion_timeout_counter) > timeout:
+            outcome = dict(result=TimeoutError(), status=TASK_ERROR)
+            self._register_outcome(outcome)
+
+        return self.status
+
+    ##########################################################################
+    #                     METHODS CALLED BY CALLBACK THREADS                 #
+    ##########################################################################
     def __call__(self, out):
-        self.parallel.n_completed_tasks += self.batch_size
-        this_batch_duration = time.time() - self.dispatch_timestamp
+        """Function called by the callback thread after a job is completed."""
 
+        # If the backend doesn't support callback retrievals, the next batch of
+        # tasks is dispatched regardless. The result will be retrieved by the
+        # main thread when calling `get_result`.
+        if not self.parallel._backend.supports_retrieve_callback:
+            self._dispatch_new()
+            return
+
+        # If the backend supports retrieving the result in the callback, it
+        # registers the task outcome (TASK_ERROR or TASK_DONE), and schedules
+        # the next batch if needed.
+        with self.parallel._lock:
+            # Edge case where while the task was processing, the `parallel`
+            # instance has been reset and a new call has been issued, but the
+            # worker managed to complete the task and trigger this callback
+            # call just before being aborted by the reset.
+            if self.parallel._call_id != self.parallel_call_id:
+                return
+
+            # When aborting, stop as fast as possible and do not retrieve the
+            # result as it won't be returned by the Parallel call.
+            if self.parallel._aborting:
+                return
+
+            # Retrieves the result of the task in the main process and dispatch
+            # a new batch if needed.
+            job_succeeded = self._retrieve_result(out)
+
+        if job_succeeded:
+            self._dispatch_new()
+
+    def _dispatch_new(self):
+        """Schedule the next batch of tasks to be processed."""
+
+        # This steps ensure that auto-baching works as expected.
+        this_batch_duration = time.time() - self.dispatch_timestamp
         self.parallel._backend.batch_completed(self.batch_size,
                                                this_batch_duration)
-        self.parallel.print_progress()
+
+        # Schedule the next batch of tasks.
         with self.parallel._lock:
+            self.parallel.n_completed_tasks += self.batch_size
+            self.parallel.print_progress()
             if self.parallel._original_iterator is not None:
                 self.parallel.dispatch_next()
+
+    def _retrieve_result(self, out):
+        """Fetch and register the outcome of a task.
+
+        Return True if the task succeeded, False otherwise.
+        This function is only called by backends that support retrieving
+        the task result in the callback thread.
+        """
+        try:
+            result = self.parallel._backend.retrieve_result_callback(out)
+            outcome = dict(status=TASK_DONE, result=result)
+        except BaseException as e:
+            # Avoid keeping references to parallel in the error.
+            e.__traceback__ = None
+            outcome = dict(result=e, status=TASK_ERROR)
+
+        self._register_outcome(outcome)
+        return outcome['status'] != TASK_ERROR
+
+    ##########################################################################
+    #            This method can be called either in the main thread         #
+    #                        or in the callback thread.                      #
+    ##########################################################################
+    def _register_outcome(self, outcome):
+        """Register the outcome of a task.
+
+        This method can be called only once, future calls will be ignored.
+        """
+        # Covers the edge case where the main thread tries to register a
+        # `TimeoutError` while the callback thread tries to register a result
+        # at the same time.
+        with self.parallel._lock:
+            if self.status not in (TASK_PENDING, None):
+                return
+            self.status = outcome["status"]
+
+        self._result = outcome["result"]
+
+        # Once the result and the status are extracted, the last reference to
+        # the job can be deleted.
+        self.job = None
+
+        # As soon as an error as been spotted, early stopping flags are sent to
+        # the `parallel` instance.
+        if self.status == TASK_ERROR:
+            self.parallel._exception = True
+            self.parallel._aborting = True
 
 
 ###############################################################################
@@ -440,6 +639,9 @@ def effective_n_jobs(n_jobs=-1):
     .. versionadded:: 0.10
 
     """
+    if n_jobs == 1:
+        return 1
+
     backend, backend_n_jobs = get_active_backend()
     if n_jobs is None:
         n_jobs = backend_n_jobs
@@ -458,14 +660,15 @@ class Parallel(Logger):
             The maximum number of concurrently running jobs, such as the number
             of Python worker processes when backend="multiprocessing"
             or the size of the thread-pool when backend="threading".
-            If -1 all CPUs are used. If 1 is given, no parallel computing code
-            is used at all, which is useful for debugging. For n_jobs below -1,
-            (n_cpus + 1 + n_jobs) are used. Thus for n_jobs = -2, all
-            CPUs but one are used.
+            If -1 all CPUs are used.
+            If 1 is given, no parallel computing code is used at all, and the
+            behavior amounts to a simple python `for` loop. This mode is not
+            compatible with `timeout`.
+            For n_jobs below -1, (n_cpus + 1 + n_jobs) are used. Thus for
+            n_jobs = -2, all CPUs but one are used.
             None is a marker for 'unset' that will be interpreted as n_jobs=1
-            (sequential execution) unless the call is performed under a
-            :func:`~parallel_backend` context manager that sets another value
-            for n_jobs.
+            unless the call is performed under a :func:`~parallel_backend`
+            context manager that sets another value for ``n_jobs``.
         backend: str, ParallelBackendBase instance or None, default: 'loky'
             Specify the parallelization backend implementation.
             Supported backends are:
@@ -493,6 +696,11 @@ class Parallel(Logger):
             soft hints (prefer) or hard constraints (require) so as to make it
             possible for library users to change the backend from the outside
             using the :func:`~parallel_backend` context manager.
+        return_generator: bool
+            If True, calls to this instance will return a generator, yielding
+            the results as soon as they are available, in the original order.
+            Note that the intended usage is to run one call at a time. Multiple
+            calls to the same Parallel object will result in a ``RuntimeError``
         prefer: str in {'processes', 'threads'} or None, default: None
             Soft hint to choose the default backend if no specific backend
             was selected with the :func:`~parallel_backend` context manager.
@@ -677,11 +885,11 @@ class Parallel(Logger):
         [Parallel(n_jobs=2)]: Done 6 out of 6 | elapsed:  0.0s remaining: 0.0s
         [Parallel(n_jobs=2)]: Done 6 out of 6 | elapsed:  0.0s finished
 
-    '''
-    def __init__(self, n_jobs=None, backend=None, verbose=0, timeout=None,
-                 pre_dispatch='2 * n_jobs', batch_size='auto',
-                 temp_folder=None, max_nbytes='1M', mmap_mode='r',
-                 prefer=None, require=None):
+    '''  # noqa: E501
+    def __init__(self, n_jobs=None, backend=None, return_generator=False,
+                 verbose=0, timeout=None, pre_dispatch='2 * n_jobs',
+                 batch_size='auto', temp_folder=None, max_nbytes='1M',
+                 mmap_mode='r', prefer=None, require=None):
         active_backend, context_n_jobs = get_active_backend(
             prefer=prefer, require=require, verbose=verbose)
         nesting_level = active_backend.nesting_level
@@ -697,9 +905,7 @@ class Parallel(Logger):
         self.verbose = verbose
         self.timeout = timeout
         self.pre_dispatch = pre_dispatch
-        self._ready_batches = queue.Queue()
-        self._id = uuid4().hex
-        self._reducer_callback = None
+        self.return_generator = return_generator
 
         if isinstance(max_nbytes, str):
             max_nbytes = memstr_to_bytes(max_nbytes)
@@ -763,23 +969,38 @@ class Parallel(Logger):
                 "batch_size must be 'auto' or a positive integer, got: %r"
                 % batch_size)
 
-        self._backend = backend
-        self._output = None
-        self._jobs = list()
-        self._managed_backend = False
+        if not isinstance(backend, SequentialBackend):
+            if return_generator and not backend.supports_return_generator:
+                raise ValueError(
+                    "Backend {} does not support "
+                    "return_generator=True".format(backend)
+                )
+            # This lock is used to coordinate the main thread of this process
+            # with the async callback thread of our the pool.
+            self._lock = threading.RLock()
+            self._jobs = collections.deque()
+            self._pending_outputs = list()
+            self._ready_batches = queue.Queue()
+            self._reducer_callback = None
 
-        # This lock is used coordinate the main thread of this process with
-        # the async callback thread of our the pool.
-        self._lock = threading.RLock()
+        # Internal variables
+        self._backend = backend
+        self._running = False
+        self._managed_backend = False
+        self._id = uuid4().hex
+        self._call_ref = None
 
     def __enter__(self):
         self._managed_backend = True
+        self._calling = False
         self._initialize_backend()
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self._terminate_backend()
         self._managed_backend = False
+        if self.return_generator and self._calling:
+            self._abort()
+        self._terminate_and_reset()
 
     def _initialize_backend(self):
         """Build a process or thread pool and return the number of workers"""
@@ -806,8 +1027,11 @@ class Parallel(Logger):
             return self._backend.effective_n_jobs(self.n_jobs)
         return 1
 
-    def _terminate_backend(self):
-        if self._backend is not None:
+    def _terminate_and_reset(self):
+        if hasattr(self._backend, 'stop_call') and self._calling:
+            self._backend.stop_call()
+        self._calling = False
+        if not self._managed_backend:
             self._backend.terminate()
 
     def _dispatch(self, batch):
@@ -821,19 +1045,20 @@ class Parallel(Logger):
         if self._aborting:
             return
 
-        self.n_dispatched_tasks += len(batch)
+        batch_size = len(batch)
+
+        self.n_dispatched_tasks += batch_size
         self.n_dispatched_batches += 1
 
         dispatch_timestamp = time.time()
-        cb = BatchCompletionCallBack(dispatch_timestamp, len(batch), self)
-        with self._lock:
-            job_idx = len(self._jobs)
-            job = self._backend.apply_async(batch, callback=cb)
-            # A job can complete so quickly than its callback is
-            # called before we get here, causing self._jobs to
-            # grow. To ensure correct results ordering, .insert is
-            # used (rather than .append) in the following line
-            self._jobs.insert(job_idx, job)
+
+        batch_tracker = BatchCompletionCallBack(
+            dispatch_timestamp, batch_size, self
+        )
+        self._jobs.append(batch_tracker)
+
+        job = self._backend.apply_async(batch, callback=batch_tracker)
+        batch_tracker.register_job(job)
 
     def dispatch_next(self):
         """Dispatch more data for parallel processing
@@ -857,11 +1082,11 @@ class Parallel(Logger):
         lock so calling this function should be thread safe.
 
         """
-        if self.batch_size == 'auto':
-            batch_size = self._backend.compute_batch_size()
-        else:
-            # Fixed batch size strategy
-            batch_size = self.batch_size
+
+        if self._aborting:
+            return False
+
+        batch_size = self._get_batch_size()
 
         with self._lock:
             # to ensure an even distribution of the workolad between workers,
@@ -885,8 +1110,8 @@ class Parallel(Logger):
                 islice = list(itertools.islice(iterator, big_batch_size))
                 if len(islice) == 0:
                     return False
-                elif (iterator is self._original_iterator
-                      and len(islice) < big_batch_size):
+                elif (iterator is self._original_iterator and
+                      len(islice) < big_batch_size):
                     # We reached the end of the original iterator (unless
                     # iterator is the ``pre_dispatch``-long initial slice of
                     # the original iterator) -- decrease the batch size to
@@ -913,7 +1138,15 @@ class Parallel(Logger):
                 self._dispatch(tasks)
                 return True
 
-    def _print(self, msg, msg_args):
+    def _get_batch_size(self):
+        """Returns the effective batch size for dispatch"""
+        if self.batch_size == 'auto':
+            return self._backend.compute_batch_size()
+        else:
+            # Fixed batch size strategy
+            return self.batch_size
+
+    def _print(self, msg):
         """Display the message on stout or stderr depending on verbosity"""
         # XXX: Not using the logger framework: need to
         # learn to use logger better.
@@ -923,28 +1156,45 @@ class Parallel(Logger):
             writer = sys.stderr.write
         else:
             writer = sys.stdout.write
-        msg = msg % msg_args
-        writer('[%s]: %s\n' % (self, msg))
+        writer(f"[{self}]: {msg}\n")
+
+    def _is_completed(self):
+        """Check if all tasks have been completed"""
+        return self.n_completed_tasks == self.n_dispatched_tasks and not (
+            self._iterating or self._aborting
+        )
 
     def print_progress(self):
         """Display the process of the parallel execution only a fraction
            of time, controlled by self.verbose.
         """
+
         if not self.verbose:
             return
+
         elapsed_time = time.time() - self._start_time
+
+        if self._is_completed():
+            # Make sure that we get a last message telling us we are done
+            self._print(
+                f"Done {self.n_completed_tasks:3d} out of "
+                f"{self.n_completed_tasks:3d} | elapsed: "
+                f"{short_format_time(elapsed_time)} finished"
+            )
+            return
 
         # Original job iterator becomes None once it has been fully
         # consumed : at this point we know the total number of jobs and we are
         # able to display an estimation of the remaining time based on already
         # completed jobs. Otherwise, we simply display the number of completed
         # tasks.
-        if self._original_iterator is not None:
+        elif self._original_iterator is not None:
             if _verbosity_filter(self.n_dispatched_batches, self.verbose):
                 return
-            self._print('Done %3i tasks      | elapsed: %s',
-                        (self.n_completed_tasks,
-                         short_format_time(elapsed_time), ))
+            self._print(
+                f"Done {self.n_completed_tasks:3d} tasks      | elapsed: "
+                f"{short_format_time(elapsed_time)}"
+            )
         else:
             index = self.n_completed_tasks
             # We are finished dispatching
@@ -962,64 +1212,333 @@ class Parallel(Logger):
             remaining_time = (elapsed_time / index) * \
                              (self.n_dispatched_tasks - index * 1.0)
             # only display status if remaining time is greater or equal to 0
-            self._print('Done %3i out of %3i | elapsed: %s remaining: %s',
-                        (index,
-                         total_tasks,
-                         short_format_time(elapsed_time),
-                         short_format_time(remaining_time),
-                         ))
+            self._print(
+                f"Done {index:3d} out of {total_tasks:3d} | elapsed: "
+                f"{short_format_time(elapsed_time)} remaining: "
+                f"{short_format_time(remaining_time)}"
+            )
 
-    def retrieve(self):
-        self._output = list()
-        while self._iterating or len(self._jobs) > 0:
-            if len(self._jobs) == 0:
-                # Wait for an async callback to dispatch new jobs
+    def _abort(self):
+        # Stop dispatching new jobs in the async callback thread
+        self._aborting = True
+
+        # If the backend allows it, cancel or kill remaining running
+        # tasks without waiting for the results as we will raise
+        # the exception we got back to the caller instead of returning
+        # any result.
+        backend = self._backend
+        if (not self._aborted and hasattr(backend, 'abort_everything')):
+            # If the backend is managed externally we need to make sure
+            # to leave it in a working state to allow for future jobs
+            # scheduling.
+            ensure_ready = self._managed_backend
+            backend.abort_everything(ensure_ready=ensure_ready)
+        self._aborted = True
+
+    def _start(self, iterator, pre_dispatch):
+        # Only set self._iterating to True if at least a batch
+        # was dispatched. In particular this covers the edge
+        # case of Parallel used with an exhausted iterator. If
+        # self._original_iterator is None, then this means either
+        # that pre_dispatch == "all", n_jobs == 1 or that the first batch
+        # was very quick and its callback already dispatched all the
+        # remaining jobs.
+        self._iterating = False
+        if self.dispatch_one_batch(iterator):
+            self._iterating = self._original_iterator is not None
+
+        while self.dispatch_one_batch(iterator):
+            pass
+
+        if pre_dispatch == "all":
+            # The iterable was consumed all at once by the above for loop.
+            # No need to wait for async callbacks to trigger to
+            # consumption.
+            self._iterating = False
+
+    def _get_outputs(self, iterator, pre_dispatch):
+        """Iterator returning the tasks' output as soon as they are ready."""
+        current_thread_id = threading.get_ident()
+        pypy_detach_generator_exit = False
+        try:
+            self._start(iterator, pre_dispatch)
+            # first yield returns None, for internal use only. This ensures
+            # that we enter the try/except block and start dispatching the
+            # tasks.
+            yield
+
+            with self._backend.retrieval_context():
+                yield from self._retrieve()
+
+        except GeneratorExit:
+            # The generator has been garbage collected before being fully
+            # consumned. This aborts the remaining tasks if possible and warn
+            # the user if necessary.
+            self._exception = True
+
+            # In CPython, the gc and the error happen in the main thread.
+            # However, this is not the case for other interpreters such as in
+            # PyPy, where this block can be executed in arbitrary threads. This
+            # can lead to hang when a process tries to join itself. As a
+            # workaround, we detach the execution of the aborting code to a
+            # dedicated thread. We then need to make sure the rest of the
+            # function does not call `_terminate_and_reset` in finally.
+            if IS_PYPY and current_thread_id != threading.get_ident():
+                pypy_detach_generator_exit = True
+                _parallel = self
+
+                class _PypyGeneratorExitThread(threading.Thread):
+                    def run(self):
+                        _parallel._abort()
+                        if _parallel.return_generator:
+                            _parallel._warn_exit_early()
+                        _parallel._terminate_and_reset()
+
+                _PypyGeneratorExitThread(
+                    name="PypyGeneratorExitThread"
+                ).start()
+                return
+
+            # Otherwise, we are in CPython or in PyPy in the main thread and
+            # we can safely abort the execution and warn the user.
+            self._abort()
+            if self.return_generator:
+                self._warn_exit_early()
+
+            raise
+
+        # Note: we catch any BaseException instead of just Exception instances
+        # to also include KeyboardInterrupt
+        except BaseException:
+            self._exception = True
+            self._abort()
+            raise
+        finally:
+            # Store the unconsumed tasks and terminate the workers if necessary
+            _remaining_outputs = ([] if self._exception else self._jobs)
+            self._jobs = collections.deque()
+            self._running = False
+            if not pypy_detach_generator_exit:
+                self._terminate_and_reset()
+
+        while len(_remaining_outputs) > 0:
+            batched_results = _remaining_outputs.popleft()
+            batched_results = batched_results.get_result(self.timeout)
+            for result in batched_results:
+                yield result
+
+    def _wait_retrieval(self):
+        """Return True if we need to continue retriving some tasks."""
+
+        # If the input load is still being iterated over, it means that tasks
+        # are still on the dispatch wait list and their results will need to
+        # be retrieved later on.
+        if self._iterating:
+            return True
+
+        # If some of the dispatched tasks are still being processed by the
+        # workers, wait for the compute to finish before starting retrieval
+        if self.n_completed_tasks < self.n_dispatched_tasks:
+            return True
+
+        # For backends that does not support retrieving asynchronously the
+        # result to the main process, all results must be carefully retrieved
+        # in the _retrieve loop in the main thread while the backend is alive.
+        # For other backends, the actual retrieval is done asynchronously in
+        # the callback thread, and we can terminate the backend before the
+        # `self._jobs` result list has been emptied. The remaining results
+        # will be collected in the `finally` step of the generator.
+        if not self._backend.supports_retrieve_callback:
+            if len(self._jobs) > 0:
+                return True
+
+        return False
+
+    def _retrieve(self):
+        while self._wait_retrieval():
+
+            # If the callback thread of a worker has signaled that its task
+            # triggerd an exception, or if the retrieval loop has raised an
+            # exception (e.g. `GeneratorExit`), exit the loop and surface the
+            # worker traceback.
+            if self._aborting:
+                self._raise_error_fast()
+                break
+
+            # If the next job is not ready for retrieval yet, we just wait for
+            # async callbacks to progress.
+            if ((len(self._jobs) == 0) or
+                (self._jobs[0].get_status(
+                    timeout=self.timeout) == TASK_PENDING)):
                 time.sleep(0.01)
                 continue
+
             # We need to be careful: the job list can be filling up as
-            # we empty it and Python list are not thread-safe by default hence
-            # the use of the lock
+            # we empty it and Python list are not thread-safe by
+            # default hence the use of the lock
             with self._lock:
-                job = self._jobs.pop(0)
+                batched_results = self._jobs.popleft()
 
-            try:
-                if getattr(self._backend, 'supports_timeout', False):
-                    self._output.extend(job.get(timeout=self.timeout))
-                else:
-                    self._output.extend(job.get())
+            # Flatten the batched results to output one output at a time
+            batched_results = batched_results.get_result(self.timeout)
+            for result in batched_results:
+                self._nb_consumed += 1
+                yield result
 
-            except BaseException:
-                # Note: we catch any BaseException instead of just Exception
-                # instances to also include KeyboardInterrupt.
+    def _raise_error_fast(self):
+        """If we are aborting, raise if a job caused an error."""
 
-                # Stop dispatching any new job in the async callback thread
-                self._aborting = True
+        # Find the first job whose status is TASK_ERROR if it exists.
+        with self._lock:
+            error_job = next((job for job in self._jobs
+                              if job.status == TASK_ERROR), None)
 
-                # If the backend allows it, cancel or kill remaining running
-                # tasks without waiting for the results as we will raise
-                # the exception we got back to the caller instead of returning
-                # any result.
-                backend = self._backend
-                if (backend is not None and
-                        hasattr(backend, 'abort_everything')):
-                    # If the backend is managed externally we need to make sure
-                    # to leave it in a working state to allow for future jobs
-                    # scheduling.
-                    ensure_ready = self._managed_backend
-                    backend.abort_everything(ensure_ready=ensure_ready)
-                raise
+        # If this error job exists, immediatly raise the error by
+        # calling get_result. This job might not exists if abort has been
+        # called directly or if the generator is gc'ed.
+        if error_job is not None:
+            error_job.get_result(self.timeout)
+
+    def _warn_exit_early(self):
+        """Warn the user if the generator is gc'ed before being consumned."""
+        ready_outputs = self.n_completed_tasks - self._nb_consumed
+        is_completed = self._is_completed()
+        msg = ""
+        if ready_outputs:
+            msg += (
+                f"{ready_outputs} tasks have been successfully executed "
+                " but not used."
+            )
+            if not is_completed:
+                msg += " Additionally, "
+
+        if not is_completed:
+            msg += (
+                f"{self.n_dispatched_tasks - self.n_completed_tasks} tasks "
+                "which were still being processed by the workers have been "
+                "cancelled."
+            )
+
+        if msg:
+            msg += (
+                " You could benefit from adjusting the input task "
+                "iterator to limit unnecessary computation time."
+            )
+
+            warnings.warn(msg)
+
+    def _get_sequential_output(self, iterable):
+        """Separate loop for sequential output.
+
+        This simplifies the traceback in case of errors and reduces the
+        overhead of calling sequential tasks with `joblib`.
+        """
+        try:
+            self._iterating = True
+            self._original_iterator = iterable
+            batch_size = self._get_batch_size()
+
+            if batch_size != 1:
+                it = iter(iterable)
+                iterable_batched = iter(
+                    lambda: tuple(itertools.islice(it, batch_size)), ()
+                )
+                iterable = (
+                    task for batch in iterable_batched for task in batch
+                )
+
+            # first yield returns None, for internal use only. This ensures
+            # that we enter the try/except block and setup the generator.
+            yield None
+
+            # Sequentially call the tasks and yield the results.
+            for func, args, kwargs in iterable:
+                self.n_dispatched_batches += 1
+                self.n_dispatched_tasks += 1
+                res = func(*args, **kwargs)
+                self.n_completed_tasks += 1
+                self.print_progress()
+                yield res
+                self._nb_consumed += 1
+        except BaseException:
+            self._exception = True
+            self._aborting = True
+            self._aborted = True
+            raise
+        finally:
+            self.print_progress()
+            self._running = False
+            self._iterating = False
+            self._original_iterator = None
+
+    def _reset_run_tracking(self):
+        """Reset the counters and flags used to track the execution."""
+
+        # Makes sur the parallel instance was not previously running in a
+        # thread-safe way.
+        with getattr(self, '_lock', nullcontext()):
+            if self._running:
+                msg = 'This Parallel instance is already running !'
+                if self.return_generator is True:
+                    msg += (
+                        " Before submitting new tasks, you must wait for the "
+                        "completion of all the previous tasks, or clean all "
+                        "references to the output generator."
+                    )
+                raise RuntimeError(msg)
+            self._running = True
+
+        # Counter to keep track of the task dispatched and completed.
+        self.n_dispatched_batches = 0
+        self.n_dispatched_tasks = 0
+        self.n_completed_tasks = 0
+
+        # Following count is incremented by one each time the user iterates
+        # on the output generator, it is used to prepare an informative
+        # warning message in case the generator is deleted before all the
+        # dispatched tasks have been consumed.
+        self._nb_consumed = 0
+
+        # Following flags are used to synchronize the threads in case one of
+        # the tasks error-out to ensure that all workers abort fast and that
+        # the backend terminates properly.
+
+        # Set to True as soon as a worker signals that a task errors-out
+        self._exception = False
+        # Set to True in case of early termination following an incident
+        self._aborting = False
+        # Set to True after abortion is complete
+        self._aborted = False
 
     def __call__(self, iterable):
-        if self._jobs:
-            raise ValueError('This Parallel instance is already running')
-        # A flag used to abort the dispatching of jobs in case an
-        # exception is found
-        self._aborting = False
+        """Main function to dispatch parallel tasks."""
+
+        self._reset_run_tracking()
+        self._start_time = time.time()
 
         if not self._managed_backend:
             n_jobs = self._initialize_backend()
         else:
             n_jobs = self._effective_n_jobs()
+
+        if n_jobs == 1:
+            # If n_jobs==1, run the computation sequentially and return
+            # immediatly to avoid overheads.
+            output = self._get_sequential_output(iterable)
+            next(output)
+            return output if self.return_generator else list(output)
+
+        # Let's create an ID that uniquely identifies the current call. If the
+        # call is interrupted early and that the same instance is immediately
+        # re-used, this id will be used to prevent workers that were
+        # concurrently finalizing a task from the previous call to run the
+        # callback.
+        with self._lock:
+            self._call_id = uuid4().hex
+
+        # self._effective_n_jobs should be called in the Parallel.__call__
+        # thread only -- store its value in an attribute for further queries.
+        self._cached_effective_n_jobs = n_jobs
 
         if isinstance(self._backend, LokyBackend):
             # For the loky backend, we add a callback executed when reducing
@@ -1050,14 +1569,19 @@ class Parallel(Logger):
         if n_jobs == 0:
             raise RuntimeError("%s has no active worker." % backend_name)
 
-        self._print("Using backend %s with %d concurrent workers.",
-                    (backend_name, n_jobs))
+        self._print(
+            f"Using backend {backend_name} with {n_jobs} concurrent workers."
+        )
         if hasattr(self._backend, 'start_call'):
             self._backend.start_call()
+
+        # Following flag prevents double calls to `backend.stop_call`.
+        self._calling = True
+
         iterator = iter(iterable)
         pre_dispatch = self.pre_dispatch
 
-        if pre_dispatch == 'all' or n_jobs == 1:
+        if pre_dispatch == 'all':
             # prevent further dispatch via multiprocessing callback thread
             self._original_iterator = None
             self._pre_dispatch_amount = 0
@@ -1076,53 +1600,22 @@ class Parallel(Logger):
             # TODO: this iterator should be batch_size * n_jobs
             iterator = itertools.islice(iterator, self._pre_dispatch_amount)
 
-        self._start_time = time.time()
-        self.n_dispatched_batches = 0
-        self.n_dispatched_tasks = 0
-        self.n_completed_tasks = 0
         # Use a caching dict for callables that are pickled with cloudpickle to
         # improve performances. This cache is used only in the case of
-        # functions that are defined in the __main__ module, functions that are
-        # defined locally (inside another function) and lambda expressions.
+        # functions that are defined in the __main__ module, functions that
+        # are defined locally (inside another function) and lambda expressions.
         self._pickle_cache = dict()
-        try:
-            # Only set self._iterating to True if at least a batch
-            # was dispatched. In particular this covers the edge
-            # case of Parallel used with an exhausted iterator. If
-            # self._original_iterator is None, then this means either
-            # that pre_dispatch == "all", n_jobs == 1 or that the first batch
-            # was very quick and its callback already dispatched all the
-            # remaining jobs.
-            self._iterating = False
-            if self.dispatch_one_batch(iterator):
-                self._iterating = self._original_iterator is not None
 
-            while self.dispatch_one_batch(iterator):
-                pass
+        output = self._get_outputs(iterator, pre_dispatch)
+        self._call_ref = weakref.ref(output)
 
-            if pre_dispatch == "all" or n_jobs == 1:
-                # The iterable was consumed all at once by the above for loop.
-                # No need to wait for async callbacks to trigger to
-                # consumption.
-                self._iterating = False
+        # The first item from the output is blank, but it makes the interpreter
+        # progress until it enters the Try/Except block of the generator and
+        # reach the first `yield` statement. This starts the aynchronous
+        # dispatch of the tasks to the workers.
+        next(output)
 
-            with self._backend.retrieval_context():
-                self.retrieve()
-            # Make sure that we get a last message telling us we are done
-            elapsed_time = time.time() - self._start_time
-            self._print('Done %3i out of %3i | elapsed: %s finished',
-                        (len(self._output), len(self._output),
-                         short_format_time(elapsed_time)))
-        finally:
-            if hasattr(self._backend, 'stop_call'):
-                self._backend.stop_call()
-            if not self._managed_backend:
-                self._terminate_backend()
-            self._jobs = list()
-            self._pickle_cache = None
-        output = self._output
-        self._output = None
-        return output
+        return output if self.return_generator else list(output)
 
     def __repr__(self):
         return '%s(n_jobs=%s)' % (self.__class__.__name__, self.n_jobs)

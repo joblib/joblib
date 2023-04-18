@@ -32,6 +32,14 @@ In development
   previous versions of Joblib.
   https://github.com/joblib/joblib/pull/1374
 
+- Add a ``return_generator`` parameter for ``Parallel``, that allows
+  to consume results asynchronously.
+  https://github.com/joblib/joblib/pull/1393
+
+- Improve the behavior of ``joblib`` for ``n_jobs=1``, with simplified
+  tracebacks and more efficient running time.
+  https://github.com/joblib/joblib/pull/1393
+
 Release 1.2.0
 -------------
 

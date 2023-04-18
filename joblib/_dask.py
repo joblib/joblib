@@ -8,8 +8,8 @@ import time
 from uuid import uuid4
 import weakref
 
-from .parallel import AutoBatchingMixin, ParallelBackendBase
 from .parallel import parallel_backend
+from .parallel import AutoBatchingMixin, ParallelBackendBase
 
 try:
     import dask
@@ -124,7 +124,7 @@ class Batch:
         with parallel_backend('dask'):
             for func, args, kwargs in tasks:
                 results.append(func(*args, **kwargs))
-        return results
+            return results
 
     def __repr__(self):
         descr = f"batch_of_{self._funcname}_{self._num_tasks}_calls"
