@@ -85,9 +85,9 @@ if __name__ == "__main__":
             fname_compare = get_file_name(name_c)
             res_c = np.load(fname_compare)
             plt.fill_between(
-                res_c[0], res_c[2], res_c[3], alpha=0.3, color=f"C{i}"
+                res_c[0], res_c[2], res_c[3], alpha=0.3, color=f"C{i+1}"
             )
-            plt.plot(res_c[0], res_c[1], c=f"C{i}", lw=2, label=name_c)
+            plt.plot(res_c[0], res_c[1], c=f"C{i+1}", lw=2, label=name_c)
 
     plt.xlabel("n_jobs")
     plt.ylabel("Time [s]")
