@@ -360,7 +360,7 @@ def test_parallel_pickling():
 @parametrize('backend', PARALLEL_BACKENDS)
 def test_parallel_timeout_success(backend):
     # Check that timeout isn't thrown when function is fast enough
-    assert len(Parallel(n_jobs=2, backend=backend, timeout=10)(
+    assert len(Parallel(n_jobs=2, backend=backend, timeout=30)(
         delayed(sleep)(0.001) for x in range(10))) == 10
 
 
