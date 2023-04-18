@@ -28,9 +28,9 @@ from joblib import dump, load
 
 from joblib._multiprocessing_helpers import mp
 
-from joblib.test.common import force_gc_pypy
 from joblib.test.common import np, with_numpy
 from joblib.test.common import with_multiprocessing
+from joblib.test.common import IS_PYPY, force_gc_pypy
 from joblib.testing import (parametrize, raises, check_subprocess_call,
                             skipif, warns)
 
@@ -250,6 +250,9 @@ def test_nested_parallel_warnings(parent_backend, child_backend, expected):
     # warning handling is not thread safe. One thread might see multiple
     # warning or no warning at all.
     if parent_backend == "threading":
+        if IS_PYPY and not any(res):
+            # Related to joblib#1426, should be removed once it is solved.
+            pytest.xfail(reason="This test often fails in PyPy.")
         assert any(res)
     else:
         assert all(res)
