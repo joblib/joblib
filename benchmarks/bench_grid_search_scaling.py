@@ -39,8 +39,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--compare", "-c", action="append",
         help="Loads the results from a benchmark saved previously with a name "
-        "given as the present argument value. This allows comparing the results "
-        "across different versions of joblib."
+        "given as the present argument value. This allows comparing the "
+        "results across different versions of joblib."
     )
     args = parser.parse_args()
 
