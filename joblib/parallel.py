@@ -39,9 +39,6 @@ from ._parallel_backends import AutoBatchingMixin  # noqa
 from ._parallel_backends import ParallelBackendBase  # noqa
 
 
-IS_PYPY = hasattr(sys, "pypy_version_info")
-
-
 BACKENDS = {
     'threading': ThreadingBackend,
     'sequential': SequentialBackend,
@@ -1259,7 +1256,7 @@ class Parallel(Logger):
     def _get_outputs(self, iterator, pre_dispatch):
         """Iterator returning the tasks' output as soon as they are ready."""
         current_thread_id = threading.get_ident()
-        pypy_detach_generator_exit = False
+        detach_generator_exit = False
         try:
             self._start(iterator, pre_dispatch)
             # first yield returns None, for internal use only. This ensures
@@ -1276,31 +1273,30 @@ class Parallel(Logger):
             # the user if necessary.
             self._exception = True
 
-            # In CPython, the gc and the error happen in the main thread.
-            # However, this is not the case for other interpreters such as in
-            # PyPy, where this block can be executed in arbitrary threads. This
-            # can lead to hang when a process tries to join itself. As a
+            # In some interpreters such as PyPy or potentially CPython without
+            # GIL, this error might happen not in the main thread. This
+            # can lead to hang when a thread tries to join itself. As a
             # workaround, we detach the execution of the aborting code to a
             # dedicated thread. We then need to make sure the rest of the
             # function does not call `_terminate_and_reset` in finally.
-            if IS_PYPY and current_thread_id != threading.get_ident():
-                pypy_detach_generator_exit = True
+            if current_thread_id != threading.get_ident():
+                detach_generator_exit = True
                 _parallel = self
 
-                class _PypyGeneratorExitThread(threading.Thread):
+                class _GeneratorExitThread(threading.Thread):
                     def run(self):
                         _parallel._abort()
                         if _parallel.return_generator:
                             _parallel._warn_exit_early()
                         _parallel._terminate_and_reset()
 
-                _PypyGeneratorExitThread(
-                    name="PypyGeneratorExitThread"
+                _GeneratorExitThread(
+                    name="GeneratorExitThread"
                 ).start()
                 return
 
-            # Otherwise, we are in CPython or in PyPy in the main thread and
-            # we can safely abort the execution and warn the user.
+            # Otherwise, we are in the main thread and we can safely abort
+            # the execution and warn the user.
             self._abort()
             if self.return_generator:
                 self._warn_exit_early()
@@ -1318,7 +1314,7 @@ class Parallel(Logger):
             _remaining_outputs = ([] if self._exception else self._jobs)
             self._jobs = collections.deque()
             self._running = False
-            if not pypy_detach_generator_exit:
+            if not detach_generator_exit:
                 self._terminate_and_reset()
 
         while len(_remaining_outputs) > 0:
