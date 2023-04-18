@@ -1466,13 +1466,9 @@ def _recursive_parallel(nesting_limit=None):
 
 
 @parametrize(
-        'backend', (['threading'] if mp is None else ['loky', 'threading'])
+    'backend', (['threading'] if mp is None else ['loky', 'threading'])
 )
-# XXX: unskip once issue #1150 is closed.
-@skipif(
-    hasattr(sys, "pypy_version_info"),
-    reason="this test causes a deadlock on PyPy."
-)
+@pytest.mark.no_cover
 def test_thread_bomb_mitigation(backend):
     # Test that recursive parallelism raises a recursion rather than
     # saturating the operating system resources by creating a unbounded number
@@ -1493,8 +1489,8 @@ def test_thread_bomb_mitigation(backend):
             # simple to do and this is is not critical for users (as long
             # as there is no process or thread bomb happening).
             pytest.xfail("Loky worker crash when serializing RecursionError")
-    else:
-        assert isinstance(exc, RecursionError)
+
+    assert isinstance(exc, RecursionError)
 
 
 def _run_parallel_sum():
