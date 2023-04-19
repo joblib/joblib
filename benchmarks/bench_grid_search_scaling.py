@@ -80,7 +80,6 @@ if __name__ == "__main__":
     label = args.name or "current"
     plt.fill_between(res[0], res[2], res[3], alpha=0.3, color="C0")
     plt.plot(res[0], res[1], c="C0", lw=2, label=label)
-    max_time = res[3].max()
 
     if args.compare:
         for i, name_c in enumerate(args.compare):
@@ -90,10 +89,9 @@ if __name__ == "__main__":
                 res_c[0], res_c[2], res_c[3], alpha=0.3, color=f"C{i+1}"
             )
             plt.plot(res_c[0], res_c[1], c=f"C{i+1}", lw=2, label=name_c)
-            max_time = max(max_time, res_c[3].max())
 
     plt.xlabel("n_jobs")
     plt.ylabel("Time [s]")
-    plt.ylim(0, max_time)
+    plt.ylim(0, None)
     plt.legend()
     plt.show()
