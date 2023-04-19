@@ -32,6 +32,14 @@ In development
   previous versions of Joblib.
   https://github.com/joblib/joblib/pull/1374
 
+- Add a ``return_generator`` parameter for ``Parallel``, that allows
+  to consume results asynchronously.
+  https://github.com/joblib/joblib/pull/1393
+
+- Improve the behavior of ``joblib`` for ``n_jobs=1``, with simplified
+  tracebacks and more efficient running time.
+  https://github.com/joblib/joblib/pull/1393
+
 - Add the `parallel_config` context manager to allow for more fine-grained
   control over the backend configuration. It should be used in place of the
   `parallel_backend` context manager. In particular, it has the advantage

@@ -10,12 +10,14 @@ import os
 import sys
 import time
 import mmap
+import weakref
 import warnings
 import threading
 from traceback import format_exception
 from math import sqrt
 from time import sleep
 from pickle import PicklingError
+from contextlib import nullcontext
 from multiprocessing import TimeoutError
 import pickle
 import pytest
@@ -28,6 +30,7 @@ from joblib._multiprocessing_helpers import mp
 
 from joblib.test.common import np, with_numpy
 from joblib.test.common import with_multiprocessing
+from joblib.test.common import IS_PYPY, force_gc_pypy
 from joblib.testing import (parametrize, raises, check_subprocess_call,
                             skipif, warns)
 
@@ -57,7 +60,6 @@ from joblib._parallel_backends import ThreadingBackend
 from joblib._parallel_backends import MultiprocessingBackend
 from joblib._parallel_backends import ParallelBackendBase
 from joblib._parallel_backends import LokyBackend
-from joblib._parallel_backends import SafeFunction
 
 from joblib.parallel import Parallel, delayed
 from joblib.parallel import register_parallel_backend, parallel_backend
@@ -65,9 +67,10 @@ from joblib.parallel import parallel_config
 from joblib.parallel import effective_n_jobs, cpu_count
 
 from joblib.parallel import mp, BACKENDS, DEFAULT_BACKEND, EXTERNAL_BACKENDS
-from joblib.my_exceptions import JoblibException
-from joblib.my_exceptions import WorkerInterrupt
 
+
+RETURN_GENERATOR_BACKENDS = BACKENDS.copy()
+RETURN_GENERATOR_BACKENDS.pop("multiprocessing", None)
 
 ALL_VALID_BACKENDS = [None] + sorted(BACKENDS.keys())
 # Add instances of backend classes deriving from ParallelBackendBase
@@ -203,12 +206,18 @@ def _assert_warning_nested(backend, inner_n_jobs, expected):
 
     warninfo = [w.message for w in warninfo]
     if expected:
-        # with threading, we might see more that one warninfo
         if warninfo:
-            return (
-                len(warninfo) == 1 and
-                'backed parallel loops cannot' in warninfo[0].args[0]
+            warnings_are_correct = all(
+                'backed parallel loops cannot' in each.args[0]
+                for each in warninfo
             )
+            # With Python nogil, when the outer backend is threading, we might
+            # see more that one warning
+            warnings_have_the_right_length = (
+                len(warninfo) >= 1 if getattr(sys.flags, 'nogil', False)
+                else len(warninfo) == 1)
+            return warnings_are_correct and warnings_have_the_right_length
+
         return False
     else:
         assert not warninfo
@@ -243,6 +252,9 @@ def test_nested_parallel_warnings(parent_backend, child_backend, expected):
     # warning handling is not thread safe. One thread might see multiple
     # warning or no warning at all.
     if parent_backend == "threading":
+        if IS_PYPY and not any(res):
+            # Related to joblib#1426, should be removed once it is solved.
+            pytest.xfail(reason="This test often fails in PyPy.")
         assert any(res)
     else:
         assert all(res)
@@ -353,7 +365,7 @@ def test_parallel_pickling():
 @parametrize('backend', PARALLEL_BACKENDS)
 def test_parallel_timeout_success(backend):
     # Check that timeout isn't thrown when function is fast enough
-    assert len(Parallel(n_jobs=2, backend=backend, timeout=10)(
+    assert len(Parallel(n_jobs=2, backend=backend, timeout=30)(
         delayed(sleep)(0.001) for x in range(10))) == 10
 
 
@@ -376,7 +388,8 @@ def test_error_capture(backend):
             Parallel(n_jobs=2, backend=backend)(
                 [delayed(division)(x, y)
                     for x, y in zip((0, 1), (1, 0))])
-        with raises(WorkerInterrupt):
+
+        with raises(KeyboardInterrupt):
             Parallel(n_jobs=2, backend=backend)(
                 [delayed(interrupt_raiser)(x) for x in (1, 0)])
 
@@ -400,7 +413,7 @@ def test_error_capture(backend):
                     parallel(delayed(f)(x, y=1) for x in range(10)))
 
             original_workers = get_workers(parallel._backend)
-            with raises(WorkerInterrupt):
+            with raises(KeyboardInterrupt):
                 parallel([delayed(interrupt_raiser)(x) for x in (1, 0)])
 
             # The pool should still be available despite the exception
@@ -410,7 +423,10 @@ def test_error_capture(backend):
             assert get_workers(parallel._backend) is not original_workers
 
             assert ([f(x, y=1) for x in range(10)] ==
-                    parallel(delayed(f)(x, y=1) for x in range(10)))
+                    parallel(delayed(f)(x, y=1) for x in range(10))), (
+                parallel._iterating, parallel.n_completed_tasks,
+                parallel.n_dispatched_tasks, parallel._aborting
+            )
 
         # Check that the inner pool has been terminated when exiting the
         # context manager
@@ -430,15 +446,6 @@ def test_error_capture(backend):
         Parallel(n_jobs=2, verbose=0)(
             (delayed(exception_raiser)(i, custom_exception=True)
              for i in range(30)))
-
-    try:
-        # JoblibException wrapping is disabled in sequential mode:
-        Parallel(n_jobs=1)(
-            delayed(division)(x, y) for x, y in zip((0, 1), (1, 0)))
-    except Exception as ex:
-        assert not isinstance(ex, JoblibException)
-    else:
-        raise ValueError("The excepted error has not been raised.")
 
 
 def consumer(queue, item):
@@ -840,11 +847,13 @@ def test_backend_nesting_level(context, outer_backend, inner_backend):
 
 @with_multiprocessing
 @parametrize("context", [parallel_config, parallel_backend])
-def test_retrieval_context(context):
+@parametrize('with_retrieve_callback', [True, False])
+def test_retrieval_context(context, with_retrieve_callback):
     import contextlib
 
     class MyBackend(ThreadingBackend):
         i = 0
+        supports_retrieve_callback = with_retrieve_callback
 
         @contextlib.contextmanager
         def retrieval_context(self):
@@ -869,24 +878,6 @@ def test_retrieval_context(context):
 
 ###############################################################################
 # Test helpers
-def test_joblib_exception():
-    # Smoke-test the custom exception
-    e = JoblibException('foobar')
-    # Test the repr
-    repr(e)
-    # Test the pickle
-    pickle.dumps(e)
-
-
-def test_safe_function():
-    safe_division = SafeFunction(division)
-    with raises(ZeroDivisionError):
-        safe_division(1, 0)
-
-    safe_interrupt = SafeFunction(interrupt_raiser)
-    with raises(WorkerInterrupt):
-        safe_interrupt('x')
-
 
 @parametrize('batch_size', [0, -1, 1.42])
 def test_invalid_batch_size(batch_size):
@@ -1149,6 +1140,12 @@ def test_parallel_with_exhausted_iterator():
     assert Parallel(n_jobs=2)(exhausted_iterator) == []
 
 
+def _cleanup_worker():
+    """Helper function to force gc in each worker."""
+    force_gc_pypy()
+    time.sleep(.1)
+
+
 def check_memmap(a):
     if not isinstance(a, np.memmap):
         raise TypeError('Expected np.memmap instance, got %r',
@@ -1203,7 +1200,7 @@ def test_memmap_with_big_offset(tmpdir):
 
 def test_warning_about_timeout_not_supported_by_backend():
     with warnings.catch_warnings(record=True) as warninfo:
-        Parallel(timeout=1)(delayed(square)(i) for i in range(50))
+        Parallel(n_jobs=1, timeout=1)(delayed(square)(i) for i in range(50))
     assert len(warninfo) == 1
     w = warninfo[0]
     assert isinstance(w.message, UserWarning)
@@ -1211,6 +1208,27 @@ def test_warning_about_timeout_not_supported_by_backend():
         "The backend class 'SequentialBackend' does not support timeout. "
         "You have set 'timeout=1' in Parallel but the 'timeout' parameter "
         "will not be used.")
+
+
+def set_list_value(input_list, index, value):
+    input_list[index] = value
+    return value
+
+
+@pytest.mark.parametrize('n_jobs', [1, 2, 4])
+def test_parallel_return_generator_order(n_jobs):
+    # This test inserts values in a list in some expected order
+    # in sequential computing, and then checks that this order has been
+    # respected by Parallel output generator.
+    input_list = [0] * 5
+    result = Parallel(n_jobs=n_jobs, return_generator=True,
+                      backend='threading')(
+        delayed(set_list_value)(input_list, i, i) for i in range(5))
+
+    # Ensure that all the tasks are completed before checking the result
+    result = list(result)
+
+    assert all(v == r for v, r in zip(input_list, result))
 
 
 @parametrize('backend', ALL_VALID_BACKENDS)
@@ -1223,6 +1241,144 @@ def test_abort_backend(n_jobs, backend):
             delayed(time.sleep)(i) for i in delays)
     dt = time.time() - t_start
     assert dt < 20
+
+
+def get_large_object(arg):
+    result = np.ones(int(5 * 1e5), dtype=bool)
+    result[0] = False
+    return result
+
+
+@with_numpy
+@parametrize('backend', RETURN_GENERATOR_BACKENDS)
+@parametrize('n_jobs', [1, 2, -2, -1])
+def test_deadlock_with_generator(backend, n_jobs):
+    # Non-regression test for a race condition in the backends when the pickler
+    # is delayed by a large object.
+    with Parallel(n_jobs=n_jobs, backend=backend,
+                  return_generator=True) as parallel:
+        result = parallel(delayed(get_large_object)(i) for i in range(10))
+        next(result)
+        next(result)
+        del result
+        # The gc in pypy can be delayed. Force it to make sure this test does
+        # not cause timeout on the CI.
+        force_gc_pypy()
+
+
+@parametrize('backend', RETURN_GENERATOR_BACKENDS)
+@parametrize('n_jobs', [1, 2, -2, -1])
+def test_multiple_generator_call(backend, n_jobs):
+    # Non-regression test that ensures the dispatch of the tasks starts
+    # immediately when Parallel.__call__ is called. This test relies on the
+    # assumption that only one generator can be submitted at a time.
+    with raises(RuntimeError,
+                match="This Parallel instance is already running"):
+        parallel = Parallel(n_jobs, backend=backend, return_generator=True)
+        g = parallel(delayed(sleep)(1) for _ in range(10))  # noqa: F841
+        t_start = time.time()
+        gen2 = parallel(delayed(id)(i) for i in range(100))  # noqa: F841
+
+    # Make sure that the error is raised quickly
+    assert time.time() - t_start < 2, (
+        "The error should be raised immediatly when submitting a new task "
+        "but it took more than 2s."
+    )
+
+    del g
+    # The gc in pypy can be delayed. Force it to make sure this test does not
+    # cause timeout on the CI.
+    force_gc_pypy()
+
+
+@parametrize('backend', RETURN_GENERATOR_BACKENDS)
+@parametrize('n_jobs', [1, 2, -2, -1])
+def test_multiple_generator_call_managed(backend, n_jobs):
+    # Non-regression test that ensures the dispatch of the tasks starts
+    # immediately when Parallel.__call__ is called. This test relies on the
+    # assumption that only one generator can be submitted at a time.
+    with Parallel(n_jobs, backend=backend,
+                  return_generator=True) as parallel:
+        g = parallel(delayed(sleep)(10) for _ in range(10))  # noqa: F841
+        t_start = time.time()
+        with raises(RuntimeError,
+                    match="This Parallel instance is already running"):
+            g2 = parallel(delayed(id)(i) for i in range(100))  # noqa: F841
+
+        # Make sure that the error is raised quickly
+        assert time.time() - t_start < 2, (
+            "The error should be raised immediatly when submitting a new task "
+            "but it took more than 2s."
+        )
+
+    # The gc in pypy can be delayed. Force it to make sure this test does not
+    # cause timeout on the CI.
+    del g
+    force_gc_pypy()
+
+
+@parametrize('backend', RETURN_GENERATOR_BACKENDS)
+@parametrize('n_jobs', [1, 2, -2, -1])
+def test_multiple_generator_call_separated(backend, n_jobs):
+    # Check that for separated Parallel, both tasks are correctly returned.
+    g = Parallel(n_jobs, backend=backend, return_generator=True)(
+        delayed(sqrt)(i ** 2) for i in range(10)
+    )
+    g2 = Parallel(n_jobs, backend=backend, return_generator=True)(
+        delayed(sqrt)(i ** 2) for i in range(10, 20)
+    )
+
+    assert all(res == i for res, i in zip(g, range(10)))
+    assert all(res == i for res, i in zip(g2, range(10, 20)))
+
+
+@parametrize('backend, error', [
+    ('loky', True),
+    ('threading', False),
+    ('sequential', False),
+])
+def test_multiple_generator_call_separated_gc(backend, error):
+
+    if (backend == 'loky') and (mp is None):
+        pytest.skip("Requires multiprocessing")
+
+    # Check that in loky, only one call can be run at a time with
+    # a single executor.
+    parallel = Parallel(2, backend=backend, return_generator=True)
+    g = parallel(delayed(sleep)(10) for i in range(10))
+    g_wr = weakref.finalize(g, lambda: print("Generator collected"))
+    ctx = (
+        raises(RuntimeError, match="The executor underlying Parallel")
+        if error else nullcontext()
+    )
+    with ctx:
+        # For loky, this call will raise an error as the gc of the previous
+        # generator will shutdown the shared executor.
+        # For the other backends, as the worker pools are not shared between
+        # the two calls, this should proceed correctly.
+        t_start = time.time()
+        g = Parallel(2, backend=backend, return_generator=True)(
+            delayed(sqrt)(i ** 2) for i in range(10, 20)
+        )
+
+        # The gc in pypy can be delayed. Force it to test the behavior when it
+        # will eventually be collected.
+        force_gc_pypy()
+        assert all(res == i for res, i in zip(g, range(10, 20)))
+
+    assert time.time() - t_start < 5
+
+    # Make sure that the computation are stopped for the gc'ed generator
+    retry = 0
+    while g_wr.alive and retry < 3:
+        retry += 1
+        time.sleep(.5)
+    assert time.time() - t_start < 5
+
+    if parallel._effective_n_jobs() != 1:
+        # check that the first parallel object is aborting (the final _aborted
+        # state might be delayed).
+        assert parallel._aborting
 
 
 @with_numpy
@@ -1242,6 +1398,13 @@ def test_memmapping_leaks(backend, tmpdir):
         # The memmap folder should not be clean in the context scope
         assert len(os.listdir(tmpdir)) > 0
 
+        # Cleaning of the memmap folder is triggered by the garbage
+        # collection. With pypy the garbage collection has been observed to be
+        # delayed, sometimes up until the shutdown of the interpreter. This
+        # cleanup job executed in the worker ensures that it's triggered
+        # immediately.
+        p(delayed(_cleanup_worker)() for _ in range(2))
+
     # Make sure that the shared memory is cleaned at the end when we exit
     # the context
     for _ in range(100):
@@ -1254,6 +1417,7 @@ def test_memmapping_leaks(backend, tmpdir):
     # Make sure that the shared memory is cleaned at the end of a call
     p = Parallel(n_jobs=2, max_nbytes=1, backend=backend)
     p(delayed(check_memmap)(a) for a in [np.random.random(10)] * 2)
+    p(delayed(_cleanup_worker)() for _ in range(2))
 
     for _ in range(100):
         if not os.listdir(tmpdir):
@@ -1506,9 +1670,11 @@ def _recursive_parallel(nesting_limit=None):
     return Parallel()(delayed(_recursive_parallel)() for i in range(2))
 
 
-@parametrize('backend',
-             (['threading'] if mp is None else ['loky', 'threading']))
+@pytest.mark.no_cover
 @parametrize("context", [parallel_config, parallel_backend])
+@parametrize(
+    'backend', (['threading'] if mp is None else ['loky', 'threading'])
+)
 def test_thread_bomb_mitigation(context, backend):
     # Test that recursive parallelism raises a recursion rather than
     # saturating the operating system resources by creating a unbounded number
@@ -1521,7 +1687,7 @@ def test_thread_bomb_mitigation(context, backend):
         # Local import because loky may not be importable for lack of
         # multiprocessing
         from joblib.externals.loky.process_executor import TerminatedWorkerError # noqa
-        if isinstance(exc, TerminatedWorkerError):
+        if isinstance(exc, (TerminatedWorkerError, PicklingError)):
             # The recursion exception can itself cause an error when
             # pickling it to be send back to the parent process. In this
             # case the worker crashes but the original traceback is still
@@ -1529,8 +1695,8 @@ def test_thread_bomb_mitigation(context, backend):
             # simple to do and this is is not critical for users (as long
             # as there is no process or thread bomb happening).
             pytest.xfail("Loky worker crash when serializing RecursionError")
-    else:
-        assert isinstance(exc, RecursionError)
+
+    assert isinstance(exc, RecursionError)
 
 
 def _run_parallel_sum():

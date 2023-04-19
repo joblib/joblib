@@ -280,8 +280,9 @@ def test_compress_mmap_mode_warning(tmpdir):
     numpy_pickle.dump(a, this_filename, compress=1)
     with warns(UserWarning) as warninfo:
         numpy_pickle.load(this_filename, mmap_mode='r+')
+    debug_msg = "\n".join([str(w) for w in warninfo])
     warninfo = [w.message for w in warninfo]
-    assert len(warninfo) == 1
+    assert len(warninfo) == 1, debug_msg
     assert (
         str(warninfo[0]) ==
         'mmap_mode "r+" is not compatible with compressed '

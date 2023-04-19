@@ -8,3 +8,4 @@ numpydoc
 pandas
 lz4
 distributed
+psutil
