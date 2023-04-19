@@ -1273,11 +1273,11 @@ class Parallel(Logger):
             # the user if necessary.
             self._exception = True
 
-            # In some interpreters such as PyPy or potentially CPython without
-            # GIL, this error might happen not in the main thread. This
-            # can lead to hang when a thread tries to join itself. As a
-            # workaround, we detach the execution of the aborting code to a
-            # dedicated thread. We then need to make sure the rest of the
+            # In some interpreters such as PyPy, GeneratorExit can be raised in
+            # a different thread than the one used to start the dispatch of the
+            # parallel tasks. This can lead to hang when a thread attempts to
+            # join itself. As workaround, we detach the execution of the aborting
+            # code to a dedicated thread. We then need to make sure the rest of the
             # function does not call `_terminate_and_reset` in finally.
             if current_thread_id != threading.get_ident():
                 detach_generator_exit = True
@@ -1295,8 +1295,8 @@ class Parallel(Logger):
                 ).start()
                 return
 
-            # Otherwise, we are in the main thread and we can safely abort
-            # the execution and warn the user.
+            # Otherwise, we are in the thread that started the dispatch: we can
+            # safely abort the execution and warn the user.
             self._abort()
             if self.return_generator:
                 self._warn_exit_early()
