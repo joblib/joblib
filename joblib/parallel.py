@@ -1255,7 +1255,7 @@ class Parallel(Logger):
 
     def _get_outputs(self, iterator, pre_dispatch):
         """Iterator returning the tasks' output as soon as they are ready."""
-        current_thread_id = threading.get_ident()
+        dispatch_thread_id = threading.get_ident()
         detach_generator_exit = False
         try:
             self._start(iterator, pre_dispatch)
@@ -1269,17 +1269,18 @@ class Parallel(Logger):
 
         except GeneratorExit:
             # The generator has been garbage collected before being fully
-            # consumned. This aborts the remaining tasks if possible and warn
+            # consumed. This aborts the remaining tasks if possible and warn
             # the user if necessary.
             self._exception = True
 
             # In some interpreters such as PyPy, GeneratorExit can be raised in
             # a different thread than the one used to start the dispatch of the
             # parallel tasks. This can lead to hang when a thread attempts to
-            # join itself. As workaround, we detach the execution of the aborting
-            # code to a dedicated thread. We then need to make sure the rest of the
-            # function does not call `_terminate_and_reset` in finally.
-            if current_thread_id != threading.get_ident():
+            # join itself. As workaround, we detach the execution of the
+            # aborting code to a dedicated thread. We then need to make sure
+            # the rest of the function does not call `_terminate_and_reset`
+            # in finally.
+            if dispatch_thread_id != threading.get_ident():
                 detach_generator_exit = True
                 _parallel = self
 
