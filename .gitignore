@@ -26,6 +26,8 @@ dist
 ./.shelf
 # Some IDEs add this directory
 .idea
+.vscode
+
 # Mac droppings
 .DS_Store
 doc/documentation.zip
@@ -49,4 +51,5 @@ doc/_build
 # Dask worker space directory in generated examples
 dask-worker-space/
 
-.vscode
+# Binary files created by benchmarks
+*.npy
