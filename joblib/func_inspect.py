@@ -127,28 +127,10 @@ def get_func_name(func, resolv_alias=True, win_characters=True):
         if filename is not None:
             # mangling of full path to filename
             parts = filename.split(os.sep)
-            if parts[-1].startswith('<ipython-input'):
-                # We're in a IPython (or notebook) session. parts[-1] comes
-                # from func.__code__.co_filename and is of the form
-                # <ipython-input-N-XYZ>, where:
-                # - N is the cell number where the function was defined
-                # - XYZ is a hash representing the function's code (and name).
-                #   It will be consistent across sessions and kernel restarts,
-                #   and will change if the function's code/name changes
-                # We remove N so that cache is properly hit if the cell where
-                # the func is defined is re-exectuted.
-                # The XYZ hash should avoid collisions between functions with
-                # the same name, both within the same notebook but also across
-                # notebooks
-                splitted = parts[-1].split('-')
-                parts[-1] = '-'.join(splitted[:2] + splitted[3:])
-            elif len(parts) > 2 and parts[-2].startswith('ipykernel_'):
-                # In a notebook session (ipykernel). Filename seems to be 'xyz'
-                # of above. parts[-2] has the structure ipykernel_XXXXXX where
-                # XXXXXX is a six-digit number identifying the current run (?).
-                # If we split it off, the function again has the same
-                # identifier across runs.
-                parts[-2] = 'ipykernel'
+            is_jupyter = (parts[-1].startswith('<ipython-input') or
+                          (len(parts) > 2 and parts[-2].startswith('ipykernel_')))
+            if is_jupyter:
+                parts = os.getcwd().split(os.sep) + ["<ipython-input>"]
             filename = '-'.join(parts)
             if filename.endswith('.py'):
                 filename = filename[:-3]
