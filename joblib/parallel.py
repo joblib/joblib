@@ -714,9 +714,9 @@ class Parallel(Logger):
             parallel_backend.
         verbose: int, optional
             The verbosity level: if non zero, progress messages are
-            printed. Above 50, the output is sent to stdout.
+            printed. If above 50, the output is sent to stdout.
             The frequency of the messages increases with the verbosity level.
-            If it more than 10, all iterations are reported.
+            If above 10, all iterations are reported.
         timeout: float, optional
             Timeout limit for each task to complete.  If any task takes longer
             a TimeOutError will be raised. Only applied when n_jobs != 1
@@ -759,7 +759,8 @@ class Parallel(Logger):
             Threshold on the size of arrays passed to the workers that
             triggers automated memory mapping in temp_folder. Can be an int
             in Bytes, or a human-readable string, e.g., '1M' for 1 megabyte.
-            Use None to disable memmapping of large arrays.
+            Use None to disable automatic memmapping of large arrays (small
+            arrays can ignore this argument).
             Only active when backend="loky" or "multiprocessing".
         mmap_mode: {None, 'r+', 'r', 'w+', 'c'}, default: 'r'
             Memmapping mode for numpy arrays passed to workers. None will
@@ -906,6 +907,9 @@ class Parallel(Logger):
         self.timeout = timeout
         self.pre_dispatch = pre_dispatch
         self.return_generator = return_generator
+
+        if mmap_mode is None:
+            max_nbytes = None
 
         if isinstance(max_nbytes, str):
             max_nbytes = memstr_to_bytes(max_nbytes)

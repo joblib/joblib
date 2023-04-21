@@ -872,6 +872,35 @@ def test_memmapping_pool_for_large_arrays_disabled(factory, tmpdir):
 
 @with_numpy
 @with_multiprocessing
+@parametrize("factory", [MemmappingPool, TestExecutor.get_memmapping_executor],
+             ids=["multiprocessing", "loky"])
+def test_memmapping_pool_disabled_by_mmap_mode_to_None(factory, tmpdir):
+    """Check that memmapping is in effect disabled by setting
+    mmap_mode to None while setting max_nbytes to an explicit
+    value."""
+    # Set mmap_mode to None to disable memmapping feature
+    p = factory(3, mmap_mode=None, max_nbytes=40, temp_folder=tmpdir.strpath)
+    try:
+
+        # Check that the tempfolder is empty
+        assert os.listdir(tmpdir.strpath) == []
+
+        # Try with a file largish than the memmap threshold of 40 bytes
+        large = np.ones(100, dtype=np.float64)
+        assert large.nbytes == 800
+        p.map(check_array, [(large, i, 1.0) for i in range(large.shape[0])])
+
+        # Check that the tempfolder is still empty
+        assert os.listdir(tmpdir.strpath) == []
+
+    finally:
+        # Cleanup open file descriptors
+        p.terminate()
+        del p
+
+
+@with_numpy
+@with_multiprocessing
 @with_dev_shm
 @parametrize("factory", [MemmappingPool, TestExecutor.get_memmapping_executor],
              ids=["multiprocessing", "loky"])

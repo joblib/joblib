@@ -47,6 +47,10 @@ Release 1.2.0
   arbitrary code. Now only basic numerics are supported.
   https://github.com/joblib/joblib/pull/1327
 
+- Fix argument 'max_nbytes' being used if explicitely set to something
+  else than None even though 'mmap_mode' was set to None.
+  https://github.com/joblib/joblib/pull/1325
+
 - Make sure that joblib works even when multiprocessing is not available,
   for instance with Pyodide
   https://github.com/joblib/joblib/pull/1256
