@@ -157,10 +157,7 @@ def get_func_name(func, resolv_alias=True, win_characters=True):
                 # In practice this means that we can trigger spurious cache
                 # invalidations from concurrently running notebook in the same
                 # folder with colliding interactively defined function names.
-                parts = (
-                    ["__main__"] + os.getcwd().split(os.sep) +
-                    ["<ipython-input>"]
-                )
+                parts = os.getcwd().split(os.sep) + ["<ipython-input>"]
 
             filename = '-'.join(parts)
             if filename.endswith('.py'):

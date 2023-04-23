@@ -1335,3 +1335,15 @@ def test_info_log(tmpdir, caplog):
     _ = f(x)
     assert "Querying" not in caplog.text
     caplog.clear()
+
+
+# needs https://pypi.org/project/pytest-requires/
+@pytest.mark.requires("pytest_notebook")
+def test_cache_notebook():
+    from pathlib import Path
+    from pytest_notebook.nb_regression import NBRegressionFixture
+    fixture = NBRegressionFixture(exec_timeout=50)
+    fixture.diff_color_words = False
+
+    with Path(__file__).parent / "data" / "memory.ipynb" as path:
+        result = fixture.check(str(path), raise_errors=True)
