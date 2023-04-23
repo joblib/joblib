@@ -1346,4 +1346,4 @@ def test_cache_notebook():
     fixture.diff_color_words = False
 
     with Path(__file__).parent / "data" / "memory.ipynb" as path:
-        result = fixture.check(str(path), raise_errors=True)
+        _ = fixture.check(str(path), raise_errors=True)
