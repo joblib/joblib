@@ -40,6 +40,11 @@ In development
   tracebacks and more efficient running time.
   https://github.com/joblib/joblib/pull/1393
 
+- Change how `joblib.Memory` generates filenames for function defined
+  in jupyter notebooks. This makes caching more robust by avoiding cache
+  misses due to irrelevant changes in the cell defining the function.
+  https://github.com/joblib/joblib/pull/1430
+
 Release 1.2.0
 -------------
 
