@@ -1286,11 +1286,12 @@ class Parallel(Logger):
             if dispatch_thread_id != threading.get_ident():
                 if not IS_PYPY:
                     warnings.warn(
-                        "A generator produced by joblib.Parallel has been gc'ed in "
-                        "an unexpected thread. This behavior should not cause major "
-                        "issues but to make sure, please report this warning and "
-                        "your use case at https://github.com/joblib/joblib/issues "
-                        "so it can be investigated."
+                        "A generator produced by joblib.Parallel has been "
+                        "gc'ed in an unexpected thread. This behavior should "
+                        "not cause major -issues but to make sure, please "
+                        "report this warning and your use case at "
+                        "https://github.com/joblib/joblib/issues so it can "
+                        "be investigated."
                     )
 
                 detach_generator_exit = True
