@@ -40,6 +40,12 @@ In development
   tracebacks and more efficient running time.
   https://github.com/joblib/joblib/pull/1393
 
+- Add the `parallel_config` context manager to allow for more fine-grained
+  control over the backend configuration. It should be used in place of the
+  `parallel_backend` context manager. In particular, it has the advantage
+  of not requiring to set a specific backend in the context manager.
+  https://github.com/joblib/joblib/pull/1392
+
 Release 1.2.0
 -------------
 

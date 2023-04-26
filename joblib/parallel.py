@@ -31,7 +31,7 @@ from .disk import memstr_to_bytes
 from ._parallel_backends import (FallbackToBackend, MultiprocessingBackend,
                                  ThreadingBackend, SequentialBackend,
                                  LokyBackend)
-from ._utils import eval_expr
+from ._utils import eval_expr, _Sentinel
 
 # Make sure that those two classes are part of the public joblib.parallel API
 # so that 3rd party backend implementers can import them from here.
@@ -72,9 +72,6 @@ DEFAULT_THREAD_BACKEND = 'threading'
 # manager
 _backend = threading.local()
 
-VALID_BACKEND_HINTS = ('processes', 'threads', None)
-VALID_BACKEND_CONSTRAINTS = ('sharedmem', None)
-
 
 def _register_dask():
     """ Register Dask Backend if called with parallel_backend("dask") """
@@ -94,23 +91,91 @@ EXTERNAL_BACKENDS = {
 }
 
 
-def get_active_backend(prefer=None, require=None, verbose=0):
-    """Return the active default backend"""
-    if prefer not in VALID_BACKEND_HINTS:
-        raise ValueError("prefer=%r is not a valid backend hint, "
-                         "expected one of %r" % (prefer, VALID_BACKEND_HINTS))
-    if require not in VALID_BACKEND_CONSTRAINTS:
-        raise ValueError("require=%r is not a valid backend constraint, "
-                         "expected one of %r"
-                         % (require, VALID_BACKEND_CONSTRAINTS))
+# Sentinels for the default values of the Parallel constructor and
+# the parallel_config and parallel_backend context managers
+default_parallel_config = {
+    "n_jobs": _Sentinel(default_value=None),
+    "verbose": _Sentinel(default_value=0),
+    "temp_folder": _Sentinel(default_value=None),
+    "max_nbytes": _Sentinel(default_value="1M"),
+    "mmap_mode": _Sentinel(default_value="r"),
+    "prefer": _Sentinel(default_value=None),
+    "require": _Sentinel(default_value=None),
+}
 
+
+VALID_BACKEND_HINTS = ('processes', 'threads', None)
+VALID_BACKEND_CONSTRAINTS = ('sharedmem', None)
+
+
+def _get_config_param(param, context_config, key):
+    """Return the value of a parallel config parameter
+
+    Explicitly setting it in Parallel has priority over setting in a
+    parallel_(config/backend) context manager.
+    """
+    if param is not default_parallel_config[key]:
+        # param is explicitely set, return it
+        return param
+
+    if context_config is None or key not in context_config:
+        # no context manager just return the default value.
+        return param.default_value
+
+    if context_config[key] is not default_parallel_config[key]:
+        # there's a context manager and the key is set, return it
+        return context_config[key]
+
+    # there's a context manager but the key is not set, return the default
+    return param.default_value
+
+
+def get_active_backend(
+    prefer=default_parallel_config["prefer"],
+    require=default_parallel_config["require"],
+    verbose=default_parallel_config["verbose"],
+):
+    """Return the active default backend"""
+    backend, config = _get_active_backend(prefer, require, verbose)
+    return backend, config["n_jobs"]
+
+
+def _get_active_backend(
+    prefer=default_parallel_config["prefer"],
+    require=default_parallel_config["require"],
+    verbose=default_parallel_config["verbose"],
+):
+    """Return the active default backend"""
+    backend_config = getattr(_backend, 'config', None)
+    if backend_config is not None:
+        backend = backend_config['backend']
+        config = {k: v for k, v in backend_config.items() if k != 'backend'}
+    else:
+        backend, config = None, None
+
+    prefer = _get_config_param(prefer, config, "prefer")
+    require = _get_config_param(require, config, "require")
+    verbose = _get_config_param(verbose, config, "verbose")
+
+    if prefer not in VALID_BACKEND_HINTS:
+        raise ValueError(
+            f"prefer={prefer} is not a valid backend hint, "
+            f"expected one of {VALID_BACKEND_HINTS}"
+        )
+    if require not in VALID_BACKEND_CONSTRAINTS:
+        raise ValueError(
+            f"require={require} is not a valid backend constraint, "
+            f"expected one of {VALID_BACKEND_CONSTRAINTS}"
+        )
     if prefer == 'processes' and require == 'sharedmem':
-        raise ValueError("prefer == 'processes' and require == 'sharedmem'"
-                         " are inconsistent settings")
-    backend_and_jobs = getattr(_backend, 'backend_and_jobs', None)
-    if backend_and_jobs is not None:
+        raise ValueError(
+            "prefer == 'processes' and require == 'sharedmem'"
+            " are inconsistent settings"
+        )
+
+    if backend is not None:
         # Try to use the backend set by the user with the context manager.
-        backend, n_jobs = backend_and_jobs
+
         nesting_level = backend.nesting_level
         supports_sharedmem = getattr(backend, 'supports_sharedmem', False)
         if require == 'sharedmem' and not supports_sharedmem:
@@ -123,11 +188,12 @@ def get_active_backend(prefer=None, require=None, verbose=0):
                       "as the latter does not provide shared memory semantics."
                       % (sharedmem_backend.__class__.__name__,
                          backend.__class__.__name__))
-            return sharedmem_backend, DEFAULT_N_JOBS
+            return sharedmem_backend, {"n_jobs": DEFAULT_N_JOBS}
         else:
-            return backend_and_jobs
+            return backend, config
 
-    # We are outside of the scope of any parallel_backend context manager,
+    # We are either outside of the scope of any parallel_(config/backend)
+    # context manager or the context manager did not set a backend.
     # create the default backend instance now.
     backend = BACKENDS[DEFAULT_BACKEND](nesting_level=0)
     supports_sharedmem = getattr(backend, 'supports_sharedmem', False)
@@ -137,11 +203,246 @@ def get_active_backend(prefer=None, require=None, verbose=0):
         # Make sure the selected default backend match the soft hints and
         # hard constraints:
         backend = BACKENDS[DEFAULT_THREAD_BACKEND](nesting_level=0)
-    return backend, DEFAULT_N_JOBS
+
+    if config is not None:
+        return backend, config
+    return backend, {"n_jobs": DEFAULT_N_JOBS}
 
 
-class parallel_backend(object):
+class parallel_config:
+    """Change the default backend or configuration used by :class:`~Parallel`
+
+    This is an alternative to directly passing keyword arguments to the
+    :class:`~Parallel` class constructor. It is particularly useful when
+    calling into library code that uses joblib internally but does not expose
+    the various parallel configuration arguments in its own API.
+
+    Parameters
+    ----------
+    backend : str or ParallelBackendBase instance, default=None
+        If ``backend`` is a string it must match a previously registered
+        implementation using the :func:`~register_parallel_backend` function.
+
+        By default the following backends are available:
+
+        - 'loky': single-host, process-based parallelism (used by default),
+        - 'threading': single-host, thread-based parallelism,
+        - 'multiprocessing': legacy single-host, process-based parallelism.
+
+        'loky' is recommended to run functions that manipulate Python objects.
+        'threading' is a low-overhead alternative that is most efficient for
+        functions that release the Global Interpreter Lock: e.g. I/O-bound
+        code or CPU-bound code in a few calls to native code that explicitly
+        releases the GIL. Note that on some rare systems (such as pyodide),
+        multiprocessing and loky may not be available, in which case joblib
+        defaults to threading.
+
+        In addition, if the `dask` and `distributed` Python packages are
+        installed, it is possible to use the 'dask' backend for better
+        scheduling of nested parallel calls without over-subscription and
+        potentially distribute parallel calls over a networked cluster of
+        several hosts.
+
+        It is also possible to use the distributed 'ray' backend for
+        distributing the workload to a cluster of nodes. See more details
+        in the Examples section below.
+
+        Alternatively the backend can be passed directly as an instance.
+
+    n_jobs : int, default=None
+        The maximum number of concurrently running jobs, such as the number
+        of Python worker processes when `backend="loky"` or the size of the
+        thread-pool when `backend="threading"`.
+        If -1 all CPUs are used. If 1 is given, no parallel computing code
+        is used at all, which is useful for debugging. For `n_jobs` below -1,
+        (n_cpus + 1 + n_jobs) are used. Thus for `n_jobs=-2`, all
+        CPUs but one are used.
+        `None` is a marker for 'unset' that will be interpreted as `n_jobs=1`
+        in most backends.
+
+    verbose : int, default=0
+        The verbosity level: if non zero, progress messages are
+        printed. Above 50, the output is sent to stdout.
+        The frequency of the messages increases with the verbosity level.
+        If it more than 10, all iterations are reported.
+
+    temp_folder : str, default=None
+        Folder to be used by the pool for memmapping large arrays
+        for sharing memory with worker processes. If None, this will try in
+        order:
+
+        - a folder pointed by the `JOBLIB_TEMP_FOLDER` environment
+          variable,
+        - `/dev/shm` if the folder exists and is writable: this is a
+          RAM disk filesystem available by default on modern Linux
+          distributions,
+        - the default system temporary folder that can be
+          overridden with `TMP`, `TMPDIR` or `TEMP` environment
+          variables, typically `/tmp` under Unix operating systems.
+
+    max_nbytes int, str, or None, optional, default='1M'
+        Threshold on the size of arrays passed to the workers that
+        triggers automated memory mapping in temp_folder. Can be an int
+        in Bytes, or a human-readable string, e.g., '1M' for 1 megabyte.
+        Use None to disable memmapping of large arrays.
+
+    mmap_mode: {None, 'r+', 'r', 'w+', 'c'}, default='r'
+        Memmapping mode for numpy arrays passed to workers. None will
+        disable memmapping, other modes defined in the numpy.memmap doc:
+        https://numpy.org/doc/stable/reference/generated/numpy.memmap.html
+        Also, see 'max_nbytes' parameter documentation for more details.
+
+    prefer: str in {'processes', 'threads'} or None, default=None
+        Soft hint to choose the default backend.
+        The default process-based backend is 'loky' and the default
+        thread-based backend is 'threading'. Ignored if the ``backend``
+        parameter is specified.
+
+    require: 'sharedmem' or None, default=None
+        Hard constraint to select the backend. If set to 'sharedmem',
+        the selected backend will be single-host and thread-based.
+
+    inner_max_num_threads : int, default=None
+        If not None, overwrites the limit set on the number of threads
+        usable in some third-party library threadpools like OpenBLAS,
+        MKL or OpenMP. This is only used with the `loky` backend.
+
+    backend_params : dict
+        Additional parameters to pass to the backend constructor when
+        backend is a string.
+
+    Notes
+    -----
+    Joblib tries to limit the oversubscription by limiting the number of
+    threads usable in some third-party library threadpools like OpenBLAS, MKL
+    or OpenMP. The default limit in each worker is set to
+    ``max(cpu_count() // effective_n_jobs, 1)`` but this limit can be
+    overwritten with the ``inner_max_num_threads`` argument which will be used
+    to set this limit in the child processes.
+
+    Examples
+    --------
+    >>> from operator import neg
+    >>> with parallel_config(backend='threading'):
+    ...     print(Parallel()(delayed(neg)(i + 1) for i in range(5)))
+    ...
+    [-1, -2, -3, -4, -5]
+
+    To use the 'ray' joblib backend add the following lines::
+
+    >>> from ray.util.joblib import register_ray  # doctest: +SKIP
+    >>> register_ray()  # doctest: +SKIP
+    >>> with parallel_backend("ray"):  # doctest: +SKIP
+    ...     print(Parallel()(delayed(neg)(i + 1) for i in range(5)))
+    [-1, -2, -3, -4, -5]
+
+    .. versionadded:: 1.3
+    """
+    def __init__(
+        self,
+        backend=None,
+        *,
+        n_jobs=default_parallel_config["n_jobs"],
+        verbose=default_parallel_config["verbose"],
+        temp_folder=default_parallel_config["temp_folder"],
+        max_nbytes=default_parallel_config["max_nbytes"],
+        mmap_mode=default_parallel_config["mmap_mode"],
+        prefer=default_parallel_config["prefer"],
+        require=default_parallel_config["require"],
+        inner_max_num_threads=None,
+        **backend_params
+    ):
+        # Save the parallel info and set the active parallel config
+        self.old_parallel_config = getattr(_backend, "config", None)
+
+        backend = self._check_backend(
+            backend, inner_max_num_threads, **backend_params
+        )
+
+        self.new_parallel_config = {
+            "backend": backend,
+            "n_jobs": n_jobs,
+            "verbose": verbose,
+            "temp_folder": temp_folder,
+            "max_nbytes": max_nbytes,
+            "mmap_mode": mmap_mode,
+            "prefer": prefer,
+            "require": require,
+        }
+        setattr(_backend, "config", self.new_parallel_config)
+
+    def _check_backend(self, backend, inner_max_num_threads, **backend_params):
+        if backend is None:
+            if inner_max_num_threads is not None or len(backend_params) > 0:
+                raise ValueError(
+                    "inner_max_num_threads and other constructor "
+                    "parameters backend_params are only supported "
+                    "when backend is not None."
+                )
+            return None
+
+        if isinstance(backend, str):
+            # Handle non-registered or missing backends
+            if backend not in BACKENDS:
+                if backend in EXTERNAL_BACKENDS:
+                    register = EXTERNAL_BACKENDS[backend]
+                    register()
+                elif backend in MAYBE_AVAILABLE_BACKENDS:
+                    warnings.warn(
+                        f"joblib backend '{backend}' is not available on "
+                        f"your system, falling back to {DEFAULT_BACKEND}.",
+                        UserWarning,
+                        stacklevel=2
+                    )
+                    BACKENDS[backend] = BACKENDS[DEFAULT_BACKEND]
+                else:
+                    raise ValueError(
+                        f"Invalid backend: {backend}, expected one of "
+                        f"{sorted(BACKENDS.keys())}"
+                    )
+
+            backend = BACKENDS[backend](**backend_params)
+
+        if inner_max_num_threads is not None:
+            msg = (
+                f"{backend.__class__.__name__} does not accept setting the "
+                "inner_max_num_threads argument."
+            )
+            assert backend.supports_inner_max_num_threads, msg
+            backend.inner_max_num_threads = inner_max_num_threads
+
+        # If the nesting_level of the backend is not set previously, use the
+        # nesting level from the previous active_backend to set it
+        if backend.nesting_level is None:
+            if self.old_parallel_config is None:
+                nesting_level = 0
+            else:
+                nesting_level = (
+                    self.old_parallel_config["backend"].nesting_level
+                )
+            backend.nesting_level = nesting_level
+
+        return backend
+
+    def __enter__(self):
+        return self.new_parallel_config
+
+    def __exit__(self, type, value, traceback):
+        self.unregister()
+
+    def unregister(self):
+        if self.old_parallel_config is None:
+            if getattr(_backend, "config", None) is not None:
+                delattr(_backend, "config")
+        else:
+            setattr(_backend, "config", self.old_parallel_config)
+
+
+class parallel_backend(parallel_config):
     """Change the default backend used by Parallel inside a with block.
+
+    It is advised to use the `parallel_config` context manager instead,
+    which allows more fine-grained control over the backend configuration.
 
     If ``backend`` is a string it must match a previously registered
     implementation using the :func:`~register_parallel_backend` function.
@@ -202,9 +503,6 @@ class parallel_backend(object):
     ...
     [-1, -2, -3, -4, -5]
 
-    Warning: this function is experimental and subject to change in a future
-    version of joblib.
-
     Joblib also tries to limit the oversubscription by limiting the number of
     threads usable in some third-party library threadpools like OpenBLAS, MKL
     or OpenMP. The default limit in each worker is set to
@@ -212,64 +510,37 @@ class parallel_backend(object):
     overwritten with the ``inner_max_num_threads`` argument which will be used
     to set this limit in the child processes.
 
+    See Also
+    --------
+    parallel_config : context manager to change the backend configuration
+
     .. versionadded:: 0.10
 
     """
     def __init__(self, backend, n_jobs=-1, inner_max_num_threads=None,
                  **backend_params):
-        if isinstance(backend, str):
-            if backend not in BACKENDS:
-                if backend in EXTERNAL_BACKENDS:
-                    register = EXTERNAL_BACKENDS[backend]
-                    register()
-                elif backend in MAYBE_AVAILABLE_BACKENDS:
-                    warnings.warn(
-                        f"joblib backend '{backend}' is not available on "
-                        f"your system, falling back to {DEFAULT_BACKEND}.",
-                        UserWarning,
-                        stacklevel=2)
-                    BACKENDS[backend] = BACKENDS[DEFAULT_BACKEND]
-                else:
-                    raise ValueError("Invalid backend: %s, expected one of %r"
-                                     % (backend, sorted(BACKENDS.keys())))
 
-            backend = BACKENDS[backend](**backend_params)
+        super().__init__(
+            backend=backend,
+            n_jobs=n_jobs,
+            inner_max_num_threads=inner_max_num_threads,
+            **backend_params
+        )
 
-        if inner_max_num_threads is not None:
-            msg = ("{} does not accept setting the inner_max_num_threads "
-                   "argument.".format(backend.__class__.__name__))
-            assert backend.supports_inner_max_num_threads, msg
-            backend.inner_max_num_threads = inner_max_num_threads
-
-        # If the nesting_level of the backend is not set previously, use the
-        # nesting level from the previous active_backend to set it
-        current_backend_and_jobs = getattr(_backend, 'backend_and_jobs', None)
-        if backend.nesting_level is None:
-            if current_backend_and_jobs is None:
-                nesting_level = 0
-            else:
-                nesting_level = current_backend_and_jobs[0].nesting_level
-
-            backend.nesting_level = nesting_level
-
-        # Save the backends info and set the active backend
-        self.old_backend_and_jobs = current_backend_and_jobs
-        self.new_backend_and_jobs = (backend, n_jobs)
-
-        _backend.backend_and_jobs = (backend, n_jobs)
+        if self.old_parallel_config is None:
+            self.old_backend_and_jobs = None
+        else:
+            self.old_backend_and_jobs = (
+                self.old_parallel_config["backend"],
+                self.old_parallel_config["n_jobs"],
+            )
+        self.new_backend_and_jobs = (
+            self.new_parallel_config["backend"],
+            self.new_parallel_config["n_jobs"],
+        )
 
     def __enter__(self):
         return self.new_backend_and_jobs
-
-    def __exit__(self, type, value, traceback):
-        self.unregister()
-
-    def unregister(self):
-        if self.old_backend_and_jobs is None:
-            if getattr(_backend, 'backend_and_jobs', None) is not None:
-                del _backend.backend_and_jobs
-        else:
-            _backend.backend_and_jobs = self.old_backend_and_jobs
 
 
 # Under Linux or OS X the default start method of multiprocessing
@@ -885,39 +1156,65 @@ class Parallel(Logger):
         [Parallel(n_jobs=2)]: Done 6 out of 6 | elapsed:  0.0s remaining: 0.0s
         [Parallel(n_jobs=2)]: Done 6 out of 6 | elapsed:  0.0s finished
 
-    '''  # noqa: E501
-    def __init__(self, n_jobs=None, backend=None, return_generator=False,
-                 verbose=0, timeout=None, pre_dispatch='2 * n_jobs',
-                 batch_size='auto', temp_folder=None, max_nbytes='1M',
-                 mmap_mode='r', prefer=None, require=None):
-        active_backend, context_n_jobs = get_active_backend(
-            prefer=prefer, require=require, verbose=verbose)
+    '''
+    def __init__(
+        self,
+        n_jobs=default_parallel_config["n_jobs"],
+        backend=None,
+        return_generator=False,
+        verbose=default_parallel_config["verbose"],
+        timeout=None,
+        pre_dispatch='2 * n_jobs',
+        batch_size='auto',
+        temp_folder=default_parallel_config["temp_folder"],
+        max_nbytes=default_parallel_config["max_nbytes"],
+        mmap_mode=default_parallel_config["mmap_mode"],
+        prefer=default_parallel_config["prefer"],
+        require=default_parallel_config["require"],
+    ):
+        active_backend, context_config = _get_active_backend(
+            prefer=prefer, require=require, verbose=verbose
+        )
+
         nesting_level = active_backend.nesting_level
-        if backend is None and n_jobs is None:
+
+        if backend is None and n_jobs is default_parallel_config["n_jobs"]:
             # If we are under a parallel_backend context manager, look up
             # the default number of jobs and use that instead:
-            n_jobs = context_n_jobs
-        if n_jobs is None:
+            n_jobs = context_config["n_jobs"]
+        if n_jobs is None or n_jobs is default_parallel_config["n_jobs"]:
             # No specific context override and no specific value request:
             # default to 1.
             n_jobs = 1
         self.n_jobs = n_jobs
-        self.verbose = verbose
+
+        self.verbose = _get_config_param(verbose, context_config, "verbose")
         self.timeout = timeout
         self.pre_dispatch = pre_dispatch
         self.return_generator = return_generator
 
-        if isinstance(max_nbytes, str):
-            max_nbytes = memstr_to_bytes(max_nbytes)
+        # Check if we are under a parallel_config or parallel_backend
+        # context manager and use the config from the context manager
+        # for arguments that are not explicitly set.
+        self._backend_args = {
+            k: _get_config_param(param, context_config, k) for param, k in [
+                (max_nbytes, "max_nbytes"),
+                (temp_folder, "temp_folder"),
+                (mmap_mode, "mmap_mode"),
+                (prefer, "prefer"),
+                (require, "require"),
+                (verbose, "verbose"),
+            ]
+        }
 
-        self._backend_args = dict(
-            max_nbytes=max_nbytes,
-            mmap_mode=mmap_mode,
-            temp_folder=temp_folder,
-            prefer=prefer,
-            require=require,
-            verbose=max(0, self.verbose - 50),
+        if isinstance(self._backend_args["max_nbytes"], str):
+            self._backend_args["max_nbytes"] = memstr_to_bytes(
+                self._backend_args["max_nbytes"]
+            )
+        self._backend_args["verbose"] = max(
+            0, self._backend_args["verbose"] - 50
         )
+
         if DEFAULT_MP_CONTEXT is not None:
             self._backend_args['context'] = DEFAULT_MP_CONTEXT
         elif hasattr(mp, "get_context"):
