@@ -397,10 +397,21 @@ does not exist (but multiprocessing has more overhead).
 ==================================
 
 .. autoclass:: joblib.Parallel
-    :noindex:
+   :members: dispatch_next, dispatch_one_batch, format, print_progress
+   :no-inherited-members:
 
 .. autofunction:: joblib.delayed
 
 .. autofunction:: joblib.register_parallel_backend
 
 .. autofunction:: joblib.parallel_backend
+
+.. autofunction:: joblib.wrap_non_picklable_objects
+
+.. autofunction:: joblib.parallel.register_parallel_backend
+
+.. autoclass:: joblib.parallel.parallel_config
+
+.. autoclass:: joblib.parallel.ParallelBackendBase
+
+.. autoclass:: joblib.parallel.AutoBatchingMixin

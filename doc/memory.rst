@@ -15,9 +15,9 @@ On demand recomputing: the `Memory` class
 Use case
 --------
 
-The `Memory` class defines a context for lazy evaluation of function, by
-putting the results in a store, by default using a disk, and not re-running
-the function twice for the same arguments.
+The :class:`~joblib.Memory` class defines a context for lazy evaluation of
+function, by putting the results in a store, by default using a disk, and not
+re-running the function twice for the same arguments.
 
 ..
  Commented out in favor of briefness
@@ -25,10 +25,12 @@ the function twice for the same arguments.
     You can use it as a context, with its `eval` method:
 
     .. automethod:: Memory.eval
+       :noindex:
 
     or decorate functions with the `cache` method:
 
     .. automethod:: Memory.cache
+       :noindex:
 
 It works by explicitly saving the output to a file and it is designed to
 work with non-hashable and potentially large input and output data types
@@ -413,11 +415,16 @@ change, for instance a debug flag. `Memory` provides the `ignore` list::
 
 .. _memory_reference:
 
-Reference documentation of the `Memory` class
----------------------------------------------
+Reference documentation of the :class:`~joblib.Memory` class
+------------------------------------------------------------
+
+.. currentmodule:: joblib
 
 .. autoclass:: Memory
-    :members: __init__, cache, eval, clear
+    :members: __init__, cache, eval, clear, reduce_size, format
+    :no-inherited-members:
+
+.. currentmodule:: joblib.memory
 
 Useful methods of decorated functions
 -------------------------------------

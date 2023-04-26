@@ -32,6 +32,7 @@ Introduction
 
 
 .. automodule:: joblib
+    :no-members:
 
 User manual
 --------------
