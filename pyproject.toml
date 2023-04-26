@@ -82,7 +82,7 @@ doctest_optionflags = [
 addopts = [
     "--doctest-glob='doc/*.rst'",
     "--doctest-modules",
-    "--ignore joblib/externals",
+    "--ignore='joblib/externals'",
     "--color=yes",
 ]
 testpaths = "joblib"
