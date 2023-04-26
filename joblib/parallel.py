@@ -233,7 +233,7 @@ class parallel_config:
         'threading' is a low-overhead alternative that is most efficient for
         functions that release the Global Interpreter Lock: e.g. I/O-bound
         code or CPU-bound code in a few calls to native code that explicitly
-        releases the GIL. Note that on some rare systems (such as pyiodine),
+        releases the GIL. Note that on some rare systems (such as pyodide),
         multiprocessing and loky may not be available, in which case joblib
         defaults to threading.
 
@@ -251,13 +251,14 @@ class parallel_config:
 
     n_jobs : int, default=None
         The maximum number of concurrently running jobs, such as the number
-        of Python worker processes when `backend="multiprocessing"`
-        or the size of the thread-pool when `backend="threading"`.
+        of Python worker processes when `backend="loky"` or the size of the
+        thread-pool when `backend="threading"`.
         If -1 all CPUs are used. If 1 is given, no parallel computing code
         is used at all, which is useful for debugging. For `n_jobs` below -1,
         (n_cpus + 1 + n_jobs) are used. Thus for `n_jobs=-2`, all
         CPUs but one are used.
-        `None` is a marker for 'unset' that will be interpreted as `n_jobs=1`.
+        `None` is a marker for 'unset' that will be interpreted as `n_jobs=1`
+        in most backends.
 
     verbose : int, default=0
         The verbosity level: if non zero, progress messages are
@@ -351,13 +352,13 @@ class parallel_config:
         inner_max_num_threads=None,
         **backend_params
     ):
+        # Save the parallel info and set the active parallel config
         self.old_parallel_config = getattr(_backend, "config", None)
 
         backend = self._check_backend(
             backend, inner_max_num_threads, **backend_params
         )
 
-        # Save the parallel info and set the active parallel config
         self.new_parallel_config = {
             "backend": backend,
             "n_jobs": n_jobs,
@@ -381,6 +382,7 @@ class parallel_config:
             return None
 
         if isinstance(backend, str):
+            # Handle non-registered or missing backends
             if backend not in BACKENDS:
                 if backend in EXTERNAL_BACKENDS:
                     register = EXTERNAL_BACKENDS[backend]
@@ -390,7 +392,8 @@ class parallel_config:
                         f"joblib backend '{backend}' is not available on "
                         f"your system, falling back to {DEFAULT_BACKEND}.",
                         UserWarning,
-                        stacklevel=2)
+                        stacklevel=2
+                    )
                     BACKENDS[backend] = BACKENDS[DEFAULT_BACKEND]
                 else:
                     raise ValueError(
@@ -1185,11 +1188,7 @@ class Parallel(Logger):
             n_jobs = 1
         self.n_jobs = n_jobs
 
-        if verbose is default_parallel_config["verbose"]:
-            self.verbose = verbose.default_value
-        else:
-            self.verbose = verbose
-
+        self.verbose = _get_config_param(verbose, context_config, "verbose")
         self.timeout = timeout
         self.pre_dispatch = pre_dispatch
         self.return_generator = return_generator

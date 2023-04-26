@@ -589,19 +589,16 @@ class FakeParallelBackend(SequentialBackend):
 
 
 def test_invalid_backend():
-    with raises(ValueError) as excinfo:
+    with raises(ValueError, match="Invalid backend:"):
         Parallel(backend='unit-testing')
-    assert "Invalid backend:" in str(excinfo.value)
 
-    with raises(ValueError) as excinfo:
+    with raises(ValueError, match="Invalid backend:"):
         with parallel_backend('unit-testing'):
             pass
-    assert "Invalid backend:" in str(excinfo.value)
 
-    with raises(ValueError) as excinfo:
+    with raises(ValueError, match="Invalid backend:"):
         with parallel_config('unit-testing'):
             pass
-    assert "Invalid backend:" in str(excinfo.value)
 
 
 @parametrize('backend', ALL_VALID_BACKENDS)
