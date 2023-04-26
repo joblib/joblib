@@ -86,3 +86,13 @@ addopts = [
     "--color=yes",
 ]
 testpaths = "joblib"
+
+[tool.coverage.run]
+omit = [
+    "joblib/test/data/*",
+    "joblib/test/_openmp_test_helper/setup.py",
+    "*/joblib/externals/*",
+]
+
+[tool.coverage.report]
+show_missing = true
