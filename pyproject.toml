@@ -64,3 +64,25 @@ include-package-data = false
 [tool.setuptools.dynamic]
 version = {attr = "joblib.__version__"}
 
+
+[aliases]
+release = "egg_info -RDb ''"
+# Make sure the docs are uploaded when we do an upload
+upload = "upload upload_docs --upload-dir doc/_build/html"
+
+[bdist_rpm]
+doc_files = "doc"
+
+
+[tool.pytest.ini_options]
+doctest_optionflags = [
+    "NORMALIZE_WHITESPACE",
+    "ELLIPSIS"
+]
+addopts = [
+    "--doctest-glob='doc/*.rst'",
+    "--doctest-modules",
+    "--ignore joblib/externals",
+    "--color=yes",
+]
+testpaths = "joblib"
