@@ -399,6 +399,7 @@ does not exist (but multiprocessing has more overhead).
 .. autoclass:: joblib.Parallel
    :members: dispatch_next, dispatch_one_batch, format, print_progress
    :no-inherited-members:
+   :noindex:
 
 .. autofunction:: joblib.delayed
 

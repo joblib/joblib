@@ -19,19 +19,6 @@ The :class:`~joblib.Memory` class defines a context for lazy evaluation of
 function, by putting the results in a store, by default using a disk, and not
 re-running the function twice for the same arguments.
 
-..
- Commented out in favor of briefness
-
-    You can use it as a context, with its `eval` method:
-
-    .. automethod:: Memory.eval
-       :noindex:
-
-    or decorate functions with the `cache` method:
-
-    .. automethod:: Memory.cache
-       :noindex:
-
 It works by explicitly saving the output to a file and it is designed to
 work with non-hashable and potentially large input and output data types
 such as numpy arrays.
@@ -104,7 +91,7 @@ An example
 
   Define two functions: the first with a number as an argument,
   outputting an array, used by the second one. Both functions are decorated
-  with `Memory.cache`::
+  with :meth:`Memory.cache <joblib.Memory.cache>`::
 
     >>> import numpy as np
 
@@ -418,18 +405,16 @@ change, for instance a debug flag. `Memory` provides the `ignore` list::
 Reference documentation of the :class:`~joblib.Memory` class
 ------------------------------------------------------------
 
-.. currentmodule:: joblib
-
-.. autoclass:: Memory
+.. autoclass:: joblib.Memory
     :members: __init__, cache, eval, clear, reduce_size, format
     :no-inherited-members:
-
-.. currentmodule:: joblib.memory
+    :noindex:
 
 Useful methods of decorated functions
 -------------------------------------
 
-Functions decorated by :meth:`Memory.cache` are :class:`MemorizedFunc`
+Functions decorated by :meth:`Memory.cache <joblib.Memory.cache>` are
+:class:`MemorizedFunc`
 objects that, in addition of behaving like normal functions, expose
 methods useful for cache exploration and management. For example, you can
 use :meth:`func.check_call_in_cache <MemorizedFunc.check_call_in_cache>` to

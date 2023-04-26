@@ -118,7 +118,7 @@ except Exception:
 ###############################################################################
 # To have both fast pickling, safe process creation and serialization of
 # interactive functions, ``loky`` provides a wrapper function
-# :func:`wrap_non_picklable_objects` to wrap the non-picklable function and
+# ``wrap_non_picklable_objects`` to wrap the non-picklable function and
 # indicate to the serialization process that this specific function should be
 # serialized using ``cloudpickle``. This changes the serialization behavior
 # only for this function and keeps using ``pickle`` for all other objects. The
@@ -141,7 +141,7 @@ print("With pickle from stdlib and wrapper: {:.3f}s"
 
 ###############################################################################
 # The same wrapper can also be used for non-picklable classes. Note that the
-# side effects of :func:`wrap_non_picklable_objects` on objects can break magic
+# side effects of ``wrap_non_picklable_objects`` on objects can break magic
 # methods such as ``__add__`` and can mess up the ``isinstance`` and
 # ``issubclass`` functions. Some improvements will be considered if use-cases
 # are reported.
