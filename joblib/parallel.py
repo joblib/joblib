@@ -210,7 +210,7 @@ def _get_active_backend(
 
 
 class parallel_config:
-    """Change the default backend or configuration used by :class:`~joblib.Parallel`
+    """Change the default backend or configuration for :class:`~joblib.Parallel`
 
     This is an alternative to directly passing keyword arguments to the
     :class:`~joblib.Parallel` class constructor. It is particularly useful when
