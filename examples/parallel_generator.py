@@ -81,7 +81,7 @@ def return_big_object(i):
 
 ##############################################################################
 # We create a reduce step. The input will be a generator on big objects
-# generated in parallel by several instances of :func:`return_big_object`.
+# generated in parallel by several instances of ``return_big_object``.
 
 def accumulator_sum(generator):
     result = 0

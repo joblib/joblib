@@ -210,10 +210,10 @@ def _get_active_backend(
 
 
 class parallel_config:
-    """Change the default backend or configuration used by :class:`~Parallel`
+    """Set the default backend or configuration for :class:`~joblib.Parallel`.
 
     This is an alternative to directly passing keyword arguments to the
-    :class:`~Parallel` class constructor. It is particularly useful when
+    :class:`~joblib.Parallel` class constructor. It is particularly useful when
     calling into library code that uses joblib internally but does not expose
     the various parallel configuration arguments in its own API.
 
@@ -237,7 +237,7 @@ class parallel_config:
         multiprocessing and loky may not be available, in which case joblib
         defaults to threading.
 
-        In addition, if the `dask` and `distributed` Python packages are
+        In addition, if the ``dask`` and ``distributed`` Python packages are
         installed, it is possible to use the 'dask' backend for better
         scheduling of nested parallel calls without over-subscription and
         potentially distribute parallel calls over a networked cluster of
@@ -251,14 +251,14 @@ class parallel_config:
 
     n_jobs : int, default=None
         The maximum number of concurrently running jobs, such as the number
-        of Python worker processes when `backend="loky"` or the size of the
-        thread-pool when `backend="threading"`.
+        of Python worker processes when ``backend="loky"`` or the size of the
+        thread-pool when ``backend="threading"``.
         If -1 all CPUs are used. If 1 is given, no parallel computing code
-        is used at all, which is useful for debugging. For `n_jobs` below -1,
-        (n_cpus + 1 + n_jobs) are used. Thus for `n_jobs=-2`, all
+        is used at all, which is useful for debugging. For ``n_jobs`` below -1,
+        (n_cpus + 1 + n_jobs) are used. Thus for ``n_jobs=-2``, all
         CPUs but one are used.
-        `None` is a marker for 'unset' that will be interpreted as `n_jobs=1`
-        in most backends.
+        ``None`` is a marker for 'unset' that will be interpreted as
+        ``n_jobs=1`` in most backends.
 
     verbose : int, default=0
         The verbosity level: if non zero, progress messages are
@@ -271,14 +271,14 @@ class parallel_config:
         for sharing memory with worker processes. If None, this will try in
         order:
 
-        - a folder pointed by the `JOBLIB_TEMP_FOLDER` environment
+        - a folder pointed by the ``JOBLIB_TEMP_FOLDER`` environment
           variable,
-        - `/dev/shm` if the folder exists and is writable: this is a
+        - ``/dev/shm`` if the folder exists and is writable: this is a
           RAM disk filesystem available by default on modern Linux
           distributions,
         - the default system temporary folder that can be
-          overridden with `TMP`, `TMPDIR` or `TEMP` environment
-          variables, typically `/tmp` under Unix operating systems.
+          overridden with ``TMP``, ``TMPDIR`` or ``TEMP`` environment
+          variables, typically ``/tmp`` under Unix operating systems.
 
     max_nbytes int, str, or None, optional, default='1M'
         Threshold on the size of arrays passed to the workers that
@@ -305,7 +305,7 @@ class parallel_config:
     inner_max_num_threads : int, default=None
         If not None, overwrites the limit set on the number of threads
         usable in some third-party library threadpools like OpenBLAS,
-        MKL or OpenMP. This is only used with the `loky` backend.
+        MKL or OpenMP. This is only used with the ``loky`` backend.
 
     backend_params : dict
         Additional parameters to pass to the backend constructor when
@@ -320,6 +320,8 @@ class parallel_config:
     overwritten with the ``inner_max_num_threads`` argument which will be used
     to set this limit in the child processes.
 
+    .. versionadded:: 1.3
+
     Examples
     --------
     >>> from operator import neg
@@ -328,7 +330,7 @@ class parallel_config:
     ...
     [-1, -2, -3, -4, -5]
 
-    To use the 'ray' joblib backend add the following lines::
+    To use the 'ray' joblib backend add the following lines:
 
     >>> from ray.util.joblib import register_ray  # doctest: +SKIP
     >>> register_ray()  # doctest: +SKIP
@@ -336,7 +338,6 @@ class parallel_config:
     ...     print(Parallel()(delayed(neg)(i + 1) for i in range(5)))
     [-1, -2, -3, -4, -5]
 
-    .. versionadded:: 1.3
     """
     def __init__(
         self,
@@ -441,8 +442,9 @@ class parallel_config:
 class parallel_backend(parallel_config):
     """Change the default backend used by Parallel inside a with block.
 
-    It is advised to use the `parallel_config` context manager instead,
-    which allows more fine-grained control over the backend configuration.
+    It is advised to use the :class:`~joblib.parallel.parallel_config` context
+    manager instead, which allows more fine-grained control over the backend
+    configuration.
 
     If ``backend`` is a string it must match a previously registered
     implementation using the :func:`~register_parallel_backend` function.
@@ -510,12 +512,12 @@ class parallel_backend(parallel_config):
     overwritten with the ``inner_max_num_threads`` argument which will be used
     to set this limit in the child processes.
 
-    See Also
-    --------
-    parallel_config : context manager to change the backend configuration
-
     .. versionadded:: 0.10
 
+    See Also
+    --------
+    joblib.parallel.parallel_config : context manager to change the backend
+                                      configuration
     """
     def __init__(self, backend, n_jobs=-1, inner_max_num_threads=None,
                  **backend_params):
@@ -880,7 +882,6 @@ def register_parallel_backend(name, factory, make_default=False):
     version of joblib.
 
     .. versionadded:: 0.10
-
     """
     BACKENDS[name] = factory
     if make_default:
@@ -908,7 +909,6 @@ def effective_n_jobs(n_jobs=-1):
     version of joblib.
 
     .. versionadded:: 0.10
-
     """
     if n_jobs == 1:
         return 1
@@ -926,7 +926,7 @@ class Parallel(Logger):
         Read more in the :ref:`User Guide <parallel>`.
 
         Parameters
-        -----------
+        ----------
         n_jobs: int, default: None
             The maximum number of concurrently running jobs, such as the number
             of Python worker processes when backend="multiprocessing"
