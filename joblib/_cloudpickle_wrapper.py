@@ -10,6 +10,7 @@ from ._multiprocessing_helpers import mp
 def _my_wrap_non_picklable_objects(obj, keep_wrapper=True):
     return obj
 
+
 if mp is not None:
     from .externals.loky import wrap_non_picklable_objects
 else:
