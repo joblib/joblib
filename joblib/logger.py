@@ -64,7 +64,7 @@ class Logger(object):
     """ Base class for logging messages.
     """
 
-    def __init__(self, depth=3):
+    def __init__(self, depth=3, name='joblib'):
         """
             Parameters
             ----------
@@ -72,16 +72,18 @@ class Logger(object):
                 The depth of objects printed.
         """
         self.depth = depth
+        self.logger = logging.getLogger(name)
+        self.logger.addHandler(logging.NullHandler())
 
     def warn(self, msg):
-        logging.warning("[%s]: %s" % (self, msg))
+        self.logger.warning("[%s]: %s" % (self, msg))
 
     def info(self, msg):
         logging.info("[%s]: %s" % (self, msg))
 
     def debug(self, msg):
         # XXX: This conflicts with the debug flag used in children class
-        logging.debug("[%s]: %s" % (self, msg))
+        self.logger.debug("[%s]: %s" % (self, msg))
 
     def format(self, obj, indent=0):
         """Return the formatted representation of the object."""
