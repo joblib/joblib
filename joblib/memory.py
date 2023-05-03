@@ -22,6 +22,7 @@ import traceback
 import warnings
 import inspect
 import weakref
+import hashlib
 
 from tokenize import open as open_py_source
 
@@ -155,8 +156,9 @@ def _build_func_identifier(func):
     else:
         parts.append(_get_func_fullname(func))
 
-    # We reuse historical fs-like way of building a function identifier
-    return os.path.join(*parts)
+    # Compress function identifier to avoid long file names
+    # not supported on all systems
+    return hashlib.sha1(os.path.join(*parts).encode('utf-8')).hexdigest()
 
 
 def _format_load_msg(func_id, args_id, timestamp=None, metadata=None):
