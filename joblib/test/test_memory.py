@@ -88,6 +88,7 @@ def test_memory_integration(tmpdir):
     """ Simple test of memory lazy evaluation.
     """
     accumulator = list()
+
     # Rmk: this function has the same name than a module-level function,
     # thus it serves as a test to see that both are identified
     # as different.
