@@ -552,7 +552,6 @@ class MemorizedFunc(Logger):
                 )
             )
 
-        # FIXME: The statements below should be try/excepted
         # Compare the function code with the previous to see if the
         # function code has changed and check if the results are present in
         # the cache.
