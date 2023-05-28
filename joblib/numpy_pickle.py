@@ -427,7 +427,7 @@ def dump(value, filename, compress=0, protocol=None, cache_size=None):
     Read more in the :ref:`User Guide <persistence>`.
 
     Parameters
-    -----------
+    ----------
     value: any Python object
         The object to store to disk.
     filename: str, pathlib.Path, or file object.
@@ -611,7 +611,7 @@ def load(filename, mmap_mode=None):
     to load files from untrusted sources.
 
     Parameters
-    -----------
+    ----------
     filename: str, pathlib.Path, or file object.
         The file object or path of the file from which to load the object
     mmap_mode: {None, 'r+', 'r', 'w+', 'c'}, optional

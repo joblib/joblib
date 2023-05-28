@@ -22,6 +22,30 @@ In development
   in May 2022) that it should be safe to remove this.
   https://github.com/joblib/joblib/pull/1361
 
+- A warning is raised when a pickling error occurs during caching operations.
+  In version 1.5, this warning will be turned into an error. For all other
+  errors, a new warning has been introduced: `joblib.memory.CacheWarning`.
+  https://github.com/joblib/joblib/pull/1359
+
+- Avoid (module, name) collisions when caching nested functions. This fix
+  changes the module name of nested functions, invalidating caches from
+  previous versions of Joblib.
+  https://github.com/joblib/joblib/pull/1374
+
+- Add a ``return_generator`` parameter for ``Parallel``, that allows
+  to consume results asynchronously.
+  https://github.com/joblib/joblib/pull/1393
+
+- Improve the behavior of ``joblib`` for ``n_jobs=1``, with simplified
+  tracebacks and more efficient running time.
+  https://github.com/joblib/joblib/pull/1393
+
+- Add the `parallel_config` context manager to allow for more fine-grained
+  control over the backend configuration. It should be used in place of the
+  `parallel_backend` context manager. In particular, it has the advantage
+  of not requiring to set a specific backend in the context manager.
+  https://github.com/joblib/joblib/pull/1392
+
 Release 1.2.0
 -------------
 

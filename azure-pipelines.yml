@@ -32,7 +32,7 @@ jobs:
           exit 0
         else
           source activate flake8_env
-          bash continuous_integration/flake8_diff.sh
+          flake8
         fi
       displayName: Run linting
 
@@ -60,10 +60,10 @@ jobs:
         imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.7"
         EXTRA_CONDA_PACKAGES: "numpy=1.15 distributed=2.13"
-      linux_py310_cython:
+      linux_py311_cython:
         imageName: 'ubuntu-latest'
-        PYTHON_VERSION: "3.10"
-        EXTRA_CONDA_PACKAGES: "numpy=1.23"
+        PYTHON_VERSION: "3.11"
+        EXTRA_CONDA_PACKAGES: "numpy=1.24.1"
         CYTHON: "true"
       linux_py37_no_multiprocessing_no_lzma:
         imageName: 'ubuntu-latest'

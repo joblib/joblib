@@ -1,17 +1,20 @@
+import faulthandler
+
 from joblib.parallel import mp
-from joblib.test.common import np, setup_autokill, teardown_autokill
+from joblib.test.common import np
 from joblib.testing import skipif, fixture
 
 
 @fixture(scope='module')
 @skipif(np is None or mp is None, 'Numpy or Multiprocessing not available')
 def parallel_numpy_fixture(request):
-    """Fixture to skip memmapping test if numpy is not installed"""
+    """Fixture to skip memmapping test if numpy or multiprocessing is not
+    installed"""
     def setup(module):
-        setup_autokill(module.__name__, timeout=300)
+        faulthandler.dump_traceback_later(timeout=300, exit=True)
 
         def teardown():
-            teardown_autokill(module.__name__)
+            faulthandler.cancel_dump_traceback_later()
         request.addfinalizer(teardown)
 
         return parallel_numpy_fixture

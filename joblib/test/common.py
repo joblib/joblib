@@ -1,12 +1,9 @@
 """
 Small utilities for testing.
 """
-import threading
-import signal
-import time
 import os
-import sys
 import gc
+import sys
 
 from joblib._multiprocessing_helpers import mp
 from joblib.testing import SkipTest, skipif
@@ -15,6 +12,8 @@ try:
     import lz4
 except ImportError:
     lz4 = None
+
+IS_PYPY = hasattr(sys, "pypy_version_info")
 
 # A decorator to run tests only when numpy is available
 try:
@@ -58,46 +57,17 @@ except ImportError:
 
     memory_usage = memory_used = None
 
-# A utility to kill the test runner in case a multiprocessing assumption
-# triggers an infinite wait on a pipe by the master process for one of its
-# failed workers
 
-_KILLER_THREADS = dict()
-
-
-def setup_autokill(module_name, timeout=30):
-    """Timeout based suiciding thread to kill the test runner process
-
-    If some subprocess dies in an unexpected way we don't want the
-    parent process to block indefinitely.
-    """
-    if "NO_AUTOKILL" in os.environ or "--pdb" in sys.argv:
-        # Do not install the autokiller
-        return
-
-    # Renew any previous contract under that name by first cancelling the
-    # previous version (that should normally not happen in practice)
-    teardown_autokill(module_name)
-
-    def autokill():
-        pid = os.getpid()
-        print("Timeout exceeded: terminating stalled process: %d" % pid)
-        os.kill(pid, signal.SIGTERM)
-
-        # If were are still there ask the OS to kill ourself for real
-        time.sleep(0.5)
-        print("Timeout exceeded: killing stalled process: %d" % pid)
-        os.kill(pid, signal.SIGKILL)
-
-    _KILLER_THREADS[module_name] = t = threading.Timer(timeout, autokill)
-    t.start()
-
-
-def teardown_autokill(module_name):
-    """Cancel a previously started killer thread"""
-    killer = _KILLER_THREADS.get(module_name)
-    if killer is not None:
-        killer.cancel()
+def force_gc_pypy():
+    # The gc in pypy can be delayed. Force it to test the behavior when it
+    # will eventually be collected.
+    if IS_PYPY:
+        # Run gc.collect() twice to make sure the weakref is collected, as
+        # mentionned in the pypy doc:
+        # https://doc.pypy.org/en/latest/config/objspace.usemodules._weakref.html
+        import gc
+        gc.collect()
+        gc.collect()
 
 
 with_multiprocessing = skipif(

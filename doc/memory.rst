@@ -15,20 +15,9 @@ On demand recomputing: the `Memory` class
 Use case
 --------
 
-The `Memory` class defines a context for lazy evaluation of function, by
-putting the results in a store, by default using a disk, and not re-running
-the function twice for the same arguments.
-
-..
- Commented out in favor of briefness
-
-    You can use it as a context, with its `eval` method:
-
-    .. automethod:: Memory.eval
-
-    or decorate functions with the `cache` method:
-
-    .. automethod:: Memory.cache
+The :class:`~joblib.Memory` class defines a context for lazy evaluation of
+function, by putting the results in a store, by default using a disk, and not
+re-running the function twice for the same arguments.
 
 It works by explicitly saving the output to a file and it is designed to
 work with non-hashable and potentially large input and output data types
@@ -102,7 +91,7 @@ An example
 
   Define two functions: the first with a number as an argument,
   outputting an array, used by the second one. Both functions are decorated
-  with `Memory.cache`::
+  with :meth:`Memory.cache <joblib.Memory.cache>`::
 
     >>> import numpy as np
 
@@ -152,7 +141,7 @@ arrays::
     square(array([[0., 0., 1.],
            [1., 1., 1.],
            [4., 2., 1.]]))
-    ___________________________________________________________square - 0.0s, 0.0min
+    ___________________________________________________________square - ...min
     memmap([[ 0.,  0.,  1.],
             [ 1.,  1.,  1.],
             [16.,  4.,  1.]])
@@ -414,16 +403,19 @@ list::
 
 .. _memory_reference:
 
-Reference documentation of the :class:`Memory` class
------------------------------------------------------
+Reference documentation of the :class:`~joblib.Memory` class
+------------------------------------------------------------
 
-.. autoclass:: Memory
-    :members: __init__, cache, eval, clear
+.. autoclass:: joblib.Memory
+    :members: __init__, cache, eval, clear, reduce_size, format
+    :no-inherited-members:
+    :noindex:
 
 Useful methods of decorated functions
 -------------------------------------
 
-Functions decorated by :meth:`Memory.cache` are :class:`MemorizedFunc`
+Functions decorated by :meth:`Memory.cache <joblib.Memory.cache>` are
+:class:`MemorizedFunc`
 objects that, in addition of behaving like normal functions, expose
 methods useful for cache exploration and management. For example, you can
 use :meth:`func.check_call_in_cache <MemorizedFunc.check_call_in_cache>` to

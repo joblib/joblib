@@ -47,7 +47,7 @@ if [ -n "$NUMPY_VERSION" ]; then
 fi
 
 if [[ "$COVERAGE" == "true" ]]; then
-    PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES coverage pytest-cov codecov"
+    PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES coverage pytest-cov"
 fi
 
 if [[ "pypy3" != *"$PYTHON_VERSION"* ]]; then

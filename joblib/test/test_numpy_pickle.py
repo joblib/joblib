@@ -280,8 +280,9 @@ def test_compress_mmap_mode_warning(tmpdir):
     numpy_pickle.dump(a, this_filename, compress=1)
     with warns(UserWarning) as warninfo:
         numpy_pickle.load(this_filename, mmap_mode='r+')
+    debug_msg = "\n".join([str(w) for w in warninfo])
     warninfo = [w.message for w in warninfo]
-    assert len(warninfo) == 1
+    assert len(warninfo) == 1, debug_msg
     assert (
         str(warninfo[0]) ==
         'mmap_mode "r+" is not compatible with compressed '
@@ -932,27 +933,27 @@ def test_pickle_in_socket():
     listener.bind(_ADDR)
     listener.listen(1)
 
-    client = socket.create_connection(_ADDR)
-    server, client_addr = listener.accept()
+    with socket.create_connection(_ADDR) as client:
+        server, client_addr = listener.accept()
 
-    with server.makefile("wb") as sf:
-        numpy_pickle.dump(test_array, sf)
+        with server.makefile("wb") as sf:
+            numpy_pickle.dump(test_array, sf)
 
-    with client.makefile("rb") as cf:
-        array_reloaded = numpy_pickle.load(cf)
+        with client.makefile("rb") as cf:
+            array_reloaded = numpy_pickle.load(cf)
 
-    np.testing.assert_array_equal(array_reloaded, test_array)
+        np.testing.assert_array_equal(array_reloaded, test_array)
 
-    # Check that a byte-aligned numpy array written in a file can be send over
-    # a socket and then read on the other side
-    bytes_to_send = io.BytesIO()
-    numpy_pickle.dump(test_array, bytes_to_send)
-    server.send(bytes_to_send.getvalue())
+        # Check that a byte-aligned numpy array written in a file can be send
+        # over a socket and then read on the other side
+        bytes_to_send = io.BytesIO()
+        numpy_pickle.dump(test_array, bytes_to_send)
+        server.send(bytes_to_send.getvalue())
 
-    with client.makefile("rb") as cf:
-        array_reloaded = numpy_pickle.load(cf)
+        with client.makefile("rb") as cf:
+            array_reloaded = numpy_pickle.load(cf)
 
-    np.testing.assert_array_equal(array_reloaded, test_array)
+        np.testing.assert_array_equal(array_reloaded, test_array)
 
 
 @with_numpy
