@@ -462,7 +462,8 @@ that change over time: a small delay in the updates might be tolerable
 but after a while, the results might be invalid.
 
 One can have a finer control on the cache validity specifying a function
-via ``cache_validation_callback`` in :meth:`Memory.cache`:
+via ``cache_validation_callback`` in :meth:`Memory.cache`. For instance,
+one can make it so that only results that take more than 1s get in cache.
 
     >>> import time
     >>> def cache_validation_cb(metadata):
@@ -472,7 +473,6 @@ via ``cache_validation_callback`` in :meth:`Memory.cache`:
     ... def my_func(delay=0):
     ...     time.sleep(delay)
     ...	    print(f'Called with {delay}s delay')
-   # Only result that take more than 1s get in the cache. For instance:
     >>> my_func()
     Called with 0s delay
     >>> my_func(1.1)
