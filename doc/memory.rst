@@ -462,8 +462,8 @@ that change over time: a small delay in the updates might be tolerable
 but after a while, the results might be invalid.
 
 One can have a finer control on the cache validity specifying a function
-via ``cache_validation_callback`` in :meth:`Memory.cache`. For instance,
-one can make it so that only results that take more than 1s get in cache.
+via ``cache_validation_callback`` in :meth:`~joblib.Memory.cache`. For
+instance, one can only cache results that take more than 1s to be computed.
 
     >>> import time
     >>> def cache_validation_cb(metadata):
@@ -485,7 +485,7 @@ one can make it so that only results that take more than 1s get in cache.
 the metadata of the cached call as a dictionary containing the following
 keys:
   
-  - ``duration`: the duration of the function call,
+  - ``duration``: the duration of the function call,
   - ``time``: the timestamp when the cache called has been recorded
   - ``input_args``: a dictionary of keywords arguments for the cached function call.
   
