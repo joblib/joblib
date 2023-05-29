@@ -8,23 +8,25 @@ import time
 from uuid import uuid4
 import weakref
 
-from .parallel import AutoBatchingMixin, ParallelBackendBase, BatchedCalls
 from .parallel import parallel_backend
+from .parallel import AutoBatchingMixin, ParallelBackendBase
 
 try:
+    import dask
     import distributed
 except ImportError:
+    dask = None
     distributed = None
 
-if distributed is not None:
-    from dask.utils import funcname, itemgetter
+if dask is not None and distributed is not None:
+    from dask.utils import funcname
     from dask.sizeof import sizeof
     from dask.distributed import (
         Client,
         as_completed,
         get_client,
         secede,
-        rejoin
+        rejoin,
     )
     from distributed.utils import thread_state
 
@@ -122,7 +124,7 @@ class Batch:
         with parallel_backend('dask'):
             for func, args, kwargs in tasks:
                 results.append(func(*args, **kwargs))
-        return results
+            return results
 
     def __repr__(self):
         descr = f"batch_of_{self._funcname}_{self._num_tasks}_calls"

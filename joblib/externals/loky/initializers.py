@@ -4,6 +4,7 @@ import warnings
 def _viztracer_init(init_kwargs):
     """Initialize viztracer's profiler in worker processes"""
     from viztracer import VizTracer
+
     tracer = VizTracer(**init_kwargs)
     tracer.register_exit()
     tracer.start()
@@ -12,8 +13,9 @@ def _viztracer_init(init_kwargs):
 def _make_viztracer_initializer_and_initargs():
     try:
         import viztracer
+
         tracer = viztracer.get_tracer()
-        if tracer is not None and getattr(tracer, 'enable', False):
+        if tracer is not None and getattr(tracer, "enable", False):
             # Profiler is active: introspect its configuration to
             # initialize the workers with the same configuration.
             return _viztracer_init, (tracer.init_kwargs,)
@@ -23,12 +25,11 @@ def _make_viztracer_initializer_and_initargs():
     except Exception as e:
         # In case viztracer's API evolve, we do not want to crash loky but
         # we want to know about it to be able to update loky.
-        warnings.warn("Unable to introspect viztracer state: {}"
-                      .format(e))
+        warnings.warn(f"Unable to introspect viztracer state: {e}")
     return None, ()
 
 
-class _ChainedInitializer():
+class _ChainedInitializer:
     """Compound worker initializer
 
     This is meant to be used in conjunction with _chain_initializers to
@@ -55,7 +56,7 @@ def _chain_initializers(initializer_and_args):
             filtered_initializers.append(initializer)
             filtered_initargs.append(initargs)
 
-    if len(filtered_initializers) == 0:
+    if not filtered_initializers:
         return None, ()
     elif len(filtered_initializers) == 1:
         return filtered_initializers[0], filtered_initargs[0]
@@ -66,13 +67,14 @@ def _chain_initializers(initializer_and_args):
 def _prepare_initializer(initializer, initargs):
     if initializer is not None and not callable(initializer):
         raise TypeError(
-            "initializer must be a callable, got: {!r}"
-            .format(initializer)
+            f"initializer must be a callable, got: {initializer!r}"
         )
 
     # Introspect runtime to determine if we need to propagate the viztracer
     # profiler information to the workers:
-    return _chain_initializers([
-        (initializer, initargs),
-        _make_viztracer_initializer_and_initargs(),
-    ])
+    return _chain_initializers(
+        [
+            (initializer, initargs),
+            _make_viztracer_initializer_and_initargs(),
+        ]
+    )

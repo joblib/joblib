@@ -15,20 +15,9 @@ On demand recomputing: the `Memory` class
 Use case
 --------
 
-The `Memory` class defines a context for lazy evaluation of function, by
-putting the results in a store, by default using a disk, and not re-running
-the function twice for the same arguments.
-
-..
- Commented out in favor of briefness
-
-    You can use it as a context, with its `eval` method:
-
-    .. automethod:: Memory.eval
-
-    or decorate functions with the `cache` method:
-
-    .. automethod:: Memory.cache
+The :class:`~joblib.Memory` class defines a context for lazy evaluation of
+function, by putting the results in a store, by default using a disk, and not
+re-running the function twice for the same arguments.
 
 It works by explicitly saving the output to a file and it is designed to
 work with non-hashable and potentially large input and output data types
@@ -95,14 +84,14 @@ Using with `numpy`
 
 The original motivation behind the `Memory` context was to have a
 memoize-like pattern on numpy arrays. `Memory` uses fast cryptographic
-hashing of the input arguments to check if they have been computed;
+hashing of the input arguments to check if they have been computed.
 
 An example
 ~~~~~~~~~~
 
   Define two functions: the first with a number as an argument,
   outputting an array, used by the second one. Both functions are decorated
-  with `Memory.cache`::
+  with :meth:`Memory.cache <joblib.Memory.cache>`::
 
     >>> import numpy as np
 
@@ -152,7 +141,7 @@ arrays::
     square(array([[0., 0., 1.],
            [1., 1., 1.],
            [4., 2., 1.]]))
-    ___________________________________________________________square - 0.0s, 0.0min
+    ___________________________________________________________square - ...min
     memmap([[ 0.,  0.,  1.],
             [ 1.,  1.,  1.],
             [16.,  4.,  1.]])
@@ -242,7 +231,7 @@ python interpreter.
 
 
 Gotchas
---------
+-------
 
 * **Across sessions, function cache is identified by the function's name**.
   Thus assigning the same name to different functions, their cache will
@@ -391,8 +380,8 @@ Gotchas
   ``joblib.Memory`` cache can get invalidated when upgrading ``joblib``.
   Invalidation can also happen when upgrading a third party library (such as
   ``numpy``): in such a case, only the cached function calls with parameters
-  that are constructs (or contain references to contructs) defined in the
-  upgraded library should potentially be invalidated after the uprade.
+  that are constructs (or contain references to constructs) defined in the
+  upgraded library should potentially be invalidated after the upgrade.
 
 
 Ignoring some arguments
@@ -413,18 +402,38 @@ change, for instance a debug flag. `Memory` provides the `ignore` list::
 
 .. _memory_reference:
 
-Reference documentation of the `Memory` class
----------------------------------------------
+Reference documentation of the :class:`~joblib.Memory` class
+------------------------------------------------------------
 
-.. autoclass:: Memory
-    :members: __init__, cache, eval, clear
+.. autoclass:: joblib.Memory
+    :members: __init__, cache, eval, clear, reduce_size, format
+    :no-inherited-members:
+    :noindex:
 
 Useful methods of decorated functions
 -------------------------------------
 
-Function decorated by :meth:`Memory.cache` are :class:`MemorizedFunc`
+Functions decorated by :meth:`Memory.cache <joblib.Memory.cache>` are
+:class:`MemorizedFunc`
 objects that, in addition of behaving like normal functions, expose
-methods useful for cache exploration and management.
+methods useful for cache exploration and management. For example, you can
+use :meth:`func.check_call_in_cache <MemorizedFunc.check_call_in_cache>` to
+check if a cache hit will occur for a decorated ``func`` given a set of inputs
+without actually needing to call the function itself::
+
+    >>> @memory.cache
+    ... def func(x):
+    ...     print('Running func(%s)' % x)
+    ...     return x
+    >>> type(func)
+    <class 'joblib.memory.MemorizedFunc'>
+    >>> func(1)
+    Running func(1)
+    1
+    >>> func.check_call_in_cache(1)  # cache hit
+    True
+    >>> func.check_call_in_cache(2)  # cache miss
+    False
 
 .. autoclass:: MemorizedFunc
     :members: __init__, call, clear, check_call_in_cache

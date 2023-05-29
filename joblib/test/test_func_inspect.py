@@ -146,11 +146,31 @@ def test_func_name_on_inner_func(cached_func):
     assert get_func_name(cached_func)[1] == 'cached_func_inner'
 
 
+def test_func_name_collision_on_inner_func():
+    # Check that two functions defining and caching an inner function
+    # with the same do not cause (module, name) collision
+    def f():
+        def inner_func():
+            return  # pragma: no cover
+        return get_func_name(inner_func)
+
+    def g():
+        def inner_func():
+            return  # pragma: no cover
+        return get_func_name(inner_func)
+
+    module, name = f()
+    other_module, other_name = g()
+
+    assert name == other_name
+    assert module != other_module
+
+
 def test_func_inspect_errors():
     # Check that func_inspect is robust and will work on weird objects
     assert get_func_name('a'.lower)[-1] == 'lower'
     assert get_func_code('a'.lower)[1:] == (None, -1)
-    ff = lambda x: x
+    ff = lambda x: x  # noqa: E731
     assert get_func_name(ff, win_characters=False)[-1] == '<lambda>'
     assert get_func_code(ff)[1] == __file__.replace('.pyc', '.py')
     # Simulate a function defined in __main__

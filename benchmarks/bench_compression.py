@@ -190,9 +190,9 @@ def run_bench():
                             obj_r = _load(unpickler, fname, f)
                     ltime = time.time() - t0
                     if isinstance(obj, np.ndarray):
-                        assert((obj == obj_r).all())
+                        assert (obj == obj_r).all()
                     else:
-                        assert(obj == obj_r)
+                        assert obj == obj_r
                     print_line("{} ({:.1f}MB)".format(oname, osize),
                                cname,
                                bname,

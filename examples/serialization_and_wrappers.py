@@ -36,7 +36,7 @@ print(Parallel(n_jobs=2)(delayed(func_async)(21) for _ in range(1))[0])
 
 
 ###############################################################################
-# For most use-cases, using ``cloudpickle``` is efficient enough. However, this
+# For most use-cases, using ``cloudpickle`` is efficient enough. However, this
 # solution can be very slow to serialize large python objects, such as dict or
 # list, compared to the standard ``pickle`` serialization.
 #
@@ -141,7 +141,7 @@ print("With pickle from stdlib and wrapper: {:.3f}s"
 
 ###############################################################################
 # The same wrapper can also be used for non-picklable classes. Note that the
-# side effects of :func:`wrap_non_picklable_objects` on objects can break magic
+# side effects of ``wrap_non_picklable_objects`` on objects can break magic
 # methods such as ``__add__`` and can mess up the ``isinstance`` and
 # ``issubclass`` functions. Some improvements will be considered if use-cases
 # are reported.

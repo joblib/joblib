@@ -1,8 +1,96 @@
 Latest changes
 ==============
 
-Development version
--------------------
+In development
+--------------
+
+- Ensure native byte order for memmap arrays in `joblib.load`.
+  https://github.com/joblib/joblib/issues/1353
+
+- Add ability to change default Parallel backend in tests by setting the
+  JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND environment variable.
+  https://github.com/joblib/joblib/pull/1356
+
+- Fix temporary folder creation in `joblib.Parallel` on Linux subsystems on Windows
+  which do have `/dev/shm` but don't have the `os.statvfs` function 
+  https://github.com/joblib/joblib/issues/1353
+
+- Drop runtime dependency on ``distutils``. ``distutils`` is going away
+  in Python 3.12 and is deprecated from Python 3.10 onwards. This import
+  was kept around to avoid breaking scikit-learn, however it's now been
+  long enough since scikit-learn deployed a fixed (verion 1.1 was released
+  in May 2022) that it should be safe to remove this.
+  https://github.com/joblib/joblib/pull/1361
+
+- A warning is raised when a pickling error occurs during caching operations.
+  In version 1.5, this warning will be turned into an error. For all other
+  errors, a new warning has been introduced: `joblib.memory.CacheWarning`.
+  https://github.com/joblib/joblib/pull/1359
+
+- Avoid (module, name) collisions when caching nested functions. This fix
+  changes the module name of nested functions, invalidating caches from
+  previous versions of Joblib.
+  https://github.com/joblib/joblib/pull/1374
+
+- Add a ``return_generator`` parameter for ``Parallel``, that allows
+  to consume results asynchronously.
+  https://github.com/joblib/joblib/pull/1393
+
+- Improve the behavior of ``joblib`` for ``n_jobs=1``, with simplified
+  tracebacks and more efficient running time.
+  https://github.com/joblib/joblib/pull/1393
+
+- Add the `parallel_config` context manager to allow for more fine-grained
+  control over the backend configuration. It should be used in place of the
+  `parallel_backend` context manager. In particular, it has the advantage
+  of not requiring to set a specific backend in the context manager.
+  https://github.com/joblib/joblib/pull/1392
+
+Release 1.2.0
+-------------
+
+- Fix a security issue where ``eval(pre_dispatch)`` could potentially run
+  arbitrary code. Now only basic numerics are supported.
+  https://github.com/joblib/joblib/pull/1327
+
+- Make sure that joblib works even when multiprocessing is not available,
+  for instance with Pyodide
+  https://github.com/joblib/joblib/pull/1256
+
+- Avoid unnecessary warnings when workers and main process delete
+  the temporary memmap folder contents concurrently.
+  https://github.com/joblib/joblib/pull/1263 
+
+- Fix memory alignment bug for pickles containing numpy arrays.
+  This is especially important when loading the pickle with
+  ``mmap_mode != None`` as the resulting ``numpy.memmap`` object
+  would not be able to correct the misalignment without performing
+  a memory copy.
+  This bug would cause invalid computation and segmentation faults
+  with native code that would directly access the underlying data
+  buffer of a numpy array, for instance C/C++/Cython code compiled
+  with older GCC versions or some old OpenBLAS written in platform
+  specific assembly.
+  https://github.com/joblib/joblib/pull/1254
+
+- Vendor cloudpickle 2.2.0 which adds support for PyPy 3.8+.
+
+- Vendor loky 3.3.0 which fixes several bugs including:
+
+  - robustly forcibly terminating worker processes in case of a crash
+    (https://github.com/joblib/joblib/pull/1269);
+
+  - avoiding leaking worker processes in case of nested loky parallel
+    calls;
+
+  - reliability spawn the correct number of reusable workers.
+
+Release 1.1.1
+-------------
+
+- Fix a security issue where ``eval(pre_dispatch)`` could potentially run
+  arbitrary code. Now only basic numerics are supported.
+  https://github.com/joblib/joblib/pull/1327
 
 Release 1.1.0
 --------------
@@ -272,7 +360,7 @@ Maxime Weyl
 Maxime Weyl
 
     Loading a corrupted cached file with mmap mode enabled would
-    recompute the results and return them without memmory mapping.
+    recompute the results and return them without memory mapping.
 
 
 Release 0.12.3
@@ -883,7 +971,7 @@ Release 0.6.5
 2012-09-15
 Yannick Schwartz
 
-    BUG: make sure that sets and dictionnaries give reproducible hashes
+    BUG: make sure that sets and dictionaries give reproducible hashes
 
 
 2012-07-18
@@ -914,7 +1002,7 @@ GaelVaroquaux
 
     BUG: non-reproducible hashing: order of kwargs
 
-    The ordering of a dictionnary is random. As a result the function hashing
+    The ordering of a dictionary is random. As a result the function hashing
     was not reproducible. Pretty hard to test
 
 Release 0.6.3
@@ -1224,7 +1312,7 @@ Gael varoquaux
 Gael varoquaux
 2010-07-29
 
-    MISC: Silence tests (and hopefuly Yaroslav :P)
+    MISC: Silence tests (and hopefully Yaroslav :P)
 
 Release 0.4.3
 ----------------

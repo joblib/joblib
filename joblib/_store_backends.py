@@ -1,5 +1,6 @@
 """Storage providers backends for Memory caching."""
 
+from pickle import PicklingError
 import re
 import os
 import os.path
@@ -18,6 +19,11 @@ from . import numpy_pickle
 
 CacheItemInfo = collections.namedtuple('CacheItemInfo',
                                        'path size last_access')
+
+
+class CacheWarning(Warning):
+    """Warning to capture dump failures except for PicklingError."""
+    pass
 
 
 def concurrency_safe_write(object_to_write, filename, write_func):
@@ -130,7 +136,7 @@ class StoreBackendBase(metaclass=ABCMeta):
         verbose: int
             The level of verbosity of the store
         backend_options: dict
-            Contains a dictionnary of named paremeters used to configure the
+            Contains a dictionary of named parameters used to configure the
             store backend.
         """
 
@@ -185,12 +191,24 @@ class StoreBackendMixin(object):
 
             def write_func(to_write, dest_filename):
                 with self._open_item(dest_filename, "wb") as f:
-                    numpy_pickle.dump(to_write, f,
-                                      compress=self.compress)
+                    try:
+                        numpy_pickle.dump(to_write, f, compress=self.compress)
+                    except PicklingError as e:
+                        # TODO(1.5) turn into error
+                        warnings.warn(
+                            "Unable to cache to disk: failed to pickle "
+                            "output. In version 1.5 this will raise an "
+                            f"exception. Exception: {e}.",
+                            FutureWarning
+                        )
 
             self._concurrency_safe_write(item, filename, write_func)
-        except:  # noqa: E722
-            " Race condition in the creation of the directory "
+        except Exception as e:  # noqa: E722
+            warnings.warn(
+                "Unable to cache to disk. Possibly a race condition in the "
+                f"creation of the directory. Exception: {e}.",
+                CacheWarning
+            )
 
     def clear_item(self, path):
         """Clear the item at the path, given as a list of strings."""
