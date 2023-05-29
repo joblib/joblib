@@ -942,7 +942,7 @@ def test__get_items_to_delete(tmpdir):
             min(ci.last_access for ci in surviving_items))
 
 
-def test_memory_reduce_size(tmpdir):
+def test_memory_reduce_size_bytes_limit(tmpdir):
     memory, _, _ = _setup_toy_cache(tmpdir)
     ref_cache_items = memory.store_backend.get_items()
 
@@ -969,6 +969,64 @@ def test_memory_reduce_size(tmpdir):
     bytes_limit_too_small = 500
     memory.bytes_limit = bytes_limit_too_small
     memory.reduce_size()
+    cache_items = memory.store_backend.get_items()
+    assert cache_items == []
+
+
+def test_memory_reduce_size_items_limit(tmpdir):
+    memory, _, _ = _setup_toy_cache(tmpdir)
+    ref_cache_items = memory.store_backend.get_items()
+
+    # By default reduce_size is a noop
+    memory.reduce_size()
+    cache_items = memory.store_backend.get_items()
+    assert sorted(ref_cache_items) == sorted(cache_items)
+
+    # No cache items deleted if items_limit greater than the size of
+    # the cache
+    memory.reduce_size(items_limit=10)
+    cache_items = memory.store_backend.get_items()
+    assert sorted(ref_cache_items) == sorted(cache_items)
+
+    # items_limit is set so that only two cache items are kept
+    memory.reduce_size(items_limit=2)
+    cache_items = memory.store_backend.get_items()
+    assert set.issubset(set(cache_items), set(ref_cache_items))
+    assert len(cache_items) == 2
+
+    # bytes_limit set so that no cache item is kept
+    memory.reduce_size(items_limit=0)
+    cache_items = memory.store_backend.get_items()
+    assert cache_items == []
+
+
+def test_memory_reduce_size_age_limit(tmpdir):
+    import time
+    import datetime
+    memory, _, put_cache = _setup_toy_cache(tmpdir)
+    ref_cache_items = memory.store_backend.get_items()
+
+    # By default reduce_size is a noop
+    memory.reduce_size()
+    cache_items = memory.store_backend.get_items()
+    assert sorted(ref_cache_items) == sorted(cache_items)
+
+    # No cache items deleted if age_limit big.
+    memory.reduce_size(age_limit=datetime.timedelta(days=1))
+    cache_items = memory.store_backend.get_items()
+    assert sorted(ref_cache_items) == sorted(cache_items)
+
+    # age_limit is set so that only two cache items are kept
+    time.sleep(1)
+    put_cache(-1)
+    put_cache(-2)
+    memory.reduce_size(age_limit=datetime.timedelta(seconds=1))
+    cache_items = memory.store_backend.get_items()
+    assert not set.issubset(set(cache_items), set(ref_cache_items))
+    assert len(cache_items) == 2
+
+    # age_limit set so that no cache item is kept
+    memory.reduce_size(age_limit=datetime.timedelta(seconds=0))
     cache_items = memory.store_backend.get_items()
     assert cache_items == []
 
