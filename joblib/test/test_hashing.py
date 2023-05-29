@@ -488,6 +488,15 @@ def test_pandas_dataframe():
     b = pd.DataFrame([1, 2, 4, 4])
     assert hash(a) != hash(b)
 
+    # Check that changing rows and columns indeed changes the cache.
+    b = pd.DataFrame([1, 2, 3, 4])
+    b.index = ['a', 'b', 'c', 'd']
+    assert hash(a) != hash(b)
+
+    b = pd.DataFrame([1, 2, 3, 4])
+    b.columns = ['a']
+    assert hash(a) != hash(b)
+
 
 @with_pandas
 def test_pandas_series():
