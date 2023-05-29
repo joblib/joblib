@@ -326,16 +326,22 @@ class StoreBackendMixin(object):
         if bytes_limit is not None:
             to_delete_size = size - bytes_limit
         else:
-            to_delete_size = None
+            to_delete_size = 0
 
         if items_limit is not None:
             to_delete_items = len(items) - items_limit
         else:
-            to_delete_items = None
+            to_delete_items = 0
+
+        if age_limit is not None:
+            older_item = min(item.last_access for item in items)
+            deadline = datetime.datetime.now() - age_limit
+        else:
+            deadline = None
 
         if (
-            (to_delete_size is None or to_delete_size < 0)
-            and (to_delete_items is None or to_delete_items < 0)
+            to_delete_size <= 0 and to_delete_items <= 0
+            and (deadline is None or older_item > deadline)
         ):
             return []
 
@@ -346,13 +352,12 @@ class StoreBackendMixin(object):
         items_to_delete = []
         size_so_far = 0
         items_so_far = 0
-        now = datetime.datetime.now()
 
         for item in items:
             if (
-                (to_delete_size is None or size_so_far > to_delete_size)
-                and (to_delete_items is None or items_so_far > to_delete_items)
-                and (age_limit is None or now - item.last_access > age_limit)
+                (size_so_far >= to_delete_size)
+                and items_so_far >= to_delete_items
+                and (deadline is None or deadline < item.last_access)
             ):
                 break
 

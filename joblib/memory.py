@@ -926,10 +926,12 @@ class Memory(Logger):
             Verbosity flag, controls the debug messages that are issued
             as functions are evaluated.
 
-        bytes_limit: int, optional
+        bytes_limit: int | str, optional
             Limit in bytes of the size of the cache. By default, the size of
             the cache is unlimited. When reducing the size of the cache,
-            ``joblib`` keeps the most recently accessed items first.
+            ``joblib`` keeps the most recently accessed items first. If a
+            str is passed, it is converted to a number of bytes using units
+            { K | M | G} for kilo, mega, giga.
 
             **Note:** You need to call :meth:`joblib.Memory.reduce_size` to
             actually reduce the cache size to be less than ``bytes_limit``.
@@ -1028,15 +1030,22 @@ class Memory(Logger):
             # as the function code is not re-written.
             _FUNCTION_HASHES.clear()
 
-    def reduce_size(self, items_limit=None, age_limit=None):
+    def reduce_size(self, bytes_limit=None, items_limit=None, age_limit=None):
         """Remove cache elements to make the cache fit its limits.
-        
+
         The limitation can impose that the cache size fits in ``bytes_limit``,
         that the number of cache items is no more than ``items_limit``, and
         that all files in cache are not older than ``age_limit``.
 
         Parameters
         ----------
+        bytes_limit: int | str, optional
+            Limit in bytes of the size of the cache. By default, the size of
+            the cache is unlimited. When reducing the size of the cache,
+            ``joblib`` keeps the most recently accessed items first. If a
+            str is passed, it is converted to a number of bytes using units
+            { K | M | G} for kilo, mega, giga.
+
         items_limit: int, optional
             Number of items to limit the cache to.  By default, the number of
             items in the cache is unlimited.  When reducing the size of the
@@ -1047,15 +1056,21 @@ class Memory(Logger):
             of the cache, any items last accessed more than the given length of
             time ago are deleted.
         """
+        if bytes_limit is None:
+            bytes_limit = self.bytes_limit
+
         if self.store_backend is None:
-          # No cached results, this function does nothing.
-          return
-        if self.bytes_limit is None and items_limit is None and age_limit is None:
-          # No limitation to impose, returning
-          return
+            # No cached results, this function does nothing.
+            return
+
+        if bytes_limit is None and items_limit is None and age_limit is None:
+            # No limitation to impose, returning
+            return
 
         # Defers the actual limits enforcing to the store backend.
-        self.store_backend.enforce_store_limits(self.bytes_limit, items_limit, age_limit)
+        self.store_backend.enforce_store_limits(
+            bytes_limit, items_limit, age_limit
+        )
 
     def eval(self, func, *args, **kwargs):
         """ Eval function func with arguments `*args` and `**kwargs`,
