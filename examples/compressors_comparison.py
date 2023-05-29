@@ -8,7 +8,7 @@ Zlib, LZMA and LZ4 compression only are used but Joblib also supports BZ2 and
 GZip compression methods.
 For each compared compression method, this example dumps and reloads a
 dataset fetched from an online machine-learning database. This gives 3
-informations: the size on disk of the compressed data, the time spent to dump
+information: the size on disk of the compressed data, the time spent to dump
 and the time spent to reload the data from disk.
 """
 

@@ -10,7 +10,9 @@ is called with the same input arguments.
 
 
 from __future__ import with_statement
+import logging
 import os
+from textwrap import dedent
 import time
 import pathlib
 import pydoc
@@ -30,6 +32,7 @@ from .func_inspect import format_call
 from .func_inspect import format_signature
 from .logger import Logger, format_time, pformat
 from ._store_backends import StoreBackendBase, FileSystemStoreBackend
+from ._store_backends import CacheWarning  # noqa
 
 
 FIRST_LINE_TEXT = "# first line:"
@@ -130,7 +133,7 @@ def _store_backend_factory(backend, location, verbose=0, backend_options=None):
         return obj
     elif location is not None:
         warnings.warn(
-            "Instanciating a backend using a {} as a location is not "
+            "Instantiating a backend using a {} as a location is not "
             "supported by joblib. Returning None instead.".format(
                 location.__class__.__name__), UserWarning)
 
@@ -196,7 +199,7 @@ class MemorizedResult(Logger):
 
     func: function or str
         function whose output is cached. The string case is intended only for
-        instanciation based on the output of repr() on another instance.
+        instantiation based on the output of repr() on another instance.
         (namely eval(repr(memorized_instance)) works).
 
     argument_hash: str
@@ -439,7 +442,7 @@ class MemorizedFunc(Logger):
         self.timestamp = timestamp
         try:
             functools.update_wrapper(self, func)
-        except:
+        except:  # noqa: E722
             " Objects like ufunc don't like that "
         if inspect.isfunction(func):
             doc = pydoc.TextDoc().document(func)
@@ -487,8 +490,28 @@ class MemorizedFunc(Logger):
         metadata = None
         msg = None
 
-        # Wether or not the memorized function must be called
+        # Whether or not the memorized function must be called
         must_call = False
+
+        if self._verbose >= 20:
+            logging.basicConfig(level=logging.INFO)
+            _, name = get_func_name(self.func)
+            location = self.store_backend.get_cached_func_info([func_id])[
+                'location']
+            _, signature = format_signature(self.func, *args, **kwargs)
+
+            self.info(
+                dedent(
+                    f"""
+                        Querying {name} with signature
+                        {signature}.
+
+                        (argument hash {args_id})
+
+                        The store location is {location}.
+                        """
+                )
+            )
 
         # FIXME: The statements below should be try/excepted
         # Compare the function code with the previous to see if the
@@ -563,8 +586,8 @@ class MemorizedFunc(Logger):
             # (which should be called once on self) gets called in the process
             # in which self.func was defined, this caching mechanism prevents
             # undesired cache clearing when the cached function is called in
-            # an environement where the introspection utilities get_func_code
-            # relies on do not work (typicially, in joblib child processes).
+            # an environment where the introspection utilities get_func_code
+            # relies on do not work (typically, in joblib child processes).
             # See #1035 for  more info
             # TODO (pierreglaser): do the same with get_func_name?
             self._func_code_info = get_func_code(self.func)
@@ -769,8 +792,24 @@ class MemorizedFunc(Logger):
         self._write_func_code(func_code, first_line)
 
     def call(self, *args, **kwargs):
-        """ Force the execution of the function with the given arguments and
-            persist the output values.
+        """Force the execution of the function with the given arguments.
+
+        The output values will be persisted, i.e., the cache will be updated
+        with any new values.
+
+        Parameters
+        ----------
+        *args: arguments
+            The arguments.
+        **kwargs: keyword arguments
+            Keyword arguments.
+
+        Returns
+        -------
+        output : object
+            The output of the function call.
+        metadata : dict
+            The metadata associated with the call.
         """
         start_time = time.time()
         func_id, args_id = self._get_output_identifiers(*args, **kwargs)
@@ -826,16 +865,12 @@ class MemorizedFunc(Logger):
             # for which repr() always output a short representation, but can
             # be with complex dictionaries. Fixing the problem should be a
             # matter of replacing repr() above by something smarter.
-            warnings.warn("Persisting input arguments took %.2fs to run.\n"
+            warnings.warn("Persisting input arguments took %.2fs to run."
                           "If this happens often in your code, it can cause "
-                          "performance problems \n"
-                          "(results will be correct in all cases). \n"
+                          "performance problems "
+                          "(results will be correct in all cases). "
                           "The reason for this is probably some large input "
-                          "arguments for a wrapped\n"
-                          " function (e.g. large strings).\n"
-                          "THIS IS A JOBLIB ISSUE. If you can, kindly provide "
-                          "the joblib's team with an\n"
-                          " example so that they can fix the problem."
+                          "arguments for a wrapped function."
                           % this_duration, stacklevel=5)
         return metadata
 
@@ -876,12 +911,6 @@ class Memory(Logger):
             The 'local' backend is using regular filesystem operations to
             manipulate data (open, mv, etc) in the backend.
 
-        cachedir: str or None, optional
-
-            .. deprecated: 0.12
-                'cachedir' has been deprecated in 0.12 and will be
-                removed in 0.14. Use the 'location' parameter instead.
-
         mmap_mode: {None, 'r+', 'r', 'w+', 'c'}, optional
             The memmapping mode used when loading from cache
             numpy arrays. See numpy.load for the meaning of the
@@ -906,17 +935,16 @@ class Memory(Logger):
             actually reduce the cache size to be less than ``bytes_limit``.
 
         backend_options: dict, optional
-            Contains a dictionnary of named parameters used to configure
+            Contains a dictionary of named parameters used to configure
             the store backend.
     """
     # ------------------------------------------------------------------------
     # Public interface
     # ------------------------------------------------------------------------
 
-    def __init__(self, location=None, backend='local', cachedir=None,
+    def __init__(self, location=None, backend='local',
                  mmap_mode=None, compress=False, verbose=1, bytes_limit=None,
                  backend_options=None):
-        # XXX: Bad explanation of the None value of cachedir
         Logger.__init__(self)
         self._verbose = verbose
         self.mmap_mode = mmap_mode
@@ -931,22 +959,6 @@ class Memory(Logger):
         if compress and mmap_mode is not None:
             warnings.warn('Compressed results cannot be memmapped',
                           stacklevel=2)
-        if cachedir is not None:
-            if location is not None:
-                raise ValueError(
-                    'You set both "location={0!r} and "cachedir={1!r}". '
-                    "'cachedir' has been deprecated in version "
-                    "0.12 and will be removed in version 0.14.\n"
-                    'Please only set "location={0!r}"'.format(
-                        location, cachedir))
-
-            warnings.warn(
-                "The 'cachedir' parameter has been deprecated in version "
-                "0.12 and will be removed in version 0.14.\n"
-                'You provided "cachedir={0!r}", '
-                'use "location={0!r}" instead.'.format(cachedir),
-                DeprecationWarning, stacklevel=2)
-            location = cachedir
 
         self.location = location
         if isinstance(location, str):
@@ -956,17 +968,6 @@ class Memory(Logger):
             backend, location, verbose=self._verbose,
             backend_options=dict(compress=compress, mmap_mode=mmap_mode,
                                  **backend_options))
-
-    @property
-    def cachedir(self):
-        warnings.warn(
-            "The 'cachedir' attribute has been deprecated in version 0.12 "
-            "and will be removed in version 0.14.\n"
-            "Use os.path.join(memory.location, 'joblib') attribute instead.",
-            DeprecationWarning, stacklevel=2)
-        if self.location is None:
-            return None
-        return os.path.join(self.location, 'joblib')
 
     def cache(self, func=None, ignore=None, verbose=None, mmap_mode=False):
         """ Decorates the given function func to only compute its return
@@ -1021,11 +1022,18 @@ class Memory(Logger):
         if self.store_backend is not None:
             self.store_backend.clear()
 
+            # As the cache is completely clear, make sure the _FUNCTION_HASHES
+            # cache is also reset. Else, for a function that is present in this
+            # table, results cached after this clear will be have cache miss
+            # as the function code is not re-written.
+            _FUNCTION_HASHES.clear()
+
     def reduce_size(self, items_limit=None, age_limit=None):
-        """
-        Remove cache elements to make cache size fit in ``bytes_limit``, make
-        the number of cache items no more than ``items_limit``, and delete all
-        files older than ``age_limit``.
+        """Remove cache elements to make the cache fit its limits.
+        
+        The limitation can impose that the cache size fits in ``bytes_limit``,
+        that the number of cache items is no more than ``items_limit``, and
+        that all files in cache are not older than ``age_limit``.
 
         Parameters
         ----------
@@ -1039,11 +1047,15 @@ class Memory(Logger):
             of the cache, any items last accessed more than the given length of
             time ago are deleted.
         """
-        if (
-            (self.bytes_limit is not None or items_limit is not None or age_limit is not None)
-            and self.store_backend is not None
-        ):
-            self.store_backend.enforce_store_limits(self.bytes_limit, items_limit, age_limit)
+        if self.store_backend is None:
+          # No cached results, this function does nothing.
+          return
+        if self.bytes_limit is None and items_limit is None and age_limit is None:
+          # No limitation to impose, returning
+          return
+
+        # Defers the actual limits enforcing to the store backend.
+        self.store_backend.enforce_store_limits(self.bytes_limit, items_limit, age_limit)
 
     def eval(self, func, *args, **kwargs):
         """ Eval function func with arguments `*args` and `**kwargs`,

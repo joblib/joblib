@@ -2,7 +2,7 @@
 
 import io
 import zlib
-from distutils.version import LooseVersion
+from joblib.backports import LooseVersion
 
 try:
     from threading import RLock
@@ -47,7 +47,7 @@ def register_compressor(compressor_name, compressor,
     """Register a new compressor.
 
     Parameters
-    -----------
+    ----------
     compressor_name: str.
         The name of the compressor.
     compressor: CompressorWrapper
@@ -89,7 +89,7 @@ class CompressorWrapper():
     prefix: bytestring
         A bytestring corresponding to the magic number that identifies the
         file format associated to the compressor.
-    extention: str
+    extension: str
         The file extension used to automatically select this compressor during
         a dump to a file.
     """

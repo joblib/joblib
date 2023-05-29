@@ -11,6 +11,7 @@ from .numpy_pickle_utils import _ZFILE_PREFIX
 from .numpy_pickle_utils import Unpickler
 from .numpy_pickle_utils import _ensure_native_byte_order
 
+
 def hex_str(an_int):
     """Convert an int to an hexadecimal string."""
     return '{:#x}'.format(an_int)
@@ -63,7 +64,7 @@ def write_zfile(file_handle, data, compress=1):
     """Write the data in the given file as a Z-file.
 
     Z-files are raw data compressed with zlib used internally by joblib
-    for persistence. Backward compatibility is not guarantied. Do not
+    for persistence. Backward compatibility is not guaranteed. Do not
     use for external purposes.
     """
     file_handle.write(_ZFILE_PREFIX)
@@ -105,7 +106,7 @@ class NDArrayWrapper(object):
             kwargs["allow_pickle"] = True
         array = unpickler.np.load(filename, **kwargs)
 
-        # Detect byte order mis-match and swap as needed.
+        # Detect byte order mismatch and swap as needed.
         array = _ensure_native_byte_order(array)
 
         # Reconstruct subclasses. This does not work with old
@@ -202,7 +203,7 @@ def load_compatibility(filename):
     (<= 0.9.3).
 
     Parameters
-    -----------
+    ----------
     filename: string
         The name of the file from which to load the object
 

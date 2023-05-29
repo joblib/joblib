@@ -99,6 +99,10 @@ def unlink_file(filename):
                 raise
             else:
                 time.sleep(.2)
+        except FileNotFoundError:
+            # In case of a race condition when deleting the temporary folder,
+            # avoid noisy FileNotFoundError exception in the resource tracker.
+            pass
 
 
 resource_tracker._CLEANUP_FUNCS['file'] = unlink_file
@@ -199,7 +203,7 @@ def _get_temp_dir(pool_folder_name, temp_folder=None):
     if temp_folder is None:
         temp_folder = os.environ.get('JOBLIB_TEMP_FOLDER', None)
     if temp_folder is None:
-        if os.path.exists(SYSTEM_SHARED_MEM_FS):
+        if os.path.exists(SYSTEM_SHARED_MEM_FS) and hasattr(os, 'statvfs'):
             try:
                 shm_stats = os.statvfs(SYSTEM_SHARED_MEM_FS)
                 available_nbytes = shm_stats.f_bsize * shm_stats.f_bavail
@@ -564,20 +568,6 @@ class TemporaryResourcesManager(object):
         """Return a folder name specific to the currently activated context"""
         return self._cached_temp_folders[self._current_context_id]
 
-    def _unregister_context(self, context_id=None):
-        if context_id is None:
-            for context_id in list(self._cached_temp_folders):
-                self._unregister_context(context_id)
-        else:
-            temp_folder = self._cached_temp_folders[context_id]
-            finalizer = self._finalizers[context_id]
-
-            resource_tracker.unregister(temp_folder, "folder")
-            atexit.unregister(finalizer)
-
-            self._cached_temp_folders.pop(context_id)
-            self._finalizers.pop(context_id)
-
     # resource management API
 
     def register_folder_finalizer(self, pool_subfolder, context_id):
@@ -599,7 +589,8 @@ class TemporaryResourcesManager(object):
             # because joblib should only use relative imports to allow
             # easy vendoring.
             delete_folder = __import__(
-                pool_module_name, fromlist=['delete_folder']).delete_folder
+                pool_module_name, fromlist=['delete_folder']
+            ).delete_folder
             try:
                 delete_folder(pool_subfolder, allow_non_empty=True)
                 resource_tracker.unregister(pool_subfolder, "folder")
@@ -609,56 +600,53 @@ class TemporaryResourcesManager(object):
 
         self._finalizers[context_id] = atexit.register(_cleanup)
 
-    def _unlink_temporary_resources(self, context_id=None):
-        """Unlink temporary resources created by a process-based pool"""
+    def _clean_temporary_resources(self, context_id=None, force=False,
+                                   allow_non_empty=False):
+        """Clean temporary resources created by a process-based pool"""
         if context_id is None:
-            # iterate over a copy of the cache keys because
-            # unlink_temporary_resources further deletes an entry in this
-            # cache
-            for context_id in self._cached_temp_folders.copy():
-                self._unlink_temporary_resources(context_id)
+            # Iterates over a copy of the cache keys to avoid Error due to
+            # iterating over a changing size dictionary.
+            for context_id in list(self._cached_temp_folders):
+                self._clean_temporary_resources(
+                    context_id, force=force, allow_non_empty=allow_non_empty
+                )
         else:
-            temp_folder = self._cached_temp_folders[context_id]
-            if os.path.exists(temp_folder):
+            temp_folder = self._cached_temp_folders.get(context_id)
+            if temp_folder and os.path.exists(temp_folder):
                 for filename in os.listdir(temp_folder):
-                    resource_tracker.maybe_unlink(
-                        os.path.join(temp_folder, filename), "file"
+                    if force:
+                        # Some workers have failed and the ref counted might
+                        # be off. The workers should have shut down by this
+                        # time so forcefully clean up the files.
+                        resource_tracker.unregister(
+                            os.path.join(temp_folder, filename), "file"
+                        )
+                    else:
+                        resource_tracker.maybe_unlink(
+                            os.path.join(temp_folder, filename), "file"
+                        )
+
+                # When forcing clean-up, try to delete the folder even if some
+                # files are still in it. Otherwise, try to delete the folder
+                allow_non_empty |= force
+
+                # Clean up the folder if possible, either if it is empty or
+                # if none of the files in it are in used and allow_non_empty.
+                try:
+                    delete_folder(
+                        temp_folder, allow_non_empty=allow_non_empty
                     )
-                self._try_delete_folder(
-                    allow_non_empty=False, context_id=context_id
-                )
+                    # Forget the folder once it has been deleted
+                    self._cached_temp_folders.pop(context_id, None)
+                    resource_tracker.unregister(temp_folder, "folder")
 
-    def _unregister_temporary_resources(self, context_id=None):
-        """Unregister temporary resources created by a process-based pool"""
-        if context_id is None:
-            for context_id in self._cached_temp_folders:
-                self._unregister_temporary_resources(context_id)
-        else:
-            temp_folder = self._cached_temp_folders[context_id]
-            if os.path.exists(temp_folder):
-                for filename in os.listdir(temp_folder):
-                    resource_tracker.unregister(
-                        os.path.join(temp_folder, filename), "file"
-                    )
+                    # Also cancel the finalizers  that gets triggered at gc.
+                    finalizer = self._finalizers.pop(context_id, None)
+                    if finalizer is not None:
+                        atexit.unregister(finalizer)
 
-    def _try_delete_folder(self, allow_non_empty, context_id=None):
-        if context_id is None:
-            # ditto
-            for context_id in self._cached_temp_folders.copy():
-                self._try_delete_folder(
-                    allow_non_empty=allow_non_empty, context_id=context_id
-                )
-        else:
-            temp_folder = self._cached_temp_folders[context_id]
-            try:
-                delete_folder(
-                    temp_folder, allow_non_empty=allow_non_empty
-                )
-                # Now that this folder is deleted, we can forget about it
-                self._unregister_context(context_id)
-
-            except OSError:
-                # Temporary folder cannot be deleted right now. No need to
-                # handle it though, as this folder will be cleaned up by an
-                # atexit finalizer registered by the memmapping_reducer.
-                pass
+                except OSError:
+                    # Temporary folder cannot be deleted right now.
+                    # This folder will be cleaned up by an atexit
+                    # finalizer registered by the memmapping_reducer.
+                    pass

@@ -62,12 +62,12 @@ Main features
       >>> a = np.vander(np.arange(3)).astype(float)
       >>> square = mem.cache(np.square)
       >>> b = square(a)                                   # doctest: +ELLIPSIS
-      ________________________________________________________________________________
+      ______________________________________________________________________...
       [Memory] Calling square...
       square(array([[0., 0., 1.],
              [1., 1., 1.],
              [4., 2., 1.]]))
-      ___________________________________________________________square - 0...s, 0.0min
+      _________________________________________________...square - ...s, 0.0min
 
       >>> c = square(a)
       >>> # The above call did not trigger an evaluation
@@ -106,7 +106,7 @@ Main features
 # Dev branch marker is: 'X.Y.dev' or 'X.Y.devN' where N is an integer.
 # 'X.Y.dev0' is the canonical version of 'X.Y.dev'
 #
-__version__ = '1.2.0.dev0'
+__version__ = '1.3.0.dev0'
 
 
 import os
@@ -122,16 +122,16 @@ from .parallel import delayed
 from .parallel import cpu_count
 from .parallel import register_parallel_backend
 from .parallel import parallel_backend
+from .parallel import parallel_config
 from .parallel import effective_n_jobs
-
-from .externals.loky import wrap_non_picklable_objects
+from ._cloudpickle_wrapper import wrap_non_picklable_objects
 
 
 __all__ = ['Memory', 'MemorizedResult', 'PrintTime', 'Logger', 'hash', 'dump',
            'load', 'Parallel', 'delayed', 'cpu_count', 'effective_n_jobs',
            'register_parallel_backend', 'parallel_backend',
            'register_store_backend', 'register_compressor',
-           'wrap_non_picklable_objects']
+           'wrap_non_picklable_objects', 'parallel_config']
 
 
 # Workaround issue discovered in intel-openmp 2019.5:
