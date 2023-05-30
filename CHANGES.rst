@@ -46,9 +46,9 @@ In development
   of not requiring to set a specific backend in the context manager.
   https://github.com/joblib/joblib/pull/1392
 
-- Add ``age_limit`` and ``items_limit`` in :meth:`joblib.Memory.reduce_size`
+- Add ``items_limit`` and ``age_limit`` in :meth:`joblib.Memory.reduce_size`
   to make it easy to limit the number of items and remove items that have
-  not been accessed for a long time.
+  not been accessed for a long time in the cache.
   https://github.com/joblib/joblib/pull/1200
 
 
