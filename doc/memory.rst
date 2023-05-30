@@ -467,28 +467,30 @@ instance, one can only cache results that take more than 1s to be computed.
 
     >>> import time
     >>> def cache_validation_cb(metadata):
-    ...     # Only cache results for calls that take more than 1s
+    ...     # Only retrieve cached results for calls that take more than 1s
     ...     return metadata['duration'] > 1
+
     >>> @memory.cache(cache_validation_callback=cache_validation_cb)
     ... def my_func(delay=0):
     ...     time.sleep(delay)
     ...	    print(f'Called with {delay}s delay')
+
     >>> my_func()
     Called with 0s delay
     >>> my_func(1.1)
     Called with 1.1s delay
-    >>> my_func() # this one was not cached
+    >>> my_func(1.1)  # This result is retrieved from cache
+    >>> my_func()  # This one is not and the call is repeated
     Called with 0s delay
-    >>> my_func(1.1)  # but this one was 
 
 ``cache_validation_cb`` will be called with a single argument containing
 the metadata of the cached call as a dictionary containing the following
 keys:
-  
+
   - ``duration``: the duration of the function call,
   - ``time``: the timestamp when the cache called has been recorded
   - ``input_args``: a dictionary of keywords arguments for the cached function call.
-  
+
 Note a validity duration for cached results can be defined via
 :func:`joblib.expires_after` by providing similar with arguments similar to the
 ones of a ``datetime.timedelta``:
