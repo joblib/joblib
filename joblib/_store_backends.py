@@ -298,8 +298,7 @@ class StoreBackendMixin(object):
             self, bytes_limit, items_limit=None, age_limit=None
     ):
         """
-        Remove oldest files from the store to keep it under item, byte, and age
-        limits.
+        Remove the store's oldest files to enforce item, byte, and age limits.
         """
         items_to_delete = self._get_items_to_delete(
             bytes_limit, items_limit, age_limit
@@ -321,7 +320,7 @@ class StoreBackendMixin(object):
             self, bytes_limit, items_limit=None, age_limit=None
     ):
         """
-        Get items to delete to keep the store under a size, file, & age limit.
+        Get items to delete to keep the store under size, file, & age limits.
         """
         if isinstance(bytes_limit, str):
             bytes_limit = memstr_to_bytes(bytes_limit)
