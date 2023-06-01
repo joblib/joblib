@@ -936,6 +936,10 @@ class Memory(Logger):
             **Note:** You need to call :meth:`joblib.Memory.reduce_size` to
             actually reduce the cache size to be less than ``bytes_limit``.
 
+            **Note:** This argument has been deprecated. One should give the
+            value of ``bytes_limit`` directly in
+            :meth:`joblib.Memory.reduce_size`.
+
         backend_options: dict, optional
             Contains a dictionary of named parameters used to configure
             the store backend.
@@ -951,6 +955,13 @@ class Memory(Logger):
         self._verbose = verbose
         self.mmap_mode = mmap_mode
         self.timestamp = time.time()
+        if bytes_limit is not None:
+            warnings.warn(
+                "bytes_limit argument has been deprecated. It will be removed "
+                "in version 1.4. Please pass its value directly to "
+                "Memory.reduce_size.",
+                category=DeprecationWarning
+            )
         self.bytes_limit = bytes_limit
         self.backend = backend
         self.compress = compress
