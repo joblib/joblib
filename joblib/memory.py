@@ -958,7 +958,7 @@ class Memory(Logger):
         if bytes_limit is not None:
             warnings.warn(
                 "bytes_limit argument has been deprecated. It will be removed "
-                "in version 1.4. Please pass its value directly to "
+                "in version 1.5. Please pass its value directly to "
                 "Memory.reduce_size.",
                 category=DeprecationWarning
             )
