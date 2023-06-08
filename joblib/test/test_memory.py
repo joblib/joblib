@@ -18,6 +18,8 @@ import sys
 import time
 import datetime
 import textwrap
+from pathlib import Path
+
 
 import pytest
 
@@ -1393,12 +1395,9 @@ def test_info_log(tmpdir, caplog):
     caplog.clear()
 
 
-# needs https://pypi.org/project/pytest-requires/
-@pytest.mark.requires("pytest_notebook")
 def test_cache_notebook():
-    from pathlib import Path
-    from pytest_notebook.nb_regression import NBRegressionFixture
-    fixture = NBRegressionFixture(exec_timeout=50)
+    nb_regression = pytest.importorskip("pytest_notebook.nb_regression")
+    fixture = nb_regression.NBRegressionFixture(exec_timeout=50)
     fixture.diff_color_words = False
 
     with Path(__file__).parent / "data" / "memory.ipynb" as path:
