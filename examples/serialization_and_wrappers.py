@@ -141,7 +141,7 @@ print("With pickle from stdlib and wrapper: {:.3f}s"
 
 ###############################################################################
 # The same wrapper can also be used for non-picklable classes. Note that the
-# side effects of :func:`wrap_non_picklable_objects` on objects can break magic
+# side effects of ``wrap_non_picklable_objects`` on objects can break magic
 # methods such as ``__add__`` and can mess up the ``isinstance`` and
 # ``issubclass`` functions. Some improvements will be considered if use-cases
 # are reported.

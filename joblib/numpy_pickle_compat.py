@@ -203,7 +203,7 @@ def load_compatibility(filename):
     (<= 0.9.3).
 
     Parameters
-    -----------
+    ----------
     filename: string
         The name of the file from which to load the object
 

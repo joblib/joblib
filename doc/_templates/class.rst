@@ -1,25 +1,11 @@
-:mod:`{{module}}`.{{objname}}
-{{ underline }}==============
+{{ fullname | escape | underline }}
 
 .. currentmodule:: {{ module }}
 
 .. autoclass:: {{ objname }}
+   :members:
 
-   {% block methods %}
-   .. automethod:: __init__
+.. _sphx_glr_backreferences_{{ fullname }}:
 
-   {% if methods %}
-   .. rubric:: Methods
-
-   .. autosummary::
-   {% for item in methods %}
-      ~{{ name }}.{{ item }}
-   {%- endfor %}
-   {% endif %}
-   {% endblock %}
-
-.. include:: {{module}}.{{objname}}.examples
-
-.. raw:: html
-
-    <div class="clearer"></div>
+.. minigallery:: {{ fullname }}
+    :add-heading:
