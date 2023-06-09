@@ -75,7 +75,7 @@ instead of the default ``"loky"`` backend:
 The :class:`parallel_config` context manager helps selecting
 a specific backend implementation or setting the default number of jobs:
 
-    >>> from joblib import parallel_backend
+    >>> from joblib import parallel_config
     >>> with parallel_config('threading', n_jobs=2):
     ...    Parallel()(delayed(sqrt)(i ** 2) for i in range(10))
     [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
