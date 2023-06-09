@@ -58,6 +58,7 @@ Module reference
 
    Memory
    Parallel
+   parallel_config
 
 .. autosummary::
    :toctree: generated/
