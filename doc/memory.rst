@@ -401,56 +401,6 @@ list::
     >>> # my_func was not reevaluated
 
 
-.. _memory_reference:
-
-Reference documentation of the :class:`~joblib.Memory` class
-------------------------------------------------------------
-
-.. autoclass:: joblib.Memory
-    :members: __init__, cache, eval, clear, reduce_size, format
-    :no-inherited-members:
-    :noindex:
-
-Useful methods of decorated functions
--------------------------------------
-
-Functions decorated by :meth:`Memory.cache <joblib.Memory.cache>` are
-:class:`MemorizedFunc`
-objects that, in addition of behaving like normal functions, expose
-methods useful for cache exploration and management. For example, you can
-use :meth:`func.check_call_in_cache <MemorizedFunc.check_call_in_cache>` to
-check if a cache hit will occur for a decorated ``func`` given a set of inputs
-without actually needing to call the function itself::
-
-    >>> @memory.cache
-    ... def func(x):
-    ...     print('Running func(%s)' % x)
-    ...     return x
-    >>> type(func)
-    <class 'joblib.memory.MemorizedFunc'>
-    >>> func(1)
-    Running func(1)
-    1
-    >>> func.check_call_in_cache(1)  # cache hit
-    True
-    >>> func.check_call_in_cache(2)  # cache miss
-    False
-
-.. autoclass:: MemorizedFunc
-    :members: __init__, call, clear, check_call_in_cache
-
-
-..
- Let us not forget to clean our cache dir once we are finished::
-
-    >>> import shutil
-    >>> try:
-    ...     shutil.rmtree(cachedir)
-    ...     shutil.rmtree(cachedir2)
-    ... except OSError:
-    ...     pass  # this can sometimes fail under Windows
-
-
 Custom cache validation
 -----------------------
 
@@ -505,6 +455,56 @@ ones of a ``datetime.timedelta``:
     >>> time.sleep(0.5)
     >>> my_func()
     Function run
+
+
+.. _memory_reference:
+
+Reference documentation of the :class:`~joblib.Memory` class
+------------------------------------------------------------
+
+.. autoclass:: joblib.Memory
+    :members: __init__, cache, eval, clear, reduce_size, format
+    :no-inherited-members:
+    :noindex:
+
+Useful methods of decorated functions
+-------------------------------------
+
+Functions decorated by :meth:`Memory.cache <joblib.Memory.cache>` are
+:class:`MemorizedFunc`
+objects that, in addition of behaving like normal functions, expose
+methods useful for cache exploration and management. For example, you can
+use :meth:`func.check_call_in_cache <MemorizedFunc.check_call_in_cache>` to
+check if a cache hit will occur for a decorated ``func`` given a set of inputs
+without actually needing to call the function itself::
+
+    >>> @memory.cache
+    ... def func(x):
+    ...     print('Running func(%s)' % x)
+    ...     return x
+    >>> type(func)
+    <class 'joblib.memory.MemorizedFunc'>
+    >>> func(1)
+    Running func(1)
+    1
+    >>> func.check_call_in_cache(1)  # cache hit
+    True
+    >>> func.check_call_in_cache(2)  # cache miss
+    False
+
+.. autoclass:: MemorizedFunc
+    :members: __init__, call, clear, check_call_in_cache
+
+
+..
+ Let us not forget to clean our cache dir once we are finished::
+
+    >>> import shutil
+    >>> try:
+    ...     shutil.rmtree(cachedir)
+    ...     shutil.rmtree(cachedir2)
+    ... except OSError:
+    ...     pass  # this can sometimes fail under Windows
 
 
 Helper Reference
