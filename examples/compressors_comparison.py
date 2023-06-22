@@ -25,8 +25,7 @@ import time
 
 import pandas as pd
 
-url = ("https://archive.ics.uci.edu/ml/machine-learning-databases/"
-       "kddcup99-mld/kddcup.data.gz")
+url = "http://kdd.ics.uci.edu/databases/kddcup99/kddcup.data.gz"
 names = ("duration, protocol_type, service, flag, src_bytes, "
          "dst_bytes, land, wrong_fragment, urgent, hot, "
          "num_failed_logins, logged_in, num_compromised, "
