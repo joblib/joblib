@@ -1550,7 +1550,7 @@ def test_backend_hinting_and_constraints_with_custom_backends(
         assert type(p._backend) == ThreadingBackend
 
         out, err = capsys.readouterr()
-        expected = ("Using ThreadingBackend as joblib.Parallel backend "
+        expected = ("Using ThreadingBackend as joblib backend "
                     "instead of MyCustomProcessingBackend as the latter "
                     "does not provide shared memory semantics.")
         assert out.strip() == expected

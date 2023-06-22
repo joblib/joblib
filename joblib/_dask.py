@@ -142,6 +142,7 @@ class DaskDistributedBackend(AutoBatchingMixin, ParallelBackendBase):
     MIN_IDEAL_BATCH_DURATION = 0.2
     MAX_IDEAL_BATCH_DURATION = 1.0
     supports_timeout = True
+    default_n_jobs = -1
 
     def __init__(self, scheduler_host=None, scatter=None,
                  client=None, loop=None, wait_for_workers_timeout=10,
@@ -243,7 +244,8 @@ class DaskDistributedBackend(AutoBatchingMixin, ParallelBackendBase):
         # task might cause the cluster to provision some workers.
         try:
             self.client.submit(_joblib_probe_task).result(
-                timeout=self.wait_for_workers_timeout)
+                timeout=self.wait_for_workers_timeout
+            )
         except _TimeoutError as e:
             error_msg = (
                 "DaskDistributedBackend has no worker after {} seconds. "
