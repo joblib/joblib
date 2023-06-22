@@ -375,9 +375,9 @@ Gotchas
      ``self.method = memory.cache(self.method, ignore=['self'])``.
 
 * **joblib cache entries may be invalidated after environment updates**.
-  Values returned by ``joblib.hash`` are not guaranteed to stay
+  Values returned by :func:`joblib.hash` are not guaranteed to stay
   constant across ``joblib`` versions. This means that **all** entries of a
-  ``joblib.Memory`` cache can get invalidated when upgrading ``joblib``.
+  :class:`Memory` cache can get invalidated when upgrading ``joblib``.
   Invalidation can also happen when upgrading a third party library (such as
   ``numpy``): in such a case, only the cached function calls with parameters
   that are constructs (or contain references to constructs) defined in the
@@ -388,7 +388,8 @@ Ignoring some arguments
 -----------------------
 
 It may be useful not to recalculate a function when certain arguments
-change, for instance a debug flag. `Memory` provides the `ignore` list::
+change, for instance a debug flag. :class:`Memory` provides the ``ignore``
+list::
 
     >>> @memory.cache(ignore=['debug'])
     ... def my_func(x, debug=True):
@@ -398,6 +399,62 @@ change, for instance a debug flag. `Memory` provides the `ignore` list::
     >>> my_func(0, debug=False)
     >>> my_func(0, debug=True)
     >>> # my_func was not reevaluated
+
+
+Custom cache validation
+-----------------------
+
+In some cases, external factors can invalidate the cached results and
+one wants to have more control on whether to reuse a result or not.
+
+This is for instance the case if the results depends on database records
+that change over time: a small delay in the updates might be tolerable
+but after a while, the results might be invalid.
+
+One can have a finer control on the cache validity specifying a function
+via ``cache_validation_callback`` in :meth:`~joblib.Memory.cache`. For
+instance, one can only cache results that take more than 1s to be computed.
+
+    >>> import time
+    >>> def cache_validation_cb(metadata):
+    ...     # Only retrieve cached results for calls that take more than 1s
+    ...     return metadata['duration'] > 1
+
+    >>> @memory.cache(cache_validation_callback=cache_validation_cb)
+    ... def my_func(delay=0):
+    ...     time.sleep(delay)
+    ...	    print(f'Called with {delay}s delay')
+
+    >>> my_func()
+    Called with 0s delay
+    >>> my_func(1.1)
+    Called with 1.1s delay
+    >>> my_func(1.1)  # This result is retrieved from cache
+    >>> my_func()  # This one is not and the call is repeated
+    Called with 0s delay
+
+``cache_validation_cb`` will be called with a single argument containing
+the metadata of the cached call as a dictionary containing the following
+keys:
+
+  - ``duration``: the duration of the function call,
+  - ``time``: the timestamp when the cache called has been recorded
+  - ``input_args``: a dictionary of keywords arguments for the cached function call.
+
+Note a validity duration for cached results can be defined via
+:func:`joblib.expires_after` by providing similar with arguments similar to the
+ones of a ``datetime.timedelta``:
+
+    >>> from joblib import expires_after
+    >>> @memory.cache(cache_validation_callback=expires_after(seconds=0.5))
+    ... def my_func():
+    ...	    print(f'Function run')
+    >>> my_func()
+    Function run
+    >>> my_func()
+    >>> time.sleep(0.5)
+    >>> my_func()
+    Function run
 
 
 .. _memory_reference:
@@ -448,3 +505,9 @@ without actually needing to call the function itself::
     ...     shutil.rmtree(cachedir2)
     ... except OSError:
     ...     pass  # this can sometimes fail under Windows
+
+
+Helper Reference
+~~~~~~~~~~~~~~~~
+
+.. autofunction:: joblib.expires_after
