@@ -42,7 +42,7 @@ def count_events(event_name, client):
 def test_simple(loop):
     with cluster() as (s, [a, b]):
         with Client(s['address'], loop=loop) as client:  # noqa: F841
-            with parallel_config('dask') as (ba, _):
+            with parallel_config('dask'):
                 seq = Parallel()(delayed(inc)(i) for i in range(10))
                 assert seq == [inc(i) for i in range(10)]
 
@@ -60,7 +60,7 @@ def test_dask_backend_uses_autobatching(loop):
 
     with cluster() as (s, [a, b]):
         with Client(s['address'], loop=loop) as client:  # noqa: F841
-            with parallel_config('dask') as (ba, _):
+            with parallel_config('dask'):
                 with Parallel() as parallel:
                     # The backend should be initialized with a default
                     # batch size of 1:
@@ -85,7 +85,7 @@ def random2():
 def test_dont_assume_function_purity(loop):
     with cluster() as (s, [a, b]):
         with Client(s['address'], loop=loop) as client:  # noqa: F841
-            with parallel_config('dask') as (ba, _):
+            with parallel_config('dask'):
                 x, y = Parallel()(delayed(random2)() for i in range(2))
                 assert x != y
 
@@ -106,7 +106,7 @@ def test_dask_funcname(loop, mixed):
 
     with cluster() as (s, [a, b]):
         with Client(s['address'], loop=loop) as client:
-            with parallel_config('dask') as (ba, _):
+            with parallel_config('dask'):
                 _ = Parallel(batch_size=2, pre_dispatch='all')(tasks)
 
             def f(dask_scheduler):
@@ -140,7 +140,7 @@ def test_no_undesired_distributed_cache_hit(loop):
     cluster = LocalCluster(n_workers=1, threads_per_worker=2)
     client = Client(cluster)
     try:
-        with parallel_config('dask') as (ba, _):
+        with parallel_config('dask'):
             # dispatches joblib.parallel.BatchedCalls
             res = Parallel()(
                 delayed(isolated_operation)(list_) for list_ in lists
@@ -157,7 +157,7 @@ def test_no_undesired_distributed_cache_hit(loop):
         assert sum(counts.values()) == 0
         assert all([len(r) == 1 for r in res])
 
-        with parallel_config('dask') as (ba, _):
+        with parallel_config('dask'):
             # Append a large array which will be scattered by dask, and
             # dispatch joblib._dask.Batch
             res = Parallel()(
@@ -199,7 +199,7 @@ def test_manual_scatter(loop):
 
     with cluster() as (s, [a, b]):
         with Client(s['address'], loop=loop) as client:  # noqa: F841
-            with parallel_config('dask', scatter=[x, y]) as (ba, _):
+            with parallel_config('dask', scatter=[x, y]):
                 f = delayed(add5)
                 tasks = [f(x, y, z, d=4, e=5),
                          f(x, z, y, d=5, e=4),
@@ -237,7 +237,7 @@ def test_auto_scatter(loop_in_thread):
 
     with cluster() as (s, [a, b]):
         with Client(s['address'], loop=loop_in_thread) as client:
-            with parallel_config('dask') as (ba, _):
+            with parallel_config('dask'):
                 # Passing the same data as arg and kwarg triggers a single
                 # scatter operation whose result is reused.
                 Parallel()(delayed(noop)(data, data, i, opt=data)
@@ -250,7 +250,7 @@ def test_auto_scatter(loop_in_thread):
 
     with cluster() as (s, [a, b]):
         with Client(s['address'], loop=loop_in_thread) as client:
-            with parallel_config('dask') as (ba, _):
+            with parallel_config('dask'):
                 Parallel()(delayed(noop)(data1[:3], i) for i in range(5))
             # Small arrays are passed within the task definition without going
             # through a scatter operation.
@@ -297,7 +297,7 @@ def test_nested_backend_context_manager(loop_in_thread):
 
     with cluster() as (s, [a, b]):
         with Client(s['address'], loop=loop_in_thread) as client:
-            with parallel_config('dask') as (ba, _):
+            with parallel_config('dask'):
                 pid_groups = Parallel(n_jobs=2)(
                     delayed(get_nested_pids)()
                     for _ in range(10)
@@ -307,7 +307,7 @@ def test_nested_backend_context_manager(loop_in_thread):
 
         # No deadlocks
         with Client(s['address'], loop=loop_in_thread) as client:  # noqa: F841
-            with parallel_config('dask') as (ba, _):
+            with parallel_config('dask'):
                 pid_groups = Parallel(n_jobs=2)(
                     delayed(get_nested_pids)()
                     for _ in range(10)
@@ -329,7 +329,7 @@ def test_nested_backend_context_manager_implicit_n_jobs(loop):
 
     with cluster() as (s, [a, b]):
         with Client(s['address'], loop=loop) as client:  # noqa: F841
-            with parallel_config('dask') as (ba, _):
+            with parallel_config('dask'):
                 with Parallel() as p:
                     assert _backend_type(p) == "DaskDistributedBackend"
                     assert p.n_jobs == -1
@@ -354,13 +354,13 @@ def test_correct_nested_backend(loop):
     with cluster() as (s, [a, b]):
         with Client(s['address'], loop=loop) as client:  # noqa: F841
             # No requirement, should be us
-            with parallel_config('dask') as (ba, _):
+            with parallel_config('dask'):
                 result = Parallel(n_jobs=2)(
                     delayed(outer)(nested_require=None) for _ in range(1))
                 assert isinstance(result[0][0][0], DaskDistributedBackend)
 
             # Require threads, should be threading
-            with parallel_config('dask') as (ba, _):
+            with parallel_config('dask'):
                 result = Parallel(n_jobs=2)(
                     delayed(outer)(nested_require='sharedmem')
                     for _ in range(1))
@@ -398,12 +398,12 @@ def _worker_address(_):
 def test_dask_backend_keywords(loop):
     with cluster() as (s, [a, b]):
         with Client(s['address'], loop=loop) as client:  # noqa: F841
-            with parallel_config('dask', workers=a['address']) as (ba, _):
+            with parallel_config('dask', workers=a['address']):
                 seq = Parallel()(
                     delayed(_worker_address)(i) for i in range(10))
                 assert seq == [a['address']] * 10
 
-            with parallel_config('dask', workers=b['address']) as (ba, _):
+            with parallel_config('dask', workers=b['address']):
                 seq = Parallel()(
                     delayed(_worker_address)(i) for i in range(10))
                 assert seq == [b['address']] * 10
