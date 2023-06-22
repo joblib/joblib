@@ -32,7 +32,7 @@ In development
   previous versions of Joblib.
   https://github.com/joblib/joblib/pull/1374
 
-- Add a ``return_generator`` parameter for ``Parallel``, that allows
+- Add a ``return_as`` parameter for ``Parallel``, that allows
   to consume results asynchronously.
   https://github.com/joblib/joblib/pull/1393
 

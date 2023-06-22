@@ -967,11 +967,15 @@ class Parallel(Logger):
             soft hints (prefer) or hard constraints (require) so as to make it
             possible for library users to change the backend from the outside
             using the :func:`~parallel_backend` context manager.
-        return_generator: bool
-            If True, calls to this instance will return a generator, yielding
-            the results as soon as they are available, in the original order.
-            Note that the intended usage is to run one call at a time. Multiple
-            calls to the same Parallel object will result in a ``RuntimeError``
+        return_as: str in {'list', 'submitted'}, default: 'list'
+            If 'list', calls to this instance will return a list, only when
+            all results have been processed and are ready to return.
+            Else it will return a generator that yields the results as soon as
+            they are available, in the order the tasks have been submitted
+            with.
+            Future releases are planned to also support 'completed', in which
+            case the generator immediately yields available results
+            independently of the submission order.
         prefer: str in {'processes', 'threads'} or None, default: None
             Soft hint to choose the default backend if no specific backend
             was selected with the :func:`~parallel_backend` context manager.
@@ -1065,6 +1069,9 @@ class Parallel(Logger):
 
         * Ability to use shared memory efficiently with worker
           processes for large numpy-based datastructures.
+
+        Note that the intended usage is to run one call at a time. Multiple
+        calls to the same Parallel object will result in a ``RuntimeError``
 
         Examples
         --------
@@ -1161,7 +1168,7 @@ class Parallel(Logger):
         self,
         n_jobs=default_parallel_config["n_jobs"],
         backend=None,
-        return_generator=False,
+        return_as="list",
         verbose=default_parallel_config["verbose"],
         timeout=None,
         pre_dispatch='2 * n_jobs',
@@ -1191,7 +1198,14 @@ class Parallel(Logger):
         self.verbose = _get_config_param(verbose, context_config, "verbose")
         self.timeout = timeout
         self.pre_dispatch = pre_dispatch
-        self.return_generator = return_generator
+
+        if return_as not in {"list", "submitted"}:
+            raise ValueError(
+                'Expected `return_as` parameter to be a string equal to "list"'
+                f' or "submitted", but got {return_as} instead'
+            )
+        self.return_as = return_as
+        self.return_generator = return_as != "list"
 
         # Check if we are under a parallel_config or parallel_backend
         # context manager and use the config from the context manager
@@ -1267,10 +1281,10 @@ class Parallel(Logger):
                 % batch_size)
 
         if not isinstance(backend, SequentialBackend):
-            if return_generator and not backend.supports_return_generator:
+            if self.return_generator and not backend.supports_return_generator:
                 raise ValueError(
                     "Backend {} does not support "
-                    "return_generator=True".format(backend)
+                    "return_as={}".format(backend, return_as)
                 )
             # This lock is used to coordinate the main thread of this process
             # with the async callback thread of our the pool.
