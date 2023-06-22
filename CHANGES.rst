@@ -35,6 +35,7 @@ In development
 - Add a ``return_as`` parameter for ``Parallel``, that allows
   to consume results asynchronously.
   https://github.com/joblib/joblib/pull/1393
+  https://github.com/joblib/joblib/pull/1458
 
 - Improve the behavior of ``joblib`` for ``n_jobs=1``, with simplified
   tracebacks and more efficient running time.
