@@ -1679,7 +1679,7 @@ class Parallel(Logger):
         while self._wait_retrieval():
 
             # If the callback thread of a worker has signaled that its task
-            # triggerd an exception, or if the retrieval loop has raised an
+            # triggered an exception, or if the retrieval loop has raised an
             # exception (e.g. `GeneratorExit`), exit the loop and surface the
             # worker traceback.
             if self._aborting:
