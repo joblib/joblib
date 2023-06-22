@@ -966,13 +966,19 @@ class Memory(Logger):
             Verbosity flag, controls the debug messages that are issued
             as functions are evaluated.
 
-        bytes_limit: int, optional
+        bytes_limit: int | str, optional
             Limit in bytes of the size of the cache. By default, the size of
             the cache is unlimited. When reducing the size of the cache,
-            ``joblib`` keeps the most recently accessed items first.
+            ``joblib`` keeps the most recently accessed items first. If a
+            str is passed, it is converted to a number of bytes using units
+            { K | M | G} for kilo, mega, giga.
 
             **Note:** You need to call :meth:`joblib.Memory.reduce_size` to
             actually reduce the cache size to be less than ``bytes_limit``.
+
+            **Note:** This argument has been deprecated. One should give the
+            value of ``bytes_limit`` directly in
+            :meth:`joblib.Memory.reduce_size`.
 
         backend_options: dict, optional
             Contains a dictionary of named parameters used to configure
@@ -989,6 +995,13 @@ class Memory(Logger):
         self._verbose = verbose
         self.mmap_mode = mmap_mode
         self.timestamp = time.time()
+        if bytes_limit is not None:
+            warnings.warn(
+                "bytes_limit argument has been deprecated. It will be removed "
+                "in version 1.5. Please pass its value directly to "
+                "Memory.reduce_size.",
+                category=DeprecationWarning
+            )
         self.bytes_limit = bytes_limit
         self.backend = backend
         self.compress = compress
@@ -1081,16 +1094,53 @@ class Memory(Logger):
         if self.store_backend is not None:
             self.store_backend.clear()
 
-            # As the cache in completely clear, make sure the _FUNCTION_HASHES
+            # As the cache is completely clear, make sure the _FUNCTION_HASHES
             # cache is also reset. Else, for a function that is present in this
             # table, results cached after this clear will be have cache miss
             # as the function code is not re-written.
             _FUNCTION_HASHES.clear()
 
-    def reduce_size(self):
-        """Remove cache elements to make cache size fit in ``bytes_limit``."""
-        if self.bytes_limit is not None and self.store_backend is not None:
-            self.store_backend.reduce_store_size(self.bytes_limit)
+    def reduce_size(self, bytes_limit=None, items_limit=None, age_limit=None):
+        """Remove cache elements to make the cache fit its limits.
+
+        The limitation can impose that the cache size fits in ``bytes_limit``,
+        that the number of cache items is no more than ``items_limit``, and
+        that all files in cache are not older than ``age_limit``.
+
+        Parameters
+        ----------
+        bytes_limit: int | str, optional
+            Limit in bytes of the size of the cache. By default, the size of
+            the cache is unlimited. When reducing the size of the cache,
+            ``joblib`` keeps the most recently accessed items first. If a
+            str is passed, it is converted to a number of bytes using units
+            { K | M | G} for kilo, mega, giga.
+
+        items_limit: int, optional
+            Number of items to limit the cache to.  By default, the number of
+            items in the cache is unlimited.  When reducing the size of the
+            cache, ``joblib`` keeps the most recently accessed items first.
+
+        age_limit: datetime.timedelta, optional
+            Maximum age of items to limit the cache to.  When reducing the size
+            of the cache, any items last accessed more than the given length of
+            time ago are deleted.
+        """
+        if bytes_limit is None:
+            bytes_limit = self.bytes_limit
+
+        if self.store_backend is None:
+            # No cached results, this function does nothing.
+            return
+
+        if bytes_limit is None and items_limit is None and age_limit is None:
+            # No limitation to impose, returning
+            return
+
+        # Defers the actual limits enforcing to the store backend.
+        self.store_backend.enforce_store_limits(
+            bytes_limit, items_limit, age_limit
+        )
 
     def eval(self, func, *args, **kwargs):
         """ Eval function func with arguments `*args` and `**kwargs`,

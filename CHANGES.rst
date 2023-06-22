@@ -4,15 +4,15 @@ Latest changes
 In development
 --------------
 
-- Ensure native byte order for memmap arrays in `joblib.load`.
+- Ensure native byte order for memmap arrays in ``joblib.load``.
   https://github.com/joblib/joblib/issues/1353
 
 - Add ability to change default Parallel backend in tests by setting the
-  JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND environment variable.
+  ``JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND`` environment variable.
   https://github.com/joblib/joblib/pull/1356
 
 - Fix temporary folder creation in `joblib.Parallel` on Linux subsystems on Windows
-  which do have `/dev/shm` but don't have the `os.statvfs` function 
+  which do have `/dev/shm` but don't have the `os.statvfs` function
   https://github.com/joblib/joblib/issues/1353
 
 - Drop runtime dependency on ``distutils``. ``distutils`` is going away
@@ -24,7 +24,7 @@ In development
 
 - A warning is raised when a pickling error occurs during caching operations.
   In version 1.5, this warning will be turned into an error. For all other
-  errors, a new warning has been introduced: `joblib.memory.CacheWarning`.
+  errors, a new warning has been introduced: ``joblib.memory.CacheWarning``.
   https://github.com/joblib/joblib/pull/1359
 
 - Avoid (module, name) collisions when caching nested functions. This fix
@@ -44,11 +44,17 @@ In development
   tracebacks and more efficient running time.
   https://github.com/joblib/joblib/pull/1393
 
-- Add the `parallel_config` context manager to allow for more fine-grained
+- Add the ``parallel_config`` context manager to allow for more fine-grained
   control over the backend configuration. It should be used in place of the
-  `parallel_backend` context manager. In particular, it has the advantage
+  ``parallel_backend`` context manager. In particular, it has the advantage
   of not requiring to set a specific backend in the context manager.
   https://github.com/joblib/joblib/pull/1392
+
+- Add ``items_limit`` and ``age_limit`` in :meth:`joblib.Memory.reduce_size`
+  to make it easy to limit the number of items and remove items that have
+  not been accessed for a long time in the cache.
+  https://github.com/joblib/joblib/pull/1200
+
 
 Release 1.2.0
 -------------
@@ -63,7 +69,7 @@ Release 1.2.0
 
 - Avoid unnecessary warnings when workers and main process delete
   the temporary memmap folder contents concurrently.
-  https://github.com/joblib/joblib/pull/1263 
+  https://github.com/joblib/joblib/pull/1263
 
 - Fix memory alignment bug for pickles containing numpy arrays.
   This is especially important when loading the pickle with
