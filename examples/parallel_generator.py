@@ -10,12 +10,13 @@ If we call :class:`~joblib.Parallel` for several of these tasks directly, we
 observe a high memory usage, as all the results are held in RAM before being
 processed
 
-Using the `return_as=` parameter with non-default value allows to progressively
-consume the outputs as they arrive and keeps the memory at an acceptable level.
+Using the ``return_as=`` parameter with non-default value allows to
+progressively consume the outputs as they arrive and keeps the memory at an
+acceptable level.
 
-Using this feature requires passing `return_as="submitted"`, in which case the
-generator yields the results in the order the tasks have been submitted with.
-Future releases are also planned to support the `return_as="completed"`
+Using this feature requires passing ``return_as="submitted"``, in which case
+the generator yields the results in the order the tasks have been submitted
+with. Future releases are also planned to support the ``return_as="completed"``
 parameter to have the generator yield results as soon as available.
 
 """
@@ -99,7 +100,7 @@ def accumulator_sum(generator):
 
 
 ##############################################################################
-# We process many of the tasks in parallel. If `return_as="list"` (default),
+# We process many of the tasks in parallel. If ``return_as="list"`` (default),
 # we should expect a usage of more than 2GB in RAM. Indeed, all the results
 # are computed and stored in ``res`` before being processed by
 # `accumulator_sum` and collected by the gc.
