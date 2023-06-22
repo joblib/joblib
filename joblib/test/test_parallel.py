@@ -637,7 +637,7 @@ def test_backend_no_multiprocessing():
         Parallel(backend='loky')(delayed(square)(i) for i in range(3))
 
     # The below should now work without problems
-    with parallel_config'loky'):
+    with parallel_config('loky'):
         Parallel()(delayed(square)(i) for i in range(3))
 
 
