@@ -66,7 +66,7 @@ from joblib.parallel import parallel_backend
 from joblib.parallel import register_parallel_backend
 from joblib.parallel import effective_n_jobs, cpu_count
 
-from joblib.parallel import mp, BACKENDS, DEFAULT_BACKEND, EXTERNAL_BACKENDS
+from joblib.parallel import mp, BACKENDS, DEFAULT_BACKEND
 
 
 RETURN_GENERATOR_BACKENDS = BACKENDS.copy()

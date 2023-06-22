@@ -100,6 +100,7 @@ def test_parallel_config_nested():
             isinstance(p._backend, ThreadingBackend)
             assert p.n_jobs == 2
 
+
 @with_numpy
 @with_multiprocessing
 @parametrize('backend', ['multiprocessing', 'threading',
@@ -109,4 +110,3 @@ def test_threadpool_limitation_in_child_context_error(context, backend):
 
     with raises(AssertionError, match=r"does not acc.*inner_max_num_threads"):
         context(backend, inner_max_num_threads=1)
-
