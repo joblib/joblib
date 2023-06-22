@@ -8,7 +8,7 @@ import time
 from uuid import uuid4
 import weakref
 
-from .parallel import parallel_backend
+from .parallel import parallel_config
 from .parallel import AutoBatchingMixin, ParallelBackendBase
 
 try:
@@ -121,7 +121,7 @@ class Batch:
 
     def __call__(self, tasks=None):
         results = []
-        with parallel_backend('dask'):
+        with parallel_config('dask'):
             for func, args, kwargs in tasks:
                 results.append(func(*args, **kwargs))
             return results
@@ -250,7 +250,7 @@ class DaskDistributedBackend(AutoBatchingMixin, ParallelBackendBase):
                 "Make sure that workers are started and can properly connect "
                 "to the scheduler and increase the joblib/dask connection "
                 "timeout with:\n\n"
-                "parallel_backend('dask', wait_for_workers_timeout={})"
+                "parallel_config('dask', wait_for_workers_timeout={})"
             ).format(self.wait_for_workers_timeout,
                      max(10, 2 * self.wait_for_workers_timeout))
             raise TimeoutError(error_msg) from e

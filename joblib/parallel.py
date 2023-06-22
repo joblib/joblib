@@ -47,7 +47,7 @@ BACKENDS = {
     'sequential': SequentialBackend,
 }
 # name of the backend used by default by Parallel outside of any context
-# managed by ``parallel_backend``.
+# managed by ``parallel_config`` or ``parallel_backend``.
 
 # threading is the only backend that is always everywhere
 DEFAULT_BACKEND = 'threading'
@@ -68,13 +68,13 @@ if mp is not None:
 DEFAULT_THREAD_BACKEND = 'threading'
 
 
-# Thread local value that can be overridden by the ``parallel_backend`` context
+# Thread local value that can be overridden by the ``parallel_config`` context
 # manager
 _backend = threading.local()
 
 
 def _register_dask():
-    """ Register Dask Backend if called with parallel_backend("dask") """
+    """ Register Dask Backend if called with parallel_config("dask") """
     try:
         from ._dask import DaskDistributedBackend
         register_parallel_backend('dask', DaskDistributedBackend)
@@ -334,7 +334,7 @@ class parallel_config:
 
     >>> from ray.util.joblib import register_ray  # doctest: +SKIP
     >>> register_ray()  # doctest: +SKIP
-    >>> with parallel_backend("ray"):  # doctest: +SKIP
+    >>> with parallel_config("ray"):  # doctest: +SKIP
     ...     print(Parallel()(delayed(neg)(i + 1) for i in range(5)))
     [-1, -2, -3, -4, -5]
 
@@ -576,7 +576,7 @@ class BatchedCalls(object):
     def __call__(self):
         # Set the default nested backend to self._backend but do not set the
         # change the default number of processes to -1
-        with parallel_backend(self._backend, n_jobs=self._n_jobs):
+        with parallel_config(self._backend, n_jobs=self._n_jobs):
             return [func(*args, **kwargs)
                     for func, args, kwargs in self.items]
 
@@ -938,7 +938,7 @@ class Parallel(Logger):
             For n_jobs below -1, (n_cpus + 1 + n_jobs) are used. Thus for
             n_jobs = -2, all CPUs but one are used.
             None is a marker for 'unset' that will be interpreted as n_jobs=1
-            unless the call is performed under a :func:`~parallel_backend`
+            unless the call is performed under a :func:`~parallel_config`
             context manager that sets another value for ``n_jobs``.
         backend: str, ParallelBackendBase instance or None, default: 'loky'
             Specify the parallelization backend implementation.
@@ -966,7 +966,7 @@ class Parallel(Logger):
             :class:`~Parallel` in a library. Instead it is recommended to set
             soft hints (prefer) or hard constraints (require) so as to make it
             possible for library users to change the backend from the outside
-            using the :func:`~parallel_backend` context manager.
+            using the :func:`~parallel_config` context manager.
         return_generator: bool
             If True, calls to this instance will return a generator, yielding
             the results as soon as they are available, in the original order.
@@ -974,7 +974,7 @@ class Parallel(Logger):
             calls to the same Parallel object will result in a ``RuntimeError``
         prefer: str in {'processes', 'threads'} or None, default: None
             Soft hint to choose the default backend if no specific backend
-            was selected with the :func:`~parallel_backend` context manager.
+            was selected with the :func:`~parallel_config` context manager.
             The default process-based backend is 'loky' and the default
             thread-based backend is 'threading'. Ignored if the ``backend``
             parameter is specified.
@@ -982,7 +982,7 @@ class Parallel(Logger):
             Hard constraint to select the backend. If set to 'sharedmem',
             the selected backend will be single-host and thread-based even
             if the user asked for a non-thread based backend with
-            parallel_backend.
+            :func:`~joblib.parallel_config`.
         verbose: int, optional
             The verbosity level: if non zero, progress messages are
             printed. Above 50, the output is sent to stdout.
@@ -1179,7 +1179,7 @@ class Parallel(Logger):
         nesting_level = active_backend.nesting_level
 
         if backend is None and n_jobs is default_parallel_config["n_jobs"]:
-            # If we are under a parallel_backend context manager, look up
+            # If we are under a parallel_config context manager, look up
             # the default number of jobs and use that instead:
             n_jobs = context_config["n_jobs"]
         if n_jobs is None or n_jobs is default_parallel_config["n_jobs"]:

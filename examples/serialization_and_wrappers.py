@@ -15,7 +15,7 @@ import sys
 import time
 import traceback
 from joblib.externals.loky import set_loky_pickler
-from joblib import parallel_backend
+from joblib import parallel_config
 from joblib import Parallel, delayed
 from joblib import wrap_non_picklable_objects
 
@@ -65,7 +65,7 @@ if sys.platform != 'win32':
     def func_async(i, *args):
         return 2 * i
 
-    with parallel_backend('multiprocessing'):
+    with parallel_config('multiprocessing'):
         t_start = time.time()
         Parallel(n_jobs=2)(
             delayed(func_async)(21, large_list) for _ in range(1))
@@ -117,10 +117,10 @@ except Exception:
 
 ###############################################################################
 # To have both fast pickling, safe process creation and serialization of
-# interactive functions, ``loky`` provides a wrapper function
-# :func:`wrap_non_picklable_objects` to wrap the non-picklable function and
-# indicate to the serialization process that this specific function should be
-# serialized using ``cloudpickle``. This changes the serialization behavior
+# interactive functions, ``joblib`` provides a wrapper function
+# :func:`~joblib.wrap_non_picklable_objects` to wrap the non-picklable function
+# and indicate to the serialization process that this specific function should
+# be serialized using ``cloudpickle``. This changes the serialization behavior
 # only for this function and keeps using ``pickle`` for all other objects. The
 # drawback of this solution is that it modifies the object. This should not
 # cause many issues with functions but can have side effects with object

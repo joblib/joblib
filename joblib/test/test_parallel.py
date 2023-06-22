@@ -61,8 +61,9 @@ from joblib._parallel_backends import ParallelBackendBase
 from joblib._parallel_backends import LokyBackend
 
 from joblib.parallel import Parallel, delayed
-from joblib.parallel import register_parallel_backend, parallel_backend
 from joblib.parallel import parallel_config
+from joblib.parallel import parallel_backend
+from joblib.parallel import register_parallel_backend
 from joblib.parallel import effective_n_jobs, cpu_count
 
 from joblib.parallel import mp, BACKENDS, DEFAULT_BACKEND, EXTERNAL_BACKENDS
@@ -593,7 +594,7 @@ def test_invalid_backend():
         Parallel(backend='unit-testing')
 
     with raises(ValueError, match="Invalid backend:"):
-        with parallel_backend('unit-testing'):
+        with parallel_config('unit-testing'):
             pass
 
     with raises(ValueError, match="Invalid backend:"):
@@ -636,7 +637,7 @@ def test_backend_no_multiprocessing():
         Parallel(backend='loky')(delayed(square)(i) for i in range(3))
 
     # The below should now work without problems
-    with parallel_backend('loky'):
+    with parallel_config'loky'):
         Parallel()(delayed(square)(i) for i in range(3))
 
 

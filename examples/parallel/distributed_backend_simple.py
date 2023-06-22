@@ -49,7 +49,7 @@ def long_running_function(i):
 ###############################################################################
 # The verbose messages below show that the backend is indeed the
 # dask.distributed one
-with joblib.parallel_backend("dask"):
+with joblib.parallel_config("dask"):
     joblib.Parallel(verbose=100)(
         joblib.delayed(long_running_function)(i) for i in range(10)
     )
