@@ -164,7 +164,7 @@ def get_func_name(func, resolv_alias=True, win_characters=True):
     if resolv_alias:
         # TODO: Maybe add a warning here?
         if hasattr(func, 'func_globals') and name in func.func_globals:
-            if not func.func_globals[name] is func:
+            if func.func_globals[name] is not func:
                 name = '%s-alias' % name
     if hasattr(func, '__qualname__') and func.__qualname__ != name:
         # Extend the module name in case of nested functions to avoid

@@ -31,7 +31,7 @@ div.highlight pre {
 div.body table.docutils tr{
     background: #ccc; /* fallback if nth-child is not supported */
 }
-div.body table.docutils tr:nth-child(odd){ 
+div.body table.docutils tr:nth-child(odd){
     background: #f8f4ee;
 }
 div.body table.docutils tr:nth-child(even){
