@@ -129,7 +129,7 @@ print(f"Peak memory usage: {peak:.2f}GB")
 # by the gc. The memory footprint is thus reduced, typically around 300MB.
 
 monitor_gen = MemoryMonitor()
-print("Create result generator with return_as='submitted'...")
+print("Create result generator with return_as='generator'...")
 res = Parallel(n_jobs=2, return_as="generator")(
     delayed(return_big_object)(i) for i in range(150)
 )
