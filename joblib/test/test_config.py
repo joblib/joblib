@@ -91,13 +91,13 @@ def test_parallel_config_nested():
 
     with parallel_config(n_jobs=2):
         p = Parallel()
-        isinstance(p._backend, BACKENDS[DEFAULT_BACKEND])
+        assert isinstance(p._backend, BACKENDS[DEFAULT_BACKEND])
         assert p.n_jobs == 2
 
     with parallel_config(backend='threading'):
         with parallel_config(n_jobs=2):
             p = Parallel()
-            isinstance(p._backend, ThreadingBackend)
+            assert isinstance(p._backend, ThreadingBackend)
             assert p.n_jobs == 2
 
 

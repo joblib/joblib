@@ -230,7 +230,7 @@ number of threads using the ``inner_max_num_threads`` argument of the
 
     from joblib import Parallel, delayed, parallel_config
 
-    with parallel_config("loky", inner_max_num_threads=2):
+    with parallel_config(backend="loky", inner_max_num_threads=2):
         results = Parallel(n_jobs=4)(delayed(func)(x, y) for x, y in data)
 
 In this example, 4 Python worker processes will be allowed to use 2 threads
@@ -274,7 +274,7 @@ The connection parameters can then be passed to the
 :func:`~joblib.parallel_config` context manager::
 
     with parallel_config(backend='custom', endpoint='http://compute',
-                         api_key='42'):
+                        api_key='42'):
         Parallel()(delayed(some_function)(i) for i in range(10))
 
 Using the context manager can be helpful when using a third-party library that
