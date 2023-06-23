@@ -10,14 +10,13 @@ If we call :class:`~joblib.Parallel` for several of these tasks directly, we
 observe a high memory usage, as all the results are held in RAM before being
 processed
 
-Using the ``return_as=`` parameter with non-default value allows to
-progressively consume the outputs as they arrive and keeps the memory at an
-acceptable level.
+Using ``return_as='submitted'`` allows to progressively consume the outputs
+as they arrive and keeps the memory at an acceptable level.
 
-Using this feature requires passing ``return_as="submitted"``, in which case
-the generator yields the results in the order the tasks have been submitted
-with. Future releases are also planned to support the ``return_as="completed"``
-parameter to have the generator yield results as soon as available.
+In this case, the output of the `Parallel` call is a generator that yields the
+results in the order the tasks have been submitted with. Future releases are
+also planned to support the ``return_as="completed"`` parameter to have the
+generator yield results as soon as available.
 
 """
 
@@ -108,7 +107,7 @@ def accumulator_sum(generator):
 from joblib import Parallel, delayed
 
 monitor = MemoryMonitor()
-print('Running tasks with return_as="list"...')
+print("Running tasks with return_as='list'...")
 res = Parallel(n_jobs=2, return_as="list")(
     delayed(return_big_object)(i) for i in range(150)
 )
@@ -130,7 +129,7 @@ print(f"Peak memory usage: {peak:.2f}GB")
 # by the gc. The memory footprint is thus reduced, typically around 300MB.
 
 monitor_gen = MemoryMonitor()
-print('Create result generator with return_as="submitted"...')
+print("Create result generator with return_as='submitted'...")
 res = Parallel(n_jobs=2, return_as="submitted")(
     delayed(return_big_object)(i) for i in range(150)
 )

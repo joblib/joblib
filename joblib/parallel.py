@@ -969,7 +969,7 @@ class Parallel(Logger):
             using the :func:`~parallel_backend` context manager.
         return_as: str in {'list', 'submitted'}, default: 'list'
             If 'list', calls to this instance will return a list, only when
-            all results have been processed and are ready to return.
+            all results have been processed and retrieved.
             Else it will return a generator that yields the results as soon as
             they are available, in the order the tasks have been submitted
             with.
