@@ -10,13 +10,13 @@ If we call :class:`~joblib.Parallel` for several of these tasks directly, we
 observe a high memory usage, as all the results are held in RAM before being
 processed
 
-Using ``return_as='submitted'`` allows to progressively consume the outputs
+Using ``return_as='generator'`` allows to progressively consume the outputs
 as they arrive and keeps the memory at an acceptable level.
 
 In this case, the output of the `Parallel` call is a generator that yields the
 results in the order the tasks have been submitted with. Future releases are
-also planned to support the ``return_as="completed"`` parameter to have the
-generator yield results as soon as available.
+also planned to support the ``return_as="unordered_generator"`` parameter to
+have the generator yield results as soon as available.
 
 """
 
@@ -123,14 +123,14 @@ print(f"Peak memory usage: {peak:.2f}GB")
 
 
 ##############################################################################
-# If we use ``return_as="submitted"``, ``res`` is simply a generator with the
+# If we use ``return_as="generator"``, ``res`` is simply a generator on the
 # results that are ready. Here we consume the results as soon as they arrive
 # with the ``accumulator_sum`` and once they have been used, they are collected
 # by the gc. The memory footprint is thus reduced, typically around 300MB.
 
 monitor_gen = MemoryMonitor()
 print("Create result generator with return_as='submitted'...")
-res = Parallel(n_jobs=2, return_as="submitted")(
+res = Parallel(n_jobs=2, return_as="generator")(
     delayed(return_big_object)(i) for i in range(150)
 )
 print("Accumulate results:", end='')
@@ -162,7 +162,7 @@ plt.semilogy(
 )
 plt.semilogy(
     np.maximum.accumulate(monitor_gen.memory_buffer),
-    label='return_as="submitted"'
+    label='return_as="generator"'
 )
 plt.xlabel("Time")
 plt.xticks([], [])
@@ -172,7 +172,7 @@ plt.legend()
 plt.show()
 
 ##############################################################################
-# It is important to note that with ``return_as="submitted"``, the results are
+# It is important to note that with ``return_as="generator"``, the results are
 # still accumulated in RAM after computation. But as we asynchronously process
 # them, they can be freed sooner. However, if the generator is not consumed
 # the memory still grows linearly.

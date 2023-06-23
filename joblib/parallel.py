@@ -574,8 +574,8 @@ class BatchedCalls(object):
         self._pickle_cache = pickle_cache if pickle_cache is not None else {}
 
     def __call__(self):
-        # Set the default nested backend to self._backend but do not set the
-        # change the default number of processes to -1
+        # Set the default nested backend to self._backend but do not change the
+        # default number of processes to -1
         with parallel_backend(self._backend, n_jobs=self._n_jobs):
             return [func(*args, **kwargs)
                     for func, args, kwargs in self.items]
@@ -967,14 +967,14 @@ class Parallel(Logger):
             soft hints (prefer) or hard constraints (require) so as to make it
             possible for library users to change the backend from the outside
             using the :func:`~parallel_backend` context manager.
-        return_as: str in {'list', 'submitted'}, default: 'list'
+        return_as: str in {'list', 'generator'}, default: 'list'
             If 'list', calls to this instance will return a list, only when
             all results have been processed and retrieved.
-            Else it will return a generator that yields the results as soon as
-            they are available, in the order the tasks have been submitted
-            with.
-            Future releases are planned to also support 'completed', in which
-            case the generator immediately yields available results
+            If 'generator', it will return a generator that yields the results
+            as soon as they are available, in the order the tasks have been
+            submitted with.
+            Future releases are planned to also support 'generator_unordered',
+            in which case the generator immediately yields available results
             independently of the submission order.
         prefer: str in {'processes', 'threads'} or None, default: None
             Soft hint to choose the default backend if no specific backend
@@ -1199,10 +1199,10 @@ class Parallel(Logger):
         self.timeout = timeout
         self.pre_dispatch = pre_dispatch
 
-        if return_as not in {"list", "submitted"}:
+        if return_as not in {"list", "generator"}:
             raise ValueError(
                 'Expected `return_as` parameter to be a string equal to "list"'
-                f' or "submitted", but got {return_as} instead'
+                f' or "generator", but got {return_as} instead'
             )
         self.return_as = return_as
         self.return_generator = return_as != "list"
@@ -1400,7 +1400,7 @@ class Parallel(Logger):
         batch_size = self._get_batch_size()
 
         with self._lock:
-            # to ensure an even distribution of the workolad between workers,
+            # to ensure an even distribution of the workload between workers,
             # we look ahead in the original iterators more than batch_size
             # tasks - However, we keep consuming only one batch at each
             # dispatch_one_batch call. The extra tasks are stored in a local
