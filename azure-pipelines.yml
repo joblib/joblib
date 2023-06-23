@@ -14,28 +14,6 @@ trigger:
 - master
 
 jobs:
-- job: linting
-  displayName: Linting
-  pool:
-    vmImage: ubuntu-latest
-  steps:
-    - bash: echo "##vso[task.prependpath]$CONDA/bin"
-      displayName: Add conda to PATH
-    - bash: sudo chown -R $USER $CONDA
-      displayName: Take ownership of conda installation
-    - bash: conda create --name flake8_env --yes flake8
-      displayName: Install flake8
-    - bash: |
-        if [[ $BUILD_SOURCEVERSIONMESSAGE =~ \[lint\ skip\] ]]; then
-          # skip linting
-          echo "Skipping linting"
-          exit 0
-        else
-          source activate flake8_env
-          flake8
-        fi
-      displayName: Run linting
-
 - job: testing
   displayName: Testing
   strategy:
