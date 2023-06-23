@@ -32,6 +32,10 @@ In development
   previous versions of Joblib.
   https://github.com/joblib/joblib/pull/1374
 
+- Add ``cache_validation_callback`` in :meth:`joblib.Memory.cache`, to allow
+  custom cache invalidation based on the metadata of the function call.
+  https://github.com/joblib/joblib/pull/1149
+
 - Add a ``return_generator`` parameter for ``Parallel``, that allows
   to consume results asynchronously.
   https://github.com/joblib/joblib/pull/1393
