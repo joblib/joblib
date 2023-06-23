@@ -22,6 +22,7 @@ import textwrap
 import pytest
 
 from joblib.memory import Memory
+from joblib.memory import expires_after
 from joblib.memory import MemorizedFunc, NotMemorizedFunc
 from joblib.memory import MemorizedResult, NotMemorizedResult
 from joblib.memory import _FUNCTION_HASHES
@@ -87,10 +88,10 @@ def test_memory_integration(tmpdir):
     """ Simple test of memory lazy evaluation.
     """
     accumulator = list()
+
     # Rmk: this function has the same name than a module-level function,
     # thus it serves as a test to see that both are identified
     # as different.
-
     def f(arg):
         accumulator.append(1)
         return arg
@@ -930,7 +931,8 @@ def test__get_items_to_delete(tmpdir):
     # All the cache items need to be deleted
     bytes_limit_too_small = 500
     items_to_delete_500b = memory.store_backend._get_items_to_delete(
-        bytes_limit_too_small)
+        bytes_limit_too_small
+    )
     assert set(items_to_delete_500b), set(items)
 
     # Test LRU property: surviving cache items should all have a more
@@ -942,7 +944,7 @@ def test__get_items_to_delete(tmpdir):
             min(ci.last_access for ci in surviving_items))
 
 
-def test_memory_reduce_size(tmpdir):
+def test_memory_reduce_size_bytes_limit(tmpdir):
     memory, _, _ = _setup_toy_cache(tmpdir)
     ref_cache_items = memory.store_backend.get_items()
 
@@ -953,22 +955,77 @@ def test_memory_reduce_size(tmpdir):
 
     # No cache items deleted if bytes_limit greater than the size of
     # the cache
-    memory.bytes_limit = '1M'
-    memory.reduce_size()
+    memory.reduce_size(bytes_limit='1M')
     cache_items = memory.store_backend.get_items()
     assert sorted(ref_cache_items) == sorted(cache_items)
 
     # bytes_limit is set so that only two cache items are kept
-    memory.bytes_limit = '3K'
-    memory.reduce_size()
+    memory.reduce_size(bytes_limit='3K')
     cache_items = memory.store_backend.get_items()
     assert set.issubset(set(cache_items), set(ref_cache_items))
     assert len(cache_items) == 2
 
     # bytes_limit set so that no cache item is kept
     bytes_limit_too_small = 500
-    memory.bytes_limit = bytes_limit_too_small
+    memory.reduce_size(bytes_limit=bytes_limit_too_small)
+    cache_items = memory.store_backend.get_items()
+    assert cache_items == []
+
+
+def test_memory_reduce_size_items_limit(tmpdir):
+    memory, _, _ = _setup_toy_cache(tmpdir)
+    ref_cache_items = memory.store_backend.get_items()
+
+    # By default reduce_size is a noop
     memory.reduce_size()
+    cache_items = memory.store_backend.get_items()
+    assert sorted(ref_cache_items) == sorted(cache_items)
+
+    # No cache items deleted if items_limit greater than the size of
+    # the cache
+    memory.reduce_size(items_limit=10)
+    cache_items = memory.store_backend.get_items()
+    assert sorted(ref_cache_items) == sorted(cache_items)
+
+    # items_limit is set so that only two cache items are kept
+    memory.reduce_size(items_limit=2)
+    cache_items = memory.store_backend.get_items()
+    assert set.issubset(set(cache_items), set(ref_cache_items))
+    assert len(cache_items) == 2
+
+    # item_limit set so that no cache item is kept
+    memory.reduce_size(items_limit=0)
+    cache_items = memory.store_backend.get_items()
+    assert cache_items == []
+
+
+def test_memory_reduce_size_age_limit(tmpdir):
+    import time
+    import datetime
+    memory, _, put_cache = _setup_toy_cache(tmpdir)
+    ref_cache_items = memory.store_backend.get_items()
+
+    # By default reduce_size is a noop
+    memory.reduce_size()
+    cache_items = memory.store_backend.get_items()
+    assert sorted(ref_cache_items) == sorted(cache_items)
+
+    # No cache items deleted if age_limit big.
+    memory.reduce_size(age_limit=datetime.timedelta(days=1))
+    cache_items = memory.store_backend.get_items()
+    assert sorted(ref_cache_items) == sorted(cache_items)
+
+    # age_limit is set so that only two cache items are kept
+    time.sleep(1)
+    put_cache(-1)
+    put_cache(-2)
+    memory.reduce_size(age_limit=datetime.timedelta(seconds=1))
+    cache_items = memory.store_backend.get_items()
+    assert not set.issubset(set(cache_items), set(ref_cache_items))
+    assert len(cache_items) == 2
+
+    # age_limit set so that no cache item is kept
+    memory.reduce_size(age_limit=datetime.timedelta(seconds=0))
     cache_items = memory.store_backend.get_items()
     assert cache_items == []
 
@@ -1278,7 +1335,7 @@ def compare(left, right, ignored_attrs=None):
 
 @pytest.mark.parametrize('memory_kwargs',
                          [{'compress': 3, 'verbose': 2},
-                          {'mmap_mode': 'r', 'verbose': 5, 'bytes_limit': 1e6,
+                          {'mmap_mode': 'r', 'verbose': 5,
                            'backend_options': {'parameter': 'unused'}}])
 def test_memory_pickle_dump_load(tmpdir, memory_kwargs):
     memory = Memory(location=tmpdir.strpath, **memory_kwargs)
@@ -1335,3 +1392,97 @@ def test_info_log(tmpdir, caplog):
     _ = f(x)
     assert "Querying" not in caplog.text
     caplog.clear()
+
+
+def test_deprecated_bytes_limit(tmpdir):
+    from joblib import __version__
+    if __version__ >= "1.5":
+        raise DeprecationWarning(
+            "Bytes limit is deprecated and should be removed by 1.4"
+        )
+    with pytest.warns(DeprecationWarning, match="bytes_limit"):
+        _ = Memory(location=tmpdir.strpath, bytes_limit='1K')
+
+
+class TestCacheValidationCallback:
+    "Tests on parameter `cache_validation_callback`"
+
+    @pytest.fixture()
+    def memory(self, tmp_path):
+        mem = Memory(location=tmp_path)
+        yield mem
+        mem.clear()
+
+    def foo(self, x, d, delay=None):
+        d["run"] = True
+        if delay is not None:
+            time.sleep(delay)
+        return x * 2
+
+    def test_invalid_cache_validation_callback(self, memory):
+        "Test invalid values for `cache_validation_callback"
+        match = "cache_validation_callback needs to be callable. Got True."
+        with pytest.raises(ValueError, match=match):
+            memory.cache(cache_validation_callback=True)
+
+    @pytest.mark.parametrize("consider_cache_valid", [True, False])
+    def test_constant_cache_validation_callback(
+            self, memory, consider_cache_valid
+    ):
+        "Test expiry of old results"
+        f = memory.cache(
+            self.foo, cache_validation_callback=lambda _: consider_cache_valid,
+            ignore=["d"]
+        )
+
+        d1, d2 = {"run": False}, {"run": False}
+        assert f(2, d1) == 4
+        assert f(2, d2) == 4
+
+        assert d1["run"]
+        assert d2["run"] != consider_cache_valid
+
+    def test_memory_only_cache_long_run(self, memory):
+        "Test cache validity based on run duration."
+
+        def cache_validation_callback(metadata):
+            duration = metadata['duration']
+            if duration > 0.1:
+                return True
+
+        f = memory.cache(
+            self.foo, cache_validation_callback=cache_validation_callback,
+            ignore=["d"]
+        )
+
+        # Short run are not cached
+        d1, d2 = {"run": False}, {"run": False}
+        assert f(2, d1, delay=0) == 4
+        assert f(2, d2, delay=0) == 4
+        assert d1["run"]
+        assert d2["run"]
+
+        # Longer run are cached
+        d1, d2 = {"run": False}, {"run": False}
+        assert f(2, d1, delay=0.2) == 4
+        assert f(2, d2, delay=0.2) == 4
+        assert d1["run"]
+        assert not d2["run"]
+
+    def test_memory_expires_after(self, memory):
+        "Test expiry of old cached results"
+
+        f = memory.cache(
+            self.foo, cache_validation_callback=expires_after(seconds=.3),
+            ignore=["d"]
+        )
+
+        d1, d2, d3 = {"run": False}, {"run": False}, {"run": False}
+        assert f(2, d1) == 4
+        assert f(2, d2) == 4
+        time.sleep(.5)
+        assert f(2, d3) == 4
+
+        assert d1["run"]
+        assert not d2["run"]
+        assert d3["run"]

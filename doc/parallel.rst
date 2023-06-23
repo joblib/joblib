@@ -72,11 +72,11 @@ instead of the default ``"loky"`` backend:
     ...     delayed(sqrt)(i ** 2) for i in range(10))
     [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
 
-It is also possible to manually select a specific backend implementation
-with the help of a context manager:
+The :class:`parallel_config` context manager helps selecting
+a specific backend implementation or setting the default number of jobs:
 
-    >>> from joblib import parallel_backend
-    >>> with parallel_backend('threading', n_jobs=2):
+    >>> from joblib import parallel_config
+    >>> with parallel_config('threading', n_jobs=2):
     ...    Parallel()(delayed(sqrt)(i ** 2) for i in range(10))
     [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
 
@@ -397,10 +397,22 @@ does not exist (but multiprocessing has more overhead).
 ==================================
 
 .. autoclass:: joblib.Parallel
-    :noindex:
+   :members: dispatch_next, dispatch_one_batch, format, print_progress
+   :no-inherited-members:
+   :noindex:
 
 .. autofunction:: joblib.delayed
 
 .. autofunction:: joblib.register_parallel_backend
 
 .. autofunction:: joblib.parallel_backend
+
+.. autofunction:: joblib.wrap_non_picklable_objects
+
+.. autofunction:: joblib.parallel.register_parallel_backend
+
+.. autoclass:: joblib.parallel.parallel_config
+
+.. autoclass:: joblib.parallel.ParallelBackendBase
+
+.. autoclass:: joblib.parallel.AutoBatchingMixin
