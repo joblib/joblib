@@ -363,6 +363,10 @@ class parallel_config:
             _backend, "config", default_parallel_config
         )
 
+        backend = self._check_backend(
+            backend, inner_max_num_threads, **backend_params
+        )
+
         new_config = {
             "n_jobs": n_jobs,
             "verbose": verbose,
@@ -371,6 +375,7 @@ class parallel_config:
             "mmap_mode": mmap_mode,
             "prefer": prefer,
             "require": require,
+            "backend": backend
         }
         self.parallel_config = self.old_parallel_config.copy()
         self.parallel_config.update({
@@ -378,11 +383,6 @@ class parallel_config:
             if not isinstance(v, _Sentinel)
         })
 
-        backend = self._check_backend(
-            backend, inner_max_num_threads, **backend_params
-        )
-
-        self.parallel_config["backend"] = backend
         setattr(_backend, "config", self.parallel_config)
 
     def _check_backend(self, backend, inner_max_num_threads, **backend_params):

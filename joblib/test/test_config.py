@@ -84,10 +84,14 @@ def test_parallel_config_constructor_params():
         with parallel_config(inner_max_num_threads=1):
             pass
 
+    with raises(ValueError, match="only supported when backend is not None"):
+        with parallel_config(backend_param=1):
+            pass
+
 
 def test_parallel_config_nested():
-    # Check that an error is raised when backend is None
-    # but backend constructor params are given
+    # Check that nested configuration retrieves the info from the
+    # parent config and do not reset them.
 
     with parallel_config(n_jobs=2):
         p = Parallel()
@@ -98,6 +102,12 @@ def test_parallel_config_nested():
         with parallel_config(n_jobs=2):
             p = Parallel()
             assert isinstance(p._backend, ThreadingBackend)
+            assert p.n_jobs == 2
+
+    with parallel_config(verbose=100):
+        with parallel_config(n_jobs=2):
+            p = Parallel()
+            assert p.verbose == 100
             assert p.n_jobs == 2
 
 
