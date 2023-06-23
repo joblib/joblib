@@ -76,7 +76,7 @@ The :func:`~joblib.parallel_config` context manager helps selecting
 a specific backend implementation or setting the default number of jobs:
 
     >>> from joblib import parallel_config
-    >>> with parallel_config('threading', n_jobs=2):
+    >>> with parallel_config(backend='threading', n_jobs=2):
     ...    Parallel()(delayed(sqrt)(i ** 2) for i in range(10))
     [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
 
@@ -273,7 +273,8 @@ for a remote cluster computing service::
 The connection parameters can then be passed to the
 :func:`~joblib.parallel_config` context manager::
 
-    with parallel_config('custom', endpoint='http://compute', api_key='42'):
+    with parallel_config(backend='custom', endpoint='http://compute',
+                         api_key='42'):
         Parallel()(delayed(some_function)(i) for i in range(10))
 
 Using the context manager can be helpful when using a third-party library that
@@ -285,13 +286,13 @@ A problem exists that external packages that register new parallel backends
 must now be imported explicitly for their backends to be identified by joblib::
 
    >>> import joblib
-   >>> with joblib.parallel_config('custom'):  # doctest: +SKIP
+   >>> with joblib.parallel_config(backend='custom'):  # doctest: +SKIP
    ...     ...  # this fails
    KeyError: 'custom'
 
    # Import library to register external backend
    >>> import my_custom_backend_library  # doctest: +SKIP
-   >>> with joblib.parallel_config('custom'):  # doctest: +SKIP
+   >>> with joblib.parallel_config(backend='custom'):  # doctest: +SKIP
    ...     ... # this works
 
 This can be confusing for users.  To resolve this, external packages can

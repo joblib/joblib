@@ -72,7 +72,7 @@ _backend = threading.local()
 
 
 def _register_dask():
-    """ Register Dask Backend if called with parallel_config("dask") """
+    """Register Dask Backend if called with parallel_config(backend="dask")"""
     try:
         from ._dask import DaskDistributedBackend
         register_parallel_backend('dask', DaskDistributedBackend)
@@ -345,7 +345,7 @@ class parallel_config:
 
     >>> from ray.util.joblib import register_ray  # doctest: +SKIP
     >>> register_ray()  # doctest: +SKIP
-    >>> with parallel_config("ray"):  # doctest: +SKIP
+    >>> with parallel_config(backend="ray"):  # doctest: +SKIP
     ...     print(Parallel()(delayed(neg)(i + 1) for i in range(5)))
     [-1, -2, -3, -4, -5]
 

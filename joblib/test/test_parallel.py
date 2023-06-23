@@ -594,11 +594,11 @@ def test_invalid_backend():
         Parallel(backend='unit-testing')
 
     with raises(ValueError, match="Invalid backend:"):
-        with parallel_config('unit-testing'):
+        with parallel_config(backend='unit-testing'):
             pass
 
     with raises(ValueError, match="Invalid backend:"):
-        with parallel_config('unit-testing'):
+        with parallel_config(backend='unit-testing'):
             pass
 
 
@@ -637,7 +637,7 @@ def test_backend_no_multiprocessing():
         Parallel(backend='loky')(delayed(square)(i) for i in range(3))
 
     # The below should now work without problems
-    with parallel_config('loky'):
+    with parallel_config(backend='loky'):
         Parallel()(delayed(square)(i) for i in range(3))
 
 
