@@ -100,7 +100,6 @@ default_parallel_config = {
     "mmap_mode": _Sentinel(default_value="r"),
     "prefer": _Sentinel(default_value=None),
     "require": _Sentinel(default_value=None),
-    "_parent_config": None,
 }
 
 
@@ -118,15 +117,9 @@ def _get_config_param(param, context_config, key):
         # param is explicitely set, return it
         return param
 
-    if (context_config is not None and key in context_config
-            and context_config[key] is not default_parallel_config[key]):
+    if context_config[key] is not default_parallel_config[key]:
         # there's a context manager and the key is set, return it
         return context_config[key]
-
-    # There is either no context manager or a context manager with the key
-    # not set. Just return the value from the parent_config if it exists.
-    if context_config['_parent_config'] is not None:
-        return _get_config_param(param, context_config['_parent_config'], key)
 
     # Otherwise, we are in the default_parallel_config,
     # return the default value
@@ -213,9 +206,10 @@ def _get_active_backend(
                 f"joblib backend instead of {backend.__class__.__name__} "
                 "as the latter does not provide shared memory semantics."
             )
-        return sharedmem_backend, {
-            'n_jobs': 1, '_parent_config': backend_config
-        }
+        # Force to n_jobs=1 by default
+        thread_config = backend_config.copy()
+        thread_config['n_jobs'] = 1
+        return sharedmem_backend, thread_config
 
     return backend, backend_config
 
@@ -365,11 +359,11 @@ class parallel_config:
         **backend_params
     ):
         # Save the parallel info and set the active parallel config
-        old_parallel_config = getattr(
+        self.old_parallel_config = getattr(
             _backend, "config", default_parallel_config
         )
 
-        self.parallel_config = {
+        new_config = {
             "n_jobs": n_jobs,
             "verbose": verbose,
             "temp_folder": temp_folder,
@@ -377,8 +371,12 @@ class parallel_config:
             "mmap_mode": mmap_mode,
             "prefer": prefer,
             "require": require,
-            "_parent_config": old_parallel_config,
         }
+        self.parallel_config = self.old_parallel_config.copy()
+        self.parallel_config.update({
+            k: v for k, v in new_config.items()
+            if not isinstance(v, _Sentinel)
+        })
 
         backend = self._check_backend(
             backend, inner_max_num_threads, **backend_params
@@ -430,7 +428,7 @@ class parallel_config:
         # If the nesting_level of the backend is not set previously, use the
         # nesting level from the previous active_backend to set it
         if backend.nesting_level is None:
-            parent_backend = self.parallel_config['_parent_config']['backend']
+            parent_backend = self.old_parallel_config['backend']
             if parent_backend is default_parallel_config['backend']:
                 nesting_level = 0
             else:
@@ -446,7 +444,7 @@ class parallel_config:
         self.unregister()
 
     def unregister(self):
-        setattr(_backend, "config", self.parallel_config['_parent_config'])
+        setattr(_backend, "config", self.old_parallel_config)
 
 
 class parallel_backend(parallel_config):
@@ -539,12 +537,12 @@ class parallel_backend(parallel_config):
             **backend_params
         )
 
-        if self.parallel_config['_parent_config'] is None:
+        if self.old_parallel_config is None:
             self.old_backend_and_jobs = None
         else:
             self.old_backend_and_jobs = (
-                self.parallel_config['_parent_config']["backend"],
-                self.parallel_config['_parent_config']["n_jobs"],
+                self.old_parallel_config["backend"],
+                self.old_parallel_config["n_jobs"],
             )
         self.new_backend_and_jobs = (
             self.parallel_config["backend"],
