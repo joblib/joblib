@@ -247,7 +247,7 @@ html_theme_options = {
 
 ##############################################################################
 # Hack to copy the CHANGES.rst file
-import shutil  # noqa: E402
+import shutil
 try:
     shutil.copyfile('../CHANGES.rst', 'CHANGES.rst')
     shutil.copyfile('../README.rst', 'README.rst')

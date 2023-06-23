@@ -32,7 +32,7 @@ jobs:
           exit 0
         else
           source activate flake8_env
-          flake8 --exclude="joblib/externals/*" --per-file-ignores="examples/*: E402"
+          flake8
         fi
       displayName: Run linting
 
