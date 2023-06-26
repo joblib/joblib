@@ -1247,12 +1247,13 @@ def get_large_object(arg):
 
 @with_numpy
 @parametrize('backend', RETURN_GENERATOR_BACKENDS)
+@parametrize('return_as', ["generator", "generator_unordered"])
 @parametrize('n_jobs', [1, 2, -2, -1])
-def test_deadlock_with_generator(backend, n_jobs):
+def test_deadlock_with_generator(backend, return_as, n_jobs):
     # Non-regression test for a race condition in the backends when the pickler
     # is delayed by a large object.
     with Parallel(n_jobs=n_jobs, backend=backend,
-                  return_as="generator") as parallel:
+                  return_as=return_as) as parallel:
         result = parallel(delayed(get_large_object)(i) for i in range(10))
         next(result)
         next(result)
@@ -1263,14 +1264,15 @@ def test_deadlock_with_generator(backend, n_jobs):
 
 
 @parametrize('backend', RETURN_GENERATOR_BACKENDS)
+@parametrize('return_as', ["generator", "generator_unordered"])
 @parametrize('n_jobs', [1, 2, -2, -1])
-def test_multiple_generator_call(backend, n_jobs):
+def test_multiple_generator_call(backend, return_as, n_jobs):
     # Non-regression test that ensures the dispatch of the tasks starts
     # immediately when Parallel.__call__ is called. This test relies on the
     # assumption that only one generator can be submitted at a time.
     with raises(RuntimeError,
                 match="This Parallel instance is already running"):
-        parallel = Parallel(n_jobs, backend=backend, return_as="generator")
+        parallel = Parallel(n_jobs, backend=backend, return_as=return_as)
         g = parallel(delayed(sleep)(1) for _ in range(10))  # noqa: F841
         t_start = time.time()
         gen2 = parallel(delayed(id)(i) for i in range(100))  # noqa: F841
@@ -1288,13 +1290,14 @@ def test_multiple_generator_call(backend, n_jobs):
 
 
 @parametrize('backend', RETURN_GENERATOR_BACKENDS)
+@parametrize('return_as', ["generator", "generator_unordered"])
 @parametrize('n_jobs', [1, 2, -2, -1])
-def test_multiple_generator_call_managed(backend, n_jobs):
+def test_multiple_generator_call_managed(backend, return_as, n_jobs):
     # Non-regression test that ensures the dispatch of the tasks starts
     # immediately when Parallel.__call__ is called. This test relies on the
     # assumption that only one generator can be submitted at a time.
     with Parallel(n_jobs, backend=backend,
-                  return_as="generator") as parallel:
+                  return_as=return_as) as parallel:
         g = parallel(delayed(sleep)(10) for _ in range(10))  # noqa: F841
         t_start = time.time()
         with raises(RuntimeError,
