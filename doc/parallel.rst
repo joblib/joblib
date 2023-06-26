@@ -274,7 +274,7 @@ The connection parameters can then be passed to the
 :func:`~joblib.parallel_config` context manager::
 
     with parallel_config(backend='custom', endpoint='http://compute',
-                        api_key='42'):
+                         api_key='42'):
         Parallel()(delayed(some_function)(i) for i in range(10))
 
 Using the context manager can be helpful when using a third-party library that
