@@ -23,9 +23,10 @@ def test_global_parallel_backend(context):
     default = Parallel()._backend
 
     pb = context('threading')
-    assert isinstance(Parallel()._backend, ThreadingBackend)
-
-    pb.unregister()
+    try:
+        assert isinstance(Parallel()._backend, ThreadingBackend)
+    finally:
+        pb.unregister()
     assert type(Parallel()._backend) is type(default)
 
 
@@ -35,9 +36,11 @@ def test_external_backends(context):
         BACKENDS['foo'] = ThreadingBackend
 
     EXTERNAL_BACKENDS['foo'] = register_foo
-
-    with context('foo'):
-        assert isinstance(Parallel()._backend, ThreadingBackend)
+    try:
+        with context('foo'):
+            assert isinstance(Parallel()._backend, ThreadingBackend)
+    finally:
+        del EXTERNAL_BACKENDS['foo']
 
 
 @with_numpy
