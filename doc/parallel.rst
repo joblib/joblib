@@ -402,6 +402,7 @@ does not exist (but multiprocessing has more overhead).
 .. autofunction:: joblib.delayed
 
 .. autofunction:: joblib.parallel_config
+   :noindex:
 
 .. autofunction:: joblib.wrap_non_picklable_objects
 
