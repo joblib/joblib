@@ -61,11 +61,12 @@ from joblib._parallel_backends import ParallelBackendBase
 from joblib._parallel_backends import LokyBackend
 
 from joblib.parallel import Parallel, delayed
-from joblib.parallel import register_parallel_backend, parallel_backend
 from joblib.parallel import parallel_config
+from joblib.parallel import parallel_backend
+from joblib.parallel import register_parallel_backend
 from joblib.parallel import effective_n_jobs, cpu_count
 
-from joblib.parallel import mp, BACKENDS, DEFAULT_BACKEND, EXTERNAL_BACKENDS
+from joblib.parallel import mp, BACKENDS, DEFAULT_BACKEND
 
 
 RETURN_GENERATOR_BACKENDS = BACKENDS.copy()
@@ -593,11 +594,11 @@ def test_invalid_backend():
         Parallel(backend='unit-testing')
 
     with raises(ValueError, match="Invalid backend:"):
-        with parallel_backend('unit-testing'):
+        with parallel_config(backend='unit-testing'):
             pass
 
     with raises(ValueError, match="Invalid backend:"):
-        with parallel_config('unit-testing'):
+        with parallel_config(backend='unit-testing'):
             pass
 
 
@@ -636,7 +637,7 @@ def test_backend_no_multiprocessing():
         Parallel(backend='loky')(delayed(square)(i) for i in range(3))
 
     # The below should now work without problems
-    with parallel_backend('loky'):
+    with parallel_config(backend='loky'):
         Parallel()(delayed(square)(i) for i in range(3))
 
 
@@ -1549,7 +1550,7 @@ def test_backend_hinting_and_constraints_with_custom_backends(
         assert type(p._backend) == ThreadingBackend
 
         out, err = capsys.readouterr()
-        expected = ("Using ThreadingBackend as joblib.Parallel backend "
+        expected = ("Using ThreadingBackend as joblib backend "
                     "instead of MyCustomProcessingBackend as the latter "
                     "does not provide shared memory semantics.")
         assert out.strip() == expected
@@ -1578,28 +1579,6 @@ def test_invalid_backend_hinting_and_constraints():
             Parallel(backend='loky', require='sharedmem')
         with raises(ValueError):
             Parallel(backend='multiprocessing', require='sharedmem')
-
-
-@parametrize("context", [parallel_config, parallel_backend])
-def test_global_parallel_backend(context):
-    default = Parallel()._backend
-
-    pb = context('threading')
-    assert isinstance(Parallel()._backend, ThreadingBackend)
-
-    pb.unregister()
-    assert type(Parallel()._backend) is type(default)
-
-
-@parametrize("context", [parallel_config, parallel_backend])
-def test_external_backends(context):
-    def register_foo():
-        BACKENDS['foo'] = ThreadingBackend
-
-    EXTERNAL_BACKENDS['foo'] = register_foo
-
-    with context('foo'):
-        assert isinstance(Parallel()._backend, ThreadingBackend)
 
 
 def _recursive_backend_info(limit=3, **kwargs):
@@ -1902,17 +1881,6 @@ def test_threadpool_limitation_in_child_override(context, n_jobs, var_name):
             os.environ[var_name] = original_var_value
 
 
-@with_numpy
-@with_multiprocessing
-@parametrize('backend', ['multiprocessing', 'threading',
-                         MultiprocessingBackend(), ThreadingBackend()])
-@parametrize("context", [parallel_config, parallel_backend])
-def test_threadpool_limitation_in_child_context_error(context, backend):
-
-    with raises(AssertionError, match=r"does not acc.*inner_max_num_threads"):
-        context(backend, inner_max_num_threads=1)
-
-
 @with_multiprocessing
 @parametrize('n_jobs', [2, 4, -1])
 def test_loky_reuse_workers(n_jobs):
@@ -1933,48 +1901,3 @@ def test_loky_reuse_workers(n_jobs):
         parallel_call(n_jobs)
         executor = get_reusable_executor(reuse=True)
         assert executor == first_executor
-
-
-@with_numpy
-@with_multiprocessing
-def test_parallel_config_no_backend(tmpdir):
-    # Check that parallel_config allows to change the config
-    # even if no backend is set.
-    with parallel_config(n_jobs=2, max_nbytes=1, temp_folder=tmpdir):
-        with Parallel(prefer="processes") as p:
-            assert isinstance(p._backend, LokyBackend)
-            assert p.n_jobs == 2
-
-            # Checks that memmapping is enabled
-            p(delayed(check_memmap)(a) for a in [np.random.random(10)] * 2)
-            assert len(os.listdir(tmpdir)) > 0
-
-
-@with_numpy
-@with_multiprocessing
-def test_parallel_config_params_explicit_set(tmpdir):
-    with parallel_config(n_jobs=3, max_nbytes=1, temp_folder=tmpdir):
-        with Parallel(n_jobs=2, prefer="processes", max_nbytes='1M') as p:
-            assert isinstance(p._backend, LokyBackend)
-            assert p.n_jobs == 2
-
-            # Checks that memmapping is disabled
-            with raises(TypeError, match="Expected np.memmap instance"):
-                p(delayed(check_memmap)(a) for a in [np.random.random(10)] * 2)
-
-
-@parametrize("param", ["prefer", "require"])
-def test_parallel_config_bad_params(param):
-    # Check that an error is raised when setting a wrong backend
-    # hint or constraint
-    with raises(ValueError, match=f"{param}=wrong is not a valid"):
-        with parallel_config(**{param: "wrong"}):
-            Parallel()
-
-
-def test_parallel_config_constructor_params():
-    # Check that an error is raised when backend is None
-    # but backend constructor params are given
-    with raises(ValueError, match="only supported when backend is not None"):
-        with parallel_config(inner_max_num_threads=1):
-            pass
