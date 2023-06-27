@@ -450,8 +450,8 @@ class parallel_config:
 class parallel_backend(parallel_config):
     """Change the default backend used by Parallel inside a with block.
 
-    It is advised to use the :class:`~joblib.parallel.parallel_config` context
-    manager instead, which allows more fine-grained control over the backend
+    It is advised to use the :class:`~joblib.parallel_config` context manager
+    instead, which allows more fine-grained control over the backend
     configuration.
 
     If ``backend`` is a string it must match a previously registered
@@ -524,8 +524,8 @@ class parallel_backend(parallel_config):
 
     See Also
     --------
-    joblib.parallel.parallel_config : context manager to change the backend
-                                      configuration
+    joblib.parallel_config : context manager to change the backend
+        configuration.
     """
     def __init__(self, backend, n_jobs=-1, inner_max_num_threads=None,
                  **backend_params):
