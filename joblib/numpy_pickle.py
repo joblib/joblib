@@ -219,7 +219,7 @@ class NumpyArrayWrapper(object):
                 current_pos % NUMPY_ARRAY_ALIGNMENT_BYTES != 0):
             message = (
                 f'The memmapped array {marray} loaded from the file '
-                f'{unpickler.file_handle.name} is not not bytes aligned. '
+                f'{unpickler.file_handle.name} is not byte aligned. '
                 'This may cause segmentation faults if this memmapped array '
                 'is used in some libraries like BLAS or PyTorch. '
                 'To get rid of this warning, regenerate your pickle file '
@@ -464,7 +464,7 @@ def dump(value, filename, compress=0, protocol=None, cache_size=None):
     -----
     Memmapping on load cannot be used for compressed files. Thus
     using compression can significantly slow down loading. In
-    addition, compressed files take extra extra memory during
+    addition, compressed files take up extra memory during
     dump and load.
 
     """

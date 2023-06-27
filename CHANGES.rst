@@ -163,7 +163,7 @@ Release 0.17.0
 Release 0.16.0
 --------------
 
-- Fix a problem in the constructors of of Parallel backends classes that
+- Fix a problem in the constructors of Parallel backends classes that
   inherit from the `AutoBatchingMixin` that prevented the dask backend to
   properly batch short tasks.
   https://github.com/joblib/joblib/pull/1062
@@ -744,7 +744,7 @@ Olivier Grisel
     Make joblib use the 'forkserver' start method by default under Python 3.4+
     to avoid causing crash with 3rd party libraries (such as Apple vecLib /
     Accelerate or the GCC OpenMP runtime) that use an internal thread pool that
-    is not not reinitialized when a ``fork`` system call happens.
+    is not reinitialized when a ``fork`` system call happens.
 
 Olivier Grisel
 

@@ -83,7 +83,7 @@ def get_reusable_executor(
     the main process. One can provide a dict ``{ENV: VAL}`` where ``ENV`` and
     ``VAL`` are string literals to overwrite the environment variable ``ENV``
     in the child processes to value ``VAL``. The environment variables are set
-    in the children before any module is loaded. This only works with with the
+    in the children before any module is loaded. This only works with the
     ``loky`` context.
     """
     _executor, _ = _ReusablePoolExecutor.get_reusable_executor(

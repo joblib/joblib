@@ -1688,7 +1688,7 @@ def test_thread_bomb_mitigation(context, backend):
             # pickling it to be send back to the parent process. In this
             # case the worker crashes but the original traceback is still
             # printed on stderr. This could be improved but does not seem
-            # simple to do and this is is not critical for users (as long
+            # simple to do and this is not critical for users (as long
             # as there is no process or thread bomb happening).
             pytest.xfail("Loky worker crash when serializing RecursionError")
 
