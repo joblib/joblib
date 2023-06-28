@@ -78,7 +78,7 @@ class MemmappingExecutor(_ReusablePoolExecutor):
         # finalizer of their shared memmaps. The refcount of those memmaps may
         # be off by an unknown number, so instead of decref'ing them, we force
         # delete the whole temporary folder, and unregister them. There is no
-        # risk of PermissionError at folder deletion because because at this
+        # risk of PermissionError at folder deletion because at this
         # point, all child processes are dead, so all references to temporary
         # memmaps are closed. Otherwise, just try to delete as much as possible
         # with allow_non_empty=True but if we can't, it will be clean up later

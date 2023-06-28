@@ -28,6 +28,7 @@ class ParallelBackendBase(metaclass=ABCMeta):
 
     supports_inner_max_num_threads = False
     supports_retrieve_callback = False
+    default_n_jobs = 1
 
     @property
     def supports_return_generator(self):
