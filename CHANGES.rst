@@ -49,7 +49,7 @@ Release 1.3.0 -- 2023/06/28
   control over the backend configuration. It should be used in place of the
   ``parallel_backend`` context manager. In particular, it has the advantage
   of not requiring to set a specific backend in the context manager.
-  https://github.com/joblib/joblib/pull/1392
+  https://github.com/joblib/joblib/pull/1392,
   https://github.com/joblib/joblib/pull/1457
 
 - Add ``items_limit`` and ``age_limit`` in :meth:`joblib.Memory.reduce_size`
@@ -59,13 +59,13 @@ Release 1.3.0 -- 2023/06/28
 
 - Deprecate ``bytes_limit`` in ``Memory`` as this is not automatically enforced,
   the limit can be directly passed to :meth:`joblib.Memory.reduce_size` which
-  actually enforces the limit.
+  needs to be called to actually enforce the limit.
   https://github.com/joblib/joblib/pull/1447
 
 - Vendor ``loky`` 3.4.0 which includes various fixes.
   https://github.com/joblib/joblib/pull/1422
 
-- Various updates to the documentation and benchmarking tools.
+- Various updates to the documentation and to benchmarking tools.
   https://github.com/joblib/joblib/pull/1343,
   https://github.com/joblib/joblib/pull/1348,
   https://github.com/joblib/joblib/pull/1411,
