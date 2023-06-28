@@ -36,9 +36,10 @@ In development
   custom cache invalidation based on the metadata of the function call.
   https://github.com/joblib/joblib/pull/1149
 
-- Add a ``return_generator`` parameter for ``Parallel``, that allows
-  to consume results asynchronously.
+- Add a ``return_as`` parameter for ``Parallel``, that enables consuming
+  results asynchronously.
   https://github.com/joblib/joblib/pull/1393
+  https://github.com/joblib/joblib/pull/1458
 
 - Improve the behavior of ``joblib`` for ``n_jobs=1``, with simplified
   tracebacks and more efficient running time.

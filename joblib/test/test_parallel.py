@@ -1213,12 +1213,12 @@ def set_list_value(input_list, index, value):
 
 
 @pytest.mark.parametrize('n_jobs', [1, 2, 4])
-def test_parallel_return_generator_order(n_jobs):
+def test_parallel_return_order_with_return_as_generator_parameter(n_jobs):
     # This test inserts values in a list in some expected order
     # in sequential computing, and then checks that this order has been
     # respected by Parallel output generator.
     input_list = [0] * 5
-    result = Parallel(n_jobs=n_jobs, return_generator=True,
+    result = Parallel(n_jobs=n_jobs, return_as="generator",
                       backend='threading')(
         delayed(set_list_value)(input_list, i, i) for i in range(5))
 
@@ -1253,7 +1253,7 @@ def test_deadlock_with_generator(backend, n_jobs):
     # Non-regression test for a race condition in the backends when the pickler
     # is delayed by a large object.
     with Parallel(n_jobs=n_jobs, backend=backend,
-                  return_generator=True) as parallel:
+                  return_as="generator") as parallel:
         result = parallel(delayed(get_large_object)(i) for i in range(10))
         next(result)
         next(result)
@@ -1271,7 +1271,7 @@ def test_multiple_generator_call(backend, n_jobs):
     # assumption that only one generator can be submitted at a time.
     with raises(RuntimeError,
                 match="This Parallel instance is already running"):
-        parallel = Parallel(n_jobs, backend=backend, return_generator=True)
+        parallel = Parallel(n_jobs, backend=backend, return_as="generator")
         g = parallel(delayed(sleep)(1) for _ in range(10))  # noqa: F841
         t_start = time.time()
         gen2 = parallel(delayed(id)(i) for i in range(100))  # noqa: F841
@@ -1295,7 +1295,7 @@ def test_multiple_generator_call_managed(backend, n_jobs):
     # immediately when Parallel.__call__ is called. This test relies on the
     # assumption that only one generator can be submitted at a time.
     with Parallel(n_jobs, backend=backend,
-                  return_generator=True) as parallel:
+                  return_as="generator") as parallel:
         g = parallel(delayed(sleep)(10) for _ in range(10))  # noqa: F841
         t_start = time.time()
         with raises(RuntimeError,
@@ -1318,10 +1318,10 @@ def test_multiple_generator_call_managed(backend, n_jobs):
 @parametrize('n_jobs', [1, 2, -2, -1])
 def test_multiple_generator_call_separated(backend, n_jobs):
     # Check that for separated Parallel, both tasks are correctly returned.
-    g = Parallel(n_jobs, backend=backend, return_generator=True)(
+    g = Parallel(n_jobs, backend=backend, return_as="generator")(
         delayed(sqrt)(i ** 2) for i in range(10)
     )
-    g2 = Parallel(n_jobs, backend=backend, return_generator=True)(
+    g2 = Parallel(n_jobs, backend=backend, return_as="generator")(
         delayed(sqrt)(i ** 2) for i in range(10, 20)
     )
 
@@ -1341,7 +1341,7 @@ def test_multiple_generator_call_separated_gc(backend, error):
 
     # Check that in loky, only one call can be run at a time with
     # a single executor.
-    parallel = Parallel(2, backend=backend, return_generator=True)
+    parallel = Parallel(2, backend=backend, return_as="generator")
     g = parallel(delayed(sleep)(10) for i in range(10))
     g_wr = weakref.finalize(g, lambda: print("Generator collected"))
     ctx = (
@@ -1354,7 +1354,7 @@ def test_multiple_generator_call_separated_gc(backend, error):
         # For the other backends, as the worker pools are not shared between
         # the two calls, this should proceed correctly.
         t_start = time.time()
-        g = Parallel(2, backend=backend, return_generator=True)(
+        g = Parallel(2, backend=backend, return_as="generator")(
             delayed(sqrt)(i ** 2) for i in range(10, 20)
         )
 

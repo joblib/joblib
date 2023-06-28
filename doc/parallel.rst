@@ -25,11 +25,11 @@ can be spread over 2 CPUs using the following::
 
 The output can be a generator that yields the results as soon as they're
 available, even if the subsequent tasks aren't completed yet. The order
-of the outputs always matches the order of the inputs::
+of the outputs always matches the order the inputs have been submitted with::
 
     >>> from math import sqrt
     >>> from joblib import Parallel, delayed
-    >>> parallel = Parallel(n_jobs=2, return_generator=True)
+    >>> parallel = Parallel(n_jobs=2, return_as="generator")
     >>> output_generator = parallel(delayed(sqrt)(i ** 2) for i in range(10))
     >>> print(type(output_generator))
     <class 'generator'>
@@ -40,9 +40,17 @@ of the outputs always matches the order of the inputs::
     >>> print(list(output_generator))
     [2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
 
-This generator allows to reduce the memory footprint of :class:`joblib.Parallel`
-calls in case the results can benefit from on-the-fly aggregation, as illustrated
-in :ref:`sphx_glr_auto_examples_parallel_generator.py`.
+This generator enables reducing the memory footprint of
+:class:`joblib.Parallel` calls in case the results can benefit from on-the-fly
+aggregation, as illustrated in
+:ref:`sphx_glr_auto_examples_parallel_generator.py`.
+
+Future releases are planned to also support returning a generator that yields
+the results in the order of completion rather than the order of submission, by
+using ``return_as="unordered_generator"`` instead of ``return_as="generator"``.
+In this case the order of the outputs will depend on the concurrency of workers
+and will not be guaranteed to be deterministic, meaning the results can be
+yielded with a different order every time the code is executed.
 
 Thread-based parallelism vs process-based parallelism
 =====================================================

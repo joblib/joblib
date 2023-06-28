@@ -10,8 +10,14 @@ If we call :class:`~joblib.Parallel` for several of these tasks directly, we
 observe a high memory usage, as all the results are held in RAM before being
 processed
 
-Using the ``return_generator=True`` option allows to progressively consumes
-the outputs as they arrive and keeps the memory at an acceptable level.
+Using ``return_as='generator'`` allows to progressively consume the outputs
+as they arrive and keeps the memory at an acceptable level.
+
+In this case, the output of the `Parallel` call is a generator that yields the
+results in the order the tasks have been submitted with. Future releases are
+also planned to support the ``return_as="unordered_generator"`` parameter to
+have the generator yield results as soon as available.
+
 """
 
 ##############################################################################
@@ -93,16 +99,16 @@ def accumulator_sum(generator):
 
 
 ##############################################################################
-# We process many of the tasks in parallel. If `return_generator=False`
-# (default), we should expect a usage of more than 2GB in RAM. Indeed, all the
-# results are computed and stored in ``res`` before being processed by
+# We process many of the tasks in parallel. If ``return_as="list"`` (default),
+# we should expect a usage of more than 2GB in RAM. Indeed, all the results
+# are computed and stored in ``res`` before being processed by
 # `accumulator_sum` and collected by the gc.
 
 from joblib import Parallel, delayed
 
 monitor = MemoryMonitor()
-print("Running tasks with return_generator=False...")
-res = Parallel(n_jobs=2, return_generator=False)(
+print("Running tasks with return_as='list'...")
+res = Parallel(n_jobs=2, return_as="list")(
     delayed(return_big_object)(i) for i in range(150)
 )
 print("Accumulate results:", end='')
@@ -117,14 +123,14 @@ print(f"Peak memory usage: {peak:.2f}GB")
 
 
 ##############################################################################
-# If we use ``return_generator=True``, ``res`` is simply a generator with the
+# If we use ``return_as="generator"``, ``res`` is simply a generator on the
 # results that are ready. Here we consume the results as soon as they arrive
 # with the ``accumulator_sum`` and once they have been used, they are collected
 # by the gc. The memory footprint is thus reduced, typically around 300MB.
 
 monitor_gen = MemoryMonitor()
-print("Create result generator with return_generator=True...")
-res = Parallel(n_jobs=2, return_generator=True)(
+print("Create result generator with return_as='generator'...")
+res = Parallel(n_jobs=2, return_as="generator")(
     delayed(return_big_object)(i) for i in range(150)
 )
 print("Accumulate results:", end='')
@@ -152,11 +158,11 @@ print(f"Peak memory usage: {peak:.2f}MB")
 import matplotlib.pyplot as plt
 plt.semilogy(
     np.maximum.accumulate(monitor.memory_buffer),
-    label='return_generator=False'
+    label='return_as="list"'
 )
 plt.semilogy(
     np.maximum.accumulate(monitor_gen.memory_buffer),
-    label='return_generator=True'
+    label='return_as="generator"'
 )
 plt.xlabel("Time")
 plt.xticks([], [])
@@ -166,7 +172,7 @@ plt.legend()
 plt.show()
 
 ##############################################################################
-# It is important to note that with ``return_generator``, the results are
+# It is important to note that with ``return_as="generator"``, the results are
 # still accumulated in RAM after computation. But as we asynchronously process
 # them, they can be freed sooner. However, if the generator is not consumed
 # the memory still grows linearly.
