@@ -1238,6 +1238,7 @@ def _sqrt_with_delay(e, delay):
 # NB: for this test to work, the backend must be allowed to process tasks
 # concurrently, so at least two jobs with a non-sequential backend are
 # mandatory.
+@with_multiprocessing
 @parametrize('backend', set(RETURN_GENERATOR_BACKENDS) - {"sequential"})
 def test_parallel_unordered_generator_returns_fastest_first(backend, n_jobs):
     # This test submits 10 tasks, but the second task is super slow. This test
@@ -1247,12 +1248,12 @@ def test_parallel_unordered_generator_returns_fastest_first(backend, n_jobs):
                       backend=backend)(
         delayed(_sqrt_with_delay)(i**2, (i == 1)) for i in range(10))
 
-    result_first_half_sorted = sorted(next(result) for _ in range(9))
+    quickly_returned = sorted(next(result) for _ in range(9))
 
-    expected_result = [0] + list(range(2, 10))
+    expected_quickly_returned = [0] + list(range(2, 10))
 
     assert all(
-        v == r for v, r in zip(result_first_half_sorted, expected_result)
+        v == r for v, r in zip(expected_quickly_returned, quickly_returned)
     )
 
 
