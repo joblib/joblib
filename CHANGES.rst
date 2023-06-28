@@ -1,8 +1,8 @@
 Latest changes
 ==============
 
-In development
---------------
+Release 1.3.0 -- 2023/06/28
+---------------------------
 
 - Ensure native byte order for memmap arrays in ``joblib.load``.
   https://github.com/joblib/joblib/issues/1353
@@ -38,7 +38,7 @@ In development
 
 - Add a ``return_as`` parameter for ``Parallel``, that enables consuming
   results asynchronously.
-  https://github.com/joblib/joblib/pull/1393
+  https://github.com/joblib/joblib/pull/1393,
   https://github.com/joblib/joblib/pull/1458
 
 - Improve the behavior of ``joblib`` for ``n_jobs=1``, with simplified
@@ -50,11 +50,36 @@ In development
   ``parallel_backend`` context manager. In particular, it has the advantage
   of not requiring to set a specific backend in the context manager.
   https://github.com/joblib/joblib/pull/1392
+  https://github.com/joblib/joblib/pull/1457
 
 - Add ``items_limit`` and ``age_limit`` in :meth:`joblib.Memory.reduce_size`
   to make it easy to limit the number of items and remove items that have
   not been accessed for a long time in the cache.
   https://github.com/joblib/joblib/pull/1200
+
+- Deprecate ``bytes_limit`` in ``Memory`` as this is not automatically enforced,
+  the limit can be directly passed to :meth:`joblib.Memory.reduce_size` which
+  actually enforces the limit.
+  https://github.com/joblib/joblib/pull/1447
+
+- Vendor ``loky`` 3.4.0 which includes various fixes.
+  https://github.com/joblib/joblib/pull/1422
+
+- Various updates to the documentation and benchmarking tools.
+  https://github.com/joblib/joblib/pull/1343,
+  https://github.com/joblib/joblib/pull/1348,
+  https://github.com/joblib/joblib/pull/1411,
+  https://github.com/joblib/joblib/pull/1451,
+  https://github.com/joblib/joblib/pull/1427,
+  https://github.com/joblib/joblib/pull/1400
+
+- Move project metadata to ``pyproject.toml``.
+  https://github.com/joblib/joblib/pull/1382,
+  https://github.com/joblib/joblib/pull/1433
+
+- Add more tests to improve python ``nogil`` support.
+  https://github.com/joblib/joblib/pull/1394,
+  https://github.com/joblib/joblib/pull/1395
 
 
 Release 1.2.0
