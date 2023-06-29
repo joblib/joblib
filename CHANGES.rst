@@ -1,8 +1,12 @@
 Latest changes
 ==============
 
-In development
---------------
+Release 1.3.1 -- 2023/06/29
+---------------------------
+
+- Fix compatibility with python 3.7 by vendor loky 3.4.1
+  which is compatible with this version.
+  https://github.com/joblib/joblib/pull/1472
 
 
 Release 1.3.0 -- 2023/06/28
