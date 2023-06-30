@@ -113,9 +113,12 @@ def _get_config_param(param, context_config, key):
     Explicitly setting it in Parallel has priority over setting in a
     parallel_(config/backend) context manager.
     """
-    if param is not default_parallel_config[key] and not (key == "n_jobs" and param is None):
+    if (
+        param is not default_parallel_config[key]
+        and not (key == "n_jobs" and param is None)
+    ):
         # param is explicitely set, return it
-        # unless it is n_jobs=None, which we still want to interpret as unset.
+        # unless it is n_jobs=None, which we still want to interpret as unset.
         return param
 
     if context_config[key] is not default_parallel_config[key]:
