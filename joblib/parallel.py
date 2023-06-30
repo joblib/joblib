@@ -113,12 +113,8 @@ def _get_config_param(param, context_config, key):
     Explicitly setting it in Parallel has priority over setting in a
     parallel_(config/backend) context manager.
     """
-    if (
-        param is not default_parallel_config[key]
-        and not (key == "n_jobs" and param is None)
-    ):
+    if param is not default_parallel_config[key]:
         # param is explicitely set, return it
-        # unless it is n_jobs=None, which we still want to interpret as unset.
         return param
 
     if context_config[key] is not default_parallel_config[key]:
@@ -370,6 +366,10 @@ class parallel_config:
         backend = self._check_backend(
             backend, inner_max_num_threads, **backend_params
         )
+
+        # Interpret n_jobs=None as 'unset'
+        if n_jobs is None:
+            n_jobs = default_parallel_config["n_jobs"]
 
         new_config = {
             "n_jobs": n_jobs,
@@ -1191,6 +1191,10 @@ class Parallel(Logger):
         prefer=default_parallel_config["prefer"],
         require=default_parallel_config["require"],
     ):
+        # Interpret n_jobs=None as 'unset'
+        if n_jobs is None:
+            n_jobs = default_parallel_config["n_jobs"]
+
         active_backend, context_config = _get_active_backend(
             prefer=prefer, require=require, verbose=verbose
         )

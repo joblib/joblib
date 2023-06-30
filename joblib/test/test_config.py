@@ -133,3 +133,8 @@ def test_parallel_config_n_jobs_none(context):
     with context(backend="loky", n_jobs=2):
         with Parallel(n_jobs=None) as p:
             assert p.n_jobs == 2
+
+    with context(backend="loky", n_jobs=2):
+        with context(backend="loky", n_jobs=None):
+            with Parallel() as p:
+                assert p.n_jobs == 2
