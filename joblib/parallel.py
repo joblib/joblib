@@ -1237,6 +1237,8 @@ class Parallel(Logger):
             self._backend_args['context'] = mp.get_context()
 
         print("backend", backend)
+        print("BACKENDS", BACKENDS)
+        print("MAYBE_AVAILABLE_BACKENDS", MAYBE_AVAILABLE_BACKENDS)
 
         if backend is default_parallel_config['backend'] or backend is None:
             backend = active_backend
