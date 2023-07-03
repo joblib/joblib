@@ -367,10 +367,6 @@ class parallel_config:
             backend, inner_max_num_threads, **backend_params
         )
 
-        # Interpret n_jobs=None as 'unset'
-        if n_jobs is None:
-            n_jobs = default_parallel_config["n_jobs"]
-
         new_config = {
             "n_jobs": n_jobs,
             "verbose": verbose,
