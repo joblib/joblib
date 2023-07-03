@@ -145,6 +145,7 @@ def test_parallel_config_n_jobs_none(context):
     # parallel_(config/backend)
     # non regression test for #1473
     with context(backend="loky", n_jobs=2):
-        with context(backend="loky", n_jobs=None):  # resets n_jobs to backend default
+        with context(backend="loky", n_jobs=None):
+            # n_jobs=None resets n_jobs to backend's default
             with Parallel() as p:
                 assert p.n_jobs == 1

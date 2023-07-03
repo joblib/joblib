@@ -4,8 +4,8 @@ Latest changes
 Release 1.3.2 -- In developpement
 ---------------------------------
 
-- Fix a regression in ``joblib.Parallel`` introduced in 1.3.0 where explicitely
-  setting ``n_jobs=None`` was not interpreted as "unset".
+- Fix a regression in ``joblib.Parallel`` introduced in 1.3.0 where
+  explicitly setting ``n_jobs=None`` was not interpreted as "unset".
   https://github.com/joblib/joblib/pull/1475
 
 Release 1.3.1 -- 2023/06/29
