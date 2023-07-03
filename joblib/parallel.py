@@ -1236,10 +1236,6 @@ class Parallel(Logger):
         elif hasattr(mp, "get_context"):
             self._backend_args['context'] = mp.get_context()
 
-        print("backend", backend)
-        print("BACKENDS", BACKENDS)
-        print("MAYBE_AVAILABLE_BACKENDS", MAYBE_AVAILABLE_BACKENDS)
-
         if backend is default_parallel_config['backend'] or backend is None:
             backend = active_backend
 
@@ -1257,7 +1253,6 @@ class Parallel(Logger):
             backend = MultiprocessingBackend(nesting_level=nesting_level)
 
         elif backend not in BACKENDS and backend in MAYBE_AVAILABLE_BACKENDS:
-            print("### DEBUG ###")
             warnings.warn(
                 f"joblib backend '{backend}' is not available on "
                 f"your system, falling back to {DEFAULT_BACKEND}.",
