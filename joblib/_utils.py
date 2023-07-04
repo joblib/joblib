@@ -35,8 +35,8 @@ def eval_expr(expr):
 
 
 def eval_(node):
-    if isinstance(node, ast.Num):  # <number>
-        return node.n
+    if isinstance(node, ast.Constant):  # <number>
+        return node.value
     elif isinstance(node, ast.BinOp):  # <left> <operator> <right>
         return operators[type(node.op)](eval_(node.left), eval_(node.right))
     elif isinstance(node, ast.UnaryOp):  # <operator> <operand> e.g., -1
