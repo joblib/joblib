@@ -58,6 +58,7 @@ Module reference
 
    Memory
    Parallel
+   parallel_backend
    parallel_config
 
 .. autosummary::
