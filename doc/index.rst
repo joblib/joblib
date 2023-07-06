@@ -33,9 +33,6 @@ Introduction
 
 .. automodule:: joblib
 
-User manual
------------
-
  .. toctree::
     :maxdepth: 2
     :caption: User manual
@@ -48,10 +45,10 @@ User manual
     auto_examples/index
     developing.rst
 
+.. currentmodule:: joblib
+
 Module reference
 ----------------
-
-.. currentmodule:: joblib
 
 .. autosummary::
    :toctree: generated/
@@ -71,9 +68,12 @@ Module reference
    hash
    register_compressor
 
+Deprecated functionalities
+--------------------------
+
 .. autosummary::
    :toctree: generated/
    :template: class.rst
-   :caption: Deprecated module
+   :caption: Deprecated functionalities
 
    parallel_backend

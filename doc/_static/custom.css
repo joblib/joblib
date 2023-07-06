@@ -60,8 +60,14 @@ div.sphinxsidebarwrapper ul ul:last-of-type {
 }
 
 /* Sidebar subtitle */
-
 p.caption {
-    font-size: large;
+    font-size: x-large;
     font-weight: 400;
+}
+
+div.body p.caption {
+    color: #643200;
+    font-size: 180%;
+    font-family: Georgia, serif;
+    font-weight: normal;
 }
