@@ -34,10 +34,11 @@ Introduction
 .. automodule:: joblib
 
 User manual
---------------
+-----------
 
  .. toctree::
     :maxdepth: 2
+    :caption: User manual
 
     why.rst
     installing.rst
@@ -48,17 +49,17 @@ User manual
     developing.rst
 
 Module reference
------------------
+----------------
 
 .. currentmodule:: joblib
 
 .. autosummary::
    :toctree: generated/
    :template: class.rst
+   :caption: Module reference
 
    Memory
    Parallel
-   parallel_backend
    parallel_config
 
 .. autosummary::
@@ -69,3 +70,10 @@ Module reference
    load
    hash
    register_compressor
+
+.. autosummary::
+   :toctree: generated/
+   :template: class.rst
+   :caption: Deprecated module
+
+   parallel_backend
