@@ -1404,12 +1404,13 @@ def test_multiple_generator_call_separated_gc(
             delayed(sqrt)(i ** 2) for i in range(10, 20)
         )
 
-        if return_as_2 == "generator_unordered":
-            g = sorted(g)
-
         # The gc in pypy can be delayed. Force it to test the behavior when it
         # will eventually be collected.
         force_gc_pypy()
+
+        if return_as_2 == "generator_unordered":
+            g = sorted(g)
+
         assert all(res == i for res, i in zip(g, range(10, 20)))
 
     assert time.time() - t_start < 5
