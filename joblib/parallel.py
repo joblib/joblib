@@ -811,13 +811,6 @@ class BatchCompletionCallBack(object):
 
             if not self.parallel.return_ordered:
                 self.parallel._pending_jobs.discard(self)
-
-                if not job_succeeded:
-                    return
-
-                if self.parallel._aborting:
-                    return
-
                 self.parallel._jobs.appendleft(self)
 
         if job_succeeded:
