@@ -33,11 +33,9 @@ Introduction
 
 .. automodule:: joblib
 
-User manual
---------------
-
  .. toctree::
     :maxdepth: 2
+    :caption: User manual
 
     why.rst
     installing.rst
@@ -47,14 +45,15 @@ User manual
     auto_examples/index
     developing.rst
 
-Module reference
------------------
-
 .. currentmodule:: joblib
+
+Module reference
+----------------
 
 .. autosummary::
    :toctree: generated/
    :template: class.rst
+   :caption: Module reference
 
    Memory
    Parallel
@@ -68,3 +67,13 @@ Module reference
    load
    hash
    register_compressor
+
+Deprecated functionalities
+--------------------------
+
+.. autosummary::
+   :toctree: generated/
+   :template: class.rst
+   :caption: Deprecated functionalities
+
+   parallel_backend

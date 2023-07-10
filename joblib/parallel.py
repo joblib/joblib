@@ -450,9 +450,10 @@ class parallel_config:
 class parallel_backend(parallel_config):
     """Change the default backend used by Parallel inside a with block.
 
-    It is advised to use the :class:`~joblib.parallel_config` context manager
-    instead, which allows more fine-grained control over the backend
-    configuration.
+    .. warning::
+        It is advised to use the :class:`~joblib.parallel_config` context
+        manager instead, which allows more fine-grained control over the
+        backend configuration.
 
     If ``backend`` is a string it must match a previously registered
     implementation using the :func:`~register_parallel_backend` function.

@@ -77,14 +77,11 @@ print_vector(random_vector, backend)
 # early if that's the case:
 
 import multiprocessing as mp
-if mp.get_start_method() == "spawn":
-    import sys
-    sys.exit(0)
-
-backend = 'multiprocessing'
-random_vector = Parallel(n_jobs=2, backend=backend)(delayed(
-    stochastic_function)(10) for _ in range(n_vectors))
-print_vector(random_vector, backend)
+if mp.get_start_method() != "spawn":
+    backend = 'multiprocessing'
+    random_vector = Parallel(n_jobs=2, backend=backend)(delayed(
+        stochastic_function)(10) for _ in range(n_vectors))
+    print_vector(random_vector, backend)
 
 # %%
 # Some of the generated vectors are exactly the same, which can be a
@@ -107,9 +104,10 @@ def stochastic_function_seeded(max_value, random_state):
 # reset this seed by passing ``None`` at every function call. In this case, we
 # see that the generated vectors are all different.
 
-random_vector = Parallel(n_jobs=2, backend=backend)(delayed(
-    stochastic_function_seeded)(10, None) for _ in range(n_vectors))
-print_vector(random_vector, backend)
+if mp.get_start_method() != "spawn":
+    random_vector = Parallel(n_jobs=2, backend=backend)(delayed(
+        stochastic_function_seeded)(10, None) for _ in range(n_vectors))
+    print_vector(random_vector, backend)
 
 # %%
 # Fixing the random state to obtain deterministic results
@@ -120,12 +118,13 @@ print_vector(random_vector, backend)
 # we can replicate the same generation of vectors by passing a fixed state as
 # follows.
 
-random_state = np.random.randint(np.iinfo(np.int32).max, size=n_vectors)
+if mp.get_start_method() != "spawn":
+    random_state = np.random.randint(np.iinfo(np.int32).max, size=n_vectors)
 
-random_vector = Parallel(n_jobs=2, backend=backend)(delayed(
-    stochastic_function_seeded)(10, rng) for rng in random_state)
-print_vector(random_vector, backend)
+    random_vector = Parallel(n_jobs=2, backend=backend)(delayed(
+        stochastic_function_seeded)(10, rng) for rng in random_state)
+    print_vector(random_vector, backend)
 
-random_vector = Parallel(n_jobs=2, backend=backend)(delayed(
-    stochastic_function_seeded)(10, rng) for rng in random_state)
-print_vector(random_vector, backend)
+    random_vector = Parallel(n_jobs=2, backend=backend)(delayed(
+        stochastic_function_seeded)(10, rng) for rng in random_state)
+    print_vector(random_vector, backend)
