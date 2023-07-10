@@ -1188,6 +1188,10 @@ class Parallel(Logger):
         prefer=default_parallel_config["prefer"],
         require=default_parallel_config["require"],
     ):
+        # Interpret n_jobs=None as 'unset'
+        if n_jobs is None:
+            n_jobs = default_parallel_config["n_jobs"]
+
         active_backend, context_config = _get_active_backend(
             prefer=prefer, require=require, verbose=verbose
         )
