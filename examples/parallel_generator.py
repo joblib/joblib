@@ -183,44 +183,47 @@ plt.show()
 # in the same batch, which makes the example takwaways less consistently
 # reproducible.
 
+
 ##############################################################################
-# Now let's add some complexity to the problem and assume that some of the
-# tasks will complete much slowly than others.
+# There is still room for improving the relief on memory allocation we get
+# using ``return_as="generator"``. Indeed, notice how the generator respects
+# the order the tasks have been submitted with. This behavior can cause a build
+# up in memory of results waiting to be consumed, in case some tasks finished
+# before other tasks despite being submitted later. The corresponding results
+# will be kept in memory until the slower tasks submitted earlier are done and
+# have been iterated over.
+#
+# In case the downstream consumer of the results is reliant on the assumption
+# that the results are yielded in the same order that the tasks were submitted,
+# it can't be prevented. But in our example, since the `+` operator is
+# commutative, the function ``accumulator_sum`` does not need the generator to
+# return the results with any particular order at all. In this case it's safe
+# to use the option ``return_as="generator_unordered"``, so that the results
+# are returned as soon as a task is completed, ignoring the order of task
+# submission.
+#
+# Beware that the downstream consumer of the results must not expect them be
+# returned with any deterministic or predictable order at all, since the
+# progress of the tasks can depend on the availability of the workers, which
+# can be affected by external events, such as system load, implementation
+# details in the backend, etc.
+
+
+##############################################################################
+# To better highlight improvements in memory usage when using the parameter
+# ``return_as="generator_unordered"``, let's explcitly add delay in some of
+# the submitted tasks.
 
 
 def return_big_object_delayed(i):
     if (i + 20) % 60:
         time.sleep(0.1)
     else:
-        time.sleep(5)
+        time.sleep(3)
     return i * np.ones((10000, 200), dtype=np.float64)
 
-
 ##############################################################################
-# There's the same noticeably high RAM usage when using `return_as="list"`...
-
-monitor_delayed = MemoryMonitor()
-print("Running delayed tasks with return_as='list'...")
-res = Parallel(n_jobs=2, return_as="list", batch_size=1)(
-    delayed(return_big_object_delayed)(i) for i in range(150)
-)
-print("Accumulate results:", end='')
-res = accumulator_sum(res)
-print('All tasks completed and reduced successfully.')
-
-# Report memory usage
-del res  # we clean the result to avoid memory border effects
-monitor_delayed.join()
-peak = max(monitor_delayed.memory_buffer) / 1e9
-print(f"Peak memory usage: {peak:.2f}GB")
-
-##############################################################################
-# But now using ``return_as="generator"`` does not provide as much of a relief
-# on memory allocation. The reason is that, because the generator respects the
-# order the tasks has been submitted with, the tasks that are slower than the
-# other tasks will delay the corresponding iteration of the generator, and
-# during this time subsequent shorter tasks will be done by other processes
-# and have time to accumulate in RAM.
+# Let's check memory usage when using ``return_as="generator"``...
 
 monitor_delayed_gen = MemoryMonitor()
 print("Create result generator on delayed tasks with return_as='generator'...")
@@ -240,18 +243,10 @@ print(f"Peak memory usage: {peak:.2f}MB")
 ##############################################################################
 # If we use ``return_as="generator_unordered"``, ``res`` will not enforce any
 # order when returning the results, and will simply enable iterating on the
-# results as soon as it's available. The peak memory usage is controlled again
-# to a lower level, since that results can be comsumed immediately rather than
-# being delayed by the compute of a slower task that has been submitted
-# earlier.
-# Beware that the downstream consumer of the results must not expect them to
-# be returned with the order the tasks have been submitted with, neither with
-# any deterministic order, since the tasks completion can now depend on the
-# availability of the workers, which can be affected by external events, such
-# as system load, implementation details in the backend, etc. In this example,
-# it is not required to enforce an order, since the accumulator use a
-# commutative operation (sum), so we can safely use ``generator_unordered``
-# mode.
+# results as soon as it's available. The peak memory usage is now controlled
+# to an even lower level, since that results can be comsumed immediately
+# rather than being delayed by the compute of a slower task that has been
+# submitted earlier.
 
 monitor_delayed_gen_unordered = MemoryMonitor()
 print(
@@ -279,10 +274,6 @@ print(f"Peak memory usage: {peak:.2f}MB")
 # ``'return_as="generator_unordered"``.
 
 plt.figure(1)
-plt.semilogy(
-    np.maximum.accumulate(monitor_delayed.memory_buffer),
-    label='return_as="list"'
-)
 plt.semilogy(
     np.maximum.accumulate(monitor_delayed_gen.memory_buffer),
     label='return_as="generator"'
