@@ -222,6 +222,7 @@ def return_big_object_delayed(i):
         time.sleep(3)
     return i * np.ones((10000, 200), dtype=np.float64)
 
+
 ##############################################################################
 # Let's check memory usage when using ``return_as="generator"``...
 
