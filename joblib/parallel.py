@@ -980,16 +980,16 @@ class Parallel(Logger):
             possible for library users to change the backend from the outside
             using the :func:`~parallel_config` context manager.
         return_as: str in {'list', 'generator', 'generator_unordered'},
-                default: 'list'
+            default: 'list'
             If 'list', calls to this instance will return a list, only when
             all results have been processed and retrieved.
             If 'generator', it will return a generator that yields the results
             as soon as they are available, in the order the tasks have been
             submitted with.
             If 'generator_unordered', the generator will immediately yield
-            available results independently of the submission order. The
-            output order is not deterministic in this case because it depends
-            on the concurrency of the workers.
+            available results independently of the submission order. The output
+            order is not deterministic in this case because it depends on the
+            concurrency of the workers.
         prefer: str in {'processes', 'threads'} or None, default: None
             Soft hint to choose the default backend if no specific backend
             was selected with the :func:`~parallel_config` context manager.
