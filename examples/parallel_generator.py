@@ -177,11 +177,6 @@ plt.show()
 # still accumulated in RAM after computation. But as we asynchronously process
 # them, they can be freed sooner. However, if the generator is not consumed
 # the memory still grows linearly.
-#
-# NB: the example uses `batch_size="auto"` rather than `batch_size="auto"` to
-# prevent auto-batching from grouping together fast tasks and delayed tasks
-# in the same batch, which makes the example takwaways less consistently
-# reproducible.
 
 
 ##############################################################################
@@ -219,7 +214,7 @@ def return_big_object_delayed(i):
     if (i + 20) % 60:
         time.sleep(0.1)
     else:
-        time.sleep(3)
+        time.sleep(5)
     return i * np.ones((10000, 200), dtype=np.float64)
 
 
@@ -228,7 +223,7 @@ def return_big_object_delayed(i):
 
 monitor_delayed_gen = MemoryMonitor()
 print("Create result generator on delayed tasks with return_as='generator'...")
-res = Parallel(n_jobs=2, return_as="generator", batch_size=1)(
+res = Parallel(n_jobs=2, return_as="generator")(
     delayed(return_big_object_delayed)(i) for i in range(150)
 )
 print("Accumulate results:", end='')
@@ -254,7 +249,7 @@ print(
   "Create result generator on delayed tasks with "
   "return_as='generator_unordered'..."
 )
-res = Parallel(n_jobs=2, return_as="generator_unordered", batch_size=1)(
+res = Parallel(n_jobs=2, return_as="generator_unordered")(
     delayed(return_big_object_delayed)(i) for i in range(150)
 )
 print("Accumulate results:", end='')

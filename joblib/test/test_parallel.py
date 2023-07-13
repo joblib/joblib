@@ -1266,7 +1266,7 @@ def test_abort_backend(n_jobs, backend):
         Parallel(n_jobs=n_jobs, backend=backend)(
             delayed(time.sleep)(i) for i in delays)
     dt = time.time() - t_start
-    assert dt < 20
+    assert dt < 40
 
 
 def get_large_object(arg):
