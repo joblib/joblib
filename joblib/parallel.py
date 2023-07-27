@@ -811,7 +811,7 @@ class BatchCompletionCallBack(object):
 
             if not self.parallel.return_ordered:
                 self.parallel._jobs_unordered.discard(self)
-                self.parallel._jobs.appendleft(self)
+                self.parallel._jobs.append(self)
 
         if job_succeeded:
             self._dispatch_new()
@@ -819,7 +819,7 @@ class BatchCompletionCallBack(object):
     def _dispatch_new(self):
         """Schedule the next batch of tasks to be processed."""
 
-        # This steps ensure that auto-baching works as expected.
+        # This steps ensure that auto-batching works as expected.
         this_batch_duration = time.time() - self.dispatch_timestamp
         self.parallel._backend.batch_completed(self.batch_size,
                                                this_batch_duration)
