@@ -1,5 +1,10 @@
 version: 2
 
+# Set the version of Python and other tools you might need
+build:
+  tools:
+    python: "3.8"
+
 python:
   # make sure joblib is installed in the virtualenv (it is imported in
   # conf.py)

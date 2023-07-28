@@ -12,18 +12,18 @@ set -e
 
 create_new_conda_env() {
     conda update --yes conda
-    TO_INSTALL="python=$PYTHON_VERSION pip pytest 'more-itertools<10' $EXTRA_CONDA_PACKAGES"
+    TO_INSTALL="python=$PYTHON_VERSION pip pytest $EXTRA_CONDA_PACKAGES"
     conda create -n testenv --yes -c conda-forge $TO_INSTALL
     source activate testenv
 }
 
 create_new_pypy3_env() {
-    PYPY_FOLDER="pypy3.7-v7.3.7-linux64"
+    PYPY_FOLDER="pypy3.8-v7.3.11-linux64"
     wget https://downloads.python.org/pypy/$PYPY_FOLDER.tar.bz2
     tar xvf $PYPY_FOLDER.tar.bz2
     $PYPY_FOLDER/bin/pypy3 -m venv pypy3
     source pypy3/bin/activate
-    pip install -U pip 'pytest' 'more-itertools<10'
+    pip install -U pip 'pytest'
 }
 
 if [[ "$PYTHON_VERSION" == "pypy3" ]]; then

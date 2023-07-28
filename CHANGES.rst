@@ -8,6 +8,10 @@ Release 1.3.2 -- In developpement
   explicitly setting ``n_jobs=None`` was not interpreted as "unset".
   https://github.com/joblib/joblib/pull/1475
 
+- End support for python 3.7 which has reached end of life. Bump
+  python 3.7 ci pipelines to python 3.8 and numpy 1.16.
+  https://github.com/joblib/joblib/pull/1487
+
 Release 1.3.1 -- 2023/06/29
 ---------------------------
 
