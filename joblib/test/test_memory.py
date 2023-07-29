@@ -1399,6 +1399,7 @@ def test_cache_notebook():
     nb_regression = pytest.importorskip("pytest_notebook.nb_regression")
     fixture = nb_regression.NBRegressionFixture(exec_timeout=50)
     fixture.diff_color_words = False
+    fixture.diff_ignore += ("/metadata/language_info",)
 
     with Path(__file__).parent / "data" / "memory.ipynb" as path:
         _ = fixture.check(str(path), raise_errors=True)
