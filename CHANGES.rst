@@ -8,6 +8,11 @@ Release 1.3.2 -- In developpement
   explicitly setting ``n_jobs=None`` was not interpreted as "unset".
   https://github.com/joblib/joblib/pull/1475
 
+- Change how `joblib.Memory` generates filenames for function defined
+  in jupyter notebooks. This makes caching more robust by avoiding cache
+  misses due to irrelevant changes in the cell defining the function.
+  https://github.com/joblib/joblib/pull/1430
+
 Release 1.3.1 -- 2023/06/29
 ---------------------------
 
