@@ -168,9 +168,10 @@ def get_func_name(func, resolv_alias=True, win_characters=True):
                 # Generate a synthetic function scope that reflects that:
                 # - it's an interactively defined function (__main__),
                 # - it comes from an IPython / Jupyter session
-                # - this session is scoped by an identifier reflecting the current
-                #   working directory of the ipykernel process, which is typically
-                #   the folder of the jupyter notebook (but not 100% guaranteed.
+                # - this session is scoped by an identifier reflecting the
+                #   current working directory of the ipykernel process, which
+                #   is typically the folder of the jupyter notebook (but not
+                #   100% guaranteed.
                 #
                 # This way the scope is stable across jupyter restarts or edits
                 # made to the cell content that holds the function and does not
@@ -178,15 +179,17 @@ def get_func_name(func, resolv_alias=True, win_characters=True):
                 # source files.
                 #
                 # There is the possibility that this scope will collide with an
-                # identically named function defined in a notebook executing code
-                # in the working directory but this is a fundamental limitation
-                # of the lack of information provided by the ipykernel context.
+                # identically named function defined in a notebook executing
+                # code in the working directory but this is a fundamental
+                # limitation of the lack of information provided by the
+                # ipykernel context.
                 #
                 # In practice this means that we can trigger spurious cache
                 # invalidations from concurrently running notebook in the same
                 # folder with colliding interactively defined function names.
                 parts = (
-                    ["__main__"] + os.getcwd().split(os.sep) + ["<ipython-input>"]
+                    ["__main__"] + os.getcwd().split(os.sep) +
+                    ["<ipython-input>"]
                 )
 
             filename = '-'.join(parts)
