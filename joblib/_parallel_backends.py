@@ -28,6 +28,7 @@ class ParallelBackendBase(metaclass=ABCMeta):
 
     supports_inner_max_num_threads = False
     supports_retrieve_callback = False
+    default_n_jobs = 1
 
     @property
     def supports_return_generator(self):
@@ -116,7 +117,7 @@ class ParallelBackendBase(metaclass=ABCMeta):
     def abort_everything(self, ensure_ready=True):
         """Abort any running tasks
 
-        This is called when an exception has been raised when executing a tasks
+        This is called when an exception has been raised when executing a task
         and all the remaining tasks will be ignored and can therefore be
         aborted to spare computation resources.
 
@@ -608,7 +609,7 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
             raise RuntimeError(
                 "The executor underlying Parallel has been shutdown. "
                 "This is likely due to the garbage collection of a previous "
-                "generator from a call to Parallel with return_generator=True."
+                "generator from a call to Parallel with return_as='generator'."
                 " Make sure the generator is not garbage collected when "
                 "submitting a new job or that it is first properly exhausted."
             )

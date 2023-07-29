@@ -1,8 +1,28 @@
 Latest changes
 ==============
 
-In development
---------------
+Release 1.3.2 -- In developpement
+---------------------------------
+
+- Fix a regression in ``joblib.Parallel`` introduced in 1.3.0 where
+  explicitly setting ``n_jobs=None`` was not interpreted as "unset".
+  https://github.com/joblib/joblib/pull/1475
+
+- Change how `joblib.Memory` generates filenames for function defined
+  in jupyter notebooks. This makes caching more robust by avoiding cache
+  misses due to irrelevant changes in the cell defining the function.
+  https://github.com/joblib/joblib/pull/1430
+
+Release 1.3.1 -- 2023/06/29
+---------------------------
+
+- Fix compatibility with python 3.7 by vendor loky 3.4.1
+  which is compatible with this version.
+  https://github.com/joblib/joblib/pull/1472
+
+
+Release 1.3.0 -- 2023/06/28
+---------------------------
 
 - Ensure native byte order for memmap arrays in ``joblib.load``.
   https://github.com/joblib/joblib/issues/1353
@@ -32,9 +52,14 @@ In development
   previous versions of Joblib.
   https://github.com/joblib/joblib/pull/1374
 
-- Add a ``return_generator`` parameter for ``Parallel``, that allows
-  to consume results asynchronously.
-  https://github.com/joblib/joblib/pull/1393
+- Add ``cache_validation_callback`` in :meth:`joblib.Memory.cache`, to allow
+  custom cache invalidation based on the metadata of the function call.
+  https://github.com/joblib/joblib/pull/1149
+
+- Add a ``return_as`` parameter for ``Parallel``, that enables consuming
+  results asynchronously.
+  https://github.com/joblib/joblib/pull/1393,
+  https://github.com/joblib/joblib/pull/1458
 
 - Improve the behavior of ``joblib`` for ``n_jobs=1``, with simplified
   tracebacks and more efficient running time.
@@ -44,17 +69,38 @@ In development
   control over the backend configuration. It should be used in place of the
   ``parallel_backend`` context manager. In particular, it has the advantage
   of not requiring to set a specific backend in the context manager.
-  https://github.com/joblib/joblib/pull/1392
+  https://github.com/joblib/joblib/pull/1392,
+  https://github.com/joblib/joblib/pull/1457
 
 - Add ``items_limit`` and ``age_limit`` in :meth:`joblib.Memory.reduce_size`
   to make it easy to limit the number of items and remove items that have
   not been accessed for a long time in the cache.
   https://github.com/joblib/joblib/pull/1200
 
-- Change how `joblib.Memory` generates filenames for function defined
-  in jupyter notebooks. This makes caching more robust by avoiding cache
-  misses due to irrelevant changes in the cell defining the function.
-  https://github.com/joblib/joblib/pull/1430
+- Deprecate ``bytes_limit`` in ``Memory`` as this is not automatically enforced,
+  the limit can be directly passed to :meth:`joblib.Memory.reduce_size` which
+  needs to be called to actually enforce the limit.
+  https://github.com/joblib/joblib/pull/1447
+
+- Vendor ``loky`` 3.4.0 which includes various fixes.
+  https://github.com/joblib/joblib/pull/1422
+
+- Various updates to the documentation and to benchmarking tools.
+  https://github.com/joblib/joblib/pull/1343,
+  https://github.com/joblib/joblib/pull/1348,
+  https://github.com/joblib/joblib/pull/1411,
+  https://github.com/joblib/joblib/pull/1451,
+  https://github.com/joblib/joblib/pull/1427,
+  https://github.com/joblib/joblib/pull/1400
+
+- Move project metadata to ``pyproject.toml``.
+  https://github.com/joblib/joblib/pull/1382,
+  https://github.com/joblib/joblib/pull/1433
+
+- Add more tests to improve python ``nogil`` support.
+  https://github.com/joblib/joblib/pull/1394,
+  https://github.com/joblib/joblib/pull/1395
+
 
 Release 1.2.0
 -------------
@@ -163,7 +209,7 @@ Release 0.17.0
 Release 0.16.0
 --------------
 
-- Fix a problem in the constructors of of Parallel backends classes that
+- Fix a problem in the constructors of Parallel backends classes that
   inherit from the `AutoBatchingMixin` that prevented the dask backend to
   properly batch short tasks.
   https://github.com/joblib/joblib/pull/1062
@@ -744,7 +790,7 @@ Olivier Grisel
     Make joblib use the 'forkserver' start method by default under Python 3.4+
     to avoid causing crash with 3rd party libraries (such as Apple vecLib /
     Accelerate or the GCC OpenMP runtime) that use an internal thread pool that
-    is not not reinitialized when a ``fork`` system call happens.
+    is not reinitialized when a ``fork`` system call happens.
 
 Olivier Grisel
 

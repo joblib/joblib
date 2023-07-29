@@ -61,11 +61,12 @@ from joblib._parallel_backends import ParallelBackendBase
 from joblib._parallel_backends import LokyBackend
 
 from joblib.parallel import Parallel, delayed
-from joblib.parallel import register_parallel_backend, parallel_backend
 from joblib.parallel import parallel_config
+from joblib.parallel import parallel_backend
+from joblib.parallel import register_parallel_backend
 from joblib.parallel import effective_n_jobs, cpu_count
 
-from joblib.parallel import mp, BACKENDS, DEFAULT_BACKEND, EXTERNAL_BACKENDS
+from joblib.parallel import mp, BACKENDS, DEFAULT_BACKEND
 
 
 RETURN_GENERATOR_BACKENDS = BACKENDS.copy()
@@ -593,11 +594,11 @@ def test_invalid_backend():
         Parallel(backend='unit-testing')
 
     with raises(ValueError, match="Invalid backend:"):
-        with parallel_backend('unit-testing'):
+        with parallel_config(backend='unit-testing'):
             pass
 
     with raises(ValueError, match="Invalid backend:"):
-        with parallel_config('unit-testing'):
+        with parallel_config(backend='unit-testing'):
             pass
 
 
@@ -636,7 +637,7 @@ def test_backend_no_multiprocessing():
         Parallel(backend='loky')(delayed(square)(i) for i in range(3))
 
     # The below should now work without problems
-    with parallel_backend('loky'):
+    with parallel_config(backend='loky'):
         Parallel()(delayed(square)(i) for i in range(3))
 
 
@@ -1212,12 +1213,12 @@ def set_list_value(input_list, index, value):
 
 
 @pytest.mark.parametrize('n_jobs', [1, 2, 4])
-def test_parallel_return_generator_order(n_jobs):
+def test_parallel_return_order_with_return_as_generator_parameter(n_jobs):
     # This test inserts values in a list in some expected order
     # in sequential computing, and then checks that this order has been
     # respected by Parallel output generator.
     input_list = [0] * 5
-    result = Parallel(n_jobs=n_jobs, return_generator=True,
+    result = Parallel(n_jobs=n_jobs, return_as="generator",
                       backend='threading')(
         delayed(set_list_value)(input_list, i, i) for i in range(5))
 
@@ -1252,7 +1253,7 @@ def test_deadlock_with_generator(backend, n_jobs):
     # Non-regression test for a race condition in the backends when the pickler
     # is delayed by a large object.
     with Parallel(n_jobs=n_jobs, backend=backend,
-                  return_generator=True) as parallel:
+                  return_as="generator") as parallel:
         result = parallel(delayed(get_large_object)(i) for i in range(10))
         next(result)
         next(result)
@@ -1270,7 +1271,7 @@ def test_multiple_generator_call(backend, n_jobs):
     # assumption that only one generator can be submitted at a time.
     with raises(RuntimeError,
                 match="This Parallel instance is already running"):
-        parallel = Parallel(n_jobs, backend=backend, return_generator=True)
+        parallel = Parallel(n_jobs, backend=backend, return_as="generator")
         g = parallel(delayed(sleep)(1) for _ in range(10))  # noqa: F841
         t_start = time.time()
         gen2 = parallel(delayed(id)(i) for i in range(100))  # noqa: F841
@@ -1294,7 +1295,7 @@ def test_multiple_generator_call_managed(backend, n_jobs):
     # immediately when Parallel.__call__ is called. This test relies on the
     # assumption that only one generator can be submitted at a time.
     with Parallel(n_jobs, backend=backend,
-                  return_generator=True) as parallel:
+                  return_as="generator") as parallel:
         g = parallel(delayed(sleep)(10) for _ in range(10))  # noqa: F841
         t_start = time.time()
         with raises(RuntimeError,
@@ -1317,10 +1318,10 @@ def test_multiple_generator_call_managed(backend, n_jobs):
 @parametrize('n_jobs', [1, 2, -2, -1])
 def test_multiple_generator_call_separated(backend, n_jobs):
     # Check that for separated Parallel, both tasks are correctly returned.
-    g = Parallel(n_jobs, backend=backend, return_generator=True)(
+    g = Parallel(n_jobs, backend=backend, return_as="generator")(
         delayed(sqrt)(i ** 2) for i in range(10)
     )
-    g2 = Parallel(n_jobs, backend=backend, return_generator=True)(
+    g2 = Parallel(n_jobs, backend=backend, return_as="generator")(
         delayed(sqrt)(i ** 2) for i in range(10, 20)
     )
 
@@ -1340,7 +1341,7 @@ def test_multiple_generator_call_separated_gc(backend, error):
 
     # Check that in loky, only one call can be run at a time with
     # a single executor.
-    parallel = Parallel(2, backend=backend, return_generator=True)
+    parallel = Parallel(2, backend=backend, return_as="generator")
     g = parallel(delayed(sleep)(10) for i in range(10))
     g_wr = weakref.finalize(g, lambda: print("Generator collected"))
     ctx = (
@@ -1353,7 +1354,7 @@ def test_multiple_generator_call_separated_gc(backend, error):
         # For the other backends, as the worker pools are not shared between
         # the two calls, this should proceed correctly.
         t_start = time.time()
-        g = Parallel(2, backend=backend, return_generator=True)(
+        g = Parallel(2, backend=backend, return_as="generator")(
             delayed(sqrt)(i ** 2) for i in range(10, 20)
         )
 
@@ -1549,7 +1550,7 @@ def test_backend_hinting_and_constraints_with_custom_backends(
         assert type(p._backend) == ThreadingBackend
 
         out, err = capsys.readouterr()
-        expected = ("Using ThreadingBackend as joblib.Parallel backend "
+        expected = ("Using ThreadingBackend as joblib backend "
                     "instead of MyCustomProcessingBackend as the latter "
                     "does not provide shared memory semantics.")
         assert out.strip() == expected
@@ -1578,28 +1579,6 @@ def test_invalid_backend_hinting_and_constraints():
             Parallel(backend='loky', require='sharedmem')
         with raises(ValueError):
             Parallel(backend='multiprocessing', require='sharedmem')
-
-
-@parametrize("context", [parallel_config, parallel_backend])
-def test_global_parallel_backend(context):
-    default = Parallel()._backend
-
-    pb = context('threading')
-    assert isinstance(Parallel()._backend, ThreadingBackend)
-
-    pb.unregister()
-    assert type(Parallel()._backend) is type(default)
-
-
-@parametrize("context", [parallel_config, parallel_backend])
-def test_external_backends(context):
-    def register_foo():
-        BACKENDS['foo'] = ThreadingBackend
-
-    EXTERNAL_BACKENDS['foo'] = register_foo
-
-    with context('foo'):
-        assert isinstance(Parallel()._backend, ThreadingBackend)
 
 
 def _recursive_backend_info(limit=3, **kwargs):
@@ -1688,7 +1667,7 @@ def test_thread_bomb_mitigation(context, backend):
             # pickling it to be send back to the parent process. In this
             # case the worker crashes but the original traceback is still
             # printed on stderr. This could be improved but does not seem
-            # simple to do and this is is not critical for users (as long
+            # simple to do and this is not critical for users (as long
             # as there is no process or thread bomb happening).
             pytest.xfail("Loky worker crash when serializing RecursionError")
 
@@ -1902,17 +1881,6 @@ def test_threadpool_limitation_in_child_override(context, n_jobs, var_name):
             os.environ[var_name] = original_var_value
 
 
-@with_numpy
-@with_multiprocessing
-@parametrize('backend', ['multiprocessing', 'threading',
-                         MultiprocessingBackend(), ThreadingBackend()])
-@parametrize("context", [parallel_config, parallel_backend])
-def test_threadpool_limitation_in_child_context_error(context, backend):
-
-    with raises(AssertionError, match=r"does not acc.*inner_max_num_threads"):
-        context(backend, inner_max_num_threads=1)
-
-
 @with_multiprocessing
 @parametrize('n_jobs', [2, 4, -1])
 def test_loky_reuse_workers(n_jobs):
@@ -1933,48 +1901,3 @@ def test_loky_reuse_workers(n_jobs):
         parallel_call(n_jobs)
         executor = get_reusable_executor(reuse=True)
         assert executor == first_executor
-
-
-@with_numpy
-@with_multiprocessing
-def test_parallel_config_no_backend(tmpdir):
-    # Check that parallel_config allows to change the config
-    # even if no backend is set.
-    with parallel_config(n_jobs=2, max_nbytes=1, temp_folder=tmpdir):
-        with Parallel(prefer="processes") as p:
-            assert isinstance(p._backend, LokyBackend)
-            assert p.n_jobs == 2
-
-            # Checks that memmapping is enabled
-            p(delayed(check_memmap)(a) for a in [np.random.random(10)] * 2)
-            assert len(os.listdir(tmpdir)) > 0
-
-
-@with_numpy
-@with_multiprocessing
-def test_parallel_config_params_explicit_set(tmpdir):
-    with parallel_config(n_jobs=3, max_nbytes=1, temp_folder=tmpdir):
-        with Parallel(n_jobs=2, prefer="processes", max_nbytes='1M') as p:
-            assert isinstance(p._backend, LokyBackend)
-            assert p.n_jobs == 2
-
-            # Checks that memmapping is disabled
-            with raises(TypeError, match="Expected np.memmap instance"):
-                p(delayed(check_memmap)(a) for a in [np.random.random(10)] * 2)
-
-
-@parametrize("param", ["prefer", "require"])
-def test_parallel_config_bad_params(param):
-    # Check that an error is raised when setting a wrong backend
-    # hint or constraint
-    with raises(ValueError, match=f"{param}=wrong is not a valid"):
-        with parallel_config(**{param: "wrong"}):
-            Parallel()
-
-
-def test_parallel_config_constructor_params():
-    # Check that an error is raised when backend is None
-    # but backend constructor params are given
-    with raises(ValueError, match="only supported when backend is not None"):
-        with parallel_config(inner_max_num_threads=1):
-            pass

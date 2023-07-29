@@ -25,11 +25,11 @@ can be spread over 2 CPUs using the following::
 
 The output can be a generator that yields the results as soon as they're
 available, even if the subsequent tasks aren't completed yet. The order
-of the outputs always matches the order of the inputs::
+of the outputs always matches the order the inputs have been submitted with::
 
     >>> from math import sqrt
     >>> from joblib import Parallel, delayed
-    >>> parallel = Parallel(n_jobs=2, return_generator=True)
+    >>> parallel = Parallel(n_jobs=2, return_as="generator")
     >>> output_generator = parallel(delayed(sqrt)(i ** 2) for i in range(10))
     >>> print(type(output_generator))
     <class 'generator'>
@@ -40,9 +40,17 @@ of the outputs always matches the order of the inputs::
     >>> print(list(output_generator))
     [2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
 
-This generator allows to reduce the memory footprint of :class:`joblib.Parallel`
-calls in case the results can benefit from on-the-fly aggregation, as illustrated
-in :ref:`sphx_glr_auto_examples_parallel_generator.py`.
+This generator enables reducing the memory footprint of
+:class:`joblib.Parallel` calls in case the results can benefit from on-the-fly
+aggregation, as illustrated in
+:ref:`sphx_glr_auto_examples_parallel_generator.py`.
+
+Future releases are planned to also support returning a generator that yields
+the results in the order of completion rather than the order of submission, by
+using ``return_as="unordered_generator"`` instead of ``return_as="generator"``.
+In this case the order of the outputs will depend on the concurrency of workers
+and will not be guaranteed to be deterministic, meaning the results can be
+yielded with a different order every time the code is executed.
 
 Thread-based parallelism vs process-based parallelism
 =====================================================
@@ -72,11 +80,11 @@ instead of the default ``"loky"`` backend:
     ...     delayed(sqrt)(i ** 2) for i in range(10))
     [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
 
-It is also possible to manually select a specific backend implementation
-with the help of a context manager:
+The :func:`~joblib.parallel_config` context manager helps selecting
+a specific backend implementation or setting the default number of jobs:
 
-    >>> from joblib import parallel_backend
-    >>> with parallel_backend('threading', n_jobs=2):
+    >>> from joblib import parallel_config
+    >>> with parallel_config(backend='threading', n_jobs=2):
     ...    Parallel()(delayed(sqrt)(i ** 2) for i in range(10))
     [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
 
@@ -89,7 +97,7 @@ In prior versions, the same effect could be achieved by hardcoding a
 specific backend implementation such as ``backend="threading"`` in the
 call to :class:`joblib.Parallel` but this is now considered a bad pattern
 (when done in a library) as it does not make it possible to override that
-choice with the :func:`~joblib.parallel_backend` context manager.
+choice with the :func:`~joblib.parallel_config` context manager.
 
 
 .. topic:: The loky backend may not always be available
@@ -224,26 +232,23 @@ libraries:
 
 Since joblib 0.14, it is also possible to programmatically override the default
 number of threads using the ``inner_max_num_threads`` argument of the
-:func:`~joblib.parallel_backend` function as follows:
+:func:`~joblib.parallel_config` function as follows:
 
 .. code-block:: python
 
-    from joblib import Parallel, delayed, parallel_backend
+    from joblib import Parallel, delayed, parallel_config
 
-    with parallel_backend("loky", inner_max_num_threads=2):
+    with parallel_config(backend="loky", inner_max_num_threads=2):
         results = Parallel(n_jobs=4)(delayed(func)(x, y) for x, y in data)
 
 In this example, 4 Python worker processes will be allowed to use 2 threads
 each, meaning that this program will be able to use up to 8 CPUs concurrently.
 
 
-Custom backend API (experimental)
-=================================
+Custom backend API
+==================
 
 .. versionadded:: 0.10
-
-.. warning:: The custom backend API is experimental and subject to change
-    without going through a deprecation cycle.
 
 User can provide their own implementation of a parallel processing
 backend in addition to the ``'loky'``, ``'threading'``,
@@ -274,9 +279,10 @@ for a remote cluster computing service::
     register_parallel_backend('custom', MyCustomBackend)
 
 The connection parameters can then be passed to the
-:func:`joblib.parallel_backend` context manager::
+:func:`~joblib.parallel_config` context manager::
 
-    with parallel_backend('custom', endpoint='http://compute', api_key='42'):
+    with parallel_config(backend='custom', endpoint='http://compute',
+                         api_key='42'):
         Parallel()(delayed(some_function)(i) for i in range(10))
 
 Using the context manager can be helpful when using a third-party library that
@@ -288,13 +294,13 @@ A problem exists that external packages that register new parallel backends
 must now be imported explicitly for their backends to be identified by joblib::
 
    >>> import joblib
-   >>> with joblib.parallel_backend('custom'):  # doctest: +SKIP
+   >>> with joblib.parallel_config(backend='custom'):  # doctest: +SKIP
    ...     ...  # this fails
    KeyError: 'custom'
 
    # Import library to register external backend
    >>> import my_custom_backend_library  # doctest: +SKIP
-   >>> with joblib.parallel_backend('custom'):  # doctest: +SKIP
+   >>> with joblib.parallel_config(backend='custom'):  # doctest: +SKIP
    ...     ... # this works
 
 This can be confusing for users.  To resolve this, external packages can
@@ -403,15 +409,12 @@ does not exist (but multiprocessing has more overhead).
 
 .. autofunction:: joblib.delayed
 
-.. autofunction:: joblib.register_parallel_backend
-
-.. autofunction:: joblib.parallel_backend
+.. autofunction:: joblib.parallel_config
+   :noindex:
 
 .. autofunction:: joblib.wrap_non_picklable_objects
 
-.. autofunction:: joblib.parallel.register_parallel_backend
-
-.. autoclass:: joblib.parallel.parallel_config
+.. autofunction:: joblib.register_parallel_backend
 
 .. autoclass:: joblib.parallel.ParallelBackendBase
 

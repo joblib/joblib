@@ -530,7 +530,7 @@ class TemporaryResourcesManager(object):
             # It would be safer to not assign a default context id (less silent
             # bugs), but doing this while maintaining backward compatibility
             # with the previous, context-unaware version get_memmaping_executor
-            # exposes exposes too many low-level details.
+            # exposes too many low-level details.
             context_id = uuid4().hex
         self.set_current_context(context_id)
 
