@@ -1423,7 +1423,28 @@ class Parallel(Logger):
                 n_jobs = self._cached_effective_n_jobs
                 big_batch_size = batch_size * n_jobs
 
-                islice = list(itertools.islice(iterator, big_batch_size))
+                try:
+                    islice = list(itertools.islice(iterator, big_batch_size))
+                except Exception as e:
+                    # Handle the fact that the generator of task raised an
+                    # exception. As this part of the code can be executed in
+                    # a thread internal to the backen, register a task with
+                    # an error that will be raised in the user's thread.
+                    if isinstance(e.__context__, queue.Empty):
+                        # Supress the cause of the exception if it is
+                        # queue.Empty to avoid cluttered traceback. Only do it
+                        # if the __context__ is really empty to avoid messing
+                        # with causes of the original error.
+                        e.__cause__ = None
+                    batch_tracker = BatchCompletionCallBack(
+                        0, batch_size, self
+                    )
+                    self._jobs.append(batch_tracker)
+                    batch_tracker._register_outcome(dict(
+                        result=e, status=TASK_ERROR
+                    ))
+                    return False
+
                 if len(islice) == 0:
                     return False
                 elif (iterator is self._original_iterator and
