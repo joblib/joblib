@@ -3,7 +3,7 @@
 set -e
 
 echo "Activating test environment:"
-if [[ "$PYTHON_VERSION" == "pypy3" ]]; then
+if [[ "$PYTHON_VERSION" == pypy3* ]]; then
     source pypy3/bin/activate
 else
     source activate testenv

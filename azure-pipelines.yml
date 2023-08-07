@@ -40,9 +40,22 @@ jobs:
   displayName: Testing
   strategy:
     matrix:
-      linux_pypy3:
+      linux_pypy38_v7311:
         imageName: 'ubuntu-latest'
-        PYTHON_VERSION: "pypy3"
+        PYTHON_VERSION: "pypy3.8"
+        PYPY_VERSION: "7.3.11"
+        LOKY_MAX_CPU_COUNT: "2"
+
+      linux_pypy38_v736:
+        imageName: 'ubuntu-latest'
+        PYTHON_VERSION: "pypy3.8"
+        PYPY_VERSION: "7.3.6"
+        LOKY_MAX_CPU_COUNT: "2"
+
+      linux_pypy310_v7312:
+        imageName: 'ubuntu-latest'
+        PYTHON_VERSION: "pypy3.10"
+        PYPY_VERSION: "7.3.12"
         LOKY_MAX_CPU_COUNT: "2"
 
       linux_py39_sklearn_tests:
