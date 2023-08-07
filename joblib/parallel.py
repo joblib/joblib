@@ -1443,7 +1443,7 @@ class Parallel(Logger):
                     batch_tracker._register_outcome(dict(
                         result=e, status=TASK_ERROR
                     ))
-                    return False
+                    return True
 
                 if len(islice) == 0:
                     return False
