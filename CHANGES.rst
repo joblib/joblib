@@ -1,12 +1,18 @@
 Latest changes
 ==============
 
-Release 1.3.2 -- In developpement
----------------------------------
+Release 1.3.2 -- 2023/08/08
+---------------------------
 
 - Fix a regression in ``joblib.Parallel`` introduced in 1.3.0 where
   explicitly setting ``n_jobs=None`` was not interpreted as "unset".
   https://github.com/joblib/joblib/pull/1475
+
+- Various maintenance updates to the doc, the ci and the test.
+  https://github.com/joblib/joblib/pull/1480,
+  https://github.com/joblib/joblib/pull/1481,
+  https://github.com/joblib/joblib/pull/1476,
+  https://github.com/joblib/joblib/pull/1492
 
 Release 1.3.1 -- 2023/06/29
 ---------------------------
