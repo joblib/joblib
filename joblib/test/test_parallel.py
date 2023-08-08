@@ -649,17 +649,17 @@ def check_backend_context_manager(context, backend_name):
         p = Parallel()
         assert p.n_jobs == 3
         if backend_name == 'multiprocessing':
-            assert type(active_backend) == MultiprocessingBackend
-            assert type(p._backend) == MultiprocessingBackend
+            assert type(active_backend) is MultiprocessingBackend
+            assert type(p._backend) is MultiprocessingBackend
         elif backend_name == 'loky':
-            assert type(active_backend) == LokyBackend
-            assert type(p._backend) == LokyBackend
+            assert type(active_backend) is LokyBackend
+            assert type(p._backend) is LokyBackend
         elif backend_name == 'threading':
-            assert type(active_backend) == ThreadingBackend
-            assert type(p._backend) == ThreadingBackend
+            assert type(active_backend) is ThreadingBackend
+            assert type(p._backend) is ThreadingBackend
         elif backend_name.startswith('test_'):
-            assert type(active_backend) == FakeParallelBackend
-            assert type(p._backend) == FakeParallelBackend
+            assert type(active_backend) is FakeParallelBackend
+            assert type(p._backend) is FakeParallelBackend
 
 
 all_backends_for_context_manager = PARALLEL_BACKENDS[:]
@@ -708,7 +708,7 @@ def test_parameterized_backend_context_manager(monkeypatch, context):
 
     with context('param_backend', param=42, n_jobs=3):
         active_backend, active_n_jobs = parallel.get_active_backend()
-        assert type(active_backend) == ParameterizedParallelBackend
+        assert type(active_backend) is ParameterizedParallelBackend
         assert active_backend.param == 42
         assert active_n_jobs == 3
         p = Parallel()
@@ -729,7 +729,7 @@ def test_directly_parameterized_backend_context_manager(context):
     # without registration
     with context(ParameterizedParallelBackend(param=43), n_jobs=5):
         active_backend, active_n_jobs = parallel.get_active_backend()
-        assert type(active_backend) == ParameterizedParallelBackend
+        assert type(active_backend) is ParameterizedParallelBackend
         assert active_backend.param == 43
         assert active_n_jobs == 5
         p = Parallel()
@@ -1464,30 +1464,30 @@ def test_backend_hinting_and_constraints(context):
         assert type(Parallel(n_jobs=n_jobs)._backend) == DefaultBackend
 
         p = Parallel(n_jobs=n_jobs, prefer='threads')
-        assert type(p._backend) == ThreadingBackend
+        assert type(p._backend) is ThreadingBackend
 
         p = Parallel(n_jobs=n_jobs, prefer='processes')
-        assert type(p._backend) == DefaultBackend
+        assert type(p._backend) is DefaultBackend
 
         p = Parallel(n_jobs=n_jobs, require='sharedmem')
-        assert type(p._backend) == ThreadingBackend
+        assert type(p._backend) is ThreadingBackend
 
     # Explicit backend selection can override backend hinting although it
     # is useless to pass a hint when selecting a backend.
     p = Parallel(n_jobs=2, backend='loky', prefer='threads')
-    assert type(p._backend) == LokyBackend
+    assert type(p._backend) is LokyBackend
 
     with context('loky', n_jobs=2):
         # Explicit backend selection by the user with the context manager
         # should be respected when combined with backend hints only.
         p = Parallel(prefer='threads')
-        assert type(p._backend) == LokyBackend
+        assert type(p._backend) is LokyBackend
         assert p.n_jobs == 2
 
     with context('loky', n_jobs=2):
         # Locally hard-coded n_jobs value is respected.
         p = Parallel(n_jobs=3, prefer='threads')
-        assert type(p._backend) == LokyBackend
+        assert type(p._backend) is LokyBackend
         assert p.n_jobs == 3
 
     with context('loky', n_jobs=2):
@@ -1496,12 +1496,12 @@ def test_backend_hinting_and_constraints(context):
         # In this case, the default backend that supports shared mem is
         # used an the default number of processes is used.
         p = Parallel(require='sharedmem')
-        assert type(p._backend) == ThreadingBackend
+        assert type(p._backend) is ThreadingBackend
         assert p.n_jobs == 1
 
     with context('loky', n_jobs=2):
         p = Parallel(n_jobs=3, require='sharedmem')
-        assert type(p._backend) == ThreadingBackend
+        assert type(p._backend) is ThreadingBackend
         assert p.n_jobs == 3
 
 
@@ -1523,10 +1523,10 @@ def test_backend_hinting_and_constraints_with_custom_backends(
 
     with context(MyCustomThreadingBackend()):
         p = Parallel(n_jobs=2, prefer='processes')  # ignored
-        assert type(p._backend) == MyCustomThreadingBackend
+        assert type(p._backend) is MyCustomThreadingBackend
 
         p = Parallel(n_jobs=2, require='sharedmem')
-        assert type(p._backend) == MyCustomThreadingBackend
+        assert type(p._backend) is MyCustomThreadingBackend
 
     class MyCustomProcessingBackend(ParallelBackendBase):
         supports_sharedmem = False
@@ -1540,14 +1540,14 @@ def test_backend_hinting_and_constraints_with_custom_backends(
 
     with context(MyCustomProcessingBackend()):
         p = Parallel(n_jobs=2, prefer='processes')
-        assert type(p._backend) == MyCustomProcessingBackend
+        assert type(p._backend) is MyCustomProcessingBackend
 
         out, err = capsys.readouterr()
         assert out == ""
         assert err == ""
 
         p = Parallel(n_jobs=2, require='sharedmem', verbose=10)
-        assert type(p._backend) == ThreadingBackend
+        assert type(p._backend) is ThreadingBackend
 
         out, err = capsys.readouterr()
         expected = ("Using ThreadingBackend as joblib backend "
