@@ -810,13 +810,17 @@ class BatchCompletionCallBack(object):
             # a new batch if needed.
             job_succeeded = self._retrieve_result(out)
 
+            if not self.parallel.return_ordered:
+                self.parallel._jobs_unordered.discard(self)
+                self.parallel._jobs.append(self)
+
         if job_succeeded:
             self._dispatch_new()
 
     def _dispatch_new(self):
         """Schedule the next batch of tasks to be processed."""
 
-        # This steps ensure that auto-baching works as expected.
+        # This steps ensure that auto-batching works as expected.
         this_batch_duration = time.time() - self.dispatch_timestamp
         self.parallel._backend.batch_completed(self.batch_size,
                                                this_batch_duration)
@@ -976,15 +980,17 @@ class Parallel(Logger):
             soft hints (prefer) or hard constraints (require) so as to make it
             possible for library users to change the backend from the outside
             using the :func:`~parallel_config` context manager.
-        return_as: str in {'list', 'generator'}, default: 'list'
+        return_as: str in {'list', 'generator', 'generator_unordered'},
+            default: 'list'
             If 'list', calls to this instance will return a list, only when
             all results have been processed and retrieved.
             If 'generator', it will return a generator that yields the results
             as soon as they are available, in the order the tasks have been
             submitted with.
-            Future releases are planned to also support 'generator_unordered',
-            in which case the generator immediately yields available results
-            independently of the submission order.
+            If 'generator_unordered', the generator will immediately yield
+            available results independently of the submission order. The output
+            order is not deterministic in this case because it depends on the
+            concurrency of the workers.
         prefer: str in {'processes', 'threads'} or None, default: None
             Soft hint to choose the default backend if no specific backend
             was selected with the :func:`~parallel_config` context manager.
@@ -1205,13 +1211,15 @@ class Parallel(Logger):
         self.timeout = timeout
         self.pre_dispatch = pre_dispatch
 
-        if return_as not in {"list", "generator"}:
+        if return_as not in {"list", "generator", "generator_unordered"}:
             raise ValueError(
                 'Expected `return_as` parameter to be a string equal to "list"'
-                f' or "generator", but got {return_as} instead'
+                f',"generator" or "generator_unordered", but got {return_as} '
+                "instead."
             )
         self.return_as = return_as
         self.return_generator = return_as != "list"
+        self.return_ordered = return_as != "generator_unordered"
 
         # Check if we are under a parallel_config or parallel_backend
         # context manager and use the config from the context manager
@@ -1302,6 +1310,7 @@ class Parallel(Logger):
             # This lock is used to coordinate the main thread of this process
             # with the async callback thread of our the pool.
             self._lock = threading.RLock()
+            self._jobs_unordered = set()
             self._jobs = collections.deque()
             self._pending_outputs = list()
             self._ready_batches = queue.Queue()
@@ -1379,7 +1388,11 @@ class Parallel(Logger):
         batch_tracker = BatchCompletionCallBack(
             dispatch_timestamp, batch_size, self
         )
-        self._jobs.append(batch_tracker)
+
+        if self.return_ordered:
+            self._jobs.append(batch_tracker)
+        else:
+            self._jobs_unordered.add(batch_tracker)
 
         job = self._backend.apply_async(batch, callback=batch_tracker)
         batch_tracker.register_job(job)
@@ -1650,6 +1663,7 @@ class Parallel(Logger):
         finally:
             # Store the unconsumed tasks and terminate the workers if necessary
             _remaining_outputs = ([] if self._exception else self._jobs)
+            self._jobs_unordered = set()
             self._jobs = collections.deque()
             self._running = False
             if not detach_generator_exit:
@@ -1707,11 +1721,7 @@ class Parallel(Logger):
                 time.sleep(0.01)
                 continue
 
-            # We need to be careful: the job list can be filling up as
-            # we empty it and Python list are not thread-safe by
-            # default hence the use of the lock
-            with self._lock:
-                batched_results = self._jobs.popleft()
+            batched_results = self._jobs.popleft()
 
             # Flatten the batched results to output one output at a time
             batched_results = batched_results.get_result(self.timeout)
