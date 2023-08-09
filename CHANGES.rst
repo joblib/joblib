@@ -8,6 +8,12 @@ Release 1.3.2 -- In developpement
   explicitly setting ``n_jobs=None`` was not interpreted as "unset".
   https://github.com/joblib/joblib/pull/1475
 
+- Fix a regression in ``joblib.Parallel`` introduced in 1.3.0 where
+  ``joblib.Parallel`` logging methods exposed from inheritance to
+  ``joblib.Logger`` didn't work because of missing logger
+  initialization.
+  https://github.com/joblib/joblib/pull/1494
+
 Release 1.3.1 -- 2023/06/29
 ---------------------------
 

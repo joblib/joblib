@@ -1188,6 +1188,9 @@ class Parallel(Logger):
         prefer=default_parallel_config["prefer"],
         require=default_parallel_config["require"],
     ):
+        # Initiate parent Logger class state
+        super().__init__()
+
         # Interpret n_jobs=None as 'unset'
         if n_jobs is None:
             n_jobs = default_parallel_config["n_jobs"]
