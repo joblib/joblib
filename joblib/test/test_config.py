@@ -123,3 +123,29 @@ def test_threadpool_limitation_in_child_context_error(context, backend):
 
     with raises(AssertionError, match=r"does not acc.*inner_max_num_threads"):
         context(backend, inner_max_num_threads=1)
+
+
+@parametrize("context", [parallel_config, parallel_backend])
+def test_parallel_n_jobs_none(context):
+    # Check that n_jobs=None is interpreted as "unset" in Parallel
+    # non regression test for #1473
+    with context(backend="threading", n_jobs=2):
+        with Parallel(n_jobs=None) as p:
+            assert p.n_jobs == 2
+
+    with context(backend="threading"):
+        default_n_jobs = Parallel().n_jobs
+        with Parallel(n_jobs=None) as p:
+            assert p.n_jobs == default_n_jobs
+
+
+@parametrize("context", [parallel_config, parallel_backend])
+def test_parallel_config_n_jobs_none(context):
+    # Check that n_jobs=None is interpreted as "explicitly set" in
+    # parallel_(config/backend)
+    # non regression test for #1473
+    with context(backend="threading", n_jobs=2):
+        with context(backend="threading", n_jobs=None):
+            # n_jobs=None resets n_jobs to backend's default
+            with Parallel() as p:
+                assert p.n_jobs == 1

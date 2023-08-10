@@ -61,7 +61,8 @@ print("With loky backend and cloudpickle serialization: {:.3f}s"
 # with the default pickle module, which is faster for such large objects.
 #
 
-if sys.platform != 'win32':
+import multiprocessing as mp
+if mp.get_start_method() != "spawn":
     def func_async(i, *args):
         return 2 * i
 
