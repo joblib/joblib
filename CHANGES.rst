@@ -4,6 +4,9 @@ Latest changes
 In development
 --------------
 
+- Ensure that errors in the task generator given to Parallel's call
+  are raised in the results consumming thread.
+  https://github.com/joblib/joblib/pull/1491
 
 Release 1.3.2 -- 2023/08/08
 ---------------------------
