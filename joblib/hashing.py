@@ -86,7 +86,11 @@ class Hasher(Pickler):
             else:
                 cls = obj.__self__.__class__
                 obj = _MyHash(func_name, inst, cls)
-        Pickler.save(self, obj)
+
+        if obj == type(None):
+            Pickler.save_none(self, obj)
+        else:
+            Pickler.save(self, obj)
 
     def memoize(self, obj):
         # We want hashing to be sensitive to value instead of reference.
