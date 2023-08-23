@@ -811,7 +811,8 @@ class BatchCompletionCallBack(object):
             job_succeeded = self._retrieve_result(out)
 
             if not self.parallel.return_ordered:
-                self.parallel._jobs_unordered.discard(self)
+                # Append the job to the queue in the order of completion
+                # instead of submission.
                 self.parallel._jobs.append(self)
 
         if job_succeeded:
@@ -1310,7 +1311,6 @@ class Parallel(Logger):
             # This lock is used to coordinate the main thread of this process
             # with the async callback thread of our the pool.
             self._lock = threading.RLock()
-            self._jobs_unordered = set()
             self._jobs = collections.deque()
             self._pending_outputs = list()
             self._ready_batches = queue.Queue()
@@ -1391,8 +1391,11 @@ class Parallel(Logger):
 
         if self.return_ordered:
             self._jobs.append(batch_tracker)
-        else:
-            self._jobs_unordered.add(batch_tracker)
+
+        # If return_ordered is False, the batch_tracker is not stored in the
+        # jobs queue at the time of submission. Instead, it will be appended to
+        # the queue by itself as soon as the callback is triggered to be able
+        # to return the results in the order of completion.
 
         job = self._backend.apply_async(batch, callback=batch_tracker)
         batch_tracker.register_job(job)
@@ -1684,7 +1687,6 @@ class Parallel(Logger):
         finally:
             # Store the unconsumed tasks and terminate the workers if necessary
             _remaining_outputs = ([] if self._exception else self._jobs)
-            self._jobs_unordered = set()
             self._jobs = collections.deque()
             self._running = False
             if not detach_generator_exit:
