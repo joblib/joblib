@@ -450,9 +450,10 @@ class parallel_config:
 class parallel_backend(parallel_config):
     """Change the default backend used by Parallel inside a with block.
 
-    It is advised to use the :class:`~joblib.parallel_config` context manager
-    instead, which allows more fine-grained control over the backend
-    configuration.
+    .. warning::
+        It is advised to use the :class:`~joblib.parallel_config` context
+        manager instead, which allows more fine-grained control over the
+        backend configuration.
 
     If ``backend`` is a string it must match a previously registered
     implementation using the :func:`~register_parallel_backend` function.
@@ -1193,6 +1194,13 @@ class Parallel(Logger):
         prefer=default_parallel_config["prefer"],
         require=default_parallel_config["require"],
     ):
+        # Initiate parent Logger class state
+        super().__init__()
+
+        # Interpret n_jobs=None as 'unset'
+        if n_jobs is None:
+            n_jobs = default_parallel_config["n_jobs"]
+
         active_backend, context_config = _get_active_backend(
             prefer=prefer, require=require, verbose=verbose
         )
@@ -1436,7 +1444,28 @@ class Parallel(Logger):
                 n_jobs = self._cached_effective_n_jobs
                 big_batch_size = batch_size * n_jobs
 
-                islice = list(itertools.islice(iterator, big_batch_size))
+                try:
+                    islice = list(itertools.islice(iterator, big_batch_size))
+                except Exception as e:
+                    # Handle the fact that the generator of task raised an
+                    # exception. As this part of the code can be executed in
+                    # a thread internal to the backend, register a task with
+                    # an error that will be raised in the user's thread.
+                    if isinstance(e.__context__, queue.Empty):
+                        # Supress the cause of the exception if it is
+                        # queue.Empty to avoid cluttered traceback. Only do it
+                        # if the __context__ is really empty to avoid messing
+                        # with causes of the original error.
+                        e.__cause__ = None
+                    batch_tracker = BatchCompletionCallBack(
+                        0, batch_size, self
+                    )
+                    self._jobs.append(batch_tracker)
+                    batch_tracker._register_outcome(dict(
+                        result=e, status=TASK_ERROR
+                    ))
+                    return True
+
                 if len(islice) == 0:
                     return False
                 elif (iterator is self._original_iterator and

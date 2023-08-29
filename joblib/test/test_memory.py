@@ -1227,8 +1227,8 @@ def test_instanciate_incomplete_store_backend():
     assert (backend_name, IncompleteStoreBackend) in _STORE_BACKENDS.items()
     with raises(TypeError) as excinfo:
         _store_backend_factory(backend_name, "fake_location")
-    excinfo.match(r"Can't instantiate abstract class "
-                  "IncompleteStoreBackend with abstract methods*")
+    excinfo.match(r"Can't instantiate abstract class IncompleteStoreBackend "
+                  "(without an implementation for|with) abstract methods*")
 
 
 def test_dummy_store_backend():
