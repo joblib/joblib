@@ -269,6 +269,7 @@ def _reduce_memmap_backed(a, m):
     try:
         from numpy.lib.array_utils import byte_bounds
     except (ModuleNotFoundError, ImportError):
+        # Backward-compat for numpy < 2.0
         from numpy import byte_bounds
     a_start, a_end = byte_bounds(a)
     m_start = byte_bounds(m)[0]
