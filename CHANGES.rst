@@ -4,6 +4,9 @@ Latest changes
 In development
 --------------
 
+- Adjust codebase to NumPy 2.0 by changing ``np.NaN`` to ``np.nan``
+  and importing ``byte_bounds`` from ``np.lib.array_utils``.
+  https://github.com/joblib/joblib/pull/1501
 
 Release 1.3.2 -- 2023/08/08
 ---------------------------
