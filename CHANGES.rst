@@ -8,6 +8,11 @@ In development
   are raised in the results consumming thread.
   https://github.com/joblib/joblib/pull/1491
 
+- The parameter ``return_as`` in ``joblib.Parallel`` can now be set to
+  ``generator_unordered``. In this case the results will be returned in the
+  order of task completion rather than the order of submission.
+  https://github.com/joblib/joblib/pull/1463
+
 Release 1.3.2 -- 2023/08/08
 ---------------------------
 

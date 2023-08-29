@@ -1281,6 +1281,9 @@ def test_parallel_unordered_generator_returns_fastest_first(backend, n_jobs):
         v == r for v, r in zip(expected_quickly_returned, quickly_returned)
     )
 
+    del result
+    force_gc_pypy()
+
 
 @parametrize('backend', ALL_VALID_BACKENDS)
 @parametrize('n_jobs', [1, 2, -2, -1])
@@ -1291,7 +1294,7 @@ def test_abort_backend(n_jobs, backend):
         Parallel(n_jobs=n_jobs, backend=backend)(
             delayed(time.sleep)(i) for i in delays)
     dt = time.time() - t_start
-    assert dt < 40
+    assert dt < 20
 
 
 def get_large_object(arg):

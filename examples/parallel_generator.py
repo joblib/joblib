@@ -14,9 +14,10 @@ Using ``return_as='generator'`` allows to progressively consume the outputs
 as they arrive and keeps the memory at an acceptable level.
 
 In this case, the output of the `Parallel` call is a generator that yields the
-results in the order the tasks have been submitted with. Future releases are
-also planned to support the ``return_as="unordered_generator"`` parameter to
-have the generator yield results as soon as available.
+results in the order the tasks have been submitted with. If the order of the
+tasks does not matter (for instance if they are consumed by a commutative
+aggregation function), then using ``return_as='generator_unordered'`` can be
+even more efficient.
 
 """
 
@@ -180,21 +181,25 @@ plt.show()
 
 
 ##############################################################################
+# Further memory efficiency for commutative aggregation
+##############################################################################
+
+##############################################################################
 # There is still room for improving the relief on memory allocation we get
-# using ``return_as="generator"``. Indeed, notice how the generator respects
-# the order the tasks have been submitted with. This behavior can cause a build
-# up in memory of results waiting to be consumed, in case some tasks finished
-# before other tasks despite being submitted later. The corresponding results
-# will be kept in memory until the slower tasks submitted earlier are done and
-# have been iterated over.
+# using ``return_as="generator"``. Indeed, notice how the generator of the
+# previous example respects the order the tasks have been submitted with. This
+# behavior can cause a build up in memory of results waiting to be consumed,
+# in case some tasks finished before other tasks despite being submitted
+# later. The corresponding results will be kept in memory until the slower
+# tasks submitted earlier are done and have been iterated over.
 #
 # In case the downstream consumer of the results is reliant on the assumption
 # that the results are yielded in the same order that the tasks were submitted,
-# it can't be prevented. But in our example, since the `+` operator is
+# it can't be helped. But in our example, since the `+` operator is
 # commutative, the function ``accumulator_sum`` does not need the generator to
-# return the results with any particular order at all. In this case it's safe
-# to use the option ``return_as="generator_unordered"``, so that the results
-# are returned as soon as a task is completed, ignoring the order of task
+# return the results with any particular order. In this case it's safe to use
+# the option ``return_as="generator_unordered"``, so that the results are
+# returned as soon as a task is completed, ignoring the order of task
 # submission.
 #
 # Beware that the downstream consumer of the results must not expect them be
@@ -240,8 +245,8 @@ print(f"Peak memory usage: {peak:.2f}MB")
 # If we use ``return_as="generator_unordered"``, ``res`` will not enforce any
 # order when returning the results, and will simply enable iterating on the
 # results as soon as it's available. The peak memory usage is now controlled
-# to an even lower level, since that results can be comsumed immediately
-# rather than being delayed by the compute of a slower task that has been
+# to an even lower level, since that results can be consumed immediately
+# rather than being delayed by the compute of slower tasks that have been
 # submitted earlier.
 
 monitor_delayed_gen_unordered = MemoryMonitor()
@@ -264,10 +269,10 @@ print(f"Peak memory usage: {peak:.2f}MB")
 
 
 ##############################################################################
-# Notice how the plot for ``'return_as="generator'`` now show a peaks where
-# slow jobs resulted in a congestion of tasks and an accumulation of results
-# in RAM, but it's smoothed out when using
-# ``'return_as="generator_unordered"``.
+# Notice how the plot for ``'return_as="generator'`` now shows a high memory
+# usage plateau when slow jobs cause a congestion of intermediate results
+# waiting in RAM before in-order aggregation. This high memory usage is never
+# observed when using ``'return_as="generator_unordered"``.
 
 plt.figure(1)
 plt.semilogy(
