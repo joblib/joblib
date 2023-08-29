@@ -1436,7 +1436,7 @@ class Parallel(Logger):
                 except Exception as e:
                     # Handle the fact that the generator of task raised an
                     # exception. As this part of the code can be executed in
-                    # a thread internal to the backen, register a task with
+                    # a thread internal to the backend, register a task with
                     # an error that will be raised in the user's thread.
                     if isinstance(e.__context__, queue.Empty):
                         # Supress the cause of the exception if it is
