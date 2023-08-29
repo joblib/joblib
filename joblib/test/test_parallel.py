@@ -448,6 +448,31 @@ def test_error_capture(backend):
              for i in range(30)))
 
 
+@with_multiprocessing
+@parametrize('backend', BACKENDS)
+def test_error_in_task_iterator(backend):
+
+    def my_generator(raise_at=0):
+        for i in range(20):
+            if i == raise_at:
+                raise ValueError("Iterator Raising Error")
+            yield i
+
+    with Parallel(n_jobs=2, backend=backend) as p:
+        # The error is raised in the pre-dispatch phase
+        with raises(ValueError, match="Iterator Raising Error"):
+            p(delayed(square)(i) for i in my_generator(raise_at=0))
+
+        # The error is raised when dispatching a new task after the
+        # pre-dispatch (likely to happen in a different thread)
+        with raises(ValueError, match="Iterator Raising Error"):
+            p(delayed(square)(i) for i in my_generator(raise_at=5))
+
+        # Same, but raises long after the pre-dispatch phase
+        with raises(ValueError, match="Iterator Raising Error"):
+            p(delayed(square)(i) for i in my_generator(raise_at=19))
+
+
 def consumer(queue, item):
     queue.append('Consumed %s' % item)
 
