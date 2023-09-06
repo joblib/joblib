@@ -339,7 +339,10 @@ class StoreBackendMixin(object):
             to_delete_items = 0
 
         if age_limit is not None:
-            older_item = min(item.last_access for item in items)
+            older_item = min(
+                (item.last_access for item in items),
+                default=datetime.datetime.now(),
+            )
             deadline = datetime.datetime.now() - age_limit
         else:
             deadline = None
