@@ -63,7 +63,7 @@ A simple example:
 Comparison with `memoize`
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The `memoize` decorator (http://code.activestate.com/recipes/52201/)
+The `memoize` decorator (https://code.activestate.com/recipes/52201/)
 caches in memory all the inputs and outputs of a function call. It can
 thus avoid running twice the same function, with a very small
 overhead. However, it compares input objects with those in cache on each
