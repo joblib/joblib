@@ -26,7 +26,7 @@ Getting the latest code
 
 To get the latest code using git, simply type::
 
-    git clone git://github.com/joblib/joblib.git
+    git clone https://github.com/joblib/joblib.git
 
 If you don't have git installed, you can download a zip or tarball
 of the latest code: http://github.com/joblib/joblib/archives/master
