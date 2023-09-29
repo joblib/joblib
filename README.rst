@@ -28,8 +28,8 @@ To get the latest code using git, simply type::
 
     git clone https://github.com/joblib/joblib.git
 
-If you don't have git installed, you can download a zip or tarball
-of the latest code: http://github.com/joblib/joblib/archives/master
+If you don't have git installed, you can download a zip
+of the latest code: https://github.com/joblib/joblib/archive/refs/heads/master.zip
 
 Installing
 ==========
