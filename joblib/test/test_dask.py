@@ -478,9 +478,9 @@ def test_joblib_warning_inside_dask_daemonic_worker(backend):
 
         def func_using_joblib_parallel():
             # Somehow trying to check the warning type here (e.g. with
-            # pytest.warns(UserWarning)) make the test hang. Work-around: return
-            # the warning record to the client and the warning check is done
-            # client-side.
+            # pytest.warns(UserWarning)) make the test hang. Work-around:
+            # return the warning record to the client and the warning check is
+            # done client-side.
             with warnings.catch_warnings(record=True) as record:
                 Parallel(n_jobs=2, backend=backend)(
                     delayed(inc)(i) for i in range(10))
