@@ -11,7 +11,8 @@
 set -e
 
 create_new_conda_env() {
-    conda update --yes conda
+    conda update --yes conda conda-libmamba-solver
+    conda config --set solver libmamba
     TO_INSTALL="python=$PYTHON_VERSION pip pytest $EXTRA_CONDA_PACKAGES"
     conda create -n testenv --yes -c conda-forge $TO_INSTALL
     source activate testenv
