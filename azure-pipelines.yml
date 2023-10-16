@@ -54,7 +54,7 @@ jobs:
         # To be updated regularly to use the most recent versions of the
         # dependencies.
         imageName: 'ubuntu-latest'
-        PYTHON_VERSION: "3.11"
+        PYTHON_VERSION: "3.10"
         EXTRA_CONDA_PACKAGES: "numpy=1.23 distributed=2022.2.0"
       linux_py38_distributed:
         imageName: 'ubuntu-latest'
