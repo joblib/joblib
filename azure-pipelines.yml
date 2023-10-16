@@ -68,7 +68,7 @@ jobs:
       linux_py38_no_multiprocessing_no_lzma:
         imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.8"
-        EXTRA_CONDA_PACKAGES: "numpy=1.15"
+        EXTRA_CONDA_PACKAGES: "numpy=1.18.5"
         JOBLIB_MULTIPROCESSING: "0"
         NO_LZMA: "1"
       linux_py38_no_numpy:
