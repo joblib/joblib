@@ -18,7 +18,7 @@ create_new_conda_env() {
 }
 
 create_new_pypy3_env() {
-    PYPY_FOLDER="pypy3.7-v7.3.7-linux64"
+    PYPY_FOLDER="pypy3.10-v7.3.13-linux64"
     wget https://downloads.python.org/pypy/$PYPY_FOLDER.tar.bz2
     tar xvf $PYPY_FOLDER.tar.bz2
     $PYPY_FOLDER/bin/pypy3 -m venv pypy3
@@ -32,8 +32,8 @@ else
     create_new_conda_env
 fi
 
-# Install py.test timeout to fasten failure in deadlocking tests
-PIP_INSTALL_PACKAGES="pytest-timeout"
+# Install pytest timeout to fasten failure in deadlocking tests
+PIP_INSTALL_PACKAGES="pytest-timeout threadpoolctl"
 
 if [ -n "$NUMPY_VERSION" ]; then
     # We want to ensure no memory copies are performed only when numpy is
@@ -48,11 +48,6 @@ fi
 
 if [[ "$COVERAGE" == "true" ]]; then
     PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES coverage pytest-cov"
-fi
-
-if [[ "pypy3" != *"$PYTHON_VERSION"* ]]; then
-    # threadpoolctl is only available for python 3.5+.
-    PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES threadpoolctl"
 fi
 
 pip install $PIP_INSTALL_PACKAGES
