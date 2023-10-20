@@ -177,7 +177,7 @@ class ParallelBackendBase(metaclass=ABCMeta):
         OpenBLAS libraries in the child processes.
         """
         explicit_n_threads = self.inner_max_num_threads
-        default_n_threads = str(max(cpu_count() // n_jobs, 1))
+        default_n_threads = max(cpu_count() // n_jobs, 1)
 
         # Set the inner environment variables to self.inner_max_num_threads if
         # it is given. Else, default to cpu_count // n_jobs unless the variable
@@ -185,13 +185,11 @@ class ParallelBackendBase(metaclass=ABCMeta):
         env = {}
         for var in self.MAX_NUM_THREADS_VARS:
             if explicit_n_threads is None:
-                var_value = os.environ.get(var, None)
-                if var_value is None:
-                    var_value = default_n_threads
+                var_value = os.environ.get(var, default_n_threads)
             else:
-                var_value = str(explicit_n_threads)
+                var_value = explicit_n_threads
 
-            env[var] = var_value
+            env[var] = str(var_value)
 
         if self.TBB_ENABLE_IPC_VAR not in os.environ:
             # To avoid over-subscription when using TBB, let the TBB schedulers
