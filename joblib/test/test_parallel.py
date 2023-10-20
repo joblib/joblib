@@ -448,6 +448,31 @@ def test_error_capture(backend):
              for i in range(30)))
 
 
+@with_multiprocessing
+@parametrize('backend', BACKENDS)
+def test_error_in_task_iterator(backend):
+
+    def my_generator(raise_at=0):
+        for i in range(20):
+            if i == raise_at:
+                raise ValueError("Iterator Raising Error")
+            yield i
+
+    with Parallel(n_jobs=2, backend=backend) as p:
+        # The error is raised in the pre-dispatch phase
+        with raises(ValueError, match="Iterator Raising Error"):
+            p(delayed(square)(i) for i in my_generator(raise_at=0))
+
+        # The error is raised when dispatching a new task after the
+        # pre-dispatch (likely to happen in a different thread)
+        with raises(ValueError, match="Iterator Raising Error"):
+            p(delayed(square)(i) for i in my_generator(raise_at=5))
+
+        # Same, but raises long after the pre-dispatch phase
+        with raises(ValueError, match="Iterator Raising Error"):
+            p(delayed(square)(i) for i in my_generator(raise_at=19))
+
+
 def consumer(queue, item):
     queue.append('Consumed %s' % item)
 
@@ -1228,6 +1253,38 @@ def test_parallel_return_order_with_return_as_generator_parameter(n_jobs):
     assert all(v == r for v, r in zip(input_list, result))
 
 
+def _sqrt_with_delay(e, delay):
+    if delay:
+        sleep(30)
+    return sqrt(e)
+
+
+@pytest.mark.parametrize('n_jobs', [2, 4])
+# NB: for this test to work, the backend must be allowed to process tasks
+# concurrently, so at least two jobs with a non-sequential backend are
+# mandatory.
+@with_multiprocessing
+@parametrize('backend', set(RETURN_GENERATOR_BACKENDS) - {"sequential"})
+def test_parallel_unordered_generator_returns_fastest_first(backend, n_jobs):
+    # This test submits 10 tasks, but the second task is super slow. This test
+    # checks that the 9 other tasks return before the slow task is done, when
+    # `return_as` parameter is set to `'generator_unordered'`
+    result = Parallel(n_jobs=n_jobs, return_as="generator_unordered",
+                      backend=backend)(
+        delayed(_sqrt_with_delay)(i**2, (i == 1)) for i in range(10))
+
+    quickly_returned = sorted(next(result) for _ in range(9))
+
+    expected_quickly_returned = [0] + list(range(2, 10))
+
+    assert all(
+        v == r for v, r in zip(expected_quickly_returned, quickly_returned)
+    )
+
+    del result
+    force_gc_pypy()
+
+
 @parametrize('backend', ALL_VALID_BACKENDS)
 @parametrize('n_jobs', [1, 2, -2, -1])
 def test_abort_backend(n_jobs, backend):
@@ -1248,12 +1305,13 @@ def get_large_object(arg):
 
 @with_numpy
 @parametrize('backend', RETURN_GENERATOR_BACKENDS)
+@parametrize('return_as', ["generator", "generator_unordered"])
 @parametrize('n_jobs', [1, 2, -2, -1])
-def test_deadlock_with_generator(backend, n_jobs):
+def test_deadlock_with_generator(backend, return_as, n_jobs):
     # Non-regression test for a race condition in the backends when the pickler
     # is delayed by a large object.
     with Parallel(n_jobs=n_jobs, backend=backend,
-                  return_as="generator") as parallel:
+                  return_as=return_as) as parallel:
         result = parallel(delayed(get_large_object)(i) for i in range(10))
         next(result)
         next(result)
@@ -1264,14 +1322,15 @@ def test_deadlock_with_generator(backend, n_jobs):
 
 
 @parametrize('backend', RETURN_GENERATOR_BACKENDS)
+@parametrize('return_as', ["generator", "generator_unordered"])
 @parametrize('n_jobs', [1, 2, -2, -1])
-def test_multiple_generator_call(backend, n_jobs):
+def test_multiple_generator_call(backend, return_as, n_jobs):
     # Non-regression test that ensures the dispatch of the tasks starts
     # immediately when Parallel.__call__ is called. This test relies on the
     # assumption that only one generator can be submitted at a time.
     with raises(RuntimeError,
                 match="This Parallel instance is already running"):
-        parallel = Parallel(n_jobs, backend=backend, return_as="generator")
+        parallel = Parallel(n_jobs, backend=backend, return_as=return_as)
         g = parallel(delayed(sleep)(1) for _ in range(10))  # noqa: F841
         t_start = time.time()
         gen2 = parallel(delayed(id)(i) for i in range(100))  # noqa: F841
@@ -1289,13 +1348,14 @@ def test_multiple_generator_call(backend, n_jobs):
 
 
 @parametrize('backend', RETURN_GENERATOR_BACKENDS)
+@parametrize('return_as', ["generator", "generator_unordered"])
 @parametrize('n_jobs', [1, 2, -2, -1])
-def test_multiple_generator_call_managed(backend, n_jobs):
+def test_multiple_generator_call_managed(backend, return_as, n_jobs):
     # Non-regression test that ensures the dispatch of the tasks starts
     # immediately when Parallel.__call__ is called. This test relies on the
     # assumption that only one generator can be submitted at a time.
     with Parallel(n_jobs, backend=backend,
-                  return_as="generator") as parallel:
+                  return_as=return_as) as parallel:
         g = parallel(delayed(sleep)(10) for _ in range(10))  # noqa: F841
         t_start = time.time()
         with raises(RuntimeError,
@@ -1315,15 +1375,25 @@ def test_multiple_generator_call_managed(backend, n_jobs):
 
 
 @parametrize('backend', RETURN_GENERATOR_BACKENDS)
+@parametrize('return_as_1', ["generator", "generator_unordered"])
+@parametrize('return_as_2', ["generator", "generator_unordered"])
 @parametrize('n_jobs', [1, 2, -2, -1])
-def test_multiple_generator_call_separated(backend, n_jobs):
+def test_multiple_generator_call_separated(
+        backend, return_as_1, return_as_2, n_jobs
+):
     # Check that for separated Parallel, both tasks are correctly returned.
-    g = Parallel(n_jobs, backend=backend, return_as="generator")(
+    g = Parallel(n_jobs, backend=backend, return_as=return_as_1)(
         delayed(sqrt)(i ** 2) for i in range(10)
     )
-    g2 = Parallel(n_jobs, backend=backend, return_as="generator")(
+    g2 = Parallel(n_jobs, backend=backend, return_as=return_as_2)(
         delayed(sqrt)(i ** 2) for i in range(10, 20)
     )
+
+    if return_as_1 == "generator_unordered":
+        g = sorted(g)
+
+    if return_as_2 == "generator_unordered":
+        g2 = sorted(g2)
 
     assert all(res == i for res, i in zip(g, range(10)))
     assert all(res == i for res, i in zip(g2, range(10, 20)))
@@ -1334,14 +1404,18 @@ def test_multiple_generator_call_separated(backend, n_jobs):
     ('threading', False),
     ('sequential', False),
 ])
-def test_multiple_generator_call_separated_gc(backend, error):
+@parametrize('return_as_1', ["generator", "generator_unordered"])
+@parametrize('return_as_2', ["generator", "generator_unordered"])
+def test_multiple_generator_call_separated_gc(
+        backend, return_as_1, return_as_2, error
+):
 
     if (backend == 'loky') and (mp is None):
         pytest.skip("Requires multiprocessing")
 
     # Check that in loky, only one call can be run at a time with
     # a single executor.
-    parallel = Parallel(2, backend=backend, return_as="generator")
+    parallel = Parallel(2, backend=backend, return_as=return_as_1)
     g = parallel(delayed(sleep)(10) for i in range(10))
     g_wr = weakref.finalize(g, lambda: print("Generator collected"))
     ctx = (
@@ -1354,13 +1428,17 @@ def test_multiple_generator_call_separated_gc(backend, error):
         # For the other backends, as the worker pools are not shared between
         # the two calls, this should proceed correctly.
         t_start = time.time()
-        g = Parallel(2, backend=backend, return_as="generator")(
+        g = Parallel(2, backend=backend, return_as=return_as_2)(
             delayed(sqrt)(i ** 2) for i in range(10, 20)
         )
 
         # The gc in pypy can be delayed. Force it to test the behavior when it
         # will eventually be collected.
         force_gc_pypy()
+
+        if return_as_2 == "generator_unordered":
+            g = sorted(g)
+
         assert all(res == i for res, i in zip(g, range(10, 20)))
 
     assert time.time() - t_start < 5

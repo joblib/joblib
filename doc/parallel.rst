@@ -69,7 +69,7 @@ of Python processes as concurrent workers. For instance this is the case
 if you write the CPU intensive part of your code inside a `with nogil`_
 block of a Cython function.
 
-.. _`with nogil`: http://docs.cython.org/src/userguide/external_C_code.html#acquiring-and-releasing-the-gil
+.. _`with nogil`: https://docs.cython.org/src/userguide/external_C_code.html#acquiring-and-releasing-the-gil
 
 To hint that your code can efficiently use threads, just pass
 ``prefer="threads"`` as parameter of the :class:`joblib.Parallel` constructor.

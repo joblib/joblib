@@ -11,7 +11,8 @@
 set -e
 
 create_new_conda_env() {
-    conda update --yes conda
+    conda update --yes conda conda-libmamba-solver
+    conda config --set solver libmamba
     TO_INSTALL="python=$PYTHON_VERSION pip pytest $EXTRA_CONDA_PACKAGES"
     conda create -n testenv --yes -c conda-forge $TO_INSTALL
     source activate testenv
@@ -32,8 +33,8 @@ else
     create_new_conda_env
 fi
 
-# Install py.test timeout to fasten failure in deadlocking tests
-PIP_INSTALL_PACKAGES="pytest-timeout"
+# Install pytest timeout to fasten failure in deadlocking tests
+PIP_INSTALL_PACKAGES="pytest-timeout threadpoolctl"
 
 if [ -n "$NUMPY_VERSION" ]; then
     # We want to ensure no memory copies are performed only when numpy is
@@ -48,11 +49,6 @@ fi
 
 if [[ "$COVERAGE" == "true" ]]; then
     PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES coverage pytest-cov"
-fi
-
-if [[ "pypy3" != *"$PYTHON_VERSION"* ]]; then
-    # threadpoolctl is only available for python 3.5+.
-    PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES threadpoolctl"
 fi
 
 pip install $PIP_INSTALL_PACKAGES

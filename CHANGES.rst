@@ -4,8 +4,25 @@ Latest changes
 In development
 --------------
 
+- Ensure that errors in the task generator given to Parallel's call
+  are raised in the results consumming thread.
+  https://github.com/joblib/joblib/pull/1491
+  
+- Adjust codebase to NumPy 2.0 by changing ``np.NaN`` to ``np.nan``
+  and importing ``byte_bounds`` from ``np.lib.array_utils``.
+  https://github.com/joblib/joblib/pull/1501
+
+- The parameter ``return_as`` in ``joblib.Parallel`` can now be set to
+  ``generator_unordered``. In this case the results will be returned in the
+  order of task completion rather than the order of submission.
+  https://github.com/joblib/joblib/pull/1463
+
 - End support for python 3.7 which has reached end of life.
   https://github.com/joblib/joblib/pull/1487
+  https://github.com/joblib/joblib/pull/1515
+
+- Vendor cloudpickle 3.0.0 and drop support for Python 3.7.
+  https://github.com/joblib/joblib/pull/1515
 
 Release 1.3.2 -- 2023/08/08
 ---------------------------

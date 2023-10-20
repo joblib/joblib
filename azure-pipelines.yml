@@ -1,3 +1,4 @@
+
 # Python package
 # Create and test a Python package on multiple Python versions.
 # Add steps that analyze code, save the dist with the build record, publish to a PyPI-compatible index, and more:
@@ -72,7 +73,7 @@ jobs:
       linux_py38_distributed:
         imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.8"
-        EXTRA_CONDA_PACKAGES: "numpy=1.16 distributed=2.13"
+        EXTRA_CONDA_PACKAGES: "numpy=1.18.5 distributed=2021.1.1"
       linux_py311_cython:
         imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.11"

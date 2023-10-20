@@ -14,9 +14,10 @@ Using ``return_as='generator'`` allows to progressively consume the outputs
 as they arrive and keeps the memory at an acceptable level.
 
 In this case, the output of the `Parallel` call is a generator that yields the
-results in the order the tasks have been submitted with. Future releases are
-also planned to support the ``return_as="unordered_generator"`` parameter to
-have the generator yield results as soon as available.
+results in the order the tasks have been submitted with. If the order of the
+tasks does not matter (for instance if they are consumed by a commutative
+aggregation function), then using ``return_as='generator_unordered'`` can be
+even more efficient.
 
 """
 
@@ -156,6 +157,7 @@ print(f"Peak memory usage: {peak:.2f}MB")
 # the results.
 
 import matplotlib.pyplot as plt
+plt.figure(0)
 plt.semilogy(
     np.maximum.accumulate(monitor.memory_buffer),
     label='return_as="list"'
@@ -176,3 +178,114 @@ plt.show()
 # still accumulated in RAM after computation. But as we asynchronously process
 # them, they can be freed sooner. However, if the generator is not consumed
 # the memory still grows linearly.
+
+
+##############################################################################
+# Further memory efficiency for commutative aggregation
+##############################################################################
+
+##############################################################################
+# There is still room for improving the relief on memory allocation we get
+# using ``return_as="generator"``. Indeed, notice how the generator of the
+# previous example respects the order the tasks have been submitted with. This
+# behavior can cause a build up in memory of results waiting to be consumed,
+# in case some tasks finished before other tasks despite being submitted
+# later. The corresponding results will be kept in memory until the slower
+# tasks submitted earlier are done and have been iterated over.
+#
+# In case the downstream consumer of the results is reliant on the assumption
+# that the results are yielded in the same order that the tasks were submitted,
+# it can't be helped. But in our example, since the `+` operator is
+# commutative, the function ``accumulator_sum`` does not need the generator to
+# return the results with any particular order. In this case it's safe to use
+# the option ``return_as="generator_unordered"``, so that the results are
+# returned as soon as a task is completed, ignoring the order of task
+# submission.
+#
+# Beware that the downstream consumer of the results must not expect them be
+# returned with any deterministic or predictable order at all, since the
+# progress of the tasks can depend on the availability of the workers, which
+# can be affected by external events, such as system load, implementation
+# details in the backend, etc.
+
+
+##############################################################################
+# To better highlight improvements in memory usage when using the parameter
+# ``return_as="generator_unordered"``, let's explcitly add delay in some of
+# the submitted tasks.
+
+
+def return_big_object_delayed(i):
+    if (i + 20) % 60:
+        time.sleep(0.1)
+    else:
+        time.sleep(5)
+    return i * np.ones((10000, 200), dtype=np.float64)
+
+
+##############################################################################
+# Let's check memory usage when using ``return_as="generator"``...
+
+monitor_delayed_gen = MemoryMonitor()
+print("Create result generator on delayed tasks with return_as='generator'...")
+res = Parallel(n_jobs=2, return_as="generator")(
+    delayed(return_big_object_delayed)(i) for i in range(150)
+)
+print("Accumulate results:", end='')
+res = accumulator_sum(res)
+print('All tasks completed and reduced successfully.')
+
+# Report memory usage
+del res  # we clean the result to avoid memory border effects
+monitor_delayed_gen.join()
+peak = max(monitor_delayed_gen.memory_buffer) / 1e6
+print(f"Peak memory usage: {peak:.2f}MB")
+
+##############################################################################
+# If we use ``return_as="generator_unordered"``, ``res`` will not enforce any
+# order when returning the results, and will simply enable iterating on the
+# results as soon as it's available. The peak memory usage is now controlled
+# to an even lower level, since that results can be consumed immediately
+# rather than being delayed by the compute of slower tasks that have been
+# submitted earlier.
+
+monitor_delayed_gen_unordered = MemoryMonitor()
+print(
+  "Create result generator on delayed tasks with "
+  "return_as='generator_unordered'..."
+)
+res = Parallel(n_jobs=2, return_as="generator_unordered")(
+    delayed(return_big_object_delayed)(i) for i in range(150)
+)
+print("Accumulate results:", end='')
+res = accumulator_sum(res)
+print('All tasks completed and reduced successfully.')
+
+# Report memory usage
+del res  # we clean the result to avoid memory border effects
+monitor_delayed_gen_unordered.join()
+peak = max(monitor_delayed_gen_unordered.memory_buffer) / 1e6
+print(f"Peak memory usage: {peak:.2f}MB")
+
+
+##############################################################################
+# Notice how the plot for ``'return_as="generator'`` now shows a high memory
+# usage plateau when slow jobs cause a congestion of intermediate results
+# waiting in RAM before in-order aggregation. This high memory usage is never
+# observed when using ``'return_as="generator_unordered"``.
+
+plt.figure(1)
+plt.semilogy(
+    np.maximum.accumulate(monitor_delayed_gen.memory_buffer),
+    label='return_as="generator"'
+)
+plt.semilogy(
+    np.maximum.accumulate(monitor_delayed_gen_unordered.memory_buffer),
+    label='return_as="generator_unordered"'
+)
+plt.xlabel("Time")
+plt.xticks([], [])
+plt.ylabel("Memory usage")
+plt.yticks([1e7, 1e8, 1e9], ['10MB', '100MB', '1GB'])
+plt.legend()
+plt.show()
