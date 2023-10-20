@@ -56,27 +56,27 @@ jobs:
         imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.10"
         EXTRA_CONDA_PACKAGES: "numpy=1.23 distributed=2022.2.0"
-      linux_py37_distributed:
+      linux_py38_distributed:
         imageName: 'ubuntu-latest'
-        PYTHON_VERSION: "3.7"
-        EXTRA_CONDA_PACKAGES: "numpy=1.15 distributed=2.13"
+        PYTHON_VERSION: "3.8"
+        EXTRA_CONDA_PACKAGES: "numpy=1.18.5 distributed=2021.1.1"
       linux_py311_cython:
         imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.11"
         EXTRA_CONDA_PACKAGES: "numpy=1.24.1"
         CYTHON: "true"
-      linux_py37_no_multiprocessing_no_lzma:
+      linux_py38_no_multiprocessing_no_lzma:
         imageName: 'ubuntu-latest'
-        PYTHON_VERSION: "3.7"
-        EXTRA_CONDA_PACKAGES: "numpy=1.15"
+        PYTHON_VERSION: "3.8"
+        EXTRA_CONDA_PACKAGES: "numpy=1.18.5"
         JOBLIB_MULTIPROCESSING: "0"
         NO_LZMA: "1"
-      linux_py37_no_numpy:
+      linux_py38_no_numpy:
         imageName: 'ubuntu-latest'
-        PYTHON_VERSION: "3.7"
-      linux_py37_default_backend_threading:
+        PYTHON_VERSION: "3.8"
+      linux_py38_default_backend_threading:
         imageName: 'ubuntu-latest'
-        PYTHON_VERSION: "3.7"
+        PYTHON_VERSION: "3.8"
         JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND: "threading"
 
       windows_py310:
@@ -88,9 +88,9 @@ jobs:
         imageName: "macos-latest"
         PYTHON_VERSION: "3.10"
         EXTRA_CONDA_PACKAGES: "numpy=1.23"
-      macos_py37_no_numpy:
+      macos_py38_no_numpy:
         imageName: "macos-latest"
-        PYTHON_VERSION: "3.7"
+        PYTHON_VERSION: "3.8"
 
   variables:
     JUNITXML: 'test-data.xml'
