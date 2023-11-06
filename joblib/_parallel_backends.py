@@ -10,6 +10,8 @@ import contextlib
 from abc import ABCMeta, abstractmethod
 
 
+from ._utils import _WrapFuncCall, _retrieve_wrapped_call
+
 from ._multiprocessing_helpers import mp
 
 if mp is not None:
@@ -20,7 +22,6 @@ if mp is not None:
     # Import loky only if multiprocessing is present
     from .externals.loky import process_executor, cpu_count
     from .externals.loky.process_executor import ShutdownExecutorError
-    from .externals.loky.process_executor import _ExceptionWithTraceback
 
 
 class ParallelBackendBase(metaclass=ABCMeta):
@@ -264,32 +265,19 @@ class PoolManagerMixin(object):
         """Used by apply_async to make it possible to implement lazy init"""
         return self._pool
 
-    @staticmethod
-    def _wrap_func_call(func):
-        """Protect function call and return error with traceback."""
-        try:
-            return func()
-        except BaseException as e:
-            return _ExceptionWithTraceback(e)
-
     def apply_async(self, func, callback=None):
         """Schedule a func to be run"""
         # Here, we need a wrapper to avoid crashes on KeyboardInterruptErrors.
         # We also call the callback on error, to make sure the pool does not
         # wait on crashed jobs.
         return self._get_pool().apply_async(
-            self._wrap_func_call, (func,),
+            _WrapFuncCall(func), (),
             callback=callback, error_callback=callback
         )
 
     def retrieve_result_callback(self, out):
         """Mimic concurrent.futures results, raising an error if needed."""
-        if isinstance(out, _ExceptionWithTraceback):
-            rebuild, args = out.__reduce__()
-            out = rebuild(*args)
-        if isinstance(out, BaseException):
-            raise out
-        return out
+        return _retrieve_wrapped_call(out)
 
     def abort_everything(self, ensure_ready=True):
         """Shutdown the pool and restart a new one with the same parameters"""

@@ -1259,13 +1259,7 @@ def _sqrt_with_delay(e, delay):
     return sqrt(e)
 
 
-@pytest.mark.parametrize('n_jobs', [2, 4])
-# NB: for this test to work, the backend must be allowed to process tasks
-# concurrently, so at least two jobs with a non-sequential backend are
-# mandatory.
-@with_multiprocessing
-@parametrize('backend', set(RETURN_GENERATOR_BACKENDS) - {"sequential"})
-def test_parallel_unordered_generator_returns_fastest_first(backend, n_jobs):
+def _test_parallel_unordered_generator_returns_fastest_first(backend, n_jobs):
     # This test submits 10 tasks, but the second task is super slow. This test
     # checks that the 9 other tasks return before the slow task is done, when
     # `return_as` parameter is set to `'generator_unordered'`
@@ -1283,6 +1277,27 @@ def test_parallel_unordered_generator_returns_fastest_first(backend, n_jobs):
 
     del result
     force_gc_pypy()
+
+
+@pytest.mark.parametrize('n_jobs', [2, 4])
+# NB: for this test to work, the backend must be allowed to process tasks
+# concurrently, so at least two jobs with a non-sequential backend are
+# mandatory.
+@with_multiprocessing
+@parametrize('backend', set(RETURN_GENERATOR_BACKENDS) - {"sequential"})
+def test_parallel_unordered_generator_returns_fastest_first(backend, n_jobs):
+    _test_parallel_unordered_generator_returns_fastest_first(backend, n_jobs)
+
+
+@pytest.mark.parametrize('n_jobs', [2, 4])
+@skipif(distributed is None, reason='This test requires dask')
+@parametrize("context", [parallel_config, parallel_backend])
+def test_parallel_unordered_generator_returns_fastest_first_with_dask(
+        n_jobs, context
+):
+    client = distributed.Client(n_workers=2, threads_per_worker=2)  # noqa
+    with context("dask"):
+        _test_parallel_unordered_generator_returns_fastest_first(None, n_jobs)
 
 
 @parametrize('backend', ALL_VALID_BACKENDS)
