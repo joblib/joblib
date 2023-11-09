@@ -1289,7 +1289,7 @@ def test_parallel_unordered_generator_returns_fastest_first(backend, n_jobs):
     _test_parallel_unordered_generator_returns_fastest_first(backend, n_jobs)
 
 
-@pytest.mark.parametrize('n_jobs', [2, 4])
+@pytest.mark.parametrize('n_jobs', [2, -1])
 @skipif(distributed is None, reason='This test requires dask')
 @parametrize("context", [parallel_config, parallel_backend])
 def test_parallel_unordered_generator_returns_fastest_first_with_dask(
