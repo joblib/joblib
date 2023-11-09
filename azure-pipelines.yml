@@ -127,6 +127,36 @@ jobs:
     displayName: 'Publish Test Results'
     condition: and(succeededOrFailed(), ne(variables['SKIP_TESTS'], 'true'))
 
-  - bash: curl -s https://codecov.io/bash | bash
-    displayName: 'Upload to codecov'
+  - task: PublishPipelineArtifact@1
+    inputs:
+      targetPath: .coverage
+    displayName: 'Create coverage artifact data'
     condition: and(succeeded(), ne(variables['SKIP_TESTS'], 'true'), eq(variables['COVERAGE'], 'true'))
+
+- job: coverage
+  displayName: Coverage
+  dependsOn: testing
+
+  pool:
+    vmImage: ubuntu-latest
+
+  steps:
+  - bash: echo "##vso[task.prependpath]$CONDA/bin"
+    displayName: Add conda to PATH
+  - bash: sudo chown -R $USER $CONDA
+    displayName: Take ownership of conda installation
+  - bash: conda create --name coverage_env --yes coverage
+    displayName: Install coverage
+
+  - task: DownloadPipelineArtifact@2
+    inputs:
+      targetPath: ./
+    displayName: 'Gather coverage artifact data'
+
+  - bash: |
+      source activate coverage_env
+      coverage combine **/.coverage
+      coverage xml
+      curl -s https://codecov.io/bash | bash
+    displayName: 'Upload to codecov'
+    condition: succeeded()

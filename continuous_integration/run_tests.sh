@@ -17,7 +17,7 @@ if [[ "$SKIP_TESTS" != "true" ]]; then
     if [ "$COVERAGE" == "true" ]; then
         # Enable coverage-related options. --cov-append is needed to combine
         # the test run and the test-doc run coverage.
-        export PYTEST_ADDOPTS="--cov=joblib --cov-append --cov-report=xml"
+        export PYTEST_ADDOPTS="--cov=joblib --cov-append"
     fi
 
     pytest joblib -vl --timeout=120 --junitxml="${JUNITXML}"
@@ -53,10 +53,4 @@ if [[ "$SKLEARN_TESTS" == "true" ]]; then
     #
     # test_check_memory: scikit-learn test need to be updated to avoid using
     # cachedir: https://github.com/scikit-learn/scikit-learn/pull/22365
-fi
-
-if [[ "$SKIP_TESTS" != "true" && "$COVERAGE" == "true" ]]; then
-    echo "XML Coverage report written in $PWD:"
-    ls -la .coverage*
-    ls -la coverage.xml
 fi
