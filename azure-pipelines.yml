@@ -55,11 +55,11 @@ jobs:
         # dependencies.
         imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.10"
-        EXTRA_CONDA_PACKAGES: "numpy=1.23 distributed=2022.2.0"
+        EXTRA_CONDA_PACKAGES: "numpy=1.23 distributed=2023.10.1"
       linux_py38_distributed:
         imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.8"
-        EXTRA_CONDA_PACKAGES: "numpy=1.18.5 distributed=2021.1.1"
+        EXTRA_CONDA_PACKAGES: "numpy=1.18.5 distributed=2021.5.0"
       linux_py311_cython:
         imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.11"
