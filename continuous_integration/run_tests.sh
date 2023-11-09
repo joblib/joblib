@@ -17,7 +17,7 @@ if [[ "$SKIP_TESTS" != "true" ]]; then
     if [ "$COVERAGE" == "true" ]; then
         # Enable coverage-related options. --cov-append is needed to combine
         # the test run and the test-doc run coverage.
-        export PYTEST_ADDOPTS="--cov=joblib --cov-append"
+        export PYTEST_ADDOPTS="--cov=joblib --cov-append --cov-report=xml"
     fi
 
     pytest joblib -vl --timeout=120 --junitxml="${JUNITXML}"
@@ -56,14 +56,6 @@ if [[ "$SKLEARN_TESTS" == "true" ]]; then
 fi
 
 if [[ "$SKIP_TESTS" != "true" && "$COVERAGE" == "true" ]]; then
-    echo "Deleting empty coverage files:"
-    # the "|| echo" is to avoid having 0 return states that terminate the
-    # script when the find uncounters permission denied
-    find . -name ".coverage.*" -size  0 -print -delete || echo
-    echo "Combining .coverage.* files..."
-    coverage combine --append  || echo "Found invalid coverage files."
-    echo "Generating XML Coverage report..."
-    coverage xml # language agnostic report for the codecov upload script
     echo "XML Coverage report written in $PWD:"
     ls -la .coverage*
     ls -la coverage.xml
