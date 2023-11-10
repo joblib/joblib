@@ -151,12 +151,14 @@ jobs:
   - task: DownloadPipelineArtifact@2
     inputs:
       targetPath: ./
-    displayName: 'Gather coverage artifact data'
+    displayName: 'Gather coverage data'
 
   - bash: |
       source activate coverage_env
       coverage combine **/.coverage
       coverage xml
-      curl -s https://codecov.io/bash | bash
+    displayName: 'Consolidate coverage data'
+
+  - bash: curl -s https://codecov.io/bash | bash
     displayName: 'Upload to codecov'
     condition: succeeded()
