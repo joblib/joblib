@@ -326,6 +326,9 @@ class StoreBackendMixin(object):
             bytes_limit = memstr_to_bytes(bytes_limit)
 
         items = self.get_items()
+        if not items:
+            return []
+
         size = sum(item.size for item in items)
 
         if bytes_limit is not None:
@@ -339,10 +342,7 @@ class StoreBackendMixin(object):
             to_delete_items = 0
 
         if age_limit is not None:
-            older_item = min(
-                (item.last_access for item in items),
-                default=datetime.datetime.now(),
-            )
+            older_item = min((item.last_access for item in items))
             deadline = datetime.datetime.now() - age_limit
         else:
             deadline = None
