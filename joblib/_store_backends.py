@@ -326,6 +326,9 @@ class StoreBackendMixin(object):
             bytes_limit = memstr_to_bytes(bytes_limit)
 
         items = self.get_items()
+        if not items:
+            return []
+
         size = sum(item.size for item in items)
 
         if bytes_limit is not None:
