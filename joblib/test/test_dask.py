@@ -17,7 +17,9 @@ dask = pytest.importorskip('dask')
 # These imports need to be after the pytest.importorskip hence the noqa: E402
 from distributed import Client, LocalCluster, get_client  # noqa: E402
 from distributed.metrics import time  # noqa: E402
-from distributed.utils_test import cluster, inc  # noqa: E402
+# Note: pytest requires to manually import all fixtures used in the test
+# and their dependencies.
+from distributed.utils_test import cluster, inc, cleanup  # noqa: E402, F401
 
 
 def noop(*args, **kwargs):
@@ -116,7 +118,7 @@ def test_dask_funcname(loop, mixed):
             assert all('batch_of_inc' in tup[0] for tup in log)
 
 
-def test_no_undesired_distributed_cache_hit(loop):
+def test_no_undesired_distributed_cache_hit():
     # Dask has a pickle cache for callables that are called many times. Because
     # the dask backends used to wrap both the functions and the arguments
     # under instances of the Batch callable class this caching mechanism could
@@ -169,8 +171,8 @@ def test_no_undesired_distributed_cache_hit(loop):
         assert sum(counts.values()) > 0
         assert all([len(r) == 1 for r in res])
     finally:
-        client.close()
-        cluster.close()
+        client.close(timeout=30)
+        cluster.close(timeout=30)
 
 
 class CountSerialized(object):
@@ -409,7 +411,7 @@ def test_dask_backend_keywords(loop):
                 assert seq == [b['address']] * 10
 
 
-def test_cleanup(loop):
+def test_scheduler_tasks_cleanup(loop):
     with Client(processes=False, loop=loop) as client:
         with parallel_config(backend='dask'):
             Parallel()(delayed(inc)(i) for i in range(10))
@@ -472,22 +474,26 @@ def test_wait_for_workers_timeout():
 def test_joblib_warning_inside_dask_daemonic_worker(backend):
     cluster = LocalCluster(n_workers=2)
     client = Client(cluster)
+    try:
 
-    def func_using_joblib_parallel():
-        # Somehow trying to check the warning type here (e.g. with
-        # pytest.warns(UserWarning)) make the test hang. Work-around: return
-        # the warning record to the client and the warning check is done
-        # client-side.
-        with warnings.catch_warnings(record=True) as record:
-            Parallel(n_jobs=2, backend=backend)(
-                delayed(inc)(i) for i in range(10))
+        def func_using_joblib_parallel():
+            # Somehow trying to check the warning type here (e.g. with
+            # pytest.warns(UserWarning)) make the test hang. Work-around:
+            # return the warning record to the client and the warning check is
+            # done client-side.
+            with warnings.catch_warnings(record=True) as record:
+                Parallel(n_jobs=2, backend=backend)(
+                    delayed(inc)(i) for i in range(10))
 
-        return record
+            return record
 
-    fut = client.submit(func_using_joblib_parallel)
-    record = fut.result()
+        fut = client.submit(func_using_joblib_parallel)
+        record = fut.result()
 
-    assert len(record) == 1
-    warning = record[0].message
-    assert isinstance(warning, UserWarning)
-    assert "distributed.worker.daemon" in str(warning)
+        assert len(record) == 1
+        warning = record[0].message
+        assert isinstance(warning, UserWarning)
+        assert "distributed.worker.daemon" in str(warning)
+    finally:
+        client.close(timeout=30)
+        cluster.close(timeout=30)

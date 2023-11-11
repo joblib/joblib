@@ -17,6 +17,9 @@ In development
   order of task completion rather than the order of submission.
   https://github.com/joblib/joblib/pull/1463
 
+- Vendor cloudpickle 3.0.0 and drop support for Python 3.7.
+  https://github.com/joblib/joblib/pull/1515
+
 Release 1.3.2 -- 2023/08/08
 ---------------------------
 
