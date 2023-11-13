@@ -55,11 +55,11 @@ jobs:
         # dependencies.
         imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.10"
-        EXTRA_CONDA_PACKAGES: "numpy=1.23 distributed=2022.2.0"
+        EXTRA_CONDA_PACKAGES: "numpy=1.23 distributed=2023.10.1"
       linux_py38_distributed:
         imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.8"
-        EXTRA_CONDA_PACKAGES: "numpy=1.18.5 distributed=2021.1.1"
+        EXTRA_CONDA_PACKAGES: "numpy=1.18.5 distributed=2021.5.0"
       linux_py311_cython:
         imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.11"
@@ -127,6 +127,38 @@ jobs:
     displayName: 'Publish Test Results'
     condition: and(succeededOrFailed(), ne(variables['SKIP_TESTS'], 'true'))
 
+  - task: PublishPipelineArtifact@1
+    inputs:
+      targetPath: .coverage
+    displayName: 'Create coverage artifact data'
+    condition: and(succeeded(), ne(variables['SKIP_TESTS'], 'true'), eq(variables['COVERAGE'], 'true'))
+
+- job: coverage
+  displayName: Coverage
+  dependsOn: testing
+
+  pool:
+    vmImage: ubuntu-latest
+
+  steps:
+  - bash: echo "##vso[task.prependpath]$CONDA/bin"
+    displayName: Add conda to PATH
+  - bash: sudo chown -R $USER $CONDA
+    displayName: Take ownership of conda installation
+  - bash: conda create --name coverage_env --yes coverage
+    displayName: Install coverage
+
+  - task: DownloadPipelineArtifact@2
+    inputs:
+      targetPath: ./
+    displayName: 'Gather coverage data'
+
+  - bash: |
+      source activate coverage_env
+      coverage combine **/.coverage
+      coverage xml
+    displayName: 'Consolidate coverage data'
+
   - bash: curl -s https://codecov.io/bash | bash
     displayName: 'Upload to codecov'
-    condition: and(succeeded(), ne(variables['SKIP_TESTS'], 'true'), eq(variables['COVERAGE'], 'true'))
+    condition: succeeded()
