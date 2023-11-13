@@ -9,8 +9,10 @@ import threading
 import contextlib
 from abc import ABCMeta, abstractmethod
 
-
-from ._utils import _WrapFuncCall, _retrieve_wrapped_call
+from ._utils import (
+    _TracebackCapturingWrapper,
+    _retrieve_traceback_capturing_wrapped_call
+)
 
 from ._multiprocessing_helpers import mp
 
@@ -271,13 +273,13 @@ class PoolManagerMixin(object):
         # We also call the callback on error, to make sure the pool does not
         # wait on crashed jobs.
         return self._get_pool().apply_async(
-            _WrapFuncCall(func), (),
+            _TracebackCapturingWrapper(func), (),
             callback=callback, error_callback=callback
         )
 
     def retrieve_result_callback(self, out):
         """Mimic concurrent.futures results, raising an error if needed."""
-        return _retrieve_wrapped_call(out)
+        return _retrieve_traceback_capturing_wrapped_call(out)
 
     def abort_everything(self, ensure_ready=True):
         """Shutdown the pool and restart a new one with the same parameters"""

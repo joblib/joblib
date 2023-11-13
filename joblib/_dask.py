@@ -11,7 +11,10 @@ import weakref
 from .parallel import parallel_config
 from .parallel import AutoBatchingMixin, ParallelBackendBase
 
-from ._utils import _WrapFuncCall, _retrieve_wrapped_call
+from ._utils import (
+    _TracebackCapturingWrapper,
+    _retrieve_traceback_capturing_wrapped_call
+)
 
 try:
     import dask
@@ -331,7 +334,7 @@ class DaskDistributedBackend(AutoBatchingMixin, ParallelBackendBase):
             key = f'{repr(batch)}-{uuid4().hex}'
 
             dask_future = self.client.submit(
-                _WrapFuncCall(batch),
+                _TracebackCapturingWrapper(batch),
                 tasks=tasks,
                 key=key,
                 **self.submit_kwargs
@@ -345,7 +348,7 @@ class DaskDistributedBackend(AutoBatchingMixin, ParallelBackendBase):
         return cf_future
 
     def retrieve_result_callback(self, out):
-        return _retrieve_wrapped_call(out)
+        return _retrieve_traceback_capturing_wrapped_call(out)
 
     def abort_everything(self, ensure_ready=True):
         """ Tell the client to cancel any task submitted via this instance

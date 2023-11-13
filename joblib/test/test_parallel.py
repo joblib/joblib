@@ -1290,8 +1290,8 @@ def test_parallel_unordered_generator_returns_fastest_first(backend, n_jobs):
 
 
 @pytest.mark.parametrize('n_jobs', [2, -1])
-@skipif(distributed is None, reason='This test requires dask')
 @parametrize("context", [parallel_config, parallel_backend])
+@skipif(distributed is None, reason='This test requires dask')
 def test_parallel_unordered_generator_returns_fastest_first_with_dask(
         n_jobs, context
 ):
@@ -1318,11 +1318,7 @@ def get_large_object(arg):
     return result
 
 
-@with_numpy
-@parametrize('backend', RETURN_GENERATOR_BACKENDS)
-@parametrize('return_as', ["generator", "generator_unordered"])
-@parametrize('n_jobs', [1, 2, -2, -1])
-def test_deadlock_with_generator(backend, return_as, n_jobs):
+def _test_deadlock_with_generator(backend, return_as, n_jobs):
     # Non-regression test for a race condition in the backends when the pickler
     # is delayed by a large object.
     with Parallel(n_jobs=n_jobs, backend=backend,
@@ -1334,6 +1330,25 @@ def test_deadlock_with_generator(backend, return_as, n_jobs):
         # The gc in pypy can be delayed. Force it to make sure this test does
         # not cause timeout on the CI.
         force_gc_pypy()
+
+
+@with_numpy
+@parametrize('backend', RETURN_GENERATOR_BACKENDS)
+@parametrize('return_as', ["generator", "generator_unordered"])
+@parametrize('n_jobs', [1, 2, -2, -1])
+def test_deadlock_with_generator(backend, return_as, n_jobs):
+    _test_deadlock_with_generator(backend, return_as, n_jobs)
+
+
+@with_numpy
+@pytest.mark.parametrize('n_jobs', [2, -1])
+@parametrize('return_as', ["generator", "generator_unordered"])
+@parametrize("context", [parallel_config, parallel_backend])
+@skipif(distributed is None, reason='This test requires dask')
+def test_deadlock_with_generator_and_dask(context, return_as, n_jobs):
+    client = distributed.Client(n_workers=2, threads_per_worker=2)  # noqa
+    with context("dask"):
+        _test_deadlock_with_generator(None, return_as, n_jobs)
 
 
 @parametrize('backend', RETURN_GENERATOR_BACKENDS)
@@ -1711,8 +1726,8 @@ def test_nested_parallelism_limit(context, backend):
 
 
 @with_numpy
-@skipif(distributed is None, reason='This test requires dask')
 @parametrize("context", [parallel_config, parallel_backend])
+@skipif(distributed is None, reason='This test requires dask')
 def test_nested_parallelism_with_dask(context):
     client = distributed.Client(n_workers=2, threads_per_worker=2)  # noqa
 
@@ -1793,9 +1808,8 @@ def test_parallel_thread_limit(backend):
                 assert value == "1"
 
 
-@skipif(distributed is not None,
-        reason='This test requires dask NOT installed')
 @parametrize("context", [parallel_config, parallel_backend])
+@skipif(distributed is not None, reason='This test requires dask')
 def test_dask_backend_when_dask_not_installed(context):
     with raises(ValueError, match='Please install dask'):
         context('dask')

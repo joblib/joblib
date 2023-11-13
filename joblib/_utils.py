@@ -61,7 +61,7 @@ class _Sentinel:
         return f"default({self.default_value!r})"
 
 
-class _WrapFuncCall:
+class _TracebackCapturingWrapper:
     """Protect function call and return error with traceback."""
 
     def __init__(self, func):
@@ -74,7 +74,7 @@ class _WrapFuncCall:
             return _ExceptionWithTraceback(e)
 
 
-def _retrieve_wrapped_call(out):
+def _retrieve_traceback_capturing_wrapped_call(out):
     if isinstance(out, _ExceptionWithTraceback):
         rebuild, args = out.__reduce__()
         out = rebuild(*args)
