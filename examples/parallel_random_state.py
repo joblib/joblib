@@ -114,17 +114,19 @@ if mp.get_start_method() != "spawn":
 #########################################################
 #
 # The pattern of ``stochastic_function_seeded`` has another advantage: it
-# allows to control the random_state by passing a known seed. So for instance,
-# we can replicate the same generation of vectors by passing a fixed state as
-# follows.
+# allows to control the random_state by passing a known seed. For best results
+# [1]_, the random state is initialized by a sequence based on a root seed and
+# a job identifier. So for instance, we can replicate the same generation of
+# vectors by passing a fixed state as follows.
+#
+# .. [1]  https://numpy.org/doc/stable/reference/random/parallel.html
 
 if mp.get_start_method() != "spawn":
-    random_state = np.random.randint(np.iinfo(np.int32).max, size=n_vectors)
-
+    seed = 42
     random_vector = Parallel(n_jobs=2, backend=backend)(delayed(
-        stochastic_function_seeded)(10, rng) for rng in random_state)
+        stochastic_function_seeded)(10, [i, seed]) for i in range(n_vectors))
     print_vector(random_vector, backend)
 
     random_vector = Parallel(n_jobs=2, backend=backend)(delayed(
-        stochastic_function_seeded)(10, rng) for rng in random_state)
+        stochastic_function_seeded)(10, [i, seed]) for i in range(n_vectors))
     print_vector(random_vector, backend)
