@@ -88,11 +88,15 @@ testpaths = "joblib"
 norecursedirs = "joblib/externals/*"
 
 [tool.coverage.run]
+source = [
+    "joblib"
+]
 omit = [
     "joblib/test/data/*",
     "joblib/test/_openmp_test_helper/setup.py",
     "*/joblib/externals/*",
 ]
+relative_files = true
 
 [tool.coverage.report]
 show_missing = true

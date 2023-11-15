@@ -911,6 +911,11 @@ def test__get_items(tmpdir):
 
 
 def test__get_items_to_delete(tmpdir):
+    # test empty cache
+    memory, _, _ = _setup_toy_cache(tmpdir, num_inputs=0)
+    items_to_delete = memory.store_backend._get_items_to_delete('1K')
+    assert items_to_delete == []
+
     memory, expected_hash_cachedirs, _ = _setup_toy_cache(tmpdir)
     items = memory.store_backend.get_items()
     # bytes_limit set to keep only one cache item (each hash cache

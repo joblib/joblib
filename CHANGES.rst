@@ -7,7 +7,7 @@ In development
 - Ensure that errors in the task generator given to Parallel's call
   are raised in the results consumming thread.
   https://github.com/joblib/joblib/pull/1491
-  
+
 - Adjust codebase to NumPy 2.0 by changing ``np.NaN`` to ``np.nan``
   and importing ``byte_bounds`` from ``np.lib.array_utils``.
   https://github.com/joblib/joblib/pull/1501
@@ -17,11 +17,13 @@ In development
   order of task completion rather than the order of submission.
   https://github.com/joblib/joblib/pull/1463
 
-- End support for python 3.7 which has reached end of life.
+- dask backend now supports ``return_as=generator`` and
+  ``return_as=generator_unordered``.
+  https://github.com/joblib/joblib/pull/1520
+  
+- Vendor cloudpickle 3.0.0 and end support for Python 3.7 which has
+  reached end of life.
   https://github.com/joblib/joblib/pull/1487
-  https://github.com/joblib/joblib/pull/1515
-
-- Vendor cloudpickle 3.0.0 and drop support for Python 3.7.
   https://github.com/joblib/joblib/pull/1515
 
 Release 1.3.2 -- 2023/08/08
