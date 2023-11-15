@@ -124,9 +124,9 @@ if mp.get_start_method() != "spawn":
 if mp.get_start_method() != "spawn":
     seed = 42
     random_vector = Parallel(n_jobs=2, backend=backend)(delayed(
-        stochastic_function_seeded)(10, [seed, i]) for i in range(n_vectors))
+        stochastic_function_seeded)(10, [i, seed]) for i in range(n_vectors))
     print_vector(random_vector, backend)
 
     random_vector = Parallel(n_jobs=2, backend=backend)(delayed(
-        stochastic_function_seeded)(10, [seed, i]) for i in range(n_vectors))
+        stochastic_function_seeded)(10, [i, seed]) for i in range(n_vectors))
     print_vector(random_vector, backend)
