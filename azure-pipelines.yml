@@ -53,10 +53,10 @@ jobs:
         PYPY_VERSION: "7.3.6"
         LOKY_MAX_CPU_COUNT: "2"
 
-      linux_pypy310_v7312:
+      linux_pypy310_v7313:
         imageName: 'ubuntu-latest'
         PYTHON_VERSION: "pypy3.10"
-        PYPY_VERSION: "7.3.12"
+        PYPY_VERSION: "7.3.13"
         LOKY_MAX_CPU_COUNT: "2"
 
       linux_py39_sklearn_tests:
