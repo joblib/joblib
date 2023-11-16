@@ -26,6 +26,11 @@ import joblib
 # General configuration
 # ---------------------
 
+# Revert ASAP
+# When https://github.com/fcharras/joblib/edit/fix/fix_ci/doc/conf.py#L37C0
+# is fixed
+tls_verify = False
+
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 
