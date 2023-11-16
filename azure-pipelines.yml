@@ -1,3 +1,4 @@
+
 # Python package
 # Create and test a Python package on multiple Python versions.
 # Add steps that analyze code, save the dist with the build record, publish to a PyPI-compatible index, and more:
@@ -40,9 +41,22 @@ jobs:
   displayName: Testing
   strategy:
     matrix:
-      linux_pypy3:
+      linux_pypy38_v7311:
         imageName: 'ubuntu-latest'
-        PYTHON_VERSION: "pypy3"
+        PYTHON_VERSION: "pypy3.8"
+        PYPY_VERSION: "7.3.11"
+        LOKY_MAX_CPU_COUNT: "2"
+
+      linux_pypy38_v736:
+        imageName: 'ubuntu-latest'
+        PYTHON_VERSION: "pypy3.8"
+        PYPY_VERSION: "7.3.6"
+        LOKY_MAX_CPU_COUNT: "2"
+
+      linux_pypy310_v7313:
+        imageName: 'ubuntu-latest'
+        PYTHON_VERSION: "pypy3.10"
+        PYPY_VERSION: "7.3.13"
         LOKY_MAX_CPU_COUNT: "2"
 
       linux_py39_sklearn_tests:
@@ -68,7 +82,7 @@ jobs:
       linux_py38_no_multiprocessing_no_lzma:
         imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.8"
-        EXTRA_CONDA_PACKAGES: "numpy=1.18.5"
+        EXTRA_CONDA_PACKAGES: "numpy=1.16"
         JOBLIB_MULTIPROCESSING: "0"
         NO_LZMA: "1"
       linux_py38_no_numpy:

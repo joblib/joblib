@@ -19,7 +19,7 @@ create_new_conda_env() {
 }
 
 create_new_pypy3_env() {
-    PYPY_FOLDER="pypy3.10-v7.3.13-linux64"
+    PYPY_FOLDER="$PYTHON_VERSION-v$PYPY_VERSION-linux64"
     wget https://downloads.python.org/pypy/$PYPY_FOLDER.tar.bz2
     tar xvf $PYPY_FOLDER.tar.bz2
     $PYPY_FOLDER/bin/pypy3 -m venv pypy3
@@ -27,7 +27,7 @@ create_new_pypy3_env() {
     pip install -U pip 'pytest'
 }
 
-if [[ "$PYTHON_VERSION" == "pypy3" ]]; then
+if [[ "$PYTHON_VERSION" == pypy3* ]]; then
     create_new_pypy3_env
 else
     create_new_conda_env

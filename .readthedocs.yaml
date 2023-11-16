@@ -1,5 +1,6 @@
 version: 2
 
+# Set the version of Python and OS
 build:
   os: ubuntu-22.04
   tools:
