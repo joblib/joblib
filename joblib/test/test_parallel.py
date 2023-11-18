@@ -520,7 +520,7 @@ def test_dispatch_multiprocessing(backend):
             queue.append('Produced %i' % i)
             yield i
 
-    Parallel(n_jobs=2, batch_size=1, pre_dispatch=3, backend=backend)(
+    Parallel(n_jobs=12, batch_size=1, pre_dispatch=3, backend=backend)(
         delayed(consumer)(queue, 'any') for _ in producer())
 
     queue_contents = list(queue)
@@ -2008,3 +2008,31 @@ def test_loky_reuse_workers(n_jobs):
         parallel_call(n_jobs)
         executor = get_reusable_executor(reuse=True)
         assert executor == first_executor
+
+
+@with_multiprocessing
+@parametrize('n_jobs', [2, 3, -1])
+@parametrize('backend', PROCESS_BACKENDS)
+@parametrize("context", [parallel_config, parallel_backend])
+def test_initializer(n_jobs, backend, context):
+    manager = mp.Manager()
+    val = manager.Value('i', 0)
+    
+    def initializer(val):
+        val.value += 1
+
+    n_jobs = effective_n_jobs(n_jobs)
+    with context(
+        backend=backend,
+        n_jobs=n_jobs,
+        initializer=initializer,
+        initargs=(val,)
+    ):
+        with Parallel(n_jobs=n_jobs) as parallel:
+            executor = get_workers(parallel._backend)   
+            _ = parallel(delayed(square)(i) for i in range(n_jobs))
+
+    if backend == "loky":
+        assert val.value == len(executor._processes)
+    else:
+        assert val.value == n_jobs

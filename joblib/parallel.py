@@ -100,6 +100,8 @@ default_parallel_config = {
     "mmap_mode": _Sentinel(default_value="r"),
     "prefer": _Sentinel(default_value=None),
     "require": _Sentinel(default_value=None),
+    "initializer": _Sentinel(default_value=None),
+    "initargs": _Sentinel(default_value=()),
 }
 
 
@@ -312,6 +314,15 @@ class parallel_config:
         usable in some third-party library threadpools like OpenBLAS,
         MKL or OpenMP. This is only used with the ``loky`` backend.
 
+    initializer : callable, default=None
+        If not None, this will be called at the start of each worker
+        process. This can be used to install signal handlers or to
+        import additional modules for the worker. This can be used
+        with the ``loky`` and ``multiprocessing`` backends.
+
+    initargs : tuple, default=None
+        Arguments for initializer.
+
     backend_params : dict
         Additional parameters to pass to the backend constructor when
         backend is a string.
@@ -356,6 +367,8 @@ class parallel_config:
         prefer=default_parallel_config["prefer"],
         require=default_parallel_config["require"],
         inner_max_num_threads=None,
+        initializer=default_parallel_config["initializer"],
+        initargs=default_parallel_config["initargs"],
         **backend_params
     ):
         # Save the parallel info and set the active parallel config
@@ -375,7 +388,9 @@ class parallel_config:
             "mmap_mode": mmap_mode,
             "prefer": prefer,
             "require": require,
-            "backend": backend
+            "backend": backend,
+            "initializer": initializer,
+            "initargs": initargs,
         }
         self.parallel_config = self.old_parallel_config.copy()
         self.parallel_config.update({
@@ -1057,6 +1072,13 @@ class Parallel(Logger):
             disable memmapping, other modes defined in the numpy.memmap doc:
             https://numpy.org/doc/stable/reference/generated/numpy.memmap.html
             Also, see 'max_nbytes' parameter documentation for more details.
+        initializer : callable, default=None
+            If not None, this will be called at the start of each worker
+            process. This can be used to install signal handlers or to
+            import additional modules for the worker. This can be used
+            with the ``loky`` and ``multiprocessing`` backends.
+        initargs : tuple, default=None
+            Arguments for initializer.
 
         Notes
         -----
@@ -1194,6 +1216,8 @@ class Parallel(Logger):
         mmap_mode=default_parallel_config["mmap_mode"],
         prefer=default_parallel_config["prefer"],
         require=default_parallel_config["require"],
+        initializer=default_parallel_config["initializer"],
+        initargs=default_parallel_config["initargs"],
     ):
         # Initiate parent Logger class state
         super().__init__()
@@ -1233,6 +1257,8 @@ class Parallel(Logger):
                 (prefer, "prefer"),
                 (require, "require"),
                 (verbose, "verbose"),
+                (initializer, "initializer"),
+                (initargs, "initargs"),
             ]
         }
 
