@@ -318,7 +318,9 @@ class parallel_config:
         If not None, this will be called at the start of each worker
         process. This can be used to install signal handlers or to
         import additional modules for the worker. This can be used
-        with the ``loky`` and ``multiprocessing`` backends.
+        with the ``loky`` and ``multiprocessing`` backends. Note that
+        when workers are reused, as is done by the ``loky`` backend,
+        initialization happens only once per worker.
 
     initargs : tuple, default=None
         Arguments for initializer.
@@ -1076,7 +1078,9 @@ class Parallel(Logger):
             If not None, this will be called at the start of each worker
             process. This can be used to install signal handlers or to
             import additional modules for the worker. This can be used
-            with the ``loky`` and ``multiprocessing`` backends.
+            with the ``loky`` and ``multiprocessing`` backends. Note that
+            when workers are reused, as is done by the ``loky`` backend,
+            initialization happens only once per worker.
         initargs : tuple, default=None
             Arguments for initializer.
 
