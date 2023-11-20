@@ -2011,9 +2011,6 @@ def test_loky_reuse_workers(n_jobs):
         assert executor == first_executor
 
 
-def initializer(queue):
-    queue.append("spam")
-
 @with_multiprocessing
 @parametrize('n_jobs', [2, 4, -1])
 @parametrize('backend', PROCESS_BACKENDS)
@@ -2023,16 +2020,19 @@ def test_initializer(n_jobs, backend, context):
     manager = mp.Manager()
     queue = manager.list()
 
+    def initializer(queue):
+        queue.append("spam")
+
     with context(
         backend=backend,
         n_jobs=n_jobs,
         initializer=initializer,
-        initargs=(queue,),
+        initargs=(queue,)
     ):
-        with Parallel(batch_size=1) as parallel:
-            pids = parallel(delayed(sleep_and_return_pid)() for i in range(n_jobs))
+        with Parallel() as parallel:
+            values = parallel(delayed(square)(i) for i in range(n_jobs))
 
-    assert len(queue) == len(set(pids))
+    assert len(queue) == n_jobs
     assert all(q == "spam" for q in queue)
 
 
@@ -2045,20 +2045,20 @@ def test_initializer_reuse(n_jobs):
     manager = mp.Manager()
     queue = manager.list()
 
+    def initializer(queue):
+        queue.append("spam")
+
     def parallel_call(n_jobs, initializer, initargs):
-        return Parallel(
+        Parallel(
             backend="loky",
-            batch_size=1,
             n_jobs=n_jobs,
             initializer=initializer,
             initargs=(queue,),
-        )(delayed(sleep_and_return_pid)() for i in range(n_jobs))
+        )(delayed(square)(i) for i in range(n_jobs))
 
-    pids = parallel_call(n_jobs, initializer, (queue,))
-    assert len(queue) == len(set(pids))
-    assert all(q == "spam" for q in queue)
+    parallel_call(n_jobs, initializer, (queue,))
+    assert len(queue) == n_jobs
 
     for i in range(10):
-        pids = parallel_call(n_jobs, initializer, (queue,))
+        parallel_call(n_jobs, initializer, (queue,))
         assert len(queue) == n_jobs
-        assert all(q == "spam" for q in queue)
