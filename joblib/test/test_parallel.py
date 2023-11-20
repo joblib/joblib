@@ -6,6 +6,7 @@ Test the parallel module.
 # Copyright (c) 2010-2011 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
+import multiprocessing
 import os
 import sys
 import time
@@ -2011,28 +2012,53 @@ def test_loky_reuse_workers(n_jobs):
 
 
 @with_multiprocessing
-@parametrize('n_jobs', [2, 3, -1])
+@parametrize('n_jobs', [2, 4, -1])
 @parametrize('backend', PROCESS_BACKENDS)
 @parametrize("context", [parallel_config, parallel_backend])
 def test_initializer(n_jobs, backend, context):
-    manager = mp.Manager()
-    val = manager.Value('i', 0)
-    
-    def initializer(val):
-        val.value += 1
-
     n_jobs = effective_n_jobs(n_jobs)
+    manager = mp.Manager()
+    queue = manager.list()
+
+    def initializer(queue):
+        queue.append("spam")
+
     with context(
         backend=backend,
         n_jobs=n_jobs,
         initializer=initializer,
-        initargs=(val,)
+        initargs=(queue,)
     ):
-        with Parallel(n_jobs=n_jobs) as parallel:
-            executor = get_workers(parallel._backend)   
-            _ = parallel(delayed(square)(i) for i in range(n_jobs))
+        with Parallel() as parallel:
+            values = parallel(delayed(square)(i) for i in range(n_jobs))
 
-    if backend == "loky":
-        assert val.value == len(executor._processes)
-    else:
-        assert val.value == n_jobs
+    assert len(queue) == n_jobs
+    assert all(q == "spam" for q in queue)
+
+
+@with_multiprocessing
+@pytest.mark.parametrize("n_jobs", [2, 4, -1])
+def test_initializer_reuse(n_jobs):
+    # test that the initializer is called only once
+    # when the executor is reused
+    n_jobs = effective_n_jobs(n_jobs)
+    manager = mp.Manager()
+    queue = manager.list()
+
+    def initializer(queue):
+        queue.append("spam")
+
+    def parallel_call(n_jobs, initializer, initargs):
+        Parallel(
+            backend="loky",
+            n_jobs=n_jobs,
+            initializer=initializer,
+            initargs=(queue,),
+        )(delayed(square)(i) for i in range(n_jobs))
+
+    parallel_call(n_jobs, initializer, (queue,))
+    assert len(queue) == n_jobs
+
+    for i in range(10):
+        parallel_call(n_jobs, initializer, (queue,))
+        assert len(queue) == n_jobs
