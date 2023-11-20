@@ -316,11 +316,10 @@ class parallel_config:
 
     initializer : callable, default=None
         If not None, this will be called at the start of each worker
-        process. This can be used to install signal handlers or to
-        import additional modules for the worker. This can be used
-        with the ``loky`` and ``multiprocessing`` backends. Note that
-        when workers are reused, as is done by the ``loky`` backend,
-        initialization happens only once per worker.
+        process. This can be used with the ``loky`` and
+        ``multiprocessing`` backends. Note that when workers are
+        reused, as is done by the ``loky`` backend, initialization
+        happens only once per worker.
 
     initargs : tuple, default=None
         Arguments for initializer.
@@ -1075,12 +1074,11 @@ class Parallel(Logger):
             https://numpy.org/doc/stable/reference/generated/numpy.memmap.html
             Also, see 'max_nbytes' parameter documentation for more details.
         initializer : callable, default=None
-            If not None, this will be called at the start of each worker
-            process. This can be used to install signal handlers or to
-            import additional modules for the worker. This can be used
-            with the ``loky`` and ``multiprocessing`` backends. Note that
-            when workers are reused, as is done by the ``loky`` backend,
-            initialization happens only once per worker.
+            If not None, this will be called at the start of each
+            worker process. This can be used with the ``loky`` and
+            ``multiprocessing`` backends. Note that when workers are
+            reused, as is done by the ``loky`` backend, initialization
+            happens only once per worker.
         initargs : tuple, default=None
             Arguments for initializer.
 
