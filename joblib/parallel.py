@@ -1744,11 +1744,7 @@ class Parallel(Logger):
                 time.sleep(0.01)
                 continue
 
-            # We need to be careful: the job list can be filling up as
-            # we empty it and Python list are not thread-safe by
-            # default hence the use of the lock
-            with self._lock:
-                batched_results = self._jobs.popleft()
+            batched_results = self._jobs.popleft()
 
             # Flatten the batched results to output one output at a time
             batched_results = batched_results.get_result(self.timeout)
