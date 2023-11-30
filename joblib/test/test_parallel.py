@@ -1295,10 +1295,9 @@ def test_parallel_unordered_generator_returns_fastest_first(backend, n_jobs):
 def test_parallel_unordered_generator_returns_fastest_first_with_dask(
         n_jobs, context
 ):
-    with (
-        distributed.Client(n_workers=2, threads_per_worker=2),
-        context("dask")
-    ):
+    with distributed.Client(
+            n_workers=2, threads_per_worker=2
+    ), context("dask"):
         _test_parallel_unordered_generator_returns_fastest_first(None, n_jobs)
 
 
@@ -1348,10 +1347,9 @@ def test_deadlock_with_generator(backend, return_as, n_jobs):
 @parametrize("context", [parallel_config, parallel_backend])
 @skipif(distributed is None, reason='This test requires dask')
 def test_deadlock_with_generator_and_dask(context, return_as, n_jobs):
-    with (
-        distributed.Client(n_workers=2, threads_per_worker=2),
-        context("dask")
-    ):
+    with distributed.Client(
+            n_workers=2, threads_per_worker=2
+    ), context("dask"):
         _test_deadlock_with_generator(None, return_as, n_jobs)
 
 
