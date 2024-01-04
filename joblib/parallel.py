@@ -950,7 +950,7 @@ class Parallel(Logger):
             behavior amounts to a simple python `for` loop. This mode is not
             compatible with `timeout`.
             For n_jobs below -1, (n_cpus + 1 + n_jobs) are used. Here, n_cpus
-            is the available CPUs.
+            is the available number of CPUs.
             Thus for n_jobs = -2, all CPUs but one are used.
             None is a marker for 'unset' that will be interpreted as n_jobs=1
             unless the call is performed under a :func:`~parallel_config`
