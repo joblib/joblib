@@ -955,7 +955,7 @@ class Parallel(Logger):
             None is a marker for 'unset' that will be interpreted as n_jobs=1
             unless the call is performed under a :func:`~parallel_config`
             context manager that sets another value for ``n_jobs``.
-            If n_jobs > n_cpus then all CPUs will be used.
+            If n_jobs = 0 then a ValueError is raised.
         backend: str, ParallelBackendBase instance or None, default: 'loky'
             Specify the parallelization backend implementation.
             Supported backends are:
