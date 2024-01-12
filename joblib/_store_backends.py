@@ -7,6 +7,7 @@ import os.path
 import datetime
 import json
 import shutil
+import time
 import warnings
 import collections
 import operator
@@ -15,6 +16,7 @@ from abc import ABCMeta, abstractmethod
 
 from .backports import concurrency_safe_rename
 from .disk import mkdirp, memstr_to_bytes, rm_subdirs
+from .logger import format_time
 from . import numpy_pickle
 
 CacheItemInfo = collections.namedtuple('CacheItemInfo',
@@ -151,12 +153,20 @@ class StoreBackendMixin(object):
     file-like object.
     """
 
-    def load_item(self, path, verbose=1, msg=None):
+    def load_item(self, path, verbose=1, timestamp=None, metadata=None):
         """Load an item from the store given its path as a list of
            strings."""
         full_path = os.path.join(self.location, *path)
 
         if verbose > 1:
+            ts_string = ('{: <16}'.format(format_time(time.time() - timestamp))
+                         if timestamp is not None else '')
+            signature = os.path.basename(path[0])
+            if metadata is not None and 'input_args' in metadata:
+                kwargs = ', '.join('{}={}'.format(*item)
+                                   for item in metadata['input_args'].items())
+                signature += '({})'.format(kwargs)
+            msg = '[Memory]{}: Loading {}'.format(ts_string, signature)
             if verbose < 10:
                 print('{0}...'.format(msg))
             else:

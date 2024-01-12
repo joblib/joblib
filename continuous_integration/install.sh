@@ -34,7 +34,7 @@ else
 fi
 
 # Install pytest timeout to fasten failure in deadlocking tests
-PIP_INSTALL_PACKAGES="pytest-timeout threadpoolctl"
+PIP_INSTALL_PACKAGES="pytest-timeout pytest-asyncio==0.21.1 threadpoolctl"
 
 if [ -n "$NUMPY_VERSION" ]; then
     # We want to ensure no memory copies are performed only when numpy is
