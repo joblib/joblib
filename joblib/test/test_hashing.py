@@ -493,3 +493,24 @@ def test_wrong_hash_name():
     with raises(ValueError, match=msg):
         data = {'foo': 'bar'}
         hash(data, hash_name='invalid')
+
+def test_custom_hash():
+    custom_hash = 123
+    class IdenticalInstanceFactory:
+        def __init__(self, my_prop):
+            self.my_prop = my_prop
+        def __hash__(self):
+            return custom_hash
+
+    class DifferentInstanceFactory:
+        def __init__(self, my_prop):
+            self.my_prop = my_prop
+
+        def __hash__(self):
+            return self.my_prop
+
+    assert hash(IdenticalInstanceFactory(123)) == hash(IdenticalInstanceFactory(456))
+    assert hash(IdenticalInstanceFactory(123)) == hash(IdenticalInstanceFactory(123))
+
+    assert hash(DifferentInstanceFactory(123)) != hash(DifferentInstanceFactory(456))
+    assert hash(DifferentInstanceFactory(123)) == hash(DifferentInstanceFactory(123))
