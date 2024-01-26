@@ -15,7 +15,6 @@ import types
 import struct
 import io
 import decimal
-import tree
 
 import joblib
 
@@ -283,13 +282,10 @@ def flatten(obj):
     if isinstance(obj, dict):
         return list(obj.values())
     else:
-        return tree.flatten(obj)
+        return [obj]
     
 def map_structure(func, obj):
-    if isinstance(obj, dict):
-        return {k: func(v) for k, v in obj.items()}
-    else:
-        return tree.map_structure(func, obj)
+    return {k: func(v) for k, v in obj.items()}
 
 def hash(pytree_or_leaf, **hash_any_kwargs):
     """
@@ -299,7 +295,7 @@ def hash(pytree_or_leaf, **hash_any_kwargs):
     if not any([implements_custom_hash(x) for x in flatten(pytree_or_leaf)]):
         return hash_any(pytree_or_leaf, **hash_any_kwargs)
     
-    if tree.is_nested(pytree_or_leaf):
+    if isinstance(pytree_or_leaf, dict):
         # If the input is a container, recursively hash its elements
         pytree = pytree_or_leaf
         hashed_tree = map_structure(hash, pytree)
