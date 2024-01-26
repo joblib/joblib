@@ -319,7 +319,6 @@ def hash(pytree_or_leaf, **hash_any_kwargs):
             leaf_hash = hash_any(leaf, **hash_any_kwargs)
         return leaf_hash
 
-
 def hash_any(obj, hash_name='md5', coerce_mmap=False):
     """ Quick calculation of a hash to identify uniquely Python objects
         containing numpy arrays.
@@ -337,8 +336,6 @@ def hash_any(obj, hash_name='md5', coerce_mmap=False):
         raise ValueError("Valid options for 'hash_name' are {}. "
                          "Got hash_name={!r} instead."
                          .format(valid_hash_names, hash_name))
-
-
     if 'numpy' in sys.modules:
         hasher = NumpyHasher(hash_name=hash_name, coerce_mmap=coerce_mmap)
     else:

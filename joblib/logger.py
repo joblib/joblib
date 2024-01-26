@@ -82,9 +82,6 @@ class Logger(object):
     def info(self, msg):
         logging.info("[%s]: %s" % (self, msg))
 
-    def info(self, msg):
-        logging.info("[%s]: %s" % (self, msg))
-
     def debug(self, msg):
         # XXX: This conflicts with the debug flag used in children class
         logging.getLogger(self._name).debug("[%s]: %s" % (self, msg))
