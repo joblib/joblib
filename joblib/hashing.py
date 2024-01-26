@@ -2,7 +2,8 @@
 Fast cryptographic hash of Python objects, with a special case for fast
 hashing of numpy arrays.
 """
-
+import builtins
+import importlib
 # Author: Gael Varoquaux <gael dot varoquaux at normalesup dot org>
 # Copyright (c) 2009 Gael Varoquaux
 # License: BSD Style, 3 clauses.
@@ -14,7 +15,9 @@ import types
 import struct
 import io
 import decimal
+import tree
 
+import joblib
 
 Pickler = pickle._Pickler
 
@@ -240,8 +243,84 @@ class NumpyHasher(Hasher):
             return
         Hasher.save(self, obj)
 
+def is_builtin_class_instance(obj):
+    try:
+        # Python >3.7
+        builtins_str = 'builtins'
+        module = importlib.import_module(builtins_str)
+    except ImportError:
+        try:
+            builtins_str = '__builtins__'
+            module = importlib.import_module(builtins_str)
+        except ImportError:
+            raise ValueError
 
-def hash(obj, hash_name='md5', coerce_mmap=False):
+    in_builtins = obj.__class__.__module__ == builtins_str
+
+    if 'numpy' in sys.modules:
+        import numpy as np
+        in_builtins = in_builtins or (type(obj) in [np.sctypeDict.values(), np.ndarray, np.memmap])
+
+    if isinstance(obj, joblib.Memory) or isinstance(obj, joblib.memory.MemorizedFunc) or isinstance(obj, joblib.memory.MemorizedResult):
+        in_builtins = True
+
+    return in_builtins
+
+def implements_custom_hash(obj):
+    if hasattr(obj, '__hash__') and not (obj.__hash__ is object.__hash__) and not is_builtin_class_instance(obj):
+        try:
+            builtins.hash(obj)
+            _implements_custom_hash = True
+        except AttributeError:
+            _implements_custom_hash = False
+    else:
+        _implements_custom_hash = False
+
+    return _implements_custom_hash
+
+# wrappers because the tree library doesn't support dict keys of different types
+def flatten(obj):
+    if isinstance(obj, dict):
+        return list(obj.values())
+    else:
+        return tree.flatten(obj)
+    
+def map_structure(func, obj):
+    if isinstance(obj, dict):
+        return {k: func(v) for k, v in obj.items()}
+    else:
+        return tree.map_structure(func, obj)
+
+def hash(pytree_or_leaf, **hash_any_kwargs):
+    """
+    Recursively hashes container-like objects (Pytrees) and returns a concatenation of the hashes.
+    """
+    # backward compatibility
+    if not any([implements_custom_hash(x) for x in flatten(pytree_or_leaf)]):
+        return hash_any(pytree_or_leaf, **hash_any_kwargs)
+    
+    if tree.is_nested(pytree_or_leaf):
+        # If the input is a container, recursively hash its elements
+        pytree = pytree_or_leaf
+        hashed_tree = map_structure(hash, pytree)
+        hashed_elements = flatten(hashed_tree)
+        concatenated_hash = ''.join(hashed_elements)
+
+        # get a Hexadecimal hash
+        hex_hash = hash_any(concatenated_hash, **hash_any_kwargs)
+        return hex_hash
+    else:
+        leaf = pytree_or_leaf
+        # If the input is an atomic object, hash it and return the hash
+        if implements_custom_hash(leaf):
+            leaf_hash = str(leaf.__hash__())
+        else:
+            # call the more general hasher that Pickle implements
+            leaf_hash = hash_any(leaf, **hash_any_kwargs)
+        return leaf_hash
+
+
+def hash_any(obj, hash_name='md5', coerce_mmap=False):
     """ Quick calculation of a hash to identify uniquely Python objects
         containing numpy arrays.
 
@@ -258,6 +337,8 @@ def hash(obj, hash_name='md5', coerce_mmap=False):
         raise ValueError("Valid options for 'hash_name' are {}. "
                          "Got hash_name={!r} instead."
                          .format(valid_hash_names, hash_name))
+
+
     if 'numpy' in sys.modules:
         hasher = NumpyHasher(hash_name=hash_name, coerce_mmap=coerce_mmap)
     else:

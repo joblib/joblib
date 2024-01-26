@@ -12,6 +12,7 @@ is called with the same input arguments.
 from __future__ import with_statement
 import logging
 import os
+from textwrap import dedent
 import time
 import pathlib
 import pydoc
@@ -689,8 +690,13 @@ class MemorizedFunc(Logger):
     # ------------------------------------------------------------------------
 
     def _get_argument_hash(self, *args, **kwargs):
-        return hashing.hash(filter_args(self.func, self.ignore, args, kwargs),
-                            coerce_mmap=(self.mmap_mode is not None))
+        args_dict = filter_args(self.func, self.ignore, args, kwargs)
+        hash_fn = functools.partial(hashing.hash, coerce_mmap=(self.mmap_mode is not None))
+        args_hashes = {k: hash_fn(v) for k, v in args_dict.items()}
+        if self._verbose > 50:
+            import pprint
+            self.info(pprint.pformat(args_hashes))
+        return hashing.hash_any(''.join(list(args_hashes.values())))
 
     def _get_output_identifiers(self, *args, **kwargs):
         """Return the func identifier and input parameter hash of a result."""
@@ -851,7 +857,7 @@ class MemorizedFunc(Logger):
         start_time = time.time()
         func_id, args_id = self._get_output_identifiers(*args, **kwargs)
         if self._verbose > 0:
-            print(format_call(self.func, args, kwargs))
+            print(format_call(self.func, args, kwargs), args_id)
         output = self.func(*args, **kwargs)
         self.store_backend.dump_item(
             [func_id, args_id], output, verbose=self._verbose)
