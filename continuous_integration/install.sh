@@ -11,14 +11,15 @@
 set -e
 
 create_new_conda_env() {
-    conda update --yes conda
+    conda update --yes conda conda-libmamba-solver
+    conda config --set solver libmamba
     TO_INSTALL="python=$PYTHON_VERSION pip pytest $EXTRA_CONDA_PACKAGES"
     conda create -n testenv --yes -c conda-forge $TO_INSTALL
     source activate testenv
 }
 
 create_new_pypy3_env() {
-    PYPY_FOLDER="pypy3.7-v7.3.7-linux64"
+    PYPY_FOLDER="$PYTHON_VERSION-v$PYPY_VERSION-linux64"
     wget https://downloads.python.org/pypy/$PYPY_FOLDER.tar.bz2
     tar xvf $PYPY_FOLDER.tar.bz2
     $PYPY_FOLDER/bin/pypy3 -m venv pypy3
@@ -26,14 +27,14 @@ create_new_pypy3_env() {
     pip install -U pip 'pytest'
 }
 
-if [[ "$PYTHON_VERSION" == "pypy3" ]]; then
+if [[ "$PYTHON_VERSION" == pypy3* ]]; then
     create_new_pypy3_env
 else
     create_new_conda_env
 fi
 
-# Install py.test timeout to fasten failure in deadlocking tests
-PIP_INSTALL_PACKAGES="pytest-timeout"
+# Install pytest timeout to fasten failure in deadlocking tests
+PIP_INSTALL_PACKAGES="pytest-timeout threadpoolctl"
 
 if [ -n "$NUMPY_VERSION" ]; then
     # We want to ensure no memory copies are performed only when numpy is
@@ -47,12 +48,7 @@ if [ -n "$NUMPY_VERSION" ]; then
 fi
 
 if [[ "$COVERAGE" == "true" ]]; then
-    PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES coverage pytest-cov codecov"
-fi
-
-if [[ "pypy3" != *"$PYTHON_VERSION"* ]]; then
-    # threadpoolctl is only available for python 3.5+.
-    PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES threadpoolctl"
+    PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES coverage pytest-cov"
 fi
 
 pip install $PIP_INSTALL_PACKAGES

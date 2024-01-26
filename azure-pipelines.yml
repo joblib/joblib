@@ -1,3 +1,4 @@
+
 # Python package
 # Create and test a Python package on multiple Python versions.
 # Add steps that analyze code, save the dist with the build record, publish to a PyPI-compatible index, and more:
@@ -23,7 +24,7 @@ jobs:
       displayName: Add conda to PATH
     - bash: sudo chown -R $USER $CONDA
       displayName: Take ownership of conda installation
-    - bash: conda create --name flake8_env --yes "flake8<6"
+    - bash: conda create --name flake8_env --yes flake8
       displayName: Install flake8
     - bash: |
         if [[ $BUILD_SOURCEVERSIONMESSAGE =~ \[lint\ skip\] ]]; then
@@ -32,7 +33,7 @@ jobs:
           exit 0
         else
           source activate flake8_env
-          bash continuous_integration/flake8_diff.sh
+          flake8
         fi
       displayName: Run linting
 
@@ -40,9 +41,22 @@ jobs:
   displayName: Testing
   strategy:
     matrix:
-      linux_pypy3:
+      linux_pypy38_v7311:
         imageName: 'ubuntu-latest'
-        PYTHON_VERSION: "pypy3"
+        PYTHON_VERSION: "pypy3.8"
+        PYPY_VERSION: "7.3.11"
+        LOKY_MAX_CPU_COUNT: "2"
+
+      linux_pypy38_v736:
+        imageName: 'ubuntu-latest'
+        PYTHON_VERSION: "pypy3.8"
+        PYPY_VERSION: "7.3.6"
+        LOKY_MAX_CPU_COUNT: "2"
+
+      linux_pypy310_v7313:
+        imageName: 'ubuntu-latest'
+        PYTHON_VERSION: "pypy3.10"
+        PYPY_VERSION: "7.3.13"
         LOKY_MAX_CPU_COUNT: "2"
 
       linux_py39_sklearn_tests:
@@ -55,28 +69,28 @@ jobs:
         # dependencies.
         imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.10"
-        EXTRA_CONDA_PACKAGES: "numpy=1.23 distributed=2022.2.0"
-      linux_py37_distributed:
+        EXTRA_CONDA_PACKAGES: "numpy=1.23 distributed=2023.10.1"
+      linux_py38_distributed:
         imageName: 'ubuntu-latest'
-        PYTHON_VERSION: "3.7"
-        EXTRA_CONDA_PACKAGES: "numpy=1.15 distributed=2.13"
+        PYTHON_VERSION: "3.8"
+        EXTRA_CONDA_PACKAGES: "numpy=1.18.5 distributed=2021.5.0"
       linux_py311_cython:
         imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.11"
         EXTRA_CONDA_PACKAGES: "numpy=1.24.1"
         CYTHON: "true"
-      linux_py37_no_multiprocessing_no_lzma:
+      linux_py38_no_multiprocessing_no_lzma:
         imageName: 'ubuntu-latest'
-        PYTHON_VERSION: "3.7"
-        EXTRA_CONDA_PACKAGES: "numpy=1.15"
+        PYTHON_VERSION: "3.8"
+        EXTRA_CONDA_PACKAGES: "numpy=1.16"
         JOBLIB_MULTIPROCESSING: "0"
         NO_LZMA: "1"
-      linux_py37_no_numpy:
+      linux_py38_no_numpy:
         imageName: 'ubuntu-latest'
-        PYTHON_VERSION: "3.7"
-      linux_py37_default_backend_threading:
+        PYTHON_VERSION: "3.8"
+      linux_py38_default_backend_threading:
         imageName: 'ubuntu-latest'
-        PYTHON_VERSION: "3.7"
+        PYTHON_VERSION: "3.8"
         JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND: "threading"
 
       windows_py310:
@@ -88,9 +102,9 @@ jobs:
         imageName: "macos-latest"
         PYTHON_VERSION: "3.10"
         EXTRA_CONDA_PACKAGES: "numpy=1.23"
-      macos_py37_no_numpy:
+      macos_py38_no_numpy:
         imageName: "macos-latest"
-        PYTHON_VERSION: "3.7"
+        PYTHON_VERSION: "3.8"
 
   variables:
     JUNITXML: 'test-data.xml'
@@ -127,6 +141,38 @@ jobs:
     displayName: 'Publish Test Results'
     condition: and(succeededOrFailed(), ne(variables['SKIP_TESTS'], 'true'))
 
+  - task: PublishPipelineArtifact@1
+    inputs:
+      targetPath: .coverage
+    displayName: 'Create coverage artifact data'
+    condition: and(succeeded(), ne(variables['SKIP_TESTS'], 'true'), eq(variables['COVERAGE'], 'true'))
+
+- job: coverage
+  displayName: Coverage
+  dependsOn: testing
+
+  pool:
+    vmImage: ubuntu-latest
+
+  steps:
+  - bash: echo "##vso[task.prependpath]$CONDA/bin"
+    displayName: Add conda to PATH
+  - bash: sudo chown -R $USER $CONDA
+    displayName: Take ownership of conda installation
+  - bash: conda create --name coverage_env --yes coverage
+    displayName: Install coverage
+
+  - task: DownloadPipelineArtifact@2
+    inputs:
+      targetPath: ./
+    displayName: 'Gather coverage data'
+
+  - bash: |
+      source activate coverage_env
+      coverage combine **/.coverage
+      coverage xml
+    displayName: 'Consolidate coverage data'
+
   - bash: curl -s https://codecov.io/bash | bash
     displayName: 'Upload to codecov'
-    condition: and(succeeded(), ne(variables['SKIP_TESTS'], 'true'), eq(variables['COVERAGE'], 'true'))
+    condition: succeeded()

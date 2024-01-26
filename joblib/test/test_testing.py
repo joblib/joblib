@@ -60,7 +60,7 @@ def test_check_subprocess_call_timeout():
         'sys.stderr.flush()',
         # We need to sleep for at least 2 * timeout seconds in case the SIGKILL
         # is triggered.
-        'time.sleep(2.1)',
+        'time.sleep(10)',
         'print("process should have be killed before")',
         'sys.stdout.flush()'])
 

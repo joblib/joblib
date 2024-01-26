@@ -1,6 +1,0 @@
-python:
-  # make sure joblib is installed in the virtualenv (it is imported in
-  # conf.py)
-  pip_install: true
-
-requirements_file: .readthedocs-requirements.txt

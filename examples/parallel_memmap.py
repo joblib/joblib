@@ -14,7 +14,7 @@ original data.
 ##############################################################################
 # Speed up processing of a large data array
 ##############################################################################
-# 
+#
 # We create a large data array for which the average is computed for several
 # slices.
 
@@ -94,7 +94,7 @@ print('\nElapsed time computing the average of couple of slices {:.2f} s\n'
 ###############################################################################
 # Writable memmap for shared memory :class:`joblib.Parallel`
 ###############################################################################
-# 
+#
 # ``slow_mean_write_output`` will compute the mean for some given slices as in
 # the previous example. However, the resulting mean will be directly written on
 # the output array.
@@ -143,7 +143,7 @@ print("\nActual means computed by the worker processes:\n {}"
 ###############################################################################
 # Clean-up the memmap
 ###############################################################################
-# 
+#
 # Remove the different memmap that we created. It might fail in Windows due
 # to file permissions.
 

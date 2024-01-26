@@ -78,7 +78,7 @@ class Hasher(Pickler):
             else:
                 func_name = obj.__name__
             inst = obj.__self__
-            if type(inst) == type(pickle):
+            if type(inst) is type(pickle):
                 obj = _MyHash(func_name, inst.__name__)
             elif inst is None:
                 # type(None) or type(module) do not pickle
@@ -245,9 +245,8 @@ def hash(obj, hash_name='md5', coerce_mmap=False):
     """ Quick calculation of a hash to identify uniquely Python objects
         containing numpy arrays.
 
-
         Parameters
-        -----------
+        ----------
         hash_name: 'md5' or 'sha1'
             Hashing algorithm used. sha1 is supposedly safer, but md5 is
             faster.

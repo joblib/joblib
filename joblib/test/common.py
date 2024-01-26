@@ -3,6 +3,7 @@ Small utilities for testing.
 """
 import os
 import gc
+import sys
 
 from joblib._multiprocessing_helpers import mp
 from joblib.testing import SkipTest, skipif
@@ -11,6 +12,8 @@ try:
     import lz4
 except ImportError:
     lz4 = None
+
+IS_PYPY = hasattr(sys, "pypy_version_info")
 
 # A decorator to run tests only when numpy is available
 try:
@@ -53,6 +56,18 @@ except ImportError:
         return dummy_func
 
     memory_usage = memory_used = None
+
+
+def force_gc_pypy():
+    # The gc in pypy can be delayed. Force it to test the behavior when it
+    # will eventually be collected.
+    if IS_PYPY:
+        # Run gc.collect() twice to make sure the weakref is collected, as
+        # mentionned in the pypy doc:
+        # https://doc.pypy.org/en/latest/config/objspace.usemodules._weakref.html
+        import gc
+        gc.collect()
+        gc.collect()
 
 
 with_multiprocessing = skipif(

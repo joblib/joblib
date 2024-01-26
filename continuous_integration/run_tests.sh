@@ -3,7 +3,7 @@
 set -e
 
 echo "Activating test environment:"
-if [[ "$PYTHON_VERSION" == "pypy3" ]]; then
+if [[ "$PYTHON_VERSION" == pypy3* ]]; then
     source pypy3/bin/activate
 else
     source activate testenv
@@ -53,18 +53,4 @@ if [[ "$SKLEARN_TESTS" == "true" ]]; then
     #
     # test_check_memory: scikit-learn test need to be updated to avoid using
     # cachedir: https://github.com/scikit-learn/scikit-learn/pull/22365
-fi
-
-if [[ "$SKIP_TESTS" != "true" && "$COVERAGE" == "true" ]]; then
-    echo "Deleting empty coverage files:"
-    # the "|| echo" is to avoid having 0 return states that terminate the
-    # script when the find uncounters permission denied
-    find . -name ".coverage.*" -size  0 -print -delete || echo
-    echo "Combining .coverage.* files..."
-    coverage combine --append  || echo "Found invalid coverage files."
-    echo "Generating XML Coverage report..."
-    coverage xml # language agnostic report for the codecov upload script
-    echo "XML Coverage report written in $PWD:"
-    ls -la .coverage*
-    ls -la coverage.xml
 fi

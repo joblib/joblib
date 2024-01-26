@@ -51,7 +51,7 @@ def delete_obj(obj):
 def memory_used(func, *args, **kwargs):
     """Compute memory usage of func."""
     if memory_usage is None:
-        return np.NaN
+        return np.nan
 
     gc.collect()
     mem_use = memory_usage((func, args, kwargs), interval=.001)
@@ -418,6 +418,7 @@ def run(args):
                       mmap_mode=mmap_mode,
                       tries=args.tries)
             del obj
+
 
 if __name__ == "__main__":
     import argparse
