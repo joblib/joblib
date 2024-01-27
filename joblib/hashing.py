@@ -2,7 +2,7 @@
 Fast cryptographic hash of Python objects, with a special case for fast
 hashing of numpy arrays.
 """
-import importlib
+
 # Author: Gael Varoquaux <gael dot varoquaux at normalesup dot org>
 # Copyright (c) 2009 Gael Varoquaux
 # License: BSD Style, 3 clauses.
@@ -245,33 +245,45 @@ class NumpyHasher(Hasher):
 def is_builtin_class_instance(obj):
     try:
         # Python >3.7
-        builtins_str = 'builtins'
-        module = importlib.import_module(builtins_str)
+        builtins_str = "builtins"
     except ImportError:
         try:
-            builtins_str = '__builtins__'
-            module = importlib.import_module(builtins_str)
+            builtins_str = "__builtins__"
         except ImportError:
             raise ValueError
 
     in_builtins = obj.__class__.__module__ == builtins_str
 
-    if 'numpy' in sys.modules:
+    if "numpy" in sys.modules:
         import numpy as np
-        in_builtins = in_builtins or (type(obj) in [np.sctypeDict.values(), np.ndarray, np.memmap])
 
-    if isinstance(obj, joblib.Memory) or isinstance(obj, joblib.memory.MemorizedFunc) or isinstance(obj, joblib.memory.MemorizedResult):
+        in_builtins = in_builtins or (
+            type(obj) in [np.sctypeDict.values(), np.ndarray, np.memmap]
+        )
+
+    if (
+        isinstance(obj, joblib.Memory)
+        or isinstance(obj, joblib.memory.MemorizedFunc)
+        or isinstance(obj, joblib.memory.MemorizedResult)
+    ):
         in_builtins = True
 
     return in_builtins
 
 
 def implements_custom_hash(obj):
-    if hasattr(obj, '__hash__') and not (obj.__hash__ is object.__hash__) and not is_builtin_class_instance(obj):
-        _implements_custom_hash = all([b.__hash__(obj) != obj.__hash__() 
-                                       for b in type(obj).__bases__ 
-                                       if hasattr(b, '__hash__') 
-                                       and (b.__hash__ is not None)])
+    if (
+        hasattr(obj, "__hash__")
+        and not (obj.__hash__ is object.__hash__)
+        and not is_builtin_class_instance(obj)
+    ):
+        _implements_custom_hash = all(
+            [
+                b.__hash__(obj) != obj.__hash__()
+                for b in type(obj).__bases__
+                if hasattr(b, "__hash__") and (b.__hash__ is not None)
+            ]
+        )
     else:
         _implements_custom_hash = False
 
@@ -283,7 +295,7 @@ def flatten(obj):
         return list(obj.values())
     else:
         return [obj]
-    
+
 
 def map_structure(func, obj):
     return {k: func(v) for k, v in obj.items()}
@@ -291,19 +303,19 @@ def map_structure(func, obj):
 
 def hash(pytree_or_leaf, **hash_any_kwargs):
     """
-    Recursively hashes container-like objects (Pytrees) 
+    Recursively hashes container-like objects (Pytrees)
     and returns a concatenation of the hashes.
     """
     # backward compatibility
     if not any([implements_custom_hash(x) for x in flatten(pytree_or_leaf)]):
         return hash_any(pytree_or_leaf, **hash_any_kwargs)
-    
+
     if isinstance(pytree_or_leaf, dict):
         # If the input is a container, recursively hash its elements
         pytree = pytree_or_leaf
         hashed_tree = map_structure(hash, pytree)
         hashed_elements = flatten(hashed_tree)
-        concatenated_hash = ''.join(hashed_elements)
+        concatenated_hash = "".join(hashed_elements)
 
         # get a Hexadecimal hash
         hex_hash = hash_any(concatenated_hash, **hash_any_kwargs)

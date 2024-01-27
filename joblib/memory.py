@@ -691,7 +691,8 @@ class MemorizedFunc(Logger):
 
     def _get_argument_hash(self, *args, **kwargs):
         args_dict = filter_args(self.func, self.ignore, args, kwargs)
-        hash_fn = functools.partial(hashing.hash, coerce_mmap=(self.mmap_mode is not None))
+        hash_fn = functools.partial(hashing.hash,
+                                    coerce_mmap=(self.mmap_mode is not None))
         args_hashes = {k: hash_fn(v) for k, v in args_dict.items()}
         if self._verbose > 50:
             import pprint
