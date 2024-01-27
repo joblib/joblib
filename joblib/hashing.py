@@ -36,7 +36,7 @@ class _ConsistentSet(object):
         except (TypeError, decimal.InvalidOperation):
             # If elements are unorderable, sorting them using their hash.
             # This is slower but works in any case.
-            self._sequence = sorted((hash(e) for e in set_sequence))
+            self._sequence = sorted((hash_any(e) for e in set_sequence))
 
 
 class _MyHash(object):
@@ -268,16 +268,14 @@ def is_builtin_class_instance(obj):
 def implements_custom_hash(obj):
     if hasattr(obj, '__hash__') and not (obj.__hash__ is object.__hash__) and not is_builtin_class_instance(obj):
         try:
-            builtins.hash(obj)
-            _implements_custom_hash = True
-        except AttributeError:
+            _implements_custom_hash = all([b.__hash__(obj) != obj.__hash__() for b in type(obj).__bases__])
+        except:
             _implements_custom_hash = False
     else:
         _implements_custom_hash = False
 
     return _implements_custom_hash
 
-# wrappers because the tree library doesn't support dict keys of different types
 def flatten(obj):
     if isinstance(obj, dict):
         return list(obj.values())
