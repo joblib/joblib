@@ -2,7 +2,6 @@
 Fast cryptographic hash of Python objects, with a special case for fast
 hashing of numpy arrays.
 """
-import builtins
 import importlib
 # Author: Gael Varoquaux <gael dot varoquaux at normalesup dot org>
 # Copyright (c) 2009 Gael Varoquaux
@@ -242,6 +241,7 @@ class NumpyHasher(Hasher):
             return
         Hasher.save(self, obj)
 
+
 def is_builtin_class_instance(obj):
     try:
         # Python >3.7
@@ -265,16 +265,18 @@ def is_builtin_class_instance(obj):
 
     return in_builtins
 
+
 def implements_custom_hash(obj):
     if hasattr(obj, '__hash__') and not (obj.__hash__ is object.__hash__) and not is_builtin_class_instance(obj):
-        try:
-            _implements_custom_hash = all([b.__hash__(obj) != obj.__hash__() for b in type(obj).__bases__])
-        except:
-            _implements_custom_hash = False
+        _implements_custom_hash = all([b.__hash__(obj) != obj.__hash__() 
+                                       for b in type(obj).__bases__ 
+                                       if hasattr(b, '__hash__') 
+                                       and (b.__hash__ is not None)])
     else:
         _implements_custom_hash = False
 
     return _implements_custom_hash
+
 
 def flatten(obj):
     if isinstance(obj, dict):
@@ -282,12 +284,15 @@ def flatten(obj):
     else:
         return [obj]
     
+
 def map_structure(func, obj):
     return {k: func(v) for k, v in obj.items()}
 
+
 def hash(pytree_or_leaf, **hash_any_kwargs):
     """
-    Recursively hashes container-like objects (Pytrees) and returns a concatenation of the hashes.
+    Recursively hashes container-like objects (Pytrees) 
+    and returns a concatenation of the hashes.
     """
     # backward compatibility
     if not any([implements_custom_hash(x) for x in flatten(pytree_or_leaf)]):
@@ -312,6 +317,7 @@ def hash(pytree_or_leaf, **hash_any_kwargs):
             # call the more general hasher that Pickle implements
             leaf_hash = hash_any(leaf, **hash_any_kwargs)
         return leaf_hash
+
 
 def hash_any(obj, hash_name='md5', coerce_mmap=False):
     """ Quick calculation of a hash to identify uniquely Python objects
