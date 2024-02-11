@@ -690,8 +690,14 @@ class MemorizedFunc(Logger):
     # ------------------------------------------------------------------------
 
     def _get_argument_hash(self, *args, **kwargs):
-        return hashing.hash(filter_args(self.func, self.ignore, args, kwargs),
-                            coerce_mmap=(self.mmap_mode is not None))
+        args_dict = filter_args(self.func, self.ignore, args, kwargs)
+        hash_fn = functools.partial(hashing.hash,
+                                    coerce_mmap=(self.mmap_mode is not None))
+        args_hashes = {k: hash_fn(v) for k, v in args_dict.items()}
+        if self._verbose > 50:
+            import pprint
+            self.info(pprint.pformat(args_hashes))
+        return hashing.hash_any(''.join(list(args_hashes.values())))
 
     def _get_output_identifiers(self, *args, **kwargs):
         """Return the func identifier and input parameter hash of a result."""

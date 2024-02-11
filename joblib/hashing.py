@@ -15,6 +15,7 @@ import struct
 import io
 import decimal
 
+import joblib
 
 Pickler = pickle._Pickler
 
@@ -34,7 +35,7 @@ class _ConsistentSet(object):
         except (TypeError, decimal.InvalidOperation):
             # If elements are unorderable, sorting them using their hash.
             # This is slower but works in any case.
-            self._sequence = sorted((hash(e) for e in set_sequence))
+            self._sequence = sorted((hash_any(e) for e in set_sequence))
 
 
 class _MyHash(object):
@@ -241,7 +242,96 @@ class NumpyHasher(Hasher):
         Hasher.save(self, obj)
 
 
-def hash(obj, hash_name='md5', coerce_mmap=False):
+def is_builtin_class_instance(obj):
+    try:
+        # Python >3.7
+        builtins_str = "builtins"
+    except ImportError:
+        try:
+            builtins_str = "__builtins__"
+        except ImportError:
+            raise ValueError
+
+    in_builtins = obj.__class__.__module__ == builtins_str
+
+    if "numpy" in sys.modules:
+        import numpy as np
+
+        in_builtins = in_builtins or (
+            type(obj) in [np.sctypeDict.values(), np.ndarray, np.memmap]
+        )
+
+    if (
+        isinstance(obj, joblib.Memory)
+        or isinstance(obj, joblib.memory.MemorizedFunc)
+        or isinstance(obj, joblib.memory.MemorizedResult)
+    ):
+        in_builtins = True
+
+    return in_builtins
+
+
+def implements_custom_hash(obj):
+    if (
+        hasattr(obj, "__hash__")
+        and not (obj.__hash__ is object.__hash__)
+        and not is_builtin_class_instance(obj)
+    ):
+        _implements_custom_hash = all(
+            [
+                b.__hash__(obj) != obj.__hash__()
+                for b in type(obj).__bases__
+                if hasattr(b, "__hash__") and (b.__hash__ is not None)
+            ]
+        )
+    else:
+        _implements_custom_hash = False
+
+    return _implements_custom_hash
+
+
+def flatten(obj):
+    if isinstance(obj, dict):
+        return list(obj.values())
+    else:
+        return [obj]
+
+
+def map_structure(func, obj):
+    return {k: func(v) for k, v in obj.items()}
+
+
+def hash(pytree_or_leaf, **hash_any_kwargs):
+    """
+    Recursively hashes container-like objects (Pytrees)
+    and returns a concatenation of the hashes.
+    """
+    # backward compatibility
+    if not any([implements_custom_hash(x) for x in flatten(pytree_or_leaf)]):
+        return hash_any(pytree_or_leaf, **hash_any_kwargs)
+
+    if isinstance(pytree_or_leaf, dict):
+        # If the input is a container, recursively hash its elements
+        pytree = pytree_or_leaf
+        hashed_tree = map_structure(hash, pytree)
+        hashed_elements = flatten(hashed_tree)
+        concatenated_hash = "".join(hashed_elements)
+
+        # get a Hexadecimal hash
+        hex_hash = hash_any(concatenated_hash, **hash_any_kwargs)
+        return hex_hash
+    else:
+        leaf = pytree_or_leaf
+        # If the input is an atomic object, hash it and return the hash
+        if implements_custom_hash(leaf):
+            leaf_hash = str(leaf.__hash__())
+        else:
+            # call the more general hasher that Pickle implements
+            leaf_hash = hash_any(leaf, **hash_any_kwargs)
+        return leaf_hash
+
+
+def hash_any(obj, hash_name='md5', coerce_mmap=False):
     """ Quick calculation of a hash to identify uniquely Python objects
         containing numpy arrays.
 
