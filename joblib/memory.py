@@ -858,7 +858,7 @@ class MemorizedFunc(Logger):
         start_time = time.time()
         func_id, args_id = self._get_output_identifiers(*args, **kwargs)
         if self._verbose > 0:
-            print(format_call(self.func, args, kwargs), args_id)
+            print(format_call(self.func, args, kwargs))
         output = self.func(*args, **kwargs)
         self.store_backend.dump_item(
             [func_id, args_id], output, verbose=self._verbose)
