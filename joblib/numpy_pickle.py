@@ -638,8 +638,8 @@ def load(filename, mmap_mode=None):
     object might not match the original pickled object. Note that if the
     file was saved with compression, the arrays cannot be memmapped.
     """
-    if Path is not None and isinstance(filename, Path):
-        filename = str(filename)
+    if isinstance(filename, str):
+        filename = Path(filename)
 
     if hasattr(filename, "read"):
         fobj = filename
@@ -647,7 +647,7 @@ def load(filename, mmap_mode=None):
         with _read_fileobject(fobj, filename, mmap_mode) as fobj:
             obj = _unpickle(fobj)
     else:
-        with open(filename, 'rb') as f:
+        with filename.open('rb') as f:
             with _read_fileobject(f, filename, mmap_mode) as fobj:
                 if isinstance(fobj, str):
                     # if the returned file object is a string, this means we
