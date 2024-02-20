@@ -2009,3 +2009,10 @@ def test_loky_reuse_workers(n_jobs):
         parallel_call(n_jobs)
         executor = get_reusable_executor(reuse=True)
         assert executor == first_executor
+
+
+def test_n_jobs_int_required():
+    # For issue 1539
+
+    with pytest.raises(ValueError):
+        Parallel(n_jobs=10.0)
