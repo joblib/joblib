@@ -4,6 +4,10 @@ Latest changes
 In development
 --------------
 
+- Updating func_inspect module with a simpler means of retrieving
+  a functions code using inspect.getsourcelines
+  https://github.com/joblib/joblib/pull/1550
+
 - Ensure that errors in the task generator given to Parallel's call
   are raised in the results consumming thread.
   https://github.com/joblib/joblib/pull/1491
