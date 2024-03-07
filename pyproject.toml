@@ -100,7 +100,7 @@ show_missing = true
 [tool.ruff]
 # line-length = 120
 # Enable Pyflakes `E` and `F` codes by default.
-select = [
+lint.select = [
     "E", "W",  # see: https://pypi.org/project/pycodestyle
     "F",  # see: https://pypi.org/project/pyflakes
 ]
@@ -108,7 +108,7 @@ select = [
 exclude = [
     "joblib/externals/*",
 ]
-ignore-init-module-imports = true
+lint.ignore-init-module-imports = true
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "examples/*" = ["E402"]
