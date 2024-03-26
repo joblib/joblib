@@ -66,10 +66,6 @@ class Logger:
         self.depth = depth
         self._name = name if name else 'joblib'
         self._logger = logging.getLogger(self._name)
-            
-        sh = logging.StreamHandler()
-        sh.setFormatter(logging.Formatter("%(asctime)s %(levelname)-8s %(message)s"))
-        self._logger.addHandler(sh)
 
     def warn(self, msg):
         self._logger.warning("[%s]: %s", self, msg)
