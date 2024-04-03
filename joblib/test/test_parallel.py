@@ -633,6 +633,28 @@ def test_invalid_njobs(backend):
         Parallel(n_jobs=0, backend=backend)._initialize_backend()
     assert "n_jobs == 0 in Parallel has no meaning" in str(excinfo.value)
 
+    with raises(ValueError) as excinfo:
+        Parallel(n_jobs=0.5, backend=backend)._initialize_backend()
+    assert "n_jobs == 0 in Parallel has no meaning" in str(excinfo.value)
+
+    with raises(ValueError) as excinfo:
+        Parallel(n_jobs="2.3", backend=backend)._initialize_backend()
+    assert "n_jobs could not be converted to int" in str(excinfo.value)
+
+    with raises(ValueError) as excinfo:
+        Parallel(n_jobs="invalid_str", backend=backend)._initialize_backend()
+    assert "n_jobs could not be converted to int" in str(excinfo.value)
+
+
+@parametrize('backend', PARALLEL_BACKENDS)
+@parametrize('n_jobs', ['2', 2.3, 2])
+def test_njobs_converted_to_int(backend, n_jobs):
+    p = Parallel(n_jobs=n_jobs, backend=backend)
+    assert p._effective_n_jobs() == 2
+
+    res = p(delayed(square)(i) for i in range(10))
+    assert all(r == square(i) for i, r in enumerate(res))
+
 
 def test_register_parallel_backend():
     try:
