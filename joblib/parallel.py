@@ -1287,6 +1287,10 @@ class Parallel(Logger):
             # No specific context override and no specific value request:
             # default to the default of the backend.
             n_jobs = backend.default_n_jobs
+        try:
+            n_jobs = int(n_jobs)
+        except ValueError:
+            raise ValueError("n_jobs could not be converted to int")
         self.n_jobs = n_jobs
 
         if (require == 'sharedmem' and
