@@ -646,6 +646,7 @@ def test_invalid_njobs(backend):
     assert "n_jobs could not be converted to int" in str(excinfo.value)
 
 
+@with_multiprocessing
 @parametrize('backend', PARALLEL_BACKENDS)
 @parametrize('n_jobs', ['2', 2.3, 2])
 def test_njobs_converted_to_int(backend, n_jobs):
