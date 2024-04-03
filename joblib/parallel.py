@@ -945,13 +945,17 @@ class Parallel(Logger):
             The maximum number of concurrently running jobs, such as the number
             of Python worker processes when backend="multiprocessing"
             or the size of the thread-pool when backend="threading".
-            If -1 all CPUs are used.
+            This argument is converted to an integer, rounded below for float.
+            If -1 is given, `joblib` tries to use all CPUs. The number of CPUs
+            ``n_cpus`` is obtained with :func:`~cpu_count`.
+            For n_jobs below -1, (n_cpus + 1 + n_jobs) are used. For instance,
+            using ``n_jobs=-2`` will result in all CPUs but one being used.
+            This argument can also go above ``n_cpus``, which will cause
+            oversubscription. In some cases, slight oversubscription can be
+            beneficial, e.g., for tasks with large I/O operations.
             If 1 is given, no parallel computing code is used at all, and the
             behavior amounts to a simple python `for` loop. This mode is not
             compatible with `timeout`.
-            For n_jobs below -1, (n_cpus + 1 + n_jobs) are used. Here, n_cpus
-            is the available number of CPUs.
-            Thus for n_jobs = -2, all CPUs but one are used.
             None is a marker for 'unset' that will be interpreted as n_jobs=1
             unless the call is performed under a :func:`~parallel_config`
             context manager that sets another value for ``n_jobs``.
