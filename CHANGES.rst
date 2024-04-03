@@ -4,6 +4,11 @@ Latest changes
 In development
 --------------
 
+- Try to cast ``n_jobs`` to int in parallel and raise an error if
+  it fails. This means that ``n_jobs=2.3`` will now result in
+  ``effective_n_jobs=2`` instead of failing.
+  https://github.com/joblib/joblib/pull/1539
+
 - Ensure that errors in the task generator given to Parallel's call
   are raised in the results consumming thread.
   https://github.com/joblib/joblib/pull/1491

@@ -633,6 +633,29 @@ def test_invalid_njobs(backend):
         Parallel(n_jobs=0, backend=backend)._initialize_backend()
     assert "n_jobs == 0 in Parallel has no meaning" in str(excinfo.value)
 
+    with raises(ValueError) as excinfo:
+        Parallel(n_jobs=0.5, backend=backend)._initialize_backend()
+    assert "n_jobs == 0 in Parallel has no meaning" in str(excinfo.value)
+
+    with raises(ValueError) as excinfo:
+        Parallel(n_jobs="2.3", backend=backend)._initialize_backend()
+    assert "n_jobs could not be converted to int" in str(excinfo.value)
+
+    with raises(ValueError) as excinfo:
+        Parallel(n_jobs="invalid_str", backend=backend)._initialize_backend()
+    assert "n_jobs could not be converted to int" in str(excinfo.value)
+
+
+@with_multiprocessing
+@parametrize('backend', PARALLEL_BACKENDS)
+@parametrize('n_jobs', ['2', 2.3, 2])
+def test_njobs_converted_to_int(backend, n_jobs):
+    p = Parallel(n_jobs=n_jobs, backend=backend)
+    assert p._effective_n_jobs() == 2
+
+    res = p(delayed(square)(i) for i in range(10))
+    assert all(r == square(i) for i, r in enumerate(res))
+
 
 def test_register_parallel_backend():
     try:
@@ -1910,7 +1933,7 @@ def test_threadpool_limitation_in_child_loky(n_jobs):
     # Skip this test if numpy is not linked to a BLAS library
     parent_info = _check_numpy_threadpool_limits()
     if len(parent_info) == 0:
-        pytest.skip(msg="Need a version of numpy linked to BLAS")
+        pytest.skip(reason="Need a version of numpy linked to BLAS")
 
     workers_threadpool_infos = Parallel(backend="loky", n_jobs=n_jobs)(
         delayed(_check_numpy_threadpool_limits)() for i in range(2))
@@ -1936,7 +1959,7 @@ def test_threadpool_limitation_in_child_context(
     # Skip this test if numpy is not linked to a BLAS library
     parent_info = _check_numpy_threadpool_limits()
     if len(parent_info) == 0:
-        pytest.skip(msg="Need a version of numpy linked to BLAS")
+        pytest.skip(reason="Need a version of numpy linked to BLAS")
 
     with context('loky', inner_max_num_threads=inner_max_num_threads):
         workers_threadpool_infos = Parallel(n_jobs=n_jobs)(
