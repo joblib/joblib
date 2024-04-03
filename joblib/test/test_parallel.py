@@ -1910,7 +1910,7 @@ def test_threadpool_limitation_in_child_loky(n_jobs):
     # Skip this test if numpy is not linked to a BLAS library
     parent_info = _check_numpy_threadpool_limits()
     if len(parent_info) == 0:
-        pytest.skip(msg="Need a version of numpy linked to BLAS")
+        pytest.skip(reason="Need a version of numpy linked to BLAS")
 
     workers_threadpool_infos = Parallel(backend="loky", n_jobs=n_jobs)(
         delayed(_check_numpy_threadpool_limits)() for i in range(2))
@@ -1936,7 +1936,7 @@ def test_threadpool_limitation_in_child_context(
     # Skip this test if numpy is not linked to a BLAS library
     parent_info = _check_numpy_threadpool_limits()
     if len(parent_info) == 0:
-        pytest.skip(msg="Need a version of numpy linked to BLAS")
+        pytest.skip(reason="Need a version of numpy linked to BLAS")
 
     with context('loky', inner_max_num_threads=inner_max_num_threads):
         workers_threadpool_infos = Parallel(n_jobs=n_jobs)(
