@@ -224,7 +224,7 @@ class parallel_config:
 
     Parameters
     ----------
-    backend : str or ParallelBackendBase instance, default=None
+    backend: str or ParallelBackendBase instance, default=None
         If ``backend`` is a string it must match a previously registered
         implementation using the :func:`~register_parallel_backend` function.
 
@@ -254,24 +254,33 @@ class parallel_config:
 
         Alternatively the backend can be passed directly as an instance.
 
-    n_jobs : int, default=None
+    n_jobs: int, default: None
         The maximum number of concurrently running jobs, such as the number
         of Python worker processes when ``backend="loky"`` or the size of the
         thread-pool when ``backend="threading"``.
-        If -1 all CPUs are used. If 1 is given, no parallel computing code
-        is used at all, which is useful for debugging. For ``n_jobs`` below -1,
-        (n_cpus + 1 + n_jobs) are used. Thus for ``n_jobs=-2``, all
-        CPUs but one are used.
-        ``None`` is a marker for 'unset' that will be interpreted as
-        ``n_jobs=1`` in most backends.
+        This argument is converted to an integer, rounded below for float.
+        If -1 is given, `joblib` tries to use all CPUs. The number of CPUs
+        ``n_cpus`` is obtained with :func:`~cpu_count`.
+        For n_jobs below -1, (n_cpus + 1 + n_jobs) are used. For instance,
+        using ``n_jobs=-2`` will result in all CPUs but one being used.
+        This argument can also go above ``n_cpus``, which will cause
+        oversubscription. In some cases, slight oversubscription can be
+        beneficial, e.g., for tasks with large I/O operations.
+        If 1 is given, no parallel computing code is used at all, and the
+        behavior amounts to a simple python `for` loop. This mode is not
+        compatible with `timeout`.
+        None is a marker for 'unset' that will be interpreted as n_jobs=1
+        unless the call is performed under a :func:`~parallel_config`
+        context manager that sets another value for ``n_jobs``.
+        If n_jobs = 0 then a ValueError is raised.
 
-    verbose : int, default=0
+    verbose: int, default=0
         The verbosity level: if non zero, progress messages are
         printed. Above 50, the output is sent to stdout.
         The frequency of the messages increases with the verbosity level.
         If it more than 10, all iterations are reported.
 
-    temp_folder : str, default=None
+    temp_folder: str, default=None
         Folder to be used by the pool for memmapping large arrays
         for sharing memory with worker processes. If None, this will try in
         order:
@@ -307,12 +316,12 @@ class parallel_config:
         Hard constraint to select the backend. If set to 'sharedmem',
         the selected backend will be single-host and thread-based.
 
-    inner_max_num_threads : int, default=None
+    inner_max_num_threads: int, default=None
         If not None, overwrites the limit set on the number of threads
         usable in some third-party library threadpools like OpenBLAS,
         MKL or OpenMP. This is only used with the ``loky`` backend.
 
-    backend_params : dict
+    backend_params: dict
         Additional parameters to pass to the backend constructor when
         backend is a string.
 
@@ -525,7 +534,7 @@ class parallel_backend(parallel_config):
 
     See Also
     --------
-    joblib.parallel_config : context manager to change the backend
+    joblib.parallel_config: context manager to change the backend
         configuration.
     """
     def __init__(self, backend, n_jobs=-1, inner_max_num_threads=None,
@@ -943,8 +952,8 @@ class Parallel(Logger):
         ----------
         n_jobs: int, default: None
             The maximum number of concurrently running jobs, such as the number
-            of Python worker processes when backend="multiprocessing"
-            or the size of the thread-pool when backend="threading".
+            of Python worker processes when ``backend="loky"`` or the size of
+            the thread-pool when ``backend="threading"``.
             This argument is converted to an integer, rounded below for float.
             If -1 is given, `joblib` tries to use all CPUs. The number of CPUs
             ``n_cpus`` is obtained with :func:`~cpu_count`.
@@ -955,7 +964,7 @@ class Parallel(Logger):
             beneficial, e.g., for tasks with large I/O operations.
             If 1 is given, no parallel computing code is used at all, and the
             behavior amounts to a simple python `for` loop. This mode is not
-            compatible with `timeout`.
+            compatible with ``timeout``.
             None is a marker for 'unset' that will be interpreted as n_jobs=1
             unless the call is performed under a :func:`~parallel_config`
             context manager that sets another value for ``n_jobs``.
@@ -1051,13 +1060,13 @@ class Parallel(Logger):
               overridden with TMP, TMPDIR or TEMP environment
               variables, typically /tmp under Unix operating systems.
 
-            Only active when backend="loky" or "multiprocessing".
+            Only active when ``backend="loky"`` or ``"multiprocessing"``.
         max_nbytes int, str, or None, optional, 1M by default
             Threshold on the size of arrays passed to the workers that
             triggers automated memory mapping in temp_folder. Can be an int
             in Bytes, or a human-readable string, e.g., '1M' for 1 megabyte.
             Use None to disable memmapping of large arrays.
-            Only active when backend="loky" or "multiprocessing".
+            Only active when ``backend="loky"`` or ``"multiprocessing"``.
         mmap_mode: {None, 'r+', 'r', 'w+', 'c'}, default: 'r'
             Memmapping mode for numpy arrays passed to workers. None will
             disable memmapping, other modes defined in the numpy.memmap doc:
@@ -1551,7 +1560,7 @@ class Parallel(Logger):
             return
 
         # Original job iterator becomes None once it has been fully
-        # consumed : at this point we know the total number of jobs and we are
+        # consumed: at this point we know the total number of jobs and we are
         # able to display an estimation of the remaining time based on already
         # completed jobs. Otherwise, we simply display the number of completed
         # tasks.
