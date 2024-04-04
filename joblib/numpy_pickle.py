@@ -145,7 +145,7 @@ class NumpyArrayWrapper(object):
             ):
                 pickler.file_handle.write(chunk.tobytes("C"))
 
-    def read_array(self, unpickler):
+    def read_array(self, unpickler, ensure_native_byte_order):
         """Read array from unpickler file handle.
 
         This function is an adaptation of the numpy read_array function
@@ -195,10 +195,13 @@ class NumpyArrayWrapper(object):
             else:
                 array.shape = self.shape
 
-        # Detect byte order mismatch and swap as needed.
-        return _ensure_native_byte_order(array)
+        if ensure_native_byte_order:
+            # Detect byte order mismatch and swap as needed.
+            array = _ensure_native_byte_order(array)
 
-    def read_mmap(self, unpickler):
+        return array
+
+    def read_mmap(self, unpickler, ensure_native_byte_order):
         """Read an array using numpy memmap."""
         current_pos = unpickler.file_handle.tell()
         offset = current_pos
@@ -240,9 +243,15 @@ class NumpyArrayWrapper(object):
             )
             warnings.warn(message)
 
-        return _ensure_native_byte_order(marray)
+        if ensure_native_byte_order:
+            # TODO: should issue a warning here ?
+            # because the array gets copied in the process.
+            # which is precisely what memmap users doesn't want.
+            marray = _ensure_native_byte_order(marray)
 
-    def read(self, unpickler):
+        return marray
+
+    def read(self, unpickler, ensure_native_byte_order=True):
         """Read the array corresponding to this wrapper.
 
         Use the unpickler to get all information to correctly read the array.
@@ -258,9 +267,9 @@ class NumpyArrayWrapper(object):
         """
         # When requested, only use memmap mode if allowed.
         if unpickler.mmap_mode is not None and self.allow_mmap:
-            array = self.read_mmap(unpickler)
+            array = self.read_mmap(unpickler, ensure_native_byte_order)
         else:
-            array = self.read_array(unpickler)
+            array = self.read_array(unpickler, ensure_native_byte_order)
 
         # Manage array subclass case
         if hasattr(array, "__array_prepare__") and self.subclass not in (
@@ -395,7 +404,8 @@ class NumpyUnpickler(Unpickler):
 
     dispatch = Unpickler.dispatch.copy()
 
-    def __init__(self, filename, file_handle, mmap_mode=None):
+    def __init__(self, filename, file_handle, mmap_mode=None,
+                 ensure_native_byte_order=True):
         # The next line is for backward compatibility with pickle generated
         # with joblib versions less than 0.10.
         self._dirname = os.path.dirname(filename)
@@ -405,6 +415,7 @@ class NumpyUnpickler(Unpickler):
         # filename is required for numpy mmap mode.
         self.filename = filename
         self.compat_mode = False
+        self.ensure_native_byte_order = ensure_native_byte_order
         Unpickler.__init__(self, self.file_handle)
         try:
             import numpy as np
@@ -434,7 +445,13 @@ class NumpyUnpickler(Unpickler):
             # the end of the unpickling.
             if isinstance(array_wrapper, NDArrayWrapper):
                 self.compat_mode = True
-            self.stack.append(array_wrapper.read(self))
+                _array_payload = array_wrapper.read(self)
+            else:
+                _array_payload = array_wrapper.read(
+                    self, self.ensure_native_byte_order
+                )
+
+            self.stack.append(_array_payload)
 
     # Be careful to register our new method.
     dispatch[pickle.BUILD[0]] = load_build
@@ -595,7 +612,8 @@ def dump(value, filename, compress=0, protocol=None, cache_size=None):
     return [filename]
 
 
-def _unpickle(fobj, filename="", mmap_mode=None):
+def _unpickle(fobj, filename="", mmap_mode=None,
+              ensure_native_byte_order=True):
     """Internal unpickling function."""
     # We are careful to open the file handle early and keep it open to
     # avoid race-conditions on renames.
@@ -603,7 +621,10 @@ def _unpickle(fobj, filename="", mmap_mode=None):
     # the case with the old persistence format, moving the directory
     # will create a race when joblib tries to access the companion
     # files.
-    unpickler = NumpyUnpickler(filename, fobj, mmap_mode=mmap_mode)
+    unpickler = NumpyUnpickler(
+        filename, fobj, mmap_mode=mmap_mode,
+        ensure_native_byte_order=ensure_native_byte_order
+    )
     obj = None
     try:
         obj = unpickler.load()
@@ -630,7 +651,11 @@ def _unpickle(fobj, filename="", mmap_mode=None):
 def load_temporary_memmap(filename, mmap_mode, unlink_on_gc_collect):
     from ._memmapping_reducer import JOBLIB_MMAPS, add_maybe_unlink_finalizer
 
-    obj = load(filename, mmap_mode)
+    with open(filename, 'rb') as f:
+        with _read_fileobject(f, filename, mmap_mode) as fobj:
+            obj = _unpickle(fobj, filename, mmap_mode,
+                            ensure_native_byte_order=False)
+
     JOBLIB_MMAPS.add(obj.filename)
     if unlink_on_gc_collect:
         add_maybe_unlink_finalizer(obj)
