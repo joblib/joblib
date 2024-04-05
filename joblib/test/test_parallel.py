@@ -362,6 +362,7 @@ def test_parallel_pickling():
             UnpicklableObject()) for _ in range(10))
 
 
+@with_numpy
 @with_multiprocessing
 @parametrize('byteorder', ['<', '>', '='])
 def test_parallel_byteorder_corruption(byteorder):
