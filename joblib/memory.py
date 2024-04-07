@@ -182,10 +182,10 @@ class MemorizedResult(Logger):
     timestamp, metadata: string
         for internal use only.
     """
-    def __init__(self, location, cache_id, backend='local', mmap_mode=None,
+    def __init__(self, location, call_id, backend='local', mmap_mode=None,
                  verbose=0, timestamp=None, metadata=None):
         Logger.__init__(self)
-        self._cache_id = cache_id
+        self._call_id = call_id
         self.store_backend = _store_backend_factory(backend, location,
                                                     verbose=verbose)
         self.mmap_mode = mmap_mode
@@ -193,7 +193,7 @@ class MemorizedResult(Logger):
         if metadata is not None:
             self.metadata = metadata
         else:
-            self.metadata = self.store_backend.get_metadata(self._cache_id)
+            self.metadata = self.store_backend.get_metadata(self._call_id)
 
         self.duration = self.metadata.get('duration', None)
         self.verbose = verbose
@@ -205,11 +205,11 @@ class MemorizedResult(Logger):
 
     @property
     def func_id(self):
-        return self._cache_id[0]
+        return self._call_id[0]
 
     @property
     def args_id(self):
-        return self._cache_id[1]
+        return self._call_id[1]
 
     @property
     def argument_hash(self):
@@ -224,7 +224,7 @@ class MemorizedResult(Logger):
         """Read value from cache and return it."""
         try:
             return self.store_backend.load_item(
-                self._cache_id,
+                self._call_id,
                 timestamp=self.timestamp,
                 metadata=self.metadata,
                 verbose=self.verbose
@@ -233,16 +233,16 @@ class MemorizedResult(Logger):
             new_exc = KeyError(
                 "Error while trying to load a MemorizedResult's value. "
                 "It seems that this folder is corrupted : {}".format(
-                    os.path.join(self.store_backend.location, *self._cache_id)))
+                    os.path.join(self.store_backend.location, *self._call_id)))
             raise new_exc from exc
 
     def clear(self):
         """Clear value from cache"""
-        self.store_backend.clear_item(self._cache_id)
+        self.store_backend.clear_item(self._call_id)
 
     def __repr__(self):
         return '{}(location="{}", func="{}", args_id="{}")'.format(
-            self.__class__.__name__, self.store_backend.location, *self._cache_id)
+            self.__class__.__name__, self.store_backend.location, *self._call_id)
 
     def __getstate__(self):
         state = self.__dict__.copy()
