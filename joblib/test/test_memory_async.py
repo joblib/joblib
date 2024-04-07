@@ -13,11 +13,6 @@ from .test_memory import (corrupt_single_cache_item,
                           monkeypatch_cached_func_warn)
 
 
-async def f(x, y=1):
-    await asyncio.sleep(0.1)
-    return x ** 2 + y
-
-
 async def check_identity_lazy_async(func, accumulator, location):
     """ Similar to check_identity_lazy_async for coroutine functions"""
     memory = Memory(location=location, verbose=0)
@@ -129,6 +124,10 @@ async def test_memory_numpy_check_mmap_mode_async(tmpdir, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_call_and_shelve_async(tmpdir):
+    async def f(x, y=1):
+        await asyncio.sleep(0.1)
+        return x ** 2 + y
+
     # Test MemorizedFunc outputting a reference to cache.
     for func, Result in zip((AsyncMemorizedFunc(f, tmpdir.strpath),
                              AsyncNotMemorizedFunc(f),
