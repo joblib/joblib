@@ -81,6 +81,10 @@ else:
     PROCESS_BACKENDS = ['multiprocessing', 'loky']
 PARALLEL_BACKENDS = PROCESS_BACKENDS + ['threading']
 
+NUM_THREADS_VAR_NAME = ["OPENBLAS_NUM_THREADS",
+                        "MKL_NUM_THREADS",
+                        "OMP_NUM_THREADS"]
+
 if hasattr(mp, 'get_context'):
     # Custom multiprocessing context in Python 3.4+
     ALL_VALID_BACKENDS.append(mp.get_context('spawn'))
@@ -1975,22 +1979,17 @@ def test_threadpool_limitation_in_child_context(
                             expected_child_num_threads)
 
 
+def _get_env(var_name):
+    return os.environ.get(var_name)
+
+
 @with_multiprocessing
 @parametrize('n_jobs', [2, -1])
-@parametrize('var_name', ["OPENBLAS_NUM_THREADS",
-                          "MKL_NUM_THREADS",
-                          "OMP_NUM_THREADS"])
+@parametrize('var_name', NUM_THREADS_VAR_NAME)
 @parametrize("context", [parallel_config, parallel_backend])
 def test_threadpool_limitation_in_child_override(context, n_jobs, var_name):
     # Check that environment variables set by the user on the main process
     # always have the priority.
-
-    # Clean up the existing executor because we change the environment of the
-    # parent at runtime and it is not detected in loky intentionally.
-    get_reusable_executor(reuse=True).shutdown()
-
-    def _get_env(var_name):
-        return os.environ.get(var_name)
 
     original_var_value = os.environ.get(var_name)
     try:
@@ -2010,6 +2009,59 @@ def test_threadpool_limitation_in_child_override(context, n_jobs, var_name):
             del os.environ[var_name]
         else:
             os.environ[var_name] = original_var_value
+
+
+@with_multiprocessing
+@parametrize('n_jobs', [2, -1])
+@parametrize('joblib_var_name', ["JOBLIB_INNER_NUM_THREADS",
+                                 "JOBLIB_INNER_THREADS_BUDGET"])
+def test_joblib_env_variable_limiting_inner_threads(n_jobs, joblib_var_name):
+    # Check that joblib environment variables set by the user on the main
+    # process are super seeded by programmatic inner_num_threads and take
+    # precendance over other value.
+
+    original_var_values = {var_name: os.environ.get(var_name, None)
+                           for var_name in NUM_THREADS_VAR_NAME + [
+                               "JOBLIB_INNER_NUM_THREADS",
+                               "JOBLIB_INNER_THREADS_BUDGET"]}
+
+    if joblib_var_name == "JOBLIB_INNER_NUM_THREADS":
+        expected_results = ["4"]
+    else:
+        expected_results = [str(max(1, 4 // effective_n_jobs(n_jobs)))]
+    expected_results *= len(NUM_THREADS_VAR_NAME)
+
+    try:
+        os.environ[joblib_var_name] = "4"
+        # Skip this test if numpy is not linked to a BLAS library
+        results = Parallel(n_jobs=n_jobs)(
+            delayed(_get_env)(var_name) for var_name in NUM_THREADS_VAR_NAME)
+        assert results == expected_results
+
+        os.environ[joblib_var_name] = "4"
+        with parallel_backend('loky', inner_max_num_threads=1):
+            results = Parallel(n_jobs=n_jobs)(
+                delayed(_get_env)(var_name)
+                for var_name in NUM_THREADS_VAR_NAME)
+        assert results == ["1"] * len(NUM_THREADS_VAR_NAME)
+
+    finally:
+        for var_name, var_value in original_var_values.items():
+            if var_value is None:
+                if var_name in os.environ:
+                    del os.environ[var_name]
+            else:
+                os.environ[var_name] = var_value
+
+
+@with_numpy
+@with_multiprocessing
+@parametrize('backend', ['multiprocessing', 'threading',
+                         MultiprocessingBackend(), ThreadingBackend()])
+def test_threadpool_limitation_in_child_context_error(backend):
+
+    with raises(AssertionError, match=r"does not acc.*inner_max_num_threads"):
+        parallel_backend(backend, inner_max_num_threads=1)
 
 
 @with_multiprocessing

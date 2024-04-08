@@ -4,6 +4,10 @@ Latest changes
 In development
 --------------
 
+- Add environment variables to control the number of threads used in native
+  libraries using threadpools in subprocesses.
+  https://github.com/joblib/joblib/pull/993
+
 - Allow caching co-routines with `Memory.cache`.
   https://github.com/joblib/joblib/pull/894
   

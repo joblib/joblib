@@ -180,11 +180,31 @@ class ParallelBackendBase(metaclass=ABCMeta):
         OpenBLAS libraries in the child processes.
         """
         explicit_n_threads = self.inner_max_num_threads
-        default_n_threads = max(cpu_count() // n_jobs, 1)
+        default_n_threads = str(max(cpu_count() // n_jobs, 1))
+
+        # IF JOBLIB_INNER_NUM_THREADS or JOBLIB_INNER_THREADS_BUDGET are set,
+        # this overrides the default value.
+        joblib_inner_max_num_threads = os.environ.get(
+            'JOBLIB_INNER_NUM_THREADS', None
+        )
+        joblib_inner_threads_budget = os.environ.get(
+            'JOBLIB_INNER_THREADS_BUDGET', None
+        )
+        if joblib_inner_threads_budget is not None:
+            if joblib_inner_max_num_threads is not None:
+                warnings.warn("Both variables JOBLIB_INNER_THREADS_BUDGET and "
+                              "JOBLIB_INNER_NUM_THREADS were set. Ignoring "
+                              "JOBLIB_INNER_THREADS_BUDGET.")
+            else:
+                joblib_inner_max_num_threads = str(max(
+                    1, int(joblib_inner_threads_budget) // n_jobs
+                ))
+        if joblib_inner_max_num_threads is not None:
+            default_n_threads = joblib_inner_max_num_threads
 
         # Set the inner environment variables to self.inner_max_num_threads if
-        # it is given. Else, default to cpu_count // n_jobs unless the variable
-        # is already present in the parent process environment.
+        # it is given. Else, use the default value unless the variable is
+        # already present in the parent process environment.
         env = {}
         for var in self.MAX_NUM_THREADS_VARS:
             if explicit_n_threads is None:
