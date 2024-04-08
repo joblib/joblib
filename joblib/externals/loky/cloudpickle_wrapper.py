@@ -1,17 +1,12 @@
 import inspect
 from functools import partial
-
-try:
-    from joblib.externals.cloudpickle import dumps, loads
-    cloudpickle = True
-except ImportError:
-    cloudpickle = False
+from joblib.externals.cloudpickle import dumps, loads
 
 
-WRAP_CACHE = dict()
+WRAP_CACHE = {}
 
 
-class CloudpickledObjectWrapper(object):
+class CloudpickledObjectWrapper:
     def __init__(self, obj, keep_wrapper=False):
         self._obj = obj
         self._keep_wrapper = keep_wrapper
@@ -26,14 +21,13 @@ class CloudpickledObjectWrapper(object):
     def __getattr__(self, attr):
         # Ensure that the wrapped object can be used seemlessly as the
         # previous object.
-        if attr not in ['_obj', '_keep_wrapper']:
+        if attr not in ["_obj", "_keep_wrapper"]:
             return getattr(self._obj, attr)
         return getattr(self, attr)
 
 
 # Make sure the wrapped object conserves the callable property
 class CallableObjectWrapper(CloudpickledObjectWrapper):
-
     def __call__(self, *args, **kwargs):
         return self._obj(*args, **kwargs)
 
@@ -52,16 +46,15 @@ def _reconstruct_wrapper(_pickled_object, keep_wrapper):
 def _wrap_objects_when_needed(obj):
     # Function to introspect an object and decide if it should be wrapped or
     # not.
-    if not cloudpickle:
-        return obj
-
     need_wrap = "__main__" in getattr(obj, "__module__", "")
     if isinstance(obj, partial):
         return partial(
             _wrap_objects_when_needed(obj.func),
             *[_wrap_objects_when_needed(a) for a in obj.args],
-            **{k: _wrap_objects_when_needed(v)
-                for k, v in obj.keywords.items()}
+            **{
+                k: _wrap_objects_when_needed(v)
+                for k, v in obj.keywords.items()
+            }
         )
     if callable(obj):
         # Need wrap if the object is a function defined in a local scope of
@@ -92,14 +85,10 @@ def wrap_non_picklable_objects(obj, keep_wrapper=True):
     objects in the main scripts and to implement __reduce__ functions for
     complex classes.
     """
-    if not cloudpickle:
-        raise ImportError("could not from joblib.externals import cloudpickle. Please install "
-                          "cloudpickle to allow extended serialization. "
-                          "(`pip install cloudpickle`).")
-
     # If obj is a  class, create a CloudpickledClassWrapper which instantiates
     # the object internally and wrap it directly in a CloudpickledObjectWrapper
     if inspect.isclass(obj):
+
         class CloudpickledClassWrapper(CloudpickledObjectWrapper):
             def __init__(self, *args, **kwargs):
                 self._obj = obj(*args, **kwargs)

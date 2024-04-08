@@ -7,22 +7,21 @@ import inspect
 
 from io import BytesIO
 
-from ._compat import PY3_OR_LATER
 from .numpy_pickle_utils import _ZFILE_PREFIX
 from .numpy_pickle_utils import Unpickler
+from .numpy_pickle_utils import _ensure_native_byte_order
 
 
 def hex_str(an_int):
     """Convert an int to an hexadecimal string."""
     return '{:#x}'.format(an_int)
 
-if PY3_OR_LATER:
-    def asbytes(s):
-        if isinstance(s, bytes):
-            return s
-        return s.encode('latin1')
-else:
-    asbytes = str
+
+def asbytes(s):
+    if isinstance(s, bytes):
+        return s
+    return s.encode('latin1')
+
 
 _MAX_LEN = len(hex_str(2 ** 64))
 _CHUNK_SIZE = 64 * 1024
@@ -65,7 +64,7 @@ def write_zfile(file_handle, data, compress=1):
     """Write the data in the given file as a Z-file.
 
     Z-files are raw data compressed with zlib used internally by joblib
-    for persistence. Backward compatibility is not guarantied. Do not
+    for persistence. Backward compatibility is not guaranteed. Do not
     use for external purposes.
     """
     file_handle.write(_ZFILE_PREFIX)
@@ -107,6 +106,9 @@ class NDArrayWrapper(object):
             kwargs["allow_pickle"] = True
         array = unpickler.np.load(filename, **kwargs)
 
+        # Detect byte order mismatch and swap as needed.
+        array = _ensure_native_byte_order(array)
+
         # Reconstruct subclasses. This does not work with old
         # versions of numpy
         if (hasattr(array, '__array_prepare__') and
@@ -128,7 +130,7 @@ class ZNDArrayWrapper(NDArrayWrapper):
     retrieve it.
     The reason that we store the raw buffer data of the array and
     the meta information, rather than array representation routine
-    (tostring) is that it enables us to use completely the strided
+    (tobytes) is that it enables us to use completely the strided
     model to avoid memory copies (a and a.T store as fast). In
     addition saving the heavy information separately can avoid
     creating large temporary buffers when unpickling data with
@@ -191,11 +193,7 @@ class ZipNumpyUnpickler(Unpickler):
             array = nd_array_wrapper.read(self)
             self.stack.append(array)
 
-    # Be careful to register our new method.
-    if PY3_OR_LATER:
-        dispatch[pickle.BUILD[0]] = load_build
-    else:
-        dispatch[pickle.BUILD] = load_build
+    dispatch[pickle.BUILD[0]] = load_build
 
 
 def load_compatibility(filename):
@@ -205,7 +203,7 @@ def load_compatibility(filename):
     (<= 0.9.3).
 
     Parameters
-    -----------
+    ----------
     filename: string
         The name of the file from which to load the object
 
@@ -234,13 +232,12 @@ def load_compatibility(filename):
             obj = unpickler.load()
         except UnicodeDecodeError as exc:
             # More user-friendly error message
-            if PY3_OR_LATER:
-                new_exc = ValueError(
-                    'You may be trying to read with '
-                    'python 3 a joblib pickle generated with python 2. '
-                    'This feature is not supported by joblib.')
-                new_exc.__cause__ = exc
-                raise new_exc
+            new_exc = ValueError(
+                'You may be trying to read with '
+                'python 3 a joblib pickle generated with python 2. '
+                'This feature is not supported by joblib.')
+            new_exc.__cause__ = exc
+            raise new_exc
         finally:
             if hasattr(unpickler, 'file_handle'):
                 unpickler.file_handle.close()

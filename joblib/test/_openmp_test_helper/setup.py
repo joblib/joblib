@@ -1,4 +1,4 @@
-"""Helper module to test openMP support on travis and appveyor
+"""Helper module to test OpenMP support on Continuous Integration
 """
 import os
 import sys

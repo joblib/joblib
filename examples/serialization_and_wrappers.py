@@ -15,16 +15,9 @@ import sys
 import time
 import traceback
 from joblib.externals.loky import set_loky_pickler
-from joblib import parallel_backend
+from joblib import parallel_config
 from joblib import Parallel, delayed
 from joblib import wrap_non_picklable_objects
-
-
-# The followings are hacks to allow sphinx-gallery to run the example.
-import os
-sys.path.insert(0, os.getcwd())
-main_dir = os.path.basename(sys.modules['__main__'].__file__)
-IS_RUN_WITH_SPHINX_GALLERY = main_dir != os.getcwd()
 
 
 ###############################################################################
@@ -43,7 +36,7 @@ print(Parallel(n_jobs=2)(delayed(func_async)(21) for _ in range(1))[0])
 
 
 ###############################################################################
-# For most use-cases, using ``cloudpickle``` is efficient enough. However, this
+# For most use-cases, using ``cloudpickle`` is efficient enough. However, this
 # solution can be very slow to serialize large python objects, such as dict or
 # list, compared to the standard ``pickle`` serialization.
 #
@@ -68,17 +61,12 @@ print("With loky backend and cloudpickle serialization: {:.3f}s"
 # with the default pickle module, which is faster for such large objects.
 #
 
-if sys.platform != 'win32':
-    if IS_RUN_WITH_SPHINX_GALLERY:
-        # When this example is run with sphinx gallery, it breaks the pickling
-        # capacity for multiprocessing backend so we have to modify the way we
-        # define our functions. This has nothing to do with the example.
-        from utils import func_async
-    else:
-        def func_async(i, *args):
-            return 2 * i
+import multiprocessing as mp
+if mp.get_start_method() != "spawn":
+    def func_async(i, *args):
+        return 2 * i
 
-    with parallel_backend('multiprocessing'):
+    with parallel_config('multiprocessing'):
         t_start = time.time()
         Parallel(n_jobs=2)(
             delayed(func_async)(21, large_list) for _ in range(1))
@@ -91,7 +79,7 @@ if sys.platform != 'win32':
 # POSIX specification and can have bad interaction with compiled extensions
 # that use ``openmp``. Also, it is not possible to start processes with
 # ``fork`` on windows where only ``spawn`` is available. The ``loky`` backend
-# has been developped to mitigate these issues.
+# has been developed to mitigate these issues.
 #
 # To have fast pickling with ``loky``, it is possible to rely on ``pickle`` to
 # serialize all communications between the main process and the workers with
@@ -130,10 +118,10 @@ except Exception:
 
 ###############################################################################
 # To have both fast pickling, safe process creation and serialization of
-# interactive functions, ``loky`` provides a wrapper function
-# :func:`wrap_non_picklable_objects` to wrap the non-picklable function and
-# indicate to the serialization process that this specific function should be
-# serialized using ``cloudpickle``. This changes the serialization behavior
+# interactive functions, ``joblib`` provides a wrapper function
+# :func:`~joblib.wrap_non_picklable_objects` to wrap the non-picklable function
+# and indicate to the serialization process that this specific function should
+# be serialized using ``cloudpickle``. This changes the serialization behavior
 # only for this function and keeps using ``pickle`` for all other objects. The
 # drawback of this solution is that it modifies the object. This should not
 # cause many issues with functions but can have side effects with object
@@ -154,7 +142,7 @@ print("With pickle from stdlib and wrapper: {:.3f}s"
 
 ###############################################################################
 # The same wrapper can also be used for non-picklable classes. Note that the
-# side effects of :func:`wrap_non_picklable_objects` on objects can break magic
+# side effects of ``wrap_non_picklable_objects`` on objects can break magic
 # methods such as ``__add__`` and can mess up the ``isinstance`` and
 # ``issubclass`` functions. Some improvements will be considered if use-cases
 # are reported.

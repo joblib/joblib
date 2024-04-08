@@ -28,7 +28,7 @@ worker processes.
 
   The following only applies with the ``"loky"` and
   ``'multiprocessing'`` process-backends. If your code can release the
-  GIL, then using a thread-based backend backend by passing
+  GIL, then using a thread-based backend by passing
   ``prefer='threads'`` is even more efficient because it makes it
   possible to avoid the communication overhead of process-based
   parallelism.
@@ -65,8 +65,8 @@ Passing ``max_nbytes=None`` makes it possible to disable the automated array to
 memmap conversion.
 
 
-Manual management of memmaped input data
-----------------------------------------
+Manual management of memmapped input data
+-----------------------------------------
 
 For even finer tuning of the memory usage it is also possible to
 dump the array as a memmap directly from the parent process to

@@ -6,17 +6,16 @@ My own variation on function-specific inspect-like features.
 # Copyright (c) 2009 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
-from itertools import islice
 import inspect
 import warnings
 import re
 import os
 import collections
 
-from ._compat import _basestring
+from itertools import islice
+from tokenize import open as open_py_source
+
 from .logger import pformat
-from ._memory_helpers import open_py_source
-from ._compat import PY3_OR_LATER
 
 full_argspec_fields = ('args varargs varkw defaults kwonlyargs '
                        'kwonlydefaults annotations')
@@ -65,7 +64,7 @@ def get_func_code(func):
             # All the lines after the function definition:
             source_lines = list(islice(source_file_obj, first_line - 1, None))
         return ''.join(inspect.getblock(source_lines)), source_file, first_line
-    except:
+    except:  # noqa: E722
         # If the source code fails, we use the hash. This is fragile and
         # might change from one session to another.
         if hasattr(func, '__code__'):
@@ -123,16 +122,33 @@ def get_func_name(func, resolv_alias=True, win_characters=True):
     if module == '__main__':
         try:
             filename = os.path.abspath(inspect.getsourcefile(func))
-        except:
+        except:  # noqa: E722
             filename = None
         if filename is not None:
             # mangling of full path to filename
             parts = filename.split(os.sep)
             if parts[-1].startswith('<ipython-input'):
-                # function is defined in an IPython session. The filename
-                # will change with every new kernel instance. This hack
-                # always returns the same filename
-                parts[-1] = '__ipython-input__'
+                # We're in a IPython (or notebook) session. parts[-1] comes
+                # from func.__code__.co_filename and is of the form
+                # <ipython-input-N-XYZ>, where:
+                # - N is the cell number where the function was defined
+                # - XYZ is a hash representing the function's code (and name).
+                #   It will be consistent across sessions and kernel restarts,
+                #   and will change if the function's code/name changes
+                # We remove N so that cache is properly hit if the cell where
+                # the func is defined is re-exectuted.
+                # The XYZ hash should avoid collisions between functions with
+                # the same name, both within the same notebook but also across
+                # notebooks
+                splitted = parts[-1].split('-')
+                parts[-1] = '-'.join(splitted[:2] + splitted[3:])
+            elif len(parts) > 2 and parts[-2].startswith('ipykernel_'):
+                # In a notebook session (ipykernel). Filename seems to be 'xyz'
+                # of above. parts[-2] has the structure ipykernel_XXXXXX where
+                # XXXXXX is a six-digit number identifying the current run (?).
+                # If we split it off, the function again has the same
+                # identifier across runs.
+                parts[-2] = 'ipykernel'
             filename = '-'.join(parts)
             if filename.endswith('.py'):
                 filename = filename[:-3]
@@ -150,47 +166,25 @@ def get_func_name(func, resolv_alias=True, win_characters=True):
         if hasattr(func, 'func_globals') and name in func.func_globals:
             if not func.func_globals[name] is func:
                 name = '%s-alias' % name
+    if hasattr(func, '__qualname__') and func.__qualname__ != name:
+        # Extend the module name in case of nested functions to avoid
+        # (module, name) collisions
+        module.extend(func.__qualname__.split(".")[:-1])
     if inspect.ismethod(func):
         # We need to add the name of the class
         if hasattr(func, 'im_class'):
             klass = func.im_class
             module.append(klass.__name__)
     if os.name == 'nt' and win_characters:
-        # Stupid windows can't encode certain characters in filenames
+        # Windows can't encode certain characters in filenames
         name = _clean_win_chars(name)
         module = [_clean_win_chars(s) for s in module]
     return module, name
 
 
-def getfullargspec(func):
-    """Compatibility function to provide inspect.getfullargspec in Python 2
-
-    This should be rewritten using a backport of Python 3 signature
-    once we drop support for Python 2.6. We went for a simpler
-    approach at the time of writing because signature uses OrderedDict
-    which is not available in Python 2.6.
-    """
-    try:
-        return inspect.getfullargspec(func)
-    except AttributeError:
-        arg_spec = inspect.getargspec(func)
-        return full_argspec_type(args=arg_spec.args,
-                                 varargs=arg_spec.varargs,
-                                 varkw=arg_spec.keywords,
-                                 defaults=arg_spec.defaults,
-                                 kwonlyargs=[],
-                                 kwonlydefaults=None,
-                                 annotations={})
-
-
-def _signature_str(function_name, arg_spec):
+def _signature_str(function_name, arg_sig):
     """Helper function to output a function signature"""
-    # inspect.formatargspec can not deal with the same
-    # number of arguments in python 2 and 3
-    arg_spec_for_format = arg_spec[:7 if PY3_OR_LATER else 4]
-
-    arg_spec_str = inspect.formatargspec(*arg_spec_for_format)
-    return '{}{}'.format(function_name, arg_spec_str)
+    return '{}{}'.format(function_name, arg_sig)
 
 
 def _function_called_str(function_name, args, kwargs):
@@ -226,7 +220,7 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
             List of filtered positional and keyword arguments.
     """
     args = list(args)
-    if isinstance(ignore_lst, _basestring):
+    if isinstance(ignore_lst, str):
         # Catch a common mistake
         raise ValueError(
             'ignore_lst must be a list of parameters to ignore '
@@ -237,20 +231,34 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
             warnings.warn('Cannot inspect object %s, ignore list will '
                           'not work.' % func, stacklevel=2)
         return {'*': args, '**': kwargs}
-    arg_spec = getfullargspec(func)
-    arg_names = arg_spec.args + arg_spec.kwonlyargs
-    arg_defaults = arg_spec.defaults or ()
-    if arg_spec.kwonlydefaults:
-        arg_defaults = arg_defaults + tuple(arg_spec.kwonlydefaults[k]
-                                            for k in arg_spec.kwonlyargs
-                                            if k in arg_spec.kwonlydefaults)
-    arg_varargs = arg_spec.varargs
-    arg_varkw = arg_spec.varkw
-
+    arg_sig = inspect.signature(func)
+    arg_names = []
+    arg_defaults = []
+    arg_kwonlyargs = []
+    arg_varargs = None
+    arg_varkw = None
+    for param in arg_sig.parameters.values():
+        if param.kind is param.POSITIONAL_OR_KEYWORD:
+            arg_names.append(param.name)
+        elif param.kind is param.KEYWORD_ONLY:
+            arg_names.append(param.name)
+            arg_kwonlyargs.append(param.name)
+        elif param.kind is param.VAR_POSITIONAL:
+            arg_varargs = param.name
+        elif param.kind is param.VAR_KEYWORD:
+            arg_varkw = param.name
+        if param.default is not param.empty:
+            arg_defaults.append(param.default)
     if inspect.ismethod(func):
         # First argument is 'self', it has been removed by Python
         # we need to add it back:
         args = [func.__self__, ] + args
+        # func is an instance method, inspect.signature(func) does not
+        # include self, we need to fetch it from the class method, i.e
+        # func.__func__
+        class_method_sig = inspect.signature(func.__func__)
+        self_name = next(iter(class_method_sig.parameters))
+        arg_names = [self_name] + arg_names
     # XXX: Maybe I need an inspect.isbuiltin to detect C-level methods, such
     # as on ndarrays.
 
@@ -260,7 +268,7 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
     for arg_position, arg_name in enumerate(arg_names):
         if arg_position < len(args):
             # Positional argument or keyword argument given as positional
-            if arg_name not in arg_spec.kwonlyargs:
+            if arg_name not in arg_kwonlyargs:
                 arg_dict[arg_name] = args[arg_position]
             else:
                 raise ValueError(
@@ -268,7 +276,7 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
                     'positional parameter for %s:\n'
                     '     %s was called.'
                     % (arg_name,
-                       _signature_str(name, arg_spec),
+                       _signature_str(name, arg_sig),
                        _function_called_str(name, args, kwargs))
                 )
 
@@ -279,14 +287,14 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
             else:
                 try:
                     arg_dict[arg_name] = arg_defaults[position]
-                except (IndexError, KeyError):
+                except (IndexError, KeyError) as e:
                     # Missing argument
                     raise ValueError(
                         'Wrong number of arguments for %s:\n'
                         '     %s was called.'
-                        % (_signature_str(name, arg_spec),
+                        % (_signature_str(name, arg_sig),
                            _function_called_str(name, args, kwargs))
-                    )
+                    ) from e
 
     varkwargs = dict()
     for arg_name, arg_value in sorted(kwargs.items()):
@@ -312,7 +320,7 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
             raise ValueError("Ignore list: argument '%s' is not defined for "
                              "function %s"
                              % (item,
-                                _signature_str(name, arg_spec))
+                                _signature_str(name, arg_sig))
                              )
     # XXX: Return a sorted list of pairs?
     return arg_dict

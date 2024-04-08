@@ -1,4 +1,3 @@
-from joblib import numpy_pickle_utils
 from joblib.compressor import BinaryZlibFile
 from joblib.testing import parametrize
 

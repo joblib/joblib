@@ -1,18 +1,22 @@
-from distutils.version import LooseVersion
+import os
+
+import logging
+import faulthandler
 
 import pytest
 from _pytest.doctest import DoctestItem
 
-import logging
 from joblib.parallel import mp
+from joblib.backports import LooseVersion
 try:
     import lz4
 except ImportError:
     lz4 = None
 try:
-    from distributed.utils_test import loop
+    from distributed.utils_test import loop, loop_in_thread
 except ImportError:
     loop = None
+    loop_in_thread = None
 
 
 def pytest_collection_modifyitems(config, items):
@@ -51,18 +55,32 @@ def pytest_configure(config):
         log.handlers[0].setFormatter(logging.Formatter(
             '[%(levelname)s:%(processName)s:%(threadName)s] %(message)s'))
 
+    # Some CI runs failed with hanging processes that were not terminated
+    # with the timeout. To make sure we always get a proper trace, set a large
+    # enough dump_traceback_later to kill the process with a report.
+    faulthandler.dump_traceback_later(30 * 60, exit=True)
+
+    DEFAULT_BACKEND = os.environ.get(
+        "JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND", None
+    )
+    if DEFAULT_BACKEND is not None:
+        print(
+            f"Setting joblib parallel default backend to {DEFAULT_BACKEND} "
+            "from JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND environment variable"
+        )
+        from joblib import parallel
+        parallel.DEFAULT_BACKEND = DEFAULT_BACKEND
+
 
 def pytest_unconfigure(config):
-    try:
-        # Setup a global traceback printer callback to debug deadlocks that
-        # would happen once pytest has completed: for instance in atexit
-        # finalizers. At this point the stdout/stderr capture of pytest
-        # should be disabled.
 
-        # Note that we also use a shorter timeout for the per-test callback
-        # configured via the pytest-timeout extension.
-        import faulthandler
-        faulthandler.dump_traceback_later(60, exit=True)
-    except ImportError:
-        # Python 2 backward compat.
-        pass
+    # Setup a global traceback printer callback to debug deadlocks that
+    # would happen once pytest has completed: for instance in atexit
+    # finalizers. At this point the stdout/stderr capture of pytest
+    # should be disabled. Note that we cancel the global dump_traceback_later
+    # to waiting for too long.
+    faulthandler.cancel_dump_traceback_later()
+
+    # Note that we also use a shorter timeout for the per-test callback
+    # configured via the pytest-timeout extension.
+    faulthandler.dump_traceback_later(60, exit=True)

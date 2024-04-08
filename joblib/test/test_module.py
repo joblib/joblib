@@ -1,8 +1,7 @@
 import sys
 import joblib
-import pytest
-from joblib._compat import PY27
 from joblib.testing import check_subprocess_call
+from joblib.test.common import with_multiprocessing
 
 
 def test_version():
@@ -10,7 +9,7 @@ def test_version():
         "There are no __version__ argument on the joblib module")
 
 
-@pytest.mark.skipif(PY27, reason="Need python3.3+")
+@with_multiprocessing
 def test_no_start_method_side_effect_on_import():
     # check that importing joblib does not implicitly set the global
     # start_method for multiprocessing.
@@ -24,7 +23,7 @@ def test_no_start_method_side_effect_on_import():
     check_subprocess_call([sys.executable, '-c', code])
 
 
-@pytest.mark.skipif(PY27, reason="Need python3.3+")
+@with_multiprocessing
 def test_no_semaphore_tracker_on_import():
     # check that importing joblib does not implicitly spawn a resource tracker
     # or a semaphore tracker
@@ -41,7 +40,8 @@ def test_no_semaphore_tracker_on_import():
     check_subprocess_call([sys.executable, '-c', code])
 
 
-def test_no_ressource_tracker_on_import():
+@with_multiprocessing
+def test_no_resource_tracker_on_import():
     code = """if True:
         import joblib
         from joblib.externals.loky.backend import resource_tracker

@@ -12,25 +12,18 @@ import stat
 import threading
 import atexit
 import tempfile
+import time
 import warnings
 import weakref
 from uuid import uuid4
+from multiprocessing import util
+
+from pickle import whichmodule, loads, dumps, HIGHEST_PROTOCOL, PicklingError
 
 try:
     WindowsError
 except NameError:
     WindowsError = type(None)
-
-from pickle import whichmodule
-try:
-    # Python 2 compat
-    from cPickle import loads
-    from cPickle import dumps
-except ImportError:
-    from pickle import loads
-    from pickle import dumps
-
-from pickle import HIGHEST_PROTOCOL, PicklingError
 
 try:
     import numpy as np
@@ -38,10 +31,10 @@ try:
 except ImportError:
     np = None
 
-from .numpy_pickle import load
-from .numpy_pickle import dump
+from .numpy_pickle import dump, load, load_temporary_memmap
 from .backports import make_memmap
 from .disk import delete_folder
+from .externals.loky.backend import resource_tracker
 
 # Some system have a ramdisk mounted by default, we can use it instead of /tmp
 # as the default folder to dump big arrays to share with subprocesses.
@@ -56,6 +49,63 @@ SYSTEM_SHARED_MEM_FS_MIN_SIZE = int(2e9)
 # temporary files and folder.
 FOLDER_PERMISSIONS = stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR
 FILE_PERMISSIONS = stat.S_IRUSR | stat.S_IWUSR
+
+# Set used in joblib workers, referencing the filenames of temporary memmaps
+# created by joblib to speed up data communication. In child processes, we add
+# a finalizer to these memmaps that sends a maybe_unlink call to the
+# resource_tracker, in order to free main memory as fast as possible.
+JOBLIB_MMAPS = set()
+
+
+def _log_and_unlink(filename):
+    from .externals.loky.backend.resource_tracker import _resource_tracker
+    util.debug(
+        "[FINALIZER CALL] object mapping to {} about to be deleted,"
+        " decrementing the refcount of the file (pid: {})".format(
+            os.path.basename(filename), os.getpid()))
+    _resource_tracker.maybe_unlink(filename, "file")
+
+
+def add_maybe_unlink_finalizer(memmap):
+    util.debug(
+        "[FINALIZER ADD] adding finalizer to {} (id {}, filename {}, pid  {})"
+        "".format(type(memmap), id(memmap), os.path.basename(memmap.filename),
+                  os.getpid()))
+    weakref.finalize(memmap, _log_and_unlink, memmap.filename)
+
+
+def unlink_file(filename):
+    """Wrapper around os.unlink with a retry mechanism.
+
+    The retry mechanism has been implemented primarily to overcome a race
+    condition happening during the finalizer of a np.memmap: when a process
+    holding the last reference to a mmap-backed np.memmap/np.array is about to
+    delete this array (and close the reference), it sends a maybe_unlink
+    request to the resource_tracker. This request can be processed faster than
+    it takes for the last reference of the memmap to be closed, yielding (on
+    Windows) a PermissionError in the resource_tracker loop.
+    """
+    NUM_RETRIES = 10
+    for retry_no in range(1, NUM_RETRIES + 1):
+        try:
+            os.unlink(filename)
+            break
+        except PermissionError:
+            util.debug(
+                '[ResourceTracker] tried to unlink {}, got '
+                'PermissionError'.format(filename)
+            )
+            if retry_no == NUM_RETRIES:
+                raise
+            else:
+                time.sleep(.2)
+        except FileNotFoundError:
+            # In case of a race condition when deleting the temporary folder,
+            # avoid noisy FileNotFoundError exception in the resource tracker.
+            pass
+
+
+resource_tracker._CLEANUP_FUNCS['file'] = unlink_file
 
 
 class _WeakArrayKeyMap:
@@ -153,7 +203,7 @@ def _get_temp_dir(pool_folder_name, temp_folder=None):
     if temp_folder is None:
         temp_folder = os.environ.get('JOBLIB_TEMP_FOLDER', None)
     if temp_folder is None:
-        if os.path.exists(SYSTEM_SHARED_MEM_FS):
+        if os.path.exists(SYSTEM_SHARED_MEM_FS) and hasattr(os, 'statvfs'):
             try:
                 shm_stats = os.statvfs(SYSTEM_SHARED_MEM_FS)
                 available_nbytes = shm_stats.f_bsize * shm_stats.f_bavail
@@ -184,7 +234,7 @@ def has_shareable_memory(a):
 
 
 def _strided_from_memmap(filename, dtype, mode, offset, order, shape, strides,
-                         total_buffer_len):
+                         total_buffer_len, unlink_on_gc_collect):
     """Reconstruct an array view on a memory mapped file."""
     if mode == 'w+':
         # Do not zero the original data when unpickling
@@ -192,13 +242,17 @@ def _strided_from_memmap(filename, dtype, mode, offset, order, shape, strides,
 
     if strides is None:
         # Simple, contiguous memmap
-        return make_memmap(filename, dtype=dtype, shape=shape, mode=mode,
-                           offset=offset, order=order)
+        return make_memmap(
+            filename, dtype=dtype, shape=shape, mode=mode, offset=offset,
+            order=order, unlink_on_gc_collect=unlink_on_gc_collect
+        )
     else:
         # For non-contiguous data, memmap the total enclosing buffer and then
         # extract the non-contiguous view with the stride-tricks API
-        base = make_memmap(filename, dtype=dtype, shape=total_buffer_len,
-                           mode=mode, offset=offset, order=order)
+        base = make_memmap(
+            filename, dtype=dtype, shape=total_buffer_len, offset=offset,
+            mode=mode, order=order, unlink_on_gc_collect=unlink_on_gc_collect
+        )
         return as_strided(base, shape=shape, strides=strides)
 
 
@@ -210,8 +264,15 @@ def _reduce_memmap_backed(a, m):
     attribute ancestry of a. ``m.base`` should be the real python mmap object.
     """
     # offset that comes from the striding differences between a and m
-    a_start, a_end = np.byte_bounds(a)
-    m_start = np.byte_bounds(m)[0]
+    util.debug('[MEMMAP REDUCE] reducing a memmap-backed array '
+               '(shape, {}, pid: {})'.format(a.shape, os.getpid()))
+    try:
+        from numpy.lib.array_utils import byte_bounds
+    except (ModuleNotFoundError, ImportError):
+        # Backward-compat for numpy < 2.0
+        from numpy import byte_bounds
+    a_start, a_end = byte_bounds(a)
+    m_start = byte_bounds(m)[0]
     offset = a_start - m_start
 
     # offset from the backing memmap
@@ -233,26 +294,32 @@ def _reduce_memmap_backed(a, m):
         # view will be extracted.
         strides = a.strides
         total_buffer_len = (a_end - a_start) // a.itemsize
+
     return (_strided_from_memmap,
             (m.filename, a.dtype, m.mode, offset, order, a.shape, strides,
-             total_buffer_len))
+             total_buffer_len, False))
 
 
-def reduce_memmap(a):
-    """Pickle the descriptors of a memmap instance to reopen on same file."""
+def reduce_array_memmap_backward(a):
+    """reduce a np.array or a np.memmap from a child process"""
     m = _get_backing_memmap(a)
-    if m is not None:
-        # m is a real mmap backed memmap instance, reduce a preserving striding
-        # information
+    if isinstance(m, np.memmap) and m.filename not in JOBLIB_MMAPS:
+        # if a is backed by a memmaped file, reconstruct a using the
+        # memmaped file.
         return _reduce_memmap_backed(a, m)
     else:
-        # This memmap instance is actually backed by a regular in-memory
-        # buffer: this can happen when using binary operators on numpy.memmap
-        # instances
-        return (loads, (dumps(np.asarray(a), protocol=HIGHEST_PROTOCOL),))
+        # a is either a regular (not memmap-backed) numpy array, or an array
+        # backed by a shared temporary file created by joblib. In the latter
+        # case, in order to limit the lifespan of these temporary files, we
+        # serialize the memmap as a regular numpy array, and decref the
+        # file backing the memmap (done implicitly in a previously registered
+        # finalizer, see ``unlink_on_gc_collect`` for more details)
+        return (
+            loads, (dumps(np.asarray(a), protocol=HIGHEST_PROTOCOL), )
+        )
 
 
-class ArrayMemmapReducer(object):
+class ArrayMemmapForwardReducer(object):
     """Reducer callable to dump large arrays to memmap files.
 
     Parameters
@@ -260,8 +327,9 @@ class ArrayMemmapReducer(object):
     max_nbytes: int
         Threshold to trigger memmapping of large arrays to files created
         a folder.
-    temp_folder: str
-        Path of a folder where files for backing memmapped arrays are created.
+    temp_folder_resolver: callable
+        An callable in charge of resolving a temporary folder name where files
+        for backing memmapped arrays are created.
     mmap_mode: 'r', 'r+' or 'c'
         Mode for the created memmap datastructure. See the documentation of
         numpy.memmap for more details. Note: 'w+' is coerced to 'r+'
@@ -276,26 +344,44 @@ class ArrayMemmapReducer(object):
         same data array is passed to different worker processes.
     """
 
-    def __init__(self, max_nbytes, temp_folder, mmap_mode, verbose=0,
-                 prewarm=True):
+    def __init__(self, max_nbytes, temp_folder_resolver, mmap_mode,
+                 unlink_on_gc_collect, verbose=0, prewarm=True):
         self._max_nbytes = max_nbytes
-        self._temp_folder = temp_folder
+        self._temp_folder_resolver = temp_folder_resolver
         self._mmap_mode = mmap_mode
         self.verbose = int(verbose)
+        if prewarm == "auto":
+            self._prewarm = not self._temp_folder.startswith(
+                SYSTEM_SHARED_MEM_FS
+            )
+        else:
+            self._prewarm = prewarm
         self._prewarm = prewarm
         self._memmaped_arrays = _WeakArrayKeyMap()
+        self._temporary_memmaped_filenames = set()
+        self._unlink_on_gc_collect = unlink_on_gc_collect
+
+    @property
+    def _temp_folder(self):
+        return self._temp_folder_resolver()
 
     def __reduce__(self):
-        # The ArrayMemmapReducer is passed to the children processes: it needs
-        # to be pickled but the _WeakArrayKeyMap need to be skipped as it's
-        # only guaranteed to be consistent with the parent process memory
+        # The ArrayMemmapForwardReducer is passed to the children processes: it
+        # needs to be pickled but the _WeakArrayKeyMap need to be skipped as
+        # it's only guaranteed to be consistent with the parent process memory
         # garbage collection.
-        args = (self._max_nbytes, self._temp_folder, self._mmap_mode)
+        # Although this reducer is pickled, it is not needed in its destination
+        # process (child processes), as we only use this reducer to send
+        # memmaps from the parent process to the children processes. For this
+        # reason, we can afford skipping the resolver, (which would otherwise
+        # be unpicklable), and pass it as None instead.
+        args = (self._max_nbytes, None, self._mmap_mode,
+                self._unlink_on_gc_collect)
         kwargs = {
             'verbose': self.verbose,
             'prewarm': self._prewarm,
         }
-        return ArrayMemmapReducer, args, kwargs
+        return ArrayMemmapForwardReducer, args, kwargs
 
     def __call__(self, a):
         m = _get_backing_memmap(a)
@@ -329,13 +415,39 @@ class ArrayMemmapReducer(object):
             # In case the same array with the same content is passed several
             # times to the pool subprocess children, serialize it only once
 
-            # XXX: implement an explicit reference counting scheme to make it
-            # possible to delete temporary files as soon as the workers are
-            # done processing this data.
+            is_new_memmap = filename not in self._temporary_memmaped_filenames
+
+            # add the memmap to the list of temporary memmaps created by joblib
+            self._temporary_memmaped_filenames.add(filename)
+
+            if self._unlink_on_gc_collect:
+                # Bump reference count of the memmap by 1 to account for
+                # shared usage of the memmap by a child process. The
+                # corresponding decref call will be executed upon calling
+                # resource_tracker.maybe_unlink, registered as a finalizer in
+                # the child.
+                # the incref/decref calls here are only possible when the child
+                # and the parent share the same resource_tracker. It is not the
+                # case for the multiprocessing backend, but it does not matter
+                # because unlinking a memmap from a child process is only
+                # useful to control the memory usage of long-lasting child
+                # processes, while the multiprocessing-based pools terminate
+                # their workers at the end of a map() call.
+                resource_tracker.register(filename, "file")
+
+            if is_new_memmap:
+                # Incref each temporary memmap created by joblib one extra
+                # time.  This means that these memmaps will only be deleted
+                # once an extra maybe_unlink() is called, which is done once
+                # all the jobs have completed (or been canceled) in the
+                # Parallel._terminate_backend() method.
+                resource_tracker.register(filename, "file")
+
             if not os.path.exists(filename):
-                if self.verbose > 0:
-                    print("Memmapping (shape={}, dtype={}) to new file {}"
-                          .format(a.shape, a.dtype, filename))
+                util.debug(
+                    "[ARRAY DUMP] Pickling new array (shape={}, dtype={}) "
+                    "creating a new memmap at {}".format(
+                        a.shape, a.dtype, filename))
                 for dumped_filename in dump(a, filename):
                     os.chmod(dumped_filename, FILE_PERMISSIONS)
 
@@ -346,25 +458,31 @@ class ArrayMemmapReducer(object):
                     # concurrent memmap creation in multiple children
                     # processes.
                     load(filename, mmap_mode=self._mmap_mode).max()
-            elif self.verbose > 1:
-                print("Memmapping (shape={}, dtype={}) to old file {}"
-                      .format(a.shape, a.dtype, filename))
+
+            else:
+                util.debug(
+                    "[ARRAY DUMP] Pickling known array (shape={}, dtype={}) "
+                    "reusing memmap file: {}".format(
+                        a.shape, a.dtype, os.path.basename(filename)))
 
             # The worker process will use joblib.load to memmap the data
-            return (load, (filename, self._mmap_mode))
+            return (
+                (load_temporary_memmap, (filename, self._mmap_mode,
+                                         self._unlink_on_gc_collect))
+            )
         else:
             # do not convert a into memmap, let pickler do its usual copy with
             # the default system pickler
-            if self.verbose > 1:
-                print("Pickling array (shape={}, dtype={})."
-                      .format(a.shape, a.dtype))
+            util.debug(
+                '[ARRAY DUMP] Pickling array (NO MEMMAPPING) (shape={}, '
+                ' dtype={}).'.format(a.shape, a.dtype))
             return (loads, (dumps(a, protocol=HIGHEST_PROTOCOL),))
 
 
 def get_memmapping_reducers(
-        pool_id, forward_reducers=None, backward_reducers=None,
-        temp_folder=None, max_nbytes=1e6, mmap_mode='r', verbose=0,
-        prewarm=False, **kwargs):
+        forward_reducers=None, backward_reducers=None,
+        temp_folder_resolver=None, max_nbytes=1e6, mmap_mode='r', verbose=0,
+        prewarm=False, unlink_on_gc_collect=True, **kwargs):
     """Construct a pair of memmapping reducer linked to a tmpdir.
 
     This function manage the creation and the clean up of the temporary folders
@@ -376,59 +494,164 @@ def get_memmapping_reducers(
     if backward_reducers is None:
         backward_reducers = dict()
 
-    # Prepare a sub-folder name for the serialization of this particular
-    # pool instance (do not create in advance to spare FS write access if
-    # no array is to be dumped):
-    pool_folder_name = "joblib_memmapping_folder_{}_{}".format(
-        os.getpid(), pool_id)
-    pool_folder, use_shared_mem = _get_temp_dir(pool_folder_name,
-                                                temp_folder)
-
-    # Register the garbage collector at program exit in case caller forgets
-    # to call terminate explicitly: note we do not pass any reference to
-    # self to ensure that this callback won't prevent garbage collection of
-    # the pool instance and related file handler resources such as POSIX
-    # semaphores and pipes
-    pool_module_name = whichmodule(delete_folder, 'delete_folder')
-
-    def _cleanup():
-        # In some cases the Python runtime seems to set delete_folder to
-        # None just before exiting when accessing the delete_folder
-        # function from the closure namespace. So instead we reimport
-        # the delete_folder function explicitly.
-        # https://github.com/joblib/joblib/issues/328
-        # We cannot just use from 'joblib.pool import delete_folder'
-        # because joblib should only use relative imports to allow
-        # easy vendoring.
-        delete_folder = __import__(
-            pool_module_name, fromlist=['delete_folder']).delete_folder
-        try:
-            delete_folder(pool_folder)
-        except WindowsError:
-            warnings.warn("Failed to clean temporary folder: {}"
-                          .format(pool_folder))
-
-    atexit.register(_cleanup)
-
     if np is not None:
         # Register smart numpy.ndarray reducers that detects memmap backed
         # arrays and that is also able to dump to memmap large in-memory
         # arrays over the max_nbytes threshold
-        if prewarm == "auto":
-            prewarm = not use_shared_mem
-        forward_reduce_ndarray = ArrayMemmapReducer(
-            max_nbytes, pool_folder, mmap_mode, verbose,
-            prewarm=prewarm)
+        forward_reduce_ndarray = ArrayMemmapForwardReducer(
+            max_nbytes, temp_folder_resolver, mmap_mode, unlink_on_gc_collect,
+            verbose, prewarm=prewarm)
         forward_reducers[np.ndarray] = forward_reduce_ndarray
-        forward_reducers[np.memmap] = reduce_memmap
+        forward_reducers[np.memmap] = forward_reduce_ndarray
 
         # Communication from child process to the parent process always
         # pickles in-memory numpy.ndarray without dumping them as memmap
         # to avoid confusing the caller and make it tricky to collect the
         # temporary folder
-        backward_reduce_ndarray = ArrayMemmapReducer(
-            None, pool_folder, mmap_mode, verbose)
-        backward_reducers[np.ndarray] = backward_reduce_ndarray
-        backward_reducers[np.memmap] = reduce_memmap
+        backward_reducers[np.ndarray] = reduce_array_memmap_backward
+        backward_reducers[np.memmap] = reduce_array_memmap_backward
 
-    return forward_reducers, backward_reducers, pool_folder
+    return forward_reducers, backward_reducers
+
+
+class TemporaryResourcesManager(object):
+    """Stateful object able to manage temporary folder and pickles
+
+    It exposes:
+    - a per-context folder name resolving API that memmap-based reducers will
+      rely on to know where to pickle the temporary memmaps
+    - a temporary file/folder management API that internally uses the
+      resource_tracker.
+    """
+
+    def __init__(self, temp_folder_root=None, context_id=None):
+        self._current_temp_folder = None
+        self._temp_folder_root = temp_folder_root
+        self._use_shared_mem = None
+        self._cached_temp_folders = dict()
+        self._id = uuid4().hex
+        self._finalizers = {}
+        if context_id is None:
+            # It would be safer to not assign a default context id (less silent
+            # bugs), but doing this while maintaining backward compatibility
+            # with the previous, context-unaware version get_memmaping_executor
+            # exposes too many low-level details.
+            context_id = uuid4().hex
+        self.set_current_context(context_id)
+
+    def set_current_context(self, context_id):
+        self._current_context_id = context_id
+        self.register_new_context(context_id)
+
+    def register_new_context(self, context_id):
+        # Prepare a sub-folder name specific to a context (usually a unique id
+        # generated by each instance of the Parallel class). Do not create in
+        # advance to spare FS write access if no array is to be dumped).
+        if context_id in self._cached_temp_folders:
+            return
+        else:
+            # During its lifecycle, one Parallel object can have several
+            # executors associated to it (for instance, if a loky worker raises
+            # an exception, joblib shutdowns the executor and instantly
+            # recreates a new one before raising the error - see
+            # ``ensure_ready``.  Because we don't want two executors tied to
+            # the same Parallel object (and thus the same context id) to
+            # register/use/delete the same folder, we also add an id specific
+            # to the current Manager (and thus specific to its associated
+            # executor) to the folder name.
+            new_folder_name = (
+                "joblib_memmapping_folder_{}_{}_{}".format(
+                    os.getpid(), self._id, context_id)
+            )
+            new_folder_path, _ = _get_temp_dir(
+                new_folder_name, self._temp_folder_root
+            )
+            self.register_folder_finalizer(new_folder_path, context_id)
+            self._cached_temp_folders[context_id] = new_folder_path
+
+    def resolve_temp_folder_name(self):
+        """Return a folder name specific to the currently activated context"""
+        return self._cached_temp_folders[self._current_context_id]
+
+    # resource management API
+
+    def register_folder_finalizer(self, pool_subfolder, context_id):
+        # Register the garbage collector at program exit in case caller forgets
+        # to call terminate explicitly: note we do not pass any reference to
+        # ensure that this callback won't prevent garbage collection of
+        # parallel instance and related file handler resources such as POSIX
+        # semaphores and pipes
+        pool_module_name = whichmodule(delete_folder, 'delete_folder')
+        resource_tracker.register(pool_subfolder, "folder")
+
+        def _cleanup():
+            # In some cases the Python runtime seems to set delete_folder to
+            # None just before exiting when accessing the delete_folder
+            # function from the closure namespace. So instead we reimport
+            # the delete_folder function explicitly.
+            # https://github.com/joblib/joblib/issues/328
+            # We cannot just use from 'joblib.pool import delete_folder'
+            # because joblib should only use relative imports to allow
+            # easy vendoring.
+            delete_folder = __import__(
+                pool_module_name, fromlist=['delete_folder']
+            ).delete_folder
+            try:
+                delete_folder(pool_subfolder, allow_non_empty=True)
+                resource_tracker.unregister(pool_subfolder, "folder")
+            except OSError:
+                warnings.warn("Failed to delete temporary folder: {}"
+                              .format(pool_subfolder))
+
+        self._finalizers[context_id] = atexit.register(_cleanup)
+
+    def _clean_temporary_resources(self, context_id=None, force=False,
+                                   allow_non_empty=False):
+        """Clean temporary resources created by a process-based pool"""
+        if context_id is None:
+            # Iterates over a copy of the cache keys to avoid Error due to
+            # iterating over a changing size dictionary.
+            for context_id in list(self._cached_temp_folders):
+                self._clean_temporary_resources(
+                    context_id, force=force, allow_non_empty=allow_non_empty
+                )
+        else:
+            temp_folder = self._cached_temp_folders.get(context_id)
+            if temp_folder and os.path.exists(temp_folder):
+                for filename in os.listdir(temp_folder):
+                    if force:
+                        # Some workers have failed and the ref counted might
+                        # be off. The workers should have shut down by this
+                        # time so forcefully clean up the files.
+                        resource_tracker.unregister(
+                            os.path.join(temp_folder, filename), "file"
+                        )
+                    else:
+                        resource_tracker.maybe_unlink(
+                            os.path.join(temp_folder, filename), "file"
+                        )
+
+                # When forcing clean-up, try to delete the folder even if some
+                # files are still in it. Otherwise, try to delete the folder
+                allow_non_empty |= force
+
+                # Clean up the folder if possible, either if it is empty or
+                # if none of the files in it are in used and allow_non_empty.
+                try:
+                    delete_folder(
+                        temp_folder, allow_non_empty=allow_non_empty
+                    )
+                    # Forget the folder once it has been deleted
+                    self._cached_temp_folders.pop(context_id, None)
+                    resource_tracker.unregister(temp_folder, "folder")
+
+                    # Also cancel the finalizers  that gets triggered at gc.
+                    finalizer = self._finalizers.pop(context_id, None)
+                    if finalizer is not None:
+                        atexit.unregister(finalizer)
+
+                except OSError:
+                    # Temporary folder cannot be deleted right now.
+                    # This folder will be cleaned up by an atexit
+                    # finalizer registered by the memmapping_reducer.
+                    pass

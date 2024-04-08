@@ -1,4 +1,5 @@
-sphinx==1.6.3
+sphinx
+docutils<0.18
 numpy
 matplotlib
 pillow
@@ -7,3 +8,4 @@ numpydoc
 pandas
 lz4
 distributed
+psutil

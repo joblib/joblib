@@ -15,20 +15,9 @@ On demand recomputing: the `Memory` class
 Use case
 --------
 
-The `Memory` class defines a context for lazy evaluation of function, by
-putting the results in a store, by default using a disk, and not re-running
-the function twice for the same arguments.
-
-..
- Commented out in favor of briefness
-
-    You can use it as a context, with its `eval` method:
-
-    .. automethod:: Memory.eval
-
-    or decorate functions with the `cache` method:
-
-    .. automethod:: Memory.cache
+The :class:`~joblib.Memory` class defines a context for lazy evaluation of
+function, by putting the results in a store, by default using a disk, and not
+re-running the function twice for the same arguments.
 
 It works by explicitly saving the output to a file and it is designed to
 work with non-hashable and potentially large input and output data types
@@ -74,7 +63,7 @@ A simple example:
 Comparison with `memoize`
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The `memoize` decorator (http://code.activestate.com/recipes/52201/)
+The `memoize` decorator (https://code.activestate.com/recipes/52201/)
 caches in memory all the inputs and outputs of a function call. It can
 thus avoid running twice the same function, with a very small
 overhead. However, it compares input objects with those in cache on each
@@ -95,14 +84,14 @@ Using with `numpy`
 
 The original motivation behind the `Memory` context was to have a
 memoize-like pattern on numpy arrays. `Memory` uses fast cryptographic
-hashing of the input arguments to check if they have been computed;
+hashing of the input arguments to check if they have been computed.
 
 An example
 ~~~~~~~~~~
 
   Define two functions: the first with a number as an argument,
   outputting an array, used by the second one. Both functions are decorated
-  with `Memory.cache`::
+  with :meth:`Memory.cache <joblib.Memory.cache>`::
 
     >>> import numpy as np
 
@@ -145,14 +134,14 @@ arrays::
     >>> cachedir2 = 'your_cachedir2_location'
     >>> memory2 = Memory(cachedir2, mmap_mode='r')
     >>> square = memory2.cache(np.square)
-    >>> a = np.vander(np.arange(3)).astype(np.float)
+    >>> a = np.vander(np.arange(3)).astype(float)
     >>> square(a)
     ________________________________________________________________________________
     [Memory] Calling square...
     square(array([[0., 0., 1.],
            [1., 1., 1.],
            [4., 2., 1.]]))
-    ___________________________________________________________square - 0.0s, 0.0min
+    ___________________________________________________________square - ...min
     memmap([[ 0.,  0.,  1.],
             [ 1.,  1.,  1.],
             [16.,  4.,  1.]])
@@ -194,7 +183,7 @@ Shelving: using references to cached values
 
 In some cases, it can be useful to get a reference to the cached
 result, instead of having the result itself. A typical example of this
-is when a lot of large numpy arrays must be dispatched accross several
+is when a lot of large numpy arrays must be dispatched across several
 workers: instead of sending the data themselves over the network, send
 a reference to the joblib cache, and let the workers read the data
 from a network filesystem, potentially taking advantage of some
@@ -242,7 +231,7 @@ python interpreter.
 
 
 Gotchas
---------
+-------
 
 * **Across sessions, function cache is identified by the function's name**.
   Thus assigning the same name to different functions, their cache will
@@ -260,7 +249,7 @@ Gotchas
     ...     print('Running a different func(%s)' % x)
 
   As long as the same session is used, there are no collisions (in joblib
-  0.8 and above), altough joblib does warn you that you are doing something
+  0.8 and above), although joblib does warn you that you are doing something
   dangerous::
 
     >>> func(1)
@@ -385,12 +374,22 @@ Gotchas
      ``self.method`` does not depend on ``self`` you can use
      ``self.method = memory.cache(self.method, ignore=['self'])``.
 
+* **joblib cache entries may be invalidated after environment updates**.
+  Values returned by :func:`joblib.hash` are not guaranteed to stay
+  constant across ``joblib`` versions. This means that **all** entries of a
+  :class:`Memory` cache can get invalidated when upgrading ``joblib``.
+  Invalidation can also happen when upgrading a third party library (such as
+  ``numpy``): in such a case, only the cached function calls with parameters
+  that are constructs (or contain references to constructs) defined in the
+  upgraded library should potentially be invalidated after the upgrade.
+
 
 Ignoring some arguments
 -----------------------
 
 It may be useful not to recalculate a function when certain arguments
-change, for instance a debug flag. `Memory` provides the `ignore` list::
+change, for instance a debug flag. :class:`Memory` provides the ``ignore``
+list::
 
     >>> @memory.cache(ignore=['debug'])
     ... def my_func(x, debug=True):
@@ -402,23 +401,99 @@ change, for instance a debug flag. `Memory` provides the `ignore` list::
     >>> # my_func was not reevaluated
 
 
+Custom cache validation
+-----------------------
+
+In some cases, external factors can invalidate the cached results and
+one wants to have more control on whether to reuse a result or not.
+
+This is for instance the case if the results depends on database records
+that change over time: a small delay in the updates might be tolerable
+but after a while, the results might be invalid.
+
+One can have a finer control on the cache validity specifying a function
+via ``cache_validation_callback`` in :meth:`~joblib.Memory.cache`. For
+instance, one can only cache results that take more than 1s to be computed.
+
+    >>> import time
+    >>> def cache_validation_cb(metadata):
+    ...     # Only retrieve cached results for calls that take more than 1s
+    ...     return metadata['duration'] > 1
+
+    >>> @memory.cache(cache_validation_callback=cache_validation_cb)
+    ... def my_func(delay=0):
+    ...     time.sleep(delay)
+    ...	    print(f'Called with {delay}s delay')
+
+    >>> my_func()
+    Called with 0s delay
+    >>> my_func(1.1)
+    Called with 1.1s delay
+    >>> my_func(1.1)  # This result is retrieved from cache
+    >>> my_func()  # This one is not and the call is repeated
+    Called with 0s delay
+
+``cache_validation_cb`` will be called with a single argument containing
+the metadata of the cached call as a dictionary containing the following
+keys:
+
+  - ``duration``: the duration of the function call,
+  - ``time``: the timestamp when the cache called has been recorded
+  - ``input_args``: a dictionary of keywords arguments for the cached function call.
+
+Note a validity duration for cached results can be defined via
+:func:`joblib.expires_after` by providing similar with arguments similar to the
+ones of a ``datetime.timedelta``:
+
+    >>> from joblib import expires_after
+    >>> @memory.cache(cache_validation_callback=expires_after(seconds=0.5))
+    ... def my_func():
+    ...	    print(f'Function run')
+    >>> my_func()
+    Function run
+    >>> my_func()
+    >>> time.sleep(0.5)
+    >>> my_func()
+    Function run
+
+
 .. _memory_reference:
 
-Reference documentation of the `Memory` class
----------------------------------------------
+Reference documentation of the :class:`~joblib.Memory` class
+------------------------------------------------------------
 
-.. autoclass:: Memory
-    :members: __init__, cache, eval, clear
+.. autoclass:: joblib.Memory
+    :members: __init__, cache, eval, clear, reduce_size, format
+    :no-inherited-members:
+    :noindex:
 
 Useful methods of decorated functions
 -------------------------------------
 
-Function decorated by :meth:`Memory.cache` are :class:`MemorizedFunc`
+Functions decorated by :meth:`Memory.cache <joblib.Memory.cache>` are
+:class:`MemorizedFunc`
 objects that, in addition of behaving like normal functions, expose
-methods useful for cache exploration and management.
+methods useful for cache exploration and management. For example, you can
+use :meth:`func.check_call_in_cache <MemorizedFunc.check_call_in_cache>` to
+check if a cache hit will occur for a decorated ``func`` given a set of inputs
+without actually needing to call the function itself::
+
+    >>> @memory.cache
+    ... def func(x):
+    ...     print('Running func(%s)' % x)
+    ...     return x
+    >>> type(func)
+    <class 'joblib.memory.MemorizedFunc'>
+    >>> func(1)
+    Running func(1)
+    1
+    >>> func.check_call_in_cache(1)  # cache hit
+    True
+    >>> func.check_call_in_cache(2)  # cache miss
+    False
 
 .. autoclass:: MemorizedFunc
-    :members: __init__, call, clear
+    :members: __init__, call, clear, check_call_in_cache
 
 
 ..
@@ -430,3 +505,9 @@ methods useful for cache exploration and management.
     ...     shutil.rmtree(cachedir2)
     ... except OSError:
     ...     pass  # this can sometimes fail under Windows
+
+
+Helper Reference
+~~~~~~~~~~~~~~~~
+
+.. autofunction:: joblib.expires_after

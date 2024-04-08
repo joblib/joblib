@@ -1,25 +1,46 @@
 from __future__ import print_function, division, absolute_import
 
+import asyncio
+import concurrent.futures
 import contextlib
 
+import time
 from uuid import uuid4
 import weakref
 
-from .parallel import AutoBatchingMixin, ParallelBackendBase, BatchedCalls
-from .parallel import parallel_backend
+from .parallel import parallel_config
+from .parallel import AutoBatchingMixin, ParallelBackendBase
+
+from ._utils import (
+    _TracebackCapturingWrapper,
+    _retrieve_traceback_capturing_wrapped_call
+)
 
 try:
+    import dask
     import distributed
 except ImportError:
+    dask = None
     distributed = None
 
-if distributed is not None:
-    from distributed.client import Client, _wait
-    from distributed.utils import funcname, itemgetter
-    from distributed import get_client, secede, rejoin
-    from distributed.worker import thread_state
-    from distributed.sizeof import sizeof
-    from tornado import gen
+if dask is not None and distributed is not None:
+    from dask.utils import funcname
+    from dask.sizeof import sizeof
+    from dask.distributed import (
+        Client,
+        as_completed,
+        get_client,
+        secede,
+        rejoin,
+    )
+    from distributed.utils import thread_state
+
+    try:
+        # asyncio.TimeoutError, Python3-only error thrown by recent versions of
+        # distributed
+        from distributed.utils import TimeoutError as _TimeoutError
+    except ImportError:
+        from tornado.gen import TimeoutError as _TimeoutError
 
 
 def is_weakrefable(obj):
@@ -30,14 +51,6 @@ def is_weakrefable(obj):
         return False
 
 
-try:
-    TimeoutError = TimeoutError
-except NameError:
-    # Python 2 backward compat
-    class TimeoutError(OSError):
-        pass
-
-
 class _WeakKeyDictionary:
     """A variant of weakref.WeakKeyDictionary for unhashable objects.
 
@@ -45,7 +58,7 @@ class _WeakKeyDictionary:
     such as large numpy arrays or pandas dataframes that are not hashable and
     therefore cannot be used as keys of traditional python dicts.
 
-    Futhermore using a dict with id(array) as key is not safe because the
+    Furthermore using a dict with id(array) as key is not safe because the
     Python is likely to reuse id of recently collected arrays.
     """
 
@@ -84,30 +97,45 @@ class _WeakKeyDictionary:
 
 def _funcname(x):
     try:
-        if isinstance(x, BatchedCalls):
-            x = x.items[0][0]
+        if isinstance(x, list):
+            x = x[0][0]
     except Exception:
         pass
     return funcname(x)
 
 
-class Batch(object):
+def _make_tasks_summary(tasks):
+    """Summarize of list of (func, args, kwargs) function calls"""
+    unique_funcs = {func for func, args, kwargs in tasks}
+
+    if len(unique_funcs) == 1:
+        mixed = False
+    else:
+        mixed = True
+    return len(tasks), mixed, _funcname(tasks)
+
+
+class Batch:
+    """dask-compatible wrapper that executes a batch of tasks"""
     def __init__(self, tasks):
-        self.tasks = tasks
+        # collect some metadata from the tasks to ease Batch calls
+        # introspection when debugging
+        self._num_tasks, self._mixed, self._funcname = _make_tasks_summary(
+            tasks
+        )
 
-    def __call__(self, *data):
+    def __call__(self, tasks=None):
         results = []
-        with parallel_backend('dask'):
-            for func, args, kwargs in self.tasks:
-                args = [a(data) if isinstance(a, itemgetter) else a
-                        for a in args]
-                kwargs = {k: v(data) if isinstance(v, itemgetter) else v
-                          for (k, v) in kwargs.items()}
+        with parallel_config(backend='dask'):
+            for func, args, kwargs in tasks:
                 results.append(func(*args, **kwargs))
-        return results
+            return results
 
-    def __reduce__(self):
-        return Batch, (self.tasks,)
+    def __repr__(self):
+        descr = f"batch_of_{self._funcname}_{self._num_tasks}_calls"
+        if self._mixed:
+            descr = "mixed_" + descr
+        return descr
 
 
 def _joblib_probe_task():
@@ -115,13 +143,17 @@ def _joblib_probe_task():
     pass
 
 
-class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
+class DaskDistributedBackend(AutoBatchingMixin, ParallelBackendBase):
     MIN_IDEAL_BATCH_DURATION = 0.2
     MAX_IDEAL_BATCH_DURATION = 1.0
+    supports_retrieve_callback = True
+    default_n_jobs = -1
 
     def __init__(self, scheduler_host=None, scatter=None,
                  client=None, loop=None, wait_for_workers_timeout=10,
                  **submit_kwargs):
+        super().__init__()
+
         if distributed is None:
             msg = ("You are trying to use 'dask' as a joblib parallel backend "
                    "but dask is not installed. Please install dask "
@@ -135,14 +167,14 @@ class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
             else:
                 try:
                     client = get_client()
-                except ValueError:
+                except ValueError as e:
                     msg = ("To use Joblib with Dask first create a Dask Client"
                            "\n\n"
                            "    from dask.distributed import Client\n"
                            "    client = Client()\n"
                            "or\n"
                            "    client = Client('scheduler-address:8786')")
-                    raise ValueError(msg)
+                    raise ValueError(msg) from e
 
         self.client = client
 
@@ -158,9 +190,29 @@ class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         else:
             self._scatter = []
             self.data_futures = {}
-        self.task_futures = set()
         self.wait_for_workers_timeout = wait_for_workers_timeout
         self.submit_kwargs = submit_kwargs
+        self.waiting_futures = as_completed(
+            [],
+            loop=client.loop,
+            with_results=True,
+            raise_errors=False
+        )
+        self._results = {}
+        self._callbacks = {}
+
+    async def _collect(self):
+        while self._continue:
+            async for future, result in self.waiting_futures:
+                cf_future = self._results.pop(future)
+                callback = self._callbacks.pop(future)
+                if future.status == "error":
+                    typ, exc, tb = result
+                    cf_future.set_exception(exc)
+                else:
+                    cf_future.set_result(result)
+                    callback(result)
+            await asyncio.sleep(0.01)
 
     def __reduce__(self):
         return (DaskDistributedBackend, ())
@@ -169,14 +221,22 @@ class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         return DaskDistributedBackend(client=self.client), -1
 
     def configure(self, n_jobs=1, parallel=None, **backend_args):
+        self.parallel = parallel
         return self.effective_n_jobs(n_jobs)
 
     def start_call(self):
+        self._continue = True
+        self.client.loop.add_callback(self._collect)
         self.call_data_futures = _WeakKeyDictionary()
 
     def stop_call(self):
         # The explicit call to clear is required to break a cycling reference
         # to the futures.
+        self._continue = False
+        # wait for the future collection routine (self._backend._collect) to
+        # finish in order to limit asyncio warnings due to aborting _collect
+        # during a following backend termination call
+        time.sleep(0.01)
         self.call_data_futures.clear()
 
     def effective_n_jobs(self, n_jobs):
@@ -189,96 +249,116 @@ class DaskDistributedBackend(ParallelBackendBase, AutoBatchingMixin):
         # task might cause the cluster to provision some workers.
         try:
             self.client.submit(_joblib_probe_task).result(
-                timeout=self.wait_for_workers_timeout)
-        except gen.TimeoutError:
+                timeout=self.wait_for_workers_timeout
+            )
+        except _TimeoutError as e:
             error_msg = (
                 "DaskDistributedBackend has no worker after {} seconds. "
                 "Make sure that workers are started and can properly connect "
                 "to the scheduler and increase the joblib/dask connection "
                 "timeout with:\n\n"
-                "parallel_backend('dask', wait_for_workers_timeout={})"
+                "parallel_config(backend='dask', wait_for_workers_timeout={})"
             ).format(self.wait_for_workers_timeout,
                      max(10, 2 * self.wait_for_workers_timeout))
-            raise TimeoutError(error_msg)
+            raise TimeoutError(error_msg) from e
         return sum(self.client.ncores().values())
 
-    def _to_func_args(self, func):
-        collected_futures = []
+    async def _to_func_args(self, func):
         itemgetters = dict()
 
         # Futures that are dynamically generated during a single call to
         # Parallel.__call__.
         call_data_futures = getattr(self, 'call_data_futures', None)
 
-        def maybe_to_futures(args):
+        async def maybe_to_futures(args):
+            out = []
             for arg in args:
                 arg_id = id(arg)
                 if arg_id in itemgetters:
-                    yield itemgetters[arg_id]
+                    out.append(itemgetters[arg_id])
                     continue
 
                 f = self.data_futures.get(arg_id, None)
                 if f is None and call_data_futures is not None:
                     try:
-                        f = call_data_futures[arg]
+                        f = await call_data_futures[arg]
                     except KeyError:
+                        pass
+                    if f is None:
                         if is_weakrefable(arg) and sizeof(arg) > 1e3:
                             # Automatically scatter large objects to some of
                             # the workers to avoid duplicated data transfers.
                             # Rely on automated inter-worker data stealing if
                             # more workers need to reuse this data
                             # concurrently.
-                            [f] = self.client.scatter([arg])
-                            call_data_futures[arg] = f
+                            # set hash=False - nested scatter calls (i.e
+                            # calling client.scatter inside a dask worker)
+                            # using hash=True often raise CancelledError,
+                            # see dask/distributed#3703
+                            _coro = self.client.scatter(
+                                arg,
+                                asynchronous=True,
+                                hash=False
+                            )
+                            # Centralize the scattering of identical arguments
+                            # between concurrent apply_async callbacks by
+                            # exposing the running coroutine in
+                            # call_data_futures before it completes.
+                            t = asyncio.Task(_coro)
+                            call_data_futures[arg] = t
+
+                            f = await t
 
                 if f is not None:
-                    getter = itemgetter(len(collected_futures))
-                    collected_futures.append(f)
-                    itemgetters[arg_id] = getter
-                    arg = getter
-                yield arg
+                    out.append(f)
+                else:
+                    out.append(arg)
+            return out
 
         tasks = []
         for f, args, kwargs in func.items:
-            args = list(maybe_to_futures(args))
+            args = list(await maybe_to_futures(args))
             kwargs = dict(zip(kwargs.keys(),
-                              maybe_to_futures(kwargs.values())))
+                              await maybe_to_futures(kwargs.values())))
             tasks.append((f, args, kwargs))
 
-        if not collected_futures:
-            return func, ()
-        return (Batch(tasks), collected_futures)
+        return (Batch(tasks), tasks)
 
     def apply_async(self, func, callback=None):
-        key = '%s-batch-%s' % (_funcname(func), uuid4().hex)
-        func, args = self._to_func_args(func)
 
-        future = self.client.submit(func, *args, key=key, **self.submit_kwargs)
-        self.task_futures.add(future)
+        cf_future = concurrent.futures.Future()
+        cf_future.get = cf_future.result  # achieve AsyncResult API
 
-        def callback_wrapper(future):
-            result = future.result()
-            self.task_futures.remove(future)
-            if callback is not None:
-                callback(result)
+        async def f(func, callback):
+            batch, tasks = await self._to_func_args(func)
+            key = f'{repr(batch)}-{uuid4().hex}'
 
-        future.add_done_callback(callback_wrapper)
+            dask_future = self.client.submit(
+                _TracebackCapturingWrapper(batch),
+                tasks=tasks,
+                key=key,
+                **self.submit_kwargs
+            )
+            self.waiting_futures.add(dask_future)
+            self._callbacks[dask_future] = callback
+            self._results[dask_future] = cf_future
 
-        ref = weakref.ref(future)  # avoid reference cycle
+        self.client.loop.add_callback(f, func, callback)
 
-        def get():
-            return ref().result()
+        return cf_future
 
-        future.get = get  # monkey patch to achieve AsyncResult API
-        return future
+    def retrieve_result_callback(self, out):
+        return _retrieve_traceback_capturing_wrapped_call(out)
 
     def abort_everything(self, ensure_ready=True):
         """ Tell the client to cancel any task submitted via this instance
 
         joblib.Parallel will never access those results
         """
-        self.client.cancel(self.task_futures)
-        self.task_futures.clear()
+        with self.waiting_futures.lock:
+            self.waiting_futures.futures.clear()
+            while not self.waiting_futures.queue.empty():
+                self.waiting_futures.queue.get()
 
     @contextlib.contextmanager
     def retrieval_context(self):

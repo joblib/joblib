@@ -9,30 +9,24 @@ Test the hashing module.
 import time
 import hashlib
 import sys
-import os
 import gc
 import io
 import collections
 import itertools
 import pickle
 import random
+from concurrent.futures import ProcessPoolExecutor
 from decimal import Decimal
-import pytest
 
 from joblib.hashing import hash
 from joblib.func_inspect import filter_args
 from joblib.memory import Memory
 from joblib.testing import raises, skipif, fixture, parametrize
 from joblib.test.common import np, with_numpy
-from joblib.my_exceptions import TransportableException
-from joblib._compat import PY3_OR_LATER
 
 
-try:
-    # Python 2/Python 3 compat
-    unicode('str')
-except NameError:
-    unicode = lambda s: s
+def unicode(s):
+    return s
 
 
 ###############################################################################
@@ -68,7 +62,7 @@ class Klass(object):
 class KlassWithCachedMethod(object):
 
     def __init__(self, cachedir):
-        mem = Memory(cachedir=cachedir)
+        mem = Memory(location=cachedir)
         self.f = mem.cache(self.f)
 
     def f(self, x):
@@ -208,12 +202,9 @@ def test_hash_numpy_performance():
     """
     rnd = np.random.RandomState(0)
     a = rnd.random_sample(1000000)
-    if hasattr(np, 'getbuffer'):
-        # Under python 3, there is no getbuffer
-        getbuffer = np.getbuffer
-    else:
-        getbuffer = memoryview
-    md5_hash = lambda x: hashlib.md5(getbuffer(x)).hexdigest()
+
+    def md5_hash(x):
+        return hashlib.md5(memoryview(x)).hexdigest()
 
     relative_diff = relative_time(md5_hash, hash, a)
     assert relative_diff < 0.3
@@ -267,8 +258,8 @@ def test_numpy_scalar():
 
 
 def test_dict_hash(tmpdir):
-    # Check that dictionaries hash consistently, eventhough the ordering
-    # of the keys is not garanteed
+    # Check that dictionaries hash consistently, even though the ordering
+    # of the keys is not guaranteed
     k = KlassWithCachedMethod(tmpdir.strpath)
 
     d = {'#s12069__c_maps.nii.gz': [33],
@@ -334,54 +325,68 @@ def test_string():
 
 
 @with_numpy
-def test_dtype():
-    # Test that we obtain the same hash for object owning several dtype,
-    # whatever the past of these dtypes. Catter for cache invalidation with
-    # complex dtype
-    a = np.dtype([('f1', np.uint), ('f2', np.int32)])
-    b = a
-    c = pickle.loads(pickle.dumps(a))
-    assert hash([a, c]) == hash([a, b])
+def test_numpy_dtype_pickling():
+    # numpy dtype hashing is tricky to get right: see #231, #239, #251 #1080,
+    # #1082, and explanatory comments inside
+    # ``joblib.hashing.NumpyHasher.save``.
+
+    # In this test, we make sure that the pickling of numpy dtypes is robust to
+    # object identity and object copy.
+
+    dt1 = np.dtype('f4')
+    dt2 = np.dtype('f4')
+
+    # simple dtypes objects are interned
+    assert dt1 is dt2
+    assert hash(dt1) == hash(dt2)
+
+    dt1_roundtripped = pickle.loads(pickle.dumps(dt1))
+    assert dt1 is not dt1_roundtripped
+    assert hash(dt1) == hash(dt1_roundtripped)
+
+    assert hash([dt1, dt1]) == hash([dt1_roundtripped, dt1_roundtripped])
+    assert hash([dt1, dt1]) == hash([dt1, dt1_roundtripped])
+
+    complex_dt1 = np.dtype(
+        [('name', np.str_, 16), ('grades', np.float64, (2,))]
+    )
+    complex_dt2 = np.dtype(
+        [('name', np.str_, 16), ('grades', np.float64, (2,))]
+    )
+
+    # complex dtypes objects are not interned
+    assert hash(complex_dt1) == hash(complex_dt2)
+
+    complex_dt1_roundtripped = pickle.loads(pickle.dumps(complex_dt1))
+    assert complex_dt1_roundtripped is not complex_dt1
+    assert hash(complex_dt1) == hash(complex_dt1_roundtripped)
+
+    assert hash([complex_dt1, complex_dt1]) == hash(
+        [complex_dt1_roundtripped, complex_dt1_roundtripped]
+    )
+    assert hash([complex_dt1, complex_dt1]) == hash(
+        [complex_dt1_roundtripped, complex_dt1]
+    )
 
 
 @parametrize('to_hash,expected',
              [('This is a string to hash',
-                 {'py2': '80436ada343b0d79a99bfd8883a96e45',
-                  'py3': '71b3f47df22cb19431d85d92d0b230b2'}),
+               '71b3f47df22cb19431d85d92d0b230b2'),
               (u"C'est l\xe9t\xe9",
-                 {'py2': '2ff3a25200eb6219f468de2640913c2d',
-                  'py3': '2d8d189e9b2b0b2e384d93c868c0e576'}),
+               '2d8d189e9b2b0b2e384d93c868c0e576'),
               ((123456, 54321, -98765),
-                 {'py2': '50d81c80af05061ac4dcdc2d5edee6d6',
-                  'py3': 'e205227dd82250871fa25aa0ec690aa3'}),
+               'e205227dd82250871fa25aa0ec690aa3'),
               ([random.Random(42).random() for _ in range(5)],
-                 {'py2': '1a36a691b2e2ba3a9df72de3dccf17ea',
-                  'py3': 'a11ffad81f9682a7d901e6edc3d16c84'}),
-              ([3, 'abc', None, TransportableException('foo', ValueError)],
-                 {'py2': 'adb6ba84990ee5e462dc138383f11802',
-                  'py3': '994f663c64ba5e64b2a85ebe75287829'}),
+               'a11ffad81f9682a7d901e6edc3d16c84'),
               ({'abcde': 123, 'sadfas': [-9999, 2, 3]},
-                 {'py2': 'fc9314a39ff75b829498380850447047',
-                  'py3': 'aeda150553d4bb5c69f0e69d51b0e2ef'})])
+                  'aeda150553d4bb5c69f0e69d51b0e2ef')])
 def test_hashes_stay_the_same(to_hash, expected):
-    py_version_str = 'py3' if PY3_OR_LATER else 'py2'
-    if expected[py_version_str] == "994f663c64ba5e64b2a85ebe75287829":
-        # [3, 'abc', None, TransportableException('foo', ValueError)]
-        # started to fail when distributed is installed for some unknown
-        # reason.
-        # XXX: try to debug what changed.
-        try:
-            import distributed  # noqa
-            pytest.xfail("Known failure")
-        except ImportError:
-            pass
-
     # We want to make sure that hashes don't change with joblib
     # version. For end users, that would mean that they have to
     # regenerate their cache from scratch, which potentially means
     # lengthy recomputations.
     # Expected results have been generated with joblib 0.9.2
-    assert hash(to_hash) == expected[py_version_str]
+    assert hash(to_hash) == expected
 
 
 @with_numpy
@@ -406,57 +411,72 @@ def test_0d_and_1d_array_hashing_is_different():
 
 @with_numpy
 def test_hashes_stay_the_same_with_numpy_objects():
-    # We want to make sure that hashes don't change with joblib
-    # version. For end users, that would mean that they have to
-    # regenerate their cache from scratch, which potentially means
-    # lengthy recomputations.
-    rng = np.random.RandomState(42)
-    # Being explicit about dtypes in order to avoid
-    # architecture-related differences. Also using 'f4' rather than
-    # 'f8' for float arrays because 'f8' arrays generated by
-    # rng.random.randn don't seem to be bit-identical on 32bit and
-    # 64bit machines.
-    to_hash_list = [
-        rng.randint(-1000, high=1000, size=50).astype('<i8'),
-        tuple(rng.randn(3).astype('<f4') for _ in range(5)),
-        [rng.randn(3).astype('<f4') for _ in range(5)],
-        {
-            -3333: rng.randn(3, 5).astype('<f4'),
-            0: [
-                rng.randint(10, size=20).astype('<i8'),
-                rng.randn(10).astype('<f4')
-            ]
-        },
-        # Non regression cases for https://github.com/joblib/joblib/issues/308.
-        # Generated with joblib 0.9.4.
-        np.arange(100, dtype='<i8').reshape((10, 10)),
-        # Fortran contiguous array
-        np.asfortranarray(np.arange(100, dtype='<i8').reshape((10, 10))),
-        # Non contiguous array
-        np.arange(100, dtype='<i8').reshape((10, 10))[:, :2],
-    ]
+    # Note: joblib used to test numpy objects hashing by comparing the produced
+    # hash of an object with some hard-coded target value to guarantee that
+    # hashing remains the same across joblib versions. However, since numpy
+    # 1.20 and joblib 1.0, joblib relies on potentially unstable implementation
+    # details of numpy to hash np.dtype objects, which makes the stability of
+    # hash values across different environments hard to guarantee and to test.
+    # As a result, hashing stability across joblib versions becomes best-effort
+    # only, and we only test the consistency within a single environment by
+    # making sure:
+    # - the hash of two copies of the same objects is the same
+    # - hashing some object in two different python processes produces the same
+    #   value. This should be viewed as a proxy for testing hash consistency
+    #   through time between Python sessions (provided no change in the
+    #   environment was done between sessions).
 
-    # These expected results have been generated with joblib 0.9.0
-    expected_dict = {'py2': ['80f2387e7752abbda2658aafed49e086',
-                             '0d700f7f25ea670fd305e4cd93b0e8cd',
-                             '83a2bdf843e79e4b3e26521db73088b9',
-                             '63e0efd43c0a9ad92a07e8ce04338dd3',
-                             '03fef702946b602c852b8b4e60929914',
-                             '07074691e90d7098a85956367045c81e',
-                             'd264cf79f353aa7bbfa8349e3df72d8f'],
-                     'py3': ['10a6afc379ca2708acfbaef0ab676eab',
-                             '988a7114f337f381393025911ebc823b',
-                             'c6809f4b97e35f2fa0ee8d653cbd025c',
-                             'b3ad17348e32728a7eb9cda1e7ede438',
-                             '927b3e6b0b6a037e8e035bda134e0b05',
-                             '108f6ee98e7db19ea2006ffd208f4bf1',
-                             'bd48ccaaff28e16e6badee81041b7180']}
+    def create_objects_to_hash():
+        rng = np.random.RandomState(42)
+        # Being explicit about dtypes in order to avoid
+        # architecture-related differences. Also using 'f4' rather than
+        # 'f8' for float arrays because 'f8' arrays generated by
+        # rng.random.randn don't seem to be bit-identical on 32bit and
+        # 64bit machines.
+        to_hash_list = [
+            rng.randint(-1000, high=1000, size=50).astype('<i8'),
+            tuple(rng.randn(3).astype('<f4') for _ in range(5)),
+            [rng.randn(3).astype('<f4') for _ in range(5)],
+            {
+                -3333: rng.randn(3, 5).astype('<f4'),
+                0: [
+                    rng.randint(10, size=20).astype('<i8'),
+                    rng.randn(10).astype('<f4')
+                ]
+            },
+            # Non regression cases for
+            # https://github.com/joblib/joblib/issues/308
+            np.arange(100, dtype='<i8').reshape((10, 10)),
+            # Fortran contiguous array
+            np.asfortranarray(np.arange(100, dtype='<i8').reshape((10, 10))),
+            # Non contiguous array
+            np.arange(100, dtype='<i8').reshape((10, 10))[:, :2],
+        ]
+        return to_hash_list
 
-    py_version_str = 'py3' if PY3_OR_LATER else 'py2'
-    expected_list = expected_dict[py_version_str]
+    # Create two lists containing copies of the same objects.  joblib.hash
+    # should return the same hash for to_hash_list_one[i] and
+    # to_hash_list_two[i]
+    to_hash_list_one = create_objects_to_hash()
+    to_hash_list_two = create_objects_to_hash()
 
-    for to_hash, expected in zip(to_hash_list, expected_list):
-        assert hash(to_hash) == expected
+    e1 = ProcessPoolExecutor(max_workers=1)
+    e2 = ProcessPoolExecutor(max_workers=1)
+
+    try:
+        for obj_1, obj_2 in zip(to_hash_list_one, to_hash_list_two):
+            # testing consistency of hashes across python processes
+            hash_1 = e1.submit(hash, obj_1).result()
+            hash_2 = e2.submit(hash, obj_1).result()
+            assert hash_1 == hash_2
+
+            # testing consistency when hashing two copies of the same objects.
+            hash_3 = e1.submit(hash, obj_2).result()
+            assert hash_1 == hash_3
+
+    finally:
+        e1.shutdown()
+        e2.shutdown()
 
 
 def test_hashing_pickling_error():

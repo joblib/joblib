@@ -13,7 +13,8 @@ import sys
 import time
 import errno
 import shutil
-import warnings
+
+from multiprocessing import util
 
 
 try:
@@ -45,10 +46,10 @@ def memstr_to_bytes(text):
     units = dict(K=kilo, M=kilo ** 2, G=kilo ** 3)
     try:
         size = int(units[text[-1]] * float(text[:-1]))
-    except (KeyError, ValueError):
+    except (KeyError, ValueError) as e:
         raise ValueError(
             "Invalid literal for size give: %s (type %s) should be "
-            "alike '10G', '500M', '50K'." % (text, type(text)))
+            "alike '10G', '500M', '50K'." % (text, type(text))) from e
     return size
 
 
@@ -65,10 +66,10 @@ def mkdirp(d):
 
 # if a rmtree operation fails in rm_subdirs, wait for this much time (in secs),
 # then retry up to RM_SUBDIRS_N_RETRY times. If it still fails, raise the
-# exception. this mecanism ensures that the sub-process gc have the time to
+# exception. this mechanism ensures that the sub-process gc have the time to
 # collect and close the memmaps before we fail.
 RM_SUBDIRS_RETRY_TIME = 0.1
-RM_SUBDIRS_N_RETRY = 5
+RM_SUBDIRS_N_RETRY = 10
 
 
 def rm_subdirs(path, onerror=None):
@@ -101,7 +102,7 @@ def rm_subdirs(path, onerror=None):
         delete_folder(fullname, onerror=onerror)
 
 
-def delete_folder(folder_path, onerror=None):
+def delete_folder(folder_path, onerror=None, allow_non_empty=True):
     """Utility function to cleanup a temporary folder if it still exists."""
     if os.path.isdir(folder_path):
         if onerror is not None:
@@ -111,14 +112,25 @@ def delete_folder(folder_path, onerror=None):
             # if the error is raised again, fail
             err_count = 0
             while True:
+                files = os.listdir(folder_path)
                 try:
-                    shutil.rmtree(folder_path, False, None)
-                    break
+                    if len(files) == 0 or allow_non_empty:
+                        shutil.rmtree(
+                            folder_path, ignore_errors=False, onerror=None
+                        )
+                        util.debug(
+                            "Successfully deleted {}".format(folder_path))
+                        break
+                    else:
+                        raise OSError(
+                            "Expected empty folder {} but got {} "
+                            "files.".format(folder_path, len(files))
+                        )
                 except (OSError, WindowsError):
                     err_count += 1
                     if err_count > RM_SUBDIRS_N_RETRY:
-                        warnings.warn(
-                            "Unable to delete folder {} after {} tentatives."
-                            .format(folder_path, RM_SUBDIRS_N_RETRY))
+                        # the folder cannot be deleted right now. It maybe
+                        # because some temporary files have not been deleted
+                        # yet.
                         raise
-                    time.sleep(RM_SUBDIRS_RETRY_TIME)
+                time.sleep(RM_SUBDIRS_RETRY_TIME)

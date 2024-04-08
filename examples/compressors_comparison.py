@@ -8,7 +8,7 @@ Zlib, LZMA and LZ4 compression only are used but Joblib also supports BZ2 and
 GZip compression methods.
 For each compared compression method, this example dumps and reloads a
 dataset fetched from an online machine-learning database. This gives 3
-informations: the size on disk of the compressed data, the time spent to dump
+information: the size on disk of the compressed data, the time spent to dump
 and the time spent to reload the data from disk.
 """
 
@@ -25,8 +25,7 @@ import time
 
 import pandas as pd
 
-url = ("https://archive.ics.uci.edu/ml/machine-learning-databases/"
-       "kddcup99-mld/kddcup.data.gz")
+url = "https://github.com/joblib/dataset/raw/main/kddcup.data.gz"
 names = ("duration, protocol_type, service, flag, src_bytes, "
          "dst_bytes, land, wrong_fragment, urgent, hot, "
          "num_failed_logins, logged_in, num_compromised, "

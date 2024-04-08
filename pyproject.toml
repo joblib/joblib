@@ -1,0 +1,102 @@
+[build-system]
+requires = ["setuptools>=61.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "joblib"
+authors = [{name = "Gael Varoquaux", email = "gael.varoquaux@normalesup.org"}]
+license = {text = "BSD 3-Clause"}
+description = "Lightweight pipelining with Python functions"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Education",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Utilities",
+    "Topic :: Software Development :: Libraries",
+]
+requires-python = ">=3.8"
+dynamic = ["version"]
+
+[project.readme]
+file = "README.rst"
+content-type = "text/x-rst"
+
+[project.urls]
+Homepage = "https://joblib.readthedocs.io"
+Source = "https://github.com/joblib/joblib"
+
+[tool.setuptools]
+packages = [
+    "joblib",
+    "joblib.test",
+    "joblib.test.data",
+    "joblib.externals",
+    "joblib.externals.cloudpickle",
+    "joblib.externals.loky",
+    "joblib.externals.loky.backend",
+]
+platforms = ["any"]
+include-package-data = false
+
+[tool.setuptools.package-data]
+"joblib.test" = [
+    "data/*.gz",
+    "data/*.gzip",
+    "data/*.bz2",
+    "data/*.xz",
+    "data/*.lzma",
+    "data/*.pkl",
+    "data/*.npy",
+    "data/*.npy.z",
+]
+
+[tool.setuptools.dynamic]
+version = {attr = "joblib.__version__"}
+
+
+[aliases]
+release = "egg_info -RDb ''"
+# Make sure the docs are uploaded when we do an upload
+upload = "upload upload_docs --upload-dir doc/_build/html"
+
+[bdist_rpm]
+doc_files = "doc"
+
+
+[tool.pytest.ini_options]
+doctest_optionflags = [
+    "NORMALIZE_WHITESPACE",
+    "ELLIPSIS"
+]
+addopts = [
+    "--doctest-glob='doc/*.rst'",
+    "--doctest-modules",
+    "--color=yes",
+]
+testpaths = "joblib"
+norecursedirs = "joblib/externals/*"
+
+[tool.coverage.run]
+source = [
+    "joblib"
+]
+omit = [
+    "joblib/test/data/*",
+    "joblib/test/_openmp_test_helper/setup.py",
+    "*/joblib/externals/*",
+]
+relative_files = true
+
+[tool.coverage.report]
+show_missing = true

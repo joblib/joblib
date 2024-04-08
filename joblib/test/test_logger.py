@@ -5,29 +5,22 @@ Test the logger module.
 # Author: Gael Varoquaux <gael dot varoquaux at normalesup dot org>
 # Copyright (c) 2009 Gael Varoquaux
 # License: BSD Style, 3 clauses.
-
 import re
 
 from joblib.logger import PrintTime
-
-try:
-    # Python 2/Python 3 compat
-    unicode('str')
-except NameError:
-    unicode = lambda s: s
 
 
 def test_print_time(tmpdir, capsys):
     # A simple smoke test for PrintTime.
     logfile = tmpdir.join('test.log').strpath
     print_time = PrintTime(logfile=logfile)
-    print_time(unicode('Foo'))
+    print_time('Foo')
     # Create a second time, to smoke test log rotation.
     print_time = PrintTime(logfile=logfile)
-    print_time(unicode('Foo'))
+    print_time('Foo')
     # And a third time
     print_time = PrintTime(logfile=logfile)
-    print_time(unicode('Foo'))
+    print_time('Foo')
 
     out_printed_text, err_printed_text = capsys.readouterr()
     # Use regexps to be robust to time variations

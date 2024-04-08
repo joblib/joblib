@@ -1,11 +1,8 @@
 """Classes and functions for managing compressors."""
 
-import sys
 import io
 import zlib
-from distutils.version import LooseVersion
-
-from ._compat import _basestring, PY3_OR_LATER
+from joblib.backports import LooseVersion
 
 try:
     from threading import RLock
@@ -18,16 +15,16 @@ except ImportError:
     bz2 = None
 
 try:
+    import lz4
+    from lz4.frame import LZ4FrameFile
+except ImportError:
+    lz4 = None
+
+try:
     import lzma
 except ImportError:
     lzma = None
 
-try:
-    import lz4
-    if PY3_OR_LATER:
-        from lz4.frame import LZ4FrameFile
-except ImportError:
-    lz4 = None
 
 LZ4_NOT_INSTALLED_ERROR = ('LZ4 is not installed. Install it with pip: '
                            'https://python-lz4.readthedocs.io/')
@@ -50,14 +47,14 @@ def register_compressor(compressor_name, compressor,
     """Register a new compressor.
 
     Parameters
-    -----------
+    ----------
     compressor_name: str.
         The name of the compressor.
     compressor: CompressorWrapper
         An instance of a 'CompressorWrapper'.
     """
     global _COMPRESSORS
-    if not isinstance(compressor_name, _basestring):
+    if not isinstance(compressor_name, str):
         raise ValueError("Compressor name should be a string, "
                          "'{}' given.".format(compressor_name))
 
@@ -92,7 +89,7 @@ class CompressorWrapper():
     prefix: bytestring
         A bytestring corresponding to the magic number that identifies the
         file format associated to the compressor.
-    extention: str
+    extension: str
         The file extension used to automatically select this compressor during
         a dump to a file.
     """
@@ -143,12 +140,7 @@ class BZ2CompressorWrapper(CompressorWrapper):
     def decompressor_file(self, fileobj):
         """Returns an instance of a decompressor file object."""
         self._check_versions()
-        if PY3_OR_LATER:
-            fileobj = self.fileobj_factory(fileobj, 'rb')
-        else:
-            # In python 2, BZ2File doesn't support a fileobj opened in
-            # binary mode. In this case, we pass the filename.
-            fileobj = self.fileobj_factory(fileobj.name, 'rb')
+        fileobj = self.fileobj_factory(fileobj, 'rb')
         return fileobj
 
 
@@ -156,58 +148,40 @@ class LZMACompressorWrapper(CompressorWrapper):
 
     prefix = _LZMA_PREFIX
     extension = '.lzma'
+    _lzma_format_name = 'FORMAT_ALONE'
 
     def __init__(self):
         if lzma is not None:
             self.fileobj_factory = lzma.LZMAFile
+            self._lzma_format = getattr(lzma, self._lzma_format_name)
         else:
             self.fileobj_factory = None
+
+    def _check_versions(self):
+        if lzma is None:
+            raise ValueError('lzma module is not compiled on your python '
+                             'standard library.')
 
     def compressor_file(self, fileobj, compresslevel=None):
         """Returns an instance of a compressor file object."""
         if compresslevel is None:
             return self.fileobj_factory(fileobj, 'wb',
-                                        format=lzma.FORMAT_ALONE)
+                                        format=self._lzma_format)
         else:
             return self.fileobj_factory(fileobj, 'wb',
-                                        format=lzma.FORMAT_ALONE,
+                                        format=self._lzma_format,
                                         preset=compresslevel)
 
     def decompressor_file(self, fileobj):
         """Returns an instance of a decompressor file object."""
-        if PY3_OR_LATER and lzma is not None:
-            # We support lzma only in python 3 because in python 2 users
-            # may have installed the pyliblzma package, which also provides
-            # the lzma module, but that unfortunately doesn't fully support
-            # the buffer interface required by joblib.
-            # See https://github.com/joblib/joblib/issues/403 for details.
-            return lzma.LZMAFile(fileobj, 'rb')
-        else:
-            raise NotImplementedError("Lzma decompression is not "
-                                      "supported for this version of "
-                                      "python ({}.{})"
-                                      .format(sys.version_info[0],
-                                              sys.version_info[1]))
+        return lzma.LZMAFile(fileobj, 'rb')
 
 
 class XZCompressorWrapper(LZMACompressorWrapper):
 
     prefix = _XZ_PREFIX
     extension = '.xz'
-
-    def __init__(self):
-        if lzma is not None:
-            self.fileobj_factory = lzma.LZMAFile
-        else:
-            self.fileobj_factory = None
-
-    def compressor_file(self, fileobj, compresslevel=None):
-        """Returns an instance of a compressor file object."""
-        if compresslevel is None:
-            return self.fileobj_factory(fileobj, 'wb', check=lzma.CHECK_NONE)
-        else:
-            return self.fileobj_factory(fileobj, 'wb', check=lzma.CHECK_NONE,
-                                        preset=compresslevel)
+    _lzma_format_name = 'FORMAT_XZ'
 
 
 class LZ4CompressorWrapper(CompressorWrapper):
@@ -216,16 +190,12 @@ class LZ4CompressorWrapper(CompressorWrapper):
     extension = '.lz4'
 
     def __init__(self):
-        if PY3_OR_LATER and lz4 is not None:
+        if lz4 is not None:
             self.fileobj_factory = LZ4FrameFile
         else:
             self.fileobj_factory = None
 
     def _check_versions(self):
-        if not PY3_OR_LATER:
-            raise ValueError('lz4 compression is only available with '
-                             'python3+.')
-
         if lz4 is None:
             raise ValueError(LZ4_NOT_INSTALLED_ERROR)
         lz4_version = lz4.__version__
@@ -261,7 +231,8 @@ _BUFFER_SIZE = 8192
 class BinaryZlibFile(io.BufferedIOBase):
     """A file object providing transparent zlib (de)compression.
 
-    A BinaryZlibFile can act as a wrapper for an existing file object, or refer
+    TODO python2_drop: is it still needed since we dropped Python 2 support A
+    BinaryZlibFile can act as a wrapper for an existing file object, or refer
     directly to a named file on disk.
 
     Note that BinaryZlibFile provides only a *binary* file interface: data read
@@ -312,7 +283,7 @@ class BinaryZlibFile(io.BufferedIOBase):
         else:
             raise ValueError("Invalid mode: %r" % (mode,))
 
-        if isinstance(filename, _basestring):
+        if isinstance(filename, str):
             self._fp = io.open(filename, mode)
             self._closefp = True
         elif hasattr(filename, "read") or hasattr(filename, "write"):

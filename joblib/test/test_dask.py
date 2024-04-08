@@ -1,18 +1,25 @@
 from __future__ import print_function, division, absolute_import
 import os
+import warnings
 
 import pytest
 from random import random
+from uuid import uuid4
 from time import sleep
 
-from .. import Parallel, delayed, parallel_backend
-from ..parallel import ThreadingBackend
-from .._dask import DaskDistributedBackend, TimeoutError
+from .. import Parallel, delayed, parallel_config
+from ..parallel import ThreadingBackend, AutoBatchingMixin
+from .._dask import DaskDistributedBackend
 
 distributed = pytest.importorskip('distributed')
-from distributed import Client, LocalCluster
-from distributed.metrics import time
-from distributed.utils_test import cluster, inc
+dask = pytest.importorskip('dask')
+
+# These imports need to be after the pytest.importorskip hence the noqa: E402
+from distributed import Client, LocalCluster, get_client  # noqa: E402
+from distributed.metrics import time  # noqa: E402
+# Note: pytest requires to manually import all fixtures used in the test
+# and their dependencies.
+from distributed.utils_test import cluster, inc, cleanup  # noqa: E402, F401
 
 
 def noop(*args, **kwargs):
@@ -25,10 +32,19 @@ def slow_raise_value_error(condition, duration=0.05):
         raise ValueError("condition evaluated to True")
 
 
+def count_events(event_name, client):
+    worker_events = client.run(lambda dask_worker: dask_worker.log)
+    event_counts = {}
+    for w, events in worker_events.items():
+        event_counts[w] = len([event for event in list(events)
+                               if event[1] == event_name])
+    return event_counts
+
+
 def test_simple(loop):
     with cluster() as (s, [a, b]):
         with Client(s['address'], loop=loop) as client:  # noqa: F841
-            with parallel_backend('dask') as (ba, _):
+            with parallel_config(backend='dask'):
                 seq = Parallel()(delayed(inc)(i) for i in range(10))
                 assert seq == [inc(i) for i in range(10)]
 
@@ -40,6 +56,30 @@ def test_simple(loop):
                 assert seq == [inc(i) for i in range(10)]
 
 
+def test_dask_backend_uses_autobatching(loop):
+    assert (DaskDistributedBackend.compute_batch_size
+            is AutoBatchingMixin.compute_batch_size)
+
+    with cluster() as (s, [a, b]):
+        with Client(s['address'], loop=loop) as client:  # noqa: F841
+            with parallel_config(backend='dask'):
+                with Parallel() as parallel:
+                    # The backend should be initialized with a default
+                    # batch size of 1:
+                    backend = parallel._backend
+                    assert isinstance(backend, DaskDistributedBackend)
+                    assert backend.parallel is parallel
+                    assert backend._effective_batch_size == 1
+
+                    # Launch many short tasks that should trigger
+                    # auto-batching:
+                    parallel(
+                        delayed(lambda: None)()
+                        for _ in range(int(1e4))
+                    )
+                    assert backend._effective_batch_size > 10
+
+
 def random2():
     return random()
 
@@ -47,25 +87,92 @@ def random2():
 def test_dont_assume_function_purity(loop):
     with cluster() as (s, [a, b]):
         with Client(s['address'], loop=loop) as client:  # noqa: F841
-            with parallel_backend('dask') as (ba, _):
+            with parallel_config(backend='dask'):
                 x, y = Parallel()(delayed(random2)() for i in range(2))
                 assert x != y
 
 
-def test_dask_funcname(loop):
+@pytest.mark.parametrize("mixed", [True, False])
+def test_dask_funcname(loop, mixed):
+    from joblib._dask import Batch
+    if not mixed:
+        tasks = [delayed(inc)(i) for i in range(4)]
+        batch_repr = 'batch_of_inc_4_calls'
+    else:
+        tasks = [
+            delayed(abs)(i) if i % 2 else delayed(inc)(i) for i in range(4)
+        ]
+        batch_repr = 'mixed_batch_of_inc_4_calls'
+
+    assert repr(Batch(tasks)) == batch_repr
+
     with cluster() as (s, [a, b]):
         with Client(s['address'], loop=loop) as client:
-            with parallel_backend('dask') as (ba, _):
-                x, y = Parallel()(delayed(inc)(i) for i in range(2))
+            with parallel_config(backend='dask'):
+                _ = Parallel(batch_size=2, pre_dispatch='all')(tasks)
 
             def f(dask_scheduler):
                 return list(dask_scheduler.transition_log)
+            batch_repr = batch_repr.replace('4', '2')
             log = client.run_on_scheduler(f)
-            assert all(tup[0].startswith('inc-batch') for tup in log)
+            assert all('batch_of_inc' in tup[0] for tup in log)
 
 
-def add5(a, b, c, d=0, e=0):
-    return a + b + c + d + e
+def test_no_undesired_distributed_cache_hit():
+    # Dask has a pickle cache for callables that are called many times. Because
+    # the dask backends used to wrap both the functions and the arguments
+    # under instances of the Batch callable class this caching mechanism could
+    # lead to bugs as described in: https://github.com/joblib/joblib/pull/1055
+    # The joblib-dask backend has been refactored to avoid bundling the
+    # arguments as an attribute of the Batch instance to avoid this problem.
+    # This test serves as non-regression problem.
+
+    # Use a large number of input arguments to give the AutoBatchingMixin
+    # enough tasks to kick-in.
+    lists = [[] for _ in range(100)]
+    np = pytest.importorskip('numpy')
+    X = np.arange(int(1e6))
+
+    def isolated_operation(list_, data=None):
+        if data is not None:
+            np.testing.assert_array_equal(data, X)
+        list_.append(uuid4().hex)
+        return list_
+
+    cluster = LocalCluster(n_workers=1, threads_per_worker=2)
+    client = Client(cluster)
+    try:
+        with parallel_config(backend='dask'):
+            # dispatches joblib.parallel.BatchedCalls
+            res = Parallel()(
+                delayed(isolated_operation)(list_) for list_ in lists
+            )
+
+        # The original arguments should not have been mutated as the mutation
+        # happens in the dask worker process.
+        assert lists == [[] for _ in range(100)]
+
+        # Here we did not pass any large numpy array as argument to
+        # isolated_operation so no scattering event should happen under the
+        # hood.
+        counts = count_events('receive-from-scatter', client)
+        assert sum(counts.values()) == 0
+        assert all([len(r) == 1 for r in res])
+
+        with parallel_config(backend='dask'):
+            # Append a large array which will be scattered by dask, and
+            # dispatch joblib._dask.Batch
+            res = Parallel()(
+                delayed(isolated_operation)(list_, data=X) for list_ in lists
+            )
+
+        # This time, auto-scattering should have kicked it.
+        counts = count_events('receive-from-scatter', client)
+        assert sum(counts.values()) > 0
+        assert all([len(r) == 1 for r in res])
+    finally:
+        client.close(timeout=30)
+        cluster.close(timeout=30)
 
 
 class CountSerialized(object):
@@ -83,6 +190,10 @@ class CountSerialized(object):
         return (CountSerialized, (self.x,))
 
 
+def add5(a, b, c, d=0, e=0):
+    return a + b + c + d + e
+
+
 def test_manual_scatter(loop):
     x = CountSerialized(1)
     y = CountSerialized(2)
@@ -90,7 +201,7 @@ def test_manual_scatter(loop):
 
     with cluster() as (s, [a, b]):
         with Client(s['address'], loop=loop) as client:  # noqa: F841
-            with parallel_backend('dask', scatter=[x, y]) as (ba, _):
+            with parallel_config(backend='dask', scatter=[x, y]):
                 f = delayed(add5)
                 tasks = [f(x, y, z, d=4, e=5),
                          f(x, z, y, d=5, e=4),
@@ -102,7 +213,7 @@ def test_manual_scatter(loop):
 
             # Scatter must take a list/tuple
             with pytest.raises(TypeError):
-                with parallel_backend('dask', loop=loop, scatter=1):
+                with parallel_config(backend='dask', loop=loop, scatter=1):
                     pass
 
     assert results == expected
@@ -110,26 +221,25 @@ def test_manual_scatter(loop):
     # Scattered variables only serialized once
     assert x.count == 1
     assert y.count == 1
-    assert z.count == 4
+    # Depending on the version of distributed, the unscattered z variable
+    # is either pickled 4 or 6 times, possibly because of the memoization
+    # of objects that appear several times in the arguments of a delayed
+    # task.
+    assert z.count in (4, 6)
 
 
-def test_auto_scatter(loop):
+# When the same IOLoop is used for multiple clients in a row, use
+# loop_in_thread instead of loop to prevent the Client from closing it.  See
+# dask/distributed #4112
+def test_auto_scatter(loop_in_thread):
     np = pytest.importorskip('numpy')
     data1 = np.ones(int(1e4), dtype=np.uint8)
     data2 = np.ones(int(1e4), dtype=np.uint8)
-    data_to_process = ([data1] * 4) + ([data2] * 4)
-
-    def count_events(event_name, client):
-        worker_events = client.run(lambda dask_worker: dask_worker.log)
-        event_counts = {}
-        for w, events in worker_events.items():
-            event_counts[w] = len([event for event in list(events)
-                                   if event[1] == event_name])
-        return event_counts
+    data_to_process = ([data1] * 3) + ([data2] * 3)
 
     with cluster() as (s, [a, b]):
-        with Client(s['address'], loop=loop) as client:
-            with parallel_backend('dask') as (ba, _):
+        with Client(s['address'], loop=loop_in_thread) as client:
+            with parallel_config(backend='dask'):
                 # Passing the same data as arg and kwarg triggers a single
                 # scatter operation whose result is reused.
                 Parallel()(delayed(noop)(data, data, i, opt=data)
@@ -141,8 +251,8 @@ def test_auto_scatter(loop):
             assert counts[a['address']] + counts[b['address']] == 2
 
     with cluster() as (s, [a, b]):
-        with Client(s['address'], loop=loop) as client:
-            with parallel_backend('dask') as (ba, _):
+        with Client(s['address'], loop=loop_in_thread) as client:
+            with parallel_config(backend='dask'):
                 Parallel()(delayed(noop)(data1[:3], i) for i in range(5))
             # Small arrays are passed within the task definition without going
             # through a scatter operation.
@@ -151,15 +261,45 @@ def test_auto_scatter(loop):
             assert counts[b['address']] == 0
 
 
-def test_nested_backend_context_manager(loop):
+@pytest.mark.parametrize("retry_no", list(range(2)))
+def test_nested_scatter(loop, retry_no):
+
+    np = pytest.importorskip('numpy')
+
+    NUM_INNER_TASKS = 10
+    NUM_OUTER_TASKS = 10
+
+    def my_sum(x, i, j):
+        return np.sum(x)
+
+    def outer_function_joblib(array, i):
+        client = get_client()  # noqa
+        with parallel_config(backend="dask"):
+            results = Parallel()(
+                delayed(my_sum)(array[j:], i, j) for j in range(
+                    NUM_INNER_TASKS)
+            )
+        return sum(results)
+
+    with cluster() as (s, [a, b]):
+        with Client(s['address'], loop=loop) as _:
+            with parallel_config(backend="dask"):
+                my_array = np.ones(10000)
+                _ = Parallel()(
+                    delayed(outer_function_joblib)(
+                        my_array[i:], i) for i in range(NUM_OUTER_TASKS)
+                )
+
+
+def test_nested_backend_context_manager(loop_in_thread):
     def get_nested_pids():
         pids = set(Parallel(n_jobs=2)(delayed(os.getpid)() for _ in range(2)))
         pids |= set(Parallel(n_jobs=2)(delayed(os.getpid)() for _ in range(2)))
         return pids
 
     with cluster() as (s, [a, b]):
-        with Client(s['address'], loop=loop) as client:
-            with parallel_backend('dask') as (ba, _):
+        with Client(s['address'], loop=loop_in_thread) as client:
+            with parallel_config(backend='dask'):
                 pid_groups = Parallel(n_jobs=2)(
                     delayed(get_nested_pids)()
                     for _ in range(10)
@@ -168,8 +308,8 @@ def test_nested_backend_context_manager(loop):
                     assert len(set(pid_group)) <= 2
 
         # No deadlocks
-        with Client(s['address'], loop=loop) as client:  # noqa: F841
-            with parallel_backend('dask') as (ba, _):
+        with Client(s['address'], loop=loop_in_thread) as client:  # noqa: F841
+            with parallel_config(backend='dask'):
                 pid_groups = Parallel(n_jobs=2)(
                     delayed(get_nested_pids)()
                     for _ in range(10)
@@ -191,7 +331,7 @@ def test_nested_backend_context_manager_implicit_n_jobs(loop):
 
     with cluster() as (s, [a, b]):
         with Client(s['address'], loop=loop) as client:  # noqa: F841
-            with parallel_backend('dask') as (ba, _):
+            with parallel_config(backend='dask'):
                 with Parallel() as p:
                     assert _backend_type(p) == "DaskDistributedBackend"
                     assert p.n_jobs == -1
@@ -206,7 +346,7 @@ def test_nested_backend_context_manager_implicit_n_jobs(loop):
 
 def test_errors(loop):
     with pytest.raises(ValueError) as info:
-        with parallel_backend('dask'):
+        with parallel_config(backend='dask'):
             pass
 
     assert "create a dask client" in str(info.value).lower()
@@ -216,13 +356,13 @@ def test_correct_nested_backend(loop):
     with cluster() as (s, [a, b]):
         with Client(s['address'], loop=loop) as client:  # noqa: F841
             # No requirement, should be us
-            with parallel_backend('dask') as (ba, _):
+            with parallel_config(backend='dask'):
                 result = Parallel(n_jobs=2)(
                     delayed(outer)(nested_require=None) for _ in range(1))
                 assert isinstance(result[0][0][0], DaskDistributedBackend)
 
             # Require threads, should be threading
-            with parallel_backend('dask') as (ba, _):
+            with parallel_config(backend='dask'):
                 result = Parallel(n_jobs=2)(
                     delayed(outer)(nested_require='sharedmem')
                     for _ in range(1))
@@ -248,7 +388,7 @@ def inner():
 def test_secede_with_no_processes(loop):
     # https://github.com/dask/distributed/issues/1775
     with Client(loop=loop, processes=False, set_as_default=True):
-        with parallel_backend('dask'):
+        with parallel_config(backend='dask'):
             Parallel(n_jobs=4)(delayed(id)(i) for i in range(2))
 
 
@@ -260,20 +400,20 @@ def _worker_address(_):
 def test_dask_backend_keywords(loop):
     with cluster() as (s, [a, b]):
         with Client(s['address'], loop=loop) as client:  # noqa: F841
-            with parallel_backend('dask', workers=a['address']) as (ba, _):
+            with parallel_config(backend='dask', workers=a['address']):
                 seq = Parallel()(
                     delayed(_worker_address)(i) for i in range(10))
                 assert seq == [a['address']] * 10
 
-            with parallel_backend('dask', workers=b['address']) as (ba, _):
+            with parallel_config(backend='dask', workers=b['address']):
                 seq = Parallel()(
                     delayed(_worker_address)(i) for i in range(10))
                 assert seq == [b['address']] * 10
 
 
-def test_cleanup(loop):
+def test_scheduler_tasks_cleanup(loop):
     with Client(processes=False, loop=loop) as client:
-        with parallel_backend('dask'):
+        with parallel_config(backend='dask'):
             Parallel()(delayed(inc)(i) for i in range(10))
 
         start = time()
@@ -300,7 +440,7 @@ def test_wait_for_workers(cluster_strategy):
         # to schedule work.
         cluster.scale(2)
     try:
-        with parallel_backend('dask'):
+        with parallel_config(backend='dask'):
             # The following should wait a bit for at least one worker to
             # become available.
             Parallel()(delayed(inc)(i) for i in range(10))
@@ -314,13 +454,13 @@ def test_wait_for_workers_timeout():
     cluster = LocalCluster(n_workers=0, processes=False, threads_per_worker=2)
     client = Client(cluster)
     try:
-        with parallel_backend('dask', wait_for_workers_timeout=0.1):
+        with parallel_config(backend='dask', wait_for_workers_timeout=0.1):
             # Short timeout: DaskDistributedBackend
             msg = "DaskDistributedBackend has no worker after 0.1 seconds."
             with pytest.raises(TimeoutError, match=msg):
                 Parallel()(delayed(inc)(i) for i in range(10))
 
-        with parallel_backend('dask', wait_for_workers_timeout=0):
+        with parallel_config(backend='dask', wait_for_workers_timeout=0):
             # No timeout: fallback to generic joblib failure:
             msg = "DaskDistributedBackend has no active worker"
             with pytest.raises(RuntimeError, match=msg):
@@ -328,3 +468,32 @@ def test_wait_for_workers_timeout():
     finally:
         client.close()
         cluster.close()
+
+
+@pytest.mark.parametrize("backend", ["loky", "multiprocessing"])
+def test_joblib_warning_inside_dask_daemonic_worker(backend):
+    cluster = LocalCluster(n_workers=2)
+    client = Client(cluster)
+    try:
+
+        def func_using_joblib_parallel():
+            # Somehow trying to check the warning type here (e.g. with
+            # pytest.warns(UserWarning)) make the test hang. Work-around:
+            # return the warning record to the client and the warning check is
+            # done client-side.
+            with warnings.catch_warnings(record=True) as record:
+                Parallel(n_jobs=2, backend=backend)(
+                    delayed(inc)(i) for i in range(10))
+
+            return record
+
+        fut = client.submit(func_using_joblib_parallel)
+        record = fut.result()
+
+        assert len(record) == 1
+        warning = record[0].message
+        assert isinstance(warning, UserWarning)
+        assert "distributed.worker.daemon" in str(warning)
+    finally:
+        client.close(timeout=30)
+        cluster.close(timeout=30)

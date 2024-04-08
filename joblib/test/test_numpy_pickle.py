@@ -3,9 +3,9 @@
 import copy
 import os
 import random
-import sys
 import re
 import io
+import sys
 import warnings
 import gzip
 import zlib
@@ -14,21 +14,31 @@ import pickle
 import socket
 from contextlib import closing
 import mmap
+from pathlib import Path
+
+try:
+    import lzma
+except ImportError:
+    lzma = None
+
+import pytest
 
 from joblib.test.common import np, with_numpy, with_lz4, without_lz4
 from joblib.test.common import with_memory_profiler, memory_used
-from joblib.testing import parametrize, raises, SkipTest, warns
+from joblib.testing import parametrize, raises, warns
 
 # numpy_pickle is not a drop-in replacement of pickle, as it takes
 # filenames instead of open files as arguments.
 from joblib import numpy_pickle, register_compressor
 from joblib.test import data
 
-from joblib._compat import PY3_OR_LATER
 from joblib.numpy_pickle_utils import _IO_BUFFER_SIZE
 from joblib.numpy_pickle_utils import _detect_compressor
+from joblib.numpy_pickle_utils import _is_numpy_array_byte_order_mismatch
+from joblib.numpy_pickle_utils import _ensure_native_byte_order
 from joblib.compressor import (_COMPRESSORS, _LZ4_PREFIX, CompressorWrapper,
                                LZ4_NOT_INSTALLED_ERROR, BinaryZlibFile)
+
 
 ###############################################################################
 # Define a list of standard types.
@@ -46,41 +56,18 @@ _bool = bool(1)
 typelist.append(_bool)
 _int = int(1)
 typelist.append(_int)
-try:
-    _long = long(1)
-    typelist.append(_long)
-except NameError:
-    # long is not defined in python 3
-    pass
 _float = float(1)
 typelist.append(_float)
 _complex = complex(1)
 typelist.append(_complex)
 _string = str(1)
 typelist.append(_string)
-try:
-    _unicode = unicode(1)
-    typelist.append(_unicode)
-except NameError:
-    # unicode is not defined in python 3
-    pass
 _tuple = ()
 typelist.append(_tuple)
 _list = []
 typelist.append(_list)
 _dict = {}
 typelist.append(_dict)
-try:
-    _file = file
-    typelist.append(_file)
-except NameError:
-    pass  # file does not exists in Python 3
-try:
-    _buffer = buffer
-    typelist.append(_buffer)
-except NameError:
-    # buffer does not exists in Python 3
-    pass
 _builtin = len
 typelist.append(_builtin)
 
@@ -165,21 +152,19 @@ def test_numpy_persistence(tmpdir, compress):
         # And finally, check that all the values are equal.
         np.testing.assert_array_equal(np.array(obj), np.array(obj_))
 
-    # Now test with array subclasses
-    for obj in (np.matrix(np.zeros(10)),
-                np.memmap(filename + 'mmap',
-                          mode='w+', shape=4, dtype=np.float)):
-        filenames = numpy_pickle.dump(obj, filename, compress=compress)
-        # All is cached in one file
-        assert len(filenames) == 1
+    # Now test with an array subclass
+    obj = np.memmap(filename + 'mmap', mode='w+', shape=4, dtype=np.float64)
+    filenames = numpy_pickle.dump(obj, filename, compress=compress)
+    # All is cached in one file
+    assert len(filenames) == 1
 
-        obj_ = numpy_pickle.load(filename)
-        if (type(obj) is not np.memmap and
-                hasattr(obj, '__array_prepare__')):
-            # We don't reconstruct memmaps
-            assert isinstance(obj_, type(obj))
+    obj_ = numpy_pickle.load(filename)
+    if (type(obj) is not np.memmap and
+            hasattr(obj, '__array_prepare__')):
+        # We don't reconstruct memmaps
+        assert isinstance(obj_, type(obj))
 
-        np.testing.assert_array_equal(obj_, obj)
+    np.testing.assert_array_equal(obj_, obj)
 
     # Test with an object containing multiple numpy arrays
     obj = ComplexTestObject()
@@ -295,11 +280,14 @@ def test_compress_mmap_mode_warning(tmpdir):
     numpy_pickle.dump(a, this_filename, compress=1)
     with warns(UserWarning) as warninfo:
         numpy_pickle.load(this_filename, mmap_mode='r+')
-    assert len(warninfo) == 1
-    assert (str(warninfo[0].message) ==
-            'mmap_mode "%(mmap_mode)s" is not compatible with compressed '
-            'file %(filename)s. "%(mmap_mode)s" flag will be ignored.' %
-            {'filename': this_filename, 'mmap_mode': 'r+'})
+    debug_msg = "\n".join([str(w) for w in warninfo])
+    warninfo = [w.message for w in warninfo]
+    assert len(warninfo) == 1, debug_msg
+    assert (
+        str(warninfo[0]) ==
+        'mmap_mode "r+" is not compatible with compressed '
+        f'file {this_filename}. "r+" flag will be ignored.'
+    )
 
 
 @with_numpy
@@ -311,7 +299,7 @@ def test_cache_size_warning(tmpdir, cache_size):
     a = rnd.random_sample((10, 2))
 
     warnings.simplefilter("always")
-    with warns(None) as warninfo:
+    with warnings.catch_warnings(record=True) as warninfo:
         numpy_pickle.dump(a, filename, cache_size=cache_size)
     expected_nb_warnings = 1 if cache_size is not None else 0
     assert len(warninfo) == expected_nb_warnings
@@ -331,10 +319,8 @@ def test_memory_usage(tmpdir, compress):
     filename = tmpdir.join('test.pkl').strpath
     small_array = np.ones((10, 10))
     big_array = np.ones(shape=100 * int(1e6), dtype=np.uint8)
-    small_matrix = np.matrix(small_array)
-    big_matrix = np.matrix(big_array)
 
-    for obj in (small_array, big_array, small_matrix, big_matrix):
+    for obj in (small_array, big_array):
         size = obj.nbytes / 1e6
         obj_filename = filename + str(np.random.randint(0, 1000))
         mem_used = memory_used(numpy_pickle.dump,
@@ -359,15 +345,7 @@ def test_compressed_pickle_dump_and_load(tmpdir):
                      np.arange(5, dtype=np.dtype('<f8')),
                      np.arange(5, dtype=np.dtype('>f8')),
                      np.array([1, 'abc', {'a': 1, 'b': 2}], dtype='O'),
-                     # .tostring actually returns bytes and is a
-                     # compatibility alias for .tobytes which was
-                     # added in 1.9.0
-                     np.arange(256, dtype=np.uint8).tostring(),
-                     # np.matrix is a subclass of np.ndarray, here we want
-                     # to verify this type of object is correctly unpickled
-                     # among versions.
-                     np.matrix([0, 1, 2], dtype=np.dtype('<i8')),
-                     np.matrix([0, 1, 2], dtype=np.dtype('>i8')),
+                     np.arange(256, dtype=np.uint8).tobytes(),
                      u"C'est l'\xe9t\xe9 !"]
 
     fname = tmpdir.join('temp.pkl.gz').strpath
@@ -377,60 +355,66 @@ def test_compressed_pickle_dump_and_load(tmpdir):
     result_list = numpy_pickle.load(fname)
     for result, expected in zip(result_list, expected_list):
         if isinstance(expected, np.ndarray):
+            expected = _ensure_native_byte_order(expected)
             assert result.dtype == expected.dtype
             np.testing.assert_equal(result, expected)
         else:
             assert result == expected
 
 
-def _check_pickle(filename, expected_list):
+def _check_pickle(filename, expected_list, mmap_mode=None):
     """Helper function to test joblib pickle content.
 
     Note: currently only pickles containing an iterable are supported
     by this function.
     """
-    if not PY3_OR_LATER:
-        if filename.endswith('.xz') or filename.endswith('.lzma'):
-            # lzma is not implemented in python versions < 3.3
-            with raises(NotImplementedError):
-                numpy_pickle.load(filename)
-        elif filename.endswith('.lz4'):
-            # lz4 is not supported for python versions < 3.3
-            with raises(ValueError) as excinfo:
-                numpy_pickle.load(filename)
-            assert excinfo.match("lz4 compression is only available with "
-                                 "python3+")
-        return
-
     version_match = re.match(r'.+py(\d)(\d).+', filename)
     py_version_used_for_writing = int(version_match.group(1))
-    py_version_used_for_reading = sys.version_info[0]
 
     py_version_to_default_pickle_protocol = {2: 2, 3: 3}
-    pickle_reading_protocol = py_version_to_default_pickle_protocol.get(
-        py_version_used_for_reading, 4)
+    pickle_reading_protocol = py_version_to_default_pickle_protocol.get(3, 4)
     pickle_writing_protocol = py_version_to_default_pickle_protocol.get(
         py_version_used_for_writing, 4)
     if pickle_reading_protocol >= pickle_writing_protocol:
         try:
-            with warns(None) as warninfo:
+            with warnings.catch_warnings(record=True) as warninfo:
                 warnings.simplefilter('always')
                 warnings.filterwarnings(
                     'ignore', module='numpy',
                     message='The compiler package is deprecated')
-                result_list = numpy_pickle.load(filename)
+                result_list = numpy_pickle.load(filename, mmap_mode=mmap_mode)
             filename_base = os.path.basename(filename)
-            expected_nb_warnings = 1 if ("_0.9" in filename_base or
-                                         "_0.8.4" in filename_base) else 0
+            expected_nb_deprecation_warnings = 1 if (
+                "_0.9" in filename_base or "_0.8.4" in filename_base) else 0
+
+            expected_nb_user_warnings = 3 if (
+                re.search("_0.1.+.pkl$", filename_base) and
+                mmap_mode is not None) else 0
+            expected_nb_warnings = \
+                expected_nb_deprecation_warnings + expected_nb_user_warnings
             assert len(warninfo) == expected_nb_warnings
-            for w in warninfo:
-                assert w.category == DeprecationWarning
+
+            deprecation_warnings = [
+                w for w in warninfo if issubclass(
+                    w.category, DeprecationWarning)]
+            user_warnings = [
+                w for w in warninfo if issubclass(
+                    w.category, UserWarning)]
+            for w in deprecation_warnings:
                 assert (str(w.message) ==
                         "The file '{0}' has been generated with a joblib "
                         "version less than 0.10. Please regenerate this "
                         "pickle file.".format(filename))
+
+            for w in user_warnings:
+                escaped_filename = re.escape(filename)
+                assert re.search(
+                    f"memmapped.+{escaped_filename}.+segmentation fault",
+                    str(w.message))
+
             for result, expected in zip(result_list, expected_list):
                 if isinstance(expected, np.ndarray):
+                    expected = _ensure_native_byte_order(expected)
                     assert result.dtype == expected.dtype
                     np.testing.assert_equal(result, expected)
                 else:
@@ -438,8 +422,7 @@ def _check_pickle(filename, expected_list):
         except Exception as exc:
             # When trying to read with python 3 a pickle generated
             # with python 2 we expect a user-friendly error
-            if (py_version_used_for_reading == 3 and
-                    py_version_used_for_writing == 2):
+            if py_version_used_for_writing == 2:
                 assert isinstance(exc, ValueError)
                 message = ('You may be trying to read with '
                            'python 3 a joblib pickle generated with python 2.')
@@ -471,10 +454,7 @@ def test_joblib_pickle_across_python_versions():
     expected_list = [np.arange(5, dtype=np.dtype('<i8')),
                      np.arange(5, dtype=np.dtype('<f8')),
                      np.array([1, 'abc', {'a': 1, 'b': 2}], dtype='O'),
-                     # .tostring actually returns bytes and is a
-                     # compatibility alias for .tobytes which was
-                     # added in 1.9.0
-                     np.arange(256, dtype=np.uint8).tostring(),
+                     np.arange(256, dtype=np.uint8).tobytes(),
                      # np.matrix is a subclass of np.ndarray, here we want
                      # to verify this type of object is correctly unpickled
                      # among versions.
@@ -487,13 +467,77 @@ def test_joblib_pickle_across_python_versions():
     # relevant python, joblib and numpy versions.
     test_data_dir = os.path.dirname(os.path.abspath(data.__file__))
 
-    pickle_extensions = ('.pkl', '.gz', '.gzip', '.bz2', '.xz', '.lzma', 'lz4')
+    pickle_extensions = ('.pkl', '.gz', '.gzip', '.bz2', 'lz4')
+    if lzma is not None:
+        pickle_extensions += ('.xz', '.lzma')
     pickle_filenames = [os.path.join(test_data_dir, fn)
                         for fn in os.listdir(test_data_dir)
                         if any(fn.endswith(ext) for ext in pickle_extensions)]
 
     for fname in pickle_filenames:
         _check_pickle(fname, expected_list)
+
+
+@with_numpy
+def test_joblib_pickle_across_python_versions_with_mmap():
+    expected_list = [np.arange(5, dtype=np.dtype('<i8')),
+                     np.arange(5, dtype=np.dtype('<f8')),
+                     np.array([1, 'abc', {'a': 1, 'b': 2}], dtype='O'),
+                     np.arange(256, dtype=np.uint8).tobytes(),
+                     # np.matrix is a subclass of np.ndarray, here we want
+                     # to verify this type of object is correctly unpickled
+                     # among versions.
+                     np.matrix([0, 1, 2], dtype=np.dtype('<i8')),
+                     u"C'est l'\xe9t\xe9 !"]
+
+    test_data_dir = os.path.dirname(os.path.abspath(data.__file__))
+
+    pickle_filenames = [
+        os.path.join(test_data_dir, fn)
+        for fn in os.listdir(test_data_dir) if fn.endswith('.pkl')]
+    for fname in pickle_filenames:
+        _check_pickle(fname, expected_list, mmap_mode='r')
+
+
+@with_numpy
+def test_numpy_array_byte_order_mismatch_detection():
+    # List of numpy arrays with big endian byteorder.
+    be_arrays = [np.array([(1, 2.0), (3, 4.0)],
+                          dtype=[('', '>i8'), ('', '>f8')]),
+                 np.arange(3, dtype=np.dtype('>i8')),
+                 np.arange(3, dtype=np.dtype('>f8'))]
+
+    # Verify the byteorder mismatch is correctly detected.
+    for array in be_arrays:
+        if sys.byteorder == 'big':
+            assert not _is_numpy_array_byte_order_mismatch(array)
+        else:
+            assert _is_numpy_array_byte_order_mismatch(array)
+        converted = _ensure_native_byte_order(array)
+        if converted.dtype.fields:
+            for f in converted.dtype.fields.values():
+                f[0].byteorder == '='
+        else:
+            assert converted.dtype.byteorder == "="
+
+    # List of numpy arrays with little endian byteorder.
+    le_arrays = [np.array([(1, 2.0), (3, 4.0)],
+                          dtype=[('', '<i8'), ('', '<f8')]),
+                 np.arange(3, dtype=np.dtype('<i8')),
+                 np.arange(3, dtype=np.dtype('<f8'))]
+
+    # Verify the byteorder mismatch is correctly detected.
+    for array in le_arrays:
+        if sys.byteorder == 'little':
+            assert not _is_numpy_array_byte_order_mismatch(array)
+        else:
+            assert _is_numpy_array_byte_order_mismatch(array)
+        converted = _ensure_native_byte_order(array)
+        if converted.dtype.fields:
+            for f in converted.dtype.fields.values():
+                f[0].byteorder == '='
+        else:
+            assert converted.dtype.byteorder == "="
 
 
 @parametrize('compress_tuple', [('zlib', 3), ('gzip', 3)])
@@ -542,35 +586,27 @@ def test_joblib_compression_formats(tmpdir, compress, cmethod):
                range(10),
                {'a': 1, 2: 'b'}, [], (), {}, 0, 1.0)
 
+    if cmethod in ("lzma", "xz") and lzma is None:
+        pytest.skip("lzma is support not available")
+
+    elif cmethod == 'lz4' and with_lz4.args[0]:
+        # Skip the test if lz4 is not installed. We here use the with_lz4
+        # skipif fixture whose argument is True when lz4 is not installed
+        pytest.skip("lz4 is not installed.")
+
     dump_filename = filename + "." + cmethod
     for obj in objects:
-        if not PY3_OR_LATER and cmethod in ('lzma', 'xz', 'lz4'):
-            # Lzma module only available for python >= 3.3
-            msg = "{} compression is only available".format(cmethod)
-            error = NotImplementedError
-            if cmethod == 'lz4':
-                error = ValueError
-            with raises(error) as excinfo:
-                numpy_pickle.dump(obj, dump_filename,
-                                  compress=(cmethod, compress))
-            excinfo.match(msg)
-        elif cmethod == 'lz4' and with_lz4.args[0]:
-            # Skip the test if lz4 is not installed. We here use the with_lz4
-            # skipif fixture whose argument is True when lz4 is not installed
-            raise SkipTest("lz4 is not installed.")
+        numpy_pickle.dump(obj, dump_filename, compress=(cmethod, compress))
+        # Verify the file contains the right magic number
+        with open(dump_filename, 'rb') as f:
+            assert _detect_compressor(f) == cmethod
+        # Verify the reloaded object is correct
+        obj_reloaded = numpy_pickle.load(dump_filename)
+        assert isinstance(obj_reloaded, type(obj))
+        if isinstance(obj, np.ndarray):
+            np.testing.assert_array_equal(obj_reloaded, obj)
         else:
-            numpy_pickle.dump(obj, dump_filename,
-                              compress=(cmethod, compress))
-            # Verify the file contains the right magic number
-            with open(dump_filename, 'rb') as f:
-                assert _detect_compressor(f) == cmethod
-            # Verify the reloaded object is correct
-            obj_reloaded = numpy_pickle.load(dump_filename)
-            assert isinstance(obj_reloaded, type(obj))
-            if isinstance(obj, np.ndarray):
-                np.testing.assert_array_equal(obj_reloaded, obj)
-            else:
-                assert obj_reloaded == obj
+            assert obj_reloaded == obj
 
 
 def _gzip_file_decompress(source_filename, target_filename):
@@ -623,36 +659,28 @@ def test_load_externally_decompressed_files(tmpdir, extension, decompress):
               ('.pkl', 'not-compressed'),
               ('', 'not-compressed')])
 def test_compression_using_file_extension(tmpdir, extension, cmethod):
+    if cmethod in ("lzma", "xz") and lzma is None:
+        pytest.skip("lzma is missing")
     # test that compression method corresponds to the given filename extension.
     filename = tmpdir.join('test.pkl').strpath
     obj = "object to dump"
 
     dump_fname = filename + extension
-    if not PY3_OR_LATER and cmethod in ('xz', 'lzma'):
-        # Lzma module only available for python >= 3.3
-        msg = "{} compression is only available".format(cmethod)
-        with raises(NotImplementedError) as excinfo:
-            numpy_pickle.dump(obj, dump_fname)
-        excinfo.match(msg)
-    else:
-        numpy_pickle.dump(obj, dump_fname)
-        # Verify the file contains the right magic number
-        with open(dump_fname, 'rb') as f:
-            assert _detect_compressor(f) == cmethod
-        # Verify the reloaded object is correct
-        obj_reloaded = numpy_pickle.load(dump_fname)
-        assert isinstance(obj_reloaded, type(obj))
-        assert obj_reloaded == obj
+    numpy_pickle.dump(obj, dump_fname)
+    # Verify the file contains the right magic number
+    with open(dump_fname, 'rb') as f:
+        assert _detect_compressor(f) == cmethod
+    # Verify the reloaded object is correct
+    obj_reloaded = numpy_pickle.load(dump_fname)
+    assert isinstance(obj_reloaded, type(obj))
+    assert obj_reloaded == obj
 
 
 @with_numpy
 def test_file_handle_persistence(tmpdir):
-    objs = [np.random.random((10, 10)),
-            "some data",
-            np.matrix([0, 1, 2])]
+    objs = [np.random.random((10, 10)), "some data"]
     fobjs = [bz2.BZ2File, gzip.GzipFile]
-    if PY3_OR_LATER:
-        import lzma
+    if lzma is not None:
         fobjs += [lzma.LZMAFile]
     filename = tmpdir.join('test.pkl').strpath
 
@@ -681,9 +709,7 @@ def test_file_handle_persistence(tmpdir):
 
 @with_numpy
 def test_in_memory_persistence():
-    objs = [np.random.random((10, 10)),
-            "some data",
-            np.matrix([0, 1, 2])]
+    objs = [np.random.random((10, 10)), "some data"]
     for obj in objs:
         f = io.BytesIO()
         numpy_pickle.dump(obj, f)
@@ -768,18 +794,14 @@ def test_binary_zlibfile(tmpdir, data, compress_level):
     with open(filename, 'rb') as f:
         with BinaryZlibFile(f) as fz:
             assert fz.readable()
-            if PY3_OR_LATER:
-                assert fz.seekable()
+            assert fz.seekable()
             assert fz.fileno() == f.fileno()
             assert fz.read() == data
             with raises(io.UnsupportedOperation):
                 fz._check_can_write()
-            if PY3_OR_LATER:
-                # io.BufferedIOBase doesn't have seekable() method in
-                # python 2
-                assert fz.seekable()
-                fz.seek(0)
-                assert fz.tell() == 0
+            assert fz.seekable()
+            fz.seek(0)
+            assert fz.tell() == 0
         assert fz.closed
 
     # Test with a filename as input
@@ -862,17 +884,12 @@ def test_numpy_subclass(tmpdir):
 
 
 def test_pathlib(tmpdir):
-    try:
-        from pathlib import Path
-    except ImportError:
-        pass
-    else:
-        filename = tmpdir.join('test.pkl').strpath
-        value = 123
-        numpy_pickle.dump(value, Path(filename))
-        assert numpy_pickle.load(filename) == value
-        numpy_pickle.dump(value, filename)
-        assert numpy_pickle.load(Path(filename)) == value
+    filename = tmpdir.join('test.pkl').strpath
+    value = 123
+    numpy_pickle.dump(value, Path(filename))
+    assert numpy_pickle.load(filename) == value
+    numpy_pickle.dump(value, filename)
+    assert numpy_pickle.load(Path(filename)) == value
 
 
 @with_numpy
@@ -910,25 +927,33 @@ def test_pickle_highest_protocol(tmpdir):
 @with_numpy
 def test_pickle_in_socket():
     # test that joblib can pickle in sockets
-    if not PY3_OR_LATER:
-        raise SkipTest("Cannot peek or seek in socket in python 2.")
-
     test_array = np.arange(10)
     _ADDR = ("localhost", 12345)
     listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     listener.bind(_ADDR)
     listener.listen(1)
 
-    client = socket.create_connection(_ADDR)
-    server, client_addr = listener.accept()
+    with socket.create_connection(_ADDR) as client:
+        server, client_addr = listener.accept()
 
-    with server.makefile("wb") as sf:
-        numpy_pickle.dump(test_array, sf)
+        with server.makefile("wb") as sf:
+            numpy_pickle.dump(test_array, sf)
 
-    with client.makefile("rb") as cf:
-        array_reloaded = numpy_pickle.load(cf)
+        with client.makefile("rb") as cf:
+            array_reloaded = numpy_pickle.load(cf)
 
-    np.testing.assert_array_equal(array_reloaded, test_array)
+        np.testing.assert_array_equal(array_reloaded, test_array)
+
+        # Check that a byte-aligned numpy array written in a file can be send
+        # over a socket and then read on the other side
+        bytes_to_send = io.BytesIO()
+        numpy_pickle.dump(test_array, bytes_to_send)
+        server.send(bytes_to_send.getvalue())
+
+        with client.makefile("rb") as cf:
+            array_reloaded = numpy_pickle.load(cf)
+
+        np.testing.assert_array_equal(array_reloaded, test_array)
 
 
 @with_numpy
@@ -1063,8 +1088,6 @@ def test_lz4_compression_without_lz4(tmpdir):
     fname = tmpdir.join('test.nolz4').strpath
     data = 'test data'
     msg = LZ4_NOT_INSTALLED_ERROR
-    if not PY3_OR_LATER:
-        msg = "lz4 compression is only available with python3+"
     with raises(ValueError) as excinfo:
         numpy_pickle.dump(data, fname, compress='lz4')
     excinfo.match(msg)
@@ -1072,3 +1095,65 @@ def test_lz4_compression_without_lz4(tmpdir):
     with raises(ValueError) as excinfo:
         numpy_pickle.dump(data, fname + '.lz4')
     excinfo.match(msg)
+
+
+protocols = [pickle.DEFAULT_PROTOCOL]
+if pickle.HIGHEST_PROTOCOL != pickle.DEFAULT_PROTOCOL:
+    protocols.append(pickle.HIGHEST_PROTOCOL)
+
+
+@with_numpy
+@parametrize('protocol', protocols)
+def test_memmap_alignment_padding(tmpdir, protocol):
+    # Test that memmaped arrays returned by numpy.load are correctly aligned
+    fname = tmpdir.join('test.mmap').strpath
+
+    a = np.random.randn(2)
+    numpy_pickle.dump(a, fname, protocol=protocol)
+    memmap = numpy_pickle.load(fname, mmap_mode='r')
+    assert isinstance(memmap, np.memmap)
+    np.testing.assert_array_equal(a, memmap)
+    assert (
+        memmap.ctypes.data % numpy_pickle.NUMPY_ARRAY_ALIGNMENT_BYTES == 0)
+    assert memmap.flags.aligned
+
+    array_list = [
+        np.random.randn(2), np.random.randn(2),
+        np.random.randn(2), np.random.randn(2)
+    ]
+
+    # On Windows OSError 22 if reusing the same path for memmap ...
+    fname = tmpdir.join('test1.mmap').strpath
+    numpy_pickle.dump(array_list, fname, protocol=protocol)
+    l_reloaded = numpy_pickle.load(fname, mmap_mode='r')
+
+    for idx, memmap in enumerate(l_reloaded):
+        assert isinstance(memmap, np.memmap)
+        np.testing.assert_array_equal(array_list[idx], memmap)
+        assert (
+            memmap.ctypes.data % numpy_pickle.NUMPY_ARRAY_ALIGNMENT_BYTES == 0)
+        assert memmap.flags.aligned
+
+    array_dict = {
+        'a0': np.arange(2, dtype=np.uint8),
+        'a1': np.arange(3, dtype=np.uint8),
+        'a2': np.arange(5, dtype=np.uint8),
+        'a3': np.arange(7, dtype=np.uint8),
+        'a4': np.arange(11, dtype=np.uint8),
+        'a5': np.arange(13, dtype=np.uint8),
+        'a6': np.arange(17, dtype=np.uint8),
+        'a7': np.arange(19, dtype=np.uint8),
+        'a8': np.arange(23, dtype=np.uint8),
+    }
+
+    # On Windows OSError 22 if reusing the same path for memmap ...
+    fname = tmpdir.join('test2.mmap').strpath
+    numpy_pickle.dump(array_dict, fname, protocol=protocol)
+    d_reloaded = numpy_pickle.load(fname, mmap_mode='r')
+
+    for key, memmap in d_reloaded.items():
+        assert isinstance(memmap, np.memmap)
+        np.testing.assert_array_equal(array_dict[key], memmap)
+        assert (
+            memmap.ctypes.data % numpy_pickle.NUMPY_ARRAY_ALIGNMENT_BYTES == 0)
+        assert memmap.flags.aligned

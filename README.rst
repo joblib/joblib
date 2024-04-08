@@ -1,20 +1,20 @@
-|PyPi| |Travis| |AppVeyor| |Codecov|
-
-.. |Travis| image:: https://travis-ci.org/joblib/joblib.svg?branch=master
-   :target: https://travis-ci.org/joblib/joblib
-   :alt: Travis build status
-
-.. |AppVeyor| image:: https://ci.appveyor.com/api/projects/status/github/joblib/joblib?branch=master&svg=true
-   :target: https://ci.appveyor.com/project/joblib-ci/joblib/history
-   :alt: AppVeyor build status
-
-.. |Codecov| image:: https://codecov.io/gh/joblib/joblib/branch/master/graph/badge.svg
-   :target: https://codecov.io/gh/joblib/joblib
-   :alt: Codecov coverage
+|PyPi| |Azure| |ReadTheDocs| |Codecov| 
 
 .. |PyPi| image:: https://badge.fury.io/py/joblib.svg
    :target: https://badge.fury.io/py/joblib
    :alt: Joblib version
+
+.. |Azure| image:: https://dev.azure.com/joblib/joblib/_apis/build/status/joblib.joblib?branchName=master
+   :target: https://dev.azure.com/joblib/joblib/_build?definitionId=3&_a=summary&branchFilter=40
+   :alt: Azure CI status
+
+.. |ReadTheDocs| image:: https://readthedocs.org/projects/joblib/badge/?version=latest
+    :target: https://joblib.readthedocs.io/en/latest/?badge=latest
+    :alt: Documentation Status
+
+.. |Codecov| image:: https://codecov.io/gh/joblib/joblib/branch/master/graph/badge.svg
+   :target: https://codecov.io/gh/joblib/joblib
+   :alt: Codecov coverage
 
 
 The homepage of joblib with user documentation is located on:
@@ -26,10 +26,10 @@ Getting the latest code
 
 To get the latest code using git, simply type::
 
-    git clone git://github.com/joblib/joblib.git
+    git clone https://github.com/joblib/joblib.git
 
-If you don't have git installed, you can download a zip or tarball
-of the latest code: http://github.com/joblib/joblib/archives/master
+If you don't have git installed, you can download a zip
+of the latest code: https://github.com/joblib/joblib/archive/refs/heads/master.zip
 
 Installing
 ==========
@@ -48,7 +48,7 @@ Dependencies
 ============
 
 - Joblib has no mandatory dependencies besides Python (supported versions are
-  2.7+ and 3.4+).
+  3.8+).
 - Joblib has an optional dependency on Numpy (at least version 1.6.1) for array
   manipulation.
 - Joblib includes its own vendored copy of
@@ -67,8 +67,8 @@ Workflow to contribute
 ======================
 
 To contribute to joblib, first create an account on `github
-<http://github.com/>`_. Once this is done, fork the `joblib repository
-<http://github.com/joblib/joblib>`_ to have your own repository,
+<https://github.com/>`_. Once this is done, fork the `joblib repository
+<https://github.com/joblib/joblib>`_ to have your own repository,
 clone it using 'git clone' on the computers where you want to work. Make
 your changes in your clone, push them to your github account, test them
 on several computers, and when you are happy with them, send a pull
@@ -118,8 +118,13 @@ Making a release and uploading it to PyPI
 This command is only run by project manager, to make a release, and
 upload in to PyPI::
 
-    python setup.py sdist bdist_wheel upload_docs --upload-dir doc/_build/html
+    python setup.py sdist bdist_wheel
     twine upload dist/*
+
+
+Note that the documentation should automatically get updated at each git
+push. If that is not the case, try building th doc locally and resolve
+any doc build error (in particular when running the examples).
 
 Updating the changelog
 ======================
@@ -129,40 +134,3 @@ but, the following git command may be used to generate the lines::
 
     git log --abbrev-commit --date=short --no-merges --sparse
 
-Licensing
----------
-
-joblib is **BSD-licenced** (3 clause):
-
-    This software is OSI Certified Open Source Software.
-    OSI Certified is a certification mark of the Open Source Initiative.
-
-    Copyright (c) 2009-2011, joblib developpers
-    All rights reserved.
-
-    Redistribution and use in source and binary forms, with or without
-    modification, are permitted provided that the following conditions are met:
-
-    * Redistributions of source code must retain the above copyright notice,
-      this list of conditions and the following disclaimer.
-
-    * Redistributions in binary form must reproduce the above copyright notice,
-      this list of conditions and the following disclaimer in the documentation
-      and/or other materials provided with the distribution.
-
-    * Neither the name of Gael Varoquaux. nor the names of other joblib
-      contributors may be used to endorse or promote products derived from
-      this software without specific prior written permission.
-
-    **This software is provided by the copyright holders and contributors
-    "as is" and any express or implied warranties, including, but not
-    limited to, the implied warranties of merchantability and fitness for
-    a particular purpose are disclaimed. In no event shall the copyright
-    owner or contributors be liable for any direct, indirect, incidental,
-    special, exemplary, or consequential damages (including, but not
-    limited to, procurement of substitute goods or services; loss of use,
-    data, or profits; or business interruption) however caused and on any
-    theory of liability, whether in contract, strict liability, or tort
-    (including negligence or otherwise) arising in any way out of the use
-    of this software, even if advised of the possibility of such
-    damage.**

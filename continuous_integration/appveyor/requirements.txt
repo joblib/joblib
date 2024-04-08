@@ -1,9 +1,0 @@
-numpy
-wheel
-pytest
-pytest-cov
-pytest-timeout
-codecov
-distributed
-lz4
-threadpoolctl; python_version >= '3.5'

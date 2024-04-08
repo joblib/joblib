@@ -4,37 +4,48 @@ Backends for embarrassingly parallel code.
 
 import gc
 import os
-import sys
 import warnings
 import threading
-import functools
 import contextlib
 from abc import ABCMeta, abstractmethod
 
-from .format_stack import format_exc
-from .my_exceptions import WorkerInterrupt, TransportableException
+from ._utils import (
+    _TracebackCapturingWrapper,
+    _retrieve_traceback_capturing_wrapped_call
+)
+
 from ._multiprocessing_helpers import mp
-from ._compat import with_metaclass, PY27
+
 if mp is not None:
-    from .disk import delete_folder
     from .pool import MemmappingPool
     from multiprocessing.pool import ThreadPool
     from .executor import get_memmapping_executor
 
-    # Compat between concurrent.futures and multiprocessing TimeoutError
-    from multiprocessing import TimeoutError
-    from .externals.loky._base import TimeoutError as LokyTimeoutError
+    # Import loky only if multiprocessing is present
     from .externals.loky import process_executor, cpu_count
+    from .externals.loky.process_executor import ShutdownExecutorError
 
 
-class ParallelBackendBase(with_metaclass(ABCMeta)):
+class ParallelBackendBase(metaclass=ABCMeta):
     """Helper abc which defines all methods a ParallelBackend must implement"""
 
-    supports_timeout = False
     supports_inner_max_num_threads = False
+    supports_retrieve_callback = False
+    default_n_jobs = 1
+
+    @property
+    def supports_return_generator(self):
+        return self.supports_retrieve_callback
+
+    @property
+    def supports_timeout(self):
+        return self.supports_retrieve_callback
+
     nesting_level = None
 
-    def __init__(self, nesting_level=None, inner_max_num_threads=None):
+    def __init__(self, nesting_level=None, inner_max_num_threads=None,
+                 **kwargs):
+        super().__init__(**kwargs)
         self.nesting_level = nesting_level
         self.inner_max_num_threads = inner_max_num_threads
 
@@ -67,6 +78,14 @@ class ParallelBackendBase(with_metaclass(ABCMeta)):
     @abstractmethod
     def apply_async(self, func, callback=None):
         """Schedule a func to be run"""
+
+    def retrieve_result_callback(self, out):
+        """Called within the callback function passed in apply_async.
+
+        The argument of this function is the argument given to a callback in
+        the considered backend. It is supposed to return the outcome of a task
+        if it succeeded or raise the exception if it failed.
+        """
 
     def configure(self, n_jobs=1, parallel=None, prefer=None, require=None,
                   **backend_args):
@@ -101,7 +120,7 @@ class ParallelBackendBase(with_metaclass(ABCMeta)):
     def abort_everything(self, ensure_ready=True):
         """Abort any running tasks
 
-        This is called when an exception has been raised when executing a tasks
+        This is called when an exception has been raised when executing a task
         and all the remaining tasks will be ignored and can therefore be
         aborted to spare computation resources.
 
@@ -162,10 +181,15 @@ class ParallelBackendBase(with_metaclass(ABCMeta)):
         """
         explicit_n_threads = self.inner_max_num_threads
         default_n_threads = str(max(cpu_count() // n_jobs, 1))
+        
+        # IF JOBLIB_INNER_NUM_THREADS or JOBLIB_INNER_THREADS_BUDGET are set, this
+        # overrides the default value.
         joblib_inner_max_num_threads = os.environ.get(
-            'JOBLIB_INNER_NUM_THREADS', None)
+            'JOBLIB_INNER_NUM_THREADS', None
+        )
         joblib_inner_threads_budget = os.environ.get(
-            'JOBLIB_INNER_THREADS_BUDGET', None)
+            'JOBLIB_INNER_THREADS_BUDGET', None
+        )
         if joblib_inner_threads_budget is not None:
             if joblib_inner_max_num_threads is not None:
                 warnings.warn("Both variables JOBLIB_INNER_THREADS_BUDGET and "
@@ -173,24 +197,22 @@ class ParallelBackendBase(with_metaclass(ABCMeta)):
                               "JOBLIB_INNER_THREADS_BUDGET.")
             else:
                 joblib_inner_max_num_threads = str(max(
-                    1, int(joblib_inner_threads_budget) // n_jobs))
+                    1, int(joblib_inner_threads_budget) // n_jobs
+                ))
+        if joblib_inner_max_num_threads is not None:
+            default_n_threads = joblib_inner_max_num_threads
 
         # Set the inner environment variables to self.inner_max_num_threads if
-        # it is given. Else, default to cpu_count // n_jobs unless the variable
-        # is already present in the parent process environment.
+        # it is given. Else, use the default value unless the variable is already
+        # present in the parent process environment.
         env = {}
         for var in self.MAX_NUM_THREADS_VARS:
             if explicit_n_threads is None:
-                if joblib_inner_max_num_threads is None:
-                    var_value = os.environ.get(var, None)
-                    if var_value is None:
-                        var_value = default_n_threads
-                else:
-                    var_value = joblib_inner_max_num_threads
+                var_value = os.environ.get(var, default_n_threads)
             else:
-                var_value = str(explicit_n_threads)
+                var_value = explicit_n_threads
 
-            env[var] = var_value
+            env[var] = str(var_value)
 
         if self.TBB_ENABLE_IPC_VAR not in os.environ:
             # To avoid over-subscription when using TBB, let the TBB schedulers
@@ -211,6 +233,8 @@ class SequentialBackend(ParallelBackendBase):
     """
 
     uses_threads = True
+    supports_timeout = False
+    supports_retrieve_callback = False
     supports_sharedmem = True
 
     def effective_n_jobs(self, n_jobs):
@@ -221,10 +245,10 @@ class SequentialBackend(ParallelBackendBase):
 
     def apply_async(self, func, callback=None):
         """Schedule a func to be run"""
-        result = ImmediateResult(func)
-        if callback:
-            callback(result)
-        return result
+        raise RuntimeError("Should never be called for SequentialBackend.")
+
+    def retrieve_result_callback(self, out):
+        raise RuntimeError("Should never be called for SequentialBackend.")
 
     def get_nested_backend(self):
         # import is not top level to avoid cyclic import errors.
@@ -265,8 +289,17 @@ class PoolManagerMixin(object):
 
     def apply_async(self, func, callback=None):
         """Schedule a func to be run"""
+        # Here, we need a wrapper to avoid crashes on KeyboardInterruptErrors.
+        # We also call the callback on error, to make sure the pool does not
+        # wait on crashed jobs.
         return self._get_pool().apply_async(
-            SafeFunction(func), callback=callback)
+            _TracebackCapturingWrapper(func), (),
+            callback=callback, error_callback=callback
+        )
+
+    def retrieve_result_callback(self, out):
+        """Mimic concurrent.futures results, raising an error if needed."""
+        return _retrieve_traceback_capturing_wrapped_call(out)
 
     def abort_everything(self, ensure_ready=True):
         """Shutdown the pool and restart a new one with the same parameters"""
@@ -294,9 +327,9 @@ class AutoBatchingMixin(object):
     _DEFAULT_SMOOTHED_BATCH_DURATION = 0.0
 
     def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self._effective_batch_size = self._DEFAULT_EFFECTIVE_BATCH_SIZE
         self._smoothed_batch_duration = self._DEFAULT_SMOOTHED_BATCH_DURATION
-        super(AutoBatchingMixin, self).__init__(**kwargs)
 
     def compute_batch_size(self):
         """Determine the optimal batch size"""
@@ -322,8 +355,9 @@ class AutoBatchingMixin(object):
             self._effective_batch_size = batch_size
             if self.parallel.verbose >= 10:
                 self.parallel._print(
-                    "Batch computation too fast (%.4fs.) "
-                    "Setting batch_size=%d.", (batch_duration, batch_size))
+                    f"Batch computation too fast ({batch_duration}s.) "
+                    f"Setting batch_size={batch_size}."
+                )
         elif (batch_duration > self.MAX_IDEAL_BATCH_DURATION and
               old_batch_size >= 2):
             # The current batch size is too big. If we schedule overly long
@@ -341,8 +375,9 @@ class AutoBatchingMixin(object):
             self._effective_batch_size = batch_size
             if self.parallel.verbose >= 10:
                 self.parallel._print(
-                    "Batch computation too slow (%.4fs.) "
-                    "Setting batch_size=%d.", (batch_duration, batch_size))
+                    f"Batch computation too slow ({batch_duration}s.) "
+                    f"Setting batch_size={batch_size}."
+                )
         else:
             # No batch size adjustment
             batch_size = old_batch_size
@@ -398,7 +433,7 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
     ThreadingBackend is used as the default backend for nested calls.
     """
 
-    supports_timeout = True
+    supports_retrieve_callback = True
     uses_threads = True
     supports_sharedmem = True
 
@@ -433,10 +468,8 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
     However, does not suffer from the Python Global Interpreter Lock.
     """
 
-    # Environment variables to protect against bad situations when nesting
-    JOBLIB_SPAWNED_PROCESS = "__JOBLIB_SPAWNED_PARALLEL__"
-
-    supports_timeout = True
+    supports_retrieve_callback = True
+    supports_return_generator = False
 
     def effective_n_jobs(self, n_jobs):
         """Determine the number of jobs which are going to run in parallel.
@@ -450,10 +483,22 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
         if mp.current_process().daemon:
             # Daemonic processes cannot have children
             if n_jobs != 1:
-                warnings.warn(
-                    'Multiprocessing-backed parallel loops cannot be nested,'
-                    ' setting n_jobs=1',
-                    stacklevel=3)
+                if inside_dask_worker():
+                    msg = (
+                        "Inside a Dask worker with daemon=True, "
+                        "setting n_jobs=1.\nPossible work-arounds:\n"
+                        "- dask.config.set("
+                        "{'distributed.worker.daemon': False})"
+                        "- set the environment variable "
+                        "DASK_DISTRIBUTED__WORKER__DAEMON=False\n"
+                        "before creating your Dask cluster."
+                    )
+                else:
+                    msg = (
+                        'Multiprocessing-backed parallel loops '
+                        'cannot be nested, setting n_jobs=1'
+                    )
+                warnings.warn(msg, stacklevel=3)
             return 1
 
         if process_executor._CURRENT_DEPTH > 0:
@@ -484,19 +529,6 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
             raise FallbackToBackend(
                 SequentialBackend(nesting_level=self.nesting_level))
 
-        already_forked = int(os.environ.get(self.JOBLIB_SPAWNED_PROCESS, 0))
-        if already_forked:
-            raise ImportError(
-                '[joblib] Attempting to do parallel computing '
-                'without protecting your import on a system that does '
-                'not support forking. To use parallel-computing in a '
-                'script, you must protect your main loop using "if '
-                "__name__ == '__main__'"
-                '". Please see the joblib documentation on Parallel '
-                'for more information')
-        # Set an environment variable to avoid infinite loops
-        os.environ[self.JOBLIB_SPAWNED_PROCESS] = '1'
-
         # Make sure to free as much memory as possible before forking
         gc.collect()
         self._pool = MemmappingPool(n_jobs, **memmappingpool_args)
@@ -506,16 +538,13 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin,
     def terminate(self):
         """Shutdown the process or thread pool"""
         super(MultiprocessingBackend, self).terminate()
-        if self.JOBLIB_SPAWNED_PROCESS in os.environ:
-            del os.environ[self.JOBLIB_SPAWNED_PROCESS]
-
         self.reset_batch_stats()
 
 
 class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
     """Managing pool of workers with loky instead of multiprocessing."""
 
-    supports_timeout = True
+    supports_retrieve_callback = True
     supports_inner_max_num_threads = True
 
     def configure(self, n_jobs=1, parallel=None, prefer=None, require=None,
@@ -529,7 +558,7 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
         self._workers = get_memmapping_executor(
             n_jobs, timeout=idle_worker_timeout,
             env=self._prepare_worker_env(n_jobs=n_jobs),
-            **memmappingexecutor_args)
+            context_id=parallel._id, **memmappingexecutor_args)
         self.parallel = parallel
         return n_jobs
 
@@ -544,10 +573,23 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
         elif mp.current_process().daemon:
             # Daemonic processes cannot have children
             if n_jobs != 1:
-                warnings.warn(
-                    'Loky-backed parallel loops cannot be called in a'
-                    ' multiprocessing, setting n_jobs=1',
-                    stacklevel=3)
+                if inside_dask_worker():
+                    msg = (
+                        "Inside a Dask worker with daemon=True, "
+                        "setting n_jobs=1.\nPossible work-arounds:\n"
+                        "- dask.config.set("
+                        "{'distributed.worker.daemon': False})\n"
+                        "- set the environment variable "
+                        "DASK_DISTRIBUTED__WORKER__DAEMON=False\n"
+                        "before creating your Dask cluster."
+                    )
+                else:
+                    msg = (
+                        'Loky-backed parallel loops cannot be called in a'
+                        ' multiprocessing, setting n_jobs=1'
+                    )
+                warnings.warn(msg, stacklevel=3)
+
             return 1
         elif not (self.in_main_thread() or self.nesting_level == 0):
             # Prevent posix fork inside in non-main posix threads
@@ -563,27 +605,31 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
 
     def apply_async(self, func, callback=None):
         """Schedule a func to be run"""
-        future = self._workers.submit(SafeFunction(func))
-        future.get = functools.partial(self.wrap_future_result, future)
+        future = self._workers.submit(func)
         if callback is not None:
             future.add_done_callback(callback)
         return future
 
-    @staticmethod
-    def wrap_future_result(future, timeout=None):
-        """Wrapper for Future.result to implement the same behaviour as
-        AsyncResults.get from multiprocessing."""
+    def retrieve_result_callback(self, out):
         try:
-            return future.result(timeout=timeout)
-        except LokyTimeoutError:
-            raise TimeoutError()
+            return out.result()
+        except ShutdownExecutorError:
+            raise RuntimeError(
+                "The executor underlying Parallel has been shutdown. "
+                "This is likely due to the garbage collection of a previous "
+                "generator from a call to Parallel with return_as='generator'."
+                " Make sure the generator is not garbage collected when "
+                "submitting a new job or that it is first properly exhausted."
+            )
 
     def terminate(self):
         if self._workers is not None:
-            # Terminate does not shutdown the workers as we want to reuse them
-            # in latter calls but we free as much memory as we can by deleting
-            # the shared memory
-            delete_folder(self._workers._temp_folder)
+            # Don't terminate the workers as we want to reuse them in later
+            # calls, but cleanup the temporary resources that the Parallel call
+            # created. This 'hack' requires a private, low-level operation.
+            self._workers._temp_folder_manager._clean_temporary_resources(
+                context_id=self.parallel._id, force=False
+            )
             self._workers = None
 
         self.reset_batch_stats()
@@ -591,52 +637,11 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
     def abort_everything(self, ensure_ready=True):
         """Shutdown the workers and restart a new one with the same parameters
         """
-        self._workers.shutdown(kill_workers=True)
-        delete_folder(self._workers._temp_folder)
+        self._workers.terminate(kill_workers=True)
         self._workers = None
+
         if ensure_ready:
             self.configure(n_jobs=self.parallel.n_jobs, parallel=self.parallel)
-
-
-class ImmediateResult(object):
-    def __init__(self, batch):
-        # Don't delay the application, to avoid keeping the input
-        # arguments in memory
-        self.results = batch()
-
-    def get(self):
-        return self.results
-
-
-class SafeFunction(object):
-    """Wrapper that handles the serialization of exception tracebacks.
-
-    If an exception is triggered when calling the inner function, a copy of
-    the full traceback is captured to make it possible to serialize
-    it so that it can be rendered in a different Python process.
-    """
-    def __init__(self, func):
-        self.func = func
-
-    def __call__(self, *args, **kwargs):
-        try:
-            return self.func(*args, **kwargs)
-        except KeyboardInterrupt:
-            # We capture the KeyboardInterrupt and reraise it as
-            # something different, as multiprocessing does not
-            # interrupt processing for a KeyboardInterrupt
-            raise WorkerInterrupt()
-        except BaseException:
-            if PY27:
-                # Capture the traceback of the worker to make it part of
-                # the final exception message.
-                e_type, e_value, e_tb = sys.exc_info()
-                text = format_exc(e_type, e_value, e_tb, context=10,
-                                  tb_offset=1)
-                raise TransportableException(text, e_type)
-            else:
-                # Rely on Python 3 built-in Remote Traceback reporting
-                raise
 
 
 class FallbackToBackend(Exception):
@@ -644,3 +649,21 @@ class FallbackToBackend(Exception):
 
     def __init__(self, backend):
         self.backend = backend
+
+
+def inside_dask_worker():
+    """Check whether the current function is executed inside a Dask worker.
+    """
+    # This function can not be in joblib._dask because there would be a
+    # circular import:
+    # _dask imports _parallel_backend that imports _dask ...
+    try:
+        from distributed import get_worker
+    except ImportError:
+        return False
+
+    try:
+        get_worker()
+        return True
+    except ValueError:
+        return False
