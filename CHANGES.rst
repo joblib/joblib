@@ -4,6 +4,9 @@ Latest changes
 In development
 --------------
 
+- Allow caching co-routines with `Memory.cache`.
+  https://github.com/joblib/joblib/pull/894
+
 - Ensure that errors in the task generator given to Parallel's call
   are raised in the results consumming thread.
   https://github.com/joblib/joblib/pull/1491
