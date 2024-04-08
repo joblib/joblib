@@ -571,8 +571,8 @@ def test_func_dir(tmpdir):
     assert g._check_previous_func_code()
 
     # Test the robustness to failure of loading previous results.
-    func_id, args_id = g._get_output_identifiers(1)
-    output_dir = os.path.join(g.store_backend.location, func_id, args_id)
+    args_id = g._get_args_id(1)
+    output_dir = os.path.join(g.store_backend.location, g.func_id, args_id)
     a = g(1)
     assert os.path.exists(output_dir)
     os.remove(os.path.join(output_dir, 'output.pkl'))
@@ -587,10 +587,10 @@ def test_persistence(tmpdir):
 
     h = pickle.loads(pickle.dumps(g))
 
-    func_id, args_id = h._get_output_identifiers(1)
-    output_dir = os.path.join(h.store_backend.location, func_id, args_id)
+    args_id = h._get_args_id(1)
+    output_dir = os.path.join(h.store_backend.location, h.func_id, args_id)
     assert os.path.exists(output_dir)
-    assert output == h.store_backend.load_item([func_id, args_id])
+    assert output == h.store_backend.load_item([h.func_id, args_id])
     memory2 = pickle.loads(pickle.dumps(memory))
     assert memory.store_backend.location == memory2.store_backend.location
 
@@ -668,9 +668,9 @@ def test_call_and_shelve_lazily_load_stored_result(tmpdir):
 
     memory = Memory(location=tmpdir.strpath, verbose=0)
     func = memory.cache(f)
-    func_id, argument_hash = func._get_output_identifiers(2)
+    args_id = func._get_args_id(2)
     result_path = os.path.join(memory.store_backend.location,
-                               func_id, argument_hash, 'output.pkl')
+                               func.func_id, args_id, 'output.pkl')
     assert func(2) == 5
     first_access_time = os.stat(result_path).st_atime
     time.sleep(1)
@@ -875,7 +875,7 @@ def _setup_toy_cache(tmpdir, num_inputs=10):
         get_1000_bytes(arg)
 
     func_id = _build_func_identifier(get_1000_bytes)
-    hash_dirnames = [get_1000_bytes._get_output_identifiers(arg)[1]
+    hash_dirnames = [get_1000_bytes._get_args_id(arg)
                      for arg in inputs]
 
     full_hashdirs = [os.path.join(get_1000_bytes.store_backend.location,
