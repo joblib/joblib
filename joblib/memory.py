@@ -242,7 +242,9 @@ class MemorizedResult(Logger):
 
     def __repr__(self):
         return '{}(location="{}", func="{}", args_id="{}")'.format(
-            self.__class__.__name__, self.store_backend.location, *self._call_id)
+            self.__class__.__name__, self.store_backend.location,
+            *self._call_id
+        )
 
     def __getstate__(self):
         state = self.__dict__.copy()
