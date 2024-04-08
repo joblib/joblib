@@ -254,7 +254,7 @@ class parallel_config:
 
         Alternatively the backend can be passed directly as an instance.
 
-    n_jobs: int, default: None
+    n_jobs: int, default=None
         The maximum number of concurrently running jobs, such as the number
         of Python worker processes when ``backend="loky"`` or the size of the
         thread-pool when ``backend="threading"``.
@@ -280,7 +280,7 @@ class parallel_config:
         The frequency of the messages increases with the verbosity level.
         If it more than 10, all iterations are reported.
 
-    temp_folder: str, default=None
+    temp_folder: str or None, default=None
         Folder to be used by the pool for memmapping large arrays
         for sharing memory with worker processes. If None, this will try in
         order:
@@ -950,7 +950,7 @@ class Parallel(Logger):
 
         Parameters
         ----------
-        n_jobs: int, default: None
+        n_jobs: int, default=None
             The maximum number of concurrently running jobs, such as the number
             of Python worker processes when ``backend="loky"`` or the size of
             the thread-pool when ``backend="threading"``.
@@ -969,7 +969,7 @@ class Parallel(Logger):
             unless the call is performed under a :func:`~parallel_config`
             context manager that sets another value for ``n_jobs``.
             If n_jobs = 0 then a ValueError is raised.
-        backend: str, ParallelBackendBase instance or None, default: 'loky'
+        backend: str, ParallelBackendBase instance or None, default='loky'
             Specify the parallelization backend implementation.
             Supported backends are:
 
@@ -997,7 +997,7 @@ class Parallel(Logger):
             possible for library users to change the backend from the outside
             using the :func:`~parallel_config` context manager.
         return_as: str in {'list', 'generator', 'generator_unordered'},
-            default: 'list'
+            default='list'
             If 'list', calls to this instance will return a list, only when
             all results have been processed and retrieved.
             If 'generator', it will return a generator that yields the results
@@ -1007,32 +1007,33 @@ class Parallel(Logger):
             available results independently of the submission order. The output
             order is not deterministic in this case because it depends on the
             concurrency of the workers.
-        prefer: str in {'processes', 'threads'} or None, default: None
+        prefer: str in {'processes', 'threads'} or None, default=None
             Soft hint to choose the default backend if no specific backend
             was selected with the :func:`~parallel_config` context manager.
             The default process-based backend is 'loky' and the default
             thread-based backend is 'threading'. Ignored if the ``backend``
             parameter is specified.
-        require: 'sharedmem' or None, default None
+        require: 'sharedmem' or None, default=None
             Hard constraint to select the backend. If set to 'sharedmem',
             the selected backend will be single-host and thread-based even
             if the user asked for a non-thread based backend with
             :func:`~joblib.parallel_config`.
-        verbose: int, optional
+        verbose: int, default=0
             The verbosity level: if non zero, progress messages are
             printed. Above 50, the output is sent to stdout.
             The frequency of the messages increases with the verbosity level.
             If it more than 10, all iterations are reported.
-        timeout: float, optional
+        timeout: float or None, default=None
             Timeout limit for each task to complete.  If any task takes longer
             a TimeOutError will be raised. Only applied when n_jobs != 1
-        pre_dispatch: {'all', integer, or expression, as in '3*n_jobs'}
+        pre_dispatch: {'all', integer, or expression, as in '3*n_jobs'},
+            default='2*n_jobs'
             The number of batches (of tasks) to be pre-dispatched.
             Default is '2*n_jobs'. When batch_size="auto" this is reasonable
             default and the workers should never starve. Note that only basic
             arithmetics are allowed here and no modules can be used in this
             expression.
-        batch_size: int or 'auto', default: 'auto'
+        batch_size: int or 'auto', default='auto'
             The number of atomic tasks to dispatch at once to each
             worker. When individual evaluations are very fast, dispatching
             calls to workers can be slower than sequential computation because
@@ -1046,7 +1047,7 @@ class Parallel(Logger):
             batches of a single task at a time as the threading backend has
             very little overhead and using larger batch size has not proved to
             bring any gain in that case.
-        temp_folder: str, optional
+        temp_folder: str or None, default=None
             Folder to be used by the pool for memmapping large arrays
             for sharing memory with worker processes. If None, this will try in
             order:
@@ -1061,13 +1062,13 @@ class Parallel(Logger):
               variables, typically /tmp under Unix operating systems.
 
             Only active when ``backend="loky"`` or ``"multiprocessing"``.
-        max_nbytes int, str, or None, optional, 1M by default
+        max_nbytes int, str, or None, optional, default='1M'
             Threshold on the size of arrays passed to the workers that
             triggers automated memory mapping in temp_folder. Can be an int
             in Bytes, or a human-readable string, e.g., '1M' for 1 megabyte.
             Use None to disable memmapping of large arrays.
             Only active when ``backend="loky"`` or ``"multiprocessing"``.
-        mmap_mode: {None, 'r+', 'r', 'w+', 'c'}, default: 'r'
+        mmap_mode: {None, 'r+', 'r', 'w+', 'c'}, default='r'
             Memmapping mode for numpy arrays passed to workers. None will
             disable memmapping, other modes defined in the numpy.memmap doc:
             https://numpy.org/doc/stable/reference/generated/numpy.memmap.html
