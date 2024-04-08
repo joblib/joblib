@@ -1,8 +1,8 @@
 Latest changes
 ==============
 
-In development
---------------
+Release 1.4.0 -- 2024/04/08
+---------------------------
 
 - Allow caching co-routines with `Memory.cache`.
   https://github.com/joblib/joblib/pull/894
