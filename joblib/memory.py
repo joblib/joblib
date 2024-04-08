@@ -761,6 +761,7 @@ class MemorizedFunc(Logger):
             old_func_code, old_first_line =\
                 extract_first_line(
                     self.store_backend.get_cached_func_code([func_id]))
+            self._write_func_code(old_func_code, old_first_line)
         except (IOError, OSError):  # some backend can also raise OSError
             self._write_func_code(func_code, first_line)
             return False
