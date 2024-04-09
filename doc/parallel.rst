@@ -260,7 +260,7 @@ The backend factory can be any callable that returns an instance of
 ``ParallelBackendBase``. Please refer to the `default backends source code`_ as
 a reference if you want to implement your own custom backend.
 
-.. _`default backends source code`: https://github.com/joblib/joblib/blob/master/joblib/_parallel_backends.py
+.. _`default backends source code`: https://github.com/joblib/joblib/blob/main/joblib/_parallel_backends.py
 
 Note that it is possible to register a backend class that has some mandatory
 constructor parameters such as the network address and connection credentials

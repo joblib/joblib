@@ -9,10 +9,10 @@ schedules:
   displayName: Daily build
   branches:
     include:
-    - master
+    - main
 
 trigger:
-- master
+- main
 
 jobs:
 - job: linting
