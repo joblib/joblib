@@ -921,20 +921,6 @@ class Memory(Logger):
             Verbosity flag, controls the debug messages that are issued
             as functions are evaluated.
 
-        bytes_limit: int | str, optional
-            Limit in bytes of the size of the cache. By default, the size of
-            the cache is unlimited. When reducing the size of the cache,
-            ``joblib`` keeps the most recently accessed items first. If a
-            str is passed, it is converted to a number of bytes using units
-            { K | M | G} for kilo, mega, giga.
-
-            **Note:** You need to call :meth:`joblib.Memory.reduce_size` to
-            actually reduce the cache size to be less than ``bytes_limit``.
-
-            **Note:** This argument has been deprecated. One should give the
-            value of ``bytes_limit`` directly in
-            :meth:`joblib.Memory.reduce_size`.
-
         backend_options: dict, optional
             Contains a dictionary of named parameters used to configure
             the store backend.
@@ -943,21 +929,12 @@ class Memory(Logger):
     # Public interface
     # ------------------------------------------------------------------------
 
-    def __init__(self, location=None, backend='local',
-                 mmap_mode=None, compress=False, verbose=1, bytes_limit=None,
-                 backend_options=None):
+    def __init__(self, location=None, backend='local', mmap_mode=None,
+                 compress=False, verbose=1, backend_options=None):
         Logger.__init__(self)
         self._verbose = verbose
         self.mmap_mode = mmap_mode
         self.timestamp = time.time()
-        if bytes_limit is not None:
-            warnings.warn(
-                "bytes_limit argument has been deprecated. It will be removed "
-                "in version 1.5. Please pass its value directly to "
-                "Memory.reduce_size.",
-                category=DeprecationWarning
-            )
-        self.bytes_limit = bytes_limit
         self.backend = backend
         self.compress = compress
         if backend_options is None:
@@ -1087,9 +1064,6 @@ class Memory(Logger):
             of the cache, any items last accessed more than the given length of
             time ago are deleted.
         """
-        if bytes_limit is None:
-            bytes_limit = self.bytes_limit
-
         if self.store_backend is None:
             # No cached results, this function does nothing.
             return
