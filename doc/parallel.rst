@@ -47,7 +47,7 @@ aggregation, as illustrated in
 
 Future releases are planned to also support returning a generator that yields
 the results in the order of completion rather than the order of submission, by
-using ``return_as="unordered_generator"`` instead of ``return_as="generator"``.
+using ``return_as="generator_unordered"`` instead of ``return_as="generator"``.
 In this case the order of the outputs will depend on the concurrency of workers
 and will not be guaranteed to be deterministic, meaning the results can be
 yielded with a different order every time the code is executed.
