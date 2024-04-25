@@ -1,5 +1,11 @@
 version: 2
 
+# Set the version of Python and OS
+build:
+  os: ubuntu-22.04
+  tools:
+    python: "3.11"
+
 python:
   # make sure joblib is installed in the virtualenv (it is imported in
   # conf.py)

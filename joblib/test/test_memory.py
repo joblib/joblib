@@ -571,8 +571,8 @@ def test_func_dir(tmpdir):
     assert g._check_previous_func_code()
 
     # Test the robustness to failure of loading previous results.
-    func_id, args_id = g._get_output_identifiers(1)
-    output_dir = os.path.join(g.store_backend.location, func_id, args_id)
+    args_id = g._get_args_id(1)
+    output_dir = os.path.join(g.store_backend.location, g.func_id, args_id)
     a = g(1)
     assert os.path.exists(output_dir)
     os.remove(os.path.join(output_dir, 'output.pkl'))
@@ -587,10 +587,10 @@ def test_persistence(tmpdir):
 
     h = pickle.loads(pickle.dumps(g))
 
-    func_id, args_id = h._get_output_identifiers(1)
-    output_dir = os.path.join(h.store_backend.location, func_id, args_id)
+    args_id = h._get_args_id(1)
+    output_dir = os.path.join(h.store_backend.location, h.func_id, args_id)
     assert os.path.exists(output_dir)
-    assert output == h.store_backend.load_item([func_id, args_id])
+    assert output == h.store_backend.load_item([h.func_id, args_id])
     memory2 = pickle.loads(pickle.dumps(memory))
     assert memory.store_backend.location == memory2.store_backend.location
 
@@ -668,9 +668,9 @@ def test_call_and_shelve_lazily_load_stored_result(tmpdir):
 
     memory = Memory(location=tmpdir.strpath, verbose=0)
     func = memory.cache(f)
-    func_id, argument_hash = func._get_output_identifiers(2)
+    args_id = func._get_args_id(2)
     result_path = os.path.join(memory.store_backend.location,
-                               func_id, argument_hash, 'output.pkl')
+                               func.func_id, args_id, 'output.pkl')
     assert func(2) == 5
     first_access_time = os.stat(result_path).st_atime
     time.sleep(1)
@@ -875,7 +875,7 @@ def _setup_toy_cache(tmpdir, num_inputs=10):
         get_1000_bytes(arg)
 
     func_id = _build_func_identifier(get_1000_bytes)
-    hash_dirnames = [get_1000_bytes._get_output_identifiers(arg)[1]
+    hash_dirnames = [get_1000_bytes._get_args_id(arg)
                      for arg in inputs]
 
     full_hashdirs = [os.path.join(get_1000_bytes.store_backend.location,
@@ -911,6 +911,11 @@ def test__get_items(tmpdir):
 
 
 def test__get_items_to_delete(tmpdir):
+    # test empty cache
+    memory, _, _ = _setup_toy_cache(tmpdir, num_inputs=0)
+    items_to_delete = memory.store_backend._get_items_to_delete('1K')
+    assert items_to_delete == []
+
     memory, expected_hash_cachedirs, _ = _setup_toy_cache(tmpdir)
     items = memory.store_backend.get_items()
     # bytes_limit set to keep only one cache item (each hash cache
@@ -1227,8 +1232,8 @@ def test_instanciate_incomplete_store_backend():
     assert (backend_name, IncompleteStoreBackend) in _STORE_BACKENDS.items()
     with raises(TypeError) as excinfo:
         _store_backend_factory(backend_name, "fake_location")
-    excinfo.match(r"Can't instantiate abstract class "
-                  "IncompleteStoreBackend with abstract methods*")
+    excinfo.match(r"Can't instantiate abstract class IncompleteStoreBackend "
+                  "(without an implementation for|with) abstract methods*")
 
 
 def test_dummy_store_backend():
@@ -1392,16 +1397,6 @@ def test_info_log(tmpdir, caplog):
     _ = f(x)
     assert "Querying" not in caplog.text
     caplog.clear()
-
-
-def test_deprecated_bytes_limit(tmpdir):
-    from joblib import __version__
-    if __version__ >= "1.5":
-        raise DeprecationWarning(
-            "Bytes limit is deprecated and should be removed by 1.4"
-        )
-    with pytest.warns(DeprecationWarning, match="bytes_limit"):
-        _ = Memory(location=tmpdir.strpath, bytes_limit='1K')
 
 
 class TestCacheValidationCallback:

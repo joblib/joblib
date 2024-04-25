@@ -34,7 +34,7 @@ The manual way
 ---------------
 
 To install joblib first download the latest tarball (follow the link on
-the bottom of http://pypi.python.org/pypi/joblib) and expand it.
+the bottom of https://pypi.org/project/joblib/) and expand it.
 
 Installing in a local environment
 ..................................

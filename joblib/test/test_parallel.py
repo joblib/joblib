@@ -61,11 +61,12 @@ from joblib._parallel_backends import ParallelBackendBase
 from joblib._parallel_backends import LokyBackend
 
 from joblib.parallel import Parallel, delayed
-from joblib.parallel import register_parallel_backend, parallel_backend
 from joblib.parallel import parallel_config
+from joblib.parallel import parallel_backend
+from joblib.parallel import register_parallel_backend
 from joblib.parallel import effective_n_jobs, cpu_count
 
-from joblib.parallel import mp, BACKENDS, DEFAULT_BACKEND, EXTERNAL_BACKENDS
+from joblib.parallel import mp, BACKENDS, DEFAULT_BACKEND
 
 
 RETURN_GENERATOR_BACKENDS = BACKENDS.copy()
@@ -361,6 +362,28 @@ def test_parallel_pickling():
             UnpicklableObject()) for _ in range(10))
 
 
+@with_numpy
+@with_multiprocessing
+@parametrize('byteorder', ['<', '>', '='])
+def test_parallel_byteorder_corruption(byteorder):
+
+    def inspect_byteorder(x):
+        return x, x.dtype.byteorder
+
+    x = np.arange(6).reshape((2, 3)).view(f'{byteorder}i4')
+
+    initial_np_byteorder = x.dtype.byteorder
+
+    result = Parallel(n_jobs=2, backend='loky')(
+        delayed(inspect_byteorder)(x) for _ in range(3)
+    )
+
+    for x_returned, byteorder_in_worker in result:
+        assert byteorder_in_worker == initial_np_byteorder
+        assert byteorder_in_worker == x_returned.dtype.byteorder
+        np.testing.assert_array_equal(x, x_returned)
+
+
 @parametrize('backend', PARALLEL_BACKENDS)
 def test_parallel_timeout_success(backend):
     # Check that timeout isn't thrown when function is fast enough
@@ -445,6 +468,31 @@ def test_error_capture(backend):
         Parallel(n_jobs=2, verbose=0)(
             (delayed(exception_raiser)(i, custom_exception=True)
              for i in range(30)))
+
+
+@with_multiprocessing
+@parametrize('backend', BACKENDS)
+def test_error_in_task_iterator(backend):
+
+    def my_generator(raise_at=0):
+        for i in range(20):
+            if i == raise_at:
+                raise ValueError("Iterator Raising Error")
+            yield i
+
+    with Parallel(n_jobs=2, backend=backend) as p:
+        # The error is raised in the pre-dispatch phase
+        with raises(ValueError, match="Iterator Raising Error"):
+            p(delayed(square)(i) for i in my_generator(raise_at=0))
+
+        # The error is raised when dispatching a new task after the
+        # pre-dispatch (likely to happen in a different thread)
+        with raises(ValueError, match="Iterator Raising Error"):
+            p(delayed(square)(i) for i in my_generator(raise_at=5))
+
+        # Same, but raises long after the pre-dispatch phase
+        with raises(ValueError, match="Iterator Raising Error"):
+            p(delayed(square)(i) for i in my_generator(raise_at=19))
 
 
 def consumer(queue, item):
@@ -593,11 +641,11 @@ def test_invalid_backend():
         Parallel(backend='unit-testing')
 
     with raises(ValueError, match="Invalid backend:"):
-        with parallel_backend('unit-testing'):
+        with parallel_config(backend='unit-testing'):
             pass
 
     with raises(ValueError, match="Invalid backend:"):
-        with parallel_config('unit-testing'):
+        with parallel_config(backend='unit-testing'):
             pass
 
 
@@ -606,6 +654,29 @@ def test_invalid_njobs(backend):
     with raises(ValueError) as excinfo:
         Parallel(n_jobs=0, backend=backend)._initialize_backend()
     assert "n_jobs == 0 in Parallel has no meaning" in str(excinfo.value)
+
+    with raises(ValueError) as excinfo:
+        Parallel(n_jobs=0.5, backend=backend)._initialize_backend()
+    assert "n_jobs == 0 in Parallel has no meaning" in str(excinfo.value)
+
+    with raises(ValueError) as excinfo:
+        Parallel(n_jobs="2.3", backend=backend)._initialize_backend()
+    assert "n_jobs could not be converted to int" in str(excinfo.value)
+
+    with raises(ValueError) as excinfo:
+        Parallel(n_jobs="invalid_str", backend=backend)._initialize_backend()
+    assert "n_jobs could not be converted to int" in str(excinfo.value)
+
+
+@with_multiprocessing
+@parametrize('backend', PARALLEL_BACKENDS)
+@parametrize('n_jobs', ['2', 2.3, 2])
+def test_njobs_converted_to_int(backend, n_jobs):
+    p = Parallel(n_jobs=n_jobs, backend=backend)
+    assert p._effective_n_jobs() == 2
+
+    res = p(delayed(square)(i) for i in range(10))
+    assert all(r == square(i) for i, r in enumerate(res))
 
 
 def test_register_parallel_backend():
@@ -636,7 +707,7 @@ def test_backend_no_multiprocessing():
         Parallel(backend='loky')(delayed(square)(i) for i in range(3))
 
     # The below should now work without problems
-    with parallel_backend('loky'):
+    with parallel_config(backend='loky'):
         Parallel()(delayed(square)(i) for i in range(3))
 
 
@@ -648,17 +719,17 @@ def check_backend_context_manager(context, backend_name):
         p = Parallel()
         assert p.n_jobs == 3
         if backend_name == 'multiprocessing':
-            assert type(active_backend) == MultiprocessingBackend
-            assert type(p._backend) == MultiprocessingBackend
+            assert type(active_backend) is MultiprocessingBackend
+            assert type(p._backend) is MultiprocessingBackend
         elif backend_name == 'loky':
-            assert type(active_backend) == LokyBackend
-            assert type(p._backend) == LokyBackend
+            assert type(active_backend) is LokyBackend
+            assert type(p._backend) is LokyBackend
         elif backend_name == 'threading':
-            assert type(active_backend) == ThreadingBackend
-            assert type(p._backend) == ThreadingBackend
+            assert type(active_backend) is ThreadingBackend
+            assert type(p._backend) is ThreadingBackend
         elif backend_name.startswith('test_'):
-            assert type(active_backend) == FakeParallelBackend
-            assert type(p._backend) == FakeParallelBackend
+            assert type(active_backend) is FakeParallelBackend
+            assert type(p._backend) is FakeParallelBackend
 
 
 all_backends_for_context_manager = PARALLEL_BACKENDS[:]
@@ -707,7 +778,7 @@ def test_parameterized_backend_context_manager(monkeypatch, context):
 
     with context('param_backend', param=42, n_jobs=3):
         active_backend, active_n_jobs = parallel.get_active_backend()
-        assert type(active_backend) == ParameterizedParallelBackend
+        assert type(active_backend) is ParameterizedParallelBackend
         assert active_backend.param == 42
         assert active_n_jobs == 3
         p = Parallel()
@@ -728,7 +799,7 @@ def test_directly_parameterized_backend_context_manager(context):
     # without registration
     with context(ParameterizedParallelBackend(param=43), n_jobs=5):
         active_backend, active_n_jobs = parallel.get_active_backend()
-        assert type(active_backend) == ParameterizedParallelBackend
+        assert type(active_backend) is ParameterizedParallelBackend
         assert active_backend.param == 43
         assert active_n_jobs == 5
         p = Parallel()
@@ -1212,12 +1283,12 @@ def set_list_value(input_list, index, value):
 
 
 @pytest.mark.parametrize('n_jobs', [1, 2, 4])
-def test_parallel_return_generator_order(n_jobs):
+def test_parallel_return_order_with_return_as_generator_parameter(n_jobs):
     # This test inserts values in a list in some expected order
     # in sequential computing, and then checks that this order has been
     # respected by Parallel output generator.
     input_list = [0] * 5
-    result = Parallel(n_jobs=n_jobs, return_generator=True,
+    result = Parallel(n_jobs=n_jobs, return_as="generator",
                       backend='threading')(
         delayed(set_list_value)(input_list, i, i) for i in range(5))
 
@@ -1225,6 +1296,54 @@ def test_parallel_return_generator_order(n_jobs):
     result = list(result)
 
     assert all(v == r for v, r in zip(input_list, result))
+
+
+def _sqrt_with_delay(e, delay):
+    if delay:
+        sleep(30)
+    return sqrt(e)
+
+
+def _test_parallel_unordered_generator_returns_fastest_first(backend, n_jobs):
+    # This test submits 10 tasks, but the second task is super slow. This test
+    # checks that the 9 other tasks return before the slow task is done, when
+    # `return_as` parameter is set to `'generator_unordered'`
+    result = Parallel(n_jobs=n_jobs, return_as="generator_unordered",
+                      backend=backend)(
+        delayed(_sqrt_with_delay)(i**2, (i == 1)) for i in range(10))
+
+    quickly_returned = sorted(next(result) for _ in range(9))
+
+    expected_quickly_returned = [0] + list(range(2, 10))
+
+    assert all(
+        v == r for v, r in zip(expected_quickly_returned, quickly_returned)
+    )
+
+    del result
+    force_gc_pypy()
+
+
+@pytest.mark.parametrize('n_jobs', [2, 4])
+# NB: for this test to work, the backend must be allowed to process tasks
+# concurrently, so at least two jobs with a non-sequential backend are
+# mandatory.
+@with_multiprocessing
+@parametrize('backend', set(RETURN_GENERATOR_BACKENDS) - {"sequential"})
+def test_parallel_unordered_generator_returns_fastest_first(backend, n_jobs):
+    _test_parallel_unordered_generator_returns_fastest_first(backend, n_jobs)
+
+
+@pytest.mark.parametrize('n_jobs', [2, -1])
+@parametrize("context", [parallel_config, parallel_backend])
+@skipif(distributed is None, reason='This test requires dask')
+def test_parallel_unordered_generator_returns_fastest_first_with_dask(
+        n_jobs, context
+):
+    with distributed.Client(
+            n_workers=2, threads_per_worker=2
+    ), context("dask"):
+        _test_parallel_unordered_generator_returns_fastest_first(None, n_jobs)
 
 
 @parametrize('backend', ALL_VALID_BACKENDS)
@@ -1245,14 +1364,11 @@ def get_large_object(arg):
     return result
 
 
-@with_numpy
-@parametrize('backend', RETURN_GENERATOR_BACKENDS)
-@parametrize('n_jobs', [1, 2, -2, -1])
-def test_deadlock_with_generator(backend, n_jobs):
+def _test_deadlock_with_generator(backend, return_as, n_jobs):
     # Non-regression test for a race condition in the backends when the pickler
     # is delayed by a large object.
     with Parallel(n_jobs=n_jobs, backend=backend,
-                  return_generator=True) as parallel:
+                  return_as=return_as) as parallel:
         result = parallel(delayed(get_large_object)(i) for i in range(10))
         next(result)
         next(result)
@@ -1262,15 +1378,36 @@ def test_deadlock_with_generator(backend, n_jobs):
         force_gc_pypy()
 
 
+@with_numpy
 @parametrize('backend', RETURN_GENERATOR_BACKENDS)
+@parametrize('return_as', ["generator", "generator_unordered"])
 @parametrize('n_jobs', [1, 2, -2, -1])
-def test_multiple_generator_call(backend, n_jobs):
+def test_deadlock_with_generator(backend, return_as, n_jobs):
+    _test_deadlock_with_generator(backend, return_as, n_jobs)
+
+
+@with_numpy
+@pytest.mark.parametrize('n_jobs', [2, -1])
+@parametrize('return_as', ["generator", "generator_unordered"])
+@parametrize("context", [parallel_config, parallel_backend])
+@skipif(distributed is None, reason='This test requires dask')
+def test_deadlock_with_generator_and_dask(context, return_as, n_jobs):
+    with distributed.Client(
+            n_workers=2, threads_per_worker=2
+    ), context("dask"):
+        _test_deadlock_with_generator(None, return_as, n_jobs)
+
+
+@parametrize('backend', RETURN_GENERATOR_BACKENDS)
+@parametrize('return_as', ["generator", "generator_unordered"])
+@parametrize('n_jobs', [1, 2, -2, -1])
+def test_multiple_generator_call(backend, return_as, n_jobs):
     # Non-regression test that ensures the dispatch of the tasks starts
     # immediately when Parallel.__call__ is called. This test relies on the
     # assumption that only one generator can be submitted at a time.
     with raises(RuntimeError,
                 match="This Parallel instance is already running"):
-        parallel = Parallel(n_jobs, backend=backend, return_generator=True)
+        parallel = Parallel(n_jobs, backend=backend, return_as=return_as)
         g = parallel(delayed(sleep)(1) for _ in range(10))  # noqa: F841
         t_start = time.time()
         gen2 = parallel(delayed(id)(i) for i in range(100))  # noqa: F841
@@ -1288,13 +1425,14 @@ def test_multiple_generator_call(backend, n_jobs):
 
 
 @parametrize('backend', RETURN_GENERATOR_BACKENDS)
+@parametrize('return_as', ["generator", "generator_unordered"])
 @parametrize('n_jobs', [1, 2, -2, -1])
-def test_multiple_generator_call_managed(backend, n_jobs):
+def test_multiple_generator_call_managed(backend, return_as, n_jobs):
     # Non-regression test that ensures the dispatch of the tasks starts
     # immediately when Parallel.__call__ is called. This test relies on the
     # assumption that only one generator can be submitted at a time.
     with Parallel(n_jobs, backend=backend,
-                  return_generator=True) as parallel:
+                  return_as=return_as) as parallel:
         g = parallel(delayed(sleep)(10) for _ in range(10))  # noqa: F841
         t_start = time.time()
         with raises(RuntimeError,
@@ -1314,15 +1452,25 @@ def test_multiple_generator_call_managed(backend, n_jobs):
 
 
 @parametrize('backend', RETURN_GENERATOR_BACKENDS)
+@parametrize('return_as_1', ["generator", "generator_unordered"])
+@parametrize('return_as_2', ["generator", "generator_unordered"])
 @parametrize('n_jobs', [1, 2, -2, -1])
-def test_multiple_generator_call_separated(backend, n_jobs):
+def test_multiple_generator_call_separated(
+        backend, return_as_1, return_as_2, n_jobs
+):
     # Check that for separated Parallel, both tasks are correctly returned.
-    g = Parallel(n_jobs, backend=backend, return_generator=True)(
+    g = Parallel(n_jobs, backend=backend, return_as=return_as_1)(
         delayed(sqrt)(i ** 2) for i in range(10)
     )
-    g2 = Parallel(n_jobs, backend=backend, return_generator=True)(
+    g2 = Parallel(n_jobs, backend=backend, return_as=return_as_2)(
         delayed(sqrt)(i ** 2) for i in range(10, 20)
     )
+
+    if return_as_1 == "generator_unordered":
+        g = sorted(g)
+
+    if return_as_2 == "generator_unordered":
+        g2 = sorted(g2)
 
     assert all(res == i for res, i in zip(g, range(10)))
     assert all(res == i for res, i in zip(g2, range(10, 20)))
@@ -1333,14 +1481,18 @@ def test_multiple_generator_call_separated(backend, n_jobs):
     ('threading', False),
     ('sequential', False),
 ])
-def test_multiple_generator_call_separated_gc(backend, error):
+@parametrize('return_as_1', ["generator", "generator_unordered"])
+@parametrize('return_as_2', ["generator", "generator_unordered"])
+def test_multiple_generator_call_separated_gc(
+        backend, return_as_1, return_as_2, error
+):
 
     if (backend == 'loky') and (mp is None):
         pytest.skip("Requires multiprocessing")
 
     # Check that in loky, only one call can be run at a time with
     # a single executor.
-    parallel = Parallel(2, backend=backend, return_generator=True)
+    parallel = Parallel(2, backend=backend, return_as=return_as_1)
     g = parallel(delayed(sleep)(10) for i in range(10))
     g_wr = weakref.finalize(g, lambda: print("Generator collected"))
     ctx = (
@@ -1353,13 +1505,17 @@ def test_multiple_generator_call_separated_gc(backend, error):
         # For the other backends, as the worker pools are not shared between
         # the two calls, this should proceed correctly.
         t_start = time.time()
-        g = Parallel(2, backend=backend, return_generator=True)(
+        g = Parallel(2, backend=backend, return_as=return_as_2)(
             delayed(sqrt)(i ** 2) for i in range(10, 20)
         )
 
         # The gc in pypy can be delayed. Force it to test the behavior when it
         # will eventually be collected.
         force_gc_pypy()
+
+        if return_as_2 == "generator_unordered":
+            g = sorted(g)
+
         assert all(res == i for res, i in zip(g, range(10, 20)))
 
     assert time.time() - t_start < 5
@@ -1463,30 +1619,30 @@ def test_backend_hinting_and_constraints(context):
         assert type(Parallel(n_jobs=n_jobs)._backend) == DefaultBackend
 
         p = Parallel(n_jobs=n_jobs, prefer='threads')
-        assert type(p._backend) == ThreadingBackend
+        assert type(p._backend) is ThreadingBackend
 
         p = Parallel(n_jobs=n_jobs, prefer='processes')
-        assert type(p._backend) == DefaultBackend
+        assert type(p._backend) is DefaultBackend
 
         p = Parallel(n_jobs=n_jobs, require='sharedmem')
-        assert type(p._backend) == ThreadingBackend
+        assert type(p._backend) is ThreadingBackend
 
     # Explicit backend selection can override backend hinting although it
     # is useless to pass a hint when selecting a backend.
     p = Parallel(n_jobs=2, backend='loky', prefer='threads')
-    assert type(p._backend) == LokyBackend
+    assert type(p._backend) is LokyBackend
 
     with context('loky', n_jobs=2):
         # Explicit backend selection by the user with the context manager
         # should be respected when combined with backend hints only.
         p = Parallel(prefer='threads')
-        assert type(p._backend) == LokyBackend
+        assert type(p._backend) is LokyBackend
         assert p.n_jobs == 2
 
     with context('loky', n_jobs=2):
         # Locally hard-coded n_jobs value is respected.
         p = Parallel(n_jobs=3, prefer='threads')
-        assert type(p._backend) == LokyBackend
+        assert type(p._backend) is LokyBackend
         assert p.n_jobs == 3
 
     with context('loky', n_jobs=2):
@@ -1495,12 +1651,12 @@ def test_backend_hinting_and_constraints(context):
         # In this case, the default backend that supports shared mem is
         # used an the default number of processes is used.
         p = Parallel(require='sharedmem')
-        assert type(p._backend) == ThreadingBackend
+        assert type(p._backend) is ThreadingBackend
         assert p.n_jobs == 1
 
     with context('loky', n_jobs=2):
         p = Parallel(n_jobs=3, require='sharedmem')
-        assert type(p._backend) == ThreadingBackend
+        assert type(p._backend) is ThreadingBackend
         assert p.n_jobs == 3
 
 
@@ -1522,10 +1678,10 @@ def test_backend_hinting_and_constraints_with_custom_backends(
 
     with context(MyCustomThreadingBackend()):
         p = Parallel(n_jobs=2, prefer='processes')  # ignored
-        assert type(p._backend) == MyCustomThreadingBackend
+        assert type(p._backend) is MyCustomThreadingBackend
 
         p = Parallel(n_jobs=2, require='sharedmem')
-        assert type(p._backend) == MyCustomThreadingBackend
+        assert type(p._backend) is MyCustomThreadingBackend
 
     class MyCustomProcessingBackend(ParallelBackendBase):
         supports_sharedmem = False
@@ -1539,17 +1695,17 @@ def test_backend_hinting_and_constraints_with_custom_backends(
 
     with context(MyCustomProcessingBackend()):
         p = Parallel(n_jobs=2, prefer='processes')
-        assert type(p._backend) == MyCustomProcessingBackend
+        assert type(p._backend) is MyCustomProcessingBackend
 
         out, err = capsys.readouterr()
         assert out == ""
         assert err == ""
 
         p = Parallel(n_jobs=2, require='sharedmem', verbose=10)
-        assert type(p._backend) == ThreadingBackend
+        assert type(p._backend) is ThreadingBackend
 
         out, err = capsys.readouterr()
-        expected = ("Using ThreadingBackend as joblib.Parallel backend "
+        expected = ("Using ThreadingBackend as joblib backend "
                     "instead of MyCustomProcessingBackend as the latter "
                     "does not provide shared memory semantics.")
         assert out.strip() == expected
@@ -1578,28 +1734,6 @@ def test_invalid_backend_hinting_and_constraints():
             Parallel(backend='loky', require='sharedmem')
         with raises(ValueError):
             Parallel(backend='multiprocessing', require='sharedmem')
-
-
-@parametrize("context", [parallel_config, parallel_backend])
-def test_global_parallel_backend(context):
-    default = Parallel()._backend
-
-    pb = context('threading')
-    assert isinstance(Parallel()._backend, ThreadingBackend)
-
-    pb.unregister()
-    assert type(Parallel()._backend) is type(default)
-
-
-@parametrize("context", [parallel_config, parallel_backend])
-def test_external_backends(context):
-    def register_foo():
-        BACKENDS['foo'] = ThreadingBackend
-
-    EXTERNAL_BACKENDS['foo'] = register_foo
-
-    with context('foo'):
-        assert isinstance(Parallel()._backend, ThreadingBackend)
 
 
 def _recursive_backend_info(limit=3, **kwargs):
@@ -1639,26 +1773,25 @@ def test_nested_parallelism_limit(context, backend):
 
 
 @with_numpy
-@skipif(distributed is None, reason='This test requires dask')
 @parametrize("context", [parallel_config, parallel_backend])
+@skipif(distributed is None, reason='This test requires dask')
 def test_nested_parallelism_with_dask(context):
-    client = distributed.Client(n_workers=2, threads_per_worker=2)  # noqa
+    with distributed.Client(n_workers=2, threads_per_worker=2):
+        # 10 MB of data as argument to trigger implicit scattering
+        data = np.ones(int(1e7), dtype=np.uint8)
+        for i in range(2):
+            with context('dask'):
+                backend_types_and_levels = _recursive_backend_info(data=data)
+            assert len(backend_types_and_levels) == 4
+            assert all(name == 'DaskDistributedBackend'
+                       for name, _ in backend_types_and_levels)
 
-    # 10 MB of data as argument to trigger implicit scattering
-    data = np.ones(int(1e7), dtype=np.uint8)
-    for i in range(2):
+        # No argument
         with context('dask'):
-            backend_types_and_levels = _recursive_backend_info(data=data)
+            backend_types_and_levels = _recursive_backend_info()
         assert len(backend_types_and_levels) == 4
         assert all(name == 'DaskDistributedBackend'
                    for name, _ in backend_types_and_levels)
-
-    # No argument
-    with context('dask'):
-        backend_types_and_levels = _recursive_backend_info()
-    assert len(backend_types_and_levels) == 4
-    assert all(name == 'DaskDistributedBackend'
-               for name, _ in backend_types_and_levels)
 
 
 def _recursive_parallel(nesting_limit=None):
@@ -1688,7 +1821,7 @@ def test_thread_bomb_mitigation(context, backend):
             # pickling it to be send back to the parent process. In this
             # case the worker crashes but the original traceback is still
             # printed on stderr. This could be improved but does not seem
-            # simple to do and this is is not critical for users (as long
+            # simple to do and this is not critical for users (as long
             # as there is no process or thread bomb happening).
             pytest.xfail("Loky worker crash when serializing RecursionError")
 
@@ -1721,9 +1854,8 @@ def test_parallel_thread_limit(backend):
                 assert value == "1"
 
 
-@skipif(distributed is not None,
-        reason='This test requires dask NOT installed')
 @parametrize("context", [parallel_config, parallel_backend])
+@skipif(distributed is not None, reason='This test requires dask')
 def test_dask_backend_when_dask_not_installed(context):
     with raises(ValueError, match='Please install dask'):
         context('dask')
@@ -1823,7 +1955,7 @@ def test_threadpool_limitation_in_child_loky(n_jobs):
     # Skip this test if numpy is not linked to a BLAS library
     parent_info = _check_numpy_threadpool_limits()
     if len(parent_info) == 0:
-        pytest.skip(msg="Need a version of numpy linked to BLAS")
+        pytest.skip(reason="Need a version of numpy linked to BLAS")
 
     workers_threadpool_infos = Parallel(backend="loky", n_jobs=n_jobs)(
         delayed(_check_numpy_threadpool_limits)() for i in range(2))
@@ -1849,7 +1981,7 @@ def test_threadpool_limitation_in_child_context(
     # Skip this test if numpy is not linked to a BLAS library
     parent_info = _check_numpy_threadpool_limits()
     if len(parent_info) == 0:
-        pytest.skip(msg="Need a version of numpy linked to BLAS")
+        pytest.skip(reason="Need a version of numpy linked to BLAS")
 
     with context('loky', inner_max_num_threads=inner_max_num_threads):
         workers_threadpool_infos = Parallel(n_jobs=n_jobs)(
@@ -1902,17 +2034,6 @@ def test_threadpool_limitation_in_child_override(context, n_jobs, var_name):
             os.environ[var_name] = original_var_value
 
 
-@with_numpy
-@with_multiprocessing
-@parametrize('backend', ['multiprocessing', 'threading',
-                         MultiprocessingBackend(), ThreadingBackend()])
-@parametrize("context", [parallel_config, parallel_backend])
-def test_threadpool_limitation_in_child_context_error(context, backend):
-
-    with raises(AssertionError, match=r"does not acc.*inner_max_num_threads"):
-        context(backend, inner_max_num_threads=1)
-
-
 @with_multiprocessing
 @parametrize('n_jobs', [2, 4, -1])
 def test_loky_reuse_workers(n_jobs):
@@ -1933,48 +2054,3 @@ def test_loky_reuse_workers(n_jobs):
         parallel_call(n_jobs)
         executor = get_reusable_executor(reuse=True)
         assert executor == first_executor
-
-
-@with_numpy
-@with_multiprocessing
-def test_parallel_config_no_backend(tmpdir):
-    # Check that parallel_config allows to change the config
-    # even if no backend is set.
-    with parallel_config(n_jobs=2, max_nbytes=1, temp_folder=tmpdir):
-        with Parallel(prefer="processes") as p:
-            assert isinstance(p._backend, LokyBackend)
-            assert p.n_jobs == 2
-
-            # Checks that memmapping is enabled
-            p(delayed(check_memmap)(a) for a in [np.random.random(10)] * 2)
-            assert len(os.listdir(tmpdir)) > 0
-
-
-@with_numpy
-@with_multiprocessing
-def test_parallel_config_params_explicit_set(tmpdir):
-    with parallel_config(n_jobs=3, max_nbytes=1, temp_folder=tmpdir):
-        with Parallel(n_jobs=2, prefer="processes", max_nbytes='1M') as p:
-            assert isinstance(p._backend, LokyBackend)
-            assert p.n_jobs == 2
-
-            # Checks that memmapping is disabled
-            with raises(TypeError, match="Expected np.memmap instance"):
-                p(delayed(check_memmap)(a) for a in [np.random.random(10)] * 2)
-
-
-@parametrize("param", ["prefer", "require"])
-def test_parallel_config_bad_params(param):
-    # Check that an error is raised when setting a wrong backend
-    # hint or constraint
-    with raises(ValueError, match=f"{param}=wrong is not a valid"):
-        with parallel_config(**{param: "wrong"}):
-            Parallel()
-
-
-def test_parallel_config_constructor_params():
-    # Check that an error is raised when backend is None
-    # but backend constructor params are given
-    with raises(ValueError, match="only supported when backend is not None"):
-        with parallel_config(inner_max_num_threads=1):
-            pass

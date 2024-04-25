@@ -28,7 +28,7 @@ worker processes.
 
   The following only applies with the ``"loky"` and
   ``'multiprocessing'`` process-backends. If your code can release the
-  GIL, then using a thread-based backend backend by passing
+  GIL, then using a thread-based backend by passing
   ``prefer='threads'`` is even more efficient because it makes it
   possible to avoid the communication overhead of process-based
   parallelism.

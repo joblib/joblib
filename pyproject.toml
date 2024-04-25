@@ -16,16 +16,16 @@ classifiers = [
     "License :: OSI Approved :: BSD License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering",
     "Topic :: Utilities",
     "Topic :: Software Development :: Libraries",
 ]
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 dynamic = ["version"]
 
 [project.readme]
@@ -88,11 +88,15 @@ testpaths = "joblib"
 norecursedirs = "joblib/externals/*"
 
 [tool.coverage.run]
+source = [
+    "joblib"
+]
 omit = [
     "joblib/test/data/*",
     "joblib/test/_openmp_test_helper/setup.py",
     "*/joblib/externals/*",
 ]
+relative_files = true
 
 [tool.coverage.report]
 show_missing = true
