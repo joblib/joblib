@@ -1402,12 +1402,6 @@ def test_info_log(tmpdir, caplog):
 class TestCacheValidationCallback:
     "Tests on parameter `cache_validation_callback`"
 
-    @pytest.fixture()
-    def memory(self, tmp_path):
-        mem = Memory(location=tmp_path)
-        yield mem
-        mem.clear()
-
     def foo(self, x, d, delay=None):
         d["run"] = True
         if delay is not None:
@@ -1481,3 +1475,42 @@ class TestCacheValidationCallback:
         assert d1["run"]
         assert not d2["run"]
         assert d3["run"]
+
+
+class TestMemorizedFunc:
+    "Tests for the MemorizedFunc and NotMemorizedFunc classes"
+
+    @staticmethod
+    def f(x, counter):
+        counter[x] = counter.get(x, 0) + 1
+        return counter[x]
+
+    def test_call_method_memorized(self, memory):
+        "Test calling the function"
+
+        f = memory.cache(self.f, ignore=['counter'])
+
+        counter = {}
+        assert f(2, counter) == 1
+        assert f(2, counter) == 1
+
+        x, meta = f.call(2, counter)
+        assert x == 2, "f has not been called properly"
+        assert isinstance(meta, dict), (
+            "Metadata are not returned by MemorizedFunc.call."
+        )
+
+    def test_call_method_not_memorized(self, memory):
+        "Test calling the function"
+
+        f = NotMemorizedFunc(self.f)
+
+        counter = {}
+        assert f(2, counter) == 1
+        assert f(2, counter) == 2
+
+        x, meta = f.call(2, counter)
+        assert x == 3, "f has not been called properly"
+        assert isinstance(meta, dict), (
+            "Metadata are not returned by MemorizedFunc.call."
+        )
