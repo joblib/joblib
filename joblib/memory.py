@@ -322,7 +322,7 @@ class NotMemorizedFunc(object):
         pass
 
     def call(self, *args, **kwargs):
-        return self.func(*args, **kwargs)
+        return self.func(*args, **kwargs), {}
 
     def check_call_in_cache(self, *args, **kwargs):
         return False
@@ -527,7 +527,8 @@ class MemorizedFunc(Logger):
                 f"in location {location}"
             )
 
-        return self._call(call_id, args, kwargs, shelving)
+        # Returns the output but not the metadata
+        return self._call(call_id, args, kwargs, shelving)[0]
 
     @property
     def func_code_info(self):
@@ -752,6 +753,8 @@ class MemorizedFunc(Logger):
         -------
         output : object
             The output of the function call.
+        metadata : dict
+            The metadata associated with the call.
         """
         call_id = (self.func_id, self._get_args_id(*args, **kwargs))
         return self._call(call_id, args, kwargs)
@@ -774,13 +777,13 @@ class MemorizedFunc(Logger):
             self._print_duration(duration)
         metadata = self._persist_input(duration, call_id, args, kwargs)
         if shelving:
-            return self._get_memorized_result(call_id, metadata)
+            return self._get_memorized_result(call_id, metadata), metadata
 
         if self.mmap_mode is not None:
             # Memmap the output at the first call to be consistent with
             # later calls
             output = self._load_item(call_id, metadata)
-        return output
+        return output, metadata
 
     def _persist_input(self, duration, call_id, args, kwargs,
                        this_duration_limit=0.5):
