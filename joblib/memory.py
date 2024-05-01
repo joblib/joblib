@@ -476,8 +476,9 @@ class MemorizedFunc(Logger):
 
         Returns
         -------
-        Output of the wrapped function if shelving is false, or a
-        MemorizedResult reference to the value if shelving is true.
+        output: Output of the wrapped function if shelving is false, or a
+            MemorizedResult reference to the value if shelving is true.
+        metadata: dict containing the metadata associated with the call.
         """
         args_id = self._get_args_id(*args, **kwargs)
         call_id = (self.func_id, args_id)
@@ -506,7 +507,7 @@ class MemorizedFunc(Logger):
         # the cache.
         if self._is_in_cache_and_valid(call_id):
             if shelving:
-                return self._get_memorized_result(call_id)
+                return self._get_memorized_result(call_id), {}
 
             try:
                 start_time = time.time()
@@ -514,7 +515,7 @@ class MemorizedFunc(Logger):
                 if self._verbose > 4:
                     self._print_duration(time.time() - start_time,
                                          context='cache loaded ')
-                return output
+                return output, {}
             except Exception:
                 # XXX: Should use an exception logger
                 _, signature = format_signature(self.func, *args, **kwargs)
@@ -528,7 +529,7 @@ class MemorizedFunc(Logger):
             )
 
         # Returns the output but not the metadata
-        return self._call(call_id, args, kwargs, shelving)[0]
+        return self._call(call_id, args, kwargs, shelving)
 
     @property
     def func_code_info(self):
@@ -568,10 +569,12 @@ class MemorizedFunc(Logger):
             class "NotMemorizedResult" is used when there is no cache
             activated (e.g. location=None in Memory).
         """
-        return self._cached_call(args, kwargs, shelving=True)
+        # Return the wrapped output, without the metadata
+        return self._cached_call(args, kwargs, shelving=True)[0]
 
     def __call__(self, *args, **kwargs):
-        return self._cached_call(args, kwargs, shelving=False)
+        # Return the output, without the metadata
+        return self._cached_call(args, kwargs, shelving=False)[0]
 
     def __getstate__(self):
         # Make sure self.func's source is introspected prior to being pickled -
@@ -757,9 +760,12 @@ class MemorizedFunc(Logger):
             The metadata associated with the call.
         """
         call_id = (self.func_id, self._get_args_id(*args, **kwargs))
+
+        # Return the output and the metadata
         return self._call(call_id, args, kwargs)
 
     def _call(self, call_id, args, kwargs, shelving=False):
+        # Return the output and the metadata
         self._before_call(args, kwargs)
         start_time = time.time()
         output = self.func(*args, **kwargs)
@@ -864,12 +870,14 @@ class MemorizedFunc(Logger):
 ###############################################################################
 class AsyncMemorizedFunc(MemorizedFunc):
     async def __call__(self, *args, **kwargs):
-        out = super().__call__(*args, **kwargs)
-        return await out if asyncio.iscoroutine(out) else out
+        out = self._cached_call(args, kwargs, shelving=False)
+        out = await out if asyncio.iscoroutine(out) else out
+        return out[0]  # Don't return metadata
 
     async def call_and_shelve(self, *args, **kwargs):
-        out = super().call_and_shelve(*args, **kwargs)
-        return await out if asyncio.iscoroutine(out) else out
+        out = self._cached_call(args, kwargs, shelving=True)
+        out = await out if asyncio.iscoroutine(out) else out
+        return out[0]  # Don't return metadata
 
     async def call(self, *args, **kwargs):
         out = super().call(*args, **kwargs)
@@ -879,8 +887,9 @@ class AsyncMemorizedFunc(MemorizedFunc):
         self._before_call(args, kwargs)
         start_time = time.time()
         output = await self.func(*args, **kwargs)
-        return self._after_call(call_id, args, kwargs, shelving,
-                                output, start_time)
+        return self._after_call(
+            call_id, args, kwargs, shelving, output, start_time
+        )
 
 
 ###############################################################################
