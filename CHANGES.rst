@@ -5,9 +5,9 @@ Latest changes
 In development
 --------------
 
-- Fix a backward incompatible change in ``MemorizedFunc.call`` which need to
+- Fix a backward incompatible change in ``MemorizedFunc.call`` which needs to
   return the metadata. Also make sure that ``NotMemorizedFunc.call`` return
-  an empty dict for metadata.
+  an empty dict for metadata for consistency.
   https://github.com/joblib/joblib/pull/1576
 
 Release 1.4.0 -- 2024/04/08
