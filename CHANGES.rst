@@ -1,7 +1,7 @@
 Latest changes
 ==============
 
-Release 1.4.1 -- 2024/05/02
+Release 1.4.2 -- 2024/05/02
 ---------------------------
 
 - Fix a backward incompatible change in ``MemorizedFunc.call`` which needs to
