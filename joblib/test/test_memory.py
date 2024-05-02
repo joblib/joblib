@@ -1399,16 +1399,6 @@ def test_info_log(tmpdir, caplog):
     caplog.clear()
 
 
-def test_deprecated_bytes_limit(tmpdir):
-    from joblib import __version__
-    if __version__ >= "1.5":
-        raise DeprecationWarning(
-            "Bytes limit is deprecated and should be removed by 1.4"
-        )
-    with pytest.warns(DeprecationWarning, match="bytes_limit"):
-        _ = Memory(location=tmpdir.strpath, bytes_limit='1K')
-
-
 class TestCacheValidationCallback:
     "Tests on parameter `cache_validation_callback`"
 
