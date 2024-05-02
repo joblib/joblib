@@ -1,26 +1,26 @@
 Latest changes
 ==============
 
-
-In development
---------------
+Release 1.4.1 -- 2024/05/02
+---------------------------
 
 - Fix a backward incompatible change in ``MemorizedFunc.call`` which needs to
   return the metadata. Also make sure that ``NotMemorizedFunc.call`` return
   an empty dict for metadata for consistency.
   https://github.com/joblib/joblib/pull/1576
 
+
 Release 1.4.0 -- 2024/04/08
 ---------------------------
 
 - Allow caching co-routines with `Memory.cache`.
   https://github.com/joblib/joblib/pull/894
-  
+
 - Try to cast ``n_jobs`` to int in parallel and raise an error if
   it fails. This means that ``n_jobs=2.3`` will now result in
   ``effective_n_jobs=2`` instead of failing.
   https://github.com/joblib/joblib/pull/1539
-  
+
 - Ensure that errors in the task generator given to Parallel's call
   are raised in the results consumming thread.
   https://github.com/joblib/joblib/pull/1491
@@ -37,7 +37,7 @@ Release 1.4.0 -- 2024/04/08
 - dask backend now supports ``return_as=generator`` and
   ``return_as=generator_unordered``.
   https://github.com/joblib/joblib/pull/1520
-  
+
 - Vendor cloudpickle 3.0.0 and end support for Python 3.7 which has
   reached end of life.
   https://github.com/joblib/joblib/pull/1487
