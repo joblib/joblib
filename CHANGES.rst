@@ -4,6 +4,9 @@ Latest changes
 In development
 --------------
 
+- Remove deprecated ``bytes_limit`` argument for ``Memory``, which should
+  be passed directly to ``Memory.reduce_size``.
+  https://github.com/joblib/joblib/pull/1569
 
 Release 1.4.2 -- 2024/05/02
 ---------------------------
