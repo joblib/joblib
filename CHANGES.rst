@@ -4,6 +4,9 @@ Latest changes
 Release 1.4.2 -- 2024/05/02
 ---------------------------
 
+Due to maintenance issues, 1.4.1 was not valid and we bumped the version to 1.4.2
+
+
 - Fix a backward incompatible change in ``MemorizedFunc.call`` which needs to
   return the metadata. Also make sure that ``NotMemorizedFunc.call`` return
   an empty dict for metadata for consistency.
