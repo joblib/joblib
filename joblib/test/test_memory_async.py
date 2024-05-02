@@ -147,3 +147,24 @@ async def test_call_and_shelve_async(tmpdir):
         with raises(KeyError):
             result.get()
         result.clear()  # Do nothing if there is no cache.
+
+
+@pytest.mark.asyncio
+async def test_memorized_func_call_async(memory):
+
+    async def ff(x, counter):
+        await asyncio.sleep(0.1)
+        counter[x] = counter.get(x, 0) + 1
+        return counter[x]
+
+    gg = memory.cache(ff, ignore=['counter'])
+
+    counter = {}
+    assert await gg(2, counter) == 1
+    assert await gg(2, counter) == 1
+
+    x, meta = await gg.call(2, counter)
+    assert x == 2, "f has not been called properly"
+    assert isinstance(meta, dict), (
+        "Metadata are not returned by MemorizedFunc.call."
+    )
