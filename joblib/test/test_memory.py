@@ -615,6 +615,32 @@ def test_check_call_in_cache(tmpdir):
         func.clear()
 
 
+@pytest.mark.parametrize("consider_cache_valid", [True, False])
+def test_is_call_in_cache_and_valid(tmpdir, consider_cache_valid):
+    for func in (
+        MemorizedFunc(
+            f,
+            tmpdir.strpath,
+            cache_validation_callback=lambda _: consider_cache_valid
+        ),
+        Memory(location=tmpdir.strpath, verbose=0).cache(
+            f,
+            cache_validation_callback=lambda _: consider_cache_valid
+        )
+    ):
+        result = func.is_call_in_cache_and_valid(2)
+        assert isinstance(result, bool)
+        assert not result
+        assert func(2) == 5
+        result = func.is_call_in_cache_and_valid(2)
+        assert isinstance(result, bool)
+        assert result == consider_cache_valid
+        func.clear()
+
+    func = NotMemorizedFunc(f)
+    assert not func.is_call_in_cache_and_valid(2)
+
+
 def test_call_and_shelve(tmpdir):
     # Test MemorizedFunc outputting a reference to cache.
 
