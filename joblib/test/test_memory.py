@@ -614,6 +614,9 @@ def test_check_call_in_cache(tmpdir):
         assert isinstance(result, bool)
         func.clear()
 
+    func = NotMemorizedFunc(f)
+    assert not func.check_call_in_cache(2)
+
 
 @pytest.mark.parametrize("consider_cache_valid", [True, False])
 def test_is_call_in_cache_and_valid(tmpdir, consider_cache_valid):
