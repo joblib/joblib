@@ -74,9 +74,13 @@ class NumpyArrayWrapper(object):
     allow_mmap: bool
         Determine if memory mapping is allowed on the wrapped array.
         Default: False.
+    allow_pickle: bool
+        Determine if pickle.load is allowed on the wrapped array.
+        Default: False.
     """
 
-    def __init__(self, subclass, shape, order, dtype, allow_mmap=False,
+    def __init__(self, subclass, shape, order, dtype,
+                 allow_mmap=False, allow_pickle=False,
                  numpy_array_alignment_bytes=NUMPY_ARRAY_ALIGNMENT_BYTES):
         """Constructor. Store the useful information for later."""
         self.subclass = subclass
@@ -84,6 +88,7 @@ class NumpyArrayWrapper(object):
         self.order = order
         self.dtype = dtype
         self.allow_mmap = allow_mmap
+        self.allow_pickle = allow_pickle
         # We make numpy_array_alignment_bytes an instance attribute to allow us
         # to change our mind about the default alignment and still load the old
         # pickles (with the previous alignment) correctly
@@ -133,7 +138,7 @@ class NumpyArrayWrapper(object):
                                            order=self.order):
                 pickler.file_handle.write(chunk.tobytes('C'))
 
-    def read_array(self, unpickler):
+    def read_array(self, unpickler, allow_pickle=False):
         """Read array from unpickler file handle.
 
         This function is an adaptation of the numpy read_array function
@@ -148,6 +153,9 @@ class NumpyArrayWrapper(object):
             count = unpickler.np.multiply.reduce(shape_int64)
         # Now read the actual data.
         if self.dtype.hasobject:
+            if not allow_pickle:
+                raise ValueError("Object arrays cannot be loaded when "
+                                 "allow_pickle=False")
             # The array contained Python objects. We need to unpickle the data.
             array = pickle.load(unpickler.file_handle)
         else:
@@ -231,7 +239,7 @@ class NumpyArrayWrapper(object):
 
         return _ensure_native_byte_order(marray)
 
-    def read(self, unpickler):
+    def read(self, unpickler, allow_pickle=False):
         """Read the array corresponding to this wrapper.
 
         Use the unpickler to get all information to correctly read the array.
@@ -249,7 +257,7 @@ class NumpyArrayWrapper(object):
         if unpickler.mmap_mode is not None and self.allow_mmap:
             array = self.read_mmap(unpickler)
         else:
-            array = self.read_array(unpickler)
+            array = self.read_array(unpickler, allow_pickle)
 
         # Manage array subclass case
         if (hasattr(array, '__array_prepare__') and
@@ -369,17 +377,22 @@ class NumpyUnpickler(Unpickler):
         This parameter is required when using mmap_mode.
     np: module
         Reference to numpy module if numpy is installed else None.
+    allow_pickle: bool
+        Determine if pickle.load is allowed on the wrapped array.
+        Default: False.
 
     """
 
     dispatch = Unpickler.dispatch.copy()
 
-    def __init__(self, filename, file_handle, mmap_mode=None):
+    def __init__(self, filename, file_handle, mmap_mode=None,
+                 allow_pickle=False):
         # The next line is for backward compatibility with pickle generated
         # with joblib versions less than 0.10.
         self._dirname = os.path.dirname(filename)
 
         self.mmap_mode = mmap_mode
+        self.allow_pickle = allow_pickle
         self.file_handle = file_handle
         # filename is required for numpy mmap mode.
         self.filename = filename
@@ -412,7 +425,11 @@ class NumpyUnpickler(Unpickler):
             # the end of the unpickling.
             if isinstance(array_wrapper, NDArrayWrapper):
                 self.compat_mode = True
-            self.stack.append(array_wrapper.read(self))
+                data = array_wrapper.read(self)
+            else:
+                data = array_wrapper.read(self, allow_pickle=self.allow_pickle)
+
+            self.stack.append(data)
 
     # Be careful to register our new method.
     dispatch[pickle.BUILD[0]] = load_build
@@ -563,7 +580,7 @@ def dump(value, filename, compress=0, protocol=None, cache_size=None):
     return [filename]
 
 
-def _unpickle(fobj, filename="", mmap_mode=None):
+def _unpickle(fobj, filename="", mmap_mode=None, allow_pickle=False):
     """Internal unpickling function."""
     # We are careful to open the file handle early and keep it open to
     # avoid race-conditions on renames.
@@ -571,7 +588,8 @@ def _unpickle(fobj, filename="", mmap_mode=None):
     # the case with the old persistence format, moving the directory
     # will create a race when joblib tries to access the companion
     # files.
-    unpickler = NumpyUnpickler(filename, fobj, mmap_mode=mmap_mode)
+    unpickler = NumpyUnpickler(filename, fobj, mmap_mode=mmap_mode,
+                               allow_pickle=allow_pickle)
     obj = None
     try:
         obj = unpickler.load()
@@ -601,7 +619,7 @@ def load_temporary_memmap(filename, mmap_mode, unlink_on_gc_collect):
     return obj
 
 
-def load(filename, mmap_mode=None):
+def load(filename, mmap_mode=None, allow_pickle=False):
     """Reconstruct a Python object from a file persisted with joblib.dump.
 
     Read more in the :ref:`User Guide <persistence>`.
@@ -619,6 +637,9 @@ def load(filename, mmap_mode=None):
         mode has no effect for compressed files. Note that in this
         case the reconstructed object might no longer match exactly
         the originally pickled object.
+    allow_pickle: bool
+        Determine if pickle.load is allowed on the wrapped array.
+        Default: False.
 
     Returns
     -------
@@ -645,7 +666,7 @@ def load(filename, mmap_mode=None):
         fobj = filename
         filename = getattr(fobj, 'name', '')
         with _read_fileobject(fobj, filename, mmap_mode) as fobj:
-            obj = _unpickle(fobj)
+            obj = _unpickle(fobj, allow_pickle=allow_pickle)
     else:
         with open(filename, 'rb') as f:
             with _read_fileobject(f, filename, mmap_mode) as fobj:
@@ -655,5 +676,6 @@ def load(filename, mmap_mode=None):
                     # Joblib so we load it with joblib compatibility function.
                     return load_compatibility(fobj)
 
-                obj = _unpickle(fobj, filename, mmap_mode)
+                obj = _unpickle(fobj, filename, mmap_mode,
+                                allow_pickle)
     return obj

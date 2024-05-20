@@ -172,7 +172,7 @@ def test_numpy_persistence(tmpdir, compress):
     # All is cached in one file
     assert len(filenames) == 1
 
-    obj_loaded = numpy_pickle.load(filename)
+    obj_loaded = numpy_pickle.load(filename, allow_pickle=True)
     assert isinstance(obj_loaded, type(obj))
     np.testing.assert_array_equal(obj_loaded.array_float, obj.array_float)
     np.testing.assert_array_equal(obj_loaded.array_int, obj.array_int)
@@ -203,7 +203,8 @@ def test_memmap_persistence(tmpdir):
     filename = tmpdir.join('test2.pkl').strpath
     obj = ComplexTestObject()
     numpy_pickle.dump(obj, filename)
-    obj_loaded = numpy_pickle.load(filename, mmap_mode='r')
+    obj_loaded = numpy_pickle.load(filename, mmap_mode='r',
+                                   allow_pickle=True)
     assert isinstance(obj_loaded, type(obj))
     assert isinstance(obj_loaded.array_float, np.memmap)
     assert not obj_loaded.array_float.flags.writeable
@@ -219,20 +220,22 @@ def test_memmap_persistence(tmpdir):
                                   obj.array_obj)
 
     # Test we can write in memmapped arrays
-    obj_loaded = numpy_pickle.load(filename, mmap_mode='r+')
+    obj_loaded = numpy_pickle.load(filename, mmap_mode='r+',
+                                   allow_pickle=True)
     assert obj_loaded.array_float.flags.writeable
     obj_loaded.array_float[0:10] = 10.0
     assert obj_loaded.array_int.flags.writeable
     obj_loaded.array_int[0:10] = 10
 
-    obj_reloaded = numpy_pickle.load(filename, mmap_mode='r')
+    obj_reloaded = numpy_pickle.load(filename, mmap_mode='r',
+                                     allow_pickle=True)
     np.testing.assert_array_equal(obj_reloaded.array_float,
                                   obj_loaded.array_float)
     np.testing.assert_array_equal(obj_reloaded.array_int,
                                   obj_loaded.array_int)
 
     # Test w+ mode is caught and the mode has switched to r+
-    numpy_pickle.load(filename, mmap_mode='w+')
+    numpy_pickle.load(filename, mmap_mode='w+', allow_pickle=True)
     assert obj_loaded.array_int.flags.writeable
     assert obj_loaded.array_int.mode == 'r+'
     assert obj_loaded.array_float.flags.writeable
@@ -249,7 +252,8 @@ def test_memmap_persistence_mixed_dtypes(tmpdir):
     construct = (a, b)
     filename = tmpdir.join('test.pkl').strpath
     numpy_pickle.dump(construct, filename)
-    a_clone, b_clone = numpy_pickle.load(filename, mmap_mode='r')
+    a_clone, b_clone = numpy_pickle.load(filename, mmap_mode='r',
+                                         allow_pickle=True)
 
     # the floating point array has been memory mapped
     assert isinstance(a_clone, np.memmap)
@@ -352,7 +356,7 @@ def test_compressed_pickle_dump_and_load(tmpdir):
 
     dumped_filenames = numpy_pickle.dump(expected_list, fname, compress=1)
     assert len(dumped_filenames) == 1
-    result_list = numpy_pickle.load(fname)
+    result_list = numpy_pickle.load(fname, allow_pickle=True)
     for result, expected in zip(result_list, expected_list):
         if isinstance(expected, np.ndarray):
             expected = _ensure_native_byte_order(expected)
@@ -382,7 +386,9 @@ def _check_pickle(filename, expected_list, mmap_mode=None):
                 warnings.filterwarnings(
                     'ignore', module='numpy',
                     message='The compiler package is deprecated')
-                result_list = numpy_pickle.load(filename, mmap_mode=mmap_mode)
+                result_list = numpy_pickle.load(filename,
+                                                mmap_mode=mmap_mode,
+                                                allow_pickle=True)
             filename_base = os.path.basename(filename)
             expected_nb_deprecation_warnings = 1 if (
                 "_0.9" in filename_base or "_0.8.4" in filename_base) else 0

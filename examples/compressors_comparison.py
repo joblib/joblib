@@ -61,7 +61,7 @@ print("Raw dump file size: %0.3fMB" % raw_file_size)
 # Finally measure the time spent for loading the raw data:
 start = time.time()
 with open(pickle_file, 'rb') as f:
-    load(f)
+    load(f, allow_pickle=True)
 raw_load_duration = time.time() - start
 print("Raw load duration: %0.3fs" % raw_load_duration)
 
@@ -92,7 +92,7 @@ print("Zlib file size: %0.3fMB" % zlib_file_size)
 
 start = time.time()
 with open(pickle_file, 'rb') as f:
-    load(f)
+    load(f, allow_pickle=True)
 zlib_load_duration = time.time() - start
 print("Zlib load duration: %0.3fs" % zlib_load_duration)
 
@@ -132,7 +132,7 @@ print("LZMA file size: %0.3fMB" % lzma_file_size)
 
 start = time.time()
 with open(pickle_file, 'rb') as f:
-    load(f)
+    load(f, allow_pickle=True)
 lzma_load_duration = time.time() - start
 print("LZMA load duration: %0.3fs" % lzma_load_duration)
 
@@ -169,7 +169,7 @@ print("LZ4 file size: %0.3fMB" % lz4_file_size)
 
 start = time.time()
 with open(pickle_file, 'rb') as f:
-    load(f)
+    load(f, allow_pickle=True)
 lz4_load_duration = time.time() - start
 print("LZ4 load duration: %0.3fs" % lz4_load_duration)
 
