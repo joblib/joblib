@@ -602,24 +602,8 @@ def test_persistence(tmpdir):
     gp(1)
 
 
-def test_check_call_in_cache(tmpdir):
-    for func in (MemorizedFunc(f, tmpdir.strpath),
-                 Memory(location=tmpdir.strpath, verbose=0).cache(f)):
-        result = func.check_call_in_cache(2)
-        assert not result
-        assert isinstance(result, bool)
-        assert func(2) == 5
-        result = func.check_call_in_cache(2)
-        assert result
-        assert isinstance(result, bool)
-        func.clear()
-
-    func = NotMemorizedFunc(f)
-    assert not func.check_call_in_cache(2)
-
-
 @pytest.mark.parametrize("consider_cache_valid", [True, False])
-def test_is_call_in_cache_and_valid(tmpdir, consider_cache_valid):
+def test_check_call_in_cache(tmpdir, consider_cache_valid):
     for func in (
         MemorizedFunc(
             f,
@@ -631,17 +615,17 @@ def test_is_call_in_cache_and_valid(tmpdir, consider_cache_valid):
             cache_validation_callback=lambda _: consider_cache_valid
         )
     ):
-        result = func.is_call_in_cache_and_valid(2)
+        result = func.check_call_in_cache(2)
         assert isinstance(result, bool)
         assert not result
         assert func(2) == 5
-        result = func.is_call_in_cache_and_valid(2)
+        result = func.check_call_in_cache(2)
         assert isinstance(result, bool)
         assert result == consider_cache_valid
         func.clear()
 
     func = NotMemorizedFunc(f)
-    assert not func.is_call_in_cache_and_valid(2)
+    assert not func.check_call_in_cache(2)
 
 
 def test_call_and_shelve(tmpdir):

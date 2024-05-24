@@ -327,9 +327,6 @@ class NotMemorizedFunc(object):
     def check_call_in_cache(self, *args, **kwargs):
         return False
 
-    def is_call_in_cache_and_valid(self, *args, **kwargs) -> bool:
-        return False
-
 
 ###############################################################################
 # class `AsyncNotMemorizedFunc`
@@ -596,21 +593,6 @@ class MemorizedFunc(Logger):
         return state
 
     def check_call_in_cache(self, *args, **kwargs):
-        """Check if function call is in the memory cache.
-
-        Does not call the function or do any work besides func inspection
-        and arg hashing.
-
-        Returns
-        -------
-        is_call_in_cache: bool
-            Whether or not the result of the function has been cached
-            for the input arguments that have been passed.
-        """
-        call_id = (self.func_id, self._get_args_id(*args, **kwargs))
-        return self.store_backend.contains_item(call_id)
-
-    def is_call_in_cache_and_valid(self, *args, **kwargs) -> bool:
         """Check if the function call is cached and valid for given arguments.
 
         Does not call the function or do any work besides function inspection
