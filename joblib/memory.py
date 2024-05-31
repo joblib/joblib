@@ -605,7 +605,7 @@ class MemorizedFunc(Logger):
 
         Returns
         -------
-        bool:
+        is_call_in_cache: bool
             Whether or not the function call is in cache and can be used.
         """
         call_id = (self.func_id, self._get_args_id(*args, **kwargs))
