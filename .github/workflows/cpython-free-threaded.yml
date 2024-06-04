@@ -1,0 +1,17 @@
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: main
+    steps:
+      - uses: actions/checkout@v4
+      - uses: deadsnakes/action@v3.1.0
+        with:
+          python-version: 3.13-dev
+          nogil: true
+      - run: |
+          python --version --version
+          which python
+          python -c "import sysconfig; print(sysconfig.get_config_var('Py_GIL_DISABLED'))"
+          python -c "import sys; print(sys._is_gil_enabled())"
