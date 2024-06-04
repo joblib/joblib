@@ -22,4 +22,4 @@ jobs:
           pip install pytest threadpoolctl
           pip install --extra-index https://pypi.anaconda.org/scientific-python-nightly-wheels/simple --pre numpy
 
-          pytest joblib
+          PYTHON_GIL=0 pytest joblib
