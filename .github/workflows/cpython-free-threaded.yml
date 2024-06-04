@@ -15,3 +15,6 @@ jobs:
           which python
           python -c "import sysconfig; print(sysconfig.get_config_var('Py_GIL_DISABLED'))"
           python -c "import sys; print(sys._is_gil_enabled())"
+
+      - run: |
+          pytest joblib
