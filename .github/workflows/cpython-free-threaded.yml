@@ -19,7 +19,7 @@ jobs:
       - run: |
           # Need pip 24.1b1 to find free-threading wheel
           pip install -U --pre pip
-          pip install pytest threadpoolctl
+          pip install pytest pytest-timeout pytest-asyncio==0.21.1 threadpoolctl
           pip install --extra-index https://pypi.anaconda.org/scientific-python-nightly-wheels/simple --pre numpy
 
           PYTHON_GIL=0 pytest joblib
