@@ -30,6 +30,7 @@ from joblib._multiprocessing_helpers import mp
 from joblib.test.common import np, with_numpy
 from joblib.test.common import with_multiprocessing
 from joblib.test.common import IS_PYPY, force_gc_pypy
+from joblib.test.common import IS_GIL_DISABLED
 from joblib.testing import (parametrize, raises, check_subprocess_call,
                             skipif, warns)
 
@@ -214,7 +215,7 @@ def _assert_warning_nested(backend, inner_n_jobs, expected):
             # With Python nogil, when the outer backend is threading, we might
             # see more that one warning
             warnings_have_the_right_length = (
-                len(warninfo) >= 1 if getattr(sys.flags, 'nogil', False)
+                len(warninfo) >= 1 if IS_GIL_DISABLED
                 else len(warninfo) == 1)
             return warnings_are_correct and warnings_have_the_right_length
 
