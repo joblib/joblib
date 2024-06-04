@@ -203,13 +203,13 @@ def test_parallel_call_cached_function_defined_in_jupyter(
                 # source code introspection fails for dynamic functions sent to
                 # child processes - which would eventually make joblib clear
                 # the cache associated to f
-                res = Parallel(n_jobs=2)(delayed(cached_f)(i) for i in [1, 2])
+                Parallel(n_jobs=2)(delayed(cached_f)(i) for i in [1, 2])
             else:
                 # Submit the function to the joblib child processes, although
                 # the function has never been called in the parent yet. This
                 # triggers a specific code branch inside
                 # MemorizedFunc.__reduce__.
-                res = Parallel(n_jobs=2)(delayed(cached_f)(i) for i in [1, 2])
+                Parallel(n_jobs=2)(delayed(cached_f)(i) for i in [1, 2])
                 assert len(os.listdir(f_cache_directory / 'f')) == 3
 
                 cached_f(3)
