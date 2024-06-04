@@ -20,6 +20,6 @@ jobs:
           # Need pip 24.1b1 to find free-threading wheel
           pip install -U --pre pip
           pip install pytest
-          pip install --extra-index https://pypi.anaconda.org/scientific-python-nightly-wheels/simple numpy
+          pip install --extra-index https://pypi.anaconda.org/scientific-python-nightly-wheels/simple --pre numpy
 
           pytest joblib
