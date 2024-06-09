@@ -272,19 +272,10 @@ def is_builtin_class_instance(obj):
 
 
 def implements_custom_hash(obj):
-    if (
-        hasattr(obj, "__hash__")
-        and not (obj.__hash__ is object.__hash__)
-        and not is_builtin_class_instance(obj)
-    ):
-        _implements_custom_hash = all(
-            [
-                b.__hash__(obj) != obj.__hash__()
-                for b in type(obj).__bases__
-                if hasattr(b, "__hash__") and (b.__hash__ is not None)
-            ]
-        )
-    else:
+    try:
+        hash_value = obj.__hash__()
+        _implements_custom_hash = True
+    except:
         _implements_custom_hash = False
 
     return _implements_custom_hash
@@ -323,9 +314,9 @@ def hash(pytree_or_leaf, **hash_any_kwargs):
     else:
         leaf = pytree_or_leaf
         # If the input is an atomic object, hash it and return the hash
-        if implements_custom_hash(leaf):
+        try:
             leaf_hash = str(leaf.__hash__())
-        else:
+        except:
             # call the more general hasher that Pickle implements
             leaf_hash = hash_any(leaf, **hash_any_kwargs)
         return leaf_hash
