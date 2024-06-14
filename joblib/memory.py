@@ -599,7 +599,7 @@ class MemorizedFunc(Logger):
         and argument hashing.
 
         - Compare the function code with the one from the cached function,
-        asserting if it has changed.
+          asserting if it has changed.
         - Check if the function call is present in the cache.
         - Call `cache_validation_callback` for user define cache validation.
 
