@@ -602,17 +602,30 @@ def test_persistence(tmpdir):
     gp(1)
 
 
-def test_check_call_in_cache(tmpdir):
-    for func in (MemorizedFunc(f, tmpdir.strpath),
-                 Memory(location=tmpdir.strpath, verbose=0).cache(f)):
+@pytest.mark.parametrize("consider_cache_valid", [True, False])
+def test_check_call_in_cache(tmpdir, consider_cache_valid):
+    for func in (
+        MemorizedFunc(
+            f,
+            tmpdir.strpath,
+            cache_validation_callback=lambda _: consider_cache_valid
+        ),
+        Memory(location=tmpdir.strpath, verbose=0).cache(
+            f,
+            cache_validation_callback=lambda _: consider_cache_valid
+        )
+    ):
         result = func.check_call_in_cache(2)
-        assert not result
         assert isinstance(result, bool)
+        assert not result
         assert func(2) == 5
         result = func.check_call_in_cache(2)
-        assert result
         assert isinstance(result, bool)
+        assert result == consider_cache_valid
         func.clear()
+
+    func = NotMemorizedFunc(f)
+    assert not func.check_call_in_cache(2)
 
 
 def test_call_and_shelve(tmpdir):
