@@ -8,6 +8,13 @@ import os.path
 import re
 import subprocess
 import threading
+import tempfile
+import shutil
+import io
+import contextlib
+import time
+from contextlib import contextmanager
+
 
 import pytest
 import _pytest
@@ -97,3 +104,39 @@ def check_subprocess_call(cmd, timeout=5, stdout_regex=None,
         if timeout is not None:
             terminate_timer.cancel()
             kill_timer.cancel()
+
+@contextmanager
+def tempdir(prefix='tmp'):
+    """Create and return a temporary directory, which will be deleted when the context is closed."""
+    temp_dir = tempfile.mkdtemp(prefix=prefix)
+    try:
+        yield temp_dir
+    finally:
+        shutil.rmtree(temp_dir)
+
+
+@contextlib.contextmanager
+def captured_output():
+    """Capture stdout and stderr within the context."""
+    new_stdout, new_stderr = io.StringIO(), io.StringIO()
+    old_stdout, old_stderr = sys.stdout, sys.stderr
+    sys.stdout, sys.stderr = new_stdout, new_stderr
+    try:
+        yield sys.stdout, sys.stderr
+    finally:
+        sys.stdout, sys.stderr = old_stdout, old_stderr
+
+
+def timeit(func, *args, **kwargs):
+    """Time the execution of a function and return the result and elapsed time."""
+    start_time = time.perf_counter()
+    result = func(*args, **kwargs)
+    end_time = time.perf_counter()
+    elapsed_time = end_time - start_time
+    return result, elapsed_time
+
+
+def assert_raises(exception, func, *args, **kwargs):
+    """Assert that a function raises a specific exception."""
+    with pytest.raises(exception):
+        func(*args, **kwargs)
