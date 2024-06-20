@@ -5,7 +5,7 @@ set -e
 echo "Activating test environment:"
 if [[ "$PYTHON_VERSION" == pypy3* ]]; then
     source pypy3/bin/activate
-elif [[ "$PYTHON_VERSION" == free-treaded* ]]; then
+elif [[ "$PYTHON_VERSION" == free-threaded* ]]; then
     source testenv/bin/activate
 else
     source activate testenv
