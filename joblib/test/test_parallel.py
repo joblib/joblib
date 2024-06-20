@@ -198,7 +198,7 @@ def test_main_thread_renamed_no_warning(backend, monkeypatch):
     # warning saying that forking a multi-threaded process is not a good idea,
     # we ignore them in this test
     if (backend in [None, "multiprocessing"]
-            or isinstance(backend, BACKENDS["multiprocessing"])):
+            or isinstance(backend, MultiprocessingBackend)):
         message_part = "multi-threaded, use of fork() may lead to deadlocks"
         warninfo = [w for w in warninfo if message_part not in str(w.message)]
 
