@@ -7,9 +7,8 @@ if [[ "$PYTHON_VERSION" == pypy3* ]]; then
     source pypy3/bin/activate
 elif [[ "$PYTHON_VERSION" == free-threaded* ]]; then
     source testenv/bin/activate
-    # This avoids warning like:
-    # RuntimeWarning: The global interpreter lock (GIL) has been enabled to load module 'coverage.tracer',
-    # which has not declared that it can run safely without the GIL
+    # This is needed because for now some C extensions have not declared whether their
+    # multithreaded behaviour with free-threaded Python, for example Numpy and coverage.tracer
     export PYTHON_GIL=0
 else
     source activate testenv
