@@ -91,6 +91,7 @@ jobs:
       linux_py38_default_backend_threading:
         imageName: 'ubuntu-latest'
         PYTHON_VERSION: "3.8"
+        EXTRA_CONDA_PACKAGES: "numpy=1.26.4"
         JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND: "threading"
       linux_py313_free_threaded:
         imageName: 'ubuntu-latest'
