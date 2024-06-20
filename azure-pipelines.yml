@@ -94,7 +94,7 @@ jobs:
         JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND: "threading"
       linux_py313_free_threaded:
         imageName: 'ubuntu-latest'
-        PYTHON_VERSION: "3.13t"
+        PYTHON_VERSION: "free-threaded-3.13"
 
       windows_py310:
         imageName: "windows-latest"

@@ -41,7 +41,7 @@ create_new_free_threaded_env() {
 
 if [[ "$PYTHON_VERSION" == pypy3* ]]; then
     create_new_pypy3_env
-elif [[ "$PYTHON_VERSION" == *t ]]; then
+elif [[ "$PYTHON_VERSION" == free-treaded* ]]; then
      create_new_free_threaded_env
 else
     create_new_conda_env
