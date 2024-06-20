@@ -212,7 +212,7 @@ def _assert_warning_nested(backend, inner_n_jobs, expected):
                 'backed parallel loops cannot' in each.args[0]
                 for each in warninfo
             )
-            # With Python nogil, when the outer backend is threading, we might
+            # With free-threaded Python, when the outer backend is threading, we might
             # see more that one warning
             warnings_have_the_right_length = (
                 len(warninfo) >= 1 if IS_GIL_DISABLED
