@@ -194,6 +194,13 @@ def test_main_thread_renamed_no_warning(backend, monkeypatch):
     # warninfo catches Warnings from worker timeouts. We remove it if it exists
     warninfo = [w for w in warninfo if "worker timeout" not in str(w.message)]
 
+    # Under Python 3.13 if backend='multiprocessing', you will get a
+    # warning saying that forking a multi-threaded process is not a good idea,
+    # we ignore them in this test
+    if backend in [None, "multiprocessing"] or isinstance(backend, BACKENDS["multiprocessing"]):
+        message_part = "multi-threaded, use of fork() may lead to deadlocks"
+        warninfo = [w for w in warninfo if message_part not in str(w.message)]
+
     # The multiprocessing backend will raise a warning when detecting that is
     # started from the non-main thread. Let's check that there is no false
     # positive because of the name change.
