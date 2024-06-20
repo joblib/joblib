@@ -8,7 +8,7 @@
 #
 # License: 3-clause BSD
 
-set -e
+set -xe
 
 create_new_conda_env() {
     conda update --yes conda conda-libmamba-solver
