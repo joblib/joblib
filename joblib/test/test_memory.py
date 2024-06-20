@@ -154,26 +154,29 @@ def test_parallel_call_cached_function_defined_in_jupyter(
 
         ipython_cell_id = '<ipython-input-{}-000000000000>'.format(session_no)
 
+        my_locals = {}
         exec(
             compile(
                 textwrap.dedent(ipython_cell_source),
                 filename=ipython_cell_id,
                 mode='exec'
-            )
+            ),
+            # TODO when Python 3.11 is the minimum supported version, use
+            # locals=my_locals instead of passing globals and locals in the
+            # next two lines as positional arguments
+            None,
+            my_locals,
         )
-        # f is now accessible in the locals mapping - but for some unknown
-        # reason, f = locals()['f'] throws a KeyError at runtime, we need to
-        # bind locals()['f'] to a different name in the local namespace
-        aliased_f = locals()['f']
-        aliased_f.__module__ = "__main__"
+        f = my_locals['f']
+        f.__module__ = "__main__"
 
         # Preliminary sanity checks, and tests checking that joblib properly
         # identified f as an interactive function defined in a jupyter notebook
-        assert aliased_f(1) == 1
-        assert aliased_f.__code__.co_filename == ipython_cell_id
+        assert f(1) == 1
+        assert f.__code__.co_filename == ipython_cell_id
 
         memory = Memory(location=tmpdir.strpath, verbose=0)
-        cached_f = memory.cache(aliased_f)
+        cached_f = memory.cache(f)
 
         assert len(os.listdir(tmpdir / 'joblib')) == 1
         f_cache_relative_directory = os.listdir(tmpdir / 'joblib')[0]
@@ -200,13 +203,13 @@ def test_parallel_call_cached_function_defined_in_jupyter(
                 # source code introspection fails for dynamic functions sent to
                 # child processes - which would eventually make joblib clear
                 # the cache associated to f
-                res = Parallel(n_jobs=2)(delayed(cached_f)(i) for i in [1, 2])
+                Parallel(n_jobs=2)(delayed(cached_f)(i) for i in [1, 2])
             else:
                 # Submit the function to the joblib child processes, although
                 # the function has never been called in the parent yet. This
                 # triggers a specific code branch inside
                 # MemorizedFunc.__reduce__.
-                res = Parallel(n_jobs=2)(delayed(cached_f)(i) for i in [1, 2])
+                Parallel(n_jobs=2)(delayed(cached_f)(i) for i in [1, 2])
                 assert len(os.listdir(f_cache_directory / 'f')) == 3
 
                 cached_f(3)

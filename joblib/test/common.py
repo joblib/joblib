@@ -4,6 +4,7 @@ Small utilities for testing.
 import os
 import gc
 import sys
+import sysconfig
 
 from joblib._multiprocessing_helpers import mp
 from joblib.testing import SkipTest, skipif
@@ -14,6 +15,8 @@ except ImportError:
     lz4 = None
 
 IS_PYPY = hasattr(sys, "pypy_version_info")
+IS_GIL_DISABLED = (
+    sysconfig.get_config_var("Py_GIL_DISABLED") and not sys._is_gil_enabled())
 
 # A decorator to run tests only when numpy is available
 try:

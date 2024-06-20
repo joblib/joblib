@@ -13,6 +13,10 @@ In development
   if it is in cache memory.
   https://github.com/joblib/joblib/pull/1584
 
+- Support for Python 3.13 free-threaded has been added.
+  https://github.com/joblib/joblib/pull/1589
+
+
 Release 1.4.2 -- 2024/05/02
 ---------------------------
 

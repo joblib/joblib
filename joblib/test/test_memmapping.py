@@ -12,7 +12,7 @@ import faulthandler
 
 import pytest
 
-from joblib.test.common import with_numpy, np
+from joblib.test.common import IS_GIL_DISABLED, with_numpy, np
 from joblib.test.common import with_multiprocessing
 from joblib.test.common import with_dev_shm
 from joblib.testing import raises, parametrize, skipif
@@ -1147,9 +1147,9 @@ def test_weak_array_key_map():
         # On CPython (at least) the same id is often reused many times for the
         # temporary arrays created under the local scope of the
         # get_set_get_collect function without causing any spurious lookups /
-        # insertions in the map. Apparently on Python nogil, the id is not
-        # reused as often.
-        max_len_unique_ids = 400 if getattr(sys.flags, 'nogil', False) else 100
+        # insertions in the map. Apparently on free-threaded Python, the id is
+        # not reused as often.
+        max_len_unique_ids = 400 if IS_GIL_DISABLED else 100
         assert len(unique_ids) < max_len_unique_ids
 
 
