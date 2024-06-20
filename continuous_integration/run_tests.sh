@@ -5,6 +5,10 @@ set -e
 echo "Activating test environment:"
 if [[ "$PYTHON_VERSION" == pypy3* ]]; then
     source pypy3/bin/activate
+    # This avoids warning like
+    # RuntimeWarning: The global interpreter lock (GIL) has been enabled to load module 'coverage.tracer',
+    # which has not declared that it can run safely without the GIL
+    export PYTHON_GIL=0
 elif [[ "$PYTHON_VERSION" == free-threaded* ]]; then
     source testenv/bin/activate
 else
