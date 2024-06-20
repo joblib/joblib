@@ -593,19 +593,23 @@ class MemorizedFunc(Logger):
         return state
 
     def check_call_in_cache(self, *args, **kwargs):
-        """Check if function call is in the memory cache.
+        """Check if the function call is cached and valid for given arguments.
 
-        Does not call the function or do any work besides func inspection
-        and arg hashing.
+        Does not call the function or do any work besides function inspection
+        and argument hashing.
+
+        - Compare the function code with the one from the cached function,
+          asserting if it has changed.
+        - Check if the function call is present in the cache.
+        - Call `cache_validation_callback` for user define cache validation.
 
         Returns
         -------
         is_call_in_cache: bool
-            Whether or not the result of the function has been cached
-            for the input arguments that have been passed.
+            Whether or not the function call is in cache and can be used.
         """
         call_id = (self.func_id, self._get_args_id(*args, **kwargs))
-        return self.store_backend.contains_item(call_id)
+        return self._is_in_cache_and_valid(call_id)
 
     # ------------------------------------------------------------------------
     # Private interface
