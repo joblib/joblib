@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+set -xe
 
 echo "Activating test environment:"
 if [[ "$PYTHON_VERSION" == pypy3* ]]; then
