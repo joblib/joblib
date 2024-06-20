@@ -27,8 +27,22 @@ create_new_pypy3_env() {
     pip install -U pip 'pytest'
 }
 
+create_new_free_threaded_env() {
+    sudo apt-get -yq update
+    sudo apt-get install -yq ccache
+    sudo apt-get install -yq software-properties-common
+    sudo add-apt-repository --yes ppa:deadsnakes/nightly
+    sudo apt-get update -yq
+    sudo apt-get install -yq --no-install-recommends python3.13-dev python3.13-venv python3.13-nogil
+
+    python3.13t -m venv testenv
+    source testenv/bin/activate
+}
+
 if [[ "$PYTHON_VERSION" == pypy3* ]]; then
     create_new_pypy3_env
+elif [[ "$PYTHON_VERSION" == *t ]]
+     create_new_free_threaded_env
 else
     create_new_conda_env
 fi
