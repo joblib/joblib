@@ -558,7 +558,7 @@ class MemorizedFunc(Logger):
         """Call wrapped function, cache result and return a reference.
 
         This method returns a reference to the cached result instead of the
-        result itself. The reference object is small and pickleable, allowing
+        result itself. The reference object is small and picklable, allowing
         to send or store it easily. Call .get() on reference object to get
         result.
 
