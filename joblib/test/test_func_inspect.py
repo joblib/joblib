@@ -48,6 +48,9 @@ def m1(x, *, y):
 def m2(x, *, y, z=3):
     pass
 
+def m3(w,/,x, *, y, z=3):
+    pass
+
 
 @fixture(scope='module')
 def cached_func(tmpdir_factory):
@@ -107,7 +110,8 @@ def test_filter_varargs(func, args, filtered_args):
 
 test_filter_kwargs_extra_params = [
     (m1, [[], (1,), {'y': 2}], {'x': 1, 'y': 2}),
-    (m2, [[], (1,), {'y': 2}], {'x': 1, 'y': 2, 'z': 3})
+    (m2, [[], (1,), {'y': 2}], {'x': 1, 'y': 2, 'z': 3}),
+    (m3, [[], (-1,1), {'y': 2}], {'w':-1,'x': 1, 'y': 2, 'z': 3})
 ]
 
 
