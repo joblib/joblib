@@ -23,9 +23,7 @@ from .numpy_pickle_compat import load_compatibility
 from .numpy_pickle_compat import NDArrayWrapper
 # For compatibility with old versions of joblib, we need ZNDArrayWrapper
 # to be visible in the current namespace.
-# Explicitly skipping next line from flake8 as it triggers an F401 warning
-# which we don't care.
-from .numpy_pickle_compat import ZNDArrayWrapper  # noqa
+from .numpy_pickle_compat import ZNDArrayWrapper  # noqa: F401
 from .backports import make_memmap
 
 # Register supported compressors
