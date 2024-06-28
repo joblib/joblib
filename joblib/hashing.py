@@ -276,7 +276,7 @@ class TorchHasher(NumpyHasher):
         """ Subclass again to convert torch tensors and torch modules to numpy
             arrays for deterministic hashing. Torch tensors do not have
             deterministic pickle representations and therefore hashing them is
-            not reliable. 
+            not reliable.
 
             Torch tensors are converted to numpy arrays directly, and torch
             modules are converted to dictionaries of numpy arrays
