@@ -243,10 +243,10 @@ class NumpyHasher(Hasher):
 
 class TorchHasher(NumpyHasher):
     """ Special case for the hasher for when torch is loaded.
-        
-        This class extends the NumpyHasher class to handle torch tensors and torch modules.
-        It converts torch tensors and torch modules to numpy arrays for deterministic hashing.
 
+        This class extends the NumpyHasher class to handle torch tensors and
+        torch modules. It converts torch tensors and torch modules to numpy
+        arrays for deterministic hashing.
     """
 
     def __init__(self, hash_name="md5", coerce_mmap=False):
@@ -264,24 +264,23 @@ class TorchHasher(NumpyHasher):
                 obj[key] = self._convert_tensors_to_numpy(value)
         if isinstance(obj, self.torch_nnModule):
             state_dict = obj.state_dict()
-            obj = {key: self._convert_tensors_to_numpy(value) for key, value in state_dict.items()}
-            return obj 
+            obj = {key: self._convert_tensors_to_numpy(value)
+                   for key, value in state_dict.items()}
+            return obj
         if isinstance(obj, self.torch_Tensor):
             obj_as_numpy = obj.cpu().detach().numpy()
             return obj_as_numpy
         return obj
 
     def save(self, obj):
-        """ Convert torch tensors and torch modules to numpy arrays for deterministic hashing.
-            
-            Torch tensors do not have deterministic pickle representations and therefore hashing
-            them is not reliable. This function converts torch tensors and torch modules to numpy
-            arrays for deterministic hashing.
+        """ Subclass again to convert torch tensors and torch modules to numpy
+            arrays for deterministic hashing. Torch tensors do not have
+            deterministic pickle representations and therefore hashing them is
+            not reliable. 
 
-            Torch tensors are converted to numpy arrays directly, and torch modules are converted
-            to dictionaries of numpy arrays corresponding to each component in the state_dict.
-
-            See issue: <https://github.com/pytorch/pytorch/issues/32165>
+            Torch tensors are converted to numpy arrays directly, and torch
+            modules are converted to dictionaries of numpy arrays
+            corresponding to each component in the state_dict.
         """
         obj = self._convert_tensors_to_numpy(obj)
         NumpyHasher.save(self, obj)
