@@ -241,9 +241,39 @@ class NumpyHasher(Hasher):
         Hasher.save(self, obj)
 
 
+class TorchHasher(NumpyHasher):
+    """Special case the hasher for when numpy is loaded.
+
+    Under the hood this uses the new implementation of `torch.save` to serialize the model.
+    This produces consistent output.
+
+    This class is adapted from GitHub user AKuerderle who suggested it in the following issue:
+    https://github.com/joblib/joblib/issues/1282
+    """
+
+    def __init__(self, hash_name="md5", coerce_mmap=False):
+        super().__init__(hash_name, coerce_mmap)
+        from torch import save as torch_save  # noqa: import-outside-toplevel
+        from torch.nn import Module as torch_nnModule  # noqa: import-outside-toplevel
+        from torch import Tensor as torch_Tensor  # noqa: import-outside-toplevel
+
+        self.torch_save = torch_save
+        self.torch_nnModule = torch_nnModule
+        self.torch_Tensor = torch_Tensor
+
+    def save(self, obj):
+        if isinstance(obj, (self.torch_nnModule, self.torch_Tensor)):
+            b = bytes()
+            buffer = io.BytesIO(b)
+            self.torch_save(obj, buffer)
+            self._hash.update(b)
+            return
+        NumpyHasher.save(self, obj)
+
+
 def hash(obj, hash_name='md5', coerce_mmap=False):
     """ Quick calculation of a hash to identify uniquely Python objects
-        containing numpy arrays.
+        containing numpy arrays or torch tensors.
 
         Parameters
         ----------
@@ -258,7 +288,9 @@ def hash(obj, hash_name='md5', coerce_mmap=False):
         raise ValueError("Valid options for 'hash_name' are {}. "
                          "Got hash_name={!r} instead."
                          .format(valid_hash_names, hash_name))
-    if 'numpy' in sys.modules:
+    if 'torch' in sys.modules:
+        hasher = TorchHasher(hash_name=hash_name, coerce_mmap=coerce_mmap)
+    elif 'numpy' in sys.modules:
         hasher = NumpyHasher(hash_name=hash_name, coerce_mmap=coerce_mmap)
     else:
         hasher = Hasher(hash_name=hash_name)
