@@ -242,13 +242,11 @@ class NumpyHasher(Hasher):
 
 
 class TorchHasher(NumpyHasher):
-    """Special case the hasher for when numpy is loaded.
+    """ Special case for the hasher for when torch is loaded.
+        
+        This class extends the NumpyHasher class to handle torch tensors and torch modules.
+        It converts torch tensors and torch modules to numpy arrays for deterministic hashing.
 
-    Under the hood this uses the new implementation of `torch.save` to serialize the model.
-    This produces consistent output.
-
-    This class is adapted from GitHub user AKuerderle who suggested it in the following issue:
-    https://github.com/joblib/joblib/issues/1282
     """
 
     def __init__(self, hash_name="md5", coerce_mmap=False):
