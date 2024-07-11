@@ -64,7 +64,7 @@ if mp is not None:
 
 
 DEFAULT_THREAD_BACKEND = 'threading'
-
+DEFAULT_PROCESS_BACKEND = 'loky'
 
 # Thread local value that can be overridden by the ``parallel_config`` context
 # manager
@@ -151,6 +151,7 @@ def _get_active_backend(
     backend = _get_config_param(
         default_parallel_config['backend'], backend_config, "backend"
     )
+
     prefer = _get_config_param(prefer, backend_config, "prefer")
     require = _get_config_param(require, backend_config, "require")
     verbose = _get_config_param(verbose, backend_config, "verbose")
@@ -178,6 +179,7 @@ def _get_active_backend(
         # context manager or the context manager did not set a backend.
         # create the default backend instance now.
         backend = BACKENDS[DEFAULT_BACKEND](nesting_level=0)
+
         explicit_backend = False
 
     # Try to use the backend set by the user with the context manager.
@@ -210,6 +212,22 @@ def _get_active_backend(
         thread_config = backend_config.copy()
         thread_config['n_jobs'] = 1
         return sharedmem_backend, thread_config
+
+    force_processes = not explicit_backend and prefer == 'processes' and uses_threads
+
+    if force_processes:
+        # This backend does not match the prefer="processes" constraint:
+        # fallback to the default process-based backend.
+        process_backend = BACKENDS[DEFAULT_PROCESS_BACKEND](
+            nesting_level=nesting_level
+        )
+        # Force to n_jobs=1 by default
+        process_config = backend_config.copy()
+        # TODO Uncommenting the next line breaks the tests, I have to say I
+        # don't understand this why is it needed in the process => threads
+        # forcing above
+        # process_config['n_jobs'] = 1
+        return process_backend, process_config
 
     return backend, backend_config
 
@@ -1219,6 +1237,7 @@ class Parallel(Logger):
         active_backend, context_config = _get_active_backend(
             prefer=prefer, require=require, verbose=verbose
         )
+
 
         nesting_level = active_backend.nesting_level
 
