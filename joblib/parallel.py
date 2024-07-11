@@ -213,7 +213,9 @@ def _get_active_backend(
         thread_config['n_jobs'] = 1
         return sharedmem_backend, thread_config
 
-    force_processes = not explicit_backend and prefer == 'processes' and uses_threads
+    force_processes = (
+        not explicit_backend and prefer == 'processes' and uses_threads
+    )
 
     if force_processes:
         # This backend does not match the prefer="processes" constraint:
@@ -1237,7 +1239,6 @@ class Parallel(Logger):
         active_backend, context_config = _get_active_backend(
             prefer=prefer, require=require, verbose=verbose
         )
-
 
         nesting_level = active_backend.nesting_level
 
