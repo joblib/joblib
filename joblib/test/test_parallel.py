@@ -1633,7 +1633,8 @@ def test_backend_batch_statistics_reset(backend):
 def test_backend_hinting_and_constraints(context):
     for n_jobs in [1, 2, -1]:
         assert (
-            type(Parallel(n_jobs=n_jobs)._backend) == get_default_backend_instance())
+            type(Parallel(n_jobs=n_jobs)._backend) ==
+            get_default_backend_instance())
 
         p = Parallel(n_jobs=n_jobs, prefer='threads')
         assert type(p._backend) is ThreadingBackend
