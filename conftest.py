@@ -49,6 +49,12 @@ def pytest_collection_modifyitems(config, items):
                 item.add_marker(pytest.mark.skip(reason='lz4 is missing'))
 
 
+    if os.getenv('JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND'):
+        for item in items:
+            if item.name == 'parallel_numpy.rst':
+                item.add_marker(pytest.mark.skip(reason='JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND is set'))
+
+
 def pytest_configure(config):
     """Setup multiprocessing logging for the tests"""
     if mp is not None:
