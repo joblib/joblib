@@ -20,6 +20,7 @@ from joblib.backports import make_memmap
 from joblib.parallel import Parallel, delayed
 
 from joblib.pool import MemmappingPool
+from joblib.executor import _ReusablePoolExecutor
 from joblib.executor import _TestingMemmappingExecutor as TestExecutor
 from joblib._memmapping_reducer import has_shareable_memory
 from joblib._memmapping_reducer import ArrayMemmapForwardReducer
@@ -1189,3 +1190,23 @@ def test_direct_mmap(tmpdir):
 
     results = Parallel(n_jobs=2)(delayed(worker)() for _ in range(1))
     np.testing.assert_array_equal(results[0], arr)
+
+
+@with_multiprocessing
+def test_correct_executor_type_in_reuse():
+    # Make sure we get the correct executor type when reusing it.
+    ex1, is_reused = _ReusablePoolExecutor.get_reusable_executor(2)
+    assert not is_reused
+
+    ex2 = TestExecutor.get_memmapping_executor(2)
+    assert isinstance(ex2, TestExecutor)  # wrong type
+    assert ex1._flags.shutdown
+
+    ex3, is_reused = _ReusablePoolExecutor.get_reusable_executor(
+        2, reuse=False
+    )
+    assert not is_reused
+
+    ex4 = TestExecutor.get_memmapping_executor(2)
+    assert isinstance(ex4, TestExecutor)  # wrong type
+    assert ex3._flags.shutdown
