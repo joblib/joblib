@@ -1078,7 +1078,8 @@ class Memory(Logger):
         age_limit: datetime.timedelta, optional
             Maximum age of items to limit the cache to.  When reducing the size
             of the cache, any items last accessed more than the given length of
-            time ago are deleted.
+            time ago are deleted. Example: to remove files older than 5 days,
+            use datetime.timedelta(days=5).
         """
         if self.store_backend is None:
             # No cached results, this function does nothing.
