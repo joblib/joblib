@@ -4,6 +4,10 @@ Latest changes
 In development
 --------------
 
+- Enforce ``age_limit`` is a positive timedelta for ``Memory.reduce_size``,
+  to avoid silently ignoring it.
+  https://github.com/joblib/joblib/pull/1613
+
 - Remove deprecated ``bytes_limit`` argument for ``Memory``, which should
   be passed directly to ``Memory.reduce_size``.
   https://github.com/joblib/joblib/pull/1569
