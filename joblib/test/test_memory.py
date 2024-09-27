@@ -1045,6 +1045,14 @@ def test_memory_reduce_size_age_limit(tmpdir):
     assert not set.issubset(set(cache_items), set(ref_cache_items))
     assert len(cache_items) == 2
 
+    # ensure age_limit is forced to be positive
+    is_enforced = False
+    try:
+        memory.reduce_size(age_limit=datetime.timedelta(seconds=-1))
+    except AssertionError:
+        is_enforced = True
+    assert is_enforced
+
     # age_limit set so that no cache item is kept
     memory.reduce_size(age_limit=datetime.timedelta(seconds=0))
     cache_items = memory.store_backend.get_items()
