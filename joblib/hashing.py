@@ -272,13 +272,7 @@ def is_builtin_class_instance(obj):
 
 
 def implements_custom_hash(obj):
-    try:
-        hash_value = obj.__hash__()
-        _implements_custom_hash = True
-    except:
-        _implements_custom_hash = False
-
-    return _implements_custom_hash
+    return obj.__hash__ is not None
 
 
 def flatten(obj):
