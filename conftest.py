@@ -8,6 +8,7 @@ from _pytest.doctest import DoctestItem
 
 from joblib.parallel import mp
 from joblib.backports import LooseVersion
+from joblib import Memory
 try:
     import lz4
 except ImportError:
@@ -84,3 +85,11 @@ def pytest_unconfigure(config):
     # Note that we also use a shorter timeout for the per-test callback
     # configured via the pytest-timeout extension.
     faulthandler.dump_traceback_later(60, exit=True)
+
+
+@pytest.fixture(scope='function')
+def memory(tmp_path):
+    "Fixture to get an independent and self-cleaning Memory"
+    mem = Memory(location=tmp_path, verbose=0)
+    yield mem
+    mem.clear()

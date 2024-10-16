@@ -322,7 +322,7 @@ class NotMemorizedFunc(object):
         pass
 
     def call(self, *args, **kwargs):
-        return self.func(*args, **kwargs)
+        return self.func(*args, **kwargs), {}
 
     def check_call_in_cache(self, *args, **kwargs):
         return False
@@ -476,8 +476,9 @@ class MemorizedFunc(Logger):
 
         Returns
         -------
-        Output of the wrapped function if shelving is false, or a
-        MemorizedResult reference to the value if shelving is true.
+        output: Output of the wrapped function if shelving is false, or a
+            MemorizedResult reference to the value if shelving is true.
+        metadata: dict containing the metadata associated with the call.
         """
         args_id = self._get_args_id(*args, **kwargs)
         call_id = (self.func_id, args_id)
@@ -506,7 +507,7 @@ class MemorizedFunc(Logger):
         # the cache.
         if self._is_in_cache_and_valid(call_id):
             if shelving:
-                return self._get_memorized_result(call_id)
+                return self._get_memorized_result(call_id), {}
 
             try:
                 start_time = time.time()
@@ -514,7 +515,7 @@ class MemorizedFunc(Logger):
                 if self._verbose > 4:
                     self._print_duration(time.time() - start_time,
                                          context='cache loaded ')
-                return output
+                return output, {}
             except Exception:
                 # XXX: Should use an exception logger
                 _, signature = format_signature(self.func, *args, **kwargs)
@@ -527,6 +528,7 @@ class MemorizedFunc(Logger):
                 f"in location {location}"
             )
 
+        # Returns the output but not the metadata
         return self._call(call_id, args, kwargs, shelving)
 
     @property
@@ -556,7 +558,7 @@ class MemorizedFunc(Logger):
         """Call wrapped function, cache result and return a reference.
 
         This method returns a reference to the cached result instead of the
-        result itself. The reference object is small and pickeable, allowing
+        result itself. The reference object is small and picklable, allowing
         to send or store it easily. Call .get() on reference object to get
         result.
 
@@ -567,10 +569,12 @@ class MemorizedFunc(Logger):
             class "NotMemorizedResult" is used when there is no cache
             activated (e.g. location=None in Memory).
         """
-        return self._cached_call(args, kwargs, shelving=True)
+        # Return the wrapped output, without the metadata
+        return self._cached_call(args, kwargs, shelving=True)[0]
 
     def __call__(self, *args, **kwargs):
-        return self._cached_call(args, kwargs, shelving=False)
+        # Return the output, without the metadata
+        return self._cached_call(args, kwargs, shelving=False)[0]
 
     def __getstate__(self):
         # Make sure self.func's source is introspected prior to being pickled -
@@ -589,19 +593,23 @@ class MemorizedFunc(Logger):
         return state
 
     def check_call_in_cache(self, *args, **kwargs):
-        """Check if function call is in the memory cache.
+        """Check if the function call is cached and valid for given arguments.
 
-        Does not call the function or do any work besides func inspection
-        and arg hashing.
+        Does not call the function or do any work besides function inspection
+        and argument hashing.
+
+        - Compare the function code with the one from the cached function,
+          asserting if it has changed.
+        - Check if the function call is present in the cache.
+        - Call `cache_validation_callback` for user define cache validation.
 
         Returns
         -------
         is_call_in_cache: bool
-            Whether or not the result of the function has been cached
-            for the input arguments that have been passed.
+            Whether or not the function call is in cache and can be used.
         """
         call_id = (self.func_id, self._get_args_id(*args, **kwargs))
-        return self.store_backend.contains_item(call_id)
+        return self._is_in_cache_and_valid(call_id)
 
     # ------------------------------------------------------------------------
     # Private interface
@@ -752,11 +760,16 @@ class MemorizedFunc(Logger):
         -------
         output : object
             The output of the function call.
+        metadata : dict
+            The metadata associated with the call.
         """
         call_id = (self.func_id, self._get_args_id(*args, **kwargs))
+
+        # Return the output and the metadata
         return self._call(call_id, args, kwargs)
 
     def _call(self, call_id, args, kwargs, shelving=False):
+        # Return the output and the metadata
         self._before_call(args, kwargs)
         start_time = time.time()
         output = self.func(*args, **kwargs)
@@ -774,13 +787,13 @@ class MemorizedFunc(Logger):
             self._print_duration(duration)
         metadata = self._persist_input(duration, call_id, args, kwargs)
         if shelving:
-            return self._get_memorized_result(call_id, metadata)
+            return self._get_memorized_result(call_id, metadata), metadata
 
         if self.mmap_mode is not None:
             # Memmap the output at the first call to be consistent with
             # later calls
             output = self._load_item(call_id, metadata)
-        return output
+        return output, metadata
 
     def _persist_input(self, duration, call_id, args, kwargs,
                        this_duration_limit=0.5):
@@ -861,12 +874,14 @@ class MemorizedFunc(Logger):
 ###############################################################################
 class AsyncMemorizedFunc(MemorizedFunc):
     async def __call__(self, *args, **kwargs):
-        out = super().__call__(*args, **kwargs)
-        return await out if asyncio.iscoroutine(out) else out
+        out = self._cached_call(args, kwargs, shelving=False)
+        out = await out if asyncio.iscoroutine(out) else out
+        return out[0]  # Don't return metadata
 
     async def call_and_shelve(self, *args, **kwargs):
-        out = super().call_and_shelve(*args, **kwargs)
-        return await out if asyncio.iscoroutine(out) else out
+        out = self._cached_call(args, kwargs, shelving=True)
+        out = await out if asyncio.iscoroutine(out) else out
+        return out[0]  # Don't return metadata
 
     async def call(self, *args, **kwargs):
         out = super().call(*args, **kwargs)
@@ -876,8 +891,9 @@ class AsyncMemorizedFunc(MemorizedFunc):
         self._before_call(args, kwargs)
         start_time = time.time()
         output = await self.func(*args, **kwargs)
-        return self._after_call(call_id, args, kwargs, shelving,
-                                output, start_time)
+        return self._after_call(
+            call_id, args, kwargs, shelving, output, start_time
+        )
 
 
 ###############################################################################
@@ -1062,7 +1078,9 @@ class Memory(Logger):
         age_limit: datetime.timedelta, optional
             Maximum age of items to limit the cache to.  When reducing the size
             of the cache, any items last accessed more than the given length of
-            time ago are deleted.
+            time ago are deleted. Example: to remove files older than 5 days,
+            use datetime.timedelta(days=5). Negative timedelta are not
+            accepted.
         """
         if self.store_backend is None:
             # No cached results, this function does nothing.

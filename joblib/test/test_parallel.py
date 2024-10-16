@@ -30,6 +30,7 @@ from joblib._multiprocessing_helpers import mp
 from joblib.test.common import np, with_numpy
 from joblib.test.common import with_multiprocessing
 from joblib.test.common import IS_PYPY, force_gc_pypy
+from joblib.test.common import IS_GIL_DISABLED
 from joblib.testing import (parametrize, raises, check_subprocess_call,
                             skipif, warns)
 
@@ -193,6 +194,14 @@ def test_main_thread_renamed_no_warning(backend, monkeypatch):
     # warninfo catches Warnings from worker timeouts. We remove it if it exists
     warninfo = [w for w in warninfo if "worker timeout" not in str(w.message)]
 
+    # Under Python 3.13 if backend='multiprocessing', you will get a
+    # warning saying that forking a multi-threaded process is not a good idea,
+    # we ignore them in this test
+    if (backend in [None, "multiprocessing"]
+            or isinstance(backend, MultiprocessingBackend)):
+        message_part = "multi-threaded, use of fork() may lead to deadlocks"
+        warninfo = [w for w in warninfo if message_part not in str(w.message)]
+
     # The multiprocessing backend will raise a warning when detecting that is
     # started from the non-main thread. Let's check that there is no false
     # positive because of the name change.
@@ -211,10 +220,10 @@ def _assert_warning_nested(backend, inner_n_jobs, expected):
                 'backed parallel loops cannot' in each.args[0]
                 for each in warninfo
             )
-            # With Python nogil, when the outer backend is threading, we might
-            # see more that one warning
+            # With free-threaded Python, when the outer backend is threading,
+            # we might see more that one warning
             warnings_have_the_right_length = (
-                len(warninfo) >= 1 if getattr(sys.flags, 'nogil', False)
+                len(warninfo) >= 1 if IS_GIL_DISABLED
                 else len(warninfo) == 1)
             return warnings_are_correct and warnings_have_the_right_length
 

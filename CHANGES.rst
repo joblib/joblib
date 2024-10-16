@@ -1,9 +1,36 @@
 Latest changes
 ==============
 
-
 In development
 --------------
+
+- Enforce ``age_limit`` is a positive timedelta for ``Memory.reduce_size``,
+  to avoid silently ignoring it.
+  https://github.com/joblib/joblib/pull/1613
+
+- Remove deprecated ``bytes_limit`` argument for ``Memory``, which should
+  be passed directly to ``Memory.reduce_size``.
+  https://github.com/joblib/joblib/pull/1569
+
+- Extend functionality of the ``check_call_in_cache`` method to now also
+  check against cache validity. Before, it would only check for a given call
+  if it is in cache memory.
+  https://github.com/joblib/joblib/pull/1584
+
+- Support for Python 3.13 free-threaded has been added.
+  https://github.com/joblib/joblib/pull/1589
+
+
+Release 1.4.2 -- 2024/05/02
+---------------------------
+
+Due to maintenance issues, 1.4.1 was not valid and we bumped the version to 1.4.2
+
+
+- Fix a backward incompatible change in ``MemorizedFunc.call`` which needs to
+  return the metadata. Also make sure that ``NotMemorizedFunc.call`` return
+  an empty dict for metadata for consistency.
+  https://github.com/joblib/joblib/pull/1576
 
 
 Release 1.4.0 -- 2024/04/08
@@ -11,12 +38,12 @@ Release 1.4.0 -- 2024/04/08
 
 - Allow caching co-routines with `Memory.cache`.
   https://github.com/joblib/joblib/pull/894
-  
+
 - Try to cast ``n_jobs`` to int in parallel and raise an error if
   it fails. This means that ``n_jobs=2.3`` will now result in
   ``effective_n_jobs=2`` instead of failing.
   https://github.com/joblib/joblib/pull/1539
-  
+
 - Ensure that errors in the task generator given to Parallel's call
   are raised in the results consumming thread.
   https://github.com/joblib/joblib/pull/1491
@@ -33,7 +60,7 @@ Release 1.4.0 -- 2024/04/08
 - dask backend now supports ``return_as=generator`` and
   ``return_as=generator_unordered``.
   https://github.com/joblib/joblib/pull/1520
-  
+
 - Vendor cloudpickle 3.0.0 and end support for Python 3.7 which has
   reached end of life.
   https://github.com/joblib/joblib/pull/1487

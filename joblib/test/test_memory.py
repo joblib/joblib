@@ -154,26 +154,29 @@ def test_parallel_call_cached_function_defined_in_jupyter(
 
         ipython_cell_id = '<ipython-input-{}-000000000000>'.format(session_no)
 
+        my_locals = {}
         exec(
             compile(
                 textwrap.dedent(ipython_cell_source),
                 filename=ipython_cell_id,
                 mode='exec'
-            )
+            ),
+            # TODO when Python 3.11 is the minimum supported version, use
+            # locals=my_locals instead of passing globals and locals in the
+            # next two lines as positional arguments
+            None,
+            my_locals,
         )
-        # f is now accessible in the locals mapping - but for some unknown
-        # reason, f = locals()['f'] throws a KeyError at runtime, we need to
-        # bind locals()['f'] to a different name in the local namespace
-        aliased_f = locals()['f']
-        aliased_f.__module__ = "__main__"
+        f = my_locals['f']
+        f.__module__ = "__main__"
 
         # Preliminary sanity checks, and tests checking that joblib properly
         # identified f as an interactive function defined in a jupyter notebook
-        assert aliased_f(1) == 1
-        assert aliased_f.__code__.co_filename == ipython_cell_id
+        assert f(1) == 1
+        assert f.__code__.co_filename == ipython_cell_id
 
         memory = Memory(location=tmpdir.strpath, verbose=0)
-        cached_f = memory.cache(aliased_f)
+        cached_f = memory.cache(f)
 
         assert len(os.listdir(tmpdir / 'joblib')) == 1
         f_cache_relative_directory = os.listdir(tmpdir / 'joblib')[0]
@@ -200,13 +203,13 @@ def test_parallel_call_cached_function_defined_in_jupyter(
                 # source code introspection fails for dynamic functions sent to
                 # child processes - which would eventually make joblib clear
                 # the cache associated to f
-                res = Parallel(n_jobs=2)(delayed(cached_f)(i) for i in [1, 2])
+                Parallel(n_jobs=2)(delayed(cached_f)(i) for i in [1, 2])
             else:
                 # Submit the function to the joblib child processes, although
                 # the function has never been called in the parent yet. This
                 # triggers a specific code branch inside
                 # MemorizedFunc.__reduce__.
-                res = Parallel(n_jobs=2)(delayed(cached_f)(i) for i in [1, 2])
+                Parallel(n_jobs=2)(delayed(cached_f)(i) for i in [1, 2])
                 assert len(os.listdir(f_cache_directory / 'f')) == 3
 
                 cached_f(3)
@@ -602,17 +605,30 @@ def test_persistence(tmpdir):
     gp(1)
 
 
-def test_check_call_in_cache(tmpdir):
-    for func in (MemorizedFunc(f, tmpdir.strpath),
-                 Memory(location=tmpdir.strpath, verbose=0).cache(f)):
+@pytest.mark.parametrize("consider_cache_valid", [True, False])
+def test_check_call_in_cache(tmpdir, consider_cache_valid):
+    for func in (
+        MemorizedFunc(
+            f,
+            tmpdir.strpath,
+            cache_validation_callback=lambda _: consider_cache_valid
+        ),
+        Memory(location=tmpdir.strpath, verbose=0).cache(
+            f,
+            cache_validation_callback=lambda _: consider_cache_valid
+        )
+    ):
         result = func.check_call_in_cache(2)
-        assert not result
         assert isinstance(result, bool)
+        assert not result
         assert func(2) == 5
         result = func.check_call_in_cache(2)
-        assert result
         assert isinstance(result, bool)
+        assert result == consider_cache_valid
         func.clear()
+
+    func = NotMemorizedFunc(f)
+    assert not func.check_call_in_cache(2)
 
 
 def test_call_and_shelve(tmpdir):
@@ -1029,6 +1045,10 @@ def test_memory_reduce_size_age_limit(tmpdir):
     assert not set.issubset(set(cache_items), set(ref_cache_items))
     assert len(cache_items) == 2
 
+    # ensure age_limit is forced to be positive
+    with pytest.raises(ValueError, match="has to be a positive"):
+        memory.reduce_size(age_limit=datetime.timedelta(seconds=-1))
+
     # age_limit set so that no cache item is kept
     memory.reduce_size(age_limit=datetime.timedelta(seconds=0))
     cache_items = memory.store_backend.get_items()
@@ -1402,12 +1422,6 @@ def test_info_log(tmpdir, caplog):
 class TestCacheValidationCallback:
     "Tests on parameter `cache_validation_callback`"
 
-    @pytest.fixture()
-    def memory(self, tmp_path):
-        mem = Memory(location=tmp_path)
-        yield mem
-        mem.clear()
-
     def foo(self, x, d, delay=None):
         d["run"] = True
         if delay is not None:
@@ -1481,3 +1495,42 @@ class TestCacheValidationCallback:
         assert d1["run"]
         assert not d2["run"]
         assert d3["run"]
+
+
+class TestMemorizedFunc:
+    "Tests for the MemorizedFunc and NotMemorizedFunc classes"
+
+    @staticmethod
+    def f(x, counter):
+        counter[x] = counter.get(x, 0) + 1
+        return counter[x]
+
+    def test_call_method_memorized(self, memory):
+        "Test calling the function"
+
+        f = memory.cache(self.f, ignore=['counter'])
+
+        counter = {}
+        assert f(2, counter) == 1
+        assert f(2, counter) == 1
+
+        x, meta = f.call(2, counter)
+        assert x == 2, "f has not been called properly"
+        assert isinstance(meta, dict), (
+            "Metadata are not returned by MemorizedFunc.call."
+        )
+
+    def test_call_method_not_memorized(self, memory):
+        "Test calling the function"
+
+        f = NotMemorizedFunc(self.f)
+
+        counter = {}
+        assert f(2, counter) == 1
+        assert f(2, counter) == 2
+
+        x, meta = f.call(2, counter)
+        assert x == 3, "f has not been called properly"
+        assert isinstance(meta, dict), (
+            "Metadata are not returned by MemorizedFunc.call."
+        )

@@ -348,6 +348,8 @@ class StoreBackendMixin(object):
 
         if age_limit is not None:
             older_item = min(item.last_access for item in items)
+            if age_limit.total_seconds() < 0:
+                raise ValueError("age_limit has to be a positive timedelta")
             deadline = datetime.datetime.now() - age_limit
         else:
             deadline = None
