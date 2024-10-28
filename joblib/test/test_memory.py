@@ -1,5 +1,5 @@
 """
-Test the memory module.
+Test the memory module. bla
 """
 
 # Author: Gael Varoquaux <gael dot varoquaux at normalesup dot org>
