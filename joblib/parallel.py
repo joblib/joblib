@@ -223,13 +223,8 @@ def _get_active_backend(
         process_backend = BACKENDS[DEFAULT_PROCESS_BACKEND](
             nesting_level=nesting_level
         )
-        # Force to n_jobs=1 by default
-        process_config = backend_config.copy()
-        # TODO Uncommenting the next line breaks the tests, I have to say I
-        # don't understand this why is it needed in the process => threads
-        # forcing above
-        # process_config['n_jobs'] = 1
-        return process_backend, process_config
+
+        return process_backend, backend_config.copy()
 
     return backend, backend_config
 
