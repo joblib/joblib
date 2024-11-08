@@ -1855,10 +1855,10 @@ class Parallel(Logger):
             self._aborted = True
             raise
         finally:
-            self.print_progress()
             self._running = False
             self._iterating = False
             self._original_iterator = None
+            self.print_progress()
 
     def _reset_run_tracking(self):
         """Reset the counters and flags used to track the execution."""
