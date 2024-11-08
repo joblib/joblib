@@ -35,7 +35,8 @@ class MemmappingExecutor(_ReusablePoolExecutor):
         executor_args = backend_args.copy()
         executor_args.update(env if env else {})
         executor_args.update(dict(
-            timeout=timeout, initializer=initializer, initargs=initargs))
+            timeout=timeout, initializer=initializer, initargs=initargs
+        ))
         reuse = _executor_args is None or _executor_args == executor_args
         _executor_args = executor_args
 
@@ -48,7 +49,8 @@ class MemmappingExecutor(_ReusablePoolExecutor):
         job_reducers, result_reducers = get_memmapping_reducers(
             unlink_on_gc_collect=True,
             temp_folder_resolver=manager.resolve_temp_folder_name,
-            **backend_args)
+            **backend_args
+        )
         _executor, executor_is_reused = super().get_reusable_executor(
             n_jobs, job_reducers=job_reducers, result_reducers=result_reducers,
             reuse=reuse, timeout=timeout, initializer=initializer,
