@@ -72,9 +72,15 @@ jobs:
           - os: ubuntu-latest
             python-version: 3.8
             default-backend-threading: true
+          - os: 'ubuntu-latest'
+            python-version: "free-threaded-3.13"
+
 
     env:
       JUNIT_XML: 'test-data.xml'
+      PYTHON_VERSION: ${{ matrix.python-version }}
+      PYPY_VERSION: ${{ matrix.pypy-version }}
+      EXTRA_CONDA_PACKAGES: ${{ matrix.extra-conda-packages }}
 
 
     runs-on: ${{ matrix.os }}
@@ -94,7 +100,6 @@ jobs:
         uses: conda-incubator/setup-miniconda@v3
         with:
           auto-update-conda: true
-          python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
         run: |
