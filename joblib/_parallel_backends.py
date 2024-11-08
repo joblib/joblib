@@ -198,7 +198,6 @@ class ParallelBackendBase(metaclass=ABCMeta):
             # To avoid over-subscription when using TBB, let the TBB schedulers
             # use Inter Process Communication to coordinate:
             env[self.TBB_ENABLE_IPC_VAR] = "1"
-        print("Setting up env:", env)
         return env
 
     @staticmethod
