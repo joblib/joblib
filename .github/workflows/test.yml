@@ -89,7 +89,7 @@ jobs:
       run:
         # Need to use this shell to get cond working properly.
         # See https://github.com/marketplace/actions/setup-miniconda#important
-        shell: ${{ matrix.os == 'windows-latest' && 'cmd /C CALL {0}' || 'bash -l {0}' }}
+        shell: ${{ matrix.os == 'windows-latest' && 'cmd /C CALL {0}' || 'bash -el {0}' }}
 
 
     steps:
@@ -99,6 +99,7 @@ jobs:
       - name: Setup conda
         uses: conda-incubator/setup-miniconda@v3
         with:
+          auto-activate-base: true
           auto-update-conda: true
           miniforge-version: latest
 
