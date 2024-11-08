@@ -11,11 +11,10 @@
 set -xe
 
 create_new_conda_env() {
-    conda init bash
     conda config --set solver libmamba
     to_install="python=$PYTHON_VERSION pip pytest $EXTRA_CONDA_PACKAGES"
     conda create -n testenv --yes -c conda-forge $to_install
-    conda activate testenv
+    $CONDA/bin/activate testenv
 }
 
 create_new_pypy3_env() {
