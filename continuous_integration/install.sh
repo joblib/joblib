@@ -11,20 +11,21 @@
 set -xe
 
 create_new_conda_env() {
-    conda update --yes conda conda-libmamba-solver
     conda config --set solver libmamba
-    TO_INSTALL="python=$PYTHON_VERSION pip pytest $EXTRA_CONDA_PACKAGES"
-    conda create -n testenv --yes -c conda-forge $TO_INSTALL
-    source activate testenv
+    to_install="python=$PYTHON_VERSION pip pytest $EXTRA_CONDA_PACKAGES"
+    conda create -n testenv --yes -c conda-forge $to_install
+    source $CONDA/bin/activate testenv
 }
 
 create_new_pypy3_env() {
-    PYPY_FOLDER="$PYTHON_VERSION-v$PYPY_VERSION-linux64"
-    wget https://downloads.python.org/pypy/$PYPY_FOLDER.tar.bz2
-    tar xvf $PYPY_FOLDER.tar.bz2
-    $PYPY_FOLDER/bin/pypy3 -m venv pypy3
+    pypy_folder="$PYTHON_VERSION-v$PYPY_VERSION-linux64"
+    wget https://downloads.python.org/pypy/$pypy_folder.tar.bz2
+    tar xvf $pypy_folder.tar.bz2
+    $pypy_folder/bin/pypy3 -m venv pypy3
     source pypy3/bin/activate
-    pip install -U pip 'pytest'
+    # Add psutil to the pypy3 environment to allow checking for number
+    # of CPUs in the CI system.
+    pip install -U pip pytest psutil
 }
 
 create_new_free_threaded_env() {
