@@ -1,0 +1,146 @@
+name: CI
+
+# Define scheduling for the workflow
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    # Daily build at 9:00 AM
+    - cron: "0 9 * * *"
+
+jobs:
+  linting:
+    name: Linting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install conda and flake8
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          auto-update-conda: true
+          environment-file: environment.yml # Assuming you have an environment file
+          python-version: '3.x'
+          activate-environment: flake8_env
+        run: |
+          conda install -y flake8
+
+      - name: Run flake8 linting
+        run: |
+          if [[ "${{ github.event.head_commit.message }}" =~ \[lint\ skip\] ]]; then
+            echo "Skipping linting"
+            exit 0
+          else
+            flake8
+          fi
+
+  testing:
+    name: Testing
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: [3.8, 3.9, 3.10, 3.11]
+        include:
+          - os: ubuntu-latest
+            python-version: pypy3.8
+            pypy-version: 7.3.11
+          - os: ubuntu-latest
+            python-version: pypy3.8
+            pypy-version: 7.3.6
+          - os: ubuntu-latest
+            python-version: pypy3.10
+            pypy-version: 7.3.13
+          - os: ubuntu-latest
+            python-version: 3.10
+            extra-conda-packages: numpy=1.23 distributed=2023.10.1
+          - os: ubuntu-latest
+            python-version: 3.8
+            extra-conda-packages: numpy=1.18.5 distributed=2021.5.0
+          - os: ubuntu-latest
+            python-version: 3.11
+            extra-conda-packages: numpy=1.24.1
+            cython: true
+          - os: ubuntu-latest
+            python-version: 3.8
+            extra-conda-packages: numpy=1.16
+            joblib-multiprocessing: 0
+            no-lzma: 1
+          - os: ubuntu-latest
+            python-version: 3.8
+            no-numpy: true
+          - os: ubuntu-latest
+            python-version: 3.8
+            default-backend-threading: true
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install conda and dependencies
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          auto-update-conda: true
+          python-version: ${{ matrix.python-version }}
+        run: |
+          if [[ -n "${{ matrix.extra-conda-packages }}" ]]; then
+            conda install -y ${{ matrix.extra-conda-packages }}
+          fi
+          if [[ "${{ matrix.cython }}" == "true" ]]; then
+            conda install -y cython
+          fi
+
+      - name: Run tests
+        run: |
+          bash continuous_integration/install.sh
+          bash continuous_integration/run_tests.sh
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-results
+          path: ${{ github.workspace }}/test-data.xml
+
+      - name: Upload coverage data
+        if: success() && matrix.python-version != 'pypy'
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-data
+          path: .coverage
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    needs: testing
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+    - name: Install coverage tools
+        run: |
+          pip install coverage
+
+      - name: Combine coverage results
+        run: |
+          coverage combine
+          coverage xml
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v2
+        with:
+          file: ./coverage.xml
+          flags: unittests
