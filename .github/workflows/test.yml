@@ -5,41 +5,35 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
   schedule:
     # Daily build at 9:00 AM
     - cron: "0 9 * * *"
 
+# Cancel in-progress workflows when pushing
+# a new commit on the same branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   linting:
-    name: Linting
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
 
+    steps:
+      - uses: actions/checkout@v3
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.x'
+          python-version: "3.x"
 
-      - name: Install conda and flake8
-        uses: conda-incubator/setup-miniconda@v2
-        with:
-          auto-update-conda: true
-          environment-file: environment.yml # Assuming you have an environment file
-          python-version: '3.x'
-          activate-environment: flake8_env
-        run: |
-          conda install -y flake8
+      - name: Install dependencies
+        run: pip install flake8
+      - name: Flake8 linter
+        run: flake8 .
 
-      - name: Run flake8 linting
-        run: |
-          if [[ "${{ github.event.head_commit.message }}" =~ \[lint\ skip\] ]]; then
-            echo "Skipping linting"
-            exit 0
-          else
-            flake8
-          fi
 
   testing:
     name: Testing
@@ -79,17 +73,30 @@ jobs:
             python-version: 3.8
             default-backend-threading: true
 
+    env:
+      JUNIT_XML: 'test-data.xml'
+
+
     runs-on: ${{ matrix.os }}
+
+    defaults:
+      run:
+        # Need to use this shell to get cond working properly.
+        # See https://github.com/marketplace/actions/setup-miniconda#important
+        shell: ${{ matrix.os == 'windows-latest' && 'cmd /C CALL {0}' || 'bash -l {0}' }}
+
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Install conda and dependencies
-        uses: conda-incubator/setup-miniconda@v2
+      - name: Setup conda
+        uses: conda-incubator/setup-miniconda@v3
         with:
           auto-update-conda: true
           python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
         run: |
           if [[ -n "${{ matrix.extra-conda-packages }}" ]]; then
             conda install -y ${{ matrix.extra-conda-packages }}
@@ -97,18 +104,18 @@ jobs:
           if [[ "${{ matrix.cython }}" == "true" ]]; then
             conda install -y cython
           fi
+          bash continuous_integration/install.sh
 
       - name: Run tests
         run: |
-          bash continuous_integration/install.sh
           bash continuous_integration/run_tests.sh
 
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v3
+      - name: Publish Test Report
+        uses: mikepenz/action-junit-report@v2
         with:
-          name: test-results
-          path: ${{ github.workspace }}/test-data.xml
+          report_paths: ${{ env.JUNIT_XML }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
 
       - name: Upload coverage data
         if: success() && matrix.python-version != 'pypy'
@@ -124,15 +131,13 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.x"
 
-    - name: Install coverage tools
-        run: |
-          pip install coverage
+      - name: Install coverage tools
+        run: pip install coverage
 
       - name: Combine coverage results
         run: |
