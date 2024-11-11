@@ -1931,6 +1931,7 @@ def _check_numpy_threadpool_limits():
     a = np.random.randn(100, 100)
     np.dot(a, a)
     from threadpoolctl import threadpool_info
+    print("Env:", LokyBackend()._prepare_worker_env(1))
     return threadpool_info()
 
 
@@ -1966,14 +1967,18 @@ def test_threadpool_limitation_in_child_loky(n_jobs):
     if len(parent_info) == 0:
         pytest.skip(reason="Need a version of numpy linked to BLAS")
 
+    print("Env:", LokyBackend()._prepare_worker_env(n_jobs))
+
     workers_threadpool_infos = Parallel(backend="loky", n_jobs=n_jobs)(
-        delayed(_check_numpy_threadpool_limits)() for i in range(2))
+        delayed(_check_numpy_threadpool_limits)() for i in range(2)
+    )
 
     n_jobs = effective_n_jobs(n_jobs)
     expected_child_num_threads = max(cpu_count() // n_jobs, 1)
 
-    check_child_num_threads(workers_threadpool_infos, parent_info,
-                            expected_child_num_threads)
+    check_child_num_threads(
+        workers_threadpool_infos, parent_info, expected_child_num_threads
+    )
 
 
 @with_numpy
@@ -1994,7 +1999,8 @@ def test_threadpool_limitation_in_child_context(
 
     with context('loky', inner_max_num_threads=inner_max_num_threads):
         workers_threadpool_infos = Parallel(n_jobs=n_jobs)(
-            delayed(_check_numpy_threadpool_limits)() for i in range(2))
+            delayed(_check_numpy_threadpool_limits)() for i in range(2)
+        )
 
     n_jobs = effective_n_jobs(n_jobs)
     if inner_max_num_threads is None:
@@ -2002,8 +2008,9 @@ def test_threadpool_limitation_in_child_context(
     else:
         expected_child_num_threads = inner_max_num_threads
 
-    check_child_num_threads(workers_threadpool_infos, parent_info,
-                            expected_child_num_threads)
+    check_child_num_threads(
+        workers_threadpool_infos, parent_info, expected_child_num_threads
+    )
 
 
 @with_multiprocessing
