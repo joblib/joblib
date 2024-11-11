@@ -1931,7 +1931,7 @@ def _check_numpy_threadpool_limits():
     a = np.random.randn(100, 100)
     np.dot(a, a)
     from threadpoolctl import threadpool_info
-    print("Env:", LokyBackend()._prepare_worker_env(1))
+    print("Child Env:", LokyBackend()._prepare_worker_env(1))
     return threadpool_info()
 
 
@@ -1967,7 +1967,7 @@ def test_threadpool_limitation_in_child_loky(n_jobs):
     if len(parent_info) == 0:
         pytest.skip(reason="Need a version of numpy linked to BLAS")
 
-    print("Env:", LokyBackend()._prepare_worker_env(n_jobs))
+    print("Main Env:", LokyBackend()._prepare_worker_env(n_jobs))
 
     workers_threadpool_infos = Parallel(backend="loky", n_jobs=n_jobs)(
         delayed(_check_numpy_threadpool_limits)() for i in range(2)
