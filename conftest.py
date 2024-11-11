@@ -56,6 +56,15 @@ def pytest_configure(config):
         log.handlers[0].setFormatter(logging.Formatter(
             '[%(levelname)s:%(processName)s:%(threadName)s] %(message)s'))
 
+        # debug log
+        from joblib._parallel_backends import ParallelBackendBase
+        print(
+            "Init os.environ:", {
+                k: os.environ.get(k, None)
+                for k in ParallelBackendBase.MAX_NUM_THREADS_VARS
+            }
+        )
+
     # Some CI runs failed with hanging processes that were not terminated
     # with the timeout. To make sure we always get a proper trace, set a large
     # enough dump_traceback_later to kill the process with a report.
