@@ -93,17 +93,3 @@ def memory(tmp_path):
     mem = Memory(location=tmp_path, verbose=0)
     yield mem
     mem.clear()
-
-
-@pytest.fixture(scope='function', autouse=True)
-def debug(tmp_path):
-
-    # debug log
-    from joblib._parallel_backends import ParallelBackendBase
-    print(
-        "Init os.environ:", {
-            k: os.environ.get(k)
-            for k in ParallelBackendBase.MAX_NUM_THREADS_VARS
-        }
-    )
-    yield

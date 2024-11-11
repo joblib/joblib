@@ -22,6 +22,27 @@ from distributed.metrics import time  # noqa: E402
 from distributed.utils_test import cluster, inc, cleanup  # noqa: E402, F401
 
 
+@pytest.fixture(scope='function', autouse=True)
+def avoid_dask_env_leaks(tmp_path):
+
+    # when starting a dask nanny, the environment variable might change.
+    # this fixture makes sure the environment is reset after the test.
+
+    from joblib._parallel_backends import ParallelBackendBase
+    old_value = {
+        k: os.environ.get(k)
+        for k in ParallelBackendBase.MAX_NUM_THREADS_VARS
+    }
+    yield
+
+    # Reset the environment variables to their original values
+    for k, v in old_value.items():
+        if v is None:
+            os.environ.pop(k, None)
+        else:
+            os.environ[k] = v
+
+
 def noop(*args, **kwargs):
     pass
 
