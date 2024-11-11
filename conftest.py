@@ -60,7 +60,7 @@ def pytest_configure(config):
         from joblib._parallel_backends import ParallelBackendBase
         print(
             "Init os.environ:", {
-                k: os.environ.get(k, None)
+                k: os.environ.get(k)
                 for k in ParallelBackendBase.MAX_NUM_THREADS_VARS
             }
         )
