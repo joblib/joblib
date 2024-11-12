@@ -188,7 +188,7 @@ def test_resource_tracker_retries_when_permissionerror(tmpdir):
                          stdout=subprocess.PIPE)
     p.wait()
     out, err = p.communicate()
-    assert p.returncode == 0
+    assert p.returncode == 0, err
     assert out == b''
     msg = 'tried to unlink {}, got PermissionError'.format(filename)
     assert msg in err.decode()
@@ -623,8 +623,8 @@ def test_many_parallel_calls_on_same_object(backend):
     )
     p.wait()
     out, err = p.communicate()
-    assert p.returncode == 0, err
-    assert out == b''
+    assert p.returncode == 0, err.decode()
+    assert out == b'', out.decode()
     if sys.version_info[:3] not in [(3, 8, 0), (3, 8, 1)]:
         # In early versions of Python 3.8, a reference leak
         # https://github.com/cloudpipe/cloudpickle/issues/327, holds
