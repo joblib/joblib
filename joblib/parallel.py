@@ -50,7 +50,9 @@ BACKENDS = {
 # managed by ``parallel_config`` or ``parallel_backend``.
 
 # threading is the only backend that is always everywhere
-DEFAULT_BACKEND = 'threading'
+
+DEFAULT_THREAD_BACKEND = 'threading'
+DEFAULT_BACKEND = DEFAULT_THREAD_BACKEND
 
 MAYBE_AVAILABLE_BACKENDS = {'multiprocessing', 'loky'}
 
@@ -60,10 +62,8 @@ if mp is not None:
     BACKENDS['multiprocessing'] = MultiprocessingBackend
     from .externals import loky
     BACKENDS['loky'] = LokyBackend
-    DEFAULT_BACKEND = 'loky'
-
-
-DEFAULT_THREAD_BACKEND = 'threading'
+    DEFAULT_PROCESS_BACKEND = "loky"
+    DEFAULT_BACKEND = DEFAULT_PROCESS_BACKEND
 
 
 # Thread local value that can be overridden by the ``parallel_config`` context
@@ -177,21 +177,23 @@ def _get_active_backend(
         # We are either outside of the scope of any parallel_(config/backend)
         # context manager or the context manager did not set a backend.
         # create the default backend instance now.
-        backend = BACKENDS[DEFAULT_BACKEND](nesting_level=0)
+        if prefer == 'threads':
+            default_backend = DEFAULT_THREAD_BACKEND
+        elif prefer == 'processes':
+            default_backend = DEFAULT_PROCESS_BACKEND
+        else:
+            default_backend = DEFAULT_BACKEND
+        backend = BACKENDS[default_backend](nesting_level=0)
         explicit_backend = False
 
     # Try to use the backend set by the user with the context manager.
 
     nesting_level = backend.nesting_level
-    uses_threads = getattr(backend, 'uses_threads', False)
     supports_sharedmem = getattr(backend, 'supports_sharedmem', False)
     # Force to use thread-based backend if the provided backend does not
     # match the shared memory constraint or if the backend is not explicitly
     # given and threads are preferred.
     force_threads = (require == 'sharedmem' and not supports_sharedmem)
-    force_threads |= (
-        not explicit_backend and prefer == 'threads' and not uses_threads
-    )
     if force_threads:
         # This backend does not match the shared memory constraint:
         # fallback to the default thead-based backend.
