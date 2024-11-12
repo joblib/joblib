@@ -14,7 +14,13 @@ create_new_conda_env() {
     conda config --set solver libmamba
     to_install="python=$PYTHON_VERSION pip pytest $EXTRA_CONDA_PACKAGES"
     conda create -n testenv --yes -c conda-forge $to_install
-    source $CONDA/bin/activate testenv
+    # Correct path depending on UNIX/windows
+    case "$(uname -s)" in
+        CYGWIN*|MINGW*|MSYS_NT*)   ACTIVATE="$CONDA\\bin\\activate" ;;
+        *)     ACTIVATE="$CONDA/bin/activate";;
+    esac
+    echo "$ACTIVATE"
+    source $ACTIVATE testenv
 }
 
 create_new_pypy3_env() {
