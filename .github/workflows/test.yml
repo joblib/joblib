@@ -9,8 +9,8 @@ on:
     branches:
       - main
   schedule:
-    # Daily build at 9:00 AM
-    - cron: "0 9 * * *"
+    # Weekly build on Tuesday at 3:00 PM
+    - cron: "0 15 * * 2
 
 # Cancel in-progress workflows when pushing
 # a new commit on the same branch
