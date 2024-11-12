@@ -1050,6 +1050,7 @@ def test_memory_reduce_size_age_limit(tmpdir):
         memory.reduce_size(age_limit=datetime.timedelta(seconds=-1))
 
     # age_limit set so that no cache item is kept
+    time.sleep(0.001)  # make sure the age is different
     memory.reduce_size(age_limit=datetime.timedelta(seconds=0))
     cache_items = memory.store_backend.get_items()
     assert cache_items == []
