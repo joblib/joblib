@@ -27,7 +27,6 @@ if [[ "$SKIP_TESTS" != "true" ]]; then
 
     pytest joblib -vl --timeout=120 --junitxml="${JUNIT_XML}"
     make test-doc
-    ls -la
 fi
 
 if [[ "$SKLEARN_TESTS" == "true" ]]; then

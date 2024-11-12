@@ -39,7 +39,7 @@ jobs:
     name: Testing
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
         python-version: ["3.8", "3.9", "3.10", "3.11"]
         include:
           - os: ubuntu-latest
@@ -81,6 +81,7 @@ jobs:
       COVERAGE: 'true'
       PYTHON_VERSION: ${{ matrix.python-version }}
       PYPY_VERSION: ${{ matrix.pypy-version }}
+      CYTHON: ${{ matrix.cython }}
       EXTRA_CONDA_PACKAGES: ${{ matrix.extra-conda-packages }}
 
 
@@ -107,12 +108,6 @@ jobs:
 
       - name: Install dependencies
         run: |
-          if [[ -n "${{ matrix.extra-conda-packages }}" ]]; then
-            conda install -y ${{ matrix.extra-conda-packages }}
-          fi
-          if [[ "${{ matrix.cython }}" == "true" ]]; then
-            conda install -y cython
-          fi
           bash continuous_integration/install.sh
 
       - name: Run tests
