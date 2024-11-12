@@ -78,6 +78,7 @@ jobs:
 
     env:
       JUNIT_XML: 'test-data.xml'
+      COVERAGE: 'true'
       PYTHON_VERSION: ${{ matrix.python-version }}
       PYPY_VERSION: ${{ matrix.pypy-version }}
       EXTRA_CONDA_PACKAGES: ${{ matrix.extra-conda-packages }}
@@ -127,9 +128,9 @@ jobs:
 
       - name: Upload coverage data
         if: success() && matrix.python-version != 'pypy'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: coverage-data
+          name: coverage-data-${{ matrix.os }}-${{ matrix.python-version }}
           path: .coverage
 
   coverage:
@@ -147,13 +148,16 @@ jobs:
       - name: Install coverage tools
         run: pip install coverage
 
+      - name: Download coverage data
+        uses: actions/download-artifact@v4
+
       - name: Combine coverage results
         run: |
-          coverage combine
+          coverage combine **/.coverage
           coverage xml
 
       - name: Upload to Codecov
         uses: codecov/codecov-action@v2
         with:
           file: ./coverage.xml
-          flags: unittests
+          flags: unittest
