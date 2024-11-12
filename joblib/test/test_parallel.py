@@ -1313,6 +1313,10 @@ def _sqrt_with_delay(e, delay):
     return sqrt(e)
 
 
+# Use a private function so it can also be called for the dask backend in
+# test_dask.py without triggering the test twice.
+# We isolate the test with the dask backend to simplify optional deps
+# management and leaking environment variables.
 def _test_parallel_unordered_generator_returns_fastest_first(backend, n_jobs):
     # This test submits 10 tasks, but the second task is super slow. This test
     # checks that the 9 other tasks return before the slow task is done, when
@@ -1343,18 +1347,6 @@ def test_parallel_unordered_generator_returns_fastest_first(backend, n_jobs):
     _test_parallel_unordered_generator_returns_fastest_first(backend, n_jobs)
 
 
-@pytest.mark.parametrize('n_jobs', [2, -1])
-@parametrize("context", [parallel_config, parallel_backend])
-@skipif(distributed is None, reason='This test requires dask')
-def test_parallel_unordered_generator_returns_fastest_first_with_dask(
-        n_jobs, context
-):
-    with distributed.Client(
-            n_workers=2, threads_per_worker=2
-    ), context("dask"):
-        _test_parallel_unordered_generator_returns_fastest_first(None, n_jobs)
-
-
 @parametrize('backend', ALL_VALID_BACKENDS)
 @parametrize('n_jobs', [1, 2, -2, -1])
 def test_abort_backend(n_jobs, backend):
@@ -1373,6 +1365,10 @@ def get_large_object(arg):
     return result
 
 
+# Use a private function so it can also be called for the dask backend in
+# test_dask.py without triggering the test twice.
+# We isolate the test with the dask backend to simplify optional deps
+# management and leaking environment variables.
 def _test_deadlock_with_generator(backend, return_as, n_jobs):
     # Non-regression test for a race condition in the backends when the pickler
     # is delayed by a large object.
@@ -1393,18 +1389,6 @@ def _test_deadlock_with_generator(backend, return_as, n_jobs):
 @parametrize('n_jobs', [1, 2, -2, -1])
 def test_deadlock_with_generator(backend, return_as, n_jobs):
     _test_deadlock_with_generator(backend, return_as, n_jobs)
-
-
-@with_numpy
-@pytest.mark.parametrize('n_jobs', [2, -1])
-@parametrize('return_as', ["generator", "generator_unordered"])
-@parametrize("context", [parallel_config, parallel_backend])
-@skipif(distributed is None, reason='This test requires dask')
-def test_deadlock_with_generator_and_dask(context, return_as, n_jobs):
-    with distributed.Client(
-            n_workers=2, threads_per_worker=2
-    ), context("dask"):
-        _test_deadlock_with_generator(None, return_as, n_jobs)
 
 
 @parametrize('backend', RETURN_GENERATOR_BACKENDS)
@@ -1779,28 +1763,6 @@ def test_nested_parallelism_limit(context, backend):
         ('SequentialBackend', max_level)
     ]
     assert backend_types_and_levels == expected_types_and_levels
-
-
-@with_numpy
-@parametrize("context", [parallel_config, parallel_backend])
-@skipif(distributed is None, reason='This test requires dask')
-def test_nested_parallelism_with_dask(context):
-    with distributed.Client(n_workers=2, threads_per_worker=2):
-        # 10 MB of data as argument to trigger implicit scattering
-        data = np.ones(int(1e7), dtype=np.uint8)
-        for i in range(2):
-            with context('dask'):
-                backend_types_and_levels = _recursive_backend_info(data=data)
-            assert len(backend_types_and_levels) == 4
-            assert all(name == 'DaskDistributedBackend'
-                       for name, _ in backend_types_and_levels)
-
-        # No argument
-        with context('dask'):
-            backend_types_and_levels = _recursive_backend_info()
-        assert len(backend_types_and_levels) == 4
-        assert all(name == 'DaskDistributedBackend'
-                   for name, _ in backend_types_and_levels)
 
 
 def _recursive_parallel(nesting_limit=None):

@@ -6,7 +6,7 @@ import faulthandler
 import pytest
 from _pytest.doctest import DoctestItem
 
-from joblib.parallel import mp
+from joblib.parallel import mp, ParallelBackendBase
 from joblib.backports import LooseVersion
 from joblib import Memory
 try:
@@ -93,3 +93,13 @@ def memory(tmp_path):
     mem = Memory(location=tmp_path, verbose=0)
     yield mem
     mem.clear()
+
+
+@pytest.fixture(scope='function', autouse=True)
+def avoid_env_var_leakage(tmp_path):
+    "Fixture to avoid MAX_NUM_THREADS env vars leakage between tests for "
+    yield
+    assert all(
+        os.environ.get(k) is None
+        for k in ParallelBackendBase.MAX_NUM_THREADS_VARS
+    )
