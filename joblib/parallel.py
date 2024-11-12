@@ -1579,7 +1579,7 @@ class Parallel(Logger):
             # We are finished dispatching
             total_tasks = self.n_dispatched_tasks
             # We always display the first loop
-            if not index == 0:
+            if index != 0:
                 # Display depending on the number of remaining items
                 # A message as soon as we finish dispatching, cursor is 0
                 cursor = (total_tasks - index + 1 -
@@ -1588,8 +1588,8 @@ class Parallel(Logger):
                 is_last_item = (index + 1 == total_tasks)
                 if (is_last_item or cursor % frequency):
                     return
-            remaining_time = (elapsed_time / index) * \
-                             (self.n_dispatched_tasks - index * 1.0)
+            remaining_time = (elapsed_time / max(index, 1)) * \
+                             (self.n_dispatched_tasks - index)
             # only display status if remaining time is greater or equal to 0
             self._print(
                 f"Done {index:3d} out of {total_tasks:3d} | elapsed: "
@@ -1855,10 +1855,10 @@ class Parallel(Logger):
             self._aborted = True
             raise
         finally:
-            self.print_progress()
             self._running = False
             self._iterating = False
             self._original_iterator = None
+            self.print_progress()
 
     def _reset_run_tracking(self):
         """Reset the counters and flags used to track the execution."""
