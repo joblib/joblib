@@ -18,7 +18,7 @@ python -V
 python -c "import multiprocessing as mp; print('multiprocessing.cpu_count():', mp.cpu_count())"
 python -c "import joblib; print('joblib.cpu_count():', joblib.cpu_count())"
 
-if [[ "$SKIP_TESTS" != "true" ]]; then
+if [[ "$SKLEARN_TESTS" != "true" ]]; then
     if [ "$COVERAGE" == "true" ]; then
         # Enable coverage-related options. --cov-append is needed to combine
         # the test run and the test-doc run coverage.
@@ -27,9 +27,7 @@ if [[ "$SKIP_TESTS" != "true" ]]; then
 
     pytest joblib -vl --timeout=120 --junitxml="${JUNIT_XML}"
     make test-doc
-fi
-
-if [[ "$SKLEARN_TESTS" == "true" ]]; then
+else
     # Install the nightly build of scikit-learn and test against the installed
     # development version of joblib.
     # TODO: unpin pip once either https://github.com/pypa/pip/issues/10825
