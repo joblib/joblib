@@ -1,8 +1,7 @@
 #!/bin/bash
-# This script is meant to be called by the "install" step defined in
-# .travis.yml. See http://docs.travis-ci.com/ for more details.
 # The behavior of the script is controlled by environment variabled defined
-# in the .travis.yml in the top level folder of the project.
+# in the .github/workflows/test.yml file defining the github action to run
+# for the project.
 #
 # This script is adapted from a similar script from the scikit-learn repository.
 #
@@ -11,6 +10,7 @@
 set -xe
 
 create_new_conda_env() {
+    echo "CONDA='$CONDA'"
     conda config --set solver libmamba
     to_install="python=$PYTHON_VERSION pip pytest $EXTRA_CONDA_PACKAGES"
     conda create -n testenv --yes -c conda-forge $to_install

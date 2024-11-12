@@ -108,11 +108,11 @@ jobs:
 
       - name: Install dependencies
         run: |
-          bash continuous_integration/install.sh
+          bash -el continuous_integration/install.sh
 
       - name: Run tests
         run: |
-          bash continuous_integration/run_tests.sh
+          bash -el continuous_integration/run_tests.sh
 
       - name: Publish Test Report
         uses: mikepenz/action-junit-report@v2
