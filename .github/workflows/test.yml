@@ -42,7 +42,9 @@ jobs:
   testing:
     name: Testing
     strategy:
+      fail-fast: false
       matrix:
+        name: [default]
         os: [ubuntu-latest, macos-latest, windows-latest]
         PYTHON_VERSION: ["3.8", "3.9", "3.10", "3.11"]
         include:
@@ -56,15 +58,18 @@ jobs:
             PYTHON_VERSION: "3.11"
             EXTRA_CONDA_PACKAGES: numpy=1.24.1
             CYTHON: true
-          - os: ubuntu-latest
+          - name: no-multiprocessing
+            os: ubuntu-latest
             PYTHON_VERSION: "3.8"
             EXTRA_CONDA_PACKAGES: numpy=1.16
             JOBLIB_MULTIPROCESSING: "0"
             NO_LZMA: "1"
-          - os: ubuntu-latest
+          - name: no-numpy
+            os: ubuntu-latest
             PYTHON_VERSION: "3.8"
             NO_NUMPY: true
-          - os: ubuntu-latest
+          - name: default-threading
+            os: ubuntu-latest
             PYTHON_VERSION: "3.8"
             JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND: "threading"
           - os: ubuntu-latest
