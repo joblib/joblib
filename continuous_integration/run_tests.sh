@@ -26,7 +26,10 @@ if [[ "$SKLEARN_TESTS" != "true" ]]; then
     fi
 
     pytest joblib -vl --timeout=120 --junitxml="${JUNIT_XML}"
-    make test-doc
+    # doctest are not compatile with default_backend=threading
+    if [ "$JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND" != "threading"]; then
+        make test-doc
+    fi
 else
     # Install the nightly build of scikit-learn and test against the installed
     # development version of joblib.
