@@ -23,9 +23,7 @@ create_new_pypy3_env() {
     tar xvf $pypy_folder.tar.bz2
     $pypy_folder/bin/pypy3 -m venv pypy3
     source pypy3/bin/activate
-    # Add psutil to the pypy3 environment to allow checking for number
-    # of CPUs in the CI system.
-    pip install -U pip pytest psutil
+    pip install -U pip pytest
 }
 
 create_new_free_threaded_env() {
