@@ -147,8 +147,9 @@ def test_memmap_based_array_reducing(tmpdir):
     assert_array_equal(b3_reconstructed, b3)
 
 
+@with_numpy
 @with_multiprocessing
-@skipif((sys.platform != "win32") or (),
+@skipif(sys.platform != "win32",
         reason="PermissionError only easily triggerable on Windows")
 def test_resource_tracker_retries_when_permissionerror(tmpdir):
     # Test resource_tracker retry mechanism when unlinking memmaps.  See more
@@ -188,7 +189,7 @@ def test_resource_tracker_retries_when_permissionerror(tmpdir):
                          stdout=subprocess.PIPE)
     p.wait()
     out, err = p.communicate()
-    assert p.returncode == 0, err
+    assert p.returncode == 0, err.decode()
     assert out == b''
     msg = 'tried to unlink {}, got PermissionError'.format(filename)
     assert msg in err.decode()
