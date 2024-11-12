@@ -11,7 +11,7 @@ elif [[ "$PYTHON_VERSION" == free-threaded* ]]; then
     # thread-safety with free-threaded Python, for example numpy and coverage.tracer
     export PYTHON_GIL=0
 else
-    source $CONDA/bin/activate testenv
+    conda activate testenv
 fi
 which python
 python -V
