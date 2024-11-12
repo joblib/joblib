@@ -51,12 +51,12 @@ fi
 # Install pytest timeout to fasten failure in deadlocking tests
 PIP_INSTALL_PACKAGES="pytest-timeout pytest-asyncio==0.21.1 threadpoolctl"
 
-if [ -n "$NUMPY_VERSION" ]; then
+if [ "$NO_NUMPY" != "true" ]; then
     # We want to ensure no memory copies are performed only when numpy is
     # installed. This also ensures that we don't keep a strong dependency on
     # memory_profiler. We also want to ensure that joblib can be used with and
     # without lz4 compressor package installed.
-    PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES memory_profiler"
+    PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES memory_profiler numpy"
     if [ "$NO_LZ4" != "true" ]; then
         PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES lz4"
     fi
@@ -68,7 +68,7 @@ fi
 
 pip install $PIP_INSTALL_PACKAGES
 
-if [[ "$NO_LZMA" == "1" ]]; then
+if [[ "$NO_LZMA" == "true" ]]; then
     # Delete the LZMA module from the standard lib to make sure joblib has no
     # hard dependency on it:
     LZMA_PATH=`python -c "import lzma; print(lzma.__file__)"`

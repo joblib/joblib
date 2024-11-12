@@ -63,12 +63,16 @@ jobs:
             PYTHON_VERSION: "3.8"
             EXTRA_CONDA_PACKAGES: numpy=1.16
             JOBLIB_MULTIPROCESSING: "0"
-            NO_LZMA: "1"
+            NO_LZMA: true
           - name: no-numpy
             os: ubuntu-latest
             PYTHON_VERSION: "3.8"
             NO_NUMPY: true
-          - name: default-threading
+          - name: no-lza
+            os: ubuntu-latest
+            PYTHON_VERSION: "3.10"
+            NO_LZ4: true
+          - name: default-backend-threading
             os: ubuntu-latest
             PYTHON_VERSION: "3.8"
             JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND: "threading"
@@ -81,7 +85,12 @@ jobs:
           - os: ubuntu-latest
             PYTHON_VERSION: "pypy3.10"
             PYPY_VERSION: 7.3.13
-          - os: 'ubuntu-latest'
+          - name: test-sklearn
+            os: ubuntu-latest
+            PYTHON_VERSION: "3.10"
+            SKLEARN-TESTS: "true"
+          - name: python-nogil
+            os: 'ubuntu-latest'
             PYTHON_VERSION: "free-threaded-3.13"
           - os: "windows-latest"
             PYTHON_VERSION: "3.10"
