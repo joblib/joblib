@@ -20,6 +20,7 @@ concurrency:
 
 env:
   JUNIT_XML: 'test-data.xml'
+  COVERAGE: 'true'
 
 jobs:
   linting:
@@ -114,8 +115,6 @@ jobs:
           bash -el continuous_integration/install.sh
 
       - name: Run tests
-        env:
-          COVERAGE: 'true'
         run: |
           bash -el continuous_integration/run_tests.sh
 
