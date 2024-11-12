@@ -18,6 +18,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  JUNIT_XML: 'test-data.xml'
+
 jobs:
   linting:
     runs-on: ubuntu-latest
@@ -41,8 +44,6 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         PYTHON_VERSION: ["3.8", "3.9", "3.10", "3.11"]
-        JUNIT_XML: ['test-data.xml']
-        COVERAGE: ['true']
         include:
           - os: ubuntu-latest
             PYTHON_VERSION: "3.10"
@@ -76,11 +77,9 @@ jobs:
             PYPY_VERSION: 7.3.13
           - os: 'ubuntu-latest'
             PYTHON_VERSION: "free-threaded-3.13"
-
           - os: "windows-latest"
             PYTHON_VERSION: "3.10"
             EXTRA_CONDA_PACKAGES: "numpy"
-
           - os: "macos-latest"
             PYTHON_VERSION: "3.10"
             EXTRA_CONDA_PACKAGES: "numpy"
@@ -115,14 +114,15 @@ jobs:
           bash -el continuous_integration/install.sh
 
       - name: Run tests
+        env:
+          COVERAGE: 'true'
         run: |
           bash -el continuous_integration/run_tests.sh
 
       - name: Publish Test Report
-        uses: mikepenz/action-junit-report@v2
+        uses: mikepenz/action-junit-report@v5
         with:
           report_paths: ${{ env.JUNIT_XML }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload to Codecov
         uses: codecov/codecov-action@v4
