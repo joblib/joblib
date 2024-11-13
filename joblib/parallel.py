@@ -1977,7 +1977,7 @@ class Parallel(Logger):
         self._calling = True
 
         self.n_tasks = (
-            len(iterable) if isinstance(iterable, (list, tuple)) else None
+            len(iterable) if hasattr(iterable, "__len__") else None
         )
         iterator = iter(iterable)
         pre_dispatch = self.pre_dispatch
