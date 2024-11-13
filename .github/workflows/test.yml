@@ -105,7 +105,7 @@ jobs:
 
     defaults:
       run:
-        # Need to use this shell to get cond working properly.
+        # Need to use this shell to get conda working properly.
         # See https://github.com/marketplace/actions/setup-miniconda#important
         shell: ${{ matrix.os == 'windows-latest' && 'cmd /C CALL {0}' || 'bash -el {0}' }}
 
