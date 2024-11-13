@@ -1575,17 +1575,17 @@ class Parallel(Logger):
         elif self._original_iterator is not None:
             if _verbosity_filter(self.n_dispatched_batches, self.verbose):
                 return
+            fmt_time = f"| elapsed: {short_format_time(elapsed_time)}"
+            index = self.n_completed_tasks
             if n_tasks_known:
-                index = self.n_completed_tasks
                 self._print(
                     f"Done {index:{width}d} out of {self.n_tasks:{width}d} "
-                    f"| elapsed: {short_format_time(elapsed_time)}"
+                    f"{fmt_time}"
                 )
             else:
                 pad = " " * (len("out of ") + width - len("tasks"))
                 self._print(
-                    f"Done {self.n_completed_tasks:{width}d} tasks {pad}"
-                    f"| elapsed: {short_format_time(elapsed_time)}"
+                    f"Done {index:{width}d} tasks {pad}{fmt_time}"
                 )
         else:
             index = self.n_completed_tasks
