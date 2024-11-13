@@ -81,19 +81,16 @@ jobs:
             PYTHON_VERSION: "pypy3.8"
             PYPY_VERSION: 7.3.11
             LOKY_MAX_CPU_COUNT: 2
-            COVERAGE: 'false'
           - name: pypy
             os: ubuntu-latest
             PYTHON_VERSION: "pypy3.8"
             PYPY_VERSION: 7.3.6
             LOKY_MAX_CPU_COUNT: 2
-            COVERAGE: 'false'
           - name: pypy
             os: ubuntu-latest
             PYTHON_VERSION: "pypy3.10"
             PYPY_VERSION: 7.3.13
             LOKY_MAX_CPU_COUNT: 2
-            COVERAGE: 'false'
           - name: python-nogil
             os: 'ubuntu-latest'
             PYTHON_VERSION: "free-threaded-3.13"
@@ -132,6 +129,13 @@ jobs:
       - name: Run tests
         run: |
           bash -el continuous_integration/run_tests.sh
+
+      - name: Setup tmate session
+        if: ${{ failure()}}
+        uses: mxschmitt/action-tmate@v3
+        timeout-minutes: 15
+        with:
+          limit-access-to-actor: true
 
       - name: Publish Test Report
         if: ${{ matrix.SKLEARN_TESTS != 'true'}}
