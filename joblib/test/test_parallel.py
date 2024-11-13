@@ -998,6 +998,8 @@ def test_default_mp_context():
 @parametrize('backend', PROCESS_BACKENDS)
 def test_no_blas_crash_or_freeze_with_subprocesses(backend):
     if backend == 'multiprocessing':
+        if IS_PYPY:
+            pytest.skip(reason="np.dot is not picklable on PyPy")
         # Use the spawn backend that is both robust and available on all
         # platforms
         backend = mp.get_context('spawn')
@@ -1933,7 +1935,10 @@ def test_threadpool_limitation_in_child_loky(n_jobs):
     )
 
     n_jobs = effective_n_jobs(n_jobs)
-    expected_child_num_threads = max(cpu_count() // n_jobs, 1)
+    if n_jobs == 1:
+        expected_child_num_threads = parent_info[0]['num_threads']
+    else:
+        expected_child_num_threads = max(cpu_count() // n_jobs, 1)
 
     check_child_num_threads(
         workers_threadpool_infos, parent_info, expected_child_num_threads
