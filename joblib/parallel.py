@@ -1554,7 +1554,7 @@ class Parallel(Logger):
         if (
             hasattr(self, "n_tasks")
             and isinstance(self.n_tasks, int)
-            and 0 < self.n_tasks
+            and self.n_tasks > 0
         ):
             width = floor(log10(self.n_tasks)) + 1
         else:
