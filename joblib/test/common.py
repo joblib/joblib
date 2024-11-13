@@ -6,6 +6,8 @@ import gc
 import sys
 import sysconfig
 
+import pytest
+
 from joblib._multiprocessing_helpers import mp
 from joblib.testing import SkipTest, skipif
 
@@ -33,6 +35,12 @@ except ImportError:
             raise SkipTest('Test requires numpy')
         return my_func
     np = None
+
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
+with_pandas = pytest.mark.skipif(not pd, reason='Test requires pandas.')
 
 # TODO: Turn this back on after refactoring yield based tests in test_hashing
 # with_numpy = skipif(not np, reason='Test requires numpy.')
