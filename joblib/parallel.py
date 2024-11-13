@@ -1551,11 +1551,8 @@ class Parallel(Logger):
         if not self.verbose:
             return
 
-        if (
-            hasattr(self, "n_tasks")
-            and isinstance(self.n_tasks, int)
-            and self.n_tasks > 0
-        ):
+        n_tasks_known = hasattr(self, "n_tasks") and isinstance(self.n_tasks, int)
+        if n_tasks_known and self.n_tasks > 0:
             width = floor(log10(self.n_tasks)) + 1
         else:
             width = 3
@@ -1578,11 +1575,18 @@ class Parallel(Logger):
         elif self._original_iterator is not None:
             if _verbosity_filter(self.n_dispatched_batches, self.verbose):
                 return
-            pad = " " * (len("out of ") + width - len("tasks"))
-            self._print(
-                f"Done {self.n_completed_tasks:{width}d} tasks {pad}"
-                f"| elapsed: {short_format_time(elapsed_time)}"
-            )
+            if n_tasks_known:
+                index = self.n_completed_tasks
+                self._print(
+                    f"Done {index:{width}d} out of {self.n_tasks:{width}d} "
+                    f"| elapsed: {short_format_time(elapsed_time)}"
+                )
+            else:
+                pad = " " * (len("out of ") + width - len("tasks"))
+                self._print(
+                    f"Done {self.n_completed_tasks:{width}d} tasks {pad}"
+                    f"| elapsed: {short_format_time(elapsed_time)}"
+                )
         else:
             index = self.n_completed_tasks
             # We are finished dispatching
