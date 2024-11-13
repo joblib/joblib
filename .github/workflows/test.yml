@@ -68,7 +68,7 @@ jobs:
             os: ubuntu-latest
             PYTHON_VERSION: "3.8"
             NO_NUMPY: true
-          - name: no-lza
+          - name: no-lz4
             os: ubuntu-latest
             PYTHON_VERSION: "3.10"
             NO_LZ4: true
