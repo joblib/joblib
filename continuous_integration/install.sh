@@ -51,10 +51,12 @@ PIP_INSTALL_PACKAGES="pytest-timeout pytest-asyncio==0.21.1 threadpoolctl"
 if [ "$NO_NUMPY" != "true" ]; then
     # We want to ensure no memory copies are performed only when numpy is
     # installed. This also ensures that we don't keep a strong dependency on
-    # memory_profiler. We also want to ensure that joblib can be used with and
-    # without lz4 compressor package installed.
+    # memory_profiler.
     PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES memory_profiler numpy"
-    if [ "$NO_LZ4" != "true" ]; then
+    # We also want to ensure that joblib can be used with and
+    # without lz4 compressor package installed. Note that using `lz4` with
+    # PyPy leads to segfaults, so we skip it in that case.
+    if [ "$NO_LZ4" != "true" ] & [ "$PYTHON_VERSION" != pypy3* ]; then
         PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES lz4"
     fi
 fi

@@ -130,13 +130,6 @@ jobs:
         run: |
           bash -el continuous_integration/run_tests.sh
 
-      - name: Setup tmate session
-        if: ${{ failure()}}
-        uses: mxschmitt/action-tmate@v3
-        timeout-minutes: 15
-        with:
-          limit-access-to-actor: true
-
       - name: Publish Test Report
         if: ${{ matrix.SKLEARN_TESTS != 'true'}}
         uses: mikepenz/action-junit-report@v5
