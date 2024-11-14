@@ -1551,8 +1551,7 @@ class Parallel(Logger):
         if not self.verbose:
             return
 
-        n_tasks_known = hasattr(self, "n_tasks") and isinstance(self.n_tasks, int)
-        if n_tasks_known and self.n_tasks > 0:
+        if self.n_tasks is not None and self.n_tasks > 0:
             width = floor(log10(self.n_tasks)) + 1
         else:
             width = 3
@@ -1577,7 +1576,7 @@ class Parallel(Logger):
                 return
             fmt_time = f"| elapsed: {short_format_time(elapsed_time)}"
             index = self.n_completed_tasks
-            if n_tasks_known:
+            if self.n_tasks is not None:
                 self._print(
                     f"Done {index:{width}d} out of {self.n_tasks:{width}d} "
                     f"{fmt_time}"
