@@ -1922,6 +1922,10 @@ class Parallel(Logger):
         else:
             n_jobs = self._effective_n_jobs()
 
+        self.n_tasks = (
+            len(iterable) if hasattr(iterable, "__len__") else None
+        )
+
         if n_jobs == 1:
             # If n_jobs==1, run the computation sequentially and return
             # immediately to avoid overheads.
@@ -1979,9 +1983,6 @@ class Parallel(Logger):
         # Following flag prevents double calls to `backend.stop_call`.
         self._calling = True
 
-        self.n_tasks = (
-            len(iterable) if hasattr(iterable, "__len__") else None
-        )
         iterator = iter(iterable)
         pre_dispatch = self.pre_dispatch
 
