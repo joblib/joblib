@@ -1915,6 +1915,9 @@ class Parallel(Logger):
         """Main function to dispatch parallel tasks."""
 
         self._reset_run_tracking()
+        self.n_tasks = (
+            len(iterable) if hasattr(iterable, "__len__") else None
+        )
         self._start_time = time.time()
 
         if not self._managed_backend:
@@ -1922,9 +1925,7 @@ class Parallel(Logger):
         else:
             n_jobs = self._effective_n_jobs()
 
-        self.n_tasks = (
-            len(iterable) if hasattr(iterable, "__len__") else None
-        )
+
 
         if n_jobs == 1:
             # If n_jobs==1, run the computation sequentially and return
