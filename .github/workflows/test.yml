@@ -125,14 +125,9 @@ jobs:
         run: |
           bash -el continuous_integration/run_tests.sh
 
-      - name: Publish Test Report
-        if: ${{ matrix.SKLEARN_TESTS != 'true'}}
-        uses: mikepenz/action-junit-report@v5
-        with:
-          report_paths: ${{ env.JUNIT_XML }}
-
       - name: Upload to Codecov
-        if: ${{ matrix.SKLEARN_TESTS != 'true'}}
+        # always upload coverage even if tests fail
+        if: ${{ matrix.SKLEARN_TESTS != 'true' && (success() || failure()) }}
         uses: codecov/codecov-action@v4
         with:
           file: .coverage
