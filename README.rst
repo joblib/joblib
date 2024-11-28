@@ -1,4 +1,4 @@
-|PyPi| |Azure| |ReadTheDocs| |Codecov| 
+|PyPi| |Azure| |ReadTheDocs| |Codecov| |Gurubase|
 
 .. |PyPi| image:: https://badge.fury.io/py/joblib.svg
    :target: https://badge.fury.io/py/joblib
@@ -15,6 +15,10 @@
 .. |Codecov| image:: https://codecov.io/gh/joblib/joblib/branch/main/graph/badge.svg
    :target: https://codecov.io/gh/joblib/joblib
    :alt: Codecov coverage
+
+.. |Gurubase| image:: https://img.shields.io/badge/Gurubase-Ask%20joblib%20Guru-006BFF
+   :target: https://gurubase.io/g/joblib
+   :alt: Gurubase
 
 
 The homepage of joblib with user documentation is located on:
