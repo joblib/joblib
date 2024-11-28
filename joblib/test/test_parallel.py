@@ -1617,7 +1617,7 @@ def test_backend_hinting_and_constraints(context):
         assert type(p._backend) is ThreadingBackend
 
         p = Parallel(n_jobs=n_jobs, prefer='processes')
-        assert type(p._backend) is LokyBackend
+        assert type(p._backend) is DefaultBackend
 
         p = Parallel(n_jobs=n_jobs, require='sharedmem')
         assert type(p._backend) is ThreadingBackend
