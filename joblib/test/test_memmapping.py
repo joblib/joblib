@@ -15,7 +15,6 @@ import pytest
 from joblib.test.common import IS_GIL_DISABLED, with_numpy, np
 from joblib.test.common import with_multiprocessing
 from joblib.test.common import with_dev_shm
-from joblib.test.common import IS_PYPY
 from joblib.testing import raises, parametrize, skipif
 from joblib.backports import make_memmap
 from joblib.parallel import Parallel, delayed
