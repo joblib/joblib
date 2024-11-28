@@ -1,12 +1,12 @@
-|PyPi| |Azure| |ReadTheDocs| |Codecov| 
+|PyPi| |CIStatus| |ReadTheDocs| |Codecov| 
 
 .. |PyPi| image:: https://badge.fury.io/py/joblib.svg
    :target: https://badge.fury.io/py/joblib
    :alt: Joblib version
 
-.. |Azure| image:: https://dev.azure.com/joblib/joblib/_apis/build/status/joblib.joblib?branchName=main
-   :target: https://dev.azure.com/joblib/joblib/_build?definitionId=3&_a=summary&branchFilter=40
-   :alt: Azure CI status
+.. |CIStatus| image:: https://github.com/joblib/joblib/actions/workflows/test.yml/badge.svg
+   :target: https://github.com/joblib/joblib/actions/workflows/test.yml?query=branch%3Amain
+   :alt: CI status
 
 .. |ReadTheDocs| image:: https://readthedocs.org/projects/joblib/badge/?version=latest
     :target: https://joblib.readthedocs.io/en/latest/?badge=latest
