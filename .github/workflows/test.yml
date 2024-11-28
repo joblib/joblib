@@ -77,6 +77,7 @@ jobs:
             os: ubuntu-latest
             PYTHON_VERSION: "3.8"
             JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND: "threading"
+            NO_NUMPY: true
           - name: pypy
             os: ubuntu-latest
             PYTHON_VERSION: "pypy3.10"
@@ -85,7 +86,6 @@ jobs:
           - name: python-nogil
             os: 'ubuntu-latest'
             PYTHON_VERSION: "free-threaded-3.13"
-            NO_NUMPY: true
           - name: test-sklearn
             os: ubuntu-latest
             PYTHON_VERSION: "3.10"
