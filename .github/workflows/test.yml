@@ -1,0 +1,133 @@
+name: CI
+
+# Define scheduling for the workflow
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  schedule:
+    # Weekly build on Tuesday at 3:00 PM
+    - cron: "0 15 * * 2"
+
+# Cancel in-progress workflows when pushing
+# a new commit on the same branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  JUNIT_XML: 'test-data.xml'
+  COVERAGE: 'true'
+
+jobs:
+  linting:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.x"
+
+      - name: Install dependencies
+        run: pip install flake8
+      - name: Flake8 linter
+        run: flake8 .
+
+
+  testing:
+    name: Testing
+    needs: linting
+    strategy:
+      fail-fast: false
+      matrix:
+        name: [default]
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        PYTHON_VERSION: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
+        include:
+          - name: test-sklearn
+            os: ubuntu-latest
+            PYTHON_VERSION: "3.10"
+            SKLEARN_TESTS: "true"
+          - name: distributed-latest
+            os: ubuntu-latest
+            PYTHON_VERSION: "3.10"
+            EXTRA_CONDA_PACKAGES: numpy distributed
+          - name: distributed
+            os: ubuntu-latest
+            PYTHON_VERSION: "3.8"
+            EXTRA_CONDA_PACKAGES: numpy=1.18.5 distributed=2021.5.0
+          - name: numpy-1.24
+            os: ubuntu-latest
+            PYTHON_VERSION: "3.11"
+            EXTRA_CONDA_PACKAGES: numpy=1.24.1
+            CYTHON: true
+          - name: no-multiprocessing
+            os: ubuntu-latest
+            PYTHON_VERSION: "3.8"
+            EXTRA_CONDA_PACKAGES: numpy=1.16
+            JOBLIB_MULTIPROCESSING: "0"
+            NO_LZMA: true
+          - name: no-numpy
+            os: ubuntu-latest
+            PYTHON_VERSION: "3.8"
+            NO_NUMPY: true
+          - name: no-lz4
+            os: ubuntu-latest
+            PYTHON_VERSION: "3.10"
+            NO_LZ4: true
+          - name: default-backend-threading
+            os: ubuntu-latest
+            PYTHON_VERSION: "3.8"
+            JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND: "threading"
+            NO_NUMPY: true
+          - name: pypy
+            os: ubuntu-latest
+            PYTHON_VERSION: "pypy3.10"
+            PYPY_VERSION: 7.3.13
+            LOKY_MAX_CPU_COUNT: 2
+          - name: python-nogil
+            os: 'ubuntu-latest'
+            PYTHON_VERSION: "free-threaded-3.13"
+
+    env: ${{ matrix }}
+
+    runs-on: ${{ matrix.os }}
+
+    defaults:
+      run:
+        # Need to use this shell to get conda working properly.
+        # See https://github.com/marketplace/actions/setup-miniconda#important
+        shell: ${{ matrix.os == 'windows-latest' && 'cmd /C CALL {0}' || 'bash -el {0}' }}
+
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup conda
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-activate-base: true
+          auto-update-conda: true
+          miniforge-version: latest
+
+
+      - name: Install dependencies
+        run: |
+          bash -el continuous_integration/install.sh
+
+      - name: Run tests
+        run: |
+          bash -el continuous_integration/run_tests.sh
+
+      - name: Upload to Codecov
+        # always upload coverage even if tests fail
+        if: ${{ matrix.SKLEARN_TESTS != 'true' && (success() || failure()) }}
+        uses: codecov/codecov-action@v4
+        with:
+          file: .coverage

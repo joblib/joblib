@@ -210,6 +210,8 @@ def test_parallel_call_cached_function_defined_in_jupyter(
                 # triggers a specific code branch inside
                 # MemorizedFunc.__reduce__.
                 Parallel(n_jobs=2)(delayed(cached_f)(i) for i in [1, 2])
+                # Ensure the child process has time to close the file.
+                time.sleep(0.2)
                 assert len(os.listdir(f_cache_directory / 'f')) == 3
 
                 cached_f(3)
@@ -1045,7 +1047,12 @@ def test_memory_reduce_size_age_limit(tmpdir):
     assert not set.issubset(set(cache_items), set(ref_cache_items))
     assert len(cache_items) == 2
 
+    # ensure age_limit is forced to be positive
+    with pytest.raises(ValueError, match="has to be a positive"):
+        memory.reduce_size(age_limit=datetime.timedelta(seconds=-1))
+
     # age_limit set so that no cache item is kept
+    time.sleep(0.001)  # make sure the age is different
     memory.reduce_size(age_limit=datetime.timedelta(seconds=0))
     cache_items = memory.store_backend.get_items()
     assert cache_items == []

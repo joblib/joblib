@@ -46,7 +46,8 @@ class _MyHash(object):
 
 class Hasher(Pickler):
     """ A subclass of pickler, to do cryptographic hashing, rather than
-        pickling.
+        pickling. This is used to produce a unique hash of the given
+        Python object that is not necessarily cryptographically secure.
     """
 
     def __init__(self, hash_name='md5'):
@@ -56,7 +57,7 @@ class Hasher(Pickler):
         protocol = 3
         Pickler.__init__(self, self.stream, protocol=protocol)
         # Initialise the hash obj
-        self._hash = hashlib.new(hash_name)
+        self._hash = hashlib.new(hash_name, usedforsecurity=False)
 
     def hash(self, obj, return_digest=True):
         try:
