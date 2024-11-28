@@ -78,11 +78,6 @@ jobs:
             JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND: "threading"
           - name: pypy
             os: ubuntu-latest
-            PYTHON_VERSION: "pypy3.8"
-            PYPY_VERSION: 7.3.11
-            LOKY_MAX_CPU_COUNT: 2
-          - name: pypy
-            os: ubuntu-latest
             PYTHON_VERSION: "pypy3.10"
             PYPY_VERSION: 7.3.13
             LOKY_MAX_CPU_COUNT: 2
