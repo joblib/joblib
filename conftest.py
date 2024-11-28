@@ -96,8 +96,8 @@ def memory(tmp_path):
 
 
 @pytest.fixture(scope='function', autouse=True)
-def avoid_env_var_leakage(tmp_path):
-    "Fixture to avoid MAX_NUM_THREADS env vars leakage between tests for "
+def avoid_env_var_leakage():
+    "Fixture to avoid MAX_NUM_THREADS env vars leakage between tests"
     yield
     assert all(
         os.environ.get(k) is None
