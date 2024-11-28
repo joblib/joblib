@@ -7,9 +7,14 @@ from random import random
 from uuid import uuid4
 from time import sleep
 
-from .. import Parallel, delayed, parallel_config
+from .. import Parallel, delayed, parallel_config, parallel_backend
 from ..parallel import ThreadingBackend, AutoBatchingMixin
 from .._dask import DaskDistributedBackend
+
+from .common import np, with_numpy
+from .test_parallel import _recursive_backend_info
+from .test_parallel import _test_deadlock_with_generator
+from .test_parallel import _test_parallel_unordered_generator_returns_fastest_first  # noqa: E501
 
 distributed = pytest.importorskip('distributed')
 dask = pytest.importorskip('dask')
@@ -20,6 +25,27 @@ from distributed.metrics import time  # noqa: E402
 # Note: pytest requires to manually import all fixtures used in the test
 # and their dependencies.
 from distributed.utils_test import cluster, inc, cleanup  # noqa: E402, F401
+
+
+@pytest.fixture(scope='function', autouse=True)
+def avoid_dask_env_leaks(tmp_path):
+
+    # when starting a dask nanny, the environment variable might change.
+    # this fixture makes sure the environment is reset after the test.
+
+    from joblib._parallel_backends import ParallelBackendBase
+    old_value = {
+        k: os.environ.get(k)
+        for k in ParallelBackendBase.MAX_NUM_THREADS_VARS
+    }
+    yield
+
+    # Reset the environment variables to their original values
+    for k, v in old_value.items():
+        if v is None:
+            os.environ.pop(k, None)
+        else:
+            os.environ[k] = v
 
 
 def noop(*args, **kwargs):
@@ -78,6 +104,49 @@ def test_dask_backend_uses_autobatching(loop):
                         for _ in range(int(1e4))
                     )
                     assert backend._effective_batch_size > 10
+
+
+@pytest.mark.parametrize('n_jobs', [2, -1])
+@pytest.mark.parametrize("context", [parallel_config, parallel_backend])
+def test_parallel_unordered_generator_returns_fastest_first_with_dask(
+        n_jobs, context
+):
+    with distributed.Client(
+            n_workers=2, threads_per_worker=2
+    ), context("dask"):
+        _test_parallel_unordered_generator_returns_fastest_first(None, n_jobs)
+
+
+@with_numpy
+@pytest.mark.parametrize('n_jobs', [2, -1])
+@pytest.mark.parametrize('return_as', ["generator", "generator_unordered"])
+@pytest.mark.parametrize("context", [parallel_config, parallel_backend])
+def test_deadlock_with_generator_and_dask(context, return_as, n_jobs):
+    with distributed.Client(
+            n_workers=2, threads_per_worker=2
+    ), context("dask"):
+        _test_deadlock_with_generator(None, return_as, n_jobs)
+
+
+@with_numpy
+@pytest.mark.parametrize("context", [parallel_config, parallel_backend])
+def test_nested_parallelism_with_dask(context):
+    with distributed.Client(n_workers=2, threads_per_worker=2):
+        # 10 MB of data as argument to trigger implicit scattering
+        data = np.ones(int(1e7), dtype=np.uint8)
+        for i in range(2):
+            with context('dask'):
+                backend_types_and_levels = _recursive_backend_info(data=data)
+            assert len(backend_types_and_levels) == 4
+            assert all(name == 'DaskDistributedBackend'
+                       for name, _ in backend_types_and_levels)
+
+        # No argument
+        with context('dask'):
+            backend_types_and_levels = _recursive_backend_info()
+        assert len(backend_types_and_levels) == 4
+        assert all(name == 'DaskDistributedBackend'
+                   for name, _ in backend_types_and_levels)
 
 
 def random2():
@@ -195,37 +264,38 @@ def add5(a, b, c, d=0, e=0):
 
 
 def test_manual_scatter(loop):
+    w = CountSerialized(0)
     x = CountSerialized(1)
     y = CountSerialized(2)
     z = CountSerialized(3)
 
     with cluster() as (s, [a, b]):
         with Client(s['address'], loop=loop) as client:  # noqa: F841
-            with parallel_config(backend='dask', scatter=[x, y]):
+            with parallel_config(backend='dask', scatter=[w, x, y]):
                 f = delayed(add5)
-                tasks = [f(x, y, z, d=4, e=5),
-                         f(x, z, y, d=5, e=4),
-                         f(y, x, z, d=x, e=5),
-                         f(z, z, x, d=z, e=y)]
-                expected = [func(*args, **kwargs)
-                            for func, args, kwargs in tasks]
-                results = Parallel()(tasks)
+                tasks = [f(x, y, z, d=4, e=5) for _ in range(10)]
+                tasks += [
+                    f(x, z, y, d=5, e=4),
+                    f(y, x, z, d=x, e=5),
+                    f(z, z, x, d=z, e=y)
+                ]
+                results = Parallel(batch_size=1)(tasks)
 
             # Scatter must take a list/tuple
             with pytest.raises(TypeError):
                 with parallel_config(backend='dask', loop=loop, scatter=1):
                     pass
 
+    expected = [func(*args, **kwargs) for func, args, kwargs in tasks]
     assert results == expected
 
-    # Scattered variables only serialized once
-    assert x.count == 1
-    assert y.count == 1
-    # Depending on the version of distributed, the unscattered z variable
-    # is either pickled 4 or 6 times, possibly because of the memoization
-    # of objects that appear several times in the arguments of a delayed
-    # task.
-    assert z.count in (4, 6)
+    # Scattered variables only serialized during scatter. Checking with an
+    # extra variable as this count can vary from one dask version to another.
+    n_serialization_scatter = w.count
+    assert x.count == n_serialization_scatter
+    assert y.count == n_serialization_scatter
+    # Should be serialized once per task
+    assert z.count == 13
 
 
 # When the same IOLoop is used for multiple clients in a row, use

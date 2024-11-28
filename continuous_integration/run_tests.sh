@@ -11,25 +11,26 @@ elif [[ "$PYTHON_VERSION" == free-threaded* ]]; then
     # thread-safety with free-threaded Python, for example numpy and coverage.tracer
     export PYTHON_GIL=0
 else
-    source activate testenv
+    conda activate testenv
 fi
 which python
 python -V
 python -c "import multiprocessing as mp; print('multiprocessing.cpu_count():', mp.cpu_count())"
 python -c "import joblib; print('joblib.cpu_count():', joblib.cpu_count())"
 
-if [[ "$SKIP_TESTS" != "true" ]]; then
+if [[ "$SKLEARN_TESTS" != "true" ]]; then
     if [ "$COVERAGE" == "true" ]; then
         # Enable coverage-related options. --cov-append is needed to combine
         # the test run and the test-doc run coverage.
         export PYTEST_ADDOPTS="--cov=joblib --cov-append"
     fi
 
-    pytest joblib -vl --timeout=120 --junitxml="${JUNITXML}"
-    make test-doc
-fi
-
-if [[ "$SKLEARN_TESTS" == "true" ]]; then
+    pytest joblib -vl --timeout=120 --junitxml="${JUNIT_XML}"
+    # doctests are not compatile with default_backend=threading
+    if [ "$JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND" != "threading"]; then
+        make test-doc
+    fi
+else
     # Install the nightly build of scikit-learn and test against the installed
     # development version of joblib.
     # TODO: unpin pip once either https://github.com/pypa/pip/issues/10825
