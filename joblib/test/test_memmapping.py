@@ -581,8 +581,8 @@ def test_multithreaded_parallel_termination_resource_tracker_silent():
         p = subprocess.Popen([sys.executable, '-c', cmd.format(f1=f1, f2=f2)],
                              stderr=subprocess.PIPE, stdout=subprocess.PIPE)
         p.wait()
-        out, err = p.communicate()
-        assert p.returncode == returncode, out.decode()
+        _, err = p.communicate()
+        assert p.returncode == returncode, err.decode()
         assert b"resource_tracker" not in err, err.decode()
 
 
