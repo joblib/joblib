@@ -51,6 +51,8 @@ BACKENDS = {
 
 # threading is the only backend that is always everywhere
 DEFAULT_BACKEND = 'threading'
+DEFAULT_THREAD_BACKEND = 'threading'
+DEFAULT_PROCESS_BACKEND = 'loky'
 
 MAYBE_AVAILABLE_BACKENDS = {'multiprocessing', 'loky'}
 
@@ -61,10 +63,6 @@ if mp is not None:
     from .externals import loky
     BACKENDS['loky'] = LokyBackend
     DEFAULT_BACKEND = 'loky'
-
-
-DEFAULT_THREAD_BACKEND = 'threading'
-DEFAULT_PROCESS_BACKEND = 'loky'
 
 # Thread local value that can be overridden by the ``parallel_config`` context
 # manager
@@ -190,10 +188,14 @@ def _get_active_backend(
     # Force to use thread-based backend if the provided backend does not
     # match the shared memory constraint or if the backend is not explicitly
     # given and threads are preferred.
-    force_threads = (require == 'sharedmem' and not supports_sharedmem)
-    force_threads |= (
-        not explicit_backend and prefer == 'threads' and not uses_threads
+    force_threads = (
+        (require == 'sharedmem' and not supports_sharedmem)
+        or (not explicit_backend and prefer == 'threads' and not uses_threads)
     )
+    force_processes = (
+        not explicit_backend and prefer == 'processes' and uses_threads
+    )
+
     if force_threads:
         # This backend does not match the shared memory constraint:
         # fallback to the default thead-based backend.
@@ -212,10 +214,6 @@ def _get_active_backend(
         thread_config = backend_config.copy()
         thread_config['n_jobs'] = 1
         return sharedmem_backend, thread_config
-
-    force_processes = (
-        not explicit_backend and prefer == 'processes' and uses_threads
-    )
 
     if force_processes:
         # This backend does not match the prefer="processes" constraint:
