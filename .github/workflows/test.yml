@@ -49,13 +49,20 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
         PYTHON_VERSION: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
         include:
-          - os: ubuntu-latest
+          - name: test-sklearn
+            os: ubuntu-latest
+            PYTHON_VERSION: "3.10"
+            SKLEARN_TESTS: "true"
+          - name: distributed-latest
+            os: ubuntu-latest
             PYTHON_VERSION: "3.10"
             EXTRA_CONDA_PACKAGES: numpy distributed
-          - os: ubuntu-latest
+          - name: distributed
+            os: ubuntu-latest
             PYTHON_VERSION: "3.8"
             EXTRA_CONDA_PACKAGES: numpy=1.18.5 distributed=2021.5.0
-          - os: ubuntu-latest
+          - name: numpy-1.24
+            os: ubuntu-latest
             PYTHON_VERSION: "3.11"
             EXTRA_CONDA_PACKAGES: numpy=1.24.1
             CYTHON: true
@@ -86,10 +93,6 @@ jobs:
           - name: python-nogil
             os: 'ubuntu-latest'
             PYTHON_VERSION: "free-threaded-3.13"
-          - name: test-sklearn
-            os: ubuntu-latest
-            PYTHON_VERSION: "3.10"
-            SKLEARN_TESTS: "true"
 
     env: ${{ matrix }}
 
