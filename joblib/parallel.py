@@ -51,6 +51,8 @@ BACKENDS = {
 
 # threading is the only backend that is always everywhere
 DEFAULT_BACKEND = 'threading'
+DEFAULT_THREAD_BACKEND = 'threading'
+DEFAULT_PROCESS_BACKEND = 'loky'
 
 MAYBE_AVAILABLE_BACKENDS = {'multiprocessing', 'loky'}
 
@@ -61,10 +63,6 @@ if mp is not None:
     from .externals import loky
     BACKENDS['loky'] = LokyBackend
     DEFAULT_BACKEND = 'loky'
-
-
-DEFAULT_THREAD_BACKEND = 'threading'
-
 
 # Thread local value that can be overridden by the ``parallel_config`` context
 # manager
@@ -151,6 +149,7 @@ def _get_active_backend(
     backend = _get_config_param(
         default_parallel_config['backend'], backend_config, "backend"
     )
+
     prefer = _get_config_param(prefer, backend_config, "prefer")
     require = _get_config_param(require, backend_config, "require")
     verbose = _get_config_param(verbose, backend_config, "verbose")
@@ -178,6 +177,7 @@ def _get_active_backend(
         # context manager or the context manager did not set a backend.
         # create the default backend instance now.
         backend = BACKENDS[DEFAULT_BACKEND](nesting_level=0)
+
         explicit_backend = False
 
     # Try to use the backend set by the user with the context manager.
@@ -188,10 +188,14 @@ def _get_active_backend(
     # Force to use thread-based backend if the provided backend does not
     # match the shared memory constraint or if the backend is not explicitly
     # given and threads are preferred.
-    force_threads = (require == 'sharedmem' and not supports_sharedmem)
-    force_threads |= (
-        not explicit_backend and prefer == 'threads' and not uses_threads
+    force_threads = (
+        (require == 'sharedmem' and not supports_sharedmem)
+        or (not explicit_backend and prefer == 'threads' and not uses_threads)
     )
+    force_processes = (
+        not explicit_backend and prefer == 'processes' and uses_threads
+    )
+
     if force_threads:
         # This backend does not match the shared memory constraint:
         # fallback to the default thead-based backend.
@@ -210,6 +214,15 @@ def _get_active_backend(
         thread_config = backend_config.copy()
         thread_config['n_jobs'] = 1
         return sharedmem_backend, thread_config
+
+    if force_processes:
+        # This backend does not match the prefer="processes" constraint:
+        # fallback to the default process-based backend.
+        process_backend = BACKENDS[DEFAULT_PROCESS_BACKEND](
+            nesting_level=nesting_level
+        )
+
+        return process_backend, backend_config.copy()
 
     return backend, backend_config
 

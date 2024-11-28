@@ -67,7 +67,7 @@ from joblib.parallel import parallel_backend
 from joblib.parallel import register_parallel_backend
 from joblib.parallel import effective_n_jobs, cpu_count
 
-from joblib.parallel import mp, BACKENDS, DEFAULT_BACKEND
+from joblib.parallel import mp, BACKENDS
 
 
 RETURN_GENERATOR_BACKENDS = BACKENDS.copy()
@@ -86,7 +86,13 @@ if hasattr(mp, 'get_context'):
     # Custom multiprocessing context in Python 3.4+
     ALL_VALID_BACKENDS.append(mp.get_context('spawn'))
 
-DefaultBackend = BACKENDS[DEFAULT_BACKEND]
+
+def get_default_backend_instance():
+    # The default backend can be changed before running the tests through
+    # JOBLIB_DEFAULT_PARALLEL_BACKEND environment variable so we need to use
+    # parallel.DEFAULT_BACKEND here and not
+    # from joblib.parallel import DEFAULT_BACKEND
+    return BACKENDS[parallel.DEFAULT_BACKEND]
 
 
 def get_workers(backend):
@@ -698,15 +704,16 @@ def test_register_parallel_backend():
 
 
 def test_overwrite_default_backend():
-    assert _active_backend_type() == DefaultBackend
+    default_backend_orig = parallel.DEFAULT_BACKEND
+    assert _active_backend_type() == get_default_backend_instance()
     try:
         register_parallel_backend("threading", BACKENDS["threading"],
                                   make_default=True)
         assert _active_backend_type() == ThreadingBackend
     finally:
         # Restore the global default manually
-        parallel.DEFAULT_BACKEND = DEFAULT_BACKEND
-    assert _active_backend_type() == DefaultBackend
+        parallel.DEFAULT_BACKEND = default_backend_orig
+    assert _active_backend_type() == get_default_backend_instance()
 
 
 @skipif(mp is not None, reason="Only without multiprocessing")
@@ -754,12 +761,12 @@ def test_backend_context_manager(monkeypatch, backend, context):
     if backend not in BACKENDS:
         monkeypatch.setitem(BACKENDS, backend, FakeParallelBackend)
 
-    assert _active_backend_type() == DefaultBackend
+    assert _active_backend_type() == get_default_backend_instance()
     # check that this possible to switch parallel backends sequentially
     check_backend_context_manager(context, backend)
 
     # The default backend is restored
-    assert _active_backend_type() == DefaultBackend
+    assert _active_backend_type() == get_default_backend_instance()
 
     # Check that context manager switching is thread safe:
     Parallel(n_jobs=2, backend='threading')(
@@ -767,7 +774,7 @@ def test_backend_context_manager(monkeypatch, backend, context):
         for b in all_backends_for_context_manager if not b)
 
     # The default backend is again restored
-    assert _active_backend_type() == DefaultBackend
+    assert _active_backend_type() == get_default_backend_instance()
 
 
 class ParameterizedParallelBackend(SequentialBackend):
@@ -783,7 +790,7 @@ class ParameterizedParallelBackend(SequentialBackend):
 def test_parameterized_backend_context_manager(monkeypatch, context):
     monkeypatch.setitem(BACKENDS, 'param_backend',
                         ParameterizedParallelBackend)
-    assert _active_backend_type() == DefaultBackend
+    assert _active_backend_type() == get_default_backend_instance()
 
     with context('param_backend', param=42, n_jobs=3):
         active_backend, active_n_jobs = parallel.get_active_backend()
@@ -797,12 +804,12 @@ def test_parameterized_backend_context_manager(monkeypatch, context):
     assert results == [sqrt(i) for i in range(5)]
 
     # The default backend is again restored
-    assert _active_backend_type() == DefaultBackend
+    assert _active_backend_type() == get_default_backend_instance()
 
 
 @parametrize("context", [parallel_config, parallel_backend])
 def test_directly_parameterized_backend_context_manager(context):
-    assert _active_backend_type() == DefaultBackend
+    assert _active_backend_type() == get_default_backend_instance()
 
     # Check that it's possible to pass a backend instance directly,
     # without registration
@@ -818,7 +825,7 @@ def test_directly_parameterized_backend_context_manager(context):
     assert results == [sqrt(i) for i in range(5)]
 
     # The default backend is again restored
-    assert _active_backend_type() == DefaultBackend
+    assert _active_backend_type() == get_default_backend_instance()
 
 
 def sleep_and_return_pid():
@@ -883,7 +890,7 @@ def test_nested_backend_in_sequential(backend, n_jobs, context):
         assert Parallel()._effective_n_jobs() == expected_n_job
 
     Parallel(n_jobs=1)(
-        delayed(check_nested_backend)(DEFAULT_BACKEND, 1)
+        delayed(check_nested_backend)(parallel.DEFAULT_BACKEND, 1)
         for _ in range(10)
     )
 
@@ -1611,13 +1618,16 @@ def test_backend_batch_statistics_reset(backend):
 @parametrize("context", [parallel_config, parallel_backend])
 def test_backend_hinting_and_constraints(context):
     for n_jobs in [1, 2, -1]:
-        assert type(Parallel(n_jobs=n_jobs)._backend) == DefaultBackend
+        assert (
+            type(Parallel(n_jobs=n_jobs)._backend) ==
+            get_default_backend_instance()
+        )
 
         p = Parallel(n_jobs=n_jobs, prefer='threads')
         assert type(p._backend) is ThreadingBackend
 
         p = Parallel(n_jobs=n_jobs, prefer='processes')
-        assert type(p._backend) is DefaultBackend
+        assert type(p._backend) is LokyBackend
 
         p = Parallel(n_jobs=n_jobs, require='sharedmem')
         assert type(p._backend) is ThreadingBackend
