@@ -91,7 +91,7 @@ def get_default_backend_instance():
     # The default backend can be changed before running the tests through
     # JOBLIB_DEFAULT_PARALLEL_BACKEND environment variable so we need to use
     # parallel.DEFAULT_BACKEND here and not
-    # from joblib.parallel import # DEFAULT_BACKEND
+    # from joblib.parallel import DEFAULT_BACKEND
     return BACKENDS[parallel.DEFAULT_BACKEND]
 
 
@@ -1620,7 +1620,8 @@ def test_backend_hinting_and_constraints(context):
     for n_jobs in [1, 2, -1]:
         assert (
             type(Parallel(n_jobs=n_jobs)._backend) ==
-            get_default_backend_instance())
+            get_default_backend_instance()
+        )
 
         p = Parallel(n_jobs=n_jobs, prefer='threads')
         assert type(p._backend) is ThreadingBackend
