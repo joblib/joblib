@@ -85,6 +85,7 @@ jobs:
           - name: python-nogil
             os: 'ubuntu-latest'
             PYTHON_VERSION: "free-threaded-3.13"
+            NO_NUMPY: true
           - name: test-sklearn
             os: ubuntu-latest
             PYTHON_VERSION: "3.10"
