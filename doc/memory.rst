@@ -385,7 +385,7 @@ Gotchas
 
 * **Cache-miss with objects that have non-reproducible pickle representations**.
   The identifier of the cache entry is based on the pickle's representation of
-  the input arguments. Therefor, for objects that don't have a deterministic
+  the input arguments. Therefore, for objects that don't have a deterministic
   pickle representation, or objects whose representation depends on the way they
   are constructed, the cache will not work. In particular, ``pytorch.Tensor``
   are known to have non-deterministic pickle representation (see this
