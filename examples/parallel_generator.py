@@ -146,7 +146,7 @@ print(f"Peak memory usage: {peak:.2f}MB")
 
 
 ##############################################################################
-# We can then report the memory usage accross time of the two runs using the
+# We can then report the memory usage across time of the two runs using the
 # MemoryMonitor.
 #
 # In the first case, as the results accumulate in ``res``, the memory grows
@@ -211,7 +211,7 @@ plt.show()
 
 ##############################################################################
 # To better highlight improvements in memory usage when using the parameter
-# ``return_as="generator_unordered"``, let's explcitly add delay in some of
+# ``return_as="generator_unordered"``, let's explicitly add delay in some of
 # the submitted tasks.
 
 

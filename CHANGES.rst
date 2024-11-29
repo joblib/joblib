@@ -731,7 +731,7 @@ Olivier Grisel
 
     Expose :class:`joblib.parallel.ParallelBackendBase` and
     :class:`joblib.parallel.AutoBatchingMixin` in the public API to
-    make them officially re-usable by backend implementers.
+    make them officially reusable by backend implementers.
 
 
 Release 0.10.0
@@ -866,7 +866,7 @@ Olivier Grisel
 
 Olivier Grisel
 
-    New context manager based API (``with`` block) to re-use
+    New context manager based API (``with`` block) to reuse
     the same pool of workers across consecutive parallel calls.
 
 Vlad Niculae and Olivier Grisel

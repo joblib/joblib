@@ -173,7 +173,7 @@ create and destroy a pool of workers (threads or processes) several times which
 can cause a significant overhead.
 
 For this case it is more efficient to use the context manager API of the
-:class:`joblib.Parallel` class to re-use the same pool of workers for several
+:class:`joblib.Parallel` class to reuse the same pool of workers for several
 calls to the :class:`joblib.Parallel` object::
 
     >>> with Parallel(n_jobs=2) as parallel:
