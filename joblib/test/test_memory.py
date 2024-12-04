@@ -386,6 +386,8 @@ def test_argument_change(tmpdir):
     # the second time the argument is x=[None], which is not cached
     # yet, so the functions should be called a second time
     assert func() == 1
+    # set the default argument back to [] to avoid side effects to the subsequent tests
+    count_and_append.__defaults__ = ([],)
 
 
 @with_numpy
@@ -802,6 +804,8 @@ def test_memory_file_modification(capsys, tmpdir, monkeypatch):
 
     out, err = capsys.readouterr()
     assert out == '1\n2\nReloading\nx=1\n'
+    
+    del sys.modules['tmp_joblib_']
 
 
 def _function_to_cache(a, b):
