@@ -20,6 +20,9 @@ In development
 - Support for Python 3.13 free-threaded has been added.
   https://github.com/joblib/joblib/pull/1589
 
+- Pretty printing of ``Parallel`` execution progress when the number of tasks is
+  known. https://github.com/joblib/joblib/pull/1608
+
 
 Release 1.4.2 -- 2024/05/02
 ---------------------------
