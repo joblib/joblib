@@ -254,17 +254,28 @@ def _count_physical_cores():
             cpu_info = {line for line in cpu_info if not line.startswith("#")}
             cpu_count_physical = len(cpu_info)
         elif sys.platform == "win32":
-            cpu_info = subprocess.run(
+             try:
+                cpu_info = subprocess.run(
                 "wmic CPU Get NumberOfCores /Format:csv".split(),
                 capture_output=True,
                 text=True,
-            )
-            cpu_info = cpu_info.stdout.splitlines()
-            cpu_info = [
-                l.split(",")[1]
-                for l in cpu_info
-                if (l and l != "Node,NumberOfCores")
-            ]
+                )
+                cpu_info = cpu_info.stdout.splitlines()
+                cpu_info = [
+                    l.split(",")[1]
+                    for l in cpu_info
+                    if (l and l != "Node,NumberOfCores")
+                ]
+            except FileNotFoundError:
+                # Windows 11 24H2: WMIC will be completely removed.
+                cpu_info = subprocess.run(
+                    ['powershell.exe',
+                    '-Command',
+                    '(Get-WmiObject -Class Win32_Processor).NumberOfCores'],
+                    capture_output=True,
+                    text=True,
+                )
+                cpu_info = cpu_info.stdout.splitlines()
             cpu_count_physical = sum(map(int, cpu_info))
         elif sys.platform == "darwin":
             cpu_info = subprocess.run(
