@@ -254,7 +254,7 @@ def _count_physical_cores():
             cpu_info = {line for line in cpu_info if not line.startswith("#")}
             cpu_count_physical = len(cpu_info)
         elif sys.platform == "win32":
-             try:
+            try:
                 cpu_info = subprocess.run(
                 "wmic CPU Get NumberOfCores /Format:csv".split(),
                 capture_output=True,
