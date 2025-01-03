@@ -124,6 +124,11 @@ jobs:
         run: |
           bash -el continuous_integration/run_tests.sh
 
+      - name: List coverage files
+        run: |
+          ls -ltrha .coverage* test-data.xml || echo No coverage files were found
+          head test-data.xml || echo no test-data.xml
+
       - name: Upload to Codecov
         # always upload coverage even if tests fail
         if: ${{ matrix.SKLEARN_TESTS != 'true' && (success() || failure()) }}
