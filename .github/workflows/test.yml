@@ -128,7 +128,6 @@ jobs:
           ls -ltrha .coverage* test-data.xml || echo No coverage files were found
           head test-data.xml || echo no test-data.xml
 
-      
       - name: List coverage files
         run: |
           ls -ltrha .coverage* test-data.xml || echo No coverage files were found
