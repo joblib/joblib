@@ -1,5 +1,5 @@
 import os
-import sys
+
 import logging
 import faulthandler
 
@@ -27,22 +27,16 @@ def pytest_collection_modifyitems(config, items):
     # e.g. via the JOBLIB_MULTIPROCESSING env variable
     if mp is not None:
         try:
-            # numpy changed the str/repr formatting of numpy arrays in 1.14.
-            # We want to run doctests only for numpy >= 1.14.
-            # One doctest in memory.rst needs Python >= 3.10
+            # Only run doctests for numpy >= 2 to avoid formatting changes
             import numpy as np
-            if (LooseVersion(np.__version__) >= LooseVersion('1.14')
-                    and sys.version_info[:2] >= (3, 10)):
+            if LooseVersion(np.__version__) >= LooseVersion('2'):
                 skip_doctests = False
         except ImportError:
             pass
 
     if skip_doctests:
-        reason = (
-            'doctests are only run in some conditions, '
-            'see conftest.py for more details'
-        )
-        skip_marker = pytest.mark.skip(reason=reason)
+        skip_marker = pytest.mark.skip(
+            reason='doctests are only run for numpy >= 2')
 
         for item in items:
             if isinstance(item, DoctestItem):
