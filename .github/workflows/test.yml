@@ -139,4 +139,4 @@ jobs:
         if: ${{ matrix.SKLEARN_TESTS != 'true' && (success() || failure()) }}
         uses: codecov/codecov-action@v5
         with:
-          files: .coverage
+          files: coverage.xml
