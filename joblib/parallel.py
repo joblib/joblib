@@ -1042,7 +1042,7 @@ class Parallel(Logger):
             The number of batches (of tasks) to be pre-dispatched.
             Default is '2*n_jobs'. When batch_size="auto" this is reasonable
             default and the workers should never starve. Note that only basic
-            arithmetics are allowed here and no modules can be used in this
+            arithmetic are allowed here and no modules can be used in this
             expression.
         batch_size: int or 'auto', default='auto'
             The number of atomic tasks to dispatch at once to each

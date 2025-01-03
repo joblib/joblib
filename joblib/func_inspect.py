@@ -140,8 +140,8 @@ def get_func_name(func, resolv_alias=True, win_characters=True):
                 # The XYZ hash should avoid collisions between functions with
                 # the same name, both within the same notebook but also across
                 # notebooks
-                splitted = parts[-1].split('-')
-                parts[-1] = '-'.join(splitted[:2] + splitted[3:])
+                split = parts[-1].split('-')
+                parts[-1] = '-'.join(split[:2] + split[3:])
             elif len(parts) > 2 and parts[-2].startswith('ipykernel_'):
                 # In a notebook session (ipykernel). Filename seems to be 'xyz'
                 # of above. parts[-2] has the structure ipykernel_XXXXXX where
