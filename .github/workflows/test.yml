@@ -19,7 +19,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  JUNIT_XML: 'test-data.xml'
   COVERAGE: 'true'
 
 jobs:
@@ -128,6 +127,6 @@ jobs:
       - name: Upload to Codecov
         # always upload coverage even if tests fail
         if: ${{ matrix.SKLEARN_TESTS != 'true' && (success() || failure()) }}
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
-          file: .coverage
+          files: coverage.xml

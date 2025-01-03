@@ -137,7 +137,7 @@ arrays::
     >>> a = np.vander(np.arange(3)).astype(float)
     >>> square(a)
     ________________________________________________________________________________
-    [Memory] Calling square...
+    [Memory] Calling numpy.square...
     square(array([[0., 0., 1.],
            [1., 1., 1.],
            [4., 2., 1.]]))
