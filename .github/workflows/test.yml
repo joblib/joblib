@@ -125,13 +125,7 @@ jobs:
 
       - name: List coverage files
         run: |
-          ls -ltrha .coverage* test-data.xml || echo No coverage files were found
-          head test-data.xml || echo no test-data.xml
-
-      - name: List coverage files
-        run: |
-          ls -ltrha .coverage* test-data.xml || echo No coverage files were found
-          head test-data.xml || echo no test-data.xml
+          ls -ltrha *coverage* || echo No coverage files were found
 
       - name: Upload to Codecov
         # always upload coverage even if tests fail
