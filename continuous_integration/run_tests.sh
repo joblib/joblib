@@ -25,7 +25,7 @@ if [[ "$SKLEARN_TESTS" != "true" ]]; then
         export PYTEST_ADDOPTS="--cov=joblib --cov-append"
     fi
 
-    pytest joblib -vl --timeout=120 --junitxml="${JUNIT_XML}"
+    pytest joblib -vl --timeout=120
     # doctests are not compatile with default_backend=threading
     if [ "$JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND" != "threading"]; then
         make test-doc
@@ -59,4 +59,9 @@ else
     #
     # test_check_memory: scikit-learn test need to be updated to avoid using
     # cachedir: https://github.com/scikit-learn/scikit-learn/pull/22365
+fi
+
+if [[ "$COVERAGE" == "true" ]]; then
+    coverage combine
+    coverage xml
 fi
