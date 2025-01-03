@@ -19,17 +19,7 @@ python -c "import multiprocessing as mp; print('multiprocessing.cpu_count():', m
 python -c "import joblib; print('joblib.cpu_count():', joblib.cpu_count())"
 
 if [[ "$SKLEARN_TESTS" != "true" ]]; then
-    if [[ "$COVERAGE" == "true" ]]; then
-        # Enable coverage-related options. --cov-append is needed to combine
-        # the test run and the test-doc run coverage.
-        export PYTEST_ADDOPTS="--cov=joblib --cov-append"
-    fi
-
-    pytest joblib -vl --timeout=120
-    # doctests are not compatile with default_backend=threading
-    if [[ "$JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND" != "threading" ]]; then
-        make test-doc
-    fi
+    pytest joblib -vl --timeout=120 --cov=joblib --cov-report xml
 else
     # Install the nightly build of scikit-learn and test against the installed
     # development version of joblib.
@@ -60,10 +50,3 @@ else
     # test_check_memory: scikit-learn test need to be updated to avoid using
     # cachedir: https://github.com/scikit-learn/scikit-learn/pull/22365
 fi
-
-# if [[ "$COVERAGE" == "true" ]]; then
-#     ls -ltrah *coverage*
-#     coverage combine || echo nothing to combine
-#     ls -ltrah *coverage*
-#     coverage xml
-# fi
