@@ -31,15 +31,18 @@ def pytest_collection_modifyitems(config, items):
             # We want to run doctests only for numpy >= 1.14.
             # One doctest in memory.rst needs Python >= 3.10
             import numpy as np
-            if LooseVersion(np.__version__) >= LooseVersion('1.14') and sys.version_info[:2] >= (3, 10):
+            if (LooseVersion(np.__version__) >= LooseVersion('1.14')
+                    and sys.version_info[:2] >= (3, 10)):
                 skip_doctests = False
         except ImportError:
             pass
 
-
     if skip_doctests:
-        skip_marker = pytest.mark.skip(
-            reason='doctests are only run in some conditions see conftest.py for more details')
+        reason = (
+            'doctests are only run in some conditions, '
+            'see conftest.py for more details'
+        )
+        skip_marker = pytest.mark.skip(reason=reason)
 
         for item in items:
             if isinstance(item, DoctestItem):
