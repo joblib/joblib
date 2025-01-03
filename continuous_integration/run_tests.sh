@@ -61,7 +61,9 @@ else
     # cachedir: https://github.com/scikit-learn/scikit-learn/pull/22365
 fi
 
-if [[ "$COVERAGE" == "true" ]]; then
-    coverage combine
-    coverage xml
-fi
+# if [[ "$COVERAGE" == "true" ]]; then
+#     ls -ltrah *coverage*
+#     coverage combine || echo nothing to combine
+#     ls -ltrah *coverage*
+#     coverage xml
+# fi
