@@ -1,6 +1,6 @@
 name: CI
 permissions:
-  contents: none
+  contents: read
 
 # Define scheduling for the workflow
 on:
