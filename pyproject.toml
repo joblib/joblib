@@ -103,7 +103,7 @@ show_missing = true
 
 [tool.codespell]
 # Ref: https://github.com/codespell-project/codespell#using-a-config-file
-skip = '.git*,*.svg,venv,*.css'
+skip = '.git*,*.svg,venv,*.css,test_func_inspect_special_encoding.py'
 check-hidden = true
 # ignore-regex = ''
 ignore-words-list = 'fo'
