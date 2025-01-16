@@ -1443,8 +1443,8 @@ def test_multiple_generator_call_managed(backend, return_as, n_jobs):
 
         # Make sure that the error is raised quickly
         assert time.time() - t_start < 2, (
-            "The error should be raised immediately when submitting a new task "
-            "but it took more than 2s."
+            "The error should be raised immediately when submitting a new task"
+            " but it took more than 2s."
         )
 
     # The gc in pypy can be delayed. Force it to make sure this test does not
