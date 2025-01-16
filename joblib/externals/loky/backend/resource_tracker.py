@@ -40,7 +40,7 @@
 # Note that this behavior differs from CPython's resource_tracker, which only
 # implements list of shared resources, and not a proper refcounting scheme.
 # Also, CPython's resource tracker will only attempt to cleanup those shared
-# resources once all procsses connected to the resouce tracker have exited.
+# resources once all procsses connected to the resource tracker have exited.
 
 
 import os
@@ -112,7 +112,7 @@ class ResourceTracker:
 
                 warnings.warn(
                     "resource_tracker: process died unexpectedly, "
-                    "relaunching.  Some folders/sempahores might "
+                    "relaunching.  Some folders/semaphores might "
                     "leak."
                 )
 
@@ -238,13 +238,13 @@ def main(fd, verbose=0):
                 if line == b"":  # EOF
                     break
                 try:
-                    splitted = line.strip().decode("ascii").split(":")
+                    split = line.strip().decode("ascii").split(":")
                     # name can potentially contain separator symbols (for
                     # instance folders on Windows)
                     cmd, name, rtype = (
-                        splitted[0],
-                        ":".join(splitted[1:-1]),
-                        splitted[-1],
+                        split[0],
+                        ":".join(split[1:-1]),
+                        split[-1],
                     )
 
                     if cmd == "PROBE":

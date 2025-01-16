@@ -102,7 +102,7 @@ def get_preparation_data(name, init_main_module=True):
         )
 
         # multiprocessing's resource_tracker must be running before loky
-        # process is created (othewise the child won't be able to use it if it
+        # process is created (otherwise the child won't be able to use it if it
         # is created later on)
         mp_resource_tracker.ensure_running()
         d["mp_tracker_args"] = {
