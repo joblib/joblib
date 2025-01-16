@@ -28,9 +28,7 @@ if [[ "$SKLEARN_TESTS" != "true" ]]; then
 else
     # Install the nightly build of scikit-learn and test against the installed
     # development version of joblib.
-    # TODO: unpin pip once either https://github.com/pypa/pip/issues/10825
-    # accepts invalid HTML or Anaconda is fixed.
-    conda install -y -c conda-forge cython pillow numpy scipy "pip<22"
+    conda install -y -c conda-forge cython numpy scipy
     pip install --pre --extra-index https://pypi.anaconda.org/scientific-python-nightly-wheels/simple scikit-learn
     python -c "import sklearn; print('Testing scikit-learn', sklearn.__version__)"
 
@@ -41,17 +39,5 @@ else
     cd $NEW_TEST_DIR
 
     pytest -vl --maxfail=5 -p no:doctest \
-        -k "not test_import_is_deprecated" \
-        -k "not test_check_memory" \
         --pyargs sklearn
-
-    # Justification for skipping some tests:
-    #
-    # test_import_is_deprecated: Don't worry about deprecated imports: this is
-    # tested for real in upstream scikit-learn and this is not joblib's
-    # responsibility. Let's skip this test to avoid false positives in joblib's
-    # CI.
-    #
-    # test_check_memory: scikit-learn test need to be updated to avoid using
-    # cachedir: https://github.com/scikit-learn/scikit-learn/pull/22365
 fi
