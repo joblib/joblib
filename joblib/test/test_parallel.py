@@ -185,7 +185,7 @@ def test_parallel_pretty_print(backend, n_jobs):
 
     class ParallelLog(Parallel):
 
-        messages: list[str] = []
+        messages = []
 
         def _print(self, msg):
             self.messages.append(msg)
