@@ -9,7 +9,7 @@ from __future__ import division
 
 import os
 import sys
-from math import sqrt
+from math import sqrt, log10, floor
 import functools
 import collections
 import time
@@ -1564,13 +1564,17 @@ class Parallel(Logger):
         if not self.verbose:
             return
 
+        if self.n_tasks is not None and self.n_tasks > 0:
+            width = floor(log10(self.n_tasks)) + 1
+        else:
+            width = 3
         elapsed_time = time.time() - self._start_time
 
         if self._is_completed():
             # Make sure that we get a last message telling us we are done
             self._print(
-                f"Done {self.n_completed_tasks:3d} out of "
-                f"{self.n_completed_tasks:3d} | elapsed: "
+                f"Done {self.n_completed_tasks:{width}d} out of "
+                f"{self.n_completed_tasks:{width}d} | elapsed: "
                 f"{short_format_time(elapsed_time)} finished"
             )
             return
@@ -1583,10 +1587,18 @@ class Parallel(Logger):
         elif self._original_iterator is not None:
             if _verbosity_filter(self.n_dispatched_batches, self.verbose):
                 return
-            self._print(
-                f"Done {self.n_completed_tasks:3d} tasks      | elapsed: "
-                f"{short_format_time(elapsed_time)}"
-            )
+            fmt_time = f"| elapsed: {short_format_time(elapsed_time)}"
+            index = self.n_completed_tasks
+            if self.n_tasks is not None:
+                self._print(
+                    f"Done {index:{width}d} out of {self.n_tasks:{width}d} "
+                    f"{fmt_time}"
+                )
+            else:
+                pad = " " * (len("out of ") + width - len("tasks"))
+                self._print(
+                    f"Done {index:{width}d} tasks {pad}{fmt_time}"
+                )
         else:
             index = self.n_completed_tasks
             # We are finished dispatching
@@ -1605,8 +1617,8 @@ class Parallel(Logger):
                              (self.n_dispatched_tasks - index)
             # only display status if remaining time is greater or equal to 0
             self._print(
-                f"Done {index:3d} out of {total_tasks:3d} | elapsed: "
-                f"{short_format_time(elapsed_time)} remaining: "
+                f"Done {index:{width}d} out of {total_tasks:{width}d} "
+                f"| elapsed: {short_format_time(elapsed_time)} remaining: "
                 f"{short_format_time(remaining_time)}"
             )
 
@@ -1916,6 +1928,9 @@ class Parallel(Logger):
         """Main function to dispatch parallel tasks."""
 
         self._reset_run_tracking()
+        self.n_tasks = (
+            len(iterable) if hasattr(iterable, "__len__") else None
+        )
         self._start_time = time.time()
 
         if not self._managed_backend:
