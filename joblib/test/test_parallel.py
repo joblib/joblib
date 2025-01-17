@@ -7,6 +7,7 @@ Test the parallel module.
 # License: BSD Style, 3 clauses.
 
 import os
+import re
 import sys
 import time
 import mmap
@@ -174,6 +175,29 @@ def test_simple_parallel(backend, n_jobs, verbose):
             Parallel(n_jobs=n_jobs, backend=backend,
                      verbose=verbose)(
                 delayed(square)(x) for x in range(5)))
+
+
+@parametrize('backend', ALL_VALID_BACKENDS)
+@parametrize('n_jobs', [1, 2])
+def test_parallel_pretty_print(backend, n_jobs):
+    n_tasks = 100
+    pattern = re.compile(r"(Done\s+\d+ out of \d+ \|)")
+
+    class ParallelLog(Parallel):
+
+        messages: list[str] = []
+
+        def _print(self, msg):
+            self.messages.append(msg)
+
+    executor = ParallelLog(n_jobs=n_jobs, backend=backend, verbose=10000)
+    executor([delayed(f)(i) for i in range(n_tasks)])
+    lens = set()
+    for message in executor.messages:
+        if s := pattern.search(message):
+            a, b = s.span()
+            lens.add(b - a)
+    assert len(lens) == 1
 
 
 @parametrize('backend', ALL_VALID_BACKENDS)

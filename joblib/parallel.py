@@ -1925,8 +1925,6 @@ class Parallel(Logger):
         else:
             n_jobs = self._effective_n_jobs()
 
-
-
         if n_jobs == 1:
             # If n_jobs==1, run the computation sequentially and return
             # immediately to avoid overheads.
