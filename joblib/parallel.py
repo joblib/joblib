@@ -1947,7 +1947,7 @@ class Parallel(Logger):
 
         # Let's create an ID that uniquely identifies the current call. If the
         # call is interrupted early and that the same instance is immediately
-        # re-used, this id will be used to prevent workers that were
+        # reused, this id will be used to prevent workers that were
         # concurrently finalizing a task from the previous call to run the
         # callback.
         with self._lock:
