@@ -222,7 +222,12 @@ def test_main_thread_renamed_no_warning(backend, monkeypatch):
 
     # Due to the default parameters of LokyBackend, there is a chance that
     # warninfo catches Warnings from worker timeouts. We remove it if it exists
-    warninfo = [w for w in warninfo if "worker timeout" not in str(w.message)]
+    # We also remove DeprecationWarnings which could lead to false negatives.
+    warninfo = [
+        w for w in warninfo
+        if "worker timeout" not in str(w.message)
+           and not isinstance(w.message, DeprecationWarning)
+    ]
 
     # Under Python 3.13 if backend='multiprocessing', you will get a
     # warning saying that forking a multi-threaded process is not a good idea,
