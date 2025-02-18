@@ -9,7 +9,7 @@
 
 ## Reporting a Vulnerability
 
-Please report security vulnerabilities by using opening a new [GitHub security
+Please report security vulnerabilities by opening a new [GitHub security
 advisory](https://github.com/joblib/joblib/security/advisories/new).
 
 You can also send an email to `joblib-security@scikit-learn.org`, which is an
