@@ -33,7 +33,7 @@ def concurrency_safe_write(object_to_write, filename, write_func):
     """Writes an object into a unique file in a concurrency-safe way."""
     hostname = socket.getfqdn()
     thread_id = id(threading.current_thread())
-    temporary_filename = '{}.hostname-{hostname}-thread-{}-pid-{}'.format(
+    temporary_filename = '{}.hostname-{}-thread-{}-pid-{}'.format(
         filename, hostname, thread_id, os.getpid())
     write_func(object_to_write, temporary_filename)
 
