@@ -437,12 +437,21 @@ def test_parallel_timeout_success(backend):
 
 @with_multiprocessing
 @parametrize('backend', PARALLEL_BACKENDS)
-@parameterize('return_as', ["generator", "generator_unordered", "list"]):
 def test_parallel_timeout_fail(backend):
     # Check that timeout properly fails when function is too slow
     with raises(TimeoutError):
         Parallel(n_jobs=2, backend=backend, timeout=0.01)(
             delayed(sleep)(10) for x in range(10))
+
+
+@with_multiprocessing
+@parametrize('backend', set(RETURN_GENERATOR_BACKENDS) - {"sequential"})
+@parametrize('return_as', ["generator", "generator_unordered"])
+def test_parallel_timeout_fail_with_generator(backend, return_as):
+    # Check that timeout properly fails when function is too slow
+    with raises(TimeoutError):
+        list(Parallel(n_jobs=2, backend=backend, return_as=return_as, timeout=0.01)(
+            delayed(sleep)(10) for x in range(10)))
 
 
 @with_multiprocessing

@@ -832,10 +832,6 @@ class BatchCompletionCallBack(object):
             # a new batch if needed.
             job_succeeded = self._retrieve_result(out)
 
-            if not self.parallel.return_ordered:
-                # Append the job to the queue in the order of completion
-                # instead of submission.
-                self.parallel._jobs.append(self)
 
         if job_succeeded:
             self._dispatch_new()
@@ -901,6 +897,15 @@ class BatchCompletionCallBack(object):
         if self.status == TASK_ERROR:
             self.parallel._exception = True
             self.parallel._aborting = True
+
+        if self.parallel.return_ordered:
+            return
+
+        with self.parallel._lock:
+            # Append the job to the queue in the order of completion
+            # instead of submission.
+            self.parallel._jobs.append(self)
+
 
 
 ###############################################################################
@@ -1807,11 +1812,13 @@ class Parallel(Logger):
                 continue
 
             elif timeout_control_job is not None:
-                del timeout_control_job._completion_timeout_counter
+                if hasattr(timeout_control_job, "_completion_timeout_counter"):
+                    del timeout_control_job._completion_timeout_counter
                 timeout_control_job = None
 
             batched_results = self._jobs.popleft()
-            self._jobs_set.remove(batched_results)
+            if not self.return_ordered:
+                self._jobs_set.remove(batched_results)
 
             # Flatten the batched results to output one output at a time
             batched_results = batched_results.get_result(self.timeout)
