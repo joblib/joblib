@@ -832,7 +832,6 @@ class BatchCompletionCallBack(object):
             # a new batch if needed.
             job_succeeded = self._retrieve_result(out)
 
-
         if job_succeeded:
             self._dispatch_new()
 
@@ -905,7 +904,6 @@ class BatchCompletionCallBack(object):
             # Append the job to the queue in the order of completion
             # instead of submission.
             self.parallel._jobs.append(self)
-
 
 
 ###############################################################################

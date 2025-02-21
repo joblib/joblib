@@ -450,8 +450,14 @@ def test_parallel_timeout_fail(backend):
 def test_parallel_timeout_fail_with_generator(backend, return_as):
     # Check that timeout properly fails when function is too slow
     with raises(TimeoutError):
-        list(Parallel(n_jobs=2, backend=backend, return_as=return_as, timeout=0.01)(
-            delayed(sleep)(10) for x in range(10)))
+        list(
+            Parallel(
+                n_jobs=2,
+                backend=backend,
+                return_as=return_as,
+                timeout=0.01
+            )(delayed(sleep)(10) for x in range(10))
+        )
 
 
 @with_multiprocessing
