@@ -437,6 +437,7 @@ def test_parallel_timeout_success(backend):
 
 @with_multiprocessing
 @parametrize('backend', PARALLEL_BACKENDS)
+@parameterize('return_as', ["generator", "generator_unordered", "list"]):
 def test_parallel_timeout_fail(backend):
     # Check that timeout properly fails when function is too slow
     with raises(TimeoutError):

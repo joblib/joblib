@@ -1343,6 +1343,7 @@ class Parallel(Logger):
             # with the async callback thread of our the pool.
             self._lock = threading.RLock()
             self._jobs = collections.deque()
+            self._jobs_set = set()
             self._pending_outputs = list()
             self._ready_batches = queue.Queue()
             self._reducer_callback = None
@@ -1422,6 +1423,9 @@ class Parallel(Logger):
 
         if self.return_ordered:
             self._jobs.append(batch_tracker)
+
+        else:
+            self._jobs_set.add(batch_tracker)
 
         # If return_ordered is False, the batch_tracker is not stored in the
         # jobs queue at the time of submission. Instead, it will be appended to
@@ -1731,6 +1735,7 @@ class Parallel(Logger):
             # Store the unconsumed tasks and terminate the workers if necessary
             _remaining_outputs = ([] if self._exception else self._jobs)
             self._jobs = collections.deque()
+            self._jobs_set = set()
             self._running = False
             if not detach_generator_exit:
                 self._terminate_and_reset()
@@ -1769,6 +1774,7 @@ class Parallel(Logger):
         return False
 
     def _retrieve(self):
+        timeout_control_job = None
         while self._wait_retrieval():
 
             # If the callback thread of a worker has signaled that its task
@@ -1779,19 +1785,33 @@ class Parallel(Logger):
                 self._raise_error_fast()
                 break
 
+            nb_pending_jobs = len(self._jobs)
+
             # If the next job is not ready for retrieval yet, we just wait for
             # async callbacks to progress.
-            if ((len(self._jobs) == 0) or
-                (self._jobs[0].get_status(
-                    timeout=self.timeout) == TASK_PENDING)):
+            if self.return_ordered:
+                if ((nb_pending_jobs == 0) or
+                    (self._jobs[0].get_status(
+                        timeout=self.timeout) == TASK_PENDING)):
+                    time.sleep(0.01)
+                    continue
+
+            elif (nb_pending_jobs == 0):
+                if timeout_control_job is None:
+                    timeout_control_job = next(iter(self._jobs_set), None)
+
+                if timeout_control_job is not None:
+                    timeout_control_job.get_status(timeout=self.timeout)
+
                 time.sleep(0.01)
                 continue
 
-            # We need to be careful: the job list can be filling up as
-            # we empty it and Python list are not thread-safe by
-            # default hence the use of the lock
-            with self._lock:
-                batched_results = self._jobs.popleft()
+            elif timeout_control_job is not None:
+                del timeout_control_job._completion_timeout_counter
+                timeout_control_job = None
+
+            batched_results = self._jobs.popleft()
+            self._jobs_set.remove(batched_results)
 
             # Flatten the batched results to output one output at a time
             batched_results = batched_results.get_result(self.timeout)
