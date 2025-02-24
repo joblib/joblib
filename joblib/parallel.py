@@ -901,8 +901,8 @@ class BatchCompletionCallBack(object):
             return
 
         with self.parallel._lock:
-            # Append the job to the queue in the order of completion
-            # instead of submission.
+            # For `return_as=generator_unordered`, append the job to the queue
+            # in the order of completion instead of submission.
             self.parallel._jobs.append(self)
 
 
@@ -1788,21 +1788,37 @@ class Parallel(Logger):
                 self._raise_error_fast()
                 break
 
-            nb_pending_jobs = len(self._jobs)
+            nb_jobs = len(self._jobs)
 
-            # If the next job is not ready for retrieval yet, we just wait for
-            # async callbacks to progress.
+            # Now wait for a job to be ready for retrieval.
             if self.return_ordered:
-                if ((nb_pending_jobs == 0) or
+                # Case ordered: wait for completion (or error) of the next job
+                # that have been dispatched and not retrieved yet. If no job
+                # have been dispatched yet, wait for dispatch.
+                # We assume that the time to wait for the next job to be
+                # dispatched is always low, so that the timeout
+                # control only have to be done on the amount of time the next
+                # dispatched job is pending.
+                if ((nb_jobs == 0) or
                     (self._jobs[0].get_status(
                         timeout=self.timeout) == TASK_PENDING)):
                     time.sleep(0.01)
                     continue
 
-            elif (nb_pending_jobs == 0):
+            elif (nb_jobs == 0):
+                # Case unordered: jobs are added to the list of jobs to
+                # retrieve `self._jobs` only once completed or in error, which
+                # is too late to enable timeout control in the same way than in
+                # the previous case.
+                # Instead, if no job is ready to be retrieved yet, we
+                # arbitrarily pick a dispatched job, and the timeout control is
+                # done such that an error is raised if this control job
+                # timeouts before any other dispatched job has completed and
+                # been added to `self._jobs` to be retrieved.
                 if timeout_control_job is None:
                     timeout_control_job = next(iter(self._jobs_set), None)
 
+                # NB: it can be None if no job has been dispatched yet.
                 if timeout_control_job is not None:
                     timeout_control_job.get_status(timeout=self.timeout)
 
@@ -1810,6 +1826,11 @@ class Parallel(Logger):
                 continue
 
             elif timeout_control_job is not None:
+                # Case unordered, when `nb_jobs > 0`:
+                # It means that a job is ready to be retrieved, so no timeout
+                # will occur during this iteration.
+                # Before proceeding to retrieval of the next ready job, reset
+                # the timeout control state to prepare the next iteration.
                 if hasattr(timeout_control_job, "_completion_timeout_counter"):
                     del timeout_control_job._completion_timeout_counter
                 timeout_control_job = None
