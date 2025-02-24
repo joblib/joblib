@@ -1424,11 +1424,7 @@ class Parallel(Logger):
             dispatch_timestamp, batch_size, self
         )
 
-        if self.return_ordered:
-            self._jobs.append(batch_tracker)
-
-        else:
-            self._jobs_set.add(batch_tracker)
+        self._register_new_job(batch_tracker)
 
         # If return_ordered is False, the batch_tracker is not stored in the
         # jobs queue at the time of submission. Instead, it will be appended to
@@ -1437,6 +1433,12 @@ class Parallel(Logger):
 
         job = self._backend.apply_async(batch, callback=batch_tracker)
         batch_tracker.register_job(job)
+
+    def _register_new_job(self, batch_tracker):
+        if self.return_ordered:
+            self._jobs.append(batch_tracker)
+        else:
+            self._jobs_set.add(batch_tracker)
 
     def dispatch_next(self):
         """Dispatch more data for parallel processing
@@ -1501,7 +1503,7 @@ class Parallel(Logger):
                     batch_tracker = BatchCompletionCallBack(
                         0, batch_size, self
                     )
-                    self._jobs.append(batch_tracker)
+                    self._register_new_job(batch_tracker)
                     batch_tracker._register_outcome(dict(
                         result=e, status=TASK_ERROR
                     ))
@@ -1835,9 +1837,13 @@ class Parallel(Logger):
                     del timeout_control_job._completion_timeout_counter
                 timeout_control_job = None
 
-            batched_results = self._jobs.popleft()
-            if not self.return_ordered:
-                self._jobs_set.remove(batched_results)
+            # We need to be careful: the job list can be filling up as
+            # we empty it and Python list are not thread-safe by
+            # default hence the use of the lock
+            with self._lock:
+                batched_results = self._jobs.popleft()
+                if not self.return_ordered:
+                    self._jobs_set.remove(batched_results)
 
             # Flatten the batched results to output one output at a time
             batched_results = batched_results.get_result(self.timeout)
