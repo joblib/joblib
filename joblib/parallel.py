@@ -963,6 +963,7 @@ def effective_n_jobs(n_jobs=-1):
 
 _CALL_CONTEXT = []
 
+
 def register_call_context(context_name, context, prepend=False):
     """Register a new call context to be executed before the function
     execution.
