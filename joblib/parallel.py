@@ -964,7 +964,8 @@ def effective_n_jobs(n_jobs=-1):
 _CALL_CONTEXT = []
 
 def register_call_context(context_name, context, prepend=False):
-    """Register a new call context to be executed before the function execution.
+    """Register a new call context to be executed before the function
+    execution.
 
     .. versionadded:: 1.5
 
@@ -984,8 +985,9 @@ def register_call_context(context_name, context, prepend=False):
     """
     if any(context_name == ctx[0] for ctx in _CALL_CONTEXT):
         raise ValueError(
-            f"The context name {context_name} is already registered. You need to "
-            "unregister it first using the `unregister_call_context` function."
+            f"The context name {context_name} is already registered. You need "
+            "to unregister it first using the `unregister_call_context` "
+            "function."
         )
     if prepend:
         _CALL_CONTEXT.insert(0, (context_name, context))
