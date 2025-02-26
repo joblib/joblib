@@ -642,8 +642,11 @@ def cpu_count(only_physical_cores=False):
     runtimes such as docker) and CPU affinity (for instance using the taskset
     command on Linux).
 
-    If only_physical_cores is True, do not take hyperthreading / SMT logical
-    cores into account.
+    Parameters
+    ----------
+    only_physical_cores : boolean, default=False
+        If True, does not take hyperthreading / SMT logical cores into account.
+
     """
     if mp is None:
         return 1
