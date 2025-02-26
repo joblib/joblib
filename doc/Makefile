@@ -8,7 +8,8 @@ all: html
 
 # generate html documentation with warning as errors
 html:
-	$(SPHINXBUILD) $(SPHINXOPTS) -b html . ./_build/html/
+	$(SPHINXBUILD) $(SPHINXOPTS) -b html . _build/html/ | grep -v "The HTML pages are in _build/html."
+	@echo "The HTML pages are in doc/_build/html."
 
 # remove generated sphinx gallery examples and sphinx documentation
 clean:
