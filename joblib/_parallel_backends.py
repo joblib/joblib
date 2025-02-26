@@ -79,20 +79,13 @@ class ParallelBackendBase(metaclass=ABCMeta):
     def apply_async(self, func, callback=None):
         """Schedule a func to be run"""
 
-    def retrieve_result_callback(self, out, timeout=None):
+    def retrieve_result_callback(self, out):
         """Called within the callback function passed in apply_async.
 
         The argument of this function is the argument given to a callback in
         the considered backend. It is supposed to return the outcome of a task
         if it succeeded or raise the exception if it failed.
         """
-        # this makes this part of the code to support
-        # multiprocessing/multi-threading as well as concurrent.future jobs.
-        result_method = "get" if hasattr(out, "get") else "result"
-        if self.supports_timeout:
-            return getattr(out, result_method)(timeout=timeout)
-        else:
-            return getattr(out, result_method)()
 
     def retrieve_result(self, out, timeout=None):
         """Hook to retrieve the result when support_retrieve_callback=False.
