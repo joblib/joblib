@@ -34,15 +34,13 @@ of the latest code: https://github.com/joblib/joblib/archive/refs/heads/main.zip
 Installing
 ==========
 
-You can use `pip` to install joblib::
+You can use `pip` to install joblib from any directory::
 
     pip install joblib
 
-from any directory or::
+or install it in editable mode from the source directory::
 
-    python setup.py install
-
-from the source directory.
+    pip install -e .
 
 Dependencies
 ============
@@ -70,8 +68,8 @@ To contribute to joblib, first create an account on `github
 <https://github.com/>`_. Once this is done, fork the `joblib repository
 <https://github.com/joblib/joblib>`_ to have your own repository,
 clone it using 'git clone' on the computers where you want to work. Make
-your changes in your clone, push them to your github account, test them
-on several computers, and when you are happy with them, send a pull
+your changes in a branch of your clone, push them to your github account, test them
+on several computers if possible, and when you are happy with them, send a pull
 request to the main repository.
 
 Running the test suite
