@@ -456,9 +456,19 @@ def test_parallel_timeout_fail_with_generator(backend, return_as):
                 n_jobs=2,
                 backend=backend,
                 return_as=return_as,
-                timeout=0.2
+                timeout=0.1
             )(delayed(sleep)(10) for x in range(10))
         )
+
+    # Fast tasks and high timeout should not raise
+    list(
+        Parallel(
+            n_jobs=2,
+            backend=backend,
+            return_as=return_as,
+            timeout=10
+        )(delayed(sleep)(0.01) for x in range(10))
+    )
 
 
 @with_multiprocessing
