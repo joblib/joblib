@@ -2134,3 +2134,24 @@ def test_register_unregister_call_context():
     assert len(_CALL_CONTEXT) == 2
     assert _CALL_CONTEXT[0][0] == "test3"
     assert _CALL_CONTEXT[1][0] == "test2"
+
+
+def maybe_warn(a, b):
+    if a * b > 10:
+        warnings.warn("You are being warned!!")
+    return(a*b)
+
+
+def test_call_context_parallel():
+    """Check that the call context is properly propagated to the parallel backend."""
+    ii = np.arange(5)
+    jj = ii + 1
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.filterwarnings("ignore", message=".*use of fork.*may lead to deadlocks.*")
+        with Parallel(n_jobs=4, call_context=[warnings.catch_warnings(action="ignore")]) as parallel:
+            parallel(delayed(maybe_warn)(i, j) for i, j in zip(ii, jj))
+
+    assert len(w) == 0, (
+        f"Expected no warnings but got {[str(warn.message) for warn in w]}"
+    )
