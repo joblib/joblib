@@ -20,8 +20,8 @@ from numbers import Integral
 import warnings
 import queue
 import weakref
-from contextlib import nullcontext
-
+from contextlib import ExitStack, nullcontext
+from copy import copy
 from multiprocessing import TimeoutError
 
 from ._multiprocessing_helpers import mp
@@ -592,7 +592,7 @@ class BatchedCalls(object):
     """Wrap a sequence of (func, args, kwargs) tuples as a single callable"""
 
     def __init__(self, iterator_slice, backend_and_jobs, reducer_callback=None,
-                 pickle_cache=None):
+                 pickle_cache=None, call_context=None):
         self.items = list(iterator_slice)
         self._size = len(self.items)
         self._reducer_callback = reducer_callback
@@ -603,13 +603,17 @@ class BatchedCalls(object):
             # nested backends were returned without n_jobs indications.
             self._backend, self._n_jobs = backend_and_jobs, None
         self._pickle_cache = pickle_cache if pickle_cache is not None else {}
+        self._call_context = call_context if call_context is not None else []
 
     def __call__(self):
         # Set the default nested backend to self._backend but do not set the
         # change the default number of processes to -1
-        with parallel_config(backend=self._backend, n_jobs=self._n_jobs):
-            return [func(*args, **kwargs)
-                    for func, args, kwargs in self.items]
+        with ExitStack() as stack:
+            for context in self._call_context:
+                stack.enter_context(context)
+            with parallel_config(backend=self._backend, n_jobs=self._n_jobs):
+                return [func(*args, **kwargs)
+                        for func, args, kwargs in self.items]
 
     def __reduce__(self):
         if self._reducer_callback is not None:
@@ -956,6 +960,64 @@ def effective_n_jobs(n_jobs=-1):
 
 
 ###############################################################################
+
+_CALL_CONTEXT = []
+
+def register_call_context(context_name, context, prepend=False):
+    """Register a new call context to be executed before the function execution.
+
+    .. versionadded:: 1.5
+
+    Parameters
+    ----------
+    context_name: str
+        The name of the call context.
+    context: contextmanager
+        The context manager to be executed before the function execution.
+    prepend: bool, default=False
+        If True, the context will be executed before the existing contexts.
+
+    Raises
+    ------
+    ValueError
+        If the context name is already registered.
+    """
+    if any(context_name == ctx[0] for ctx in _CALL_CONTEXT):
+        raise ValueError(
+            f"The context name {context_name} is already registered. You need to "
+            "unregister it first using the `unregister_call_context` function."
+        )
+    if prepend:
+        _CALL_CONTEXT.insert(0, (context_name, context))
+    else:
+        _CALL_CONTEXT.append((context_name, context))
+
+
+def unregister_call_context(context_name):
+    """Unregister a call context.
+
+    .. versionadded:: 1.5
+
+    Parameters
+    ----------
+    context_name: str
+        The name of the call context to unregister.
+
+    Raises
+    ------
+    ValueError
+        If the context name is not registered.
+    """
+    for i, (name, _) in enumerate(_CALL_CONTEXT):
+        if name == context_name:
+            del _CALL_CONTEXT[i]
+            return
+    raise ValueError(
+        f"The context name {context_name} is not registered. You need to "
+        "register it first using the `register_call_context` function."
+    )
+
+
 class Parallel(Logger):
     ''' Helper class for readable parallel mapping.
 
@@ -1084,6 +1146,8 @@ class Parallel(Logger):
             disable memmapping, other modes defined in the numpy.memmap doc:
             https://numpy.org/doc/stable/reference/generated/numpy.memmap.html
             Also, see 'max_nbytes' parameter documentation for more details.
+        call_context: list of context manager, default=None
+            A list of context manager to be executed before the function execution.
 
         Notes
         -----
@@ -1221,6 +1285,7 @@ class Parallel(Logger):
         mmap_mode=default_parallel_config["mmap_mode"],
         prefer=default_parallel_config["prefer"],
         require=default_parallel_config["require"],
+        call_context=None,
     ):
         # Initiate parent Logger class state
         super().__init__()
@@ -1248,6 +1313,8 @@ class Parallel(Logger):
         self.return_as = return_as
         self.return_generator = return_as != "list"
         self.return_ordered = return_as != "generator_unordered"
+
+        self.call_context = call_context
 
         # Check if we are under a parallel_config or parallel_backend
         # context manager and use the config from the context manager
@@ -1514,11 +1581,15 @@ class Parallel(Logger):
                     final_batch_size = max(1, len(islice) // n_jobs)
 
                 # enqueue n_jobs batches in a local queue
+                call_context = copy(_CALL_CONTEXT)
+                if self.call_context:
+                    call_context.extend(self.call_context)
                 for i in range(0, len(islice), final_batch_size):
                     tasks = BatchedCalls(islice[i:i + final_batch_size],
                                          self._backend.get_nested_backend(),
                                          self._reducer_callback,
-                                         self._pickle_cache)
+                                         self._pickle_cache,
+                                         call_context)
                     self._ready_batches.put(tasks)
 
                 # finally, get one task.
