@@ -67,7 +67,7 @@ Workflow to contribute
 To contribute to joblib, first create an account on `github
 <https://github.com/>`_. Once this is done, fork the `joblib repository
 <https://github.com/joblib/joblib>`_ to have your own repository,
-clone it using `git clone`. Make your changes in a branch of your clone, push
+clone it using ``git clone``. Make your changes in a branch of your clone, push
 them to your github account, test them locally, and when you are happy with
 them, send a pull request to the main repository.
 
