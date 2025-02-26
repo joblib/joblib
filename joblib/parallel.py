@@ -23,6 +23,7 @@ import weakref
 from contextlib import ExitStack, nullcontext
 from copy import copy
 from multiprocessing import TimeoutError
+from typing import ContextManager
 
 from ._multiprocessing_helpers import mp
 
@@ -990,6 +991,9 @@ def register_call_context(context_name, context, prepend=False):
             "to unregister it first using the `unregister_call_context` "
             "function."
         )
+    assert isinstance(context, ContextManager), (
+        f"`context` must be a context manager, got {type(context)}."
+    )
     if prepend:
         _CALL_CONTEXT.insert(0, (context_name, context))
     else:

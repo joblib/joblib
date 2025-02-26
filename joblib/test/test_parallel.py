@@ -18,7 +18,7 @@ from traceback import format_exception
 from math import sqrt
 from time import sleep
 from pickle import PicklingError
-from contextlib import nullcontext
+from contextlib import nullcontext, contextmanager
 from multiprocessing import TimeoutError
 import pytest
 
@@ -67,6 +67,8 @@ from joblib.parallel import parallel_config
 from joblib.parallel import parallel_backend
 from joblib.parallel import register_parallel_backend
 from joblib.parallel import effective_n_jobs, cpu_count
+from joblib.parallel import register_call_context, unregister_call_context
+from joblib.parallel import _CALL_CONTEXT
 
 from joblib.parallel import mp, BACKENDS
 
@@ -2073,3 +2075,62 @@ def test_loky_reuse_workers(n_jobs):
         parallel_call(n_jobs)
         executor = get_reusable_executor(reuse=True)
         assert executor == first_executor
+
+
+###############################################################################
+# Test for call context
+
+_global_config = {"parameter": True}
+
+_threadlocal = threading.local()
+
+
+def _get_threadlocal_config():
+    """Get a threadlocal **mutable** configuration. If the configuration
+    does not exist, copy the default global configuration."""
+    if not hasattr(_threadlocal, "global_config"):
+        _threadlocal.global_config = _global_config.copy()
+    return _threadlocal.global_config
+
+
+def get_config():
+    return _get_threadlocal_config().copy()
+
+
+def set_config(*, parameter=None):
+    local_config = _get_threadlocal_config()
+    if parameter is not None:
+        local_config["parameter"] = parameter
+
+
+@contextmanager
+def config_context(*, parameter=None):
+    old_config = get_config()
+    set_config(parameter=parameter)
+    try:
+        yield
+    finally:
+        set_config(**old_config)
+
+def test_register_unregister_call_context():
+    """Check that we can register and unregister call context."""
+    assert len(_CALL_CONTEXT) == 0
+    with pytest.raises(AssertionError, match="`context` must be a context manager"):
+        register_call_context("test", get_config)
+    register_call_context("test", config_context())
+    assert len(_CALL_CONTEXT) == 1
+    with pytest.raises(ValueError, match="The context name test is already registered"):
+        register_call_context("test", config_context())
+    assert len(_CALL_CONTEXT) == 1
+    register_call_context("test2", config_context())
+    assert len(_CALL_CONTEXT) == 2
+    assert _CALL_CONTEXT[-1][0] == "test2"
+    register_call_context("test3", config_context(), prepend=True)
+    assert len(_CALL_CONTEXT) == 3
+    assert _CALL_CONTEXT[0][0] == "test3"
+    with pytest.raises(ValueError, match="The context name unknown is not registered"):
+        unregister_call_context("unknown")
+    unregister_call_context("test")
+    assert len(_CALL_CONTEXT) == 2
+    assert _CALL_CONTEXT[0][0] == "test3"
+    assert _CALL_CONTEXT[1][0] == "test2"
