@@ -728,7 +728,7 @@ class BatchCompletionCallBack(object):
             self.status = TASK_PENDING
 
     def register_job(self, job):
-        """Register the object returned by `apply_async`."""
+        """Register the object returned by `submit`."""
         self.job = job
 
     def get_result(self, timeout):
@@ -1425,7 +1425,8 @@ class Parallel(Logger):
         # the queue by itself as soon as the callback is triggered to be able
         # to return the results in the order of completion.
 
-        job = self._backend.apply_async(batch, callback=batch_tracker)
+
+        job = self._backend.submit(batch, callback=batch_tracker)
         batch_tracker.register_job(job)
 
     def dispatch_next(self):

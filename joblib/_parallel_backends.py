@@ -75,12 +75,26 @@ class ParallelBackendBase(metaclass=ABCMeta):
         as long as all the workers have enough work to do.
         """
 
-    @abstractmethod
     def apply_async(self, func, callback=None):
-        """Schedule a func to be run"""
+        """Deprecated: implement `submit` instead."""
+        raise NotImplementedError("Implement `submit` instead.")
+
+    def submit(self, func, callback=None):
+        """Schedule a func to be run. The result of this object.
+
+        If `supports_retreive_callback` is true, the return value of this
+        method is passed to the callback passed here, and the output of that is
+        then given to `retrieve_result_callback`. Otherwise, the return value
+        of this method is passed to `retrieve_result`.
+        """
+        warnings.warn(
+            "`apply_async` is deprecated, implement and use `submit` instead.",
+            DeprecationWarning
+        )
+        return self.apply_async(func, callback)
 
     def retrieve_result_callback(self, out):
-        """Called within the callback function passed in apply_async.
+        """Called within the callback function passed in `submit`.
 
         The argument of this function is the argument given to a callback in
         the considered backend. It is supposed to return the outcome of a task
@@ -90,7 +104,7 @@ class ParallelBackendBase(metaclass=ABCMeta):
     def retrieve_result(self, out, timeout=None):
         """Hook to retrieve the result when support_retrieve_callback=False.
 
-        The argument `out` is the result of the `apply_async` call. This method
+        The argument `out` is the result of the `submit` call. This method
         should return the result of the computation or raise an exception if
         the computation failed.
         """
@@ -235,7 +249,7 @@ class SequentialBackend(ParallelBackendBase):
             raise ValueError('n_jobs == 0 in Parallel has no meaning')
         return 1
 
-    def apply_async(self, func, callback=None):
+    def submit(self, func, callback=None):
         """Schedule a func to be run"""
         raise RuntimeError("Should never be called for SequentialBackend.")
 
@@ -276,10 +290,10 @@ class PoolManagerMixin(object):
             self._pool = None
 
     def _get_pool(self):
-        """Used by apply_async to make it possible to implement lazy init"""
+        """Used by `submit` to make it possible to implement lazy init"""
         return self._pool
 
-    def apply_async(self, func, callback=None):
+    def submit(self, func, callback=None):
         """Schedule a func to be run"""
         # Here, we need a wrapper to avoid crashes on KeyboardInterruptErrors.
         # We also call the callback on error, to make sure the pool does not
@@ -292,7 +306,9 @@ class PoolManagerMixin(object):
     def retrieve_result_callback(self, result):
         """Mimic concurrent.futures results, raising an error if needed."""
         # In the multiprocessing Pool API, the callback are called with the
-        # result value as an argument so `out` is the result.
+        # result value as an argument so `result`(`out`) is the output of
+        # job.get(). It's either the result or the exception raised while
+        # collecting the result.
         return _retrieve_traceback_capturing_wrapped_call(result)
 
     def abort_everything(self, ensure_ready=True):
@@ -598,7 +614,7 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
             n_jobs = max(cpu_count() + 1 + n_jobs, 1)
         return n_jobs
 
-    def apply_async(self, func, callback=None):
+    def submit(self, func, callback=None):
         """Schedule a func to be run"""
         future = self._workers.submit(func)
         if callback is not None:
