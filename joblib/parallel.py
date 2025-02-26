@@ -1425,7 +1425,6 @@ class Parallel(Logger):
         # the queue by itself as soon as the callback is triggered to be able
         # to return the results in the order of completion.
 
-
         job = self._backend.submit(batch, callback=batch_tracker)
         batch_tracker.register_job(job)
 
