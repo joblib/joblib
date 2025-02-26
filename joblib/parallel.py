@@ -759,10 +759,12 @@ class BatchCompletionCallBack(object):
 
         # For other backends, the main thread needs to run the retrieval step.
         try:
-            if backend.supports_timeout:
-                result = self.job.get(timeout=timeout)
-            else:
-                result = self.job.get()
+            try:
+                result = backend.retrieve_result_callback(self.job, timeout=timeout)
+            except TypeError:
+                # old backends might not support timeout here
+                warnings.warn("Deprecated signature blah blah", DeprecationWarning)
+                result = backend.retrieve_result_callback(self.job)
             outcome = dict(result=result, status=TASK_DONE)
         except BaseException as e:
             outcome = dict(result=e, status=TASK_ERROR)
