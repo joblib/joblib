@@ -201,7 +201,7 @@ class NumpyArrayWrapper(object):
 
         return array
 
-    def read_mmap(self, unpickler, ensure_native_byte_order):
+    def read_mmap(self, unpickler):
         """Read an array using numpy memmap."""
         current_pos = unpickler.file_handle.tell()
         offset = current_pos
@@ -243,15 +243,9 @@ class NumpyArrayWrapper(object):
             )
             warnings.warn(message)
 
-        if ensure_native_byte_order:
-            # TODO: should issue a warning here ?
-            # because the array gets copied in the process.
-            # which is precisely what memmap users doesn't want.
-            marray = _ensure_native_byte_order(marray)
-
         return marray
 
-    def read(self, unpickler, ensure_native_byte_order=True):
+    def read(self, unpickler, ensure_native_byte_order):
         """Read the array corresponding to this wrapper.
 
         Use the unpickler to get all information to correctly read the array.
@@ -267,7 +261,7 @@ class NumpyArrayWrapper(object):
         """
         # When requested, only use memmap mode if allowed.
         if unpickler.mmap_mode is not None and self.allow_mmap:
-            array = self.read_mmap(unpickler, ensure_native_byte_order)
+            array = self.read_mmap(unpickler)
         else:
             array = self.read_array(unpickler, ensure_native_byte_order)
 
@@ -404,8 +398,13 @@ class NumpyUnpickler(Unpickler):
 
     dispatch = Unpickler.dispatch.copy()
 
-    def __init__(self, filename, file_handle, mmap_mode=None,
-                 ensure_native_byte_order=True):
+    def __init__(
+        self,
+        filename,
+        file_handle,
+        ensure_native_byte_order,
+        mmap_mode=None
+    ):
         # The next line is for backward compatibility with pickle generated
         # with joblib versions less than 0.10.
         self._dirname = os.path.dirname(filename)
@@ -612,8 +611,7 @@ def dump(value, filename, compress=0, protocol=None, cache_size=None):
     return [filename]
 
 
-def _unpickle(fobj, filename="", mmap_mode=None,
-              ensure_native_byte_order=True):
+def _unpickle(fobj, ensure_native_byte_order, filename="", mmap_mode=None):
     """Internal unpickling function."""
     # We are careful to open the file handle early and keep it open to
     # avoid race-conditions on renames.
@@ -622,8 +620,7 @@ def _unpickle(fobj, filename="", mmap_mode=None,
     # will create a race when joblib tries to access the companion
     # files.
     unpickler = NumpyUnpickler(
-        filename, fobj, mmap_mode=mmap_mode,
-        ensure_native_byte_order=ensure_native_byte_order
+        filename, fobj, ensure_native_byte_order, mmap_mode=mmap_mode
     )
     obj = None
     try:
@@ -653,8 +650,12 @@ def load_temporary_memmap(filename, mmap_mode, unlink_on_gc_collect):
 
     with open(filename, 'rb') as f:
         with _read_fileobject(f, filename, mmap_mode) as fobj:
-            obj = _unpickle(fobj, filename, mmap_mode,
-                            ensure_native_byte_order=False)
+            obj = _unpickle(
+                fobj,
+                ensure_native_byte_order=False,
+                filename=filename,
+                mmap_mode=mmap_mode
+            )
 
     JOBLIB_MMAPS.add(obj.filename)
     if unlink_on_gc_collect:
@@ -706,7 +707,7 @@ def load(filename, mmap_mode=None):
         fobj = filename
         filename = getattr(fobj, "name", "")
         with _read_fileobject(fobj, filename, mmap_mode) as fobj:
-            obj = _unpickle(fobj)
+            obj = _unpickle(fobj, ensure_native_byte_order=True)
     else:
         with open(filename, "rb") as f:
             with _read_fileobject(f, filename, mmap_mode) as fobj:
@@ -716,5 +717,10 @@ def load(filename, mmap_mode=None):
                     # Joblib so we load it with joblib compatibility function.
                     return load_compatibility(fobj)
 
-                obj = _unpickle(fobj, filename, mmap_mode)
+                obj = _unpickle(
+                    fobj,
+                    ensure_native_byte_order=True,
+                    filename=filename,
+                    mmap_mode=mmap_mode
+                )
     return obj
