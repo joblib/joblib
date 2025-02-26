@@ -709,6 +709,7 @@ class BatchCompletionCallBack(object):
         self.batch_size = batch_size
         self.parallel = parallel
         self.parallel_call_id = parallel._call_id
+        self._completion_timeout_counter = None
 
         # Internals to keep track of the status and outcome of the task.
 
@@ -790,7 +791,7 @@ class BatchCompletionCallBack(object):
         # The computation are running and the status is pending.
         # Check that we did not wait for this jobs more than `timeout`.
         now = time.time()
-        if not hasattr(self, "_completion_timeout_counter"):
+        if self._completion_timeout_counter is None:
             self._completion_timeout_counter = now
 
         if (now - self._completion_timeout_counter) > timeout:
@@ -1791,7 +1792,6 @@ class Parallel(Logger):
                 break
 
             nb_jobs = len(self._jobs)
-
             # Now wait for a job to be ready for retrieval.
             if self.return_ordered:
                 # Case ordered: wait for completion (or error) of the next job
@@ -1833,8 +1833,7 @@ class Parallel(Logger):
                 # will occur during this iteration.
                 # Before proceeding to retrieval of the next ready job, reset
                 # the timeout control state to prepare the next iteration.
-                if hasattr(timeout_control_job, "_completion_timeout_counter"):
-                    del timeout_control_job._completion_timeout_counter
+                timeout_control_job._completion_timeout_counter = None
                 timeout_control_job = None
 
             # We need to be careful: the job list can be filling up as
