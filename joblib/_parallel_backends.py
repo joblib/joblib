@@ -94,6 +94,18 @@ class ParallelBackendBase(metaclass=ABCMeta):
         else:
             return getattr(out, result_method)()
 
+    def retrieve_result(self, out, timeout=None):
+        """Hook to retrieve the result when support_retrieve_callback=False.
+
+        The argument `out` is the result of the `apply_async` call. This method
+        should return the result of the computation or raise an exception if
+        the computation failed.
+        """
+        if self.supports_timeout:
+            return out.get(timeout=timeout)
+        else:
+            return out.get()
+
     def configure(self, n_jobs=1, parallel=None, prefer=None, require=None,
                   **backend_args):
         """Reconfigure the backend and return the number of workers.
@@ -284,9 +296,11 @@ class PoolManagerMixin(object):
             callback=callback, error_callback=callback
         )
 
-    def retrieve_result_callback(self, out):
+    def retrieve_result_callback(self, result):
         """Mimic concurrent.futures results, raising an error if needed."""
-        return _retrieve_traceback_capturing_wrapped_call(out)
+        # In the multiprocessing Pool API, the callback are called with the
+        # result value as an argument so `out` is the result.
+        return _retrieve_traceback_capturing_wrapped_call(result)
 
     def abort_everything(self, ensure_ready=True):
         """Shutdown the pool and restart a new one with the same parameters"""
@@ -598,9 +612,10 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
             future.add_done_callback(callback)
         return future
 
-    def retrieve_result_callback(self, out, timeout=None):
+    def retrieve_result_callback(self, future):
+        """Retrieve the result, here out is the future given by submit"""
         try:
-            return out.result()
+            return future.result()
         except ShutdownExecutorError:
             raise RuntimeError(
                 "The executor underlying Parallel has been shutdown. "

@@ -759,12 +759,7 @@ class BatchCompletionCallBack(object):
 
         # For other backends, the main thread needs to run the retrieval step.
         try:
-            try:
-                result = backend.retrieve_result_callback(self.job, timeout=timeout)
-            except TypeError:
-                # old backends might not support timeout here
-                warnings.warn("Deprecated signature blah blah", DeprecationWarning)
-                result = backend.retrieve_result_callback(self.job)
+            result = backend.retrieve_result(self.job, timeout=timeout)
             outcome = dict(result=result, status=TASK_DONE)
         except BaseException as e:
             outcome = dict(result=e, status=TASK_ERROR)
@@ -804,7 +799,7 @@ class BatchCompletionCallBack(object):
     ##########################################################################
     #                     METHODS CALLED BY CALLBACK THREADS                 #
     ##########################################################################
-    def __call__(self, out):
+    def __call__(self, *args, **kwargs):
         """Function called by the callback thread after a job is completed."""
 
         # If the backend doesn't support callback retrievals, the next batch of
@@ -832,7 +827,7 @@ class BatchCompletionCallBack(object):
 
             # Retrieves the result of the task in the main process and dispatch
             # a new batch if needed.
-            job_succeeded = self._retrieve_result(out)
+            job_succeeded = self._retrieve_result(*args, **kwargs)
 
             if not self.parallel.return_ordered:
                 # Append the job to the queue in the order of completion
