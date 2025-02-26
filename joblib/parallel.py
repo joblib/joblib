@@ -1435,7 +1435,6 @@ class Parallel(Logger):
         This method is meant to be called concurrently by the multiprocessing
         callback. We rely on the thread-safety of dispatch_one_batch to protect
         against concurrent consumption of the unprotected iterator.
-
         """
         if not self.dispatch_one_batch(self._original_iterator):
             self._iterating = False
