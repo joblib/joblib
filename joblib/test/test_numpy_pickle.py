@@ -363,6 +363,31 @@ def test_compressed_pickle_dump_and_load(tmpdir):
             assert result == expected
 
 
+@with_numpy
+def test_memmap_load(tmpdir):
+    expected_list = [np.arange(5, dtype=np.dtype('<i8')),
+                     np.arange(5, dtype=np.dtype('>i8')),
+                     np.arange(5, dtype=np.dtype('<f8')),
+                     np.arange(5, dtype=np.dtype('>f8')),
+                     np.array([1, 'abc', {'a': 1, 'b': 2}], dtype='O'),
+                     np.arange(256, dtype=np.uint8).tobytes(),
+                     u"C'est l'\xe9t\xe9 !"]
+
+    fname = tmpdir.join('temp.pkl').strpath
+
+    dumped_filenames = numpy_pickle.dump(expected_list, fname)
+    assert len(dumped_filenames) == 1
+    result_list = numpy_pickle.load(fname, mmap_mode="r+")
+    for result, expected in zip(result_list, expected_list):
+        if isinstance(expected, np.ndarray):
+            np.testing.assert_equal(result, expected, strict=True)
+            if expected.dtype != np.dtype('O'):
+                assert isinstance(result, np.memmap)
+                assert os.path.isfile(result.filename)
+        else:
+            assert result == expected
+
+
 def _check_pickle(filename, expected_list, mmap_mode=None):
     """Helper function to test joblib pickle content.
 

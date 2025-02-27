@@ -27,6 +27,9 @@ In development
 - Pretty printing of ``Parallel`` execution progress when the number of tasks is
   known. https://github.com/joblib/joblib/pull/1608
 
+- Fix a regression in 1.3 and 1.4 that caused large big endian arrays to trigger
+  a serialization error. https://github.com/joblib/joblib/issues/1545
+
 
 Release 1.4.2 -- 2024/05/02
 ---------------------------

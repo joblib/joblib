@@ -253,6 +253,9 @@ class NumpyArrayWrapper(object):
         Parameters
         ----------
         unpickler: NumpyUnpickler
+        ensure_native_byte_order: bool
+            If true, coerce the array to use the native endianness of the
+            host system.
 
         Returns
         -------
@@ -261,6 +264,10 @@ class NumpyArrayWrapper(object):
         """
         # When requested, only use memmap mode if allowed.
         if unpickler.mmap_mode is not None and self.allow_mmap:
+            assert not ensure_native_byte_order, (
+                "Memmaps cannot be coerced to a given byte order, "
+                "this code path is impossible."
+            )
             array = self.read_mmap(unpickler)
         else:
             array = self.read_array(unpickler, ensure_native_byte_order)
@@ -388,6 +395,9 @@ class NumpyUnpickler(Unpickler):
         The memorymap mode to use for reading numpy arrays.
     file_handle: file_like
         File object to unpickle from.
+    ensure_native_byte_order: bool
+        If true, coerce the array to use the native endianness of the
+        host system.
     filename: str
         Name of the file to unpickle from. It should correspond to file_handle.
         This parameter is required when using mmap_mode.
@@ -703,11 +713,19 @@ def load(filename, mmap_mode=None):
     if Path is not None and isinstance(filename, Path):
         filename = str(filename)
 
+    # A memory-mapped array has to be mapped with the endianess
+    # it has been written with. Other arrays are coerced to the
+    # native endianness of the host system.
+    ensure_native_byte_order = mmap_mode is None
+
     if hasattr(filename, "read"):
         fobj = filename
         filename = getattr(fobj, "name", "")
         with _read_fileobject(fobj, filename, mmap_mode) as fobj:
-            obj = _unpickle(fobj, ensure_native_byte_order=True)
+            obj = _unpickle(
+                fobj,
+                ensure_native_byte_order=ensure_native_byte_order
+            )
     else:
         with open(filename, "rb") as f:
             with _read_fileobject(f, filename, mmap_mode) as fobj:
@@ -719,7 +737,7 @@ def load(filename, mmap_mode=None):
 
                 obj = _unpickle(
                     fobj,
-                    ensure_native_byte_order=True,
+                    ensure_native_byte_order=ensure_native_byte_order,
                     filename=filename,
                     mmap_mode=mmap_mode
                 )
