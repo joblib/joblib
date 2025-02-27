@@ -171,8 +171,9 @@ threads on the host.
         nesting_level = getattr(self, "nesting_level", 0) + 1
         return LokyBackend(nesting_level=nesting_level), None
 
-Another nested parallelism that needs to be controled is the numbers of thread in thirdparty C-level threadpools, *e.g.* OpenMP, MKL, or BLAS.
-In ``joblib``, this is controled with the ``inner_max_num_threads`` argument
+Another nested parallelism that needs to be controlled is the numbers of thread
+in third-party C-level threadpools, *e.g.* OpenMP, MKL, or BLAS.
+In ``joblib``, this is controlled with the ``inner_max_num_threads`` argument
 that can be provided to the backend in the ``parallel_config`` context manager.
 To support this argument, the backend should set the
 ``supports_inner_max_num_threads`` class attribute to ``True`` and accept the argument in the constructor to set this up in the workers.
