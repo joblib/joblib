@@ -2178,7 +2178,7 @@ class SilenceWarnings(AbstractContextManager):
 
 
 @parametrize("n_jobs", [1, 2])
-@parametrize("backend", ["loky", "threading", "multiprocessing"])
+@parametrize("backend", PARALLEL_BACKENDS)
 @parametrize("return_as", ["list", "generator", "generator_unordered"])
 def test_call_context_parallel(n_jobs, backend, return_as):
     """Check that the call context is properly propagated to the parallel
@@ -2190,30 +2190,24 @@ def test_call_context_parallel(n_jobs, backend, return_as):
     ii = np.arange(5)
     jj = ii + 1
 
-    with Parallel(
+    parallel = Parallel(
         n_jobs=n_jobs, call_context=None, backend=backend, return_as=return_as
-    ) as parallel:
-        result = parallel(delayed(maybe_warn)(i, j) for i, j in zip(ii, jj))
-
+    )
+    result = parallel(delayed(maybe_warn)(i, j) for i, j in zip(ii, jj))
     assert list(result) == [0, 0, 0, 1, 1]
 
     call_context = [(SilenceWarnings, lambda: {})]
-    with Parallel(
+    parallel = Parallel(
         n_jobs=n_jobs, call_context=call_context, backend=backend, return_as=return_as
-    ) as parallel:
-        result = parallel(delayed(maybe_warn)(i, j) for i, j in zip(ii, jj))
-
+    )
+    result = parallel(delayed(maybe_warn)(i, j) for i, j in zip(ii, jj))
     assert list(result) == [0, 0, 0, 0, 0]
 
     set_config(parameter=123)
     call_context = [(config_context, get_config)]
-
+    parallel = Parallel(
+        n_jobs=n_jobs, call_context=call_context, backend=backend, return_as=return_as
+    )
     with config_context(parameter=456):
-        results = Parallel(
-            n_jobs=n_jobs,
-            call_context=call_context,
-            backend=backend,
-            return_as=return_as,
-        )(delayed(get_parameter)() for _ in range(2))
-
+        results = parallel(delayed(get_parameter)() for _ in range(2))
     assert list(results) == [456] * 2

@@ -2056,10 +2056,6 @@ class Parallel(Logger):
     def __call__(self, iterable):
         """Main function to dispatch parallel tasks."""
 
-        self._reset_run_tracking()
-        self.n_tasks = len(iterable) if hasattr(iterable, "__len__") else None
-        self._start_time = time.time()
-
         # Retrieve the configuration of the driver to be passed to the workers
         # together with the context managers
         self._call_context = []
@@ -2078,6 +2074,10 @@ class Parallel(Logger):
             )
             for delayed_func, args, kwargs in iterable
         )
+
+        self._reset_run_tracking()
+        self.n_tasks = len(iterable) if hasattr(iterable, "__len__") else None
+        self._start_time = time.time()
 
         if not self._managed_backend:
             n_jobs = self._initialize_backend()
