@@ -39,6 +39,7 @@ from ._parallel_backends import AutoBatchingMixin  # noqa
 from ._parallel_backends import ParallelBackendBase  # noqa
 
 
+# TODO deprecate this public stuff?
 IS_PYPY = hasattr(sys, "pypy_version_info")
 
 
@@ -1693,7 +1694,7 @@ class Parallel(Logger):
             # the user if necessary.
             self._exception = True
 
-            # In some interpreters such as PyPy, GeneratorExit can be raised in
+            # In some interpreters such as TODO PyPy, GeneratorExit can be raised in
             # a different thread than the one used to start the dispatch of the
             # parallel tasks. This can lead to hang when a thread attempts to
             # join itself. As workaround, we detach the execution of the
@@ -1701,15 +1702,14 @@ class Parallel(Logger):
             # the rest of the function does not call `_terminate_and_reset`
             # in finally.
             if dispatch_thread_id != threading.get_ident():
-                if not IS_PYPY:
-                    warnings.warn(
-                        "A generator produced by joblib.Parallel has been "
-                        "gc'ed in an unexpected thread. This behavior should "
-                        "not cause major -issues but to make sure, please "
-                        "report this warning and your use case at "
-                        "https://github.com/joblib/joblib/issues so it can "
-                        "be investigated."
-                    )
+                warnings.warn(
+                    "A generator produced by joblib.Parallel has been "
+                    "gc'ed in an unexpected thread. This behavior should "
+                    "not cause major -issues but to make sure, please "
+                    "report this warning and your use case at "
+                    "https://github.com/joblib/joblib/issues so it can "
+                    "be investigated."
+                )
 
                 detach_generator_exit = True
                 _parallel = self

@@ -16,15 +16,6 @@ create_new_conda_env() {
     conda activate testenv
 }
 
-create_new_pypy3_env() {
-    pypy_folder="$PYTHON_VERSION-v$PYPY_VERSION-linux64"
-    wget https://downloads.python.org/pypy/$pypy_folder.tar.bz2
-    tar xvf $pypy_folder.tar.bz2
-    $pypy_folder/bin/pypy3 -m venv pypy3
-    source pypy3/bin/activate
-    pip install -U pip pytest
-}
-
 create_new_free_threaded_env() {
     sudo apt-get -yq update
     sudo apt-get install -yq ccache
@@ -37,14 +28,6 @@ create_new_free_threaded_env() {
     source testenv/bin/activate
 }
 
-if [[ "$PYTHON_VERSION" == pypy3* ]]; then
-    create_new_pypy3_env
-elif [[ "$PYTHON_VERSION" == free-threaded* ]]; then
-     create_new_free_threaded_env
-else
-    create_new_conda_env
-fi
-
 # Install pytest timeout to fasten failure in deadlocking tests
 PIP_INSTALL_PACKAGES="pytest-timeout pytest-asyncio==0.21.1 threadpoolctl"
 
@@ -54,9 +37,8 @@ if [ "$NO_NUMPY" != "true" ]; then
     # memory_profiler.
     PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES memory_profiler numpy"
     # We also want to ensure that joblib can be used with and
-    # without lz4 compressor package installed. Note that using `lz4` with
-    # PyPy leads to segfaults, so we skip it in that case.
-    if [ "$NO_LZ4" != "true" ] & [ "$PYTHON_VERSION" != pypy3* ]; then
+    # without lz4 compressor package installed. 
+    if [ "$NO_LZ4" != "true" ]; then
         PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES lz4"
     fi
 fi

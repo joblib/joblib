@@ -14,6 +14,7 @@ try:
 except ImportError:
     lz4 = None
 
+# TODO straight removal since in joblib.test.common?
 IS_PYPY = hasattr(sys, "pypy_version_info")
 IS_GIL_DISABLED = (
     sysconfig.get_config_var("Py_GIL_DISABLED") and not sys._is_gil_enabled())
@@ -59,18 +60,6 @@ except ImportError:
         return dummy_func
 
     memory_usage = memory_used = None
-
-
-def force_gc_pypy():
-    # The gc in pypy can be delayed. Force it to test the behavior when it
-    # will eventually be collected.
-    if IS_PYPY:
-        # Run gc.collect() twice to make sure the weakref is collected, as
-        # mentioned in the pypy doc:
-        # https://doc.pypy.org/en/latest/config/objspace.usemodules._weakref.html
-        import gc
-        gc.collect()
-        gc.collect()
 
 
 with_multiprocessing = skipif(
