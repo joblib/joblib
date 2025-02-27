@@ -17,8 +17,7 @@ a reference if you want to implement your own custom backend.
 
 Note that it is possible to register a backend class that has some mandatory
 constructor parameters such as the network address and connection credentials
-for a remote cluster computing service::
-
+for a remote cluster computing service:
 
 .. code-block:: python
 
@@ -32,23 +31,24 @@ for a remote cluster computing service::
 
         supports_retrieve_callback = True
 
-        def __init__(self, nesting_level=None, **backend_kwargs):
+        def __init__(self, nesting_level=None, \*\*backend_kwargs):
             super().__init__(
                 nesting_level=nesting_level,
                 inner_max_num_threads=inner_max_num_threads
             )
+
             # These arguments are the ones provided in the parallel_config
             # context manager
             self.backend_kwargs = backend_kwargs
             self._executor = None
 
-        def configure(self, n_jobs=1, parallel=None, **backend_kwargs):
+        def configure(self, n_jobs=1, parallel=None, \*\*backend_kwargs):
             """Configure the backend for a specific instance of Parallel."""
             self.n_jobs = n_jobs
 
             # The backend_kwargs are the ones provided in the Parallel instance.
             # We merge them with the ones from the init of the backend.
-            backend_kwargs = {**self.backend_kwargs, **backend_kwargs}
+            backend_kwargs = {\*\*self.backend_kwargs, \*\*backend_kwargs}
 
             n_jobs = self.effective_n_jobs(n_jobs)
             self._executor = ThreadPoolExecutor(n_jobs)
@@ -85,14 +85,14 @@ for a remote cluster computing service::
             future.add_done_callback(callback)
             return future
 
-        def retrieve_result_callback(self, future):
-            """Called within the callback function passed in `submit`.
+       def retrieve_result_callback(self, future):
+           """Called within the callback function passed in `submit`.
 
-            The argument of this function is the argument given to a callback in
-            the considered backend. It is supposed to return the outcome of a
-            task if it succeeded or raise the exception if it failed.
-            """
-            return future.result()
+           The argument of this function is the argument given to a callback in
+           the considered backend. It is supposed to return the outcome of a
+           task if it succeeded or raise the exception if it failed.
+           """
+           return future.result()
 
     # Register the backend so it can be used with parallel_config
     register_parallel_backend('custom', MyCustomBackend)
