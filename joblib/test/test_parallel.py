@@ -65,6 +65,7 @@ from joblib._parallel_backends import (
 )
 from joblib.parallel import (
     BACKENDS,
+    _CALL_CONTEXT,
     Parallel,
     cpu_count,
     delayed,
@@ -73,6 +74,8 @@ from joblib.parallel import (
     parallel_backend,
     parallel_config,
     register_parallel_backend,
+    register_call_context,
+    unregister_call_context
 )
 
 RETURN_GENERATOR_BACKENDS = BACKENDS.copy()
