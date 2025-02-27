@@ -33,12 +33,12 @@ except ImportError:
     bz2 = None
 
 # Buffer size used in io.BufferedReader and io.BufferedWriter
-_IO_BUFFER_SIZE = 1024 ** 2
+_IO_BUFFER_SIZE = 1024**2
 
 
 def _is_raw_file(fileobj):
     """Check if fileobj is a raw file object, e.g created with open."""
-    fileobj = getattr(fileobj, 'raw', fileobj)
+    fileobj = getattr(fileobj, "raw", fileobj)
     return isinstance(fileobj, io.FileIO)
 
 
@@ -51,16 +51,27 @@ def _get_prefixes_max_len():
 
 def _is_numpy_array_byte_order_mismatch(array):
     """Check if numpy array is having byte order mismatch"""
-    return ((sys.byteorder == 'big' and
-             (array.dtype.byteorder == '<' or
-              (array.dtype.byteorder == '|' and array.dtype.fields and
-               all(e[0].byteorder == '<'
-                   for e in array.dtype.fields.values())))) or
-            (sys.byteorder == 'little' and
-             (array.dtype.byteorder == '>' or
-              (array.dtype.byteorder == '|' and array.dtype.fields and
-               all(e[0].byteorder == '>'
-                   for e in array.dtype.fields.values())))))
+    return (
+        sys.byteorder == "big"
+        and (
+            array.dtype.byteorder == "<"
+            or (
+                array.dtype.byteorder == "|"
+                and array.dtype.fields
+                and all(e[0].byteorder == "<" for e in array.dtype.fields.values())
+            )
+        )
+    ) or (
+        sys.byteorder == "little"
+        and (
+            array.dtype.byteorder == ">"
+            or (
+                array.dtype.byteorder == "|"
+                and array.dtype.fields
+                and all(e[0].byteorder == ">" for e in array.dtype.fields.values())
+            )
+        )
+    )
 
 
 def _ensure_native_byte_order(array):
@@ -69,7 +80,7 @@ def _ensure_native_byte_order(array):
     Does nothing if array already uses the system byte order.
     """
     if _is_numpy_array_byte_order_mismatch(array):
-        array = array.byteswap().view(array.dtype.newbyteorder('='))
+        array = array.byteswap().view(array.dtype.newbyteorder("="))
     return array
 
 
@@ -88,7 +99,7 @@ def _detect_compressor(fileobj):
     """
     # Read the magic number in the first bytes of the file.
     max_prefix_len = _get_prefixes_max_len()
-    if hasattr(fileobj, 'peek'):
+    if hasattr(fileobj, "peek"):
         # Peek allows to read those bytes without moving the cursor in the
         # file which.
         first_bytes = fileobj.peek(max_prefix_len)
@@ -148,14 +159,17 @@ def _read_fileobject(fileobj, filename, mmap_mode=None):
     # Detect if the fileobj contains compressed data.
     compressor = _detect_compressor(fileobj)
 
-    if compressor == 'compat':
+    if compressor == "compat":
         # Compatibility with old pickle mode: simply return the input
         # filename "as-is" and let the compatibility function be called by the
         # caller.
-        warnings.warn("The file '%s' has been generated with a joblib "
-                      "version less than 0.10. "
-                      "Please regenerate this pickle file." % filename,
-                      DeprecationWarning, stacklevel=2)
+        warnings.warn(
+            "The file '%s' has been generated with a joblib "
+            "version less than 0.10. "
+            "Please regenerate this pickle file." % filename,
+            DeprecationWarning,
+            stacklevel=2,
+        )
         yield filename
     else:
         if compressor in _COMPRESSORS:
@@ -170,19 +184,25 @@ def _read_fileobject(fileobj, filename, mmap_mode=None):
         # such as io.BytesIO.
         if mmap_mode is not None:
             if isinstance(fileobj, io.BytesIO):
-                warnings.warn('In memory persistence is not compatible with '
-                              'mmap_mode "%(mmap_mode)s" flag passed. '
-                              'mmap_mode option will be ignored.'
-                              % locals(), stacklevel=2)
-            elif compressor != 'not-compressed':
-                warnings.warn('mmap_mode "%(mmap_mode)s" is not compatible '
-                              'with compressed file %(filename)s. '
-                              '"%(mmap_mode)s" flag will be ignored.'
-                              % locals(), stacklevel=2)
+                warnings.warn(
+                    "In memory persistence is not compatible with "
+                    'mmap_mode "%(mmap_mode)s" flag passed. '
+                    "mmap_mode option will be ignored." % locals(),
+                    stacklevel=2,
+                )
+            elif compressor != "not-compressed":
+                warnings.warn(
+                    'mmap_mode "%(mmap_mode)s" is not compatible '
+                    "with compressed file %(filename)s. "
+                    '"%(mmap_mode)s" flag will be ignored.' % locals(),
+                    stacklevel=2,
+                )
             elif not _is_raw_file(fileobj):
-                warnings.warn('"%(fileobj)r" is not a raw file, mmap_mode '
-                              '"%(mmap_mode)s" flag will be ignored.'
-                              % locals(), stacklevel=2)
+                warnings.warn(
+                    '"%(fileobj)r" is not a raw file, mmap_mode '
+                    '"%(mmap_mode)s" flag will be ignored.' % locals(),
+                    stacklevel=2,
+                )
 
         yield fileobj
 
@@ -194,18 +214,20 @@ def _write_fileobject(filename, compress=("zlib", 3)):
 
     if compressmethod in _COMPRESSORS.keys():
         file_instance = _COMPRESSORS[compressmethod].compressor_file(
-            filename, compresslevel=compresslevel)
+            filename, compresslevel=compresslevel
+        )
         return _buffered_write_file(file_instance)
     else:
-        file_instance = _COMPRESSORS['zlib'].compressor_file(
-            filename, compresslevel=compresslevel)
+        file_instance = _COMPRESSORS["zlib"].compressor_file(
+            filename, compresslevel=compresslevel
+        )
         return _buffered_write_file(file_instance)
 
 
 # Utility functions/variables from numpy required for writing arrays.
 # We need at least the functions introduced in version 1.9 of numpy. Here,
 # we use the ones from numpy 1.10.2.
-BUFFER_SIZE = 2 ** 18  # size of buffer for reading npz files in bytes
+BUFFER_SIZE = 2**18  # size of buffer for reading npz files in bytes
 
 
 def _read_bytes(fp, size, error_template="ran out of data"):

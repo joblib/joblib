@@ -32,7 +32,6 @@ even more efficient.
 # We will use ``psutil`` to monitor the memory usage in the code. Make sure it
 # is installed with ``pip install psutil`` for this example.
 
-
 import time
 from psutil import Process
 from threading import Thread
@@ -45,6 +44,7 @@ class MemoryMonitor(Thread):
     Parallel in this example, but is not a general purpose profiler fit for
     all cases.
     """
+
     def __init__(self):
         super().__init__()
         self.stop = False
@@ -82,13 +82,14 @@ import numpy as np
 
 
 def return_big_object(i):
-    time.sleep(.1)
+    time.sleep(0.1)
     return i * np.ones((10000, 200), dtype=np.float64)
 
 
 ##############################################################################
 # We create a reduce step. The input will be a generator on big objects
 # generated in parallel by several instances of ``return_big_object``.
+
 
 def accumulator_sum(generator):
     result = 0
@@ -112,9 +113,9 @@ print("Running tasks with return_as='list'...")
 res = Parallel(n_jobs=2, return_as="list")(
     delayed(return_big_object)(i) for i in range(150)
 )
-print("Accumulate results:", end='')
+print("Accumulate results:", end="")
 res = accumulator_sum(res)
-print('All tasks completed and reduced successfully.')
+print("All tasks completed and reduced successfully.")
 
 # Report memory usage
 del res  # we clean the result to avoid memory border effects
@@ -134,9 +135,9 @@ print("Create result generator with return_as='generator'...")
 res = Parallel(n_jobs=2, return_as="generator")(
     delayed(return_big_object)(i) for i in range(150)
 )
-print("Accumulate results:", end='')
+print("Accumulate results:", end="")
 res = accumulator_sum(res)
-print('All tasks completed and reduced successfully.')
+print("All tasks completed and reduced successfully.")
 
 # Report memory usage
 del res  # we clean the result to avoid memory border effects
@@ -157,19 +158,16 @@ print(f"Peak memory usage: {peak:.2f}MB")
 # the results.
 
 import matplotlib.pyplot as plt
+
 plt.figure(0)
+plt.semilogy(np.maximum.accumulate(monitor.memory_buffer), label='return_as="list"')
 plt.semilogy(
-    np.maximum.accumulate(monitor.memory_buffer),
-    label='return_as="list"'
-)
-plt.semilogy(
-    np.maximum.accumulate(monitor_gen.memory_buffer),
-    label='return_as="generator"'
+    np.maximum.accumulate(monitor_gen.memory_buffer), label='return_as="generator"'
 )
 plt.xlabel("Time")
 plt.xticks([], [])
 plt.ylabel("Memory usage")
-plt.yticks([1e7, 1e8, 1e9], ['10MB', '100MB', '1GB'])
+plt.yticks([1e7, 1e8, 1e9], ["10MB", "100MB", "1GB"])
 plt.legend()
 plt.show()
 
@@ -231,9 +229,9 @@ print("Create result generator on delayed tasks with return_as='generator'...")
 res = Parallel(n_jobs=2, return_as="generator")(
     delayed(return_big_object_delayed)(i) for i in range(150)
 )
-print("Accumulate results:", end='')
+print("Accumulate results:", end="")
 res = accumulator_sum(res)
-print('All tasks completed and reduced successfully.')
+print("All tasks completed and reduced successfully.")
 
 # Report memory usage
 del res  # we clean the result to avoid memory border effects
@@ -251,15 +249,14 @@ print(f"Peak memory usage: {peak:.2f}MB")
 
 monitor_delayed_gen_unordered = MemoryMonitor()
 print(
-  "Create result generator on delayed tasks with "
-  "return_as='generator_unordered'..."
+    "Create result generator on delayed tasks with return_as='generator_unordered'..."
 )
 res = Parallel(n_jobs=2, return_as="generator_unordered")(
     delayed(return_big_object_delayed)(i) for i in range(150)
 )
-print("Accumulate results:", end='')
+print("Accumulate results:", end="")
 res = accumulator_sum(res)
-print('All tasks completed and reduced successfully.')
+print("All tasks completed and reduced successfully.")
 
 # Report memory usage
 del res  # we clean the result to avoid memory border effects
@@ -277,15 +274,15 @@ print(f"Peak memory usage: {peak:.2f}MB")
 plt.figure(1)
 plt.semilogy(
     np.maximum.accumulate(monitor_delayed_gen.memory_buffer),
-    label='return_as="generator"'
+    label='return_as="generator"',
 )
 plt.semilogy(
     np.maximum.accumulate(monitor_delayed_gen_unordered.memory_buffer),
-    label='return_as="generator_unordered"'
+    label='return_as="generator_unordered"',
 )
 plt.xlabel("Time")
 plt.xticks([], [])
 plt.ylabel("Memory usage")
-plt.yticks([1e7, 1e8, 1e9], ['10MB', '100MB', '1GB'])
+plt.yticks([1e7, 1e8, 1e9], ["10MB", "100MB", "1GB"])
 plt.legend()
 plt.show()
