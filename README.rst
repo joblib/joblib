@@ -1,4 +1,4 @@
-|PyPi| |CIStatus| |ReadTheDocs| |Codecov| 
+|PyPi| |CIStatus| |ReadTheDocs| |Codecov|
 
 .. |PyPi| image:: https://badge.fury.io/py/joblib.svg
    :target: https://badge.fury.io/py/joblib
@@ -102,12 +102,12 @@ Making a source tarball
 To create a source tarball, eg for packaging or distributing, run the
 following command::
 
-    python setup.py sdist
+    pip install build
+    python -m build --sdist
 
-The tarball will be created in the `dist` directory. This command will
-compile the docs, and the resulting tarball can be installed with
-no extra dependencies than the Python standard library. You will need
-setuptool and sphinx.
+The tarball will be created in the `dist` directory. This command will create
+the resulting tarball that can be installed with no extra dependencies than the
+Python standard library.
 
 Making a release and uploading it to PyPI
 =========================================
@@ -115,7 +115,8 @@ Making a release and uploading it to PyPI
 This command is only run by project manager, to make a release, and
 upload in to PyPI::
 
-    python setup.py sdist bdist_wheel
+    pip install build
+    python -m build --sdist --wheel
     twine upload dist/*
 
 
@@ -130,4 +131,3 @@ Changes are listed in the CHANGES.rst file. They must be manually updated
 but, the following git command may be used to generate the lines::
 
     git log --abbrev-commit --date=short --no-merges --sparse
-

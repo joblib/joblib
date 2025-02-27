@@ -35,10 +35,9 @@ jobs:
           python-version: "3.x"
 
       - name: Install dependencies
-        run: pip install flake8
-      - name: Flake8 linter
-        run: flake8 .
-
+        run: pip install pre-commit
+      - name: Run pre-commit
+        run: pre-commit run --all-files
 
   testing:
     name: Testing

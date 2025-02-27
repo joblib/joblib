@@ -1655,7 +1655,7 @@ def test_backend_batch_statistics_reset(backend):
 def test_backend_hinting_and_constraints(context):
     for n_jobs in [1, 2, -1]:
         assert (
-            type(Parallel(n_jobs=n_jobs)._backend) ==
+            type(Parallel(n_jobs=n_jobs)._backend) is
             get_default_backend_instance()
         )
 
