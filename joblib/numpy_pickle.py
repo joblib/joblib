@@ -408,13 +408,7 @@ class NumpyUnpickler(Unpickler):
 
     dispatch = Unpickler.dispatch.copy()
 
-    def __init__(
-        self,
-        filename,
-        file_handle,
-        ensure_native_byte_order,
-        mmap_mode=None
-    ):
+    def __init__(self, filename, file_handle, ensure_native_byte_order, mmap_mode=None):
         # The next line is for backward compatibility with pickle generated
         # with joblib versions less than 0.10.
         self._dirname = os.path.dirname(filename)
@@ -456,9 +450,7 @@ class NumpyUnpickler(Unpickler):
                 self.compat_mode = True
                 _array_payload = array_wrapper.read(self)
             else:
-                _array_payload = array_wrapper.read(
-                    self, self.ensure_native_byte_order
-                )
+                _array_payload = array_wrapper.read(self, self.ensure_native_byte_order)
 
             self.stack.append(_array_payload)
 
@@ -658,13 +650,13 @@ def _unpickle(fobj, ensure_native_byte_order, filename="", mmap_mode=None):
 def load_temporary_memmap(filename, mmap_mode, unlink_on_gc_collect):
     from ._memmapping_reducer import JOBLIB_MMAPS, add_maybe_unlink_finalizer
 
-    with open(filename, 'rb') as f:
+    with open(filename, "rb") as f:
         with _read_fileobject(f, filename, mmap_mode) as fobj:
             obj = _unpickle(
                 fobj,
                 ensure_native_byte_order=False,
                 filename=filename,
-                mmap_mode=mmap_mode
+                mmap_mode=mmap_mode,
             )
 
     JOBLIB_MMAPS.add(obj.filename)
@@ -722,10 +714,7 @@ def load(filename, mmap_mode=None):
         fobj = filename
         filename = getattr(fobj, "name", "")
         with _read_fileobject(fobj, filename, mmap_mode) as fobj:
-            obj = _unpickle(
-                fobj,
-                ensure_native_byte_order=ensure_native_byte_order
-            )
+            obj = _unpickle(fobj, ensure_native_byte_order=ensure_native_byte_order)
     else:
         with open(filename, "rb") as f:
             with _read_fileobject(f, filename, mmap_mode) as fobj:
@@ -739,6 +728,6 @@ def load(filename, mmap_mode=None):
                     fobj,
                     ensure_native_byte_order=ensure_native_byte_order,
                     filename=filename,
-                    mmap_mode=mmap_mode
+                    mmap_mode=mmap_mode,
                 )
     return obj
