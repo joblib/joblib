@@ -1,20 +1,17 @@
-from __future__ import print_function, division, absolute_import
+from __future__ import absolute_import, division, print_function
 
 import asyncio
 import concurrent.futures
 import contextlib
-
 import time
-from uuid import uuid4
 import weakref
-
-from .parallel import parallel_config
-from .parallel import AutoBatchingMixin, ParallelBackendBase
+from uuid import uuid4
 
 from ._utils import (
-    _TracebackCapturingWrapper,
     _retrieve_traceback_capturing_wrapped_call,
+    _TracebackCapturingWrapper,
 )
+from .parallel import AutoBatchingMixin, ParallelBackendBase, parallel_config
 
 try:
     import dask
@@ -24,15 +21,15 @@ except ImportError:
     distributed = None
 
 if dask is not None and distributed is not None:
-    from dask.utils import funcname
-    from dask.sizeof import sizeof
     from dask.distributed import (
         Client,
         as_completed,
         get_client,
-        secede,
         rejoin,
+        secede,
     )
+    from dask.sizeof import sizeof
+    from dask.utils import funcname
     from distributed.utils import thread_state
 
     try:

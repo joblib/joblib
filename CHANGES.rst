@@ -4,6 +4,9 @@ Latest changes
 In development
 --------------
 
+- Drop support for Python 3.8.
+  https://github.com/joblib/joblib/pull/1669
+
 - Enforce ``age_limit`` is a positive timedelta for ``Memory.reduce_size``,
   to avoid silently ignoring it.
   https://github.com/joblib/joblib/pull/1613

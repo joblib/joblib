@@ -2,7 +2,7 @@ import faulthandler
 
 from joblib.parallel import mp
 from joblib.test.common import np
-from joblib.testing import skipif, fixture
+from joblib.testing import fixture, skipif
 
 
 @fixture(scope="module")

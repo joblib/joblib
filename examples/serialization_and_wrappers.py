@@ -14,11 +14,9 @@ process.
 import sys
 import time
 import traceback
-from joblib.externals.loky import set_loky_pickler
-from joblib import parallel_config
-from joblib import Parallel, delayed
-from joblib import wrap_non_picklable_objects
 
+from joblib import Parallel, delayed, parallel_config, wrap_non_picklable_objects
+from joblib.externals.loky import set_loky_pickler
 
 ###############################################################################
 # First, define functions which cannot be pickled with the standard ``pickle``

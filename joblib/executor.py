@@ -8,10 +8,8 @@ copy between the parent and child processes.
 # Copyright: 2017, Thomas Moreau
 # License: BSD 3 clause
 
-from ._memmapping_reducer import get_memmapping_reducers
-from ._memmapping_reducer import TemporaryResourcesManager
+from ._memmapping_reducer import TemporaryResourcesManager, get_memmapping_reducers
 from .externals.loky.reusable_executor import _ReusablePoolExecutor
-
 
 _executor_args = None
 
