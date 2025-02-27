@@ -1269,8 +1269,12 @@ def test_instanciate_store_backend_with_pathlib_path():
     # Instantiate a FileSystemStoreBackend using a pathlib.Path object
     path = pathlib.Path("some_folder")
     backend_obj = _store_backend_factory("local", path)
-    assert backend_obj.location == "some_folder"
-    shutil.rmtree("some_folder", ignore_errors=True)  # remove cache folder after test
+    try:
+        assert backend_obj.location == "some_folder"
+    finally:
+        shutil.rmtree(
+            "some_folder", ignore_errors=True
+        )  # remove cache folder after test
 
 
 def test_filesystem_store_backend_repr(tmpdir):
@@ -1558,8 +1562,7 @@ def test_memory_creates_gitignore(location):
     costly_operation = mem.cache(np.square)
     costly_operation(arr)
 
-    if isinstance(location, pathlib.Path):
-        location = location.as_posix()
+    location = pathlib.Path(location)
 
     try:
         assert os.path.exists(os.path.join(location, ".gitignore"))
