@@ -611,6 +611,7 @@ class BatchedCalls(object):
         # change the default number of processes to -1
         with ExitStack() as stack:
             for context in self._call_context:
+                print(f"Entering context: {context}")
                 stack.enter_context(context)
             with parallel_config(backend=self._backend, n_jobs=self._n_jobs):
                 return [func(*args, **kwargs)
@@ -623,7 +624,7 @@ class BatchedCalls(object):
         return (
             BatchedCalls,
             (self.items, (self._backend, self._n_jobs), None,
-             self._pickle_cache)
+             self._pickle_cache, self._call_context)
         )
 
     def __len__(self):

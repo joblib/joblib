@@ -2137,9 +2137,10 @@ def test_register_unregister_call_context():
 
 
 def maybe_warn(a, b):
-    if a * b > 10:
-        warnings.warn("You are being warned!!")
-    return(a*b)
+    with warnings.catch_warnings(record=True) as w:
+        if a * b > 10:
+            warnings.warn("You are being warned!!", RuntimeWarning)
+    return len(w)
 
 
 def test_call_context_parallel():
@@ -2147,11 +2148,13 @@ def test_call_context_parallel():
     ii = np.arange(5)
     jj = ii + 1
 
-    with warnings.catch_warnings(record=True) as w:
-        warnings.filterwarnings("ignore", message=".*use of fork.*may lead to deadlocks.*")
-        with Parallel(n_jobs=4, call_context=[warnings.catch_warnings(action="ignore")]) as parallel:
-            parallel(delayed(maybe_warn)(i, j) for i, j in zip(ii, jj))
+    with Parallel(n_jobs=4, call_context=None) as parallel:
+        result = parallel(delayed(maybe_warn)(i, j) for i, j in zip(ii, jj))
 
-    assert len(w) == 0, (
-        f"Expected no warnings but got {[str(warn.message) for warn in w]}"
-    )
+    assert result == [0, 0, 0, 1, 1]
+
+    call_context = [warnings.catch_warnings(actions="ignore")]
+    with Parallel(n_jobs=4, call_context=call_context) as parallel:
+        result = parallel(delayed(maybe_warn)(i, j) for i, j in zip(ii, jj))
+
+    assert result == [0, 0, 0, 0, 0]
