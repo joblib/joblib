@@ -28,6 +28,12 @@ create_new_free_threaded_env() {
     source testenv/bin/activate
 }
 
+if [[ "$PYTHON_VERSION" == free-threaded* ]]; then
+    create_new_free_threaded_env
+else
+    create_new_conda_env
+fi
+
 # Install pytest timeout to fasten failure in deadlocking tests
 PIP_INSTALL_PACKAGES="pytest-timeout pytest-asyncio==0.21.1 threadpoolctl"
 
