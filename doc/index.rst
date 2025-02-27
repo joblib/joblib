@@ -42,7 +42,7 @@ Introduction
     memory.rst
     parallel.rst
     persistence.rst
-    custom_oarallel_backend.rst
+    custom_parallel_backend.rst
     auto_examples/index
     developing.rst
 
