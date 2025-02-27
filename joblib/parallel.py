@@ -427,6 +427,12 @@ class parallel_config:
                     )
 
             backend = BACKENDS[backend](**backend_params)
+        else:
+            if len(backend_params) > 0:
+                raise ValueError(
+                    "Constructor parameters backend_params are only "
+                    "supported when backend is a string."
+                )
 
         if inner_max_num_threads is not None:
             msg = (

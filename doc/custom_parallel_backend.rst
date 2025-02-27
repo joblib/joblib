@@ -1,13 +1,21 @@
-Writing a new backend
-=====================
+.. _custom_parallel_backend:
 
-.. versionadded:: 1.5
+==================================
+Parallel backend customization API
+==================================
 
 User can provide their own implementation of a parallel processing backend in
 addition to the ``'loky'``, ``'threading'``, ``'multiprocessing'`` backends
-provided by default. A backend is registered with the
-:func:`joblib.register_parallel_backend` function by passing a name and a
-backend factory.
+provided by default.
+
+A new backend is defined by providing a backend factory, which is then
+registered with the :func:`joblib.register_parallel_backend` function by
+passing a name and the factory.
+
+
+Minimal backend factory specification
+======================================
+
 
 The backend factory can be any callable that returns an instance of
 ``ParallelBackendBase``. Please refer to the `default backends source code`_ as
@@ -15,9 +23,6 @@ a reference if you want to implement your own custom backend.
 
 .. _`default backends source code`: https://github.com/joblib/joblib/blob/main/joblib/_parallel_backends.py
 
-Note that it is possible to register a backend class that has some mandatory
-constructor parameters such as the network address and connection credentials
-for a remote cluster computing service:
 
 .. code-block:: python
 
@@ -31,7 +36,8 @@ for a remote cluster computing service:
 
         supports_retrieve_callback = True
 
-        def __init__(self, nesting_level=None, **backend_kwargs):
+        def __init__(self, nesting_level=None, inner_max_num_threads,
+                     **backend_kwargs):
             super().__init__(
                 nesting_level=nesting_level,
                 inner_max_num_threads=inner_max_num_threads
@@ -134,6 +140,42 @@ Extra customizations
 
 The backend API offers several hooks that can be used to customize its behavior.
 
+Passing extra arguments to the backend
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+It is possible to register a backend class that has some mandatory
+constructor parameters such as the network address and connection credentials
+for a remote cluster computing service:
+
+.. code-block:: python
+
+
+
+    class MyCustomBackend(ParallelBackendBase):
+
+        def __init__(self, endpoint, api_key):
+           self.endpoint = endpoint
+           self.api_key = api_key
+
+        ...
+        # Do something with self.endpoint and self.api_key somewhere in
+        # one of the method of the class
+
+    register_parallel_backend('custom', MyCustomBackend)
+
+The connection parameters can then be passed to the
+:func:`~joblib.parallel_config` context manager:
+
+.. code-block:: python
+
+    with parallel_config(backend='custom', endpoint='http://compute',
+                         api_key='42'):
+        Parallel()(delayed(some_function)(i) for i in range(10))
+
+Using the context manager can be helpful when using a third-party library that
+uses :class:`joblib.Parallel` internally while not exposing the ``backend``
+argument in its own API.
+
 Cancelling tasks
 ~~~~~~~~~~~~~~~~
 
@@ -201,3 +243,35 @@ this argument, the backend should set the ``supports_inner_max_num_threads``
 class attribute to ``True`` and accept the argument in the constructor to set
 this up in the workers. A helper to set this in the workers is to use
 environment variables provided by ``self._prepare_worker_env(n_jobs)``.
+
+Third-party backend registration
+================================
+
+A problem exists that external packages that register new parallel backends
+must now be imported explicitly for their backends to be identified by joblib::
+
+   >>> import joblib
+   >>> with joblib.parallel_config(backend='custom'):  # doctest: +SKIP
+   ...     ...  # this fails
+   KeyError: 'custom'
+
+   # Import library to register external backend
+   >>> import my_custom_backend_library  # doctest: +SKIP
+   >>> with joblib.parallel_config(backend='custom'):  # doctest: +SKIP
+   ...     ... # this works
+
+This can be confusing for users.  To resolve this, external packages can
+safely register their backends directly within the joblib codebase by creating
+a small function that registers their backend, and including this function
+within the ``joblib.parallel.EXTERNAL_PACKAGES`` dictionary::
+
+   def _register_custom():
+       try:
+           import my_custom_library
+       except ImportError:
+           raise ImportError("an informative error message")
+
+   EXTERNAL_BACKENDS['custom'] = _register_custom
+
+This is subject to community review, but can reduce the confusion for users
+when relying on side effects of external package imports.

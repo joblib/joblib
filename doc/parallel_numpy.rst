@@ -5,6 +5,9 @@
     >>> setup = getfixture('parallel_numpy_fixture')
     >>> fixture = setup(sys.modules[__name__])
 
+
+.. _auto_memmapping:
+
 Working with numerical data in shared memory (memmapping)
 =========================================================
 

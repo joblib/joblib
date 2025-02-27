@@ -152,7 +152,12 @@ class ParallelBackendBase(metaclass=ABCMeta):
             return out.get()
 
     def configure(
-        self, n_jobs=1, parallel=None, prefer=None, require=None, **backend_args
+        self,
+        n_jobs=1,
+        parallel=None,
+        prefer=None,
+        require=None,
+        **backend_args,
     ):
         """Reconfigure the backend and return the number of workers.
 
