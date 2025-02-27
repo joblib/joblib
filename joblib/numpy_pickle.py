@@ -454,7 +454,7 @@ class NumpyUnpickler(Unpickler):
 # Utility functions
 
 
-def dump(value, filename, compress=0, protocol=None, cache_size=None):
+def dump(value, filename, compress=0, protocol=None):
     """Persist an arbitrary Python object into one file.
 
     Read more in the :ref:`User Guide <persistence>`.
@@ -480,8 +480,6 @@ def dump(value, filename, compress=0, protocol=None, cache_size=None):
         to the compression level.
     protocol: int, optional
         Pickle protocol, see pickle.dump documentation for more details.
-    cache_size: positive int, optional
-        This option is deprecated in 0.10 and has no effect.
 
     Returns
     -------
@@ -574,16 +572,6 @@ def dump(value, filename, compress=0, protocol=None, cache_size=None):
             # we choose the default compress_level in case it was not given
             # as an argument (using compress).
             compress_level = None
-
-    if cache_size is not None:
-        # Cache size is deprecated starting from version 0.10
-        warnings.warn(
-            "Please do not set 'cache_size' in joblib.dump, "
-            "this parameter has no effect and will be removed. "
-            "You used 'cache_size={}'".format(cache_size),
-            DeprecationWarning,
-            stacklevel=2,
-        )
 
     if compress_level != 0:
         with _write_fileobject(
