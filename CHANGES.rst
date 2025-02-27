@@ -17,6 +17,10 @@ In development
   if it is in cache memory.
   https://github.com/joblib/joblib/pull/1584
 
+- Fixed a bug that caused the ``timeout`` parameter in ``joblib.Parallel`` to be
+  ineffective when used along with ``return_as='generator_unordered'``.
+  https://github.com/joblib/joblib/issues/1586
+
 - Support for Python 3.13 free-threaded has been added.
   https://github.com/joblib/joblib/pull/1589
 

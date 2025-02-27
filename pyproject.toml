@@ -101,6 +101,22 @@ relative_files = true
 [tool.coverage.report]
 show_missing = true
 
+[tool.ruff]
+# Enable Pyflakes `E`, `F` and `W` codes by default.
+lint.select = [
+    "E", "W",  # see: https://pypi.org/project/pycodestyle
+    "F",  # see: https://pypi.org/project/pyflakes
+]
+# Exclude a variety of commonly ignored directories.
+exclude = [
+    "joblib/externals/*",
+    # this file has special encoding
+    "joblib/test/test_func_inspect_special_encoding.py"
+]
+
+[tool.ruff.lint.per-file-ignores]
+"examples/*" = ["E402"]
+
 [tool.codespell]
 # Ref: https://github.com/codespell-project/codespell#using-a-config-file
 skip = '.git*,*.svg,venv,*.css,test_func_inspect_special_encoding.py'

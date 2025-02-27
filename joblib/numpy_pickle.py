@@ -12,29 +12,33 @@ from pathlib import Path
 
 from .compressor import lz4, LZ4_NOT_INSTALLED_ERROR
 from .compressor import _COMPRESSORS, register_compressor, BinaryZlibFile
-from .compressor import (ZlibCompressorWrapper, GzipCompressorWrapper,
-                         BZ2CompressorWrapper, LZMACompressorWrapper,
-                         XZCompressorWrapper, LZ4CompressorWrapper)
+from .compressor import (
+    ZlibCompressorWrapper,
+    GzipCompressorWrapper,
+    BZ2CompressorWrapper,
+    LZMACompressorWrapper,
+    XZCompressorWrapper,
+    LZ4CompressorWrapper,
+)
 from .numpy_pickle_utils import Unpickler, Pickler
 from .numpy_pickle_utils import _read_fileobject, _write_fileobject
 from .numpy_pickle_utils import _read_bytes, BUFFER_SIZE
 from .numpy_pickle_utils import _ensure_native_byte_order
 from .numpy_pickle_compat import load_compatibility
 from .numpy_pickle_compat import NDArrayWrapper
+
 # For compatibility with old versions of joblib, we need ZNDArrayWrapper
 # to be visible in the current namespace.
-# Explicitly skipping next line from flake8 as it triggers an F401 warning
-# which we don't care.
-from .numpy_pickle_compat import ZNDArrayWrapper  # noqa
+from .numpy_pickle_compat import ZNDArrayWrapper  # noqa: F401
 from .backports import make_memmap
 
 # Register supported compressors
-register_compressor('zlib', ZlibCompressorWrapper())
-register_compressor('gzip', GzipCompressorWrapper())
-register_compressor('bz2', BZ2CompressorWrapper())
-register_compressor('lzma', LZMACompressorWrapper())
-register_compressor('xz', XZCompressorWrapper())
-register_compressor('lz4', LZ4CompressorWrapper())
+register_compressor("zlib", ZlibCompressorWrapper())
+register_compressor("gzip", GzipCompressorWrapper())
+register_compressor("bz2", BZ2CompressorWrapper())
+register_compressor("lzma", LZMACompressorWrapper())
+register_compressor("xz", XZCompressorWrapper())
+register_compressor("lz4", LZ4CompressorWrapper())
 
 
 ###############################################################################
@@ -76,8 +80,15 @@ class NumpyArrayWrapper(object):
         Default: False.
     """
 
-    def __init__(self, subclass, shape, order, dtype, allow_mmap=False,
-                 numpy_array_alignment_bytes=NUMPY_ARRAY_ALIGNMENT_BYTES):
+    def __init__(
+        self,
+        subclass,
+        shape,
+        order,
+        dtype,
+        allow_mmap=False,
+        numpy_array_alignment_bytes=NUMPY_ARRAY_ALIGNMENT_BYTES,
+    ):
         """Constructor. Store the useful information for later."""
         self.subclass = subclass
         self.shape = shape
@@ -92,7 +103,7 @@ class NumpyArrayWrapper(object):
     def safe_get_numpy_array_alignment_bytes(self):
         # NumpyArrayWrapper instances loaded from joblib <= 1.1 pickles don't
         # have an numpy_array_alignment_bytes attribute
-        return getattr(self, 'numpy_array_alignment_bytes', None)
+        return getattr(self, "numpy_array_alignment_bytes", None)
 
     def write_array(self, array, pickler):
         """Write array bytes to pickler file handle.
@@ -101,37 +112,38 @@ class NumpyArrayWrapper(object):
         available in version 1.10.1 in numpy/lib/format.py.
         """
         # Set buffer size to 16 MiB to hide the Python loop overhead.
-        buffersize = max(16 * 1024 ** 2 // array.itemsize, 1)
+        buffersize = max(16 * 1024**2 // array.itemsize, 1)
         if array.dtype.hasobject:
             # We contain Python objects so we cannot write out the data
             # directly. Instead, we will pickle it out with version 2 of the
             # pickle protocol.
             pickle.dump(array, pickler.file_handle, protocol=2)
         else:
-            numpy_array_alignment_bytes = \
-                self.safe_get_numpy_array_alignment_bytes()
+            numpy_array_alignment_bytes = self.safe_get_numpy_array_alignment_bytes()
             if numpy_array_alignment_bytes is not None:
                 current_pos = pickler.file_handle.tell()
                 pos_after_padding_byte = current_pos + 1
                 padding_length = numpy_array_alignment_bytes - (
-                    pos_after_padding_byte % numpy_array_alignment_bytes)
+                    pos_after_padding_byte % numpy_array_alignment_bytes
+                )
                 # A single byte is written that contains the padding length in
                 # bytes
                 padding_length_byte = int.to_bytes(
-                    padding_length, length=1, byteorder='little')
+                    padding_length, length=1, byteorder="little"
+                )
                 pickler.file_handle.write(padding_length_byte)
 
                 if padding_length != 0:
-                    padding = b'\xff' * padding_length
+                    padding = b"\xff" * padding_length
                     pickler.file_handle.write(padding)
 
-            for chunk in pickler.np.nditer(array,
-                                           flags=['external_loop',
-                                                  'buffered',
-                                                  'zerosize_ok'],
-                                           buffersize=buffersize,
-                                           order=self.order):
-                pickler.file_handle.write(chunk.tobytes('C'))
+            for chunk in pickler.np.nditer(
+                array,
+                flags=["external_loop", "buffered", "zerosize_ok"],
+                buffersize=buffersize,
+                order=self.order,
+            ):
+                pickler.file_handle.write(chunk.tobytes("C"))
 
     def read_array(self, unpickler):
         """Read array from unpickler file handle.
@@ -151,12 +163,10 @@ class NumpyArrayWrapper(object):
             # The array contained Python objects. We need to unpickle the data.
             array = pickle.load(unpickler.file_handle)
         else:
-            numpy_array_alignment_bytes = \
-                self.safe_get_numpy_array_alignment_bytes()
+            numpy_array_alignment_bytes = self.safe_get_numpy_array_alignment_bytes()
             if numpy_array_alignment_bytes is not None:
                 padding_byte = unpickler.file_handle.read(1)
-                padding_length = int.from_bytes(
-                    padding_byte, byteorder='little')
+                padding_length = int.from_bytes(padding_byte, byteorder="little")
                 if padding_length != 0:
                     unpickler.file_handle.read(padding_length)
 
@@ -167,21 +177,19 @@ class NumpyArrayWrapper(object):
             # BUFFER_SIZE bytes to avoid issue and reduce memory overhead
             # of the read. In non-chunked case count < max_read_count, so
             # only one read is performed.
-            max_read_count = BUFFER_SIZE // min(BUFFER_SIZE,
-                                                self.dtype.itemsize)
+            max_read_count = BUFFER_SIZE // min(BUFFER_SIZE, self.dtype.itemsize)
 
             array = unpickler.np.empty(count, dtype=self.dtype)
             for i in range(0, count, max_read_count):
                 read_count = min(max_read_count, count - i)
                 read_size = int(read_count * self.dtype.itemsize)
-                data = _read_bytes(unpickler.file_handle,
-                                   read_size, "array data")
-                array[i:i + read_count] = \
-                    unpickler.np.frombuffer(data, dtype=self.dtype,
-                                            count=read_count)
+                data = _read_bytes(unpickler.file_handle, read_size, "array data")
+                array[i : i + read_count] = unpickler.np.frombuffer(
+                    data, dtype=self.dtype, count=read_count
+                )
                 del data
 
-            if self.order == 'F':
+            if self.order == "F":
                 array.shape = self.shape[::-1]
                 array = array.transpose()
             else:
@@ -194,38 +202,41 @@ class NumpyArrayWrapper(object):
         """Read an array using numpy memmap."""
         current_pos = unpickler.file_handle.tell()
         offset = current_pos
-        numpy_array_alignment_bytes = \
-            self.safe_get_numpy_array_alignment_bytes()
+        numpy_array_alignment_bytes = self.safe_get_numpy_array_alignment_bytes()
 
         if numpy_array_alignment_bytes is not None:
             padding_byte = unpickler.file_handle.read(1)
-            padding_length = int.from_bytes(padding_byte, byteorder='little')
+            padding_length = int.from_bytes(padding_byte, byteorder="little")
             # + 1 is for the padding byte
             offset += padding_length + 1
 
-        if unpickler.mmap_mode == 'w+':
-            unpickler.mmap_mode = 'r+'
+        if unpickler.mmap_mode == "w+":
+            unpickler.mmap_mode = "r+"
 
-        marray = make_memmap(unpickler.filename,
-                             dtype=self.dtype,
-                             shape=self.shape,
-                             order=self.order,
-                             mode=unpickler.mmap_mode,
-                             offset=offset)
+        marray = make_memmap(
+            unpickler.filename,
+            dtype=self.dtype,
+            shape=self.shape,
+            order=self.order,
+            mode=unpickler.mmap_mode,
+            offset=offset,
+        )
         # update the offset so that it corresponds to the end of the read array
         unpickler.file_handle.seek(offset + marray.nbytes)
 
-        if (numpy_array_alignment_bytes is None and
-                current_pos % NUMPY_ARRAY_ALIGNMENT_BYTES != 0):
+        if (
+            numpy_array_alignment_bytes is None
+            and current_pos % NUMPY_ARRAY_ALIGNMENT_BYTES != 0
+        ):
             message = (
-                f'The memmapped array {marray} loaded from the file '
-                f'{unpickler.file_handle.name} is not byte aligned. '
-                'This may cause segmentation faults if this memmapped array '
-                'is used in some libraries like BLAS or PyTorch. '
-                'To get rid of this warning, regenerate your pickle file '
-                'with joblib >= 1.2.0. '
-                'See https://github.com/joblib/joblib/issues/563 '
-                'for more details'
+                f"The memmapped array {marray} loaded from the file "
+                f"{unpickler.file_handle.name} is not byte aligned. "
+                "This may cause segmentation faults if this memmapped array "
+                "is used in some libraries like BLAS or PyTorch. "
+                "To get rid of this warning, regenerate your pickle file "
+                "with joblib >= 1.2.0. "
+                "See https://github.com/joblib/joblib/issues/563 "
+                "for more details"
             )
             warnings.warn(message)
 
@@ -252,15 +263,18 @@ class NumpyArrayWrapper(object):
             array = self.read_array(unpickler)
 
         # Manage array subclass case
-        if (hasattr(array, '__array_prepare__') and
-            self.subclass not in (unpickler.np.ndarray,
-                                  unpickler.np.memmap)):
+        if hasattr(array, "__array_prepare__") and self.subclass not in (
+            unpickler.np.ndarray,
+            unpickler.np.memmap,
+        ):
             # We need to reconstruct another subclass
             new_array = unpickler.np.core.multiarray._reconstruct(
-                self.subclass, (0,), 'b')
+                self.subclass, (0,), "b"
+            )
             return new_array.__array_prepare__(array)
         else:
             return array
+
 
 ###############################################################################
 # Pickler classes
@@ -302,20 +316,25 @@ class NumpyPickler(Pickler):
 
     def _create_array_wrapper(self, array):
         """Create and returns a numpy array wrapper from a numpy array."""
-        order = 'F' if (array.flags.f_contiguous and
-                        not array.flags.c_contiguous) else 'C'
+        order = (
+            "F" if (array.flags.f_contiguous and not array.flags.c_contiguous) else "C"
+        )
         allow_mmap = not self.buffered and not array.dtype.hasobject
 
         kwargs = {}
         try:
             self.file_handle.tell()
         except io.UnsupportedOperation:
-            kwargs = {'numpy_array_alignment_bytes': None}
+            kwargs = {"numpy_array_alignment_bytes": None}
 
-        wrapper = NumpyArrayWrapper(type(array),
-                                    array.shape, order, array.dtype,
-                                    allow_mmap=allow_mmap,
-                                    **kwargs)
+        wrapper = NumpyArrayWrapper(
+            type(array),
+            array.shape,
+            order,
+            array.dtype,
+            allow_mmap=allow_mmap,
+            **kwargs,
+        )
 
         return wrapper
 
@@ -329,9 +348,11 @@ class NumpyPickler(Pickler):
         after in the file. Warning: the file produced does not follow the
         pickle format. As such it can not be read with `pickle.load`.
         """
-        if self.np is not None and type(obj) in (self.np.ndarray,
-                                                 self.np.matrix,
-                                                 self.np.memmap):
+        if self.np is not None and type(obj) in (
+            self.np.ndarray,
+            self.np.matrix,
+            self.np.memmap,
+        ):
             if type(obj) is self.np.memmap:
                 # Pickling doesn't work with memmapped arrays
                 obj = self.np.asanyarray(obj)
@@ -404,8 +425,9 @@ class NumpyUnpickler(Unpickler):
         # For backward compatibility, we support NDArrayWrapper objects.
         if isinstance(self.stack[-1], (NDArrayWrapper, NumpyArrayWrapper)):
             if self.np is None:
-                raise ImportError("Trying to unpickle an ndarray, "
-                                  "but numpy didn't import correctly")
+                raise ImportError(
+                    "Trying to unpickle an ndarray, but numpy didn't import correctly"
+                )
             array_wrapper = self.stack.pop()
             # If any NDArrayWrapper is found, we switch to compatibility mode,
             # this will be used to raise a DeprecationWarning to the user at
@@ -420,6 +442,7 @@ class NumpyUnpickler(Unpickler):
 
 ###############################################################################
 # Utility functions
+
 
 def dump(value, filename, compress=0, protocol=None, cache_size=None):
     """Persist an arbitrary Python object into one file.
@@ -475,7 +498,7 @@ def dump(value, filename, compress=0, protocol=None, cache_size=None):
     is_filename = isinstance(filename, str)
     is_fileobj = hasattr(filename, "write")
 
-    compress_method = 'zlib'  # zlib is the default compression method.
+    compress_method = "zlib"  # zlib is the default compression method.
     if compress is True:
         # By default, if compress is enabled, we want the default compress
         # level of the compressor.
@@ -484,9 +507,9 @@ def dump(value, filename, compress=0, protocol=None, cache_size=None):
         # a 2-tuple was set in compress
         if len(compress) != 2:
             raise ValueError(
-                'Compress argument tuple should contain exactly 2 elements: '
-                '(compress method, compress level), you passed {}'
-                .format(compress))
+                "Compress argument tuple should contain exactly 2 elements: "
+                "(compress method, compress level), you passed {}".format(compress)
+            )
         compress_method, compress_level = compress
     elif isinstance(compress, str):
         compress_method = compress
@@ -495,30 +518,35 @@ def dump(value, filename, compress=0, protocol=None, cache_size=None):
     else:
         compress_level = compress
 
-    if compress_method == 'lz4' and lz4 is None:
+    if compress_method == "lz4" and lz4 is None:
         raise ValueError(LZ4_NOT_INSTALLED_ERROR)
 
-    if (compress_level is not None and
-            compress_level is not False and
-            compress_level not in range(10)):
+    if (
+        compress_level is not None
+        and compress_level is not False
+        and compress_level not in range(10)
+    ):
         # Raising an error if a non valid compress level is given.
         raise ValueError(
-            'Non valid compress level given: "{}". Possible values are '
-            '{}.'.format(compress_level, list(range(10))))
+            'Non valid compress level given: "{}". Possible values are {}.'.format(
+                compress_level, list(range(10))
+            )
+        )
 
     if compress_method not in _COMPRESSORS:
         # Raising an error if an unsupported compression method is given.
         raise ValueError(
-            'Non valid compression method given: "{}". Possible values are '
-            '{}.'.format(compress_method, _COMPRESSORS))
+            'Non valid compression method given: "{}". Possible values are {}.'.format(
+                compress_method, _COMPRESSORS
+            )
+        )
 
     if not is_filename and not is_fileobj:
         # People keep inverting arguments, and the resulting error is
         # incomprehensible
         raise ValueError(
-            'Second argument should be a filename or a file-like object, '
-            '%s (type %s) was given.'
-            % (filename, type(filename))
+            "Second argument should be a filename or a file-like object, "
+            "%s (type %s) was given." % (filename, type(filename))
         )
 
     if is_filename and not isinstance(compress, tuple):
@@ -539,17 +567,21 @@ def dump(value, filename, compress=0, protocol=None, cache_size=None):
 
     if cache_size is not None:
         # Cache size is deprecated starting from version 0.10
-        warnings.warn("Please do not set 'cache_size' in joblib.dump, "
-                      "this parameter has no effect and will be removed. "
-                      "You used 'cache_size={}'".format(cache_size),
-                      DeprecationWarning, stacklevel=2)
+        warnings.warn(
+            "Please do not set 'cache_size' in joblib.dump, "
+            "this parameter has no effect and will be removed. "
+            "You used 'cache_size={}'".format(cache_size),
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
     if compress_level != 0:
-        with _write_fileobject(filename, compress=(compress_method,
-                                                   compress_level)) as f:
+        with _write_fileobject(
+            filename, compress=(compress_method, compress_level)
+        ) as f:
             NumpyPickler(f, protocol=protocol).dump(value)
     elif is_filename:
-        with open(filename, 'wb') as f:
+        with open(filename, "wb") as f:
             NumpyPickler(f, protocol=protocol).dump(value)
     else:
         NumpyPickler(filename, protocol=protocol).dump(value)
@@ -576,17 +608,20 @@ def _unpickle(fobj, filename="", mmap_mode=None):
     try:
         obj = unpickler.load()
         if unpickler.compat_mode:
-            warnings.warn("The file '%s' has been generated with a "
-                          "joblib version less than 0.10. "
-                          "Please regenerate this pickle file."
-                          % filename,
-                          DeprecationWarning, stacklevel=3)
+            warnings.warn(
+                "The file '%s' has been generated with a "
+                "joblib version less than 0.10. "
+                "Please regenerate this pickle file." % filename,
+                DeprecationWarning,
+                stacklevel=3,
+            )
     except UnicodeDecodeError as exc:
         # More user-friendly error message
         new_exc = ValueError(
-            'You may be trying to read with '
-            'python 3 a joblib pickle generated with python 2. '
-            'This feature is not supported by joblib.')
+            "You may be trying to read with "
+            "python 3 a joblib pickle generated with python 2. "
+            "This feature is not supported by joblib."
+        )
         new_exc.__cause__ = exc
         raise new_exc
     return obj
@@ -594,6 +629,7 @@ def _unpickle(fobj, filename="", mmap_mode=None):
 
 def load_temporary_memmap(filename, mmap_mode, unlink_on_gc_collect):
     from ._memmapping_reducer import JOBLIB_MMAPS, add_maybe_unlink_finalizer
+
     obj = load(filename, mmap_mode)
     JOBLIB_MMAPS.add(obj.filename)
     if unlink_on_gc_collect:
@@ -643,11 +679,11 @@ def load(filename, mmap_mode=None):
 
     if hasattr(filename, "read"):
         fobj = filename
-        filename = getattr(fobj, 'name', '')
+        filename = getattr(fobj, "name", "")
         with _read_fileobject(fobj, filename, mmap_mode) as fobj:
             obj = _unpickle(fobj)
     else:
-        with open(filename, 'rb') as f:
+        with open(filename, "rb") as f:
             with _read_fileobject(f, filename, mmap_mode) as fobj:
                 if isinstance(fobj, str):
                     # if the returned file object is a string, this means we

@@ -63,6 +63,7 @@ Module reference
    :toctree: generated/
    :template: function.rst
 
+   cpu_count
    dump
    load
    hash
