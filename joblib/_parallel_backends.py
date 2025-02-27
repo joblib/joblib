@@ -43,7 +43,9 @@ class ParallelBackendBase(metaclass=ABCMeta):
 
     nesting_level = None
 
-    def __init__(self, nesting_level=None, inner_max_num_threads=None, **backend_kwargs):
+    def __init__(
+        self, nesting_level=None, inner_max_num_threads=None, **backend_kwargs
+    ):
         super().__init__()
         self.nesting_level = nesting_level
         self.inner_max_num_threads = inner_max_num_threads
@@ -509,8 +511,12 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin, ParallelBacken
         return super(MultiprocessingBackend, self).effective_n_jobs(n_jobs)
 
     def configure(
-        self, n_jobs=1, parallel=None, prefer=None, require=None,
-        **memmapping_pool_kwargs
+        self,
+        n_jobs=1,
+        parallel=None,
+        prefer=None,
+        require=None,
+        **memmapping_pool_kwargs,
     ):
         """Build a process or thread pool and return the number of workers"""
         n_jobs = self.effective_n_jobs(n_jobs)

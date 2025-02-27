@@ -1193,7 +1193,7 @@ class Parallel(Logger):
         mmap_mode=default_parallel_config["mmap_mode"],
         prefer=default_parallel_config["prefer"],
         require=default_parallel_config["require"],
-        **backend_kwargs
+        **backend_kwargs,
     ):
         # Initiate parent Logger class state
         super().__init__()
@@ -1237,7 +1237,7 @@ class Parallel(Logger):
                     (require, "require"),
                     (verbose, "verbose"),
                 ]
-            }
+            },
         }
 
         if isinstance(self._backend_kwargs["max_nbytes"], str):
