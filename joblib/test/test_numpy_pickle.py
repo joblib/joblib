@@ -382,7 +382,8 @@ def test_memmap_load(tmpdir):
     result_list = numpy_pickle.load(fname, mmap_mode="r+")
     for result, expected in zip(result_list, expected_list):
         if isinstance(expected, np.ndarray):
-            np.testing.assert_equal(result, expected, strict=True)
+            np.testing.assert_equal(result, expected)
+            assert result.dtype == expected.dtype
             if expected.dtype != np.dtype("O"):
                 assert isinstance(result, np.memmap)
                 assert os.path.isfile(result.filename)
