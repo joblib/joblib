@@ -106,6 +106,7 @@ show_missing = true
 lint.select = [
     "E", "W",  # see: https://pypi.org/project/pycodestyle
     "F",  # see: https://pypi.org/project/pyflakes
+    "I", # https://docs.astral.sh/ruff/rules/#isort-i
 ]
 # Exclude a variety of commonly ignored directories.
 exclude = [
