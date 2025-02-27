@@ -444,7 +444,7 @@ class NumpyUnpickler(Unpickler):
 # Utility functions
 
 
-def dump(value, filename, compress=0, protocol=None, cache_size=None):
+def dump(value, filename, compress=0, protocol=None):
     """Persist an arbitrary Python object into one file.
 
     Read more in the :ref:`User Guide <persistence>`.
