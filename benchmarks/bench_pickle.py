@@ -5,13 +5,14 @@ Warning: this is slow, and the benches are easily offset by other disk
 activity.
 """
 
-import os
-import time
-import shutil
-import numpy as np
-import joblib
 import gc
+import os
+import shutil
+import time
 
+import numpy as np
+
+import joblib
 from joblib.disk import disk_used
 
 try:

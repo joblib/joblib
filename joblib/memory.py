@@ -25,8 +25,11 @@ import warnings
 import weakref
 
 from . import hashing
-from ._store_backends import CacheWarning  # noqa
-from ._store_backends import FileSystemStoreBackend, StoreBackendBase
+from ._store_backends import (
+    CacheWarning,  # noqa
+    FileSystemStoreBackend,
+    StoreBackendBase,
+)
 from .func_inspect import (
     filter_args,
     format_call,

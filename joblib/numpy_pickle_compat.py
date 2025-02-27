@@ -1,15 +1,12 @@
 """Numpy pickle compatibility functions."""
 
-import pickle
-import os
-import zlib
 import inspect
-
+import os
+import pickle
+import zlib
 from io import BytesIO
 
-from .numpy_pickle_utils import _ZFILE_PREFIX
-from .numpy_pickle_utils import Unpickler
-from .numpy_pickle_utils import _ensure_native_byte_order
+from .numpy_pickle_utils import _ZFILE_PREFIX, Unpickler, _ensure_native_byte_order
 
 
 def hex_str(an_int):

@@ -8,6 +8,7 @@ Unit tests for the disk utilities.
 # License: BSD Style, 3 clauses.
 
 from __future__ import with_statement
+
 import array
 import os
 

@@ -1,14 +1,14 @@
+import faulthandler
+import logging
 import os
 import sys
-import logging
-import faulthandler
 
 import pytest
 from _pytest.doctest import DoctestItem
 
-from joblib.parallel import mp, ParallelBackendBase
-from joblib.backports import LooseVersion
 from joblib import Memory
+from joblib.backports import LooseVersion
+from joblib.parallel import ParallelBackendBase, mp
 
 try:
     import lz4

@@ -1,9 +1,9 @@
 import mmap
 
-from joblib.backports import make_memmap, concurrency_safe_rename
+from joblib import Parallel, delayed
+from joblib.backports import concurrency_safe_rename, make_memmap
 from joblib.test.common import with_numpy
 from joblib.testing import parametrize
-from joblib import Parallel, delayed
 
 
 @with_numpy

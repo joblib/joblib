@@ -10,12 +10,12 @@ This module needs much love to become useful.
 
 from __future__ import print_function
 
-import time
-import sys
-import os
-import shutil
 import logging
+import os
 import pprint
+import shutil
+import sys
+import time
 
 from .disk import mkdirp
 

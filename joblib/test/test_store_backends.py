@@ -5,20 +5,20 @@ try:
 except ImportError:
     import pickle as cpickle
 import functools
-from pickle import PicklingError
 import time
+from pickle import PicklingError
 
 import pytest
 
-from joblib.testing import parametrize, timeout
-from joblib.test.common import with_multiprocessing
-from joblib.backports import concurrency_safe_rename
 from joblib import Parallel, delayed
 from joblib._store_backends import (
-    concurrency_safe_write,
-    FileSystemStoreBackend,
     CacheWarning,
+    FileSystemStoreBackend,
+    concurrency_safe_write,
 )
+from joblib.backports import concurrency_safe_rename
+from joblib.test.common import with_multiprocessing
+from joblib.testing import parametrize, timeout
 
 
 def write_func(output, filename):

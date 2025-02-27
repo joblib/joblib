@@ -7,14 +7,13 @@ hashing of numpy arrays.
 # Copyright (c) 2009 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
-import pickle
+import decimal
 import hashlib
+import io
+import pickle
+import struct
 import sys
 import types
-import struct
-import io
-import decimal
-
 
 Pickler = pickle._Pickler
 

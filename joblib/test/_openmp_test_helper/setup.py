@@ -3,9 +3,9 @@
 import os
 import sys
 from distutils.core import setup
-from Cython.Build import cythonize
 from distutils.extension import Extension
 
+from Cython.Build import cythonize
 
 if sys.platform == "darwin":
     os.environ["CC"] = "gcc-4.9"
