@@ -112,6 +112,7 @@ __version__ = "1.5.dev0"
 import os
 
 from ._cloudpickle_wrapper import wrap_non_picklable_objects
+from ._config import config_context, get_config, set_config
 from .compressor import register_compressor
 from .hashing import hash
 from .logger import Logger, PrintTime
@@ -126,7 +127,6 @@ from .parallel import (
     parallel_config,
     register_parallel_backend,
 )
-from ._config import config_context, get_config, set_config
 
 __all__ = [
     "Memory",

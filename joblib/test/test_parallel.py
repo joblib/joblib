@@ -14,7 +14,7 @@ import threading
 import time
 import warnings
 import weakref
-from contextlib import nullcontext, AbstractContextManager
+from contextlib import AbstractContextManager, nullcontext
 from math import sqrt
 from multiprocessing import TimeoutError
 from pickle import PicklingError
@@ -24,8 +24,7 @@ from traceback import format_exception
 import pytest
 
 import joblib
-from joblib import config_context, get_config, set_config
-from joblib import dump, load, parallel
+from joblib import config_context, dump, get_config, load, parallel, set_config
 from joblib._multiprocessing_helpers import mp
 from joblib.test.common import (
     IS_GIL_DISABLED,
@@ -64,8 +63,8 @@ from joblib._parallel_backends import (
     ThreadingBackend,
 )
 from joblib.parallel import (
-    BACKENDS,
     _CALL_CONTEXT,
+    BACKENDS,
     Parallel,
     cpu_count,
     delayed,
@@ -73,9 +72,9 @@ from joblib.parallel import (
     mp,
     parallel_backend,
     parallel_config,
-    register_parallel_backend,
     register_call_context,
-    unregister_call_context
+    register_parallel_backend,
+    unregister_call_context,
 )
 
 RETURN_GENERATOR_BACKENDS = BACKENDS.copy()
@@ -1267,9 +1266,7 @@ print(Parallel(backend="loky", n_jobs=2)(
     delayed(square2)(MyClass(i), ignored=[dict(a=MyClass(1))])
     for i in range(5)
 ))
-""".format(
-    joblib_root_folder=os.path.dirname(os.path.dirname(joblib.__file__))
-)
+""".format(joblib_root_folder=os.path.dirname(os.path.dirname(joblib.__file__)))
 
 
 @with_multiprocessing
@@ -1308,9 +1305,7 @@ l = MyList()
 print(Parallel(backend="loky", n_jobs=2)(
     delayed(l.append)(i) for i in range(3)
 ))
-""".format(
-    joblib_root_folder=os.path.dirname(os.path.dirname(joblib.__file__))
-)
+""".format(joblib_root_folder=os.path.dirname(os.path.dirname(joblib.__file__)))
 
 
 @with_multiprocessing
