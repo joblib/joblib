@@ -47,7 +47,7 @@ aggregation, as illustrated in
 
 Future releases are planned to also support returning a generator that yields
 the results in the order of completion rather than the order of submission, by
-using ``return_as="unordered_generator"`` instead of ``return_as="generator"``.
+using ``return_as="generator_unordered"`` instead of ``return_as="generator"``.
 In this case the order of the outputs will depend on the concurrency of workers
 and will not be guaranteed to be deterministic, meaning the results can be
 yielded with a different order every time the code is executed.
@@ -173,7 +173,7 @@ create and destroy a pool of workers (threads or processes) several times which
 can cause a significant overhead.
 
 For this case it is more efficient to use the context manager API of the
-:class:`joblib.Parallel` class to re-use the same pool of workers for several
+:class:`joblib.Parallel` class to reuse the same pool of workers for several
 calls to the :class:`joblib.Parallel` object::
 
     >>> with Parallel(n_jobs=2) as parallel:
@@ -260,7 +260,7 @@ The backend factory can be any callable that returns an instance of
 ``ParallelBackendBase``. Please refer to the `default backends source code`_ as
 a reference if you want to implement your own custom backend.
 
-.. _`default backends source code`: https://github.com/joblib/joblib/blob/master/joblib/_parallel_backends.py
+.. _`default backends source code`: https://github.com/joblib/joblib/blob/main/joblib/_parallel_backends.py
 
 Note that it is possible to register a backend class that has some mandatory
 constructor parameters such as the network address and connection credentials

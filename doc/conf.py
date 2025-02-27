@@ -13,8 +13,8 @@
 # All configuration values have a default; values that are commented out
 # serve to show the default.
 
-import sys
 import os
+import sys
 
 import joblib
 
@@ -29,47 +29,51 @@ import joblib
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 
-extensions = ['sphinx.ext.autodoc', 'sphinx.ext.imgmath', 'numpydoc',
-              'sphinx.ext.autosummary', 'sphinx.ext.coverage',
-              'sphinx.ext.intersphinx', 'sphinx_gallery.gen_gallery']
+extensions = [
+    "sphinx.ext.autodoc",
+    "sphinx.ext.imgmath",
+    "numpydoc",
+    "sphinx.ext.autosummary",
+    "sphinx.ext.coverage",
+    "sphinx.ext.intersphinx",
+    "sphinx_gallery.gen_gallery",
+]
 
 autosummary_generate = True
 
 # intersphinx configuration
 intersphinx_mapping = {
-    'python': ('https://docs.python.org/{.major}'.format(
-        sys.version_info), None),
-    'numpy': ('https://numpy.org/doc/stable/', None),
-    'scipy': ('https://docs.scipy.org/doc/scipy', None),
-    'distributed': ('https://distributed.dask.org/en/latest/', None),
+    "python": ("https://docs.python.org/{.major}".format(sys.version_info), None),
+    "numpy": ("https://numpy.org/doc/stable/", None),
+    "scipy": ("https://docs.scipy.org/doc/scipy", None),
+    "distributed": ("https://distributed.dask.org/en/latest/", None),
 }
 
 # sphinx-gallery configuration
 sphinx_gallery_conf = {
-    'default_thumb_file': '_static/joblib_logo_examples.png',
-    'doc_module': 'joblib',
-    'filename_pattern': '',
-    'ignore_pattern': 'utils.py',
-    'backreferences_dir': os.path.join('generated'),
-    'reference_url': {
-        'joblib': None}
+    "default_thumb_file": "_static/joblib_logo_examples.png",
+    "doc_module": "joblib",
+    "filename_pattern": "",
+    "ignore_pattern": "utils.py",
+    "backreferences_dir": os.path.join("generated"),
+    "reference_url": {"joblib": None},
 }
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
+templates_path = ["_templates"]
 
 # The suffix of source filenames.
-source_suffix = '.rst'
+source_suffix = ".rst"
 
 # The encoding of source files.
 # source_encoding = 'utf-8'
 
 # The master toctree document.
-master_doc = 'index'
+master_doc = "index"
 
 # General information about the project.
-project = 'joblib'
-copyright = '2008-2021, Joblib developers'
+project = "joblib"
+copyright = "2008-2021, Joblib developers"
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -113,7 +117,7 @@ exclude_trees = []
 # show_authors = False
 
 # The name of the Pygments (syntax highlighting) style to use.
-pygments_style = 'sphinx'
+pygments_style = "sphinx"
 
 # Avoid '+DOCTEST...' comments in the docs
 trim_doctest_flags = True
@@ -140,12 +144,12 @@ trim_doctest_flags = True
 # The name of an image file (within the static path) to use as favicon of the
 # docs.  This file should be a Windows icon file (.ico) being 16x16 or 32x32
 # pixels large.
-html_favicon = '_static/favicon.ico'
+html_favicon = "_static/favicon.ico"
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+html_static_path = ["_static"]
 
 # If not '', a 'Last updated on:' timestamp is inserted at every page bottom,
 # using the given strftime format.
@@ -157,9 +161,9 @@ html_static_path = ['_static']
 
 # Custom sidebar templates, maps document names to template names.
 html_sidebars = {
-    '**': [
-        'about.html',
-        'navigation.html',
+    "**": [
+        "about.html",
+        "navigation.html",
     ]
 }
 
@@ -189,7 +193,7 @@ html_sidebars = {
 # html_file_suffix = ''
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'joblibdoc'
+htmlhelp_basename = "joblibdoc"
 
 
 # Options for LaTeX output
@@ -205,8 +209,7 @@ htmlhelp_basename = 'joblibdoc'
 # (source start file, target name, title, author,
 # document class [howto/manual]).
 latex_documents = [
-  ('index', 'joblib.tex', 'joblib Documentation',
-   'Gael Varoquaux', 'manual'),
+    ("index", "joblib.tex", "joblib Documentation", "Gael Varoquaux", "manual"),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
@@ -226,14 +229,14 @@ latex_documents = [
 # If false, no module index is generated.
 # latex_use_modindex = True
 
-html_theme = 'alabaster'
+html_theme = "alabaster"
 
 html_theme_options = {
-    'logo': 'joblib_logo.svg',
-    'github_repo': 'joblib/joblib',
-    'github_button': 'true',
-    'link': '#aa560c',
-    'show_powered_by': 'false',
+    "logo": "joblib_logo.svg",
+    "github_repo": "joblib/joblib",
+    "github_button": "true",
+    "link": "#aa560c",
+    "show_powered_by": "false",
     # "relbarbgcolor": "#333",
     # "sidebarlinkcolor": "#e15617",
     # "sidebarbgcolor": "#000",
@@ -247,10 +250,11 @@ html_theme_options = {
 
 ##############################################################################
 # Hack to copy the CHANGES.rst file
-import shutil
+import shutil  # noqa: E402
+
 try:
-    shutil.copyfile('../CHANGES.rst', 'CHANGES.rst')
-    shutil.copyfile('../README.rst', 'README.rst')
+    shutil.copyfile("../CHANGES.rst", "CHANGES.rst")
+    shutil.copyfile("../README.rst", "README.rst")
 except IOError:
     pass
     # This fails during the testing, as the code is ran in a different
@@ -258,4 +262,4 @@ except IOError:
 
 numpydoc_show_class_members = False
 
-suppress_warnings = ['image.nonlocal_uri']
+suppress_warnings = ["image.nonlocal_uri"]

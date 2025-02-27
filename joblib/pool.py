@@ -23,18 +23,15 @@ try:
 except NameError:
     WindowsError = type(None)
 
-from pickle import Pickler
-
-from pickle import HIGHEST_PROTOCOL
 from io import BytesIO
-
-from ._memmapping_reducer import get_memmapping_reducers
-from ._memmapping_reducer import TemporaryResourcesManager
-from ._multiprocessing_helpers import mp, assert_spawning
 
 # We need the class definition to derive from it, not the multiprocessing.Pool
 # factory function
 from multiprocessing.pool import Pool
+from pickle import HIGHEST_PROTOCOL, Pickler
+
+from ._memmapping_reducer import TemporaryResourcesManager, get_memmapping_reducers
+from ._multiprocessing_helpers import assert_spawning, mp
 
 try:
     import numpy as np
@@ -44,6 +41,7 @@ except ImportError:
 
 ###############################################################################
 # Enable custom pickling in Pool queues
+
 
 class CustomizablePickler(Pickler):
     """Pickler that accepts custom reducers.
@@ -73,7 +71,7 @@ class CustomizablePickler(Pickler):
         Pickler.__init__(self, writer, protocol=protocol)
         if reducers is None:
             reducers = {}
-        if hasattr(Pickler, 'dispatch'):
+        if hasattr(Pickler, "dispatch"):
             # Make the dispatch registry an instance level attribute instead of
             # a reference to the class dictionary under Python 2
             self.dispatch = Pickler.dispatch.copy()
@@ -86,12 +84,13 @@ class CustomizablePickler(Pickler):
 
     def register(self, type, reduce_func):
         """Attach a reducer function to a given type in the dispatch table."""
-        if hasattr(Pickler, 'dispatch'):
+        if hasattr(Pickler, "dispatch"):
             # Python 2 pickler dispatching is not explicitly customizable.
             # Let us use a closure to workaround this limitation.
             def dispatcher(self, obj):
                 reduced = reduce_func(obj)
                 self.save_reduce(obj=obj, *reduced)
+
             self.dispatch[type] = dispatcher
         else:
             self.dispatch_table[type] = reduce_func
@@ -118,7 +117,7 @@ class CustomizablePicklingQueue(object):
         self._reducers = reducers
         self._reader, self._writer = context.Pipe(duplex=False)
         self._rlock = context.Lock()
-        if sys.platform == 'win32':
+        if sys.platform == "win32":
             self._wlock = None
         else:
             self._wlock = context.Lock()
@@ -126,12 +125,10 @@ class CustomizablePicklingQueue(object):
 
     def __getstate__(self):
         assert_spawning(self)
-        return (self._reader, self._writer, self._rlock, self._wlock,
-                self._reducers)
+        return (self._reader, self._writer, self._rlock, self._wlock, self._reducers)
 
     def __setstate__(self, state):
-        (self._reader, self._writer, self._rlock, self._wlock,
-         self._reducers) = state
+        (self._reader, self._writer, self._rlock, self._wlock, self._reducers) = state
         self._make_methods()
 
     def empty(self):
@@ -151,10 +148,12 @@ class CustomizablePicklingQueue(object):
         self.get = get
 
         if self._reducers:
+
             def send(obj):
                 buffer = BytesIO()
                 CustomizablePickler(buffer, self._reducers).dump(obj)
                 self._writer.send_bytes(buffer.getvalue())
+
             self._send = send
         else:
             self._send = send = self._writer.send
@@ -162,8 +161,7 @@ class CustomizablePicklingQueue(object):
             # writes to a message oriented win32 pipe are atomic
             self.put = send
         else:
-            wlock_acquire, wlock_release = (
-                self._wlock.acquire, self._wlock.release)
+            wlock_acquire, wlock_release = (self._wlock.acquire, self._wlock.release)
 
             def put(obj):
                 wlock_acquire()
@@ -192,8 +190,9 @@ class PicklingPool(Pool):
 
     """
 
-    def __init__(self, processes=None, forward_reducers=None,
-                 backward_reducers=None, **kwargs):
+    def __init__(
+        self, processes=None, forward_reducers=None, backward_reducers=None, **kwargs
+    ):
         if forward_reducers is None:
             forward_reducers = dict()
         if backward_reducers is None:
@@ -205,11 +204,9 @@ class PicklingPool(Pool):
         super(PicklingPool, self).__init__(**poolargs)
 
     def _setup_queues(self):
-        context = getattr(self, '_ctx', mp)
-        self._inqueue = CustomizablePicklingQueue(context,
-                                                  self._forward_reducers)
-        self._outqueue = CustomizablePicklingQueue(context,
-                                                   self._backward_reducers)
+        context = getattr(self, "_ctx", mp)
+        self._inqueue = CustomizablePicklingQueue(context, self._forward_reducers)
+        self._outqueue = CustomizablePicklingQueue(context, self._backward_reducers)
         self._quick_put = self._inqueue._send
         self._quick_get = self._outqueue._recv
 
@@ -265,11 +262,11 @@ class MemmappingPool(PicklingPool):
         Memmapping mode for numpy arrays passed to workers.
         See 'max_nbytes' parameter documentation for more details.
     forward_reducers: dictionary, optional
-        Reducers used to pickle objects passed from master to worker
+        Reducers used to pickle objects passed from main process to worker
         processes: see below.
     backward_reducers: dictionary, optional
         Reducers used to pickle return values from workers back to the
-        master process.
+        main process.
     verbose: int, optional
         Make it possible to monitor how the communication of numpy arrays
         with the subprocess is handled (pickling or memmapping)
@@ -291,15 +288,18 @@ class MemmappingPool(PicklingPool):
 
     """
 
-    def __init__(self, processes=None, temp_folder=None, max_nbytes=1e6,
-                 mmap_mode='r', forward_reducers=None, backward_reducers=None,
-                 verbose=0, context_id=None, prewarm=False, **kwargs):
-
-        if context_id is not None:
-            warnings.warn('context_id is deprecated and ignored in joblib'
-                          ' 0.9.4 and will be removed in 0.11',
-                          DeprecationWarning)
-
+    def __init__(
+        self,
+        processes=None,
+        temp_folder=None,
+        max_nbytes=1e6,
+        mmap_mode="r",
+        forward_reducers=None,
+        backward_reducers=None,
+        verbose=0,
+        prewarm=False,
+        **kwargs,
+    ):
         manager = TemporaryResourcesManager(temp_folder)
         self._temp_folder_manager = manager
 
@@ -307,18 +307,22 @@ class MemmappingPool(PicklingPool):
         # superfluous for multiprocessing pools, as they don't get reused, see
         # get_memmapping_executor for more details. We still use it for code
         # simplicity.
-        forward_reducers, backward_reducers = \
-            get_memmapping_reducers(
-                temp_folder_resolver=manager.resolve_temp_folder_name,
-                max_nbytes=max_nbytes, mmap_mode=mmap_mode,
-                forward_reducers=forward_reducers,
-                backward_reducers=backward_reducers, verbose=verbose,
-                unlink_on_gc_collect=False, prewarm=prewarm)
+        forward_reducers, backward_reducers = get_memmapping_reducers(
+            temp_folder_resolver=manager.resolve_temp_folder_name,
+            max_nbytes=max_nbytes,
+            mmap_mode=mmap_mode,
+            forward_reducers=forward_reducers,
+            backward_reducers=backward_reducers,
+            verbose=verbose,
+            unlink_on_gc_collect=False,
+            prewarm=prewarm,
+        )
 
         poolargs = dict(
             processes=processes,
             forward_reducers=forward_reducers,
-            backward_reducers=backward_reducers)
+            backward_reducers=backward_reducers,
+        )
         poolargs.update(kwargs)
         super(MemmappingPool, self).__init__(**poolargs)
 
@@ -334,8 +338,10 @@ class MemmappingPool(PicklingPool):
                     # when trying to terminate a process under windows.
                     sleep(0.1)
                     if i + 1 == n_retries:
-                        warnings.warn("Failed to terminate worker processes in"
-                                      " multiprocessing pool: %r" % e)
+                        warnings.warn(
+                            "Failed to terminate worker processes in"
+                            " multiprocessing pool: %r" % e
+                        )
 
         # Clean up the temporary resources as the workers should now be off.
         self._temp_folder_manager._clean_temporary_resources()
@@ -347,8 +353,10 @@ class MemmappingPool(PicklingPool):
         # We cache this property because it is called late in the tests - at
         # this point, all context have been unregistered, and
         # resolve_temp_folder_name raises an error.
-        if getattr(self, '_cached_temp_folder', None) is not None:
+        if getattr(self, "_cached_temp_folder", None) is not None:
             return self._cached_temp_folder
         else:
-            self._cached_temp_folder = self._temp_folder_manager.resolve_temp_folder_name()  # noqa
+            self._cached_temp_folder = (
+                self._temp_folder_manager.resolve_temp_folder_name()
+            )  # noqa
             return self._cached_temp_folder

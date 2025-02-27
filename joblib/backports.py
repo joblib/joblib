@@ -1,12 +1,12 @@
 """
 Backports of fixes for joblib dependencies
 """
+
 import os
 import re
 import time
-
-from os.path import basename
 from multiprocessing import util
+from os.path import basename
 
 
 class Version:
@@ -67,7 +67,7 @@ class LooseVersion(Version):
     introduce a dependency on packaging anyway.
     """
 
-    component_re = re.compile(r'(\d+ | [a-z]+ | \.)', re.VERBOSE)
+    component_re = re.compile(r"(\d+ | [a-z]+ | \.)", re.VERBOSE)
 
     def __init__(self, vstring=None):
         if vstring:
@@ -78,8 +78,7 @@ class LooseVersion(Version):
         # from the parsed tuple -- so I just store the string here for
         # use by __str__
         self.vstring = vstring
-        components = [x for x in self.component_re.split(vstring)
-                      if x and x != '.']
+        components = [x for x in self.component_re.split(vstring) if x and x != "."]
         for i, obj in enumerate(components):
             try:
                 components[i] = int(obj)
@@ -111,8 +110,15 @@ class LooseVersion(Version):
 try:
     import numpy as np
 
-    def make_memmap(filename, dtype='uint8', mode='r+', offset=0,
-                    shape=None, order='C', unlink_on_gc_collect=False):
+    def make_memmap(
+        filename,
+        dtype="uint8",
+        mode="r+",
+        offset=0,
+        shape=None,
+        order="C",
+        unlink_on_gc_collect=False,
+    ):
         """Custom memmap constructor compatible with numpy.memmap.
 
         This function:
@@ -126,27 +132,39 @@ try:
           memmaped file to resource_tracker.
         """
         util.debug(
-            "[MEMMAP READ] creating a memmap (shape {}, filename {}, "
-            "pid {})".format(shape, basename(filename), os.getpid())
+            "[MEMMAP READ] creating a memmap (shape {}, filename {}, pid {})".format(
+                shape, basename(filename), os.getpid()
+            )
         )
 
-        mm = np.memmap(filename, dtype=dtype, mode=mode, offset=offset,
-                       shape=shape, order=order)
-        if LooseVersion(np.__version__) < '1.13':
+        mm = np.memmap(
+            filename, dtype=dtype, mode=mode, offset=offset, shape=shape, order=order
+        )
+        if LooseVersion(np.__version__) < "1.13":
             mm.offset = offset
         if unlink_on_gc_collect:
             from ._memmapping_reducer import add_maybe_unlink_finalizer
+
             add_maybe_unlink_finalizer(mm)
         return mm
 except ImportError:
-    def make_memmap(filename, dtype='uint8', mode='r+', offset=0,
-                    shape=None, order='C', unlink_on_gc_collect=False):
+
+    def make_memmap(
+        filename,
+        dtype="uint8",
+        mode="r+",
+        offset=0,
+        shape=None,
+        order="C",
+        unlink_on_gc_collect=False,
+    ):
         raise NotImplementedError(
             "'joblib.backports.make_memmap' should not be used "
-            'if numpy is not installed.')
+            "if numpy is not installed."
+        )
 
 
-if os.name == 'nt':
+if os.name == "nt":
     # https://github.com/joblib/joblib/issues/540
     access_denied_errors = (5, 13)
     from os import replace
@@ -165,7 +183,7 @@ if os.name == 'nt':
                 replace(src, dst)
                 break
             except Exception as exc:
-                if getattr(exc, 'winerror', None) in access_denied_errors:
+                if getattr(exc, "winerror", None) in access_denied_errors:
                     time.sleep(sleep_time)
                     total_sleep_time += sleep_time
                     sleep_time *= 2

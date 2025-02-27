@@ -1,18 +1,18 @@
-|PyPi| |Azure| |ReadTheDocs| |Codecov| 
+|PyPi| |CIStatus| |ReadTheDocs| |Codecov|
 
 .. |PyPi| image:: https://badge.fury.io/py/joblib.svg
    :target: https://badge.fury.io/py/joblib
    :alt: Joblib version
 
-.. |Azure| image:: https://dev.azure.com/joblib/joblib/_apis/build/status/joblib.joblib?branchName=master
-   :target: https://dev.azure.com/joblib/joblib/_build?definitionId=3&_a=summary&branchFilter=40
-   :alt: Azure CI status
+.. |CIStatus| image:: https://github.com/joblib/joblib/actions/workflows/test.yml/badge.svg
+   :target: https://github.com/joblib/joblib/actions/workflows/test.yml?query=branch%3Amain
+   :alt: CI status
 
 .. |ReadTheDocs| image:: https://readthedocs.org/projects/joblib/badge/?version=latest
     :target: https://joblib.readthedocs.io/en/latest/?badge=latest
     :alt: Documentation Status
 
-.. |Codecov| image:: https://codecov.io/gh/joblib/joblib/branch/master/graph/badge.svg
+.. |Codecov| image:: https://codecov.io/gh/joblib/joblib/branch/main/graph/badge.svg
    :target: https://codecov.io/gh/joblib/joblib
    :alt: Codecov coverage
 
@@ -29,26 +29,24 @@ To get the latest code using git, simply type::
     git clone https://github.com/joblib/joblib.git
 
 If you don't have git installed, you can download a zip
-of the latest code: https://github.com/joblib/joblib/archive/refs/heads/master.zip
+of the latest code: https://github.com/joblib/joblib/archive/refs/heads/main.zip
 
 Installing
 ==========
 
-You can use `pip` to install joblib::
+You can use `pip` to install joblib from any directory::
 
     pip install joblib
 
-from any directory or::
+or install it in editable mode from the source directory::
 
-    python setup.py install
-
-from the source directory.
+    pip install -e .
 
 Dependencies
 ============
 
 - Joblib has no mandatory dependencies besides Python (supported versions are
-  3.8+).
+  3.9+).
 - Joblib has an optional dependency on Numpy (at least version 1.6.1) for array
   manipulation.
 - Joblib includes its own vendored copy of
@@ -69,10 +67,19 @@ Workflow to contribute
 To contribute to joblib, first create an account on `github
 <https://github.com/>`_. Once this is done, fork the `joblib repository
 <https://github.com/joblib/joblib>`_ to have your own repository,
-clone it using 'git clone' on the computers where you want to work. Make
-your changes in your clone, push them to your github account, test them
-on several computers, and when you are happy with them, send a pull
-request to the main repository.
+clone it using ``git clone``. Make your changes in a branch of your clone, push
+them to your github account, test them locally, and when you are happy with
+them, send a pull request to the main repository.
+
+You can use `pre-commit <https://pre-commit.com/#install>`_ to run code style checks
+before each commit::
+
+    pip install pre-commit
+    pre-commit install
+
+pre-commit checks can be disabled for a single commit with::
+
+    git commit -n
 
 Running the test suite
 ======================
@@ -105,12 +112,12 @@ Making a source tarball
 To create a source tarball, eg for packaging or distributing, run the
 following command::
 
-    python setup.py sdist
+    pip install build
+    python -m build --sdist
 
-The tarball will be created in the `dist` directory. This command will
-compile the docs, and the resulting tarball can be installed with
-no extra dependencies than the Python standard library. You will need
-setuptool and sphinx.
+The tarball will be created in the `dist` directory. This command will create
+the resulting tarball that can be installed with no extra dependencies than the
+Python standard library.
 
 Making a release and uploading it to PyPI
 =========================================
@@ -118,7 +125,8 @@ Making a release and uploading it to PyPI
 This command is only run by project manager, to make a release, and
 upload in to PyPI::
 
-    python setup.py sdist bdist_wheel
+    pip install build
+    python -m build --sdist --wheel
     twine upload dist/*
 
 
@@ -133,4 +141,3 @@ Changes are listed in the CHANGES.rst file. They must be manually updated
 but, the following git command may be used to generate the lines::
 
     git log --abbrev-commit --date=short --no-merges --sparse
-

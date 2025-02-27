@@ -4,6 +4,58 @@ Latest changes
 In development
 --------------
 
+- Drop support for Python 3.8.
+  https://github.com/joblib/joblib/pull/1669
+
+- Enforce ``age_limit`` is a positive timedelta for ``Memory.reduce_size``,
+  to avoid silently ignoring it.
+  https://github.com/joblib/joblib/pull/1613
+
+- Remove deprecated ``bytes_limit`` argument for ``Memory``, which should
+  be passed directly to ``Memory.reduce_size``.
+  https://github.com/joblib/joblib/pull/1569
+
+- Extend functionality of the ``check_call_in_cache`` method to now also
+  check against cache validity. Before, it would only check for a given call
+  if it is in cache memory.
+  https://github.com/joblib/joblib/pull/1584
+
+- Fixed a bug that caused the ``timeout`` parameter in ``joblib.Parallel`` to be
+  ineffective when used along with ``return_as='generator_unordered'``.
+  https://github.com/joblib/joblib/issues/1586
+
+- Support for Python 3.13 free-threaded has been added.
+  https://github.com/joblib/joblib/pull/1589
+
+- Pretty printing of ``Parallel`` execution progress when the number of tasks is
+  known. https://github.com/joblib/joblib/pull/1608
+
+- Drop support for PyPy.
+  https://github.com/joblib/joblib/pull/1670
+
+Release 1.4.2 -- 2024/05/02
+---------------------------
+
+Due to maintenance issues, 1.4.1 was not valid and we bumped the version to 1.4.2
+
+
+- Fix a backward incompatible change in ``MemorizedFunc.call`` which needs to
+  return the metadata. Also make sure that ``NotMemorizedFunc.call`` return
+  an empty dict for metadata for consistency.
+  https://github.com/joblib/joblib/pull/1576
+
+
+Release 1.4.0 -- 2024/04/08
+---------------------------
+
+- Allow caching co-routines with `Memory.cache`.
+  https://github.com/joblib/joblib/pull/894
+
+- Try to cast ``n_jobs`` to int in parallel and raise an error if
+  it fails. This means that ``n_jobs=2.3`` will now result in
+  ``effective_n_jobs=2`` instead of failing.
+  https://github.com/joblib/joblib/pull/1539
+
 - Ensure that errors in the task generator given to Parallel's call
   are raised in the results consumming thread.
   https://github.com/joblib/joblib/pull/1491
@@ -21,7 +73,9 @@ In development
   ``return_as=generator_unordered``.
   https://github.com/joblib/joblib/pull/1520
 
-- Vendor cloudpickle 3.0.0 and drop support for Python 3.7.
+- Vendor cloudpickle 3.0.0 and end support for Python 3.7 which has
+  reached end of life.
+  https://github.com/joblib/joblib/pull/1487
   https://github.com/joblib/joblib/pull/1515
 
 Release 1.3.2 -- 2023/08/08
@@ -68,7 +122,7 @@ Release 1.3.0 -- 2023/06/28
 - Drop runtime dependency on ``distutils``. ``distutils`` is going away
   in Python 3.12 and is deprecated from Python 3.10 onwards. This import
   was kept around to avoid breaking scikit-learn, however it's now been
-  long enough since scikit-learn deployed a fixed (verion 1.1 was released
+  long enough since scikit-learn deployed a fixed (version 1.1 was released
   in May 2022) that it should be safe to remove this.
   https://github.com/joblib/joblib/pull/1361
 
@@ -689,7 +743,7 @@ Olivier Grisel
 
     Expose :class:`joblib.parallel.ParallelBackendBase` and
     :class:`joblib.parallel.AutoBatchingMixin` in the public API to
-    make them officially re-usable by backend implementers.
+    make them officially reusable by backend implementers.
 
 
 Release 0.10.0
@@ -824,7 +878,7 @@ Olivier Grisel
 
 Olivier Grisel
 
-    New context manager based API (``with`` block) to re-use
+    New context manager based API (``with`` block) to reuse
     the same pool of workers across consecutive parallel calls.
 
 Vlad Niculae and Olivier Grisel

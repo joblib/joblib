@@ -8,10 +8,8 @@ copy between the parent and child processes.
 # Copyright: 2017, Thomas Moreau
 # License: BSD 3 clause
 
-from ._memmapping_reducer import get_memmapping_reducers
-from ._memmapping_reducer import TemporaryResourcesManager
+from ._memmapping_reducer import TemporaryResourcesManager, get_memmapping_reducers
 from .externals.loky.reusable_executor import _ReusablePoolExecutor
-
 
 _executor_args = None
 
@@ -21,11 +19,18 @@ def get_memmapping_executor(n_jobs, **kwargs):
 
 
 class MemmappingExecutor(_ReusablePoolExecutor):
-
     @classmethod
-    def get_memmapping_executor(cls, n_jobs, timeout=300, initializer=None,
-                                initargs=(), env=None, temp_folder=None,
-                                context_id=None, **backend_args):
+    def get_memmapping_executor(
+        cls,
+        n_jobs,
+        timeout=300,
+        initializer=None,
+        initargs=(),
+        env=None,
+        temp_folder=None,
+        context_id=None,
+        **backend_args,
+    ):
         """Factory for ReusableExecutor with automatic memmapping for large
         numpy arrays.
         """
@@ -34,8 +39,9 @@ class MemmappingExecutor(_ReusablePoolExecutor):
         # to loky as the reducers are objects that changes at each call.
         executor_args = backend_args.copy()
         executor_args.update(env if env else {})
-        executor_args.update(dict(
-            timeout=timeout, initializer=initializer, initargs=initargs))
+        executor_args.update(
+            dict(timeout=timeout, initializer=initializer, initargs=initargs)
+        )
         reuse = _executor_args is None or _executor_args == executor_args
         _executor_args = executor_args
 
@@ -48,11 +54,17 @@ class MemmappingExecutor(_ReusablePoolExecutor):
         job_reducers, result_reducers = get_memmapping_reducers(
             unlink_on_gc_collect=True,
             temp_folder_resolver=manager.resolve_temp_folder_name,
-            **backend_args)
+            **backend_args,
+        )
         _executor, executor_is_reused = super().get_reusable_executor(
-            n_jobs, job_reducers=job_reducers, result_reducers=result_reducers,
-            reuse=reuse, timeout=timeout, initializer=initializer,
-            initargs=initargs, env=env
+            n_jobs,
+            job_reducers=job_reducers,
+            result_reducers=result_reducers,
+            reuse=reuse,
+            timeout=timeout,
+            initializer=initializer,
+            initargs=initargs,
+            env=env,
         )
 
         if not executor_is_reused:
@@ -71,7 +83,6 @@ class MemmappingExecutor(_ReusablePoolExecutor):
         return _executor
 
     def terminate(self, kill_workers=False):
-
         self.shutdown(kill_workers=kill_workers)
 
         # When workers are killed in a brutal manner, they cannot execute the
@@ -95,10 +106,12 @@ class MemmappingExecutor(_ReusablePoolExecutor):
         # We cache this property because it is called late in the tests - at
         # this point, all context have been unregistered, and
         # resolve_temp_folder_name raises an error.
-        if getattr(self, '_cached_temp_folder', None) is not None:
+        if getattr(self, "_cached_temp_folder", None) is not None:
             return self._cached_temp_folder
         else:
-            self._cached_temp_folder = self._temp_folder_manager.resolve_temp_folder_name()  # noqa
+            self._cached_temp_folder = (
+                self._temp_folder_manager.resolve_temp_folder_name()
+            )  # noqa
             return self._cached_temp_folder
 
 
@@ -107,6 +120,7 @@ class _TestingMemmappingExecutor(MemmappingExecutor):
     and Executor. This is only for testing purposes.
 
     """
+
     def apply_async(self, func, args):
         """Schedule a func to be run"""
         future = self.submit(func, *args)

@@ -14,11 +14,9 @@ process.
 import sys
 import time
 import traceback
-from joblib.externals.loky import set_loky_pickler
-from joblib import parallel_config
-from joblib import Parallel, delayed
-from joblib import wrap_non_picklable_objects
 
+from joblib import Parallel, delayed, parallel_config, wrap_non_picklable_objects
+from joblib.externals.loky import set_loky_pickler
 
 ###############################################################################
 # First, define functions which cannot be pickled with the standard ``pickle``
@@ -27,6 +25,7 @@ from joblib import wrap_non_picklable_objects
 # ``cloudpickle``. With the default behavior, ``loky`` is to use
 # ``cloudpickle`` to serialize the objects that are sent to the workers.
 #
+
 
 def func_async(i, *args):
     return 2 * i
@@ -41,6 +40,7 @@ print(Parallel(n_jobs=2)(delayed(func_async)(21) for _ in range(1))[0])
 # list, compared to the standard ``pickle`` serialization.
 #
 
+
 def func_async(i, *args):
     return 2 * i
 
@@ -51,8 +51,11 @@ large_list = list(range(1000000))
 
 t_start = time.time()
 Parallel(n_jobs=2)(delayed(func_async)(21, large_list) for _ in range(1))
-print("With loky backend and cloudpickle serialization: {:.3f}s"
-      .format(time.time() - t_start))
+print(
+    "With loky backend and cloudpickle serialization: {:.3f}s".format(
+        time.time() - t_start
+    )
+)
 
 
 ###############################################################################
@@ -62,16 +65,20 @@ print("With loky backend and cloudpickle serialization: {:.3f}s"
 #
 
 import multiprocessing as mp
+
 if mp.get_start_method() != "spawn":
+
     def func_async(i, *args):
         return 2 * i
 
-    with parallel_config('multiprocessing'):
+    with parallel_config("multiprocessing"):
         t_start = time.time()
-        Parallel(n_jobs=2)(
-            delayed(func_async)(21, large_list) for _ in range(1))
-        print("With multiprocessing backend and pickle serialization: {:.3f}s"
-              .format(time.time() - t_start))
+        Parallel(n_jobs=2)(delayed(func_async)(21, large_list) for _ in range(1))
+        print(
+            "With multiprocessing backend and pickle serialization: {:.3f}s".format(
+                time.time() - t_start
+            )
+        )
 
 
 ###############################################################################
@@ -94,7 +101,7 @@ if mp.get_start_method() != "spawn":
 # we do not pass the desired function ``func_async`` as it is not picklable
 # but it is replaced by ``id`` for demonstration purposes.
 
-set_loky_pickler('pickle')
+set_loky_pickler("pickle")
 t_start = time.time()
 Parallel(n_jobs=2)(delayed(id)(large_list) for _ in range(1))
 print("With pickle serialization: {:.3f}s".format(time.time() - t_start))
@@ -105,6 +112,7 @@ print("With pickle serialization: {:.3f}s".format(time.time() - t_start))
 # serializable anymore using ``pickle`` and it is not possible to call
 # ``func_async`` using this pickler.
 #
+
 
 def func_async(i, *args):
     return 2 * i
@@ -128,6 +136,7 @@ except Exception:
 # instances.
 #
 
+
 @delayed
 @wrap_non_picklable_objects
 def func_async_wrapped(i, *args):
@@ -136,8 +145,7 @@ def func_async_wrapped(i, *args):
 
 t_start = time.time()
 Parallel(n_jobs=2)(func_async_wrapped(21, large_list) for _ in range(1))
-print("With pickle from stdlib and wrapper: {:.3f}s"
-      .format(time.time() - t_start))
+print("With pickle from stdlib and wrapper: {:.3f}s".format(time.time() - t_start))
 
 
 ###############################################################################

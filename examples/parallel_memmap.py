@@ -22,8 +22,10 @@ import numpy as np
 
 data = np.random.random((int(1e7),))
 window_size = int(5e5)
-slices = [slice(start, start + window_size)
-          for start in range(0, data.size - window_size, int(1e5))]
+slices = [
+    slice(start, start + window_size)
+    for start in range(0, data.size - window_size, int(1e5))
+]
 
 ###############################################################################
 # The ``slow_mean`` function introduces a :func:`time.sleep` call to simulate a
@@ -46,8 +48,11 @@ def slow_mean(data, sl):
 tic = time.time()
 results = [slow_mean(data, sl) for sl in slices]
 toc = time.time()
-print('\nElapsed time computing the average of couple of slices {:.2f} s'
-      .format(toc - tic))
+print(
+    "\nElapsed time computing the average of couple of slices {:.2f} s".format(
+        toc - tic
+    )
+)
 
 ###############################################################################
 # :class:`joblib.Parallel` is used to compute in parallel the average of all
@@ -55,12 +60,14 @@ print('\nElapsed time computing the average of couple of slices {:.2f} s'
 
 from joblib import Parallel, delayed
 
-
 tic = time.time()
 results = Parallel(n_jobs=2)(delayed(slow_mean)(data, sl) for sl in slices)
 toc = time.time()
-print('\nElapsed time computing the average of couple of slices {:.2f} s'
-      .format(toc - tic))
+print(
+    "\nElapsed time computing the average of couple of slices {:.2f} s".format(
+        toc - tic
+    )
+)
 
 ###############################################################################
 # Parallel processing is already faster than the sequential processing. It is
@@ -68,23 +75,27 @@ print('\nElapsed time computing the average of couple of slices {:.2f} s'
 # memmap and pass the memmap to :class:`joblib.Parallel`.
 
 import os
+
 from joblib import dump, load
 
-folder = './joblib_memmap'
+folder = "./joblib_memmap"
 try:
     os.mkdir(folder)
 except FileExistsError:
     pass
 
-data_filename_memmap = os.path.join(folder, 'data_memmap')
+data_filename_memmap = os.path.join(folder, "data_memmap")
 dump(data, data_filename_memmap)
-data = load(data_filename_memmap, mmap_mode='r')
+data = load(data_filename_memmap, mmap_mode="r")
 
 tic = time.time()
 results = Parallel(n_jobs=2)(delayed(slow_mean)(data, sl) for sl in slices)
 toc = time.time()
-print('\nElapsed time computing the average of couple of slices {:.2f} s\n'
-      .format(toc - tic))
+print(
+    "\nElapsed time computing the average of couple of slices {:.2f} s\n".format(
+        toc - tic
+    )
+)
 
 ###############################################################################
 # Therefore, dumping large ``data`` array ahead of calling
@@ -111,34 +122,35 @@ def slow_mean_write_output(data, sl, output, idx):
 ###############################################################################
 # Prepare the folder where the memmap will be dumped.
 
-output_filename_memmap = os.path.join(folder, 'output_memmap')
+output_filename_memmap = os.path.join(folder, "output_memmap")
 
 ###############################################################################
 # Pre-allocate a writable shared memory map as a container for the results of
 # the parallel computation.
 
-output = np.memmap(output_filename_memmap, dtype=data.dtype,
-                   shape=len(slices), mode='w+')
+output = np.memmap(
+    output_filename_memmap, dtype=data.dtype, shape=len(slices), mode="w+"
+)
 
 ###############################################################################
 # ``data`` is replaced by its memory mapped version. Note that the buffer has
 # already been dumped in the previous section.
 
-data = load(data_filename_memmap, mmap_mode='r')
+data = load(data_filename_memmap, mmap_mode="r")
 
 ###############################################################################
 # Fork the worker processes to perform computation concurrently
 
-Parallel(n_jobs=2)(delayed(slow_mean_write_output)(data, sl, output, idx)
-                   for idx, sl in enumerate(slices))
+Parallel(n_jobs=2)(
+    delayed(slow_mean_write_output)(data, sl, output, idx)
+    for idx, sl in enumerate(slices)
+)
 
 ###############################################################################
 # Compare the results from the output buffer with the expected results
 
-print("\nExpected means computed in the parent process:\n {}"
-      .format(np.array(results)))
-print("\nActual means computed by the worker processes:\n {}"
-      .format(output))
+print("\nExpected means computed in the parent process:\n {}".format(np.array(results)))
+print("\nActual means computed by the worker processes:\n {}".format(output))
 
 ###############################################################################
 # Clean-up the memmap
@@ -152,4 +164,4 @@ import shutil
 try:
     shutil.rmtree(folder)
 except:  # noqa
-    print('Could not clean-up automatically.')
+    print("Could not clean-up automatically.")

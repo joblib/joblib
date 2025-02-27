@@ -1,33 +1,38 @@
-import os
-import mmap
-import sys
-import platform
-import gc
-import pickle
-import itertools
-from time import sleep
-import subprocess
-import threading
 import faulthandler
+import gc
+import itertools
+import mmap
+import os
+import pickle
+import platform
+import subprocess
+import sys
+import threading
+from time import sleep
 
 import pytest
 
-from joblib.test.common import with_numpy, np
-from joblib.test.common import with_multiprocessing
-from joblib.test.common import with_dev_shm
-from joblib.testing import raises, parametrize, skipif
-from joblib.backports import make_memmap
-from joblib.parallel import Parallel, delayed
-
-from joblib.pool import MemmappingPool
-from joblib.executor import _TestingMemmappingExecutor as TestExecutor
-from joblib._memmapping_reducer import has_shareable_memory
-from joblib._memmapping_reducer import ArrayMemmapForwardReducer
-from joblib._memmapping_reducer import _strided_from_memmap
-from joblib._memmapping_reducer import _get_temp_dir
-from joblib._memmapping_reducer import _WeakArrayKeyMap
-from joblib._memmapping_reducer import _get_backing_memmap
 import joblib._memmapping_reducer as jmr
+from joblib._memmapping_reducer import (
+    ArrayMemmapForwardReducer,
+    _get_backing_memmap,
+    _get_temp_dir,
+    _strided_from_memmap,
+    _WeakArrayKeyMap,
+    has_shareable_memory,
+)
+from joblib.backports import make_memmap
+from joblib.executor import _TestingMemmappingExecutor as TestExecutor
+from joblib.parallel import Parallel, delayed
+from joblib.pool import MemmappingPool
+from joblib.test.common import (
+    IS_GIL_DISABLED,
+    np,
+    with_dev_shm,
+    with_multiprocessing,
+    with_numpy,
+)
+from joblib.testing import parametrize, raises, skipif
 
 
 def setup_module():
@@ -74,20 +79,21 @@ def inplace_double(args):
 def test_memmap_based_array_reducing(tmpdir):
     """Check that it is possible to reduce a memmap backed array"""
     assert_array_equal = np.testing.assert_array_equal
-    filename = tmpdir.join('test.mmap').strpath
+    filename = tmpdir.join("test.mmap").strpath
 
     # Create a file larger than what will be used by a
-    buffer = np.memmap(filename, dtype=np.float64, shape=500, mode='w+')
+    buffer = np.memmap(filename, dtype=np.float64, shape=500, mode="w+")
 
     # Fill the original buffer with negative markers to detect over of
     # underflow in case of test failures
-    buffer[:] = - 1.0 * np.arange(buffer.shape[0], dtype=buffer.dtype)
+    buffer[:] = -1.0 * np.arange(buffer.shape[0], dtype=buffer.dtype)
     buffer.flush()
 
     # Memmap a 2D fortran array on a offsetted subsection of the previous
     # buffer
-    a = np.memmap(filename, dtype=np.float64, shape=(3, 5, 4),
-                  mode='r+', order='F', offset=4)
+    a = np.memmap(
+        filename, dtype=np.float64, shape=(3, 5, 4), mode="r+", order="F", offset=4
+    )
     a[:] = np.arange(60).reshape(a.shape)
 
     # Build various views that share the buffer with the original memmap
@@ -100,7 +106,7 @@ def test_memmap_based_array_reducing(tmpdir):
     d = c.T
 
     # Array reducer with auto dumping disabled
-    reducer = ArrayMemmapForwardReducer(None, tmpdir.strpath, 'c', True)
+    reducer = ArrayMemmapForwardReducer(None, tmpdir.strpath, "c", True)
 
     def reconstruct_array_or_memmap(x):
         cons, args = reducer(x)
@@ -147,13 +153,15 @@ def test_memmap_based_array_reducing(tmpdir):
     assert_array_equal(b3_reconstructed, b3)
 
 
+@with_numpy
 @with_multiprocessing
-@skipif((sys.platform != "win32") or (),
-        reason="PermissionError only easily triggerable on Windows")
+@skipif(
+    sys.platform != "win32", reason="PermissionError only easily triggerable on Windows"
+)
 def test_resource_tracker_retries_when_permissionerror(tmpdir):
     # Test resource_tracker retry mechanism when unlinking memmaps.  See more
     # thorough information in the ``unlink_file`` documentation of joblib.
-    filename = tmpdir.join('test.mmap').strpath
+    filename = tmpdir.join("test.mmap").strpath
     cmd = """if 1:
     import os
     import numpy as np
@@ -184,13 +192,14 @@ def test_resource_tracker_retries_when_permissionerror(tmpdir):
     # up the memmap
     time.sleep(2)
     """.format(filename=filename)
-    p = subprocess.Popen([sys.executable, '-c', cmd], stderr=subprocess.PIPE,
-                         stdout=subprocess.PIPE)
+    p = subprocess.Popen(
+        [sys.executable, "-c", cmd], stderr=subprocess.PIPE, stdout=subprocess.PIPE
+    )
     p.wait()
     out, err = p.communicate()
-    assert p.returncode == 0
-    assert out == b''
-    msg = 'tried to unlink {}, got PermissionError'.format(filename)
+    assert p.returncode == 0, err.decode()
+    assert out == b""
+    msg = "tried to unlink {}, got PermissionError".format(filename)
     assert msg in err.decode()
 
 
@@ -199,11 +208,10 @@ def test_resource_tracker_retries_when_permissionerror(tmpdir):
 def test_high_dimension_memmap_array_reducing(tmpdir):
     assert_array_equal = np.testing.assert_array_equal
 
-    filename = tmpdir.join('test.mmap').strpath
+    filename = tmpdir.join("test.mmap").strpath
 
     # Create a high dimensional memmap
-    a = np.memmap(filename, dtype=np.float64, shape=(100, 15, 15, 3),
-                  mode='w+')
+    a = np.memmap(filename, dtype=np.float64, shape=(100, 15, 15, 3), mode="w+")
     a[:] = np.arange(100 * 15 * 15 * 3).reshape(a.shape)
 
     # Create some slices/indices at various dimensions
@@ -213,7 +221,7 @@ def test_high_dimension_memmap_array_reducing(tmpdir):
     e = a[1:3:4]
 
     # Array reducer with auto dumping disabled
-    reducer = ArrayMemmapForwardReducer(None, tmpdir.strpath, 'c', True)
+    reducer = ArrayMemmapForwardReducer(None, tmpdir.strpath, "c", True)
 
     def reconstruct_array_or_memmap(x):
         cons, args = reducer(x)
@@ -243,54 +251,72 @@ def test_high_dimension_memmap_array_reducing(tmpdir):
 
 @with_numpy
 def test__strided_from_memmap(tmpdir):
-    fname = tmpdir.join('test.mmap').strpath
+    fname = tmpdir.join("test.mmap").strpath
     size = 5 * mmap.ALLOCATIONGRANULARITY
     offset = mmap.ALLOCATIONGRANULARITY + 1
     # This line creates the mmap file that is reused later
-    memmap_obj = np.memmap(fname, mode='w+', shape=size + offset)
+    memmap_obj = np.memmap(fname, mode="w+", shape=size + offset)
     # filename, dtype, mode, offset, order, shape, strides, total_buffer_len
-    memmap_obj = _strided_from_memmap(fname, dtype='uint8', mode='r',
-                                      offset=offset, order='C', shape=size,
-                                      strides=None, total_buffer_len=None,
-                                      unlink_on_gc_collect=False)
+    memmap_obj = _strided_from_memmap(
+        fname,
+        dtype="uint8",
+        mode="r",
+        offset=offset,
+        order="C",
+        shape=size,
+        strides=None,
+        total_buffer_len=None,
+        unlink_on_gc_collect=False,
+    )
     assert isinstance(memmap_obj, np.memmap)
     assert memmap_obj.offset == offset
     memmap_backed_obj = _strided_from_memmap(
-        fname, dtype='uint8', mode='r', offset=offset, order='C',
-        shape=(size // 2,), strides=(2,), total_buffer_len=size,
-        unlink_on_gc_collect=False
+        fname,
+        dtype="uint8",
+        mode="r",
+        offset=offset,
+        order="C",
+        shape=(size // 2,),
+        strides=(2,),
+        total_buffer_len=size,
+        unlink_on_gc_collect=False,
     )
     assert _get_backing_memmap(memmap_backed_obj).offset == offset
 
 
 @with_numpy
 @with_multiprocessing
-@parametrize("factory", [MemmappingPool, TestExecutor.get_memmapping_executor],
-             ids=["multiprocessing", "loky"])
+@parametrize(
+    "factory",
+    [MemmappingPool, TestExecutor.get_memmapping_executor],
+    ids=["multiprocessing", "loky"],
+)
 def test_pool_with_memmap(factory, tmpdir):
     """Check that subprocess can access and update shared memory memmap"""
     assert_array_equal = np.testing.assert_array_equal
 
     # Fork the subprocess before allocating the objects to be passed
-    pool_temp_folder = tmpdir.mkdir('pool').strpath
+    pool_temp_folder = tmpdir.mkdir("pool").strpath
     p = factory(10, max_nbytes=2, temp_folder=pool_temp_folder)
     try:
-        filename = tmpdir.join('test.mmap').strpath
-        a = np.memmap(filename, dtype=np.float32, shape=(3, 5), mode='w+')
+        filename = tmpdir.join("test.mmap").strpath
+        a = np.memmap(filename, dtype=np.float32, shape=(3, 5), mode="w+")
         a.fill(1.0)
 
-        p.map(inplace_double, [(a, (i, j), 1.0)
-                               for i in range(a.shape[0])
-                               for j in range(a.shape[1])])
+        p.map(
+            inplace_double,
+            [(a, (i, j), 1.0) for i in range(a.shape[0]) for j in range(a.shape[1])],
+        )
 
         assert_array_equal(a, 2 * np.ones(a.shape))
 
         # Open a copy-on-write view on the previous data
-        b = np.memmap(filename, dtype=np.float32, shape=(5, 3), mode='c')
+        b = np.memmap(filename, dtype=np.float32, shape=(5, 3), mode="c")
 
-        p.map(inplace_double, [(b, (i, j), 2.0)
-                               for i in range(b.shape[0])
-                               for j in range(b.shape[1])])
+        p.map(
+            inplace_double,
+            [(b, (i, j), 2.0) for i in range(b.shape[0]) for j in range(b.shape[1])],
+        )
 
         # Passing memmap instances to the pool should not trigger the creation
         # of new files on the FS
@@ -301,8 +327,7 @@ def test_pool_with_memmap(factory, tmpdir):
         assert_array_equal(b, 2 * np.ones(b.shape))
 
         # readonly maps can be read but not updated
-        c = np.memmap(filename, dtype=np.float32, shape=(10,), mode='r',
-                      offset=5 * 4)
+        c = np.memmap(filename, dtype=np.float32, shape=(10,), mode="r", offset=5 * 4)
 
         with raises(AssertionError):
             p.map(check_array, [(c, i, 3.0) for i in range(c.shape[0])])
@@ -319,19 +344,21 @@ def test_pool_with_memmap(factory, tmpdir):
 
 @with_numpy
 @with_multiprocessing
-@parametrize("factory", [MemmappingPool, TestExecutor.get_memmapping_executor],
-             ids=["multiprocessing", "loky"])
+@parametrize(
+    "factory",
+    [MemmappingPool, TestExecutor.get_memmapping_executor],
+    ids=["multiprocessing", "loky"],
+)
 def test_pool_with_memmap_array_view(factory, tmpdir):
     """Check that subprocess can access and update shared memory array"""
     assert_array_equal = np.testing.assert_array_equal
 
     # Fork the subprocess before allocating the objects to be passed
-    pool_temp_folder = tmpdir.mkdir('pool').strpath
+    pool_temp_folder = tmpdir.mkdir("pool").strpath
     p = factory(10, max_nbytes=2, temp_folder=pool_temp_folder)
     try:
-
-        filename = tmpdir.join('test.mmap').strpath
-        a = np.memmap(filename, dtype=np.float32, shape=(3, 5), mode='w+')
+        filename = tmpdir.join("test.mmap").strpath
+        a = np.memmap(filename, dtype=np.float32, shape=(3, 5), mode="w+")
         a.fill(1.0)
 
         # Create an ndarray view on the memmap instance
@@ -339,9 +366,14 @@ def test_pool_with_memmap_array_view(factory, tmpdir):
         assert not isinstance(a_view, np.memmap)
         assert has_shareable_memory(a_view)
 
-        p.map(inplace_double, [(a_view, (i, j), 1.0)
-                               for i in range(a.shape[0])
-                               for j in range(a.shape[1])])
+        p.map(
+            inplace_double,
+            [
+                (a_view, (i, j), 1.0)
+                for i in range(a.shape[0])
+                for j in range(a.shape[1])
+            ],
+        )
 
         # Both a and the a_view have been updated
         assert_array_equal(a, 2 * np.ones(a.shape))
@@ -384,8 +416,9 @@ def test_permission_error_windows_reference_cycle(backend):
                 delayed(len)(current_list) for i in range(10))
             assert results == [1] * 10
     """.format(b=backend)
-    p = subprocess.Popen([sys.executable, '-c', cmd], stderr=subprocess.PIPE,
-                         stdout=subprocess.PIPE)
+    p = subprocess.Popen(
+        [sys.executable, "-c", cmd], stderr=subprocess.PIPE, stdout=subprocess.PIPE
+    )
     p.wait()
     out, err = p.communicate()
     assert p.returncode == 0, out.decode() + "\n\n" + err.decode()
@@ -401,7 +434,7 @@ def test_permission_error_windows_memmap_sent_to_parent(backend):
     # arrays when sending the data back to the parent process. This would lead
     # to permission errors on windows when deleting joblib's temporary folder,
     # as the memmaped files handles would still opened in the parent process.
-    cmd = '''if 1:
+    cmd = """if 1:
         import os
         import time
 
@@ -421,24 +454,22 @@ def test_permission_error_windows_memmap_sent_to_parent(backend):
 
             slice_of_data = Parallel(n_jobs=2, verbose=5, backend='{b}')(
                 delayed(return_slice_of_data)(data, 0, 20) for _ in range(10))
-    '''.format(b=backend)
+    """.format(b=backend)
 
     for _ in range(3):
         env = os.environ.copy()
-        env['PYTHONPATH'] = os.path.dirname(__file__)
-        p = subprocess.Popen([sys.executable, '-c', cmd],
-                             stderr=subprocess.PIPE,
-                             stdout=subprocess.PIPE, env=env)
+        env["PYTHONPATH"] = os.path.dirname(__file__)
+        p = subprocess.Popen(
+            [sys.executable, "-c", cmd],
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            env=env,
+        )
         p.wait()
         out, err = p.communicate()
         assert p.returncode == 0, err
-        assert out == b''
-        if sys.version_info[:3] not in [(3, 8, 0), (3, 8, 1)]:
-            # In early versions of Python 3.8, a reference leak
-            # https://github.com/cloudpipe/cloudpickle/issues/327, holds
-            # references to pickled objects, generating race condition during
-            # cleanup finalizers of joblib and noisy resource_tracker outputs.
-            assert b'resource_tracker' not in err
+        assert out == b""
+        assert b"resource_tracker" not in err
 
 
 @with_numpy
@@ -449,10 +480,10 @@ def test_parallel_isolated_temp_folders(backend):
     # for the loky backend that reuses its executor instance across calls.
     array = np.arange(int(1e2))
     [filename_1] = Parallel(n_jobs=2, backend=backend, max_nbytes=10)(
-        delayed(getattr)(array, 'filename') for _ in range(1)
+        delayed(getattr)(array, "filename") for _ in range(1)
     )
     [filename_2] = Parallel(n_jobs=2, backend=backend, max_nbytes=10)(
-        delayed(getattr)(array, 'filename') for _ in range(1)
+        delayed(getattr)(array, "filename") for _ in range(1)
     )
     assert os.path.dirname(filename_2) != os.path.dirname(filename_1)
 
@@ -464,12 +495,8 @@ def test_managed_backend_reuse_temp_folder(backend):
     # Test that calls to a managed parallel object reuse the same memmaps.
     array = np.arange(int(1e2))
     with Parallel(n_jobs=2, backend=backend, max_nbytes=10) as p:
-        [filename_1] = p(
-            delayed(getattr)(array, 'filename') for _ in range(1)
-        )
-        [filename_2] = p(
-            delayed(getattr)(array, 'filename') for _ in range(1)
-        )
+        [filename_1] = p(delayed(getattr)(array, "filename") for _ in range(1))
+        [filename_2] = p(delayed(getattr)(array, "filename") for _ in range(1))
     assert os.path.dirname(filename_2) == os.path.dirname(filename_1)
 
 
@@ -487,11 +514,9 @@ def test_memmapping_temp_folder_thread_safety():
     temp_dirs_thread_2 = set()
 
     def concurrent_get_filename(array, temp_dirs):
-        with Parallel(backend='loky', n_jobs=2, max_nbytes=10) as p:
+        with Parallel(backend="loky", n_jobs=2, max_nbytes=10) as p:
             for i in range(10):
-                [filename] = p(
-                    delayed(getattr)(array, 'filename') for _ in range(1)
-                )
+                [filename] = p(delayed(getattr)(array, "filename") for _ in range(1))
                 temp_dirs.add(os.path.dirname(filename))
 
     t1 = threading.Thread(
@@ -520,7 +545,7 @@ def test_multithreaded_parallel_termination_resource_tracker_silent():
     # emit any spurious error from the resource_tracker. We test various
     # situations making 0, 1 or both parallel call sending a task that will
     # make the worker (and thus the whole Parallel call) error out.
-    cmd = '''if 1:
+    cmd = """if 1:
         import os
         import numpy as np
         from joblib import Parallel, delayed
@@ -569,19 +594,22 @@ def test_multithreaded_parallel_termination_resource_tracker_silent():
 
         future_1.result()
         future_2.result()
-    '''
+    """
     functions_and_returncodes = [
         ("parallel_get_filename", "parallel_get_filename", 0),
         ("parallel_get_filename", "parallel_raise", 1),
-        ("parallel_raise", "parallel_raise", 1)
+        ("parallel_raise", "parallel_raise", 1),
     ]
 
     for f1, f2, returncode in functions_and_returncodes:
-        p = subprocess.Popen([sys.executable, '-c', cmd.format(f1=f1, f2=f2)],
-                             stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+        p = subprocess.Popen(
+            [sys.executable, "-c", cmd.format(f1=f1, f2=f2)],
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+        )
         p.wait()
-        out, err = p.communicate()
-        assert p.returncode == returncode, out.decode()
+        _, err = p.communicate()
+        assert p.returncode == returncode, err.decode()
         assert b"resource_tracker" not in err, err.decode()
 
 
@@ -594,7 +622,7 @@ def test_many_parallel_calls_on_same_object(backend):
     # temporary resources management with the resource_tracker. This is a
     # non-regression test that makes sure that consecutive Parallel operations
     # on the same object do not error out.
-    cmd = '''if 1:
+    cmd = """if 1:
         import os
         import time
 
@@ -612,25 +640,20 @@ def test_many_parallel_calls_on_same_object(backend):
                         delayed(return_slice_of_data)(data, 0, 20)
                         for _ in range(10)
                     )
-    '''.format(b=backend)
+    """.format(b=backend)
     env = os.environ.copy()
-    env['PYTHONPATH'] = os.path.dirname(__file__)
+    env["PYTHONPATH"] = os.path.dirname(__file__)
     p = subprocess.Popen(
-        [sys.executable, '-c', cmd],
+        [sys.executable, "-c", cmd],
         stderr=subprocess.PIPE,
         stdout=subprocess.PIPE,
         env=env,
     )
     p.wait()
     out, err = p.communicate()
-    assert p.returncode == 0, err
-    assert out == b''
-    if sys.version_info[:3] not in [(3, 8, 0), (3, 8, 1)]:
-        # In early versions of Python 3.8, a reference leak
-        # https://github.com/cloudpipe/cloudpickle/issues/327, holds
-        # references to pickled objects, generating race condition during
-        # cleanup finalizers of joblib and noisy resource_tracker outputs.
-        assert b'resource_tracker' not in err
+    assert p.returncode == 0, err.decode()
+    assert out == b"", out.decode()
+    assert b"resource_tracker" not in err
 
 
 @with_numpy
@@ -640,7 +663,8 @@ def test_memmap_returned_as_regular_array(backend):
     data = np.ones(int(1e3))
     # Check that child processes send temporary memmaps back as numpy arrays.
     [result] = Parallel(n_jobs=2, backend=backend, max_nbytes=100)(
-        delayed(check_memmap_and_send_back)(data) for _ in range(1))
+        delayed(check_memmap_and_send_back)(data) for _ in range(1)
+    )
     assert _get_backing_memmap(result) is None
 
 
@@ -661,7 +685,7 @@ def test_resource_tracker_silent_when_reference_cycles(backend):
     #
     # Note that the script in ``cmd`` is the exact same script as in
     # test_permission_error_windows_reference_cycle.
-    if backend == "loky" and sys.platform.startswith('win'):
+    if backend == "loky" and sys.platform.startswith("win"):
         # XXX: on Windows, reference cycles can delay timely garbage collection
         # and make it impossible to properly delete the temporary folder in the
         # main process because of permission errors.
@@ -689,8 +713,9 @@ def test_resource_tracker_silent_when_reference_cycles(backend):
                 delayed(len)(current_list) for i in range(10))
             assert results == [1] * 10
     """.format(b=backend)
-    p = subprocess.Popen([sys.executable, '-c', cmd], stderr=subprocess.PIPE,
-                         stdout=subprocess.PIPE)
+    p = subprocess.Popen(
+        [sys.executable, "-c", cmd], stderr=subprocess.PIPE, stdout=subprocess.PIPE
+    )
     p.wait()
     out, err = p.communicate()
     out = out.decode()
@@ -701,8 +726,11 @@ def test_resource_tracker_silent_when_reference_cycles(backend):
 
 @with_numpy
 @with_multiprocessing
-@parametrize("factory", [MemmappingPool, TestExecutor.get_memmapping_executor],
-             ids=["multiprocessing", "loky"])
+@parametrize(
+    "factory",
+    [MemmappingPool, TestExecutor.get_memmapping_executor],
+    ids=["multiprocessing", "loky"],
+)
 def test_memmapping_pool_for_large_arrays(factory, tmpdir):
     """Check that large arrays are not copied in memory"""
 
@@ -737,7 +765,7 @@ def test_memmapping_pool_for_large_arrays(factory, tmpdir):
 
         # Check that memory mapping is not triggered for arrays with
         # dtype='object'
-        objects = np.array(['abc'] * 100, dtype='object')
+        objects = np.array(["abc"] * 100, dtype="object")
         results = p.map(has_shareable_memory, [objects])
         assert not results[0]
 
@@ -745,12 +773,12 @@ def test_memmapping_pool_for_large_arrays(factory, tmpdir):
         # check FS garbage upon pool termination
         p.terminate()
         for i in range(10):
-            sleep(.1)
+            sleep(0.1)
             if not os.path.exists(p._temp_folder):
                 break
         else:  # pragma: no cover
             raise AssertionError(
-                'temporary folder {} was not deleted'.format(p._temp_folder)
+                "temporary folder {} was not deleted".format(p._temp_folder)
             )
         del p
 
@@ -763,11 +791,11 @@ def test_memmapping_pool_for_large_arrays(factory, tmpdir):
         pytest.param(
             "multiprocessing",
             marks=pytest.mark.xfail(
-                reason='https://github.com/joblib/joblib/issues/1086'
+                reason="https://github.com/joblib/joblib/issues/1086"
             ),
         ),
         "loky",
-    ]
+    ],
 )
 def test_child_raises_parent_exits_cleanly(backend):
     # When a task executed by a child process raises an error, the parent
@@ -831,28 +859,34 @@ def test_child_raises_parent_exits_cleanly(backend):
                     ) from e
     """.format(b=backend)
     env = os.environ.copy()
-    env['PYTHONPATH'] = os.path.dirname(__file__)
-    p = subprocess.Popen([sys.executable, '-c', cmd], stderr=subprocess.PIPE,
-                         stdout=subprocess.PIPE, env=env)
+    env["PYTHONPATH"] = os.path.dirname(__file__)
+    p = subprocess.Popen(
+        [sys.executable, "-c", cmd],
+        stderr=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        env=env,
+    )
     p.wait()
     out, err = p.communicate()
     out, err = out.decode(), err.decode()
-    filename = out.split('\n')[0]
+    filename = out.split("\n")[0]
     assert p.returncode == 0, err or out
-    assert err == ''  # no resource_tracker warnings.
+    assert err == ""  # no resource_tracker warnings.
     assert not os.path.exists(filename)
 
 
 @with_numpy
 @with_multiprocessing
-@parametrize("factory", [MemmappingPool, TestExecutor.get_memmapping_executor],
-             ids=["multiprocessing", "loky"])
+@parametrize(
+    "factory",
+    [MemmappingPool, TestExecutor.get_memmapping_executor],
+    ids=["multiprocessing", "loky"],
+)
 def test_memmapping_pool_for_large_arrays_disabled(factory, tmpdir):
     """Check that large arrays memmapping can be disabled"""
     # Set max_nbytes to None to disable the auto memmapping feature
     p = factory(3, max_nbytes=None, temp_folder=tmpdir.strpath)
     try:
-
         # Check that the tempfolder is empty
         assert os.listdir(tmpdir.strpath) == []
 
@@ -873,8 +907,11 @@ def test_memmapping_pool_for_large_arrays_disabled(factory, tmpdir):
 @with_numpy
 @with_multiprocessing
 @with_dev_shm
-@parametrize("factory", [MemmappingPool, TestExecutor.get_memmapping_executor],
-             ids=["multiprocessing", "loky"])
+@parametrize(
+    "factory",
+    [MemmappingPool, TestExecutor.get_memmapping_executor],
+    ids=["multiprocessing", "loky"],
+)
 def test_memmapping_on_large_enough_dev_shm(factory):
     """Check that memmapping uses /dev/shm when possible"""
     orig_size = jmr.SYSTEM_SHARED_MEM_FS_MIN_SIZE
@@ -888,7 +925,7 @@ def test_memmapping_on_large_enough_dev_shm(factory):
             # Check that the pool has correctly detected the presence of the
             # shared memory filesystem.
             pool_temp_folder = p._temp_folder
-            folder_prefix = '/dev/shm/joblib_memmapping_folder_'
+            folder_prefix = "/dev/shm/joblib_memmapping_folder_"
             assert pool_temp_folder.startswith(folder_prefix)
             assert os.path.exists(pool_temp_folder)
 
@@ -917,9 +954,9 @@ def test_memmapping_on_large_enough_dev_shm(factory):
             # The temp folder is cleaned up upon pool termination
             if not os.path.exists(pool_temp_folder):
                 break
-            sleep(.1)
+            sleep(0.1)
         else:  # pragma: no cover
-            raise AssertionError('temporary folder of pool was not deleted')
+            raise AssertionError("temporary folder of pool was not deleted")
     finally:
         jmr.SYSTEM_SHARED_MEM_FS_MIN_SIZE = orig_size
 
@@ -927,8 +964,11 @@ def test_memmapping_on_large_enough_dev_shm(factory):
 @with_numpy
 @with_multiprocessing
 @with_dev_shm
-@parametrize("factory", [MemmappingPool, TestExecutor.get_memmapping_executor],
-             ids=["multiprocessing", "loky"])
+@parametrize(
+    "factory",
+    [MemmappingPool, TestExecutor.get_memmapping_executor],
+    ids=["multiprocessing", "loky"],
+)
 def test_memmapping_on_too_small_dev_shm(factory):
     orig_size = jmr.SYSTEM_SHARED_MEM_FS_MIN_SIZE
     try:
@@ -941,7 +981,7 @@ def test_memmapping_on_too_small_dev_shm(factory):
             # Check that the pool has correctly detected the presence of the
             # shared memory filesystem.
             pool_temp_folder = p._temp_folder
-            assert not pool_temp_folder.startswith('/dev/shm')
+            assert not pool_temp_folder.startswith("/dev/shm")
         finally:
             # Cleanup open file descriptors
             p.terminate()
@@ -955,8 +995,11 @@ def test_memmapping_on_too_small_dev_shm(factory):
 
 @with_numpy
 @with_multiprocessing
-@parametrize("factory", [MemmappingPool, TestExecutor.get_memmapping_executor],
-             ids=["multiprocessing", "loky"])
+@parametrize(
+    "factory",
+    [MemmappingPool, TestExecutor.get_memmapping_executor],
+    ids=["multiprocessing", "loky"],
+)
 def test_memmapping_pool_for_large_arrays_in_return(factory, tmpdir):
     """Check that large arrays are not copied in memory in return"""
     assert_array_equal = np.testing.assert_array_equal
@@ -987,8 +1030,11 @@ def _worker_multiply(a, n_times):
 
 @with_numpy
 @with_multiprocessing
-@parametrize("factory", [MemmappingPool, TestExecutor.get_memmapping_executor],
-             ids=["multiprocessing", "loky"])
+@parametrize(
+    "factory",
+    [MemmappingPool, TestExecutor.get_memmapping_executor],
+    ids=["multiprocessing", "loky"],
+)
 def test_workaround_against_bad_memmap_with_copied_buffers(factory, tmpdir):
     """Check that memmaps with a bad buffer are returned as regular arrays
 
@@ -1001,8 +1047,7 @@ def test_workaround_against_bad_memmap_with_copied_buffers(factory, tmpdir):
     try:
         # Send a complex, large-ish view on a array that will be converted to
         # a memmap in the worker process
-        a = np.asarray(np.arange(6000).reshape((1000, 2, 3)),
-                       order='F')[:, :1, :]
+        a = np.asarray(np.arange(6000).reshape((1000, 2, 3)), order="F")[:, :1, :]
 
         # Call a non-inplace multiply operation on the worker and memmap and
         # send it back to the parent.
@@ -1022,20 +1067,25 @@ def identity(arg):
 @with_multiprocessing
 @parametrize(
     "factory,retry_no",
-    list(itertools.product(
-        [MemmappingPool, TestExecutor.get_memmapping_executor], range(3))),
-    ids=['{}, {}'.format(x, y) for x, y in itertools.product(
-        ["multiprocessing", "loky"], map(str, range(3)))])
+    list(
+        itertools.product(
+            [MemmappingPool, TestExecutor.get_memmapping_executor], range(3)
+        )
+    ),
+    ids=[
+        "{}, {}".format(x, y)
+        for x, y in itertools.product(["multiprocessing", "loky"], map(str, range(3)))
+    ],
+)
 def test_pool_memmap_with_big_offset(factory, retry_no, tmpdir):
     # Test that numpy memmap offset is set correctly if greater than
     # mmap.ALLOCATIONGRANULARITY, see
     # https://github.com/joblib/joblib/issues/451 and
     # https://github.com/numpy/numpy/pull/8443 for more details.
-    fname = tmpdir.join('test.mmap').strpath
+    fname = tmpdir.join("test.mmap").strpath
     size = 5 * mmap.ALLOCATIONGRANULARITY
     offset = mmap.ALLOCATIONGRANULARITY + 1
-    obj = make_memmap(fname, mode='w+', shape=size, dtype='uint8',
-                      offset=offset)
+    obj = make_memmap(fname, mode="w+", shape=size, dtype="uint8", offset=offset)
 
     p = factory(2, temp_folder=tmpdir.strpath)
     result = p.apply_async(identity, args=(obj,)).get()
@@ -1046,13 +1096,13 @@ def test_pool_memmap_with_big_offset(factory, retry_no, tmpdir):
 
 
 def test_pool_get_temp_dir(tmpdir):
-    pool_folder_name = 'test.tmpdir'
+    pool_folder_name = "test.tmpdir"
     pool_folder, shared_mem = _get_temp_dir(pool_folder_name, tmpdir.strpath)
     assert shared_mem is False
-    assert pool_folder == tmpdir.join('test.tmpdir').strpath
+    assert pool_folder == tmpdir.join("test.tmpdir").strpath
 
     pool_folder, shared_mem = _get_temp_dir(pool_folder_name, temp_folder=None)
-    if sys.platform.startswith('win'):
+    if sys.platform.startswith("win"):
         assert shared_mem is False
     assert pool_folder.endswith(pool_folder_name)
 
@@ -1062,31 +1112,34 @@ def test_pool_get_temp_dir_no_statvfs(tmpdir, monkeypatch):
 
     Regression test for #902
     """
-    pool_folder_name = 'test.tmpdir'
+    pool_folder_name = "test.tmpdir"
     import joblib._memmapping_reducer
-    if hasattr(joblib._memmapping_reducer.os, 'statvfs'):
+
+    if hasattr(joblib._memmapping_reducer.os, "statvfs"):
         # We are on Unix, since Windows doesn't have this function
-        monkeypatch.delattr(joblib._memmapping_reducer.os, 'statvfs')
+        monkeypatch.delattr(joblib._memmapping_reducer.os, "statvfs")
 
     pool_folder, shared_mem = _get_temp_dir(pool_folder_name, temp_folder=None)
-    if sys.platform.startswith('win'):
+    if sys.platform.startswith("win"):
         assert shared_mem is False
     assert pool_folder.endswith(pool_folder_name)
 
 
 @with_numpy
-@skipif(sys.platform == 'win32', reason='This test fails with a '
-        'PermissionError on Windows')
+@skipif(
+    sys.platform == "win32", reason="This test fails with a PermissionError on Windows"
+)
 @parametrize("mmap_mode", ["r+", "w+"])
 def test_numpy_arrays_use_different_memory(mmap_mode):
     def func(arr, value):
         arr[:] = value
         return arr
 
-    arrays = [np.zeros((10, 10), dtype='float64') for i in range(10)]
+    arrays = [np.zeros((10, 10), dtype="float64") for i in range(10)]
 
     results = Parallel(mmap_mode=mmap_mode, max_nbytes=0, n_jobs=2)(
-        delayed(func)(arr, i) for i, arr in enumerate(arrays))
+        delayed(func)(arr, i) for i, arr in enumerate(arrays)
+    )
 
     for i, arr in enumerate(results):
         np.testing.assert_array_equal(arr, i)
@@ -1094,37 +1147,36 @@ def test_numpy_arrays_use_different_memory(mmap_mode):
 
 @with_numpy
 def test_weak_array_key_map():
-
     def assert_empty_after_gc_collect(container, retries=100):
         for i in range(retries):
             if len(container) == 0:
                 return
             gc.collect()
-            sleep(.1)
+            sleep(0.1)
         assert len(container) == 0
 
     a = np.ones(42)
     m = _WeakArrayKeyMap()
-    m.set(a, 'a')
-    assert m.get(a) == 'a'
+    m.set(a, "a")
+    assert m.get(a) == "a"
 
     b = a
-    assert m.get(b) == 'a'
-    m.set(b, 'b')
-    assert m.get(a) == 'b'
+    assert m.get(b) == "a"
+    m.set(b, "b")
+    assert m.get(a) == "b"
 
     del a
     gc.collect()
     assert len(m._data) == 1
-    assert m.get(b) == 'b'
+    assert m.get(b) == "b"
 
     del b
     assert_empty_after_gc_collect(m._data)
 
     c = np.ones(42)
-    m.set(c, 'c')
+    m.set(c, "c")
     assert len(m._data) == 1
-    assert m.get(c) == 'c'
+    assert m.get(c) == "c"
 
     with raises(KeyError):
         m.get(np.ones(42))
@@ -1143,13 +1195,13 @@ def test_weak_array_key_map():
         return id(a)
 
     unique_ids = set([get_set_get_collect(m, i) for i in range(1000)])
-    if platform.python_implementation() == 'CPython':
+    if platform.python_implementation() == "CPython":
         # On CPython (at least) the same id is often reused many times for the
         # temporary arrays created under the local scope of the
         # get_set_get_collect function without causing any spurious lookups /
-        # insertions in the map. Apparently on Python nogil, the id is not
-        # reused as often.
-        max_len_unique_ids = 400 if getattr(sys.flags, 'nogil', False) else 100
+        # insertions in the map. Apparently on free-threaded Python, the id is
+        # not reused as often.
+        max_len_unique_ids = 400 if IS_GIL_DISABLED else 100
         assert len(unique_ids) < max_len_unique_ids
 
 
@@ -1162,8 +1214,8 @@ def test_weak_array_key_map_no_pickling():
 @with_numpy
 @with_multiprocessing
 def test_direct_mmap(tmpdir):
-    testfile = str(tmpdir.join('arr.dat'))
-    a = np.arange(10, dtype='uint8')
+    testfile = str(tmpdir.join("arr.dat"))
+    a = np.arange(10, dtype="uint8")
     a.tofile(testfile)
 
     def _read_array():

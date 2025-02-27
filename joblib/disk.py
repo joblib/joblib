@@ -7,15 +7,12 @@ Disk management utilities.
 # Copyright (c) 2010 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
-
+import errno
 import os
+import shutil
 import sys
 import time
-import errno
-import shutil
-
 from multiprocessing import util
-
 
 try:
     WindowsError
@@ -24,11 +21,11 @@ except NameError:
 
 
 def disk_used(path):
-    """ Return the disk usage in a directory."""
+    """Return the disk usage in a directory."""
     size = 0
-    for file in os.listdir(path) + ['.']:
+    for file in os.listdir(path) + ["."]:
         stat = os.stat(os.path.join(path, file))
-        if hasattr(stat, 'st_blocks'):
+        if hasattr(stat, "st_blocks"):
             size += stat.st_blocks * 512
         else:
             # on some platform st_blocks is not available (e.g., Windows)
@@ -36,20 +33,20 @@ def disk_used(path):
             size += (stat.st_size // 512 + 1) * 512
     # We need to convert to int to avoid having longs on some systems (we
     # don't want longs to avoid problems we SQLite)
-    return int(size / 1024.)
+    return int(size / 1024.0)
 
 
 def memstr_to_bytes(text):
-    """ Convert a memory text to its value in bytes.
-    """
+    """Convert a memory text to its value in bytes."""
     kilo = 1024
-    units = dict(K=kilo, M=kilo ** 2, G=kilo ** 3)
+    units = dict(K=kilo, M=kilo**2, G=kilo**3)
     try:
         size = int(units[text[-1]] * float(text[:-1]))
     except (KeyError, ValueError) as e:
         raise ValueError(
             "Invalid literal for size give: %s (type %s) should be "
-            "alike '10G', '500M', '50K'." % (text, type(text))) from e
+            "alike '10G', '500M', '50K'." % (text, type(text))
+        ) from e
     return size
 
 
@@ -115,16 +112,14 @@ def delete_folder(folder_path, onerror=None, allow_non_empty=True):
                 files = os.listdir(folder_path)
                 try:
                     if len(files) == 0 or allow_non_empty:
-                        shutil.rmtree(
-                            folder_path, ignore_errors=False, onerror=None
-                        )
-                        util.debug(
-                            "Successfully deleted {}".format(folder_path))
+                        shutil.rmtree(folder_path, ignore_errors=False, onerror=None)
+                        util.debug("Successfully deleted {}".format(folder_path))
                         break
                     else:
                         raise OSError(
-                            "Expected empty folder {} but got {} "
-                            "files.".format(folder_path, len(files))
+                            "Expected empty folder {} but got {} files.".format(
+                                folder_path, len(files)
+                            )
                         )
                 except (OSError, WindowsError):
                     err_count += 1

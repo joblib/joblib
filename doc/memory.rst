@@ -137,7 +137,7 @@ arrays::
     >>> a = np.vander(np.arange(3)).astype(float)
     >>> square(a)
     ________________________________________________________________________________
-    [Memory] Calling square...
+    [Memory] Calling numpy.square...
     square(array([[0., 0., 1.],
            [1., 1., 1.],
            [4., 2., 1.]]))
@@ -382,6 +382,26 @@ Gotchas
   ``numpy``): in such a case, only the cached function calls with parameters
   that are constructs (or contain references to constructs) defined in the
   upgraded library should potentially be invalidated after the upgrade.
+
+* **Cache-miss with objects that have non-reproducible pickle representations**.
+  The identifier of the cache entry is based on the pickle's representation of
+  the input arguments. Therefore, for objects that don't have a deterministic
+  pickle representation, or objects whose representation depends on the way they
+  are constructed, the cache will not work. In particular, ``pytorch.Tensor``
+  are known to have non-deterministic pickle representation (see this
+  `issue <https://github.com/pytorch/pytorch/issues/32165>`_). A good way
+  to debug this is to check that two calls to the following script with ``args``
+  and ``kwargs`` being the cached function's inputs give the same output::
+
+    from joblib import hash
+
+    for x in args:
+      print(f"{hash(x)}")
+    for k, x in kwargs.items():
+      print(f"hash({k})={hash(x)}")
+
+  To avoid this issue, a good practice is to use ``Memory.cache`` with
+  functions that take simple input arguments when possible.
 
 
 Ignoring some arguments
