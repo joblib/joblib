@@ -78,7 +78,8 @@ fi
 if [[ "$CYTHON" == "true" ]]; then
     pip install cython
     cd joblib/test/_openmp_test_helper
-    python setup.py build_ext -i
+    python -m build --wheel
+    pip install dist/*.whl
     cd ../../..
 fi
 
