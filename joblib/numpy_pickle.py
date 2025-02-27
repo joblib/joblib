@@ -4,33 +4,43 @@
 # Copyright (c) 2009 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
-import pickle
-import os
-import warnings
 import io
+import os
+import pickle
+import warnings
 from pathlib import Path
 
-from .compressor import lz4, LZ4_NOT_INSTALLED_ERROR
-from .compressor import _COMPRESSORS, register_compressor, BinaryZlibFile
+from .backports import make_memmap
 from .compressor import (
-    ZlibCompressorWrapper,
-    GzipCompressorWrapper,
+    _COMPRESSORS,
+    LZ4_NOT_INSTALLED_ERROR,
+    BinaryZlibFile,
     BZ2CompressorWrapper,
+    GzipCompressorWrapper,
+    LZ4CompressorWrapper,
     LZMACompressorWrapper,
     XZCompressorWrapper,
-    LZ4CompressorWrapper,
+    ZlibCompressorWrapper,
+    lz4,
+    register_compressor,
 )
-from .numpy_pickle_utils import Unpickler, Pickler
-from .numpy_pickle_utils import _read_fileobject, _write_fileobject
-from .numpy_pickle_utils import _read_bytes, BUFFER_SIZE
-from .numpy_pickle_utils import _ensure_native_byte_order
-from .numpy_pickle_compat import load_compatibility
-from .numpy_pickle_compat import NDArrayWrapper
 
 # For compatibility with old versions of joblib, we need ZNDArrayWrapper
 # to be visible in the current namespace.
-from .numpy_pickle_compat import ZNDArrayWrapper  # noqa: F401
-from .backports import make_memmap
+from .numpy_pickle_compat import (
+    NDArrayWrapper,
+    ZNDArrayWrapper,  # noqa: F401
+    load_compatibility,
+)
+from .numpy_pickle_utils import (
+    BUFFER_SIZE,
+    Pickler,
+    Unpickler,
+    _ensure_native_byte_order,
+    _read_bytes,
+    _read_fileobject,
+    _write_fileobject,
+)
 
 # Register supported compressors
 register_compressor("zlib", ZlibCompressorWrapper())
@@ -444,7 +454,7 @@ class NumpyUnpickler(Unpickler):
 # Utility functions
 
 
-def dump(value, filename, compress=0, protocol=None, cache_size=None):
+def dump(value, filename, compress=0, protocol=None):
     """Persist an arbitrary Python object into one file.
 
     Read more in the :ref:`User Guide <persistence>`.
@@ -470,8 +480,6 @@ def dump(value, filename, compress=0, protocol=None, cache_size=None):
         to the compression level.
     protocol: int, optional
         Pickle protocol, see pickle.dump documentation for more details.
-    cache_size: positive int, optional
-        This option is deprecated in 0.10 and has no effect.
 
     Returns
     -------
@@ -564,16 +572,6 @@ def dump(value, filename, compress=0, protocol=None, cache_size=None):
             # we choose the default compress_level in case it was not given
             # as an argument (using compress).
             compress_level = None
-
-    if cache_size is not None:
-        # Cache size is deprecated starting from version 0.10
-        warnings.warn(
-            "Please do not set 'cache_size' in joblib.dump, "
-            "this parameter has no effect and will be removed. "
-            "You used 'cache_size={}'".format(cache_size),
-            DeprecationWarning,
-            stacklevel=2,
-        )
 
     if compress_level != 0:
         with _write_fileobject(

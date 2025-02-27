@@ -48,7 +48,7 @@ jobs:
       matrix:
         name: [default]
         os: [ubuntu-latest, macos-latest, windows-latest]
-        PYTHON_VERSION: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
+        PYTHON_VERSION: ["3.9", "3.10", "3.11", "3.12", "3.13"]
         include:
           - name: test-sklearn
             os: ubuntu-latest
@@ -60,8 +60,8 @@ jobs:
             EXTRA_CONDA_PACKAGES: numpy distributed
           - name: distributed
             os: ubuntu-latest
-            PYTHON_VERSION: "3.8"
-            EXTRA_CONDA_PACKAGES: numpy=1.18.5 distributed=2021.5.0
+            PYTHON_VERSION: "3.9"
+            EXTRA_CONDA_PACKAGES: numpy=1.22.2 distributed=2023.1.1
           - name: numpy-1.24
             os: ubuntu-latest
             PYTHON_VERSION: "3.11"
@@ -69,13 +69,13 @@ jobs:
             CYTHON: true
           - name: no-multiprocessing
             os: ubuntu-latest
-            PYTHON_VERSION: "3.8"
-            EXTRA_CONDA_PACKAGES: numpy=1.16
+            PYTHON_VERSION: "3.9"
+            EXTRA_CONDA_PACKAGES: numpy=1.22.2
             JOBLIB_MULTIPROCESSING: "0"
             NO_LZMA: true
           - name: no-numpy
             os: ubuntu-latest
-            PYTHON_VERSION: "3.8"
+            PYTHON_VERSION: "3.9"
             NO_NUMPY: true
           - name: no-lz4
             os: ubuntu-latest
@@ -83,13 +83,8 @@ jobs:
             NO_LZ4: true
           - name: default-backend-threading
             os: ubuntu-latest
-            PYTHON_VERSION: "3.8"
+            PYTHON_VERSION: "3.9"
             JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND: "threading"
-          - name: pypy
-            os: ubuntu-latest
-            PYTHON_VERSION: "pypy3.10"
-            PYPY_VERSION: 7.3.13
-            LOKY_MAX_CPU_COUNT: 2
           - name: python-nogil
             os: 'ubuntu-latest'
             PYTHON_VERSION: "free-threaded-3.13"

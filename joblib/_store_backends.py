@@ -1,23 +1,23 @@
 """Storage providers backends for Memory caching."""
 
-from pickle import PicklingError
-import re
-import os
-import os.path
+import collections
 import datetime
 import json
+import operator
+import os
+import os.path
+import re
 import shutil
+import threading
 import time
 import warnings
-import collections
-import operator
-import threading
 from abc import ABCMeta, abstractmethod
+from pickle import PicklingError
 
-from .backports import concurrency_safe_rename
-from .disk import mkdirp, memstr_to_bytes, rm_subdirs
-from .logger import format_time
 from . import numpy_pickle
+from .backports import concurrency_safe_rename
+from .disk import memstr_to_bytes, mkdirp, rm_subdirs
+from .logger import format_time
 
 CacheItemInfo = collections.namedtuple("CacheItemInfo", "path size last_access")
 

@@ -46,7 +46,7 @@ Dependencies
 ============
 
 - Joblib has no mandatory dependencies besides Python (supported versions are
-  3.8+).
+  3.9+).
 - Joblib has an optional dependency on Numpy (at least version 1.6.1) for array
   manipulation.
 - Joblib includes its own vendored copy of
@@ -70,6 +70,16 @@ To contribute to joblib, first create an account on `github
 clone it using ``git clone``. Make your changes in a branch of your clone, push
 them to your github account, test them locally, and when you are happy with
 them, send a pull request to the main repository.
+
+You can use `pre-commit <https://pre-commit.com/#install>`_ to run code style checks
+before each commit::
+
+    pip install pre-commit
+    pre-commit install
+
+pre-commit checks can be disabled for a single commit with::
+
+    git commit -n
 
 Running the test suite
 ======================

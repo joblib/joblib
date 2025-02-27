@@ -6,23 +6,23 @@ Test the hashing module.
 # Copyright (c) 2009 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
-import time
-import hashlib
-import sys
-import gc
-import io
 import collections
+import gc
+import hashlib
+import io
 import itertools
 import pickle
 import random
+import sys
+import time
 from concurrent.futures import ProcessPoolExecutor
 from decimal import Decimal
 
-from joblib.hashing import hash
 from joblib.func_inspect import filter_args
+from joblib.hashing import hash
 from joblib.memory import Memory
-from joblib.testing import raises, skipif, fixture, parametrize
 from joblib.test.common import np, with_numpy
+from joblib.testing import fixture, parametrize, raises, skipif
 
 
 def unicode(s):

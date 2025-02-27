@@ -4,6 +4,9 @@ Latest changes
 In development
 --------------
 
+- Drop support for Python 3.8.
+  https://github.com/joblib/joblib/pull/1669
+
 - Enforce ``age_limit`` is a positive timedelta for ``Memory.reduce_size``,
   to avoid silently ignoring it.
   https://github.com/joblib/joblib/pull/1613
@@ -27,6 +30,8 @@ In development
 - Pretty printing of ``Parallel`` execution progress when the number of tasks is
   known. https://github.com/joblib/joblib/pull/1608
 
+- Drop support for PyPy.
+  https://github.com/joblib/joblib/pull/1670
 
 Release 1.4.2 -- 2024/05/02
 ---------------------------

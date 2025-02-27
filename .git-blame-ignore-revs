@@ -10,3 +10,6 @@
 
 # PR 1673: enable ruff formatting
 6066109bf0c2ea018aaf528aa1cff2cff6dca2cd
+
+# MNT Add isort to linting rules (#1679)
+17414db5183daa12157992834954d7a02dc00b63

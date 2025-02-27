@@ -8,8 +8,13 @@ Test the func_inspect module.
 
 import functools
 
-from joblib.func_inspect import filter_args, get_func_name, get_func_code
-from joblib.func_inspect import _clean_win_chars, format_signature
+from joblib.func_inspect import (
+    _clean_win_chars,
+    filter_args,
+    format_signature,
+    get_func_code,
+    get_func_name,
+)
 from joblib.memory import Memory
 from joblib.test.common import with_numpy
 from joblib.testing import fixture, parametrize, raises

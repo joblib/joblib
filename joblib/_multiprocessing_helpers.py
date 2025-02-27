@@ -7,15 +7,14 @@ circular dependencies (for instance for the assert_spawning name).
 import os
 import warnings
 
-
 # Obtain possible configuration from the environment, assuming 1 (on)
 # by default, upon 0 set to None. Should instructively fail if some non
 # 0/1 value is set.
 mp = int(os.environ.get("JOBLIB_MULTIPROCESSING", 1)) or None
 if mp:
     try:
-        import multiprocessing as mp
         import _multiprocessing  # noqa
+        import multiprocessing as mp
     except ImportError:
         mp = None
 

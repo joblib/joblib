@@ -111,31 +111,22 @@ __version__ = "1.5.dev0"
 
 import os
 
-from .memory import Memory
-from .memory import MemorizedResult
-from .memory import register_store_backend
-from .memory import expires_after
-
-from .logger import PrintTime
-from .logger import Logger
-
-from .hashing import hash
-
-from .numpy_pickle import dump
-from .numpy_pickle import load
-
-from .compressor import register_compressor
-
-from .parallel import Parallel
-from .parallel import delayed
-from .parallel import cpu_count
-from .parallel import register_parallel_backend
-from .parallel import parallel_backend
-from .parallel import parallel_config
-from .parallel import effective_n_jobs
 from ._cloudpickle_wrapper import wrap_non_picklable_objects
+from .compressor import register_compressor
+from .hashing import hash
+from .logger import Logger, PrintTime
+from .memory import MemorizedResult, Memory, expires_after, register_store_backend
+from .numpy_pickle import dump, load
+from .parallel import (
+    Parallel,
+    cpu_count,
+    delayed,
+    effective_n_jobs,
+    parallel_backend,
+    parallel_config,
+    register_parallel_backend,
+)
 from ._config import config_context, get_config, set_config
-
 
 __all__ = [
     "Memory",

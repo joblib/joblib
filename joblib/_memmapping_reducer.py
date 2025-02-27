@@ -5,20 +5,19 @@ Reducer using memory mapping for numpy arrays
 # Copyright: 2017, Thomas Moreau
 # License: BSD 3 clause
 
-from mmap import mmap
+import atexit
 import errno
 import os
 import stat
-import threading
-import atexit
 import tempfile
+import threading
 import time
 import warnings
 import weakref
-from uuid import uuid4
+from mmap import mmap
 from multiprocessing import util
-
-from pickle import whichmodule, loads, dumps, HIGHEST_PROTOCOL, PicklingError
+from pickle import HIGHEST_PROTOCOL, PicklingError, dumps, loads, whichmodule
+from uuid import uuid4
 
 try:
     WindowsError
@@ -31,10 +30,10 @@ try:
 except ImportError:
     np = None
 
-from .numpy_pickle import dump, load, load_temporary_memmap
 from .backports import make_memmap
 from .disk import delete_folder
 from .externals.loky.backend import resource_tracker
+from .numpy_pickle import dump, load, load_temporary_memmap
 
 # Some system have a ramdisk mounted by default, we can use it instead of /tmp
 # as the default folder to dump big arrays to share with subprocesses.

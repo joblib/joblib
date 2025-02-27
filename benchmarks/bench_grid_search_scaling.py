@@ -12,12 +12,12 @@ times to build a comparison with more than 2 version.
 from time import time
 
 import matplotlib.pyplot as plt
-import joblib
 import numpy as np
-
-from sklearn.svm import SVC
 from sklearn import datasets
 from sklearn.model_selection import GridSearchCV
+from sklearn.svm import SVC
+
+import joblib
 
 
 def get_file_name(name):

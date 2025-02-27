@@ -8,44 +8,38 @@ Helpers for embarrassingly parallel code.
 
 from __future__ import division
 
-import os
-import sys
-from math import sqrt, log10, floor
-import functools
 import collections
-import time
-import threading
+import functools
 import itertools
-from uuid import uuid4
-from numbers import Integral
-import warnings
+import os
 import queue
+import sys
+import threading
+import time
+import warnings
 import weakref
 from contextlib import ExitStack, nullcontext
-from copy import copy
+from math import floor, log10, sqrt
 from multiprocessing import TimeoutError
+from numbers import Integral
+from uuid import uuid4
 
 from ._multiprocessing_helpers import mp
 
-from .logger import Logger, short_format_time
-from .disk import memstr_to_bytes
-from ._parallel_backends import (
-    FallbackToBackend,
-    MultiprocessingBackend,
-    ThreadingBackend,
-    SequentialBackend,
-    LokyBackend,
-)
-from ._utils import eval_expr, _Sentinel
-
 # Make sure that those two classes are part of the public joblib.parallel API
 # so that 3rd party backend implementers can import them from here.
-from ._parallel_backends import AutoBatchingMixin  # noqa
-from ._parallel_backends import ParallelBackendBase  # noqa
-
-
-IS_PYPY = hasattr(sys, "pypy_version_info")
-
+from ._parallel_backends import (
+    AutoBatchingMixin,  # noqa
+    FallbackToBackend,
+    LokyBackend,
+    MultiprocessingBackend,
+    ParallelBackendBase,  # noqa
+    SequentialBackend,
+    ThreadingBackend,
+)
+from ._utils import _Sentinel, eval_expr
+from .disk import memstr_to_bytes
+from .logger import Logger, short_format_time
 
 BACKENDS = {
     "threading": ThreadingBackend,
@@ -1789,15 +1783,14 @@ class Parallel(Logger):
             # the rest of the function does not call `_terminate_and_reset`
             # in finally.
             if dispatch_thread_id != threading.get_ident():
-                if not IS_PYPY:
-                    warnings.warn(
-                        "A generator produced by joblib.Parallel has been "
-                        "gc'ed in an unexpected thread. This behavior should "
-                        "not cause major -issues but to make sure, please "
-                        "report this warning and your use case at "
-                        "https://github.com/joblib/joblib/issues so it can "
-                        "be investigated."
-                    )
+                warnings.warn(
+                    "A generator produced by joblib.Parallel has been "
+                    "gc'ed in an unexpected thread. This behavior should "
+                    "not cause major -issues but to make sure, please "
+                    "report this warning and your use case at "
+                    "https://github.com/joblib/joblib/issues so it can "
+                    "be investigated."
+                )
 
                 detach_generator_exit = True
                 _parallel = self
