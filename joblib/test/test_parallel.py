@@ -2112,14 +2112,17 @@ def config_context(*, parameter=None):
     finally:
         set_config(**old_config)
 
+
 def test_register_unregister_call_context():
     """Check that we can register and unregister call context."""
     assert len(_CALL_CONTEXT) == 0
-    with pytest.raises(AssertionError, match="`context` must be a context manager"):
+    err_msg = "`context` must be a context manager"
+    with pytest.raises(AssertionError, match=err_msg):
         register_call_context("test", get_config)
     register_call_context("test", config_context())
     assert len(_CALL_CONTEXT) == 1
-    with pytest.raises(ValueError, match="The context name test is already registered"):
+    err_msg = "The context name test is already registered"
+    with pytest.raises(ValueError, match=err_msg):
         register_call_context("test", config_context())
     assert len(_CALL_CONTEXT) == 1
     register_call_context("test2", config_context())
@@ -2128,7 +2131,8 @@ def test_register_unregister_call_context():
     register_call_context("test3", config_context(), prepend=True)
     assert len(_CALL_CONTEXT) == 3
     assert _CALL_CONTEXT[0][0] == "test3"
-    with pytest.raises(ValueError, match="The context name unknown is not registered"):
+    err_msg = "The context name unknown is not registered"
+    with pytest.raises(ValueError, match=err_msg):
         unregister_call_context("unknown")
     unregister_call_context("test")
     assert len(_CALL_CONTEXT) == 2
@@ -2140,11 +2144,13 @@ def maybe_warn(a, b):
     with warnings.catch_warnings(record=True) as w:
         if a * b > 10:
             warnings.warn("You are being warned!!", RuntimeWarning)
+
     return len(w)
 
 
 def test_call_context_parallel():
-    """Check that the call context is properly propagated to the parallel backend."""
+    """Check that the call context is properly propagated to the parallel
+    backend."""
     ii = np.arange(5)
     jj = ii + 1
 
