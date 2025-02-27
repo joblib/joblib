@@ -23,7 +23,6 @@ import weakref
 from contextlib import ExitStack, nullcontext
 from copy import copy
 from multiprocessing import TimeoutError
-from typing import ContextManager
 
 from ._multiprocessing_helpers import mp
 
@@ -611,7 +610,6 @@ class BatchedCalls(object):
         # change the default number of processes to -1
         with ExitStack() as stack:
             for context in self._call_context:
-                print(f"Entering context: {context}")
                 stack.enter_context(context)
             with parallel_config(backend=self._backend, n_jobs=self._n_jobs):
                 return [func(*args, **kwargs)
@@ -992,7 +990,8 @@ def register_call_context(context_name, context, prepend=False):
             "to unregister it first using the `unregister_call_context` "
             "function."
         )
-    assert isinstance(context, ContextManager), (
+
+    assert hasattr(context, "__enter__"), (
         f"`context` must be a context manager, got {type(context)}."
     )
     if prepend:
@@ -1155,7 +1154,10 @@ class Parallel(Logger):
             https://numpy.org/doc/stable/reference/generated/numpy.memmap.html
             Also, see 'max_nbytes' parameter documentation for more details.
         call_context: list of context manager, default=None
-            A list of context manager to be executed before the function execution.
+            A list of context manager to be executed before the function
+            execution. A context manager is defined as a class having the
+            methods `__enter__` and `__exit__`. Generator are not supported
+            because the context needs to be picklable.
 
         Notes
         -----

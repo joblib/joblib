@@ -18,7 +18,7 @@ from traceback import format_exception
 from math import sqrt
 from time import sleep
 from pickle import PicklingError
-from contextlib import nullcontext, contextmanager
+from contextlib import nullcontext, contextmanager, AbstractContextManager
 from multiprocessing import TimeoutError
 import pytest
 
@@ -2159,7 +2159,16 @@ def test_call_context_parallel():
 
     assert result == [0, 0, 0, 1, 1]
 
-    call_context = [warnings.catch_warnings(action="ignore")]
+    # With python >= 3.11, we could use directly `warnings.catch_warnings` context
+    # manager since `action` parameter is supported.
+    class SilenceWarnings(AbstractContextManager):
+        def __enter__(self):
+            warnings.filterwarnings(action="ignore", category=RuntimeWarning)
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            warnings.resetwarnings()
+
+    call_context = [SilenceWarnings()]
     with Parallel(n_jobs=4, call_context=call_context) as parallel:
         result = parallel(delayed(maybe_warn)(i, j) for i, j in zip(ii, jj))
 
