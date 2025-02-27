@@ -132,25 +132,21 @@ __all__ = [
     "Memory",
     "MemorizedResult",
     "expires_after",
-  
     # Parallel code execution
     "Parallel",
     "delayed",
     "cpu_count",
     "effective_n_jobs",
     "wrap_non_picklable_objects",
-  
     # Context to change the backend globally
     "parallel_config",
     "parallel_backend",
-  
     # Helpers to define and register store/parallel backends
     "ParallelBackendBase",
     "StoreBackendBase",
     "register_compressor",
     "register_parallel_backend",
     "register_store_backend",
-  
     # Helpers kept for backward compatibility
     "PrintTime",
     "Logger",
