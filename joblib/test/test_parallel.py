@@ -2159,7 +2159,7 @@ def test_call_context_parallel():
 
     assert result == [0, 0, 0, 1, 1]
 
-    call_context = [warnings.catch_warnings(actions="ignore")]
+    call_context = [warnings.catch_warnings(action="ignore")]
     with Parallel(n_jobs=4, call_context=call_context) as parallel:
         result = parallel(delayed(maybe_warn)(i, j) for i, j in zip(ii, jj))
 
