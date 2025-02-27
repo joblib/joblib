@@ -2157,22 +2157,20 @@ def test_loky_reuse_workers(n_jobs):
 ###############################################################################
 # Test for call context
 
+
 def test_register_unregister_call_context():
     """Check that we can register and unregister call context."""
     assert len(_CALL_CONTEXT) == 0
-    err_msg = "`context` must be a context manager"
-    with pytest.raises(AssertionError, match=err_msg):
-        register_call_context("test", get_config)
-    register_call_context("test", config_context())
+    register_call_context("test", config_context, get_config)
     assert len(_CALL_CONTEXT) == 1
     err_msg = "The context name test is already registered"
     with pytest.raises(ValueError, match=err_msg):
-        register_call_context("test", config_context())
+        register_call_context("test", config_context, get_config)
     assert len(_CALL_CONTEXT) == 1
-    register_call_context("test2", config_context())
+    register_call_context("test2", config_context, get_config)
     assert len(_CALL_CONTEXT) == 2
     assert _CALL_CONTEXT[-1][0] == "test2"
-    register_call_context("test3", config_context(), prepend=True)
+    register_call_context("test3", config_context, get_config, prepend=True)
     assert len(_CALL_CONTEXT) == 3
     assert _CALL_CONTEXT[0][0] == "test3"
     err_msg = "The context name unknown is not registered"
@@ -2192,28 +2190,53 @@ def maybe_warn(a, b):
     return len(w)
 
 
-def test_call_context_parallel():
+def get_parameter():
+    return get_config()["parameter"]
+
+
+class SilenceWarnings(AbstractContextManager):
+    # With python >= 3.11, we could use directly `warnings.catch_warnings` context
+    # manager since `action` parameter is supported.
+    def __enter__(self):
+        warnings.filterwarnings(action="ignore", category=RuntimeWarning)
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        warnings.resetwarnings()
+
+
+@parametrize("n_jobs", [1, 2])
+@parametrize("backend", ["loky", "threading", "multiprocessing"])
+@parametrize("return_as", ["list", "generator", "generator_unordered"])
+def test_call_context_parallel(n_jobs, backend, return_as):
     """Check that the call context is properly propagated to the parallel
     backend."""
+
+    if "generator" in return_as and backend == "multiprocessing":
+        pytest.skip("multiprocessing backend does not support generator")
+
     ii = np.arange(5)
     jj = ii + 1
 
-    with Parallel(n_jobs=4, call_context=None) as parallel:
+    with Parallel(
+        n_jobs=n_jobs, call_context=None, backend=backend, return_as=return_as
+    ) as parallel:
         result = parallel(delayed(maybe_warn)(i, j) for i, j in zip(ii, jj))
 
-    assert result == [0, 0, 0, 1, 1]
+    assert list(result) == [0, 0, 0, 1, 1]
 
-    # With python >= 3.11, we could use directly `warnings.catch_warnings` context
-    # manager since `action` parameter is supported.
-    class SilenceWarnings(AbstractContextManager):
-        def __enter__(self):
-            warnings.filterwarnings(action="ignore", category=RuntimeWarning)
-
-        def __exit__(self, exc_type, exc_value, traceback):
-            warnings.resetwarnings()
-
-    call_context = [SilenceWarnings()]
-    with Parallel(n_jobs=4, call_context=call_context) as parallel:
+    call_context = [(SilenceWarnings, lambda: {})]
+    with Parallel(
+        n_jobs=n_jobs, call_context=call_context, backend=backend, return_as=return_as
+    ) as parallel:
         result = parallel(delayed(maybe_warn)(i, j) for i, j in zip(ii, jj))
 
-    assert result == [0, 0, 0, 0, 0]
+    assert list(result) == [0, 0, 0, 0, 0]
+
+    set_config(parameter=123)
+    call_context = [(config_context, get_config)]
+
+    results = Parallel(
+        n_jobs=n_jobs, call_context=call_context, backend=backend, return_as=return_as
+    )(delayed(get_parameter)() for _ in range(2))
+
+    assert list(results) == [123] * 2

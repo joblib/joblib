@@ -613,8 +613,8 @@ class BatchedCalls(object):
         # change the default number of processes to -1
 
         with ExitStack() as stack:
-            for context in self._call_context:
-                stack.enter_context(context)
+            for context, config in self._call_context:
+                stack.enter_context(context(**config))
             with parallel_config(backend=self._backend, n_jobs=self._n_jobs):
                 return [func(*args, **kwargs) for func, args, kwargs in self.items]
 
@@ -980,7 +980,9 @@ def effective_n_jobs(n_jobs=-1):
 _CALL_CONTEXT = []
 
 
-def register_call_context(context_name, context, prepend=False):
+def register_call_context(
+    context_name, context_manager, state_retriever, prepend=False
+):
     """Register a new call context to be executed before the function
     execution.
 
@@ -990,8 +992,14 @@ def register_call_context(context_name, context, prepend=False):
     ----------
     context_name: str
         The name of the call context.
-    context: contextmanager
-        The context manager to be executed before the function execution.
+    context_manager: contextmanager
+        A factory to create a context manager. It takes as argument the
+        states retrieved by the ``state_retriever`` and returns a context
+        manager.
+    state_retriever: callable
+        A callable that takes no argument and returns a dictionary of states
+        that will be given to the ``context_manager`` factory to create the
+        actual context manager.
     prepend: bool, default=False
         If True, the context will be executed before the existing contexts.
 
@@ -1007,13 +1015,10 @@ def register_call_context(context_name, context, prepend=False):
             "function."
         )
 
-    assert hasattr(
-        context, "__enter__"
-    ), f"`context` must be a context manager, got {type(context)}."
     if prepend:
-        _CALL_CONTEXT.insert(0, (context_name, context))
+        _CALL_CONTEXT.insert(0, (context_name, context_manager, state_retriever))
     else:
-        _CALL_CONTEXT.append((context_name, context))
+        _CALL_CONTEXT.append((context_name, context_manager, state_retriever))
 
 
 def unregister_call_context(context_name):
@@ -1031,7 +1036,7 @@ def unregister_call_context(context_name):
     ValueError
         If the context name is not registered.
     """
-    for i, (name, _) in enumerate(_CALL_CONTEXT):
+    for i, (name, _, _) in enumerate(_CALL_CONTEXT):
         if name == context_name:
             del _CALL_CONTEXT[i]
             return
@@ -1169,11 +1174,10 @@ class Parallel(Logger):
         disable memmapping, other modes defined in the numpy.memmap doc:
         https://numpy.org/doc/stable/reference/generated/numpy.memmap.html
         Also, see 'max_nbytes' parameter documentation for more details.
-    call_context: list of context manager, default=None
-        A list of context manager to be executed before the function
-        execution. A context manager is defined as a class having the
-        methods `__enter__` and `__exit__`. Generator are not supported
-        because the context needs to be picklable.
+    call_context: list of tuple of (context_manager, state_retriever), default=None
+        A list of tuple of (context_manager, state_retriever). The
+        ``context_manager`` is a factory that takes as argument the state
+        retrieved by the ``state_retriever`` and returns a context manager.
 
     Notes
     -----
@@ -1611,16 +1615,13 @@ class Parallel(Logger):
                     final_batch_size = max(1, len(islice) // n_jobs)
 
                 # enqueue n_jobs batches in a local queue
-                call_context = copy(_CALL_CONTEXT)
-                if self.call_context:
-                    call_context.extend(self.call_context)
                 for i in range(0, len(islice), final_batch_size):
                     tasks = BatchedCalls(
                         islice[i : i + final_batch_size],
                         self._backend.get_nested_backend(),
                         self._reducer_callback,
                         self._pickle_cache,
-                        call_context,
+                        self._call_context,
                     )
                     self._ready_batches.put(tasks)
 
@@ -2067,6 +2068,15 @@ class Parallel(Logger):
         self.n_tasks = len(iterable) if hasattr(iterable, "__len__") else None
         self._start_time = time.time()
 
+        # retrieve the configuration of the driver to be passed to the workers
+        # together with the context managers
+        self._call_context = []
+        for _, ctx_manager, ctx_retriever in _CALL_CONTEXT:
+            self._call_context.append((ctx_manager, ctx_retriever()))
+        if self.call_context:
+            for ctx_manager, ctx_retriever in self.call_context:
+                self._call_context.append((ctx_manager, ctx_retriever()))
+
         if not self._managed_backend:
             n_jobs = self._initialize_backend()
         else:
@@ -2075,9 +2085,14 @@ class Parallel(Logger):
         if n_jobs == 1:
             # If n_jobs==1, run the computation sequentially and return
             # immediately to avoid overheads.
-            output = self._get_sequential_output(iterable)
-            next(output)
-            return output if self.return_generator else list(output)
+            with ExitStack() as stack:
+                # we still need to enter the context of the driver
+                for context, config in self._call_context:
+                    print("enter context: ", context)
+                    stack.enter_context(context(**config))
+                output = self._get_sequential_output(iterable)
+                next(output)
+                return output if self.return_generator else list(output)
 
         # Let's create an ID that uniquely identifies the current call. If the
         # call is interrupted early and that the same instance is immediately
