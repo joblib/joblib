@@ -1561,5 +1561,7 @@ def test_memory_creates_gitignore(location):
     if isinstance(location, pathlib.Path):
         location = location.as_posix()
 
-    assert os.path.exists(os.path.join(location, ".gitignore"))
-    shutil.rmtree(location, ignore_errors=True)  # remove cache folder after test
+    try:
+        assert os.path.exists(os.path.join(location, ".gitignore"))
+    finally:
+        shutil.rmtree(location, ignore_errors=True)  # remove cache folder after test
