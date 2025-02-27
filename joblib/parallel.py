@@ -584,11 +584,7 @@ class BatchedCalls(object):
     """Wrap a sequence of (func, args, kwargs) tuples as a single callable"""
 
     def __init__(
-        self,
-        iterator_slice,
-        backend_and_jobs,
-        reducer_callback=None,
-        pickle_cache=None,
+        self, iterator_slice, backend_and_jobs, reducer_callback=None, pickle_cache=None
     ):
         self.items = list(iterator_slice)
         self._size = len(self.items)
@@ -613,12 +609,7 @@ class BatchedCalls(object):
         # no need to pickle the callback.
         return (
             BatchedCalls,
-            (
-                self.items,
-                (self._backend, self._n_jobs),
-                None,
-                self._pickle_cache,
-            ),
+            (self.items, (self._backend, self._n_jobs), None, self._pickle_cache),
         )
 
     def __len__(self):
