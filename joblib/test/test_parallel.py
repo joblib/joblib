@@ -28,8 +28,6 @@ from joblib import dump, load, parallel
 from joblib._multiprocessing_helpers import mp
 from joblib.test.common import (
     IS_GIL_DISABLED,
-    IS_PYPY,
-    force_gc_pypy,
     np,
     with_multiprocessing,
     with_numpy,
@@ -313,9 +311,6 @@ def test_nested_parallel_warnings(parent_backend, child_backend, expected):
     # warning handling is not thread safe. One thread might see multiple
     # warning or no warning at all.
     if parent_backend == "threading":
-        if IS_PYPY and not any(res):
-            # Related to joblib#1426, should be removed once it is solved.
-            pytest.xfail(reason="This test often fails in PyPy.")
         assert any(res)
     else:
         assert all(res)
@@ -1102,8 +1097,6 @@ def test_default_mp_context():
 @parametrize("backend", PROCESS_BACKENDS)
 def test_no_blas_crash_or_freeze_with_subprocesses(backend):
     if backend == "multiprocessing":
-        if IS_PYPY:
-            pytest.skip(reason="np.dot is not picklable on PyPy")
         # Use the spawn backend that is both robust and available on all
         # platforms
         backend = mp.get_context("spawn")
@@ -1331,7 +1324,6 @@ def test_parallel_with_exhausted_iterator():
 
 def _cleanup_worker():
     """Helper function to force gc in each worker."""
-    force_gc_pypy()
     time.sleep(0.1)
 
 
@@ -1448,7 +1440,6 @@ def _test_parallel_unordered_generator_returns_fastest_first(backend, n_jobs):
     assert all(v == r for v, r in zip(expected_quickly_returned, quickly_returned))
 
     del result
-    force_gc_pypy()
 
 
 @pytest.mark.parametrize("n_jobs", [2, 4])
@@ -1490,9 +1481,6 @@ def _test_deadlock_with_generator(backend, return_as, n_jobs):
         next(result)
         next(result)
         del result
-        # The gc in pypy can be delayed. Force it to make sure this test does
-        # not cause timeout on the CI.
-        force_gc_pypy()
 
 
 @with_numpy
@@ -1523,9 +1511,6 @@ def test_multiple_generator_call(backend, return_as, n_jobs):
     )
 
     del g
-    # The gc in pypy can be delayed. Force it to make sure this test does not
-    # cause timeout on the CI.
-    force_gc_pypy()
 
 
 @parametrize("backend", RETURN_GENERATOR_BACKENDS)
@@ -1547,10 +1532,7 @@ def test_multiple_generator_call_managed(backend, return_as, n_jobs):
             " but it took more than 2s."
         )
 
-    # The gc in pypy can be delayed. Force it to make sure this test does not
-    # cause timeout on the CI.
     del g
-    force_gc_pypy()
 
 
 @parametrize("backend", RETURN_GENERATOR_BACKENDS)
@@ -1610,10 +1592,6 @@ def test_multiple_generator_call_separated_gc(backend, return_as_1, return_as_2,
             delayed(sqrt)(i**2) for i in range(10, 20)
         )
 
-        # The gc in pypy can be delayed. Force it to test the behavior when it
-        # will eventually be collected.
-        force_gc_pypy()
-
         if return_as_2 == "generator_unordered":
             g = sorted(g)
 
@@ -1649,13 +1627,6 @@ def test_memmapping_leaks(backend, tmpdir):
 
         # The memmap folder should not be clean in the context scope
         assert len(os.listdir(tmpdir)) > 0
-
-        # Cleaning of the memmap folder is triggered by the garbage
-        # collection. With pypy the garbage collection has been observed to be
-        # delayed, sometimes up until the shutdown of the interpreter. This
-        # cleanup job executed in the worker ensures that it's triggered
-        # immediately.
-        p(delayed(_cleanup_worker)() for _ in range(2))
 
     # Make sure that the shared memory is cleaned at the end when we exit
     # the context
