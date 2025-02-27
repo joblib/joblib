@@ -99,8 +99,10 @@ def rm_subdirs(path, onerror=None):
     for name in names:
         fullname = os.path.join(path, name)
         delete_folder(fullname, onerror=onerror)
-        if os.path.exists(os.path.join(path, '.gitignore')):
-            os.remove(os.path.join(path, '.gitignore')) # delete .gitignore if it exists
+        if os.path.exists(os.path.join(path, ".gitignore")):
+            os.remove(
+                os.path.join(path, ".gitignore")
+            )  # delete .gitignore if it exists
 
 
 def delete_folder(folder_path, onerror=None, allow_non_empty=True):

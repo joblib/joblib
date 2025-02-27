@@ -460,9 +460,9 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
         cache_directory = (
             os.path.dirname(location) if os.path.dirname(location) else location
         )
-        with open(os.path.join(cache_directory, '.gitignore'), 'w') as file:
-            file.write('# Created by joblib automatically.\n')
-            file.write('*\n')
+        with open(os.path.join(cache_directory, ".gitignore"), "w") as file:
+            file.write("# Created by joblib automatically.\n")
+            file.write("*\n")
 
         # item can be stored compressed for faster I/O
         self.compress = backend_options.get("compress", False)
