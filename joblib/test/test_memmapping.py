@@ -434,6 +434,7 @@ def test_permission_error_windows_memmap_sent_to_parent(backend):
         out, err = p.communicate()
         assert p.returncode == 0, err
         assert out == b''
+        assert b'resource_tracker' not in err
 
 
 @with_numpy
@@ -620,6 +621,7 @@ def test_many_parallel_calls_on_same_object(backend):
     out, err = p.communicate()
     assert p.returncode == 0, err.decode()
     assert out == b'', out.decode()
+    assert b'resource_tracker' not in err
 
 
 @with_numpy
