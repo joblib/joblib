@@ -24,7 +24,7 @@ In development
   known. https://github.com/joblib/joblib/pull/1608
 
 - Drop support for PyPy.
-  TODO PR link
+  https://github.com/joblib/joblib/pull/1670
 
 Release 1.4.2 -- 2024/05/02
 ---------------------------
