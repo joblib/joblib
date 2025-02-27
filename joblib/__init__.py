@@ -56,8 +56,8 @@ Main features
    computation to disk and rerun it only if necessary::
 
       >>> from joblib import Memory
-      >>> cachedir = 'your_cache_dir_goes_here'
-      >>> mem = Memory(cachedir)
+      >>> location = 'your_cache_dir_goes_here'
+      >>> mem = Memory(location)
       >>> import numpy as np
       >>> a = np.vander(np.arange(3)).astype(float)
       >>> square = mem.cache(np.square)
