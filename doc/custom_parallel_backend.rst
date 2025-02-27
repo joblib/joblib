@@ -31,7 +31,7 @@ for a remote cluster computing service:
 
         supports_retrieve_callback = True
 
-        def __init__(self, nesting_level=None, \*\*backend_kwargs):
+        def __init__(self, nesting_level=None, **backend_kwargs):
             super().__init__(
                 nesting_level=nesting_level,
                 inner_max_num_threads=inner_max_num_threads
@@ -42,13 +42,13 @@ for a remote cluster computing service:
             self.backend_kwargs = backend_kwargs
             self._executor = None
 
-        def configure(self, n_jobs=1, parallel=None, \*\*backend_kwargs):
+        def configure(self, n_jobs=1, parallel=None, **backend_kwargs):
             """Configure the backend for a specific instance of Parallel."""
             self.n_jobs = n_jobs
 
             # The backend_kwargs are the ones provided in the Parallel instance.
             # We merge them with the ones from the init of the backend.
-            backend_kwargs = {\*\*self.backend_kwargs, \*\*backend_kwargs}
+            backend_kwargs = {**self.backend_kwargs, **backend_kwargs}
 
             n_jobs = self.effective_n_jobs(n_jobs)
             self._executor = ThreadPoolExecutor(n_jobs)
