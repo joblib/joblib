@@ -113,7 +113,6 @@ import os
 
 from .memory import Memory
 from .memory import MemorizedResult
-from .memory import register_store_backend
 from .memory import expires_after
 
 from .logger import PrintTime
@@ -129,10 +128,16 @@ from .compressor import register_compressor
 from .parallel import Parallel
 from .parallel import delayed
 from .parallel import cpu_count
-from .parallel import register_parallel_backend
 from .parallel import parallel_backend
 from .parallel import parallel_config
 from .parallel import effective_n_jobs
+
+# Helpers to define and register store/parallel backends
+from .memory import register_store_backend
+from ._store_backends import StoreBackendBase
+from .parallel import register_parallel_backend
+from ._parallel_backends import ParallelBackendBase
+
 from ._cloudpickle_wrapper import wrap_non_picklable_objects
 
 
@@ -148,13 +153,15 @@ __all__ = [
     "delayed",
     "cpu_count",
     "effective_n_jobs",
-    "register_parallel_backend",
-    "parallel_backend",
     "expires_after",
-    "register_store_backend",
-    "register_compressor",
-    "wrap_non_picklable_objects",
     "parallel_config",
+    "parallel_backend",
+    "ParallelBackendBase",
+    "StoreBackendBase",
+    "register_compressor",
+    "register_parallel_backend",
+    "register_store_backend",
+    "wrap_non_picklable_objects",
 ]
 
 
