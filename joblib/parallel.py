@@ -19,6 +19,7 @@ import time
 import warnings
 import weakref
 from contextlib import ExitStack, nullcontext
+from functools import update_wrapper
 from math import floor, log10, sqrt
 from multiprocessing import TimeoutError
 from numbers import Integral
@@ -588,7 +589,6 @@ class BatchedCalls(object):
         backend_and_jobs,
         reducer_callback=None,
         pickle_cache=None,
-        call_context=None,
     ):
         self.items = list(iterator_slice)
         self._size = len(self.items)
@@ -600,17 +600,12 @@ class BatchedCalls(object):
             # nested backends were returned without n_jobs indications.
             self._backend, self._n_jobs = backend_and_jobs, None
         self._pickle_cache = pickle_cache if pickle_cache is not None else {}
-        self._call_context = call_context if call_context is not None else []
 
     def __call__(self):
         # Set the default nested backend to self._backend but do not set the
         # change the default number of processes to -1
-
-        with ExitStack() as stack:
-            for context, config in self._call_context:
-                stack.enter_context(context(**config))
-            with parallel_config(backend=self._backend, n_jobs=self._n_jobs):
-                return [func(*args, **kwargs) for func, args, kwargs in self.items]
+        with parallel_config(backend=self._backend, n_jobs=self._n_jobs):
+            return [func(*args, **kwargs) for func, args, kwargs in self.items]
 
     def __reduce__(self):
         if self._reducer_callback is not None:
@@ -623,7 +618,6 @@ class BatchedCalls(object):
                 (self._backend, self._n_jobs),
                 None,
                 self._pickle_cache,
-                self._call_context,
             ),
         )
 
@@ -1038,6 +1032,21 @@ def unregister_call_context(context_name):
         f"The context name {context_name} is not registered. You need to "
         "register it first using the `register_call_context` function."
     )
+
+
+class _DelayedFunctionInCallContext:
+    """Wrap the delayed function to execute it in the context managers."""
+
+    def __init__(self, function, call_context):
+        self.function = function
+        self.call_context = call_context
+        update_wrapper(self, self.function)
+
+    def __call__(self, *args, **kwargs):
+        with ExitStack() as stack:
+            for ctx, state in self.call_context:
+                stack.enter_context(ctx(**state))
+            return self.function(*args, **kwargs)
 
 
 class Parallel(Logger):
@@ -1615,7 +1624,6 @@ class Parallel(Logger):
                         self._backend.get_nested_backend(),
                         self._reducer_callback,
                         self._pickle_cache,
-                        self._call_context,
                     )
                     self._ready_batches.put(tasks)
 
@@ -2061,7 +2069,7 @@ class Parallel(Logger):
         self.n_tasks = len(iterable) if hasattr(iterable, "__len__") else None
         self._start_time = time.time()
 
-        # retrieve the configuration of the driver to be passed to the workers
+        # Retrieve the configuration of the driver to be passed to the workers
         # together with the context managers
         self._call_context = []
         for _, ctx_manager, ctx_retriever in _CALL_CONTEXT:
@@ -2069,6 +2077,16 @@ class Parallel(Logger):
         if self.call_context:
             for ctx_manager, ctx_retriever in self.call_context:
                 self._call_context.append((ctx_manager, ctx_retriever()))
+
+        # Wrap the delayed function such that we execute it within the context managers
+        iterable = (
+            (
+                _DelayedFunctionInCallContext(delayed_func, self._call_context),
+                args,
+                kwargs,
+            )
+            for delayed_func, args, kwargs in iterable
+        )
 
         if not self._managed_backend:
             n_jobs = self._initialize_backend()
@@ -2078,13 +2096,9 @@ class Parallel(Logger):
         if n_jobs == 1:
             # If n_jobs==1, run the computation sequentially and return
             # immediately to avoid overheads.
-            with ExitStack() as stack:
-                # we still need to enter the context of the driver
-                for context, config in self._call_context:
-                    stack.enter_context(context(**config))
-                output = self._get_sequential_output(iterable)
-                next(output)
-                return output if self.return_generator else list(output)
+            output = self._get_sequential_output(iterable)
+            next(output)
+            return output if self.return_generator else list(output)
 
         # Let's create an ID that uniquely identifies the current call. If the
         # call is interrupted early and that the same instance is immediately
