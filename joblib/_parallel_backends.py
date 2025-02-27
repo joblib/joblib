@@ -2,36 +2,41 @@
 Backends for embarrassingly parallel code.
 """
 
-import contextlib
 import gc
 import os
-import threading
 import warnings
+import threading
+import contextlib
 from abc import ABCMeta, abstractmethod
 
-from ._multiprocessing_helpers import mp
 from ._utils import (
-    _retrieve_traceback_capturing_wrapped_call,
     _TracebackCapturingWrapper,
+    _retrieve_traceback_capturing_wrapped_call,
 )
 
-if mp is not None:
-    from multiprocessing.pool import ThreadPool
+from ._multiprocessing_helpers import mp
 
+if mp is not None:
+    from .pool import MemmappingPool
+    from multiprocessing.pool import ThreadPool
     from .executor import get_memmapping_executor
 
     # Import loky only if multiprocessing is present
-    from .externals.loky import cpu_count, process_executor
+    from .externals.loky import process_executor, cpu_count
     from .externals.loky.process_executor import ShutdownExecutorError
-    from .pool import MemmappingPool
 
 
 class ParallelBackendBase(metaclass=ABCMeta):
     """Helper abc which defines all methods a ParallelBackend must implement"""
 
-    supports_inner_max_num_threads = False
-    supports_retrieve_callback = False
     default_n_jobs = 1
+
+    supports_inner_max_num_threads = False
+
+    # This flag was introduced for backward compatibility reasons.
+    # New backends should always set it to True and implement the
+    # `retrieve_result_callback` method.
+    supports_retrieve_callback = False
 
     @property
     def supports_return_generator(self):
@@ -151,10 +156,6 @@ class ParallelBackendBase(metaclass=ABCMeta):
     def batch_completed(self, batch_size, duration):
         """Callback indicate how long it took to run a batch"""
 
-    def get_exceptions(self):
-        """List of exception types to be captured."""
-        return []
-
     def abort_everything(self, ensure_ready=True):
         """Abort any running tasks
 
@@ -192,23 +193,6 @@ class ParallelBackendBase(metaclass=ABCMeta):
         else:
             return ThreadingBackend(nesting_level=nesting_level), None
 
-    @contextlib.contextmanager
-    def retrieval_context(self):
-        """Context manager to manage an execution context.
-
-        Calls to Parallel.retrieve will be made inside this context.
-
-        By default, this does nothing. It may be useful for subclasses to
-        handle nested parallelism. In particular, it may be required to avoid
-        deadlocks if a backend manages a fixed number of workers, when those
-        workers may be asked to do nested Parallel calls. Without
-        'retrieval_context' this could lead to deadlock, as all the workers
-        managed by the backend may be "busy" waiting for the nested parallel
-        calls to finish, but the backend has no free workers to execute those
-        tasks.
-        """
-        yield
-
     def _prepare_worker_env(self, n_jobs):
         """Return environment variables limiting threadpools in external libs.
 
@@ -237,6 +221,23 @@ class ParallelBackendBase(metaclass=ABCMeta):
             # use Inter Process Communication to coordinate:
             env[self.TBB_ENABLE_IPC_VAR] = "1"
         return env
+
+    @contextlib.contextmanager
+    def retrieval_context(self):
+        """Context manager to manage an execution context.
+
+        Calls to Parallel.retrieve will be made inside this context.
+
+        By default, this does nothing. It may be useful for subclasses to
+        handle nested parallelism. In particular, it may be required to avoid
+        deadlocks if a backend manages a fixed number of workers, when those
+        workers may be asked to do nested Parallel calls. Without
+        'retrieval_context' this could lead to deadlock, as all the workers
+        managed by the backend may be "busy" waiting for the nested parallel
+        calls to finish, but the backend has no free workers to execute those
+        tasks.
+        """
+        yield
 
     @staticmethod
     def in_main_thread():

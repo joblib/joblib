@@ -112,6 +112,8 @@ __version__ = "1.5.dev0"
 import os
 
 from ._cloudpickle_wrapper import wrap_non_picklable_objects
+from ._parallel_backends import ParallelBackendBase
+from ._store_backends import StoreBackendBase
 from .compressor import register_compressor
 from .hashing import hash
 from .logger import Logger, PrintTime
