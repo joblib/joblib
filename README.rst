@@ -71,6 +71,16 @@ clone it using ``git clone``. Make your changes in a branch of your clone, push
 them to your github account, test them locally, and when you are happy with
 them, send a pull request to the main repository.
 
+You can use `pre-commit <https://pre-commit.com/#install>`_ to run code style checks
+before each commit::
+
+    pip install pre-commit
+    pre-commit install
+
+pre-commit checks can be disabled for a single commit with::
+
+    git commit -n
+
 Running the test suite
 ======================
 
