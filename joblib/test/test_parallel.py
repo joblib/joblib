@@ -1587,14 +1587,6 @@ def test_memmapping_leaks(backend, tmpdir):
         # The memmap folder should not be clean in the context scope
         assert len(os.listdir(tmpdir)) > 0
 
-        # TODO PyPy
-        # Cleaning of the memmap folder is triggered by the garbage
-        # collection. With pypy the garbage collection has been observed to be
-        # delayed, sometimes up until the shutdown of the interpreter. This
-        # cleanup job executed in the worker ensures that it's triggered
-        # immediately.
-        p(delayed(_cleanup_worker)() for _ in range(2))
-
     # Make sure that the shared memory is cleaned at the end when we exit
     # the context
     for _ in range(100):

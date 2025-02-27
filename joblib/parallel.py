@@ -39,10 +39,6 @@ from ._parallel_backends import AutoBatchingMixin  # noqa
 from ._parallel_backends import ParallelBackendBase  # noqa
 
 
-# TODO deprecate this public stuff?
-IS_PYPY = hasattr(sys, "pypy_version_info")
-
-
 BACKENDS = {
     'threading': ThreadingBackend,
     'sequential': SequentialBackend,
@@ -1694,7 +1690,6 @@ class Parallel(Logger):
             # the user if necessary.
             self._exception = True
 
-            # TODO PyPy
             # In some interpreters such as PyPy, GeneratorExit can be raised in
             # a different thread than the one used to start the dispatch of the
             # parallel tasks. This can lead to hang when a thread attempts to
