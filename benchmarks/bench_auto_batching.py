@@ -8,10 +8,12 @@ joblib.parallel.MIN_IDEAL_BATCH_DURATION constant.
 # Author: Olivier Grisel
 # License: BSD 3 clause
 
-import numpy as np
-import time
 import tempfile
+import time
 from pprint import pprint
+
+import numpy as np
+
 from joblib import Parallel, delayed
 from joblib._parallel_backends import AutoBatchingMixin
 

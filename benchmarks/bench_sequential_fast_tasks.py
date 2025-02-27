@@ -9,16 +9,13 @@ tasks with `n_jobs=1` compared to just running a simple list comprehension.
 
 import time
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-
-import matplotlib.pyplot as plt
-from matplotlib.colors import LogNorm
 from matplotlib.cm import ScalarMappable
-
+from matplotlib.colors import LogNorm
 
 from joblib import Parallel, delayed
-
 
 # Style for plots
 LINE_STYLES = {"iter": "--", "parallel": "-", "loop": ":"}

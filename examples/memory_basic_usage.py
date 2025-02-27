@@ -16,6 +16,7 @@ functions and methods.
 # will benefit from caching using :class:`joblib.Memory`.
 
 import time
+
 import numpy as np
 
 

@@ -6,35 +6,40 @@ Test the memory module.
 # Copyright (c) 2009 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
+import datetime
 import functools
 import gc
 import logging
-import shutil
 import os
 import os.path
 import pathlib
 import pickle
+import shutil
 import sys
-import time
-import datetime
 import textwrap
+import time
 
 import pytest
 
-from joblib.memory import Memory
-from joblib.memory import expires_after
-from joblib.memory import MemorizedFunc, NotMemorizedFunc
-from joblib.memory import MemorizedResult, NotMemorizedResult
-from joblib.memory import _FUNCTION_HASHES
-from joblib.memory import register_store_backend, _STORE_BACKENDS
-from joblib.memory import _build_func_identifier, _store_backend_factory
-from joblib.memory import JobLibCollisionWarning
-from joblib.parallel import Parallel, delayed
-from joblib._store_backends import StoreBackendBase, FileSystemStoreBackend
-from joblib.test.common import with_numpy, np
-from joblib.test.common import with_multiprocessing
-from joblib.testing import parametrize, raises, warns
+from joblib._store_backends import FileSystemStoreBackend, StoreBackendBase
 from joblib.hashing import hash
+from joblib.memory import (
+    _FUNCTION_HASHES,
+    _STORE_BACKENDS,
+    JobLibCollisionWarning,
+    MemorizedFunc,
+    MemorizedResult,
+    Memory,
+    NotMemorizedFunc,
+    NotMemorizedResult,
+    _build_func_identifier,
+    _store_backend_factory,
+    expires_after,
+    register_store_backend,
+)
+from joblib.parallel import Parallel, delayed
+from joblib.test.common import np, with_multiprocessing, with_numpy
+from joblib.testing import parametrize, raises, warns
 
 
 ###############################################################################
@@ -1013,8 +1018,8 @@ def test_memory_reduce_size_items_limit(tmpdir):
 
 
 def test_memory_reduce_size_age_limit(tmpdir):
-    import time
     import datetime
+    import time
 
     memory, _, put_cache = _setup_toy_cache(tmpdir)
     ref_cache_items = memory.store_backend.get_items()

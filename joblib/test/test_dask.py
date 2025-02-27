@@ -1,20 +1,22 @@
-from __future__ import print_function, division, absolute_import
+from __future__ import absolute_import, division, print_function
+
 import os
 import warnings
+from random import random
+from time import sleep
+from uuid import uuid4
 
 import pytest
-from random import random
-from uuid import uuid4
-from time import sleep
 
-from .. import Parallel, delayed, parallel_config, parallel_backend
-from ..parallel import ThreadingBackend, AutoBatchingMixin
+from .. import Parallel, delayed, parallel_backend, parallel_config
 from .._dask import DaskDistributedBackend
-
+from ..parallel import AutoBatchingMixin, ThreadingBackend
 from .common import np, with_numpy
-from .test_parallel import _recursive_backend_info
-from .test_parallel import _test_deadlock_with_generator
-from .test_parallel import _test_parallel_unordered_generator_returns_fastest_first  # noqa: E501
+from .test_parallel import (
+    _recursive_backend_info,
+    _test_deadlock_with_generator,
+    _test_parallel_unordered_generator_returns_fastest_first,  # noqa: E501
+)
 
 distributed = pytest.importorskip("distributed")
 dask = pytest.importorskip("dask")
@@ -25,7 +27,7 @@ from distributed.metrics import time  # noqa: E402
 
 # Note: pytest requires to manually import all fixtures used in the test
 # and their dependencies.
-from distributed.utils_test import cluster, inc, cleanup  # noqa: E402, F401
+from distributed.utils_test import cleanup, cluster, inc  # noqa: E402, F401
 
 
 @pytest.fixture(scope="function", autouse=True)

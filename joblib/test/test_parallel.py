@@ -6,33 +6,35 @@ Test the parallel module.
 # Copyright (c) 2010-2011 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
+import mmap
 import os
 import re
 import sys
-import time
-import mmap
-import weakref
-import warnings
 import threading
-from traceback import format_exception
-from math import sqrt
-from time import sleep
-from pickle import PicklingError
+import time
+import warnings
+import weakref
 from contextlib import nullcontext
+from math import sqrt
 from multiprocessing import TimeoutError
+from pickle import PicklingError
+from time import sleep
+from traceback import format_exception
+
 import pytest
 
 import joblib
-from joblib import parallel
-from joblib import dump, load
-
+from joblib import dump, load, parallel
 from joblib._multiprocessing_helpers import mp
-
-from joblib.test.common import np, with_numpy
-from joblib.test.common import with_multiprocessing
-from joblib.test.common import IS_PYPY, force_gc_pypy
-from joblib.test.common import IS_GIL_DISABLED
-from joblib.testing import parametrize, raises, check_subprocess_call, skipif, warns
+from joblib.test.common import (
+    IS_GIL_DISABLED,
+    IS_PYPY,
+    force_gc_pypy,
+    np,
+    with_multiprocessing,
+    with_numpy,
+)
+from joblib.testing import check_subprocess_call, parametrize, raises, skipif, warns
 
 if mp is not None:
     # Loky is not available if multiprocessing is not
@@ -55,20 +57,24 @@ try:
 except ImportError:
     distributed = None
 
-from joblib._parallel_backends import SequentialBackend
-from joblib._parallel_backends import ThreadingBackend
-from joblib._parallel_backends import MultiprocessingBackend
-from joblib._parallel_backends import ParallelBackendBase
-from joblib._parallel_backends import LokyBackend
-
-from joblib.parallel import Parallel, delayed
-from joblib.parallel import parallel_config
-from joblib.parallel import parallel_backend
-from joblib.parallel import register_parallel_backend
-from joblib.parallel import effective_n_jobs, cpu_count
-
-from joblib.parallel import mp, BACKENDS
-
+from joblib._parallel_backends import (
+    LokyBackend,
+    MultiprocessingBackend,
+    ParallelBackendBase,
+    SequentialBackend,
+    ThreadingBackend,
+)
+from joblib.parallel import (
+    BACKENDS,
+    Parallel,
+    cpu_count,
+    delayed,
+    effective_n_jobs,
+    mp,
+    parallel_backend,
+    parallel_config,
+    register_parallel_backend,
+)
 
 RETURN_GENERATOR_BACKENDS = BACKENDS.copy()
 RETURN_GENERATOR_BACKENDS.pop("multiprocessing", None)

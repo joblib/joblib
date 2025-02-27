@@ -1,19 +1,19 @@
 """Test the numpy pickler as a replacement of the standard pickler."""
 
+import bz2
 import copy
+import gzip
+import io
+import mmap
 import os
+import pickle
 import random
 import re
-import io
+import socket
 import sys
 import warnings
-import gzip
 import zlib
-import bz2
-import pickle
-import socket
 from contextlib import closing
-import mmap
 from pathlib import Path
 
 try:
@@ -23,27 +23,32 @@ except ImportError:
 
 import pytest
 
-from joblib.test.common import np, with_numpy, with_lz4, without_lz4
-from joblib.test.common import with_memory_profiler, memory_used
-from joblib.testing import parametrize, raises, warns
-
 # numpy_pickle is not a drop-in replacement of pickle, as it takes
 # filenames instead of open files as arguments.
 from joblib import numpy_pickle, register_compressor
-from joblib.test import data
-
-from joblib.numpy_pickle_utils import _IO_BUFFER_SIZE
-from joblib.numpy_pickle_utils import _detect_compressor
-from joblib.numpy_pickle_utils import _is_numpy_array_byte_order_mismatch
-from joblib.numpy_pickle_utils import _ensure_native_byte_order
 from joblib.compressor import (
     _COMPRESSORS,
     _LZ4_PREFIX,
-    CompressorWrapper,
     LZ4_NOT_INSTALLED_ERROR,
     BinaryZlibFile,
+    CompressorWrapper,
 )
-
+from joblib.numpy_pickle_utils import (
+    _IO_BUFFER_SIZE,
+    _detect_compressor,
+    _ensure_native_byte_order,
+    _is_numpy_array_byte_order_mismatch,
+)
+from joblib.test import data
+from joblib.test.common import (
+    memory_used,
+    np,
+    with_lz4,
+    with_memory_profiler,
+    with_numpy,
+    without_lz4,
+)
+from joblib.testing import parametrize, raises, warns
 
 ###############################################################################
 # Define a list of standard types.
