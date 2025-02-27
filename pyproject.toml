@@ -102,8 +102,7 @@ relative_files = true
 show_missing = true
 
 [tool.ruff]
-# line-length = 120
-# Enable Pyflakes `E` and `F` codes by default.
+# Enable Pyflakes `E`, `F` and `W` codes by default.
 lint.select = [
     "E", "W",  # see: https://pypi.org/project/pycodestyle
     "F",  # see: https://pypi.org/project/pyflakes
