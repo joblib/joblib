@@ -119,7 +119,7 @@ def _get_config_param(param, context_config, key):
     parallel_(config/backend) context manager.
     """
     if param is not default_parallel_config[key]:
-        # param is explicitely set, return it
+        # param is explicitly set, return it
         return param
 
     if context_config[key] is not default_parallel_config[key]:
@@ -187,8 +187,8 @@ def _get_active_backend(
     uses_threads = getattr(backend, "uses_threads", False)
     supports_sharedmem = getattr(backend, "supports_sharedmem", False)
     # Force to use thread-based backend if the provided backend does not
-    # match the shared memory constraint or if the backend is not explicitely
-    # given and threads are prefered.
+    # match the shared memory constraint or if the backend is not explicitly
+    # given and threads are preferred.
     force_threads = require == "sharedmem" and not supports_sharedmem
     force_threads |= not explicit_backend and prefer == "threads" and not uses_threads
     if force_threads:
@@ -198,7 +198,7 @@ def _get_active_backend(
             nesting_level=nesting_level
         )
         # Warn the user if we forced the backend to thread-based, while the
-        # user explicitely specified a non-thread-based backend.
+        # user explicitly specified a non-thread-based backend.
         if verbose >= 10 and explicit_backend:
             print(
                 f"Using {sharedmem_backend.__class__.__name__} as "
@@ -1011,7 +1011,7 @@ class Parallel(Logger):
         The number of batches (of tasks) to be pre-dispatched.
         Default is '2*n_jobs'. When batch_size="auto" this is reasonable
         default and the workers should never starve. Note that only basic
-        arithmetics are allowed here and no modules can be used in this
+        arithmetic is allowed here and no modules can be used in this
         expression.
     batch_size: int or 'auto', default: 'auto'
         The number of atomic tasks to dispatch at once to each
@@ -1458,7 +1458,7 @@ class Parallel(Logger):
                     # a thread internal to the backend, register a task with
                     # an error that will be raised in the user's thread.
                     if isinstance(e.__context__, queue.Empty):
-                        # Supress the cause of the exception if it is
+                        # Suppress the cause of the exception if it is
                         # queue.Empty to avoid cluttered traceback. Only do it
                         # if the __context__ is really empty to avoid messing
                         # with causes of the original error.
@@ -1699,7 +1699,7 @@ class Parallel(Logger):
                 yield result
 
     def _wait_retrieval(self):
-        """Return True if we need to continue retriving some tasks."""
+        """Return True if we need to continue retrieving some tasks."""
 
         # If the input load is still being iterated over, it means that tasks
         # are still on the dispatch wait list and their results will need to
@@ -1764,7 +1764,7 @@ class Parallel(Logger):
                 (job for job in self._jobs if job.status == TASK_ERROR), None
             )
 
-        # If this error job exists, immediatly raise the error by
+        # If this error job exists, immediately raise the error by
         # calling get_result. This job might not exists if abort has been
         # called directly or if the generator is gc'ed.
         if error_job is not None:
@@ -1891,14 +1891,14 @@ class Parallel(Logger):
 
         if n_jobs == 1:
             # If n_jobs==1, run the computation sequentially and return
-            # immediatly to avoid overheads.
+            # immediately to avoid overheads.
             output = self._get_sequential_output(iterable)
             next(output)
             return output if self.return_generator else list(output)
 
         # Let's create an ID that uniquely identifies the current call. If the
         # call is interrupted early and that the same instance is immediately
-        # re-used, this id will be used to prevent workers that were
+        # reused, this id will be used to prevent workers that were
         # concurrently finalizing a task from the previous call to run the
         # callback.
         with self._lock:
@@ -1913,7 +1913,7 @@ class Parallel(Logger):
             # BatchCalls, that makes the loky executor use a temporary folder
             # specific to this Parallel object when pickling temporary memmaps.
             # This callback is necessary to ensure that several Parallel
-            # objects using the same resuable executor don't use the same
+            # objects using the same reusable executor don't use the same
             # temporary resources.
 
             def _batched_calls_reducer_callback():
@@ -1976,7 +1976,7 @@ class Parallel(Logger):
 
         # The first item from the output is blank, but it makes the interpreter
         # progress until it enters the Try/Except block of the generator and
-        # reach the first `yield` statement. This starts the aynchronous
+        # reach the first `yield` statement. This starts the asynchronous
         # dispatch of the tasks to the workers.
         next(output)
 
