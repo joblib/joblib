@@ -1694,7 +1694,8 @@ class Parallel(Logger):
             # the user if necessary.
             self._exception = True
 
-            # In some interpreters such as TODO PyPy, GeneratorExit can be raised in
+            # TODO PyPy
+            # In some interpreters such as PyPy, GeneratorExit can be raised in
             # a different thread than the one used to start the dispatch of the
             # parallel tasks. This can lead to hang when a thread attempts to
             # join itself. As workaround, we detach the execution of the

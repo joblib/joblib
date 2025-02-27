@@ -1550,7 +1550,6 @@ def test_multiple_generator_call_separated_gc(
             delayed(sqrt)(i ** 2) for i in range(10, 20)
         )
 
-
         if return_as_2 == "generator_unordered":
             g = sorted(g)
 
@@ -1588,8 +1587,9 @@ def test_memmapping_leaks(backend, tmpdir):
         # The memmap folder should not be clean in the context scope
         assert len(os.listdir(tmpdir)) > 0
 
+        # TODO PyPy
         # Cleaning of the memmap folder is triggered by the garbage
-        # collection. TODO With pypy the garbage collection has been observed to be
+        # collection. With pypy the garbage collection has been observed to be
         # delayed, sometimes up until the shutdown of the interpreter. This
         # cleanup job executed in the worker ensures that it's triggered
         # immediately.
