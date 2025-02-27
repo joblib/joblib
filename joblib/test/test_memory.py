@@ -1271,10 +1271,8 @@ def test_instanciate_store_backend_with_pathlib_path():
     backend_obj = _store_backend_factory("local", path)
     try:
         assert backend_obj.location == "some_folder"
-    finally:
-        shutil.rmtree(
-            "some_folder", ignore_errors=True
-        )  # remove cache folder after test
+    finally:  # remove cache folder after test
+        shutil.rmtree("some_folder", ignore_errors=True)
 
 
 def test_filesystem_store_backend_repr(tmpdir):
@@ -1566,5 +1564,5 @@ def test_memory_creates_gitignore(location):
 
     try:
         assert os.path.exists(os.path.join(location, ".gitignore"))
-    finally:
-        shutil.rmtree(location, ignore_errors=True)  # remove cache folder after test
+    finally:  # remove cache folder after test
+        shutil.rmtree(location, ignore_errors=True)

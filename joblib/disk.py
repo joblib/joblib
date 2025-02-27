@@ -100,9 +100,12 @@ def rm_subdirs(path, onerror=None):
         fullname = os.path.join(path, name)
         delete_folder(fullname, onerror=onerror)
         if os.path.exists(os.path.join(path, ".gitignore")):
-            os.remove(
-                os.path.join(path, ".gitignore")
-            )  # delete .gitignore if it exists
+            path_to_gitignore_file = os.path.join(path, ".gitignore")
+            with open(path_to_gitignore_file) as file:
+                first_line = file.readline().strip("\n")
+            if first_line == "# Created by joblib automatically.":
+                # delete .gitignore if it is the automatically added file by joblib
+                os.remove(path_to_gitignore_file)
 
 
 def delete_folder(folder_path, onerror=None, allow_non_empty=True):
