@@ -302,7 +302,7 @@ def test_cache_size_warning(tmpdir, cache_size):
     expected_nb_warnings = 1 if cache_size is not None else 0
     assert len(warninfo) == expected_nb_warnings
     for w in warninfo:
-        assert w.category == DeprecationWarning
+        assert w.category is DeprecationWarning
         assert (
             str(w.message)
             == "Please do not set 'cache_size' in joblib.dump, this "
