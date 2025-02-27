@@ -152,11 +152,12 @@ def _read_fileobject(fileobj, filename, mmap_mode=None):
 
     Returns
     -------
-        a file like object
+        a tuple with a file like object, and the validated mmap_mode.
 
     """
     # Detect if the fileobj contains compressed data.
     compressor = _detect_compressor(fileobj)
+    validated_mmap_mode = mmap_mode
 
     if compressor == "compat":
         # Compatibility with old pickle mode: simply return the input
@@ -169,7 +170,7 @@ def _read_fileobject(fileobj, filename, mmap_mode=None):
             DeprecationWarning,
             stacklevel=2,
         )
-        yield filename
+        yield filename, validated_mmap_mode
     else:
         if compressor in _COMPRESSORS:
             # based on the compressor detected in the file, we open the
@@ -182,6 +183,7 @@ def _read_fileobject(fileobj, filename, mmap_mode=None):
         # mmap_mode cannot be used with compressed file or in memory buffers
         # such as io.BytesIO.
         if mmap_mode is not None:
+            validated_mmap_mode = None
             if isinstance(fileobj, io.BytesIO):
                 warnings.warn(
                     "In memory persistence is not compatible with "
@@ -202,8 +204,10 @@ def _read_fileobject(fileobj, filename, mmap_mode=None):
                     '"%(mmap_mode)s" flag will be ignored.' % locals(),
                     stacklevel=2,
                 )
+            else:
+                validated_mmap_mode = mmap_mode
 
-        yield fileobj
+        yield fileobj, validated_mmap_mode
 
 
 def _write_fileobject(filename, compress=("zlib", 3)):
