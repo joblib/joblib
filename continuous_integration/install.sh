@@ -43,7 +43,7 @@ if [ "$NO_NUMPY" != "true" ]; then
     # memory_profiler.
     PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES memory_profiler numpy"
     # We also want to ensure that joblib can be used with and
-    # without lz4 compressor package installed. 
+    # without lz4 compressor package installed.
     if [ "$NO_LZ4" != "true" ]; then
         PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES lz4"
     fi
@@ -62,6 +62,7 @@ if [[ "$NO_LZMA" == "true" ]]; then
     echo "Deleting $LZMA_PATH..."
     rm $LZMA_PATH
 fi
+
 
 if [[ "$CYTHON" == "true" ]]; then
     pip install cython
