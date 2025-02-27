@@ -25,6 +25,7 @@ import pytest
 import joblib
 from joblib import parallel
 from joblib import dump, load
+from joblib import config_context, get_config, set_config
 
 from joblib._multiprocessing_helpers import mp
 
@@ -1266,7 +1267,9 @@ print(Parallel(backend="loky", n_jobs=2)(
     delayed(square2)(MyClass(i), ignored=[dict(a=MyClass(1))])
     for i in range(5)
 ))
-""".format(joblib_root_folder=os.path.dirname(os.path.dirname(joblib.__file__)))
+""".format(
+    joblib_root_folder=os.path.dirname(os.path.dirname(joblib.__file__))
+)
 
 
 @with_multiprocessing
@@ -1305,7 +1308,9 @@ l = MyList()
 print(Parallel(backend="loky", n_jobs=2)(
     delayed(l.append)(i) for i in range(3)
 ))
-""".format(joblib_root_folder=os.path.dirname(os.path.dirname(joblib.__file__)))
+""".format(
+    joblib_root_folder=os.path.dirname(os.path.dirname(joblib.__file__))
+)
 
 
 @with_multiprocessing
@@ -2151,39 +2156,6 @@ def test_loky_reuse_workers(n_jobs):
 
 ###############################################################################
 # Test for call context
-
-_global_config = {"parameter": True}
-
-_threadlocal = threading.local()
-
-
-def _get_threadlocal_config():
-    """Get a threadlocal **mutable** configuration. If the configuration
-    does not exist, copy the default global configuration."""
-    if not hasattr(_threadlocal, "global_config"):
-        _threadlocal.global_config = _global_config.copy()
-    return _threadlocal.global_config
-
-
-def get_config():
-    return _get_threadlocal_config().copy()
-
-
-def set_config(*, parameter=None):
-    local_config = _get_threadlocal_config()
-    if parameter is not None:
-        local_config["parameter"] = parameter
-
-
-@contextmanager
-def config_context(*, parameter=None):
-    old_config = get_config()
-    set_config(parameter=parameter)
-    try:
-        yield
-    finally:
-        set_config(**old_config)
-
 
 def test_register_unregister_call_context():
     """Check that we can register and unregister call context."""

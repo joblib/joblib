@@ -1,5 +1,7 @@
 import os
 
+from joblib import config_context, get_config, set_config
+
 from joblib.parallel import parallel_config
 from joblib.parallel import parallel_backend
 from joblib.parallel import Parallel, delayed
@@ -150,3 +152,23 @@ def test_parallel_config_n_jobs_none(context):
             # n_jobs=None resets n_jobs to backend's default
             with Parallel() as p:
                 assert p.n_jobs == 1
+
+
+def test_config_joblib():
+    assert get_config() == {}
+
+    set_config(parameter=True)
+    assert get_config() == {"parameter": True}
+
+    with config_context(parameter=False):
+        assert get_config() == {"parameter": False}
+
+    assert get_config() == {"parameter": True}
+
+    with config_context(parameter=False):
+        assert get_config() == {"parameter": False}
+
+        with config_context(parameter=True):
+            assert get_config() == {"parameter": True}
+
+    assert get_config() == {"parameter": True}

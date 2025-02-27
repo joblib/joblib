@@ -1,7 +1,7 @@
 import threading
 from contextlib import contextmanager
 
-_global_config = {"parameter": True}
+_global_config = {}
 
 _threadlocal = threading.local()
 
@@ -18,16 +18,16 @@ def get_config():
     return _get_threadlocal_config().copy()
 
 
-def set_config(*, parameter=None):
+def set_config(**kwargs):
     local_config = _get_threadlocal_config()
-    if parameter is not None:
-        local_config["parameter"] = parameter
+    for key, value in kwargs.items():
+        local_config[key] = value
 
 
 @contextmanager
-def config_context(*, parameter=None):
+def config_context(**kwargs):
     old_config = get_config()
-    set_config(parameter=parameter)
+    set_config(**kwargs)
     try:
         yield
     finally:
