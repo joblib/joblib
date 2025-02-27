@@ -462,7 +462,9 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
             mkdirp(self.location)
 
         # automatically add `.gitignore` file to the parent cache folder
-        cache_directory = os.path.dirname(location) if os.path.dirname(location) else location
+        cache_directory = (
+            os.path.dirname(location) if os.path.dirname(location) else location
+        )
         with open(os.path.join(cache_directory, '.gitignore'), 'w') as file:
             file.write('# Created by joblib automatically.\n')
             file.write('*\n')
