@@ -30,18 +30,25 @@ def sleep_noop(duration, input_data, output_data_size):
         return np.ones(output_data_size, dtype=np.byte)
 
 
-def bench_short_tasks(task_times, n_jobs=2, batch_size="auto",
-                      pre_dispatch="2*n_jobs", verbose=True,
-                      input_data_size=0, output_data_size=0, backend=None,
-                      memmap_input=False):
-
+def bench_short_tasks(
+    task_times,
+    n_jobs=2,
+    batch_size="auto",
+    pre_dispatch="2*n_jobs",
+    verbose=True,
+    input_data_size=0,
+    output_data_size=0,
+    backend=None,
+    memmap_input=False,
+):
     with tempfile.NamedTemporaryFile() as temp_file:
         if input_data_size:
             # Generate some input data with the required size
             if memmap_input:
                 temp_file.close()
-                input_data = np.memmap(temp_file.name, shape=input_data_size,
-                                       dtype=np.byte, mode='w+')
+                input_data = np.memmap(
+                    temp_file.name, shape=input_data_size, dtype=np.byte, mode="w+"
+                )
                 input_data[:] = 1
             else:
                 input_data = np.ones(input_data_size, dtype=np.byte)
@@ -49,15 +56,26 @@ def bench_short_tasks(task_times, n_jobs=2, batch_size="auto",
             input_data = None
 
         t0 = time.time()
-        p = Parallel(n_jobs=n_jobs, verbose=verbose, pre_dispatch=pre_dispatch,
-                     batch_size=batch_size, backend=backend)
-        p(delayed(sleep_noop)(max(t, 0), input_data, output_data_size)
-          for t in task_times)
+        p = Parallel(
+            n_jobs=n_jobs,
+            verbose=verbose,
+            pre_dispatch=pre_dispatch,
+            batch_size=batch_size,
+            backend=backend,
+        )
+        p(
+            delayed(sleep_noop)(max(t, 0), input_data, output_data_size)
+            for t in task_times
+        )
         duration = time.time() - t0
-        effective_batch_size = getattr(p._backend, '_effective_batch_size',
-                                       p.batch_size)
-    print('Completed {} tasks in {:3f}s, final batch_size={}\n'.format(
-        len(task_times), duration, effective_batch_size))
+        effective_batch_size = getattr(
+            p._backend, "_effective_batch_size", p.batch_size
+        )
+    print(
+        "Completed {} tasks in {:3f}s, final batch_size={}\n".format(
+            len(task_times), duration, effective_batch_size
+        )
+    )
     return duration, effective_batch_size
 
 
@@ -83,13 +101,13 @@ if __name__ == "__main__":
     # variance while still be comparable to the equivalent load without
     # variance
 
-    print('# high variance, no trend')
+    print("# high variance, no trend")
     # censored gaussian distribution
     high_variance = np.random.normal(loc=0.000001, scale=0.001, size=5000)
     high_variance[high_variance < 0] = 0
 
     bench_short_tasks(high_variance, **bench_parameters)
-    print('# low variance, no trend')
+    print("# low variance, no trend")
     low_variance = np.empty_like(high_variance)
     low_variance[:] = np.mean(high_variance)
     bench_short_tasks(low_variance, **bench_parameters)
@@ -100,7 +118,7 @@ if __name__ == "__main__":
     # zero (only data transfer overhead). The shuffle variant should not
     # oscillate too much and still approximately have the same total run time.
 
-    print('# cyclic trend')
+    print("# cyclic trend")
     slow_time = 0.1
     positive_wave = np.cos(np.linspace(1, 4 * np.pi, 300)) ** 8
     cyclic = positive_wave * slow_time

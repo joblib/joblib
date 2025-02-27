@@ -23,9 +23,11 @@ def bufferize(f, buf):
     if buf is None:
         return f
     else:
-        if (buf.__name__ == io.BufferedWriter.__name__ or
-                buf.__name__ == io.BufferedReader.__name__):
-            return buf(f, buffer_size=10 * 1024 ** 2)
+        if (
+            buf.__name__ == io.BufferedWriter.__name__
+            or buf.__name__ == io.BufferedReader.__name__
+        ):
+            return buf(f, buffer_size=10 * 1024**2)
         return buf(f)
 
 
@@ -40,19 +42,20 @@ def _load(unpickler, fname, f):
 
 def print_line(obj, strategy, buffer, pickler, dump, load, disk_used):
     """Nice printing function."""
-    print('% 20s | %6s | % 14s | % 7s | % 5.1f | % 5.1f | % 5s' % (
-          obj, strategy, buffer, pickler, dump, load, disk_used))
+    print(
+        "% 20s | %6s | % 14s | % 7s | % 5.1f | % 5.1f | % 5s"
+        % (obj, strategy, buffer, pickler, dump, load, disk_used)
+    )
 
 
-class PickleBufferedWriter():
+class PickleBufferedWriter:
     """Protect the underlying fileobj against numerous calls to write
     This is achieved by internally keeping a list of small chunks and
     only flushing to the backing fileobj if passed a large chunk or
     after a threshold on the number of small chunks.
     """
 
-    def __init__(self, fileobj,
-                 max_buffer_size=10 * 1024 ** 2):
+    def __init__(self, fileobj, max_buffer_size=10 * 1024**2):
         self._fileobj = fileobj
         self._chunks = chunks = []
 
@@ -64,10 +67,11 @@ class PickleBufferedWriter():
             chunks.append(data)
             if len(chunks) > max_buffer_size:
                 self.flush()
+
         self.write = _write
 
     def flush(self):
-        self._fileobj.write(b''.join(self._chunks[:]))
+        self._fileobj.write(b"".join(self._chunks[:]))
         del self._chunks[:]
 
     def close(self):
@@ -82,22 +86,21 @@ class PickleBufferedWriter():
         return False
 
 
-class PickleBufferedReader():
+class PickleBufferedReader:
     """Protect the underlying fileobj against numerous calls to write
     This is achieved by internally keeping a list of small chunks and
     only flushing to the backing fileobj if passed a large chunk or
     after a threshold on the number of small chunks.
     """
 
-    def __init__(self, fileobj,
-                 max_buffer_size=10 * 1024 ** 2):
+    def __init__(self, fileobj, max_buffer_size=10 * 1024**2):
         self._fileobj = fileobj
         self._buffer = bytearray(max_buffer_size)
         self.max_buffer_size = max_buffer_size
         self._position = 0
 
     def read(self, n=None):
-        data = b''
+        data = b""
         if n is None:
             data = self._fileobj.read()
         else:
@@ -107,9 +110,10 @@ class PickleBufferedReader():
                 elif self._position == self.max_buffer_size:
                     self._position = 0
                     continue
-                next_position = min(self.max_buffer_size,
-                                    self._position + n - len(data))
-                data += self._buffer[self._position:next_position]
+                next_position = min(
+                    self.max_buffer_size, self._position + n - len(data)
+                )
+                data += self._buffer[self._position : next_position]
                 self._position = next_position
         return data
 
@@ -118,9 +122,9 @@ class PickleBufferedReader():
         while True:
             c = self.read(1)
             line.append(c)
-            if c == b'\n':
+            if c == b"\n":
                 break
-        return b''.join(line)
+        return b"".join(line)
 
     def close(self):
         self._fileobj.close()
@@ -134,9 +138,18 @@ class PickleBufferedReader():
 
 
 def run_bench():
-    print('% 20s | %10s | % 12s | % 8s | % 9s | % 9s | % 5s' % (
-          'Object', 'Compression', 'Buffer', 'Pickler/Unpickler',
-          'dump time (s)', 'load time (s)', 'Disk used (MB)'))
+    print(
+        "% 20s | %10s | % 12s | % 8s | % 9s | % 9s | % 5s"
+        % (
+            "Object",
+            "Compression",
+            "Buffer",
+            "Pickler/Unpickler",
+            "dump time (s)",
+            "load time (s)",
+            "Disk used (MB)",
+        )
+    )
     print("--- | --- | --- | --- | --- | --- | ---")
 
     for oname, obj in objects.items():
@@ -161,45 +174,48 @@ def run_bench():
                     unpickler = p[1]
                     t0 = time.time()
                     # Now pickling the object in the file
-                    if (writebuf is not None and
-                            writebuf.__name__ == io.BytesIO.__name__):
+                    if (
+                        writebuf is not None
+                        and writebuf.__name__ == io.BytesIO.__name__
+                    ):
                         b = writebuf()
                         p = pickler(b)
                         p.dump(obj)
                         with fileobj(fobj, fname, fmode, fopts) as f:
                             f.write(b.getvalue())
                     else:
-                        with bufferize(fileobj(fobj, fname, fmode, fopts),
-                                       writebuf) as f:
+                        with bufferize(
+                            fileobj(fobj, fname, fmode, fopts), writebuf
+                        ) as f:
                             p = pickler(f)
                             p.dump(obj)
                     dtime = time.time() - t0
                     t0 = time.time()
                     # Now loading the object from the file
                     obj_r = None
-                    if (readbuf is not None and
-                            readbuf.__name__ == io.BytesIO.__name__):
+                    if readbuf is not None and readbuf.__name__ == io.BytesIO.__name__:
                         b = readbuf()
-                        with fileobj(fobj, fname, 'rb', {}) as f:
+                        with fileobj(fobj, fname, "rb", {}) as f:
                             b.write(f.read())
                         b.seek(0)
                         obj_r = _load(unpickler, fname, b)
                     else:
-                        with bufferize(fileobj(fobj, fname, 'rb', {}),
-                                       readbuf) as f:
+                        with bufferize(fileobj(fobj, fname, "rb", {}), readbuf) as f:
                             obj_r = _load(unpickler, fname, f)
                     ltime = time.time() - t0
                     if isinstance(obj, np.ndarray):
                         assert (obj == obj_r).all()
                     else:
                         assert obj == obj_r
-                    print_line("{} ({:.1f}MB)".format(oname, osize),
-                               cname,
-                               bname,
-                               pname,
-                               dtime,
-                               ltime,
-                               "{:.2f}".format(os.path.getsize(fname) / 1e6))
+                    print_line(
+                        "{} ({:.1f}MB)".format(oname, osize),
+                        cname,
+                        bname,
+                        pname,
+                        dtime,
+                        ltime,
+                        "{:.2f}".format(os.path.getsize(fname) / 1e6),
+                    )
 
 
 # Defining objects used in this bench
@@ -210,39 +226,65 @@ arr = np.random.normal(size=(ARRAY_SIZE))
 arr[::2] = 1
 
 # Objects used for testing
-objects = OrderedDict([
-    ("dict", dict((i, str(i)) for i in range(DICT_SIZE))),
-    ("list", [i for i in range(DICT_SIZE)]),
-    ("array semi-random", arr),
-    ("array random", np.random.normal(size=(ARRAY_SIZE))),
-    ("array ones", np.ones((ARRAY_SIZE))), ])
+objects = OrderedDict(
+    [
+        ("dict", dict((i, str(i)) for i in range(DICT_SIZE))),
+        ("list", [i for i in range(DICT_SIZE)]),
+        ("array semi-random", arr),
+        ("array random", np.random.normal(size=(ARRAY_SIZE))),
+        ("array ones", np.ones((ARRAY_SIZE))),
+    ]
+)
 
 #  We test 3 different picklers
-picklers = OrderedDict([
-    # Python implementation of Pickler/Unpickler
-    ("Pickle", (_Pickler, _Unpickler)),
-    # C implementation of Pickler/Unpickler
-    ("cPickle", (Pickler, Unpickler)),
-    # Joblib Pickler/Unpickler designed for numpy arrays.
-    ("Joblib", (NumpyPickler, NumpyUnpickler)), ])
+picklers = OrderedDict(
+    [
+        # Python implementation of Pickler/Unpickler
+        ("Pickle", (_Pickler, _Unpickler)),
+        # C implementation of Pickler/Unpickler
+        ("cPickle", (Pickler, Unpickler)),
+        # Joblib Pickler/Unpickler designed for numpy arrays.
+        ("Joblib", (NumpyPickler, NumpyUnpickler)),
+    ]
+)
 
 # The list of supported compressors used for testing
-compressors = OrderedDict([
-    ("No", (open, '/tmp/test_raw', 'wb', {})),
-    ("Zlib", (BinaryZlibFile, '/tmp/test_zlib', 'wb', {'compresslevel': 3})),
-    ("Gzip", (BinaryGzipFile, '/tmp/test_gzip', 'wb', {'compresslevel': 3})),
-    ("Bz2", (bz2.BZ2File, '/tmp/test_bz2', 'wb', {'compresslevel': 3})),
-    ("Xz", (lzma.LZMAFile, '/tmp/test_xz', 'wb',
-                           {'preset': 3, 'check': lzma.CHECK_NONE})),
-    ("Lzma", (lzma.LZMAFile, '/tmp/test_lzma', 'wb',
-                             {'preset': 3, 'format': lzma.FORMAT_ALONE})), ])
+compressors = OrderedDict(
+    [
+        ("No", (open, "/tmp/test_raw", "wb", {})),
+        ("Zlib", (BinaryZlibFile, "/tmp/test_zlib", "wb", {"compresslevel": 3})),
+        ("Gzip", (BinaryGzipFile, "/tmp/test_gzip", "wb", {"compresslevel": 3})),
+        ("Bz2", (bz2.BZ2File, "/tmp/test_bz2", "wb", {"compresslevel": 3})),
+        (
+            "Xz",
+            (
+                lzma.LZMAFile,
+                "/tmp/test_xz",
+                "wb",
+                {"preset": 3, "check": lzma.CHECK_NONE},
+            ),
+        ),
+        (
+            "Lzma",
+            (
+                lzma.LZMAFile,
+                "/tmp/test_lzma",
+                "wb",
+                {"preset": 3, "format": lzma.FORMAT_ALONE},
+            ),
+        ),
+    ]
+)
 
 # Test 3 buffering strategies
-bufs = OrderedDict([
-    ("None", (None, None)),
-    ("io.BytesIO", (io.BytesIO, io.BytesIO)),
-    ("io.Buffered", (io.BufferedWriter, io.BufferedReader)),
-    ("PickleBuffered", (PickleBufferedWriter, PickleBufferedReader)), ])
+bufs = OrderedDict(
+    [
+        ("None", (None, None)),
+        ("io.BytesIO", (io.BytesIO, io.BytesIO)),
+        ("io.Buffered", (io.BufferedWriter, io.BufferedReader)),
+        ("PickleBuffered", (PickleBufferedWriter, PickleBufferedReader)),
+    ]
+)
 
 if __name__ == "__main__":
     run_bench()
