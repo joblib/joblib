@@ -1,4 +1,4 @@
-|PyPi| |CIStatus| |ReadTheDocs| |Codecov| 
+|PyPi| |CIStatus| |ReadTheDocs| |Codecov|
 
 .. |PyPi| image:: https://badge.fury.io/py/joblib.svg
    :target: https://badge.fury.io/py/joblib
@@ -130,4 +130,3 @@ Changes are listed in the CHANGES.rst file. They must be manually updated
 but, the following git command may be used to generate the lines::
 
     git log --abbrev-commit --date=short --no-merges --sparse
-
