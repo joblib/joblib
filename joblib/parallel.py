@@ -2081,7 +2081,6 @@ class Parallel(Logger):
             with ExitStack() as stack:
                 # we still need to enter the context of the driver
                 for context, config in self._call_context:
-                    print("enter context: ", context)
                     stack.enter_context(context(**config))
                 output = self._get_sequential_output(iterable)
                 next(output)
