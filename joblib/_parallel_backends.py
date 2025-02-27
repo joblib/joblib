@@ -93,15 +93,28 @@ class ParallelBackendBase(metaclass=ABCMeta):
         This method should return a future-like object that allow tracking
         the progress of the task.
 
-        If `supports_retrieve_callback` is False, the return value of this
-        method is passed to `retrieve_result`.
+        If ``supports_retrieve_callback`` is False, the return value of this
+        method is passed to ``retrieve_result`` instead of calling
+        ``retrieve_result_callback``.
 
-        Otherwise, the callback should be run as soon as the task is completed.
-        For future-like backends, this can be achieved with
-        `future.add_done_callback(callback)`.
-        Depending on the backend, the arguments that are passed to the callback
-        differ. The behavior of callback can be tweaked with the method
-        `retrieve_result_callback`.
+        Parameters
+        ----------
+        func: callable
+            The function to be run in parallel.
+
+        callback: callable
+            A callable that will be called when the task is completed. This callable
+            is a wrapper around ``retrieve_result_callback``. This should be added
+            to the future-like object returned by this method, so that the callback
+            is called when the task is completed.
+
+            For future-like backends, this can be achieved with something like
+            ``future.add_done_callback(callback)``.
+
+        Returns
+        -------
+        future: future-like
+            A future-like object to track the execution of the submitted function.
         """
         warnings.warn(
             "`apply_async` is deprecated, implement and use `submit` instead.",
@@ -110,11 +123,20 @@ class ParallelBackendBase(metaclass=ABCMeta):
         return self.apply_async(func, callback)
 
     def retrieve_result_callback(self, out):
-        """Called within the callback function passed in `submit`.
+        """Called within the callback function passed to `submit`.
 
-        The argument of this function is the argument given to a callback in
-        the considered backend. It is supposed to return the outcome of a task
-        if it succeeded or raise the exception if it failed.
+        This method can customise how the result of the function is retrieved
+        from the future-like object.
+
+        Parameters
+        ----------
+        future: future-like
+            The future-like object returned by the `submit` method.
+
+        Returns
+        -------
+        result: object
+            The result of the function executed in parallel.
         """
 
     def retrieve_result(self, out, timeout=None):
