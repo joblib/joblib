@@ -43,10 +43,11 @@ class ParallelBackendBase(metaclass=ABCMeta):
 
     nesting_level = None
 
-    def __init__(self, nesting_level=None, inner_max_num_threads=None, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, nesting_level=None, inner_max_num_threads=None, **backend_kwargs):
+        super().__init__()
         self.nesting_level = nesting_level
         self.inner_max_num_threads = inner_max_num_threads
+        self.backend_kwargs = backend_kwargs
 
     MAX_NUM_THREADS_VARS = [
         "OMP_NUM_THREADS",
@@ -508,16 +509,22 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin, ParallelBacken
         return super(MultiprocessingBackend, self).effective_n_jobs(n_jobs)
 
     def configure(
-        self, n_jobs=1, parallel=None, prefer=None, require=None, **memmappingpool_args
+        self, n_jobs=1, parallel=None, prefer=None, require=None,
+        **memmapping_pool_kwargs
     ):
         """Build a process or thread pool and return the number of workers"""
         n_jobs = self.effective_n_jobs(n_jobs)
         if n_jobs == 1:
             raise FallbackToBackend(SequentialBackend(nesting_level=self.nesting_level))
 
+        memmapping_pool_kwargs = {
+            **self.backend_kwargs,
+            **memmapping_pool_kwargs,
+        }
+
         # Make sure to free as much memory as possible before forking
         gc.collect()
-        self._pool = MemmappingPool(n_jobs, **memmappingpool_args)
+        self._pool = MemmappingPool(n_jobs, **memmapping_pool_kwargs)
         self.parallel = parallel
         return n_jobs
 
@@ -532,14 +539,6 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
 
     supports_retrieve_callback = True
     supports_inner_max_num_threads = True
-
-    def __init__(
-        self, nesting_level=None, inner_max_num_threads=None, **backend_kwargs
-    ):
-        super().__init__(
-            nesting_level=nesting_level, inner_max_num_threads=inner_max_num_threads
-        )
-        self.memmapping_executor_kwargs = backend_kwargs
 
     def configure(
         self,
@@ -556,7 +555,7 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
             raise FallbackToBackend(SequentialBackend(nesting_level=self.nesting_level))
 
         memmapping_executor_kwargs = {
-            **self.memmapping_executor_kwargs,
+            **self.backend_kwargs,
             **memmapping_executor_kwargs,
         }
 
