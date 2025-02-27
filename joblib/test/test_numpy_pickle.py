@@ -291,27 +291,6 @@ def test_compress_mmap_mode_warning(tmpdir):
 
 
 @with_numpy
-@parametrize('cache_size', [None, 0, 10])
-def test_cache_size_warning(tmpdir, cache_size):
-    # Check deprecation warning raised when cache size is not None
-    filename = tmpdir.join('test.pkl').strpath
-    rnd = np.random.RandomState(0)
-    a = rnd.random_sample((10, 2))
-
-    warnings.simplefilter("always")
-    with warnings.catch_warnings(record=True) as warninfo:
-        numpy_pickle.dump(a, filename, cache_size=cache_size)
-    expected_nb_warnings = 1 if cache_size is not None else 0
-    assert len(warninfo) == expected_nb_warnings
-    for w in warninfo:
-        assert w.category is DeprecationWarning
-        assert (str(w.message) ==
-                "Please do not set 'cache_size' in joblib.dump, this "
-                "parameter has no effect and will be removed. You "
-                "used 'cache_size={0}'".format(cache_size))
-
-
-@with_numpy
 @with_memory_profiler
 @parametrize('compress', [True, False])
 def test_memory_usage(tmpdir, compress):
@@ -379,9 +358,6 @@ def _check_pickle(filename, expected_list, mmap_mode=None):
         try:
             with warnings.catch_warnings(record=True) as warninfo:
                 warnings.simplefilter('always')
-                warnings.filterwarnings(
-                    'ignore', module='numpy',
-                    message='The compiler package is deprecated')
                 result_list = numpy_pickle.load(filename, mmap_mode=mmap_mode)
             filename_base = os.path.basename(filename)
             expected_nb_deprecation_warnings = 1 if (

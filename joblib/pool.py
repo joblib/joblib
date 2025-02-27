@@ -293,12 +293,7 @@ class MemmappingPool(PicklingPool):
 
     def __init__(self, processes=None, temp_folder=None, max_nbytes=1e6,
                  mmap_mode='r', forward_reducers=None, backward_reducers=None,
-                 verbose=0, context_id=None, prewarm=False, **kwargs):
-
-        if context_id is not None:
-            warnings.warn('context_id is deprecated and ignored in joblib'
-                          ' 0.9.4 and will be removed in 0.11',
-                          DeprecationWarning)
+                 verbose=0, prewarm=False, **kwargs):
 
         manager = TemporaryResourcesManager(temp_folder)
         self._temp_folder_manager = manager
