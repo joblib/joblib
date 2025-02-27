@@ -126,8 +126,7 @@ def set_loky_pickler(loky_pickler=None):
             raise e
 
     util.debug(
-        f"Using '{loky_pickler if loky_pickler else 'cloudpickle'}' for "
-        "serialization."
+        f"Using '{loky_pickler if loky_pickler else 'cloudpickle'}' for serialization."
     )
 
     class CustomizablePickler(loky_pickler_cls):

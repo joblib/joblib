@@ -36,8 +36,8 @@ start = time.time()
 data_trans = costly_compute(data)
 end = time.time()
 
-print('\nThe function took {:.2f} s to compute.'.format(end - start))
-print('\nThe transformed data are:\n {}'.format(data_trans))
+print("\nThe function took {:.2f} s to compute.".format(end - start))
+print("\nThe transformed data are:\n {}".format(data_trans))
 
 ###############################################################################
 # Caching the result of a function to avoid recomputing
@@ -49,7 +49,8 @@ print('\nThe transformed data are:\n {}'.format(data_trans))
 # into a specific location.
 
 from joblib import Memory
-location = './cachedir'
+
+location = "./cachedir"
 memory = Memory(location, verbose=0)
 
 
@@ -64,8 +65,8 @@ start = time.time()
 data_trans = costly_compute_cached(data)
 end = time.time()
 
-print('\nThe function took {:.2f} s to compute.'.format(end - start))
-print('\nThe transformed data are:\n {}'.format(data_trans))
+print("\nThe function took {:.2f} s to compute.".format(end - start))
+print("\nThe transformed data are:\n {}".format(data_trans))
 
 ###############################################################################
 # At the first call, the results will be cached. Therefore, the computation
@@ -76,8 +77,8 @@ start = time.time()
 data_trans = costly_compute_cached(data)
 end = time.time()
 
-print('\nThe function took {:.2f} s to compute.'.format(end - start))
-print('\nThe transformed data are:\n {}'.format(data_trans))
+print("\nThe function took {:.2f} s to compute.".format(end - start))
+print("\nThe transformed data are:\n {}".format(data_trans))
 
 ###############################################################################
 # At the second call, the computation time is largely reduced since the results
@@ -114,8 +115,8 @@ start = time.time()
 data_trans = transformer.transform(data)
 end = time.time()
 
-print('\nThe function took {:.2f} s to compute.'.format(end - start))
-print('\nThe transformed data are:\n {}'.format(data_trans))
+print("\nThe function took {:.2f} s to compute.".format(end - start))
+print("\nThe transformed data are:\n {}".format(data_trans))
 
 ###############################################################################
 
@@ -123,8 +124,8 @@ start = time.time()
 data_trans = transformer.transform(data)
 end = time.time()
 
-print('\nThe function took {:.2f} s to compute.'.format(end - start))
-print('\nThe transformed data are:\n {}'.format(data_trans))
+print("\nThe function took {:.2f} s to compute.".format(end - start))
+print("\nThe transformed data are:\n {}".format(data_trans))
 
 ###############################################################################
 # As expected, the second call to the ``transform`` method load the results

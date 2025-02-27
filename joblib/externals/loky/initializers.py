@@ -66,9 +66,7 @@ def _chain_initializers(initializer_and_args):
 
 def _prepare_initializer(initializer, initargs):
     if initializer is not None and not callable(initializer):
-        raise TypeError(
-            f"initializer must be a callable, got: {initializer!r}"
-        )
+        raise TypeError(f"initializer must be a callable, got: {initializer!r}")
 
     # Introspect runtime to determine if we need to propagate the viztracer
     # profiler information to the workers:

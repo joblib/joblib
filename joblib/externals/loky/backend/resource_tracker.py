@@ -143,15 +143,11 @@ class ResourceTracker:
                 # unregistered after spawning the child.
                 try:
                     if _HAVE_SIGMASK:
-                        signal.pthread_sigmask(
-                            signal.SIG_BLOCK, _IGNORED_SIGNALS
-                        )
+                        signal.pthread_sigmask(signal.SIG_BLOCK, _IGNORED_SIGNALS)
                     pid = spawnv_passfds(exe, args, fds_to_pass)
                 finally:
                     if _HAVE_SIGMASK:
-                        signal.pthread_sigmask(
-                            signal.SIG_UNBLOCK, _IGNORED_SIGNALS
-                        )
+                        signal.pthread_sigmask(signal.SIG_UNBLOCK, _IGNORED_SIGNALS)
             except BaseException:
                 os.close(w)
                 raise
@@ -290,14 +286,10 @@ def main(fd, verbose=0):
                             del registry[rtype][name]
                             try:
                                 if verbose:
-                                    util.debug(
-                                        f"[ResourceTracker] unlink {name}"
-                                    )
+                                    util.debug(f"[ResourceTracker] unlink {name}")
                                 _CLEANUP_FUNCS[rtype](name)
                             except Exception as e:
-                                warnings.warn(
-                                    f"resource_tracker: {name}: {e!r}"
-                                )
+                                warnings.warn(f"resource_tracker: {name}: {e!r}")
 
                     else:
                         raise RuntimeError(f"unrecognized command {cmd!r}")

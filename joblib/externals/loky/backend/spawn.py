@@ -123,10 +123,7 @@ def get_preparation_data(name, init_main_module=True):
         elif sys.platform != "win32" or (not WINEXE and not WINSERVICE):
             main_path = getattr(main_module, "__file__", None)
             if main_path is not None:
-                if (
-                    not os.path.isabs(main_path)
-                    and process.ORIGINAL_DIR is not None
-                ):
+                if not os.path.isabs(main_path) and process.ORIGINAL_DIR is not None:
                     main_path = os.path.join(process.ORIGINAL_DIR, main_path)
                 d["init_main_from_path"] = os.path.normpath(main_path)
 
@@ -156,9 +153,7 @@ def prepare(data, parent_sentinel=None):
     if "log_fmt" in data:
         import logging
 
-        util.get_logger().handlers[0].setFormatter(
-            logging.Formatter(data["log_fmt"])
-        )
+        util.get_logger().handlers[0].setFormatter(logging.Formatter(data["log_fmt"]))
 
     if "sys_path" in data:
         sys.path = data["sys_path"]
@@ -216,9 +211,7 @@ def _fixup_main_from_name(mod_name):
     # the normal __main__ an alias to that
     old_main_modules.append(current_main)
     main_module = types.ModuleType("__mp_main__")
-    main_content = runpy.run_module(
-        mod_name, run_name="__mp_main__", alter_sys=True
-    )
+    main_content = runpy.run_module(mod_name, run_name="__mp_main__", alter_sys=True)
     main_module.__dict__.update(main_content)
     sys.modules["__main__"] = sys.modules["__mp_main__"] = main_module
 

@@ -154,9 +154,7 @@ def main(pipe_handle, parent_pid=None):
         )
     else:
         source_process = None
-    new_handle = reduction.duplicate(
-        pipe_handle, source_process=source_process
-    )
+    new_handle = reduction.duplicate(pipe_handle, source_process=source_process)
     fd = msvcrt.open_osfhandle(new_handle, os.O_RDONLY)
     parent_sentinel = source_process
 

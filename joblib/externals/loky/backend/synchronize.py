@@ -59,7 +59,6 @@ SEM_VALUE_MAX = _multiprocessing.SemLock.SEM_VALUE_MAX
 
 
 class SemLock:
-
     _rand = tempfile._RandomNameSequence()
 
     def __init__(self, kind, value, maxvalue, name=None):
@@ -82,8 +81,7 @@ class SemLock:
             self._semlock = _SemLock(kind, value, maxvalue, name, unlink_now)
         self.name = name
         util.debug(
-            f"created semlock with handle {self._semlock.handle} and name "
-            f'"{self.name}"'
+            f'created semlock with handle {self._semlock.handle} and name "{self.name}"'
         )
 
         self._make_methods()
@@ -96,9 +94,7 @@ class SemLock:
         # When the object is garbage collected or the
         # process shuts down we unlink the semaphore name
         resource_tracker.register(self._semlock.name, "semlock")
-        util.Finalize(
-            self, SemLock._cleanup, (self._semlock.name,), exitpriority=0
-        )
+        util.Finalize(self, SemLock._cleanup, (self._semlock.name,), exitpriority=0)
 
     @staticmethod
     def _cleanup(name):
@@ -129,9 +125,7 @@ class SemLock:
 
     def __setstate__(self, state):
         self._semlock = _SemLock._rebuild(*state)
-        util.debug(
-            f'recreated blocker with handle {state[0]!r} and name "{state[3]}"'
-        )
+        util.debug(f'recreated blocker with handle {state[0]!r} and name "{state[3]}"')
         self._make_methods()
 
     @staticmethod
@@ -287,9 +281,9 @@ class Condition:
         return f"<{self.__class__.__name__}({self._lock}, {num_waiters})>"
 
     def wait(self, timeout=None):
-        assert (
-            self._lock._semlock._is_mine()
-        ), "must acquire() condition before using wait()"
+        assert self._lock._semlock._is_mine(), (
+            "must acquire() condition before using wait()"
+        )
 
         # indicate that this thread is going to sleep
         self._sleeping_count.release()

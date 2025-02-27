@@ -8,6 +8,7 @@ the benchmark with the option `-n name1`, then changing the joblib version and
 running the script with option `-c name1`. This option can be used multiple
 times to build a comparison with more than 2 version.
 """
+
 from time import time
 
 import matplotlib.pyplot as plt
@@ -25,22 +26,26 @@ def get_file_name(name):
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(
-        description="")
+
+    parser = argparse.ArgumentParser(description="")
     parser.add_argument(
-        "--n-rep", "-r", type=int, default=5,
-        help="Number of repetition to average on."
+        "--n-rep", "-r", type=int, default=5, help="Number of repetition to average on."
     )
     parser.add_argument(
-        "--name", "-n", type=str, default="",
+        "--name",
+        "-n",
+        type=str,
+        default="",
         help="Name to save the results with. This can be used to compare "
-        "different branches with '-c'."
+        "different branches with '-c'.",
     )
     parser.add_argument(
-        "--compare", "-c", action="append",
+        "--compare",
+        "-c",
+        action="append",
         help="Loads the results from a benchmark saved previously with a name "
         "given as the present argument value. This allows comparing the "
-        "results across different versions of joblib."
+        "results across different versions of joblib.",
     )
     args = parser.parse_args()
 
@@ -65,9 +70,7 @@ if __name__ == "__main__":
         T = []
         for _ in range(args.n_rep):
             tic = time()
-            gs = GridSearchCV(
-                estimator=clf, param_grid=param_grid, n_jobs=n_jobs
-            )
+            gs = GridSearchCV(estimator=clf, param_grid=param_grid, n_jobs=n_jobs)
             gs.fit(X, y)
             T += [time() - tic]
         res += [(n_jobs, *np.quantile(T, [0.5, 0.2, 0.8]))]
@@ -85,10 +88,8 @@ if __name__ == "__main__":
         for i, name_c in enumerate(args.compare):
             fname_compare = get_file_name(name_c)
             res_c = np.load(fname_compare)
-            plt.fill_between(
-                res_c[0], res_c[2], res_c[3], alpha=0.3, color=f"C{i+1}"
-            )
-            plt.plot(res_c[0], res_c[1], c=f"C{i+1}", lw=2, label=name_c)
+            plt.fill_between(res_c[0], res_c[2], res_c[3], alpha=0.3, color=f"C{i + 1}")
+            plt.plot(res_c[0], res_c[1], c=f"C{i + 1}", lw=2, label=name_c)
 
     plt.xlabel("n_jobs")
     plt.ylabel("Time [s]")

@@ -35,6 +35,7 @@ def data_processing_mean(data, column):
 # example since the memory cache is cleared at the end of the session.
 
 import numpy as np
+
 rng = np.random.RandomState(42)
 data = rng.randn(int(1e4), 4)
 
@@ -46,9 +47,8 @@ start = time.time()
 results = [data_processing_mean(data, col) for col in range(data.shape[1])]
 stop = time.time()
 
-print('\nSequential processing')
-print('Elapsed time for the entire processing: {:.2f} s'
-      .format(stop - start))
+print("\nSequential processing")
+print("Elapsed time for the entire processing: {:.2f} s".format(stop - start))
 
 ###############################################################################
 # ``costly_compute`` is expensive to compute and it is used as an intermediate
@@ -57,7 +57,7 @@ print('Elapsed time for the entire processing: {:.2f} s'
 
 from joblib import Memory
 
-location = './cachedir'
+location = "./cachedir"
 memory = Memory(location, verbose=0)
 costly_compute_cached = memory.cache(costly_compute)
 
@@ -65,6 +65,7 @@ costly_compute_cached = memory.cache(costly_compute)
 ###############################################################################
 # Now, we define ``data_processing_mean_using_cache`` which benefits from the
 # cache by calling ``costly_compute_cached``
+
 
 def data_processing_mean_using_cache(data, column):
     """Compute the mean of a column."""
@@ -79,13 +80,12 @@ from joblib import Parallel, delayed
 
 start = time.time()
 results = Parallel(n_jobs=2)(
-    delayed(data_processing_mean_using_cache)(data, col)
-    for col in range(data.shape[1]))
+    delayed(data_processing_mean_using_cache)(data, col) for col in range(data.shape[1])
+)
 stop = time.time()
 
-print('\nFirst round - caching the data')
-print('Elapsed time for the entire processing: {:.2f} s'
-      .format(stop - start))
+print("\nFirst round - caching the data")
+print("Elapsed time for the entire processing: {:.2f} s".format(stop - start))
 
 ###############################################################################
 # By using 2 workers, the parallel processing gives a x2 speed-up compared to
@@ -95,13 +95,12 @@ print('Elapsed time for the entire processing: {:.2f} s'
 
 start = time.time()
 results = Parallel(n_jobs=2)(
-    delayed(data_processing_mean_using_cache)(data, col)
-    for col in range(data.shape[1]))
+    delayed(data_processing_mean_using_cache)(data, col) for col in range(data.shape[1])
+)
 stop = time.time()
 
-print('\nSecond round - reloading from the cache')
-print('Elapsed time for the entire processing: {:.2f} s'
-      .format(stop - start))
+print("\nSecond round - reloading from the cache")
+print("Elapsed time for the entire processing: {:.2f} s".format(stop - start))
 
 ###############################################################################
 # Reuse intermediate checkpoints
@@ -120,13 +119,12 @@ def data_processing_max_using_cache(data, column):
 
 start = time.time()
 results = Parallel(n_jobs=2)(
-    delayed(data_processing_max_using_cache)(data, col)
-    for col in range(data.shape[1]))
+    delayed(data_processing_max_using_cache)(data, col) for col in range(data.shape[1])
+)
 stop = time.time()
 
-print('\nReusing intermediate checkpoints')
-print('Elapsed time for the entire processing: {:.2f} s'
-      .format(stop - start))
+print("\nReusing intermediate checkpoints")
+print("Elapsed time for the entire processing: {:.2f} s".format(stop - start))
 
 ###############################################################################
 # The processing time only corresponds to the execution of the ``max``
