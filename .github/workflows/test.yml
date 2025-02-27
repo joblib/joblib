@@ -62,7 +62,7 @@ jobs:
           - name: distributed
             os: ubuntu-latest
             PYTHON_VERSION: "3.9"
-            EXTRA_CONDA_PACKAGES: numpy=1.22.0 distributed=2023.1.1
+            EXTRA_CONDA_PACKAGES: numpy=1.22.2 distributed=2023.1.1
           - name: numpy-1.24
             os: ubuntu-latest
             PYTHON_VERSION: "3.11"
@@ -71,7 +71,7 @@ jobs:
           - name: no-multiprocessing
             os: ubuntu-latest
             PYTHON_VERSION: "3.9"
-            EXTRA_CONDA_PACKAGES: numpy=1.22.0
+            EXTRA_CONDA_PACKAGES: numpy=1.22.2
             JOBLIB_MULTIPROCESSING: "0"
             NO_LZMA: true
           - name: no-numpy
