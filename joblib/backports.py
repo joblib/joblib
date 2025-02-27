@@ -5,9 +5,8 @@ Backports of fixes for joblib dependencies
 import os
 import re
 import time
-
-from os.path import basename
 from multiprocessing import util
+from os.path import basename
 
 
 class Version:

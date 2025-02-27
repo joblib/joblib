@@ -1,33 +1,38 @@
-import os
-import mmap
-import sys
-import platform
-import gc
-import pickle
-import itertools
-from time import sleep
-import subprocess
-import threading
 import faulthandler
+import gc
+import itertools
+import mmap
+import os
+import pickle
+import platform
+import subprocess
+import sys
+import threading
+from time import sleep
 
 import pytest
 
-from joblib.test.common import IS_GIL_DISABLED, with_numpy, np
-from joblib.test.common import with_multiprocessing
-from joblib.test.common import with_dev_shm
-from joblib.testing import raises, parametrize, skipif
-from joblib.backports import make_memmap
-from joblib.parallel import Parallel, delayed
-
-from joblib.pool import MemmappingPool
-from joblib.executor import _TestingMemmappingExecutor as TestExecutor
-from joblib._memmapping_reducer import has_shareable_memory
-from joblib._memmapping_reducer import ArrayMemmapForwardReducer
-from joblib._memmapping_reducer import _strided_from_memmap
-from joblib._memmapping_reducer import _get_temp_dir
-from joblib._memmapping_reducer import _WeakArrayKeyMap
-from joblib._memmapping_reducer import _get_backing_memmap
 import joblib._memmapping_reducer as jmr
+from joblib._memmapping_reducer import (
+    ArrayMemmapForwardReducer,
+    _get_backing_memmap,
+    _get_temp_dir,
+    _strided_from_memmap,
+    _WeakArrayKeyMap,
+    has_shareable_memory,
+)
+from joblib.backports import make_memmap
+from joblib.executor import _TestingMemmappingExecutor as TestExecutor
+from joblib.parallel import Parallel, delayed
+from joblib.pool import MemmappingPool
+from joblib.test.common import (
+    IS_GIL_DISABLED,
+    np,
+    with_dev_shm,
+    with_multiprocessing,
+    with_numpy,
+)
+from joblib.testing import parametrize, raises, skipif
 
 
 def setup_module():
@@ -464,12 +469,7 @@ def test_permission_error_windows_memmap_sent_to_parent(backend):
         out, err = p.communicate()
         assert p.returncode == 0, err
         assert out == b""
-        if sys.version_info[:3] not in [(3, 8, 0), (3, 8, 1)]:
-            # In early versions of Python 3.8, a reference leak
-            # https://github.com/cloudpipe/cloudpickle/issues/327, holds
-            # references to pickled objects, generating race condition during
-            # cleanup finalizers of joblib and noisy resource_tracker outputs.
-            assert b"resource_tracker" not in err
+        assert b"resource_tracker" not in err
 
 
 @with_numpy
@@ -653,12 +653,7 @@ def test_many_parallel_calls_on_same_object(backend):
     out, err = p.communicate()
     assert p.returncode == 0, err.decode()
     assert out == b"", out.decode()
-    if sys.version_info[:3] not in [(3, 8, 0), (3, 8, 1)]:
-        # In early versions of Python 3.8, a reference leak
-        # https://github.com/cloudpipe/cloudpickle/issues/327, holds
-        # references to pickled objects, generating race condition during
-        # cleanup finalizers of joblib and noisy resource_tracker outputs.
-        assert b"resource_tracker" not in err
+    assert b"resource_tracker" not in err
 
 
 @with_numpy

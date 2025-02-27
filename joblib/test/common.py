@@ -2,8 +2,8 @@
 Small utilities for testing.
 """
 
-import os
 import gc
+import os
 import sys
 import sysconfig
 

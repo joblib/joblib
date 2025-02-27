@@ -33,8 +33,9 @@ even more efficient.
 # is installed with ``pip install psutil`` for this example.
 
 import time
-from psutil import Process
 from threading import Thread
+
+from psutil import Process
 
 
 class MemoryMonitor(Thread):
