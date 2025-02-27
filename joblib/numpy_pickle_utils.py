@@ -4,14 +4,13 @@
 # Copyright (c) 2009 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
-import pickle
+import contextlib
 import io
+import pickle
 import sys
 import warnings
-import contextlib
 
-from .compressor import _ZFILE_PREFIX
-from .compressor import _COMPRESSORS
+from .compressor import _COMPRESSORS, _ZFILE_PREFIX
 
 try:
     import numpy as np

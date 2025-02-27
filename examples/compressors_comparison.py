@@ -22,7 +22,6 @@ import time
 #
 # First fetch the benchmark dataset from an online machine-learning database
 # and load it in a pandas dataframe.
-
 import pandas as pd
 
 url = "https://github.com/joblib/dataset/raw/main/kddcup.data.gz"
@@ -179,8 +178,8 @@ print("LZ4 load duration: %0.3fs" % lz4_load_duration)
 # Comparing the results
 # ---------------------
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 
 N = 4
 load_durations = (

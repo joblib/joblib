@@ -1,7 +1,8 @@
 import sys
+
 import joblib
-from joblib.testing import check_subprocess_call
 from joblib.test.common import with_multiprocessing
+from joblib.testing import check_subprocess_call
 
 
 def test_version():

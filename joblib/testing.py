@@ -2,16 +2,15 @@
 Helper for testing.
 """
 
-import sys
-import warnings
 import os.path
 import re
 import subprocess
+import sys
 import threading
+import warnings
 
-import pytest
 import _pytest
-
+import pytest
 
 raises = pytest.raises
 warns = pytest.warns

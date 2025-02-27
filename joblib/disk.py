@@ -7,14 +7,12 @@ Disk management utilities.
 # Copyright (c) 2010 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
+import errno
 import os
+import shutil
 import sys
 import time
-import errno
-import shutil
-
 from multiprocessing import util
-
 
 try:
     WindowsError
