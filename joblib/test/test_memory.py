@@ -1556,7 +1556,7 @@ def test_memory_creates_gitignore(location):
     arr = np.asarray([[1,2,3],[4,5,6]])
     costly_operation = mem.cache(np.square)
     costly_operation(arr)
-    
+
     if isinstance(location, pathlib.Path):
         location = location.as_posix()
 
