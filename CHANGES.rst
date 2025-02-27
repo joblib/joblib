@@ -30,6 +30,8 @@ In development
 - Pretty printing of ``Parallel`` execution progress when the number of tasks is
   known. https://github.com/joblib/joblib/pull/1608
 
+- Drop support for PyPy.
+  https://github.com/joblib/joblib/pull/1670
 
 Release 1.4.2 -- 2024/05/02
 ---------------------------
