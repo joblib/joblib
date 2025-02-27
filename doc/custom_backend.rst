@@ -20,7 +20,7 @@ constructor parameters such as the network address and connection credentials
 for a remote cluster computing service::
 
 
-..code-block:: python
+.. code-block:: python
 
     from concurrent.futures import ThreadPoolExecutor
 
