@@ -80,12 +80,20 @@ class ParallelBackendBase(metaclass=ABCMeta):
         raise NotImplementedError("Implement `submit` instead.")
 
     def submit(self, func, callback=None):
-        """Schedule a func to be run. The result of this object.
+        """Schedule a function to be run and return a future-like object.
 
-        If `supports_retreive_callback` is true, the return value of this
-        method is passed to the callback passed here, and the output of that is
-        then given to `retrieve_result_callback`. Otherwise, the return value
-        of this method is passed to `retrieve_result`.
+        This method should return a future-like object that allow tracking
+        the progress of the task.
+
+        If `supports_retrieve_callback` is False, the return value of this
+        method is passed to `retrieve_result`.
+
+        Otherwise, the callback should be run as soon as the task is completed.
+        For future-like backends, this can be achieved with
+        `future.add_done_callback(callback)`.
+        Depending on the backend, the arguments that are passed to the callback
+        differ. The behavior of callback can be tweaked with the method
+        `retrieve_result_callback`.
         """
         warnings.warn(
             "`apply_async` is deprecated, implement and use `submit` instead.",
