@@ -1,4 +1,4 @@
-|PyPi| |CIStatus| |ReadTheDocs| |Codecov| 
+|PyPi| |CIStatus| |ReadTheDocs| |Codecov|
 
 .. |PyPi| image:: https://badge.fury.io/py/joblib.svg
    :target: https://badge.fury.io/py/joblib
@@ -34,15 +34,13 @@ of the latest code: https://github.com/joblib/joblib/archive/refs/heads/main.zip
 Installing
 ==========
 
-You can use `pip` to install joblib::
+You can use `pip` to install joblib from any directory::
 
     pip install joblib
 
-from any directory or::
+or install it in editable mode from the source directory::
 
-    python setup.py install
-
-from the source directory.
+    pip install -e .
 
 Dependencies
 ============
@@ -69,10 +67,9 @@ Workflow to contribute
 To contribute to joblib, first create an account on `github
 <https://github.com/>`_. Once this is done, fork the `joblib repository
 <https://github.com/joblib/joblib>`_ to have your own repository,
-clone it using 'git clone' on the computers where you want to work. Make
-your changes in your clone, push them to your github account, test them
-on several computers, and when you are happy with them, send a pull
-request to the main repository.
+clone it using ``git clone``. Make your changes in a branch of your clone, push
+them to your github account, test them locally, and when you are happy with
+them, send a pull request to the main repository.
 
 Running the test suite
 ======================
@@ -105,12 +102,12 @@ Making a source tarball
 To create a source tarball, eg for packaging or distributing, run the
 following command::
 
-    python setup.py sdist
+    pip install build
+    python -m build --sdist
 
-The tarball will be created in the `dist` directory. This command will
-compile the docs, and the resulting tarball can be installed with
-no extra dependencies than the Python standard library. You will need
-setuptool and sphinx.
+The tarball will be created in the `dist` directory. This command will create
+the resulting tarball that can be installed with no extra dependencies than the
+Python standard library.
 
 Making a release and uploading it to PyPI
 =========================================
@@ -118,7 +115,8 @@ Making a release and uploading it to PyPI
 This command is only run by project manager, to make a release, and
 upload in to PyPI::
 
-    python setup.py sdist bdist_wheel
+    pip install build
+    python -m build --sdist --wheel
     twine upload dist/*
 
 
@@ -133,4 +131,3 @@ Changes are listed in the CHANGES.rst file. They must be manually updated
 but, the following git command may be used to generate the lines::
 
     git log --abbrev-commit --date=short --no-merges --sparse
-

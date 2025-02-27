@@ -20,9 +20,10 @@ Pickler = pickle._Pickler
 
 
 class _ConsistentSet(object):
-    """ Class used to ensure the hash of Sets is preserved
-        whatever the order of its items.
+    """Class used to ensure the hash of Sets is preserved
+    whatever the order of its items.
     """
+
     def __init__(self, set_sequence):
         # Forces order of elements in set to ensure consistent hash.
         try:
@@ -38,19 +39,19 @@ class _ConsistentSet(object):
 
 
 class _MyHash(object):
-    """ Class used to hash objects that won't normally pickle """
+    """Class used to hash objects that won't normally pickle"""
 
     def __init__(self, *args):
         self.args = args
 
 
 class Hasher(Pickler):
-    """ A subclass of pickler, to do cryptographic hashing, rather than
-        pickling. This is used to produce a unique hash of the given
-        Python object that is not necessarily cryptographically secure.
+    """A subclass of pickler, to do cryptographic hashing, rather than
+    pickling. This is used to produce a unique hash of the given
+    Python object that is not necessarily cryptographically secure.
     """
 
-    def __init__(self, hash_name='md5'):
+    def __init__(self, hash_name="md5"):
         self.stream = io.BytesIO()
         # By default we want a pickle protocol that only changes with
         # the major python version and not the minor one
@@ -63,7 +64,7 @@ class Hasher(Pickler):
         try:
             self.dump(obj)
         except pickle.PicklingError as e:
-            e.args += ('PicklingError while hashing %r: %r' % (obj, e),)
+            e.args += ("PicklingError while hashing %r: %r" % (obj, e),)
             raise
         dumps = self.stream.getvalue()
         self._hash.update(dumps)
@@ -74,7 +75,7 @@ class Hasher(Pickler):
         if isinstance(obj, (types.MethodType, type({}.pop))):
             # the Pickler cannot pickle instance methods; here we decompose
             # them into components that make them uniquely identifiable
-            if hasattr(obj, '__func__'):
+            if hasattr(obj, "__func__"):
                 func_name = obj.__func__.__name__
             else:
                 func_name = obj.__name__
@@ -105,13 +106,13 @@ class Hasher(Pickler):
         # defined interactively in IPython that are not injected in
         # __main__
         kwargs = dict(name=name, pack=pack)
-        del kwargs['pack']
+        del kwargs["pack"]
         try:
             Pickler.save_global(self, obj, **kwargs)
         except pickle.PicklingError:
             Pickler.save_global(self, obj, **kwargs)
             module = getattr(obj, "__module__", None)
-            if module == '__main__':
+            if module == "__main__":
                 my_name = name
                 if my_name is None:
                     my_name = obj.__name__
@@ -142,8 +143,7 @@ class Hasher(Pickler):
         except TypeError:
             # If keys are unorderable, sorting them using their hash. This is
             # slower but works in any case.
-            Pickler._batch_setitems(self, iter(sorted((hash(k), v)
-                                                      for k, v in items)))
+            Pickler._batch_setitems(self, iter(sorted((hash(k), v) for k, v in items)))
 
     def save_set(self, set_items):
         # forces order of items in Set to ensure consistent hash
@@ -153,33 +153,33 @@ class Hasher(Pickler):
 
 
 class NumpyHasher(Hasher):
-    """ Special case the hasher for when numpy is loaded.
-    """
+    """Special case the hasher for when numpy is loaded."""
 
-    def __init__(self, hash_name='md5', coerce_mmap=False):
+    def __init__(self, hash_name="md5", coerce_mmap=False):
         """
-            Parameters
-            ----------
-            hash_name: string
-                The hash algorithm to be used
-            coerce_mmap: boolean
-                Make no difference between np.memmap and np.ndarray
-                objects.
+        Parameters
+        ----------
+        hash_name: string
+            The hash algorithm to be used
+        coerce_mmap: boolean
+            Make no difference between np.memmap and np.ndarray
+            objects.
         """
         self.coerce_mmap = coerce_mmap
         Hasher.__init__(self, hash_name=hash_name)
         # delayed import of numpy, to avoid tight coupling
         import numpy as np
+
         self.np = np
-        if hasattr(np, 'getbuffer'):
+        if hasattr(np, "getbuffer"):
             self._getbuffer = np.getbuffer
         else:
             self._getbuffer = memoryview
 
     def save(self, obj):
-        """ Subclass the save method, to hash ndarray subclass, rather
-            than pickling them. Off course, this is a total abuse of
-            the Pickler class.
+        """Subclass the save method, to hash ndarray subclass, rather
+        than pickling them. Off course, this is a total abuse of
+        the Pickler class.
         """
         if isinstance(obj, self.np.ndarray) and not obj.dtype.hasobject:
             # Compute a hash of the object
@@ -202,8 +202,7 @@ class NumpyHasher(Hasher):
             # https://github.com/numpy/numpy/issues/4983. The
             # workaround is to view the array as bytes before
             # taking the memoryview.
-            self._hash.update(
-                self._getbuffer(obj_c_contiguous.view(self.np.uint8)))
+            self._hash.update(self._getbuffer(obj_c_contiguous.view(self.np.uint8)))
 
             # We store the class, to be able to distinguish between
             # Objects with the same binary content, but different
@@ -219,7 +218,7 @@ class NumpyHasher(Hasher):
             # different views on the same data with different dtypes.
 
             # The object will be pickled by the pickler hashed at the end.
-            obj = (klass, ('HASHED', obj.dtype, obj.shape, obj.strides))
+            obj = (klass, ("HASHED", obj.dtype, obj.shape, obj.strides))
         elif isinstance(obj, self.np.dtype):
             # numpy.dtype consistent hashing is tricky to get right. This comes
             # from the fact that atomic np.dtype objects are interned:
@@ -236,30 +235,32 @@ class NumpyHasher(Hasher):
             # the serialization (and thus the pickle memoization) of each dtype
             # using each time a different ``pickle.dumps`` call unrelated to
             # the current Hasher instance.
-            self._hash.update("_HASHED_DTYPE".encode('utf-8'))
+            self._hash.update("_HASHED_DTYPE".encode("utf-8"))
             self._hash.update(pickle.dumps(obj))
             return
         Hasher.save(self, obj)
 
 
-def hash(obj, hash_name='md5', coerce_mmap=False):
-    """ Quick calculation of a hash to identify uniquely Python objects
-        containing numpy arrays.
+def hash(obj, hash_name="md5", coerce_mmap=False):
+    """Quick calculation of a hash to identify uniquely Python objects
+    containing numpy arrays.
 
-        Parameters
-        ----------
-        hash_name: 'md5' or 'sha1'
-            Hashing algorithm used. sha1 is supposedly safer, but md5 is
-            faster.
-        coerce_mmap: boolean
-            Make no difference between np.memmap and np.ndarray
+    Parameters
+    ----------
+    hash_name: 'md5' or 'sha1'
+        Hashing algorithm used. sha1 is supposedly safer, but md5 is
+        faster.
+    coerce_mmap: boolean
+        Make no difference between np.memmap and np.ndarray
     """
-    valid_hash_names = ('md5', 'sha1')
+    valid_hash_names = ("md5", "sha1")
     if hash_name not in valid_hash_names:
-        raise ValueError("Valid options for 'hash_name' are {}. "
-                         "Got hash_name={!r} instead."
-                         .format(valid_hash_names, hash_name))
-    if 'numpy' in sys.modules:
+        raise ValueError(
+            "Valid options for 'hash_name' are {}. Got hash_name={!r} instead.".format(
+                valid_hash_names, hash_name
+            )
+        )
+    if "numpy" in sys.modules:
         hasher = NumpyHasher(hash_name=hash_name, coerce_mmap=coerce_mmap)
     else:
         hasher = Hasher(hash_name=hash_name)
