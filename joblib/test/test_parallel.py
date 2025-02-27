@@ -2208,8 +2208,12 @@ def test_call_context_parallel(n_jobs, backend, return_as):
     set_config(parameter=123)
     call_context = [(config_context, get_config)]
 
-    results = Parallel(
-        n_jobs=n_jobs, call_context=call_context, backend=backend, return_as=return_as
-    )(delayed(get_parameter)() for _ in range(2))
+    with config_context(parameter=456):
+        results = Parallel(
+            n_jobs=n_jobs,
+            call_context=call_context,
+            backend=backend,
+            return_as=return_as,
+        )(delayed(get_parameter)() for _ in range(2))
 
-    assert list(results) == [123] * 2
+    assert list(results) == [456] * 2
