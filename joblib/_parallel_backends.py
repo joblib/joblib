@@ -533,6 +533,14 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
     supports_retrieve_callback = True
     supports_inner_max_num_threads = True
 
+    def __init__(
+        self, nesting_level=None, inner_max_num_threads=None, **backend_kwargs
+    ):
+        super().__init__(
+            nesting_level=nesting_level, inner_max_num_threads=inner_max_num_threads
+        )
+        self.memmapping_executor_kwargs = backend_kwargs
+
     def configure(
         self,
         n_jobs=1,
@@ -540,19 +548,24 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
         prefer=None,
         require=None,
         idle_worker_timeout=300,
-        **memmappingexecutor_args,
+        **memmapping_executor_kwargs,
     ):
         """Build a process executor and return the number of workers"""
         n_jobs = self.effective_n_jobs(n_jobs)
         if n_jobs == 1:
             raise FallbackToBackend(SequentialBackend(nesting_level=self.nesting_level))
 
+        memmapping_executor_kwargs = {
+            **self.memmapping_executor_kwargs,
+            **memmapping_executor_kwargs,
+        }
+
         self._workers = get_memmapping_executor(
             n_jobs,
             timeout=idle_worker_timeout,
             env=self._prepare_worker_env(n_jobs=n_jobs),
             context_id=parallel._id,
-            **memmappingexecutor_args,
+            **memmapping_executor_kwargs,
         )
         self.parallel = parallel
         return n_jobs
