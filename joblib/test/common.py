@@ -66,7 +66,7 @@ def force_gc_pypy():
     # will eventually be collected.
     if IS_PYPY:
         # Run gc.collect() twice to make sure the weakref is collected, as
-        # mentionned in the pypy doc:
+        # mentioned in the pypy doc:
         # https://doc.pypy.org/en/latest/config/objspace.usemodules._weakref.html
         import gc
         gc.collect()

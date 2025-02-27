@@ -147,8 +147,9 @@ def test_memmap_based_array_reducing(tmpdir):
     assert_array_equal(b3_reconstructed, b3)
 
 
+@with_numpy
 @with_multiprocessing
-@skipif((sys.platform != "win32") or (),
+@skipif(sys.platform != "win32",
         reason="PermissionError only easily triggerable on Windows")
 def test_resource_tracker_retries_when_permissionerror(tmpdir):
     # Test resource_tracker retry mechanism when unlinking memmaps.  See more
@@ -188,7 +189,7 @@ def test_resource_tracker_retries_when_permissionerror(tmpdir):
                          stdout=subprocess.PIPE)
     p.wait()
     out, err = p.communicate()
-    assert p.returncode == 0
+    assert p.returncode == 0, err.decode()
     assert out == b''
     msg = 'tried to unlink {}, got PermissionError'.format(filename)
     assert msg in err.decode()
@@ -580,8 +581,8 @@ def test_multithreaded_parallel_termination_resource_tracker_silent():
         p = subprocess.Popen([sys.executable, '-c', cmd.format(f1=f1, f2=f2)],
                              stderr=subprocess.PIPE, stdout=subprocess.PIPE)
         p.wait()
-        out, err = p.communicate()
-        assert p.returncode == returncode, out.decode()
+        _, err = p.communicate()
+        assert p.returncode == returncode, err.decode()
         assert b"resource_tracker" not in err, err.decode()
 
 
@@ -623,8 +624,8 @@ def test_many_parallel_calls_on_same_object(backend):
     )
     p.wait()
     out, err = p.communicate()
-    assert p.returncode == 0, err
-    assert out == b''
+    assert p.returncode == 0, err.decode()
+    assert out == b'', out.decode()
     if sys.version_info[:3] not in [(3, 8, 0), (3, 8, 1)]:
         # In early versions of Python 3.8, a reference leak
         # https://github.com/cloudpipe/cloudpickle/issues/327, holds

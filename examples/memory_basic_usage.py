@@ -43,7 +43,7 @@ print('\nThe transformed data are:\n {}'.format(data_trans))
 # Caching the result of a function to avoid recomputing
 ###############################################################################
 #
-# If we need to call our function several time with the same input data, it is
+# If we need to call our function several times with the same input data, it is
 # beneficial to avoid recomputing the same results over and over since it is
 # expensive. :class:`joblib.Memory` enables to cache results from a function
 # into a specific location.

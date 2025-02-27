@@ -1,12 +1,12 @@
 import os
-
+import sys
 import logging
 import faulthandler
 
 import pytest
 from _pytest.doctest import DoctestItem
 
-from joblib.parallel import mp
+from joblib.parallel import mp, ParallelBackendBase
 from joblib.backports import LooseVersion
 from joblib import Memory
 try:
@@ -27,17 +27,21 @@ def pytest_collection_modifyitems(config, items):
     # e.g. via the JOBLIB_MULTIPROCESSING env variable
     if mp is not None:
         try:
-            # numpy changed the str/repr formatting of numpy arrays in 1.14.
-            # We want to run doctests only for numpy >= 1.14.
+            # Only run doctests for numpy >= 2 and Python >= 3.10 to avoid
+            # formatting changes
             import numpy as np
-            if LooseVersion(np.__version__) >= LooseVersion('1.14'):
+            if (LooseVersion(np.__version__) >= LooseVersion('2')
+                    and sys.version_info[:2] >= (3, 10)):
                 skip_doctests = False
         except ImportError:
             pass
 
     if skip_doctests:
-        skip_marker = pytest.mark.skip(
-            reason='doctests are only run for numpy >= 1.14')
+        reason = (
+            'doctests are only run in some conditions, '
+            'see conftest.py for more details'
+        )
+        skip_marker = pytest.mark.skip(reason=reason)
 
         for item in items:
             if isinstance(item, DoctestItem):
@@ -93,3 +97,13 @@ def memory(tmp_path):
     mem = Memory(location=tmp_path, verbose=0)
     yield mem
     mem.clear()
+
+
+@pytest.fixture(scope='function', autouse=True)
+def avoid_env_var_leakage():
+    "Fixture to avoid MAX_NUM_THREADS env vars leakage between tests"
+    yield
+    assert all(
+        os.environ.get(k) is None
+        for k in ParallelBackendBase.MAX_NUM_THREADS_VARS
+    )

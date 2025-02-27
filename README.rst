@@ -1,12 +1,12 @@
-|PyPi| |Azure| |ReadTheDocs| |Codecov|
+|PyPi| |CIStatus| |ReadTheDocs| |Codecov| 
 
 .. |PyPi| image:: https://badge.fury.io/py/joblib.svg
    :target: https://badge.fury.io/py/joblib
    :alt: Joblib version
 
-.. |Azure| image:: https://dev.azure.com/joblib/joblib/_apis/build/status/joblib.joblib?branchName=main
-   :target: https://dev.azure.com/joblib/joblib/_build?definitionId=3&_a=summary&branchFilter=40
-   :alt: Azure CI status
+.. |CIStatus| image:: https://github.com/joblib/joblib/actions/workflows/test.yml/badge.svg
+   :target: https://github.com/joblib/joblib/actions/workflows/test.yml?query=branch%3Amain
+   :alt: CI status
 
 .. |ReadTheDocs| image:: https://readthedocs.org/projects/joblib/badge/?version=latest
     :target: https://joblib.readthedocs.io/en/latest/?badge=latest
@@ -34,15 +34,13 @@ of the latest code: https://github.com/joblib/joblib/archive/refs/heads/main.zip
 Installing
 ==========
 
-You can use `pip` to install joblib::
+You can use `pip` to install joblib from any directory::
 
     pip install joblib
 
-from any directory or::
+or install it in editable mode from the source directory::
 
-    python setup.py install
-
-from the source directory.
+    pip install -e .
 
 Dependencies
 ============
@@ -69,10 +67,9 @@ Workflow to contribute
 To contribute to joblib, first create an account on `github
 <https://github.com/>`_. Once this is done, fork the `joblib repository
 <https://github.com/joblib/joblib>`_ to have your own repository,
-clone it using 'git clone' on the computers where you want to work. Make
-your changes in your clone, push them to your github account, test them
-on several computers, and when you are happy with them, send a pull
-request to the main repository.
+clone it using ``git clone``. Make your changes in a branch of your clone, push
+them to your github account, test them locally, and when you are happy with
+them, send a pull request to the main repository.
 
 Running the test suite
 ======================

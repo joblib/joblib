@@ -983,7 +983,7 @@ def _check_max_depth(context):
     if 0 < MAX_DEPTH and _CURRENT_DEPTH + 1 > MAX_DEPTH:
         raise LokyRecursionError(
             "Could not spawn extra nested processes at depth superior to "
-            f"MAX_DEPTH={MAX_DEPTH}. If this is intendend, you can change "
+            f"MAX_DEPTH={MAX_DEPTH}. If this is intended, you can change "
             "this limit with the LOKY_MAX_DEPTH environment variable."
         )
 

@@ -538,7 +538,8 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
         self._workers = get_memmapping_executor(
             n_jobs, timeout=idle_worker_timeout,
             env=self._prepare_worker_env(n_jobs=n_jobs),
-            context_id=parallel._id, **memmappingexecutor_args)
+            context_id=parallel._id, **memmappingexecutor_args
+        )
         self.parallel = parallel
         return n_jobs
 

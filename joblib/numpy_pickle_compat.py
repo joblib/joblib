@@ -101,7 +101,7 @@ class NDArrayWrapper(object):
         if allow_mmap:
             kwargs['mmap_mode'] = unpickler.mmap_mode
         if "allow_pickle" in inspect.signature(unpickler.np.load).parameters:
-            # Required in numpy 1.16.3 and later to aknowledge the security
+            # Required in numpy 1.16.3 and later to acknowledge the security
             # risk.
             kwargs["allow_pickle"] = True
         array = unpickler.np.load(filename, **kwargs)

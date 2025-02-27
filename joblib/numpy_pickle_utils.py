@@ -90,7 +90,7 @@ def _detect_compressor(fileobj):
     max_prefix_len = _get_prefixes_max_len()
     if hasattr(fileobj, 'peek'):
         # Peek allows to read those bytes without moving the cursor in the
-        # file whic.
+        # file which.
         first_bytes = fileobj.peek(max_prefix_len)
     else:
         # Fallback to seek if the fileobject is not peekable.
