@@ -55,6 +55,7 @@ def eval_(node):
 @dataclass(frozen=True)
 class _Sentinel:
     """A sentinel to mark a parameter as not explicitly set"""
+
     default_value: object
 
     def __repr__(self):

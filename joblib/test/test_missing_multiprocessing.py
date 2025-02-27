@@ -25,8 +25,12 @@ def test_missing_multiprocessing(tmp_path):
     # multiprocessing inserted.
     env["PYTHONPATH"] = ":".join([str(tmp_path)] + sys.path)
     subprocess.check_call(
-        [sys.executable, "-c",
-         "import joblib, math; "
-         "joblib.Parallel(n_jobs=1)("
-         "joblib.delayed(math.sqrt)(i**2) for i in range(10))"
-         ], env=env)
+        [
+            sys.executable,
+            "-c",
+            "import joblib, math; "
+            "joblib.Parallel(n_jobs=1)("
+            "joblib.delayed(math.sqrt)(i**2) for i in range(10))",
+        ],
+        env=env,
+    )

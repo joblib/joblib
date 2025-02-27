@@ -38,7 +38,7 @@ from .externals.loky.backend import resource_tracker
 
 # Some system have a ramdisk mounted by default, we can use it instead of /tmp
 # as the default folder to dump big arrays to share with subprocesses.
-SYSTEM_SHARED_MEM_FS = '/dev/shm'
+SYSTEM_SHARED_MEM_FS = "/dev/shm"
 
 # Minimal number of bytes available on SYSTEM_SHARED_MEM_FS to consider using
 # it as the default folder to dump big arrays to share with subprocesses.
@@ -59,18 +59,22 @@ JOBLIB_MMAPS = set()
 
 def _log_and_unlink(filename):
     from .externals.loky.backend.resource_tracker import _resource_tracker
+
     util.debug(
         "[FINALIZER CALL] object mapping to {} about to be deleted,"
         " decrementing the refcount of the file (pid: {})".format(
-            os.path.basename(filename), os.getpid()))
+            os.path.basename(filename), os.getpid()
+        )
+    )
     _resource_tracker.maybe_unlink(filename, "file")
 
 
 def add_maybe_unlink_finalizer(memmap):
     util.debug(
-        "[FINALIZER ADD] adding finalizer to {} (id {}, filename {}, pid  {})"
-        "".format(type(memmap), id(memmap), os.path.basename(memmap.filename),
-                  os.getpid()))
+        "[FINALIZER ADD] adding finalizer to {} (id {}, filename {}, pid  {})".format(
+            type(memmap), id(memmap), os.path.basename(memmap.filename), os.getpid()
+        )
+    )
     weakref.finalize(memmap, _log_and_unlink, memmap.filename)
 
 
@@ -92,20 +96,21 @@ def unlink_file(filename):
             break
         except PermissionError:
             util.debug(
-                '[ResourceTracker] tried to unlink {}, got '
-                'PermissionError'.format(filename)
+                "[ResourceTracker] tried to unlink {}, got PermissionError".format(
+                    filename
+                )
             )
             if retry_no == NUM_RETRIES:
                 raise
             else:
-                time.sleep(.2)
+                time.sleep(0.2)
         except FileNotFoundError:
             # In case of a race condition when deleting the temporary folder,
             # avoid noisy FileNotFoundError exception in the resource tracker.
             pass
 
 
-resource_tracker._CLEANUP_FUNCS['file'] = unlink_file
+resource_tracker._CLEANUP_FUNCS["file"] = unlink_file
 
 
 class _WeakArrayKeyMap:
@@ -141,6 +146,7 @@ class _WeakArrayKeyMap:
             # as soon as the object used as key is garbage collected.
             def on_destroy(_):
                 del self._data[key]
+
             ref = weakref.ref(obj, on_destroy)
         self._data[key] = ref, value
 
@@ -154,7 +160,7 @@ class _WeakArrayKeyMap:
 
 def _get_backing_memmap(a):
     """Recursively look up the original np.memmap instance base if any."""
-    b = getattr(a, 'base', None)
+    b = getattr(a, "base", None)
     if b is None:
         # TODO: check scipy sparse datastructure if scipy is installed
         # a nor its descendants do not have a memmap base
@@ -201,9 +207,9 @@ def _get_temp_dir(pool_folder_name, temp_folder=None):
     """
     use_shared_mem = False
     if temp_folder is None:
-        temp_folder = os.environ.get('JOBLIB_TEMP_FOLDER', None)
+        temp_folder = os.environ.get("JOBLIB_TEMP_FOLDER", None)
     if temp_folder is None:
-        if os.path.exists(SYSTEM_SHARED_MEM_FS) and hasattr(os, 'statvfs'):
+        if os.path.exists(SYSTEM_SHARED_MEM_FS) and hasattr(os, "statvfs"):
             try:
                 shm_stats = os.statvfs(SYSTEM_SHARED_MEM_FS)
                 available_nbytes = shm_stats.f_bsize * shm_stats.f_bavail
@@ -233,25 +239,44 @@ def has_shareable_memory(a):
     return _get_backing_memmap(a) is not None
 
 
-def _strided_from_memmap(filename, dtype, mode, offset, order, shape, strides,
-                         total_buffer_len, unlink_on_gc_collect):
+def _strided_from_memmap(
+    filename,
+    dtype,
+    mode,
+    offset,
+    order,
+    shape,
+    strides,
+    total_buffer_len,
+    unlink_on_gc_collect,
+):
     """Reconstruct an array view on a memory mapped file."""
-    if mode == 'w+':
+    if mode == "w+":
         # Do not zero the original data when unpickling
-        mode = 'r+'
+        mode = "r+"
 
     if strides is None:
         # Simple, contiguous memmap
         return make_memmap(
-            filename, dtype=dtype, shape=shape, mode=mode, offset=offset,
-            order=order, unlink_on_gc_collect=unlink_on_gc_collect
+            filename,
+            dtype=dtype,
+            shape=shape,
+            mode=mode,
+            offset=offset,
+            order=order,
+            unlink_on_gc_collect=unlink_on_gc_collect,
         )
     else:
         # For non-contiguous data, memmap the total enclosing buffer and then
         # extract the non-contiguous view with the stride-tricks API
         base = make_memmap(
-            filename, dtype=dtype, shape=total_buffer_len, offset=offset,
-            mode=mode, order=order, unlink_on_gc_collect=unlink_on_gc_collect
+            filename,
+            dtype=dtype,
+            shape=total_buffer_len,
+            offset=offset,
+            mode=mode,
+            order=order,
+            unlink_on_gc_collect=unlink_on_gc_collect,
         )
         return as_strided(base, shape=shape, strides=strides)
 
@@ -264,8 +289,11 @@ def _reduce_memmap_backed(a, m):
     attribute ancestry of a. ``m.base`` should be the real python mmap object.
     """
     # offset that comes from the striding differences between a and m
-    util.debug('[MEMMAP REDUCE] reducing a memmap-backed array '
-               '(shape, {}, pid: {})'.format(a.shape, os.getpid()))
+    util.debug(
+        "[MEMMAP REDUCE] reducing a memmap-backed array (shape, {}, pid: {})".format(
+            a.shape, os.getpid()
+        )
+    )
     try:
         from numpy.lib.array_utils import byte_bounds
     except (ModuleNotFoundError, ImportError):
@@ -278,14 +306,14 @@ def _reduce_memmap_backed(a, m):
     # offset from the backing memmap
     offset += m.offset
 
-    if m.flags['F_CONTIGUOUS']:
-        order = 'F'
+    if m.flags["F_CONTIGUOUS"]:
+        order = "F"
     else:
         # The backing memmap buffer is necessarily contiguous hence C if not
         # Fortran
-        order = 'C'
+        order = "C"
 
-    if a.flags['F_CONTIGUOUS'] or a.flags['C_CONTIGUOUS']:
+    if a.flags["F_CONTIGUOUS"] or a.flags["C_CONTIGUOUS"]:
         # If the array is a contiguous view, no need to pass the strides
         strides = None
         total_buffer_len = None
@@ -295,9 +323,20 @@ def _reduce_memmap_backed(a, m):
         strides = a.strides
         total_buffer_len = (a_end - a_start) // a.itemsize
 
-    return (_strided_from_memmap,
-            (m.filename, a.dtype, m.mode, offset, order, a.shape, strides,
-             total_buffer_len, False))
+    return (
+        _strided_from_memmap,
+        (
+            m.filename,
+            a.dtype,
+            m.mode,
+            offset,
+            order,
+            a.shape,
+            strides,
+            total_buffer_len,
+            False,
+        ),
+    )
 
 
 def reduce_array_memmap_backward(a):
@@ -314,9 +353,7 @@ def reduce_array_memmap_backward(a):
         # serialize the memmap as a regular numpy array, and decref the
         # file backing the memmap (done implicitly in a previously registered
         # finalizer, see ``unlink_on_gc_collect`` for more details)
-        return (
-            loads, (dumps(np.asarray(a), protocol=HIGHEST_PROTOCOL), )
-        )
+        return (loads, (dumps(np.asarray(a), protocol=HIGHEST_PROTOCOL),))
 
 
 class ArrayMemmapForwardReducer(object):
@@ -344,16 +381,21 @@ class ArrayMemmapForwardReducer(object):
         same data array is passed to different worker processes.
     """
 
-    def __init__(self, max_nbytes, temp_folder_resolver, mmap_mode,
-                 unlink_on_gc_collect, verbose=0, prewarm=True):
+    def __init__(
+        self,
+        max_nbytes,
+        temp_folder_resolver,
+        mmap_mode,
+        unlink_on_gc_collect,
+        verbose=0,
+        prewarm=True,
+    ):
         self._max_nbytes = max_nbytes
         self._temp_folder_resolver = temp_folder_resolver
         self._mmap_mode = mmap_mode
         self.verbose = int(verbose)
         if prewarm == "auto":
-            self._prewarm = not self._temp_folder.startswith(
-                SYSTEM_SHARED_MEM_FS
-            )
+            self._prewarm = not self._temp_folder.startswith(SYSTEM_SHARED_MEM_FS)
         else:
             self._prewarm = prewarm
         self._prewarm = prewarm
@@ -375,11 +417,10 @@ class ArrayMemmapForwardReducer(object):
         # memmaps from the parent process to the children processes. For this
         # reason, we can afford skipping the resolver, (which would otherwise
         # be unpicklable), and pass it as None instead.
-        args = (self._max_nbytes, None, self._mmap_mode,
-                self._unlink_on_gc_collect)
+        args = (self._max_nbytes, None, self._mmap_mode, self._unlink_on_gc_collect)
         kwargs = {
-            'verbose': self.verbose,
-            'prewarm': self._prewarm,
+            "verbose": self.verbose,
+            "prewarm": self._prewarm,
         }
         return ArrayMemmapForwardReducer, args, kwargs
 
@@ -389,8 +430,11 @@ class ArrayMemmapForwardReducer(object):
             # a is already backed by a memmap file, let's reuse it directly
             return _reduce_memmap_backed(a, m)
 
-        if (not a.dtype.hasobject and self._max_nbytes is not None and
-                a.nbytes > self._max_nbytes):
+        if (
+            not a.dtype.hasobject
+            and self._max_nbytes is not None
+            and a.nbytes > self._max_nbytes
+        ):
             # check that the folder exists (lazily create the pool temp folder
             # if required)
             try:
@@ -408,7 +452,8 @@ class ArrayMemmapForwardReducer(object):
                 # easier to cleanup orphaned files in case of hard process
                 # kill (e.g. by "kill -9" or segfault).
                 basename = "{}-{}-{}.pkl".format(
-                    os.getpid(), id(threading.current_thread()), uuid4().hex)
+                    os.getpid(), id(threading.current_thread()), uuid4().hex
+                )
                 self._memmaped_arrays.set(a, basename)
             filename = os.path.join(self._temp_folder, basename)
 
@@ -446,8 +491,8 @@ class ArrayMemmapForwardReducer(object):
             if not os.path.exists(filename):
                 util.debug(
                     "[ARRAY DUMP] Pickling new array (shape={}, dtype={}) "
-                    "creating a new memmap at {}".format(
-                        a.shape, a.dtype, filename))
+                    "creating a new memmap at {}".format(a.shape, a.dtype, filename)
+                )
                 for dumped_filename in dump(a, filename):
                     os.chmod(dumped_filename, FILE_PERMISSIONS)
 
@@ -463,26 +508,36 @@ class ArrayMemmapForwardReducer(object):
                 util.debug(
                     "[ARRAY DUMP] Pickling known array (shape={}, dtype={}) "
                     "reusing memmap file: {}".format(
-                        a.shape, a.dtype, os.path.basename(filename)))
+                        a.shape, a.dtype, os.path.basename(filename)
+                    )
+                )
 
             # The worker process will use joblib.load to memmap the data
             return (
-                (load_temporary_memmap, (filename, self._mmap_mode,
-                                         self._unlink_on_gc_collect))
+                load_temporary_memmap,
+                (filename, self._mmap_mode, self._unlink_on_gc_collect),
             )
         else:
             # do not convert a into memmap, let pickler do its usual copy with
             # the default system pickler
             util.debug(
-                '[ARRAY DUMP] Pickling array (NO MEMMAPPING) (shape={}, '
-                ' dtype={}).'.format(a.shape, a.dtype))
+                "[ARRAY DUMP] Pickling array (NO MEMMAPPING) (shape={}, "
+                " dtype={}).".format(a.shape, a.dtype)
+            )
             return (loads, (dumps(a, protocol=HIGHEST_PROTOCOL),))
 
 
 def get_memmapping_reducers(
-        forward_reducers=None, backward_reducers=None,
-        temp_folder_resolver=None, max_nbytes=1e6, mmap_mode='r', verbose=0,
-        prewarm=False, unlink_on_gc_collect=True, **kwargs):
+    forward_reducers=None,
+    backward_reducers=None,
+    temp_folder_resolver=None,
+    max_nbytes=1e6,
+    mmap_mode="r",
+    verbose=0,
+    prewarm=False,
+    unlink_on_gc_collect=True,
+    **kwargs,
+):
     """Construct a pair of memmapping reducer linked to a tmpdir.
 
     This function manage the creation and the clean up of the temporary folders
@@ -499,8 +554,13 @@ def get_memmapping_reducers(
         # arrays and that is also able to dump to memmap large in-memory
         # arrays over the max_nbytes threshold
         forward_reduce_ndarray = ArrayMemmapForwardReducer(
-            max_nbytes, temp_folder_resolver, mmap_mode, unlink_on_gc_collect,
-            verbose, prewarm=prewarm)
+            max_nbytes,
+            temp_folder_resolver,
+            mmap_mode,
+            unlink_on_gc_collect,
+            verbose,
+            prewarm=prewarm,
+        )
         forward_reducers[np.ndarray] = forward_reduce_ndarray
         forward_reducers[np.memmap] = forward_reduce_ndarray
 
@@ -559,13 +619,10 @@ class TemporaryResourcesManager(object):
             # register/use/delete the same folder, we also add an id specific
             # to the current Manager (and thus specific to its associated
             # executor) to the folder name.
-            new_folder_name = (
-                "joblib_memmapping_folder_{}_{}_{}".format(
-                    os.getpid(), self._id, context_id)
+            new_folder_name = "joblib_memmapping_folder_{}_{}_{}".format(
+                os.getpid(), self._id, context_id
             )
-            new_folder_path, _ = _get_temp_dir(
-                new_folder_name, self._temp_folder_root
-            )
+            new_folder_path, _ = _get_temp_dir(new_folder_name, self._temp_folder_root)
             self.register_folder_finalizer(new_folder_path, context_id)
             self._cached_temp_folders[context_id] = new_folder_path
 
@@ -581,7 +638,7 @@ class TemporaryResourcesManager(object):
         # ensure that this callback won't prevent garbage collection of
         # parallel instance and related file handler resources such as POSIX
         # semaphores and pipes
-        pool_module_name = whichmodule(delete_folder, 'delete_folder')
+        pool_module_name = whichmodule(delete_folder, "delete_folder")
         resource_tracker.register(pool_subfolder, "folder")
 
         def _cleanup():
@@ -594,19 +651,21 @@ class TemporaryResourcesManager(object):
             # because joblib should only use relative imports to allow
             # easy vendoring.
             delete_folder = __import__(
-                pool_module_name, fromlist=['delete_folder']
+                pool_module_name, fromlist=["delete_folder"]
             ).delete_folder
             try:
                 delete_folder(pool_subfolder, allow_non_empty=True)
                 resource_tracker.unregister(pool_subfolder, "folder")
             except OSError:
-                warnings.warn("Failed to delete temporary folder: {}"
-                              .format(pool_subfolder))
+                warnings.warn(
+                    "Failed to delete temporary folder: {}".format(pool_subfolder)
+                )
 
         self._finalizers[context_id] = atexit.register(_cleanup)
 
-    def _clean_temporary_resources(self, context_id=None, force=False,
-                                   allow_non_empty=False):
+    def _clean_temporary_resources(
+        self, context_id=None, force=False, allow_non_empty=False
+    ):
         """Clean temporary resources created by a process-based pool"""
         if context_id is None:
             # Iterates over a copy of the cache keys to avoid Error due to
@@ -638,9 +697,7 @@ class TemporaryResourcesManager(object):
                 # Clean up the folder if possible, either if it is empty or
                 # if none of the files in it are in used and allow_non_empty.
                 try:
-                    delete_folder(
-                        temp_folder, allow_non_empty=allow_non_empty
-                    )
+                    delete_folder(temp_folder, allow_non_empty=allow_non_empty)
                     # Forget the folder once it has been deleted
                     self._cached_temp_folders.pop(context_id, None)
                     resource_tracker.unregister(temp_folder, "folder")

@@ -5,8 +5,9 @@ from joblib.test.common import with_multiprocessing
 
 
 def test_version():
-    assert hasattr(joblib, '__version__'), (
-        "There are no __version__ argument on the joblib module")
+    assert hasattr(joblib, "__version__"), (
+        "There are no __version__ argument on the joblib module"
+    )
 
 
 @with_multiprocessing
@@ -20,7 +21,7 @@ def test_no_start_method_side_effect_on_import():
         # start_method is already set.
         mp.set_start_method("loky")
     """
-    check_subprocess_call([sys.executable, '-c', code])
+    check_subprocess_call([sys.executable, "-c", code])
 
 
 @with_multiprocessing
@@ -37,7 +38,7 @@ def test_no_semaphore_tracker_on_import():
     if sys.version_info >= (3, 8):
         # semaphore_tracker was renamed in Python 3.8:
         code = code.replace("semaphore_tracker", "resource_tracker")
-    check_subprocess_call([sys.executable, '-c', code])
+    check_subprocess_call([sys.executable, "-c", code])
 
 
 @with_multiprocessing
@@ -50,4 +51,4 @@ def test_no_resource_tracker_on_import():
         msg = "loky.resource_tracker has been spawned on import"
         assert resource_tracker._resource_tracker._fd is None, msg
     """
-    check_subprocess_call([sys.executable, '-c', code])
+    check_subprocess_call([sys.executable, "-c", code])
