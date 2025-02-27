@@ -705,7 +705,7 @@ def load(filename, mmap_mode=None):
     if Path is not None and isinstance(filename, Path):
         filename = str(filename)
 
-    # A memory-mapped array has to be mapped with the endianess
+    # A memory-mapped array has to be mapped with the endianness
     # it has been written with. Other arrays are coerced to the
     # native endianness of the host system.
     ensure_native_byte_order = mmap_mode is None
