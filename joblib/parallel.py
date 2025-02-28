@@ -427,6 +427,12 @@ class parallel_config:
                     )
 
             backend = BACKENDS[backend](**backend_params)
+        else:
+            if len(backend_params) > 0:
+                raise ValueError(
+                    "Constructor parameters backend_params are only "
+                    "supported when backend is a string."
+                )
 
         if inner_max_num_threads is not None:
             msg = (
@@ -723,7 +729,7 @@ class BatchCompletionCallBack(object):
             self.status = TASK_PENDING
 
     def register_job(self, job):
-        """Register the object returned by `apply_async`."""
+        """Register the object returned by `submit`."""
         self.job = job
 
     def get_result(self, timeout):
@@ -754,10 +760,7 @@ class BatchCompletionCallBack(object):
 
         # For other backends, the main thread needs to run the retrieval step.
         try:
-            if backend.supports_timeout:
-                result = self.job.get(timeout=timeout)
-            else:
-                result = self.job.get()
+            result = backend.retrieve_result(self.job, timeout=timeout)
             outcome = dict(result=result, status=TASK_DONE)
         except BaseException as e:
             outcome = dict(result=e, status=TASK_ERROR)
@@ -797,7 +800,7 @@ class BatchCompletionCallBack(object):
     ##########################################################################
     #                     METHODS CALLED BY CALLBACK THREADS                 #
     ##########################################################################
-    def __call__(self, out):
+    def __call__(self, *args, **kwargs):
         """Function called by the callback thread after a job is completed."""
 
         # If the backend doesn't support callback retrievals, the next batch of
@@ -825,7 +828,7 @@ class BatchCompletionCallBack(object):
 
             # Retrieves the result of the task in the main process and dispatch
             # a new batch if needed.
-            job_succeeded = self._retrieve_result(out)
+            job_succeeded = self._retrieve_result(*args, **kwargs)
 
         if job_succeeded:
             self._dispatch_new()
@@ -1426,7 +1429,7 @@ class Parallel(Logger):
         # the queue by itself as soon as the callback is triggered to be able
         # to return the results in the order of completion.
 
-        job = self._backend.apply_async(batch, callback=batch_tracker)
+        job = self._backend.submit(batch, callback=batch_tracker)
         batch_tracker.register_job(job)
 
     def _register_new_job(self, batch_tracker):
@@ -1441,7 +1444,6 @@ class Parallel(Logger):
         This method is meant to be called concurrently by the multiprocessing
         callback. We rely on the thread-safety of dispatch_one_batch to protect
         against concurrent consumption of the unprotected iterator.
-
         """
         if not self.dispatch_one_batch(self._original_iterator):
             self._iterating = False
