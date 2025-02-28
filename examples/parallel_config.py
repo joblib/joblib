@@ -104,3 +104,36 @@ with config_context(parameter="another value"):
 result
 
 # %%
+import warnings
+
+
+def func_that_warns(value):
+    if value > 10:
+        warnings.warn("This function is warning", RuntimeWarning)
+    return value
+
+
+# %%
+result = Parallel(n_jobs=2)(delayed(func_that_warns)(i) for i in range(8, 12))
+
+# %%
+from contextlib import contextmanager
+
+
+@contextmanager
+def silence_warnings():
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=RuntimeWarning)
+        yield
+        warnings.resetwarnings()
+
+
+# %%
+call_context = [(silence_warnings, lambda: {})]
+result = Parallel(n_jobs=2, call_context=call_context)(
+    delayed(func_that_warns)(i) for i in range(8, 12)
+)
+result
+
+
+# %%
