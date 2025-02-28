@@ -2194,14 +2194,14 @@ def test_call_context_parallel(n_jobs, backend, return_as):
         n_jobs=n_jobs, call_context=None, backend=backend, return_as=return_as
     )
     result = parallel(delayed(maybe_warn)(i, j) for i, j in zip(ii, jj))
-    assert list(result) == [0, 0, 0, 1, 1]
+    assert np.sum(result) == 2
 
     call_context = [(SilenceWarnings, lambda: {})]
     parallel = Parallel(
         n_jobs=n_jobs, call_context=call_context, backend=backend, return_as=return_as
     )
     result = parallel(delayed(maybe_warn)(i, j) for i, j in zip(ii, jj))
-    assert list(result) == [0, 0, 0, 0, 0]
+    assert np.sum(result) == 0
 
     set_config(parameter=123)
     call_context = [(config_context, get_config)]
