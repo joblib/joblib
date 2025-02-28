@@ -83,8 +83,8 @@ def test_rm_subdirs(tmpdir):
 
 
 def test_rm_subdirs_removes_automatic_gitignore():
-    """Test that `rm_subdirs()` (and thus also `Memory().clear()`) removes the
-    automatically created .gitignore file."""
+    """Test that `rm_subdirs()` (and thus `Memory().clear()`) remove the automatically
+    created .gitignore file."""
 
     mem = Memory("path_to_cache")
     arr = np.asarray([[1, 2, 3], [4, 5, 6]])
@@ -93,17 +93,15 @@ def test_rm_subdirs_removes_automatic_gitignore():
 
     path_to_gitignore_file = os.path.join("path_to_cache", ".gitignore")
 
-    with open(path_to_gitignore_file) as file:
-        first_line = file.readline().strip("\n")
-
-    assert (
-        os.path.exists(path_to_gitignore_file)
-        and first_line == "# Created by joblib automatically."
-    )
-
-    rm_subdirs("path_to_cache")
-
     try:
+        # check that the joblib .gitignore file is correctly identified:
+        with open(path_to_gitignore_file) as file:
+            first_line = file.readline().strip("\n")
+        assert first_line == "# Created by joblib automatically."
+
+        # check that the joblib .gitignore file is removed:
+        rm_subdirs("path_to_cache")
         assert not os.path.exists(path_to_gitignore_file)
+
     finally:  # remove cache folder after test
         shutil.rmtree("path_to_cache", ignore_errors=True)

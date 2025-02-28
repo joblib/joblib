@@ -74,13 +74,13 @@ RM_SUBDIRS_N_RETRY = 10
 def rm_subdirs(path, onerror=None):
     """Remove all subdirectories in this path.
 
-    The directory indicated by `path` is left in place, and its subdirectories
-    are erased.
+    The directory indicated by `path` is left in place, and its subdirectories and the
+    .gitignore file are erased.
 
     If onerror is set, it is called to handle the error with arguments (func,
     path, exc_info) where func is os.listdir, os.remove, or os.rmdir;
     path is the argument to that function that caused it to fail; and
-    exc_info is a tuple returned by sys.exc_info().  If onerror is None,
+    exc_info is a tuple returned by sys.exc_info(). If onerror is None,
     an exception is raised.
     """
 
