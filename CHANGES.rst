@@ -30,6 +30,10 @@ In development
 - Pretty printing of ``Parallel`` execution progress when the number of tasks is
   known. https://github.com/joblib/joblib/pull/1608
 
+- Make is possible to pass extra arguments to the ``LokyBackend`` and
+  ``MultiprocessingBackend``, enabling the use of ``initializer``.
+  https://github.com/joblib/joblib/pull/1525
+
 - Drop support for PyPy.
   https://github.com/joblib/joblib/pull/1670
 

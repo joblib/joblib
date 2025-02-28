@@ -1322,11 +1322,6 @@ def test_parallel_with_exhausted_iterator():
     assert Parallel(n_jobs=2)(exhausted_iterator) == []
 
 
-def _cleanup_worker():
-    """Helper function to force gc in each worker."""
-    time.sleep(0.1)
-
-
 def check_memmap(a):
     if not isinstance(a, np.memmap):
         raise TypeError("Expected np.memmap instance, got %r", type(a))
@@ -1528,8 +1523,8 @@ def test_multiple_generator_call_managed(backend, return_as, n_jobs):
 
         # Make sure that the error is raised quickly
         assert time.time() - t_start < 2, (
-            "The error should be raised immediately when submitting a new task"
-            " but it took more than 2s."
+            "The error should be raised immediately when submitting a new task "
+            "but it took more than 2s."
         )
 
     del g
@@ -1640,7 +1635,6 @@ def test_memmapping_leaks(backend, tmpdir):
     # Make sure that the shared memory is cleaned at the end of a call
     p = Parallel(n_jobs=2, max_nbytes=1, backend=backend)
     p(delayed(check_memmap)(a) for a in [np.random.random(10)] * 2)
-    p(delayed(_cleanup_worker)() for _ in range(2))
 
     for _ in range(100):
         if not os.listdir(tmpdir):
@@ -2122,3 +2116,53 @@ def test_loky_reuse_workers(n_jobs):
         parallel_call(n_jobs)
         executor = get_reusable_executor(reuse=True)
         assert executor == first_executor
+
+
+@with_multiprocessing
+@parametrize("n_jobs", [2, 4, -1])
+@parametrize("backend", PROCESS_BACKENDS)
+@parametrize("context", [parallel_config, parallel_backend])
+def test_initializer(n_jobs, backend, context):
+    n_jobs = effective_n_jobs(n_jobs)
+    manager = mp.Manager()
+    queue = manager.list()
+
+    def initializer(queue):
+        queue.append("spam")
+
+    with context(
+        backend=backend, n_jobs=n_jobs, initializer=initializer, initargs=(queue,)
+    ):
+        with Parallel() as parallel:
+            parallel(delayed(time.sleep)(0.2) for i in range(n_jobs))
+
+    assert len(queue) == n_jobs
+    assert all(q == "spam" for q in queue)
+
+
+@with_multiprocessing
+@pytest.mark.parametrize("n_jobs", [2, 4, -1])
+def test_initializer_reuse(n_jobs):
+    # test that the initializer is called only once
+    # when the executor is reused
+    n_jobs = effective_n_jobs(n_jobs)
+    manager = mp.Manager()
+    queue = manager.list()
+
+    def initializer(queue):
+        queue.append("spam")
+
+    def parallel_call(n_jobs, initializer, initargs):
+        Parallel(
+            backend="loky",
+            n_jobs=n_jobs,
+            initializer=initializer,
+            initargs=(queue,),
+        )(delayed(square)(i) for i in range(n_jobs))
+
+    parallel_call(n_jobs, initializer, (queue,))
+    assert len(queue) == n_jobs
+
+    for i in range(10):
+        parallel_call(n_jobs, initializer, (queue,))
+        assert len(queue) == n_jobs
