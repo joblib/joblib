@@ -123,6 +123,7 @@ from .parallel import (
     cpu_count,
     delayed,
     effective_n_jobs,
+    list_call_context_names,
     parallel_backend,
     parallel_config,
     register_call_context,
@@ -154,6 +155,7 @@ __all__ = [
     "set_config",
     "register_call_context",
     "unregister_call_context",
+    "list_call_context_names",
 ]
 
 

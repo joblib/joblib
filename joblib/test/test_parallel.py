@@ -69,6 +69,7 @@ from joblib.parallel import (
     cpu_count,
     delayed,
     effective_n_jobs,
+    list_call_context_names,
     mp,
     parallel_backend,
     parallel_config,
@@ -2133,26 +2134,29 @@ def test_loky_reuse_workers(n_jobs):
 
 def test_register_unregister_call_context():
     """Check that we can register and unregister call context."""
-    assert len(_CALL_CONTEXT) == 0
-    register_call_context("test", config_context, get_config)
     assert len(_CALL_CONTEXT) == 1
+    register_call_context("test", config_context, get_config)
+    assert len(_CALL_CONTEXT) == 2
     err_msg = "The context name test is already registered"
     with pytest.raises(ValueError, match=err_msg):
         register_call_context("test", config_context, get_config)
-    assert len(_CALL_CONTEXT) == 1
-    register_call_context("test2", config_context, get_config)
     assert len(_CALL_CONTEXT) == 2
+    register_call_context("test2", config_context, get_config)
+    assert len(_CALL_CONTEXT) == 3
     assert _CALL_CONTEXT[-1][0] == "test2"
     register_call_context("test3", config_context, get_config, prepend=True)
-    assert len(_CALL_CONTEXT) == 3
+    assert len(_CALL_CONTEXT) == 4
     assert _CALL_CONTEXT[0][0] == "test3"
     err_msg = "The context name unknown is not registered"
     with pytest.raises(ValueError, match=err_msg):
         unregister_call_context("unknown")
     unregister_call_context("test")
-    assert len(_CALL_CONTEXT) == 2
+    assert len(_CALL_CONTEXT) == 3
     assert _CALL_CONTEXT[0][0] == "test3"
-    assert _CALL_CONTEXT[1][0] == "test2"
+    assert _CALL_CONTEXT[1][0] == "joblib"
+    assert _CALL_CONTEXT[2][0] == "test2"
+    context_names = list_call_context_names()
+    assert context_names == ["test3", "joblib", "test2"]
 
 
 def maybe_warn(a, b):

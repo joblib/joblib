@@ -172,3 +172,9 @@ def test_config_joblib():
             assert get_config() == {"parameter": True}
 
     assert get_config() == {"parameter": True}
+
+    set_config(parameter=False, other_parameter=True)
+    assert get_config() == {"parameter": False, "other_parameter": True}
+
+    set_config(parameter=True)
+    assert get_config() == {"parameter": True}

@@ -25,6 +25,7 @@ from multiprocessing import TimeoutError
 from numbers import Integral
 from uuid import uuid4
 
+from ._config import config_context, get_config
 from ._multiprocessing_helpers import mp
 
 # Make sure that those two classes are part of the public joblib.parallel API
@@ -956,7 +957,7 @@ def effective_n_jobs(n_jobs=-1):
 
 ###############################################################################
 
-_CALL_CONTEXT = []
+_CALL_CONTEXT = [("joblib", config_context, get_config)]
 
 
 def register_call_context(
@@ -1023,6 +1024,17 @@ def unregister_call_context(context_name):
         f"The context name {context_name} is not registered. You need to "
         "register it first using the `register_call_context` function."
     )
+
+
+def list_call_context_names():
+    """List all registered call context names.
+
+    Returns
+    -------
+    call_context_names : list
+        The list of registered call context names.
+    """
+    return [ctx[0] for ctx in _CALL_CONTEXT]
 
 
 class _DelayedFunctionInCallContext:
