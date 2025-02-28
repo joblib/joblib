@@ -24,6 +24,8 @@ def _get_config():
 def get_config():
     """Get the configuration that is propagated to the joblib parallel workers.
 
+    .. versionadded:: 1.5
+
     Returns
     -------
     config : dict
@@ -34,6 +36,8 @@ def get_config():
 
 def set_config(**kwargs):
     """Set the configuration that is propagated to the joblib parallel workers.
+
+    .. versionadded:: 1.5
 
     Parameters
     ----------
@@ -49,6 +53,8 @@ def set_config(**kwargs):
 def config_context(**kwargs):
     """Context manager to set the configuration that is propagated to the joblib
     parallel workers.
+
+    .. versionadded:: 1.5
 
     Parameters
     ----------
