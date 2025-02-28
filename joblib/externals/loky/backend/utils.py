@@ -23,7 +23,8 @@ def kill_process_tree(process, use_psutil=True):
 
 def recursive_terminate(process, use_psutil=True):
     warnings.warn(
-        "recursive_terminate is deprecated in loky 3.2, use kill_process_treeinstead",
+        "recursive_terminate is deprecated in loky 3.2, use kill_process_tree"
+        "instead",
         DeprecationWarning,
     )
     kill_process_tree(process, use_psutil=use_psutil)
@@ -77,7 +78,9 @@ def _windows_taskkill_process_tree(pid):
     # On windows, the taskkill function with option `/T` terminate a given
     # process pid and its children.
     try:
-        subprocess.check_output(["taskkill", "/F", "/T", "/PID", str(pid)], stderr=None)
+        subprocess.check_output(
+            ["taskkill", "/F", "/T", "/PID", str(pid)], stderr=None
+        )
     except subprocess.CalledProcessError as e:
         # In Windows, taskkill returns 128, 255 for no process found.
         if e.returncode not in [128, 255]:
@@ -134,11 +137,15 @@ def get_exitcodes_terminated_worker(processes):
     # Catch the exitcode of the terminated workers. There should at least be
     # one. If not, wait a bit for the system to correctly set the exitcode of
     # the terminated worker.
-    exitcodes = [p.exitcode for p in list(processes.values()) if p.exitcode is not None]
+    exitcodes = [
+        p.exitcode for p in list(processes.values()) if p.exitcode is not None
+    ]
     while not exitcodes and patience > 0:
         patience -= 1
         exitcodes = [
-            p.exitcode for p in list(processes.values()) if p.exitcode is not None
+            p.exitcode
+            for p in list(processes.values())
+            if p.exitcode is not None
         ]
         time.sleep(0.05)
 

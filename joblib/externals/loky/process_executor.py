@@ -54,6 +54,7 @@ Process #1..n:
   _ResultItems in "Result Q"
 """
 
+
 __author__ = "Thomas Moreau (thomas.moreau.2010@gmail.com)"
 
 
@@ -145,6 +146,7 @@ class _ExecutorFlags:
     """
 
     def __init__(self, shutdown_lock):
+
         self.shutdown = False
         self.broken = None
         self.kill_workers = False
@@ -257,6 +259,7 @@ def _rebuild_exc(exc, tb):
 
 
 class _WorkItem:
+
     __slots__ = ["future", "fn", "args", "kwargs"]
 
     def __init__(self, future, fn, args, kwargs):
@@ -288,7 +291,9 @@ class _CallItem:
         return self.fn(*self.args, **self.kwargs)
 
     def __repr__(self):
-        return f"CallItem({self.work_id}, {self.fn}, {self.args}, {self.kwargs})"
+        return (
+            f"CallItem({self.work_id}, {self.fn}, {self.args}, {self.kwargs})"
+        )
 
 
 class _SafeQueue(Queue):
@@ -362,7 +367,9 @@ def _process_chunk(fn, chunk):
 def _sendback_result(result_queue, work_id, result=None, exception=None):
     """Safely send back the given result or exception"""
     try:
-        result_queue.put(_ResultItem(work_id, result=result, exception=exception))
+        result_queue.put(
+            _ResultItem(work_id, result=result, exception=exception)
+        )
     except BaseException as e:
         exc = _ExceptionWithTraceback(e)
         result_queue.put(_ResultItem(work_id, exception=exc))
@@ -541,7 +548,8 @@ class _ExecutorManagerThread(threading.Thread):
                 # garbage collected. We only log debug info when still
                 # possible.
                 mp.util.debug(
-                    "Executor collected: triggering callback for QueueManager wakeup"
+                    "Executor collected: triggering callback for"
+                    " QueueManager wakeup"
                 )
             with shutdown_lock:
                 thread_wakeup.wakeup()
@@ -737,7 +745,10 @@ class _ExecutorManagerThread(threading.Thread):
             n_running = len(self.running_work_items)
             if n_pending - n_running > 0 or n_running > len(self.processes):
                 executor = self.executor_reference()
-                if executor is not None and len(self.processes) < executor._max_workers:
+                if (
+                    executor is not None
+                    and len(self.processes) < executor._max_workers
+                ):
                     warnings.warn(
                         "A worker stopped while some jobs were given to the "
                         "executor. This can be caused by a too short worker "
@@ -847,7 +858,10 @@ class _ExecutorManagerThread(threading.Thread):
         # Full queue when all workers have already been shutdown.
         n_sentinels_sent = 0
         cooldown_time = 0.001
-        while n_sentinels_sent < n_children_to_stop and self.get_n_children_alive() > 0:
+        while (
+            n_sentinels_sent < n_children_to_stop
+            and self.get_n_children_alive() > 0
+        ):
             for _ in range(n_children_to_stop - n_sentinels_sent):
                 try:
                     self.call_queue.put_nowait(None)
@@ -938,7 +952,8 @@ def _check_system_limits():
         # according to POSIX
         return
     _system_limited = (
-        f"system provides too few semaphores ({nsems_max} available, 256 necessary)"
+        f"system provides too few semaphores ({nsems_max} available, "
+        "256 necessary)"
     )
     raise NotImplementedError(_system_limited)
 
@@ -999,6 +1014,7 @@ BrokenExecutor = BrokenProcessPool
 
 
 class ShutdownExecutorError(RuntimeError):
+
     """
     Raised when a ProcessPoolExecutor is shutdown while a future was in the
     running or pending state.
@@ -1006,6 +1022,7 @@ class ShutdownExecutorError(RuntimeError):
 
 
 class ProcessPoolExecutor(Executor):
+
     _at_exit = None
 
     def __init__(
@@ -1052,7 +1069,10 @@ class ProcessPoolExecutor(Executor):
                 raise ValueError("max_workers must be greater than 0")
             self._max_workers = max_workers
 
-        if sys.platform == "win32" and self._max_workers > _MAX_WINDOWS_WORKERS:
+        if (
+            sys.platform == "win32"
+            and self._max_workers > _MAX_WINDOWS_WORKERS
+        ):
             warnings.warn(
                 f"On Windows, max_workers cannot exceed {_MAX_WINDOWS_WORKERS} "
                 "due to limitations of the operating system."
@@ -1064,7 +1084,9 @@ class ProcessPoolExecutor(Executor):
         self._context = context
         self._env = env
 
-        self._initializer, self._initargs = _prepare_initializer(initializer, initargs)
+        self._initializer, self._initargs = _prepare_initializer(
+            initializer, initargs
+        )
         _check_max_depth(self._context)
 
         if result_reducers is None:
@@ -1127,7 +1149,9 @@ class ProcessPoolExecutor(Executor):
         # processes anyway, so silence the tracebacks.
         self._call_queue._ignore_epipe = True
 
-        self._result_queue = SimpleQueue(reducers=result_reducers, ctx=self._context)
+        self._result_queue = SimpleQueue(
+            reducers=result_reducers, ctx=self._context
+        )
 
     def _start_executor_manager_thread(self):
         if self._executor_manager_thread is None:
@@ -1209,7 +1233,7 @@ class ProcessPoolExecutor(Executor):
             # This check avoids spawning new processes at exit.
             if _global_shutdown:
                 raise RuntimeError(
-                    "cannot schedule new futures after interpreter shutdown"
+                    "cannot schedule new futures after " "interpreter shutdown"
                 )
 
             f = Future()

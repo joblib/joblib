@@ -59,7 +59,8 @@ def get_context(method=None):
         return mp_get_context(method)
     except ValueError:
         raise ValueError(
-            f"Unknown context '{method}'. Value should be in {START_METHODS}."
+            f"Unknown context '{method}'. Value should be in "
+            f"{START_METHODS}."
         )
 
 
@@ -68,7 +69,8 @@ def set_start_method(method, force=False):
     if _DEFAULT_START_METHOD is not None and not force:
         raise RuntimeError("context has already been set")
     assert method is None or method in START_METHODS, (
-        f"'{method}' is not a valid start_method. It should be in {START_METHODS}"
+        f"'{method}' is not a valid start_method. It should be in "
+        f"{START_METHODS}"
     )
 
     _DEFAULT_START_METHOD = method
@@ -197,7 +199,10 @@ def _cpu_count_affinity(os_cpu_count):
             return len(p.cpu_affinity())
 
     except ImportError:  # pragma: no cover
-        if sys.platform == "linux" and os.environ.get("LOKY_MAX_CPU_COUNT") is None:
+        if (
+            sys.platform == "linux"
+            and os.environ.get("LOKY_MAX_CPU_COUNT") is None
+        ):
             # PyPy does not implement os.sched_getaffinity on Linux which
             # can cause severe oversubscription problems. Better warn the
             # user in this particularly pathological case which can wreck
@@ -256,7 +261,9 @@ def _count_physical_cores():
             )
             cpu_info = cpu_info.stdout.splitlines()
             cpu_info = [
-                l.split(",")[1] for l in cpu_info if (l and l != "Node,NumberOfCores")
+                l.split(",")[1]
+                for l in cpu_info
+                if (l and l != "Node,NumberOfCores")
             ]
             cpu_count_physical = sum(map(int, cpu_info))
         elif sys.platform == "darwin":
