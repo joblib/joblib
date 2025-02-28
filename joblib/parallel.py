@@ -18,7 +18,7 @@ import time
 import warnings
 import weakref
 from contextlib import nullcontext
-from math import sqrt
+from math import floor, log10, sqrt
 from multiprocessing import TimeoutError
 from numbers import Integral
 from uuid import uuid4
@@ -40,8 +40,6 @@ from ._utils import _Sentinel, eval_expr
 from .disk import memstr_to_bytes
 from .logger import Logger, short_format_time
 
-IS_PYPY = hasattr(sys, "pypy_version_info")
-
 
 BACKENDS = {
     "threading": ThreadingBackend,
@@ -52,6 +50,8 @@ BACKENDS = {
 
 # threading is the only backend that is always everywhere
 DEFAULT_BACKEND = "threading"
+DEFAULT_THREAD_BACKEND = "threading"
+DEFAULT_PROCESS_BACKEND = "loky"
 
 MAYBE_AVAILABLE_BACKENDS = {"multiprocessing", "loky"}
 
@@ -63,9 +63,6 @@ if mp is not None:
 
     BACKENDS["loky"] = LokyBackend
     DEFAULT_BACKEND = "loky"
-
-
-DEFAULT_THREAD_BACKEND = "threading"
 
 
 # Thread local value that can be overridden by the ``parallel_config`` context
@@ -189,8 +186,11 @@ def _get_active_backend(
     # Force to use thread-based backend if the provided backend does not
     # match the shared memory constraint or if the backend is not explicitly
     # given and threads are preferred.
-    force_threads = require == "sharedmem" and not supports_sharedmem
-    force_threads |= not explicit_backend and prefer == "threads" and not uses_threads
+    force_threads = (require == "sharedmem" and not supports_sharedmem) or (
+        not explicit_backend and prefer == "threads" and not uses_threads
+    )
+    force_processes = not explicit_backend and prefer == "processes" and uses_threads
+
     if force_threads:
         # This backend does not match the shared memory constraint:
         # fallback to the default thead-based backend.
@@ -210,6 +210,13 @@ def _get_active_backend(
         thread_config["n_jobs"] = 1
         return sharedmem_backend, thread_config
 
+    if force_processes:
+        # This backend does not match the prefer="processes" constraint:
+        # fallback to the default process-based backend.
+        process_backend = BACKENDS[DEFAULT_PROCESS_BACKEND](nesting_level=nesting_level)
+
+        return process_backend, backend_config.copy()
+
     return backend, backend_config
 
 
@@ -223,7 +230,7 @@ class parallel_config:
 
     Parameters
     ----------
-    backend : str or ParallelBackendBase instance, default=None
+    backend: str or ParallelBackendBase instance, default=None
         If ``backend`` is a string it must match a previously registered
         implementation using the :func:`~register_parallel_backend` function.
 
@@ -253,24 +260,33 @@ class parallel_config:
 
         Alternatively the backend can be passed directly as an instance.
 
-    n_jobs : int, default=None
+    n_jobs: int, default=None
         The maximum number of concurrently running jobs, such as the number
         of Python worker processes when ``backend="loky"`` or the size of the
         thread-pool when ``backend="threading"``.
-        If -1 all CPUs are used. If 1 is given, no parallel computing code
-        is used at all, which is useful for debugging. For ``n_jobs`` below -1,
-        (n_cpus + 1 + n_jobs) are used. Thus for ``n_jobs=-2``, all
-        CPUs but one are used.
-        ``None`` is a marker for 'unset' that will be interpreted as
-        ``n_jobs=1`` in most backends.
+                This argument is converted to an integer, rounded below for float.
+        If -1 is given, `joblib` tries to use all CPUs. The number of CPUs
+        ``n_cpus`` is obtained with :func:`~cpu_count`.
+        For n_jobs below -1, (n_cpus + 1 + n_jobs) are used. For instance,
+        using ``n_jobs=-2`` will result in all CPUs but one being used.
+        This argument can also go above ``n_cpus``, which will cause
+        oversubscription. In some cases, slight oversubscription can be
+        beneficial, e.g., for tasks with large I/O operations.
+        If 1 is given, no parallel computing code is used at all, and the
+        behavior amounts to a simple python `for` loop. This mode is not
+        compatible with `timeout`.
+        None is a marker for 'unset' that will be interpreted as n_jobs=1
+        unless the call is performed under a :func:`~parallel_config`
+        context manager that sets another value for ``n_jobs``.
+        If n_jobs = 0 then a ValueError is raised.
 
-    verbose : int, default=0
+    verbose: int, default=0
         The verbosity level: if non zero, progress messages are
         printed. Above 50, the output is sent to stdout.
         The frequency of the messages increases with the verbosity level.
         If it more than 10, all iterations are reported.
 
-    temp_folder : str, default=None
+    temp_folder: str or None, default=None
         Folder to be used by the pool for memmapping large arrays
         for sharing memory with worker processes. If None, this will try in
         order:
@@ -284,7 +300,7 @@ class parallel_config:
           overridden with ``TMP``, ``TMPDIR`` or ``TEMP`` environment
           variables, typically ``/tmp`` under Unix operating systems.
 
-    max_nbytes int, str, or None, optional, default='1M'
+    max_nbytes: int, str, or None, optional, default='1M'
         Threshold on the size of arrays passed to the workers that
         triggers automated memory mapping in temp_folder. Can be an int
         in Bytes, or a human-readable string, e.g., '1M' for 1 megabyte.
@@ -306,12 +322,12 @@ class parallel_config:
         Hard constraint to select the backend. If set to 'sharedmem',
         the selected backend will be single-host and thread-based.
 
-    inner_max_num_threads : int, default=None
+    inner_max_num_threads: int, default=None
         If not None, overwrites the limit set on the number of threads
         usable in some third-party library threadpools like OpenBLAS,
         MKL or OpenMP. This is only used with the ``loky`` backend.
 
-    backend_params : dict
+    backend_params: dict
         Additional parameters to pass to the backend constructor when
         backend is a string.
 
@@ -520,8 +536,7 @@ class parallel_backend(parallel_config):
 
     See Also
     --------
-    joblib.parallel_config : context manager to change the backend
-        configuration.
+    joblib.parallel_config: context manager to change the backend configuration.
     """
 
     def __init__(
@@ -615,8 +630,11 @@ def cpu_count(only_physical_cores=False):
     runtimes such as docker) and CPU affinity (for instance using the taskset
     command on Linux).
 
-    If only_physical_cores is True, do not take hyperthreading / SMT logical
-    cores into account.
+    Parameters
+    ----------
+    only_physical_cores : boolean, default=False
+        If True, does not take hyperthreading / SMT logical cores into account.
+
     """
     if mp is None:
         return 1
@@ -684,6 +702,7 @@ class BatchCompletionCallBack(object):
         self.batch_size = batch_size
         self.parallel = parallel
         self.parallel_call_id = parallel._call_id
+        self._completion_timeout_counter = None
 
         # Internals to keep track of the status and outcome of the task.
 
@@ -765,7 +784,7 @@ class BatchCompletionCallBack(object):
         # The computation are running and the status is pending.
         # Check that we did not wait for this jobs more than `timeout`.
         now = time.time()
-        if not hasattr(self, "_completion_timeout_counter"):
+        if self._completion_timeout_counter is None:
             self._completion_timeout_counter = now
 
         if (now - self._completion_timeout_counter) > timeout:
@@ -806,11 +825,6 @@ class BatchCompletionCallBack(object):
             # Retrieves the result of the task in the main process and dispatch
             # a new batch if needed.
             job_succeeded = self._retrieve_result(out)
-
-            if not self.parallel.return_ordered:
-                # Append the job to the queue in the order of completion
-                # instead of submission.
-                self.parallel._jobs.append(self)
 
         if job_succeeded:
             self._dispatch_new()
@@ -876,6 +890,14 @@ class BatchCompletionCallBack(object):
             self.parallel._exception = True
             self.parallel._aborting = True
 
+        if self.parallel.return_ordered:
+            return
+
+        with self.parallel._lock:
+            # For `return_as=generator_unordered`, append the job to the queue
+            # in the order of completion instead of submission.
+            self.parallel._jobs.append(self)
+
 
 ###############################################################################
 def register_parallel_backend(name, factory, make_default=False):
@@ -937,20 +959,26 @@ class Parallel(Logger):
 
     Parameters
     ----------
-    n_jobs: int, default: None
+    n_jobs: int, default=None
         The maximum number of concurrently running jobs, such as the number
-        of Python worker processes when backend="multiprocessing"
-        or the size of the thread-pool when backend="threading".
-        If -1 all CPUs are used.
+        of Python worker processes when ``backend="loky"`` or the size of
+        the thread-pool when ``backend="threading"``.
+        This argument is converted to an integer, rounded below for float.
+        If -1 is given, `joblib` tries to use all CPUs. The number of CPUs
+        ``n_cpus`` is obtained with :func:`~cpu_count`.
+        For n_jobs below -1, (n_cpus + 1 + n_jobs) are used. For instance,
+        using ``n_jobs=-2`` will result in all CPUs but one being used.
+        This argument can also go above ``n_cpus``, which will cause
+        oversubscription. In some cases, slight oversubscription can be
+        beneficial, e.g., for tasks with large I/O operations.
         If 1 is given, no parallel computing code is used at all, and the
         behavior amounts to a simple python `for` loop. This mode is not
-        compatible with `timeout`.
-        For n_jobs below -1, (n_cpus + 1 + n_jobs) are used. Thus for
-        n_jobs = -2, all CPUs but one are used.
+        compatible with ``timeout``.
         None is a marker for 'unset' that will be interpreted as n_jobs=1
         unless the call is performed under a :func:`~parallel_config`
         context manager that sets another value for ``n_jobs``.
-    backend: str, ParallelBackendBase instance or None, default: 'loky'
+        If n_jobs = 0 then a ValueError is raised.
+    backend: str, ParallelBackendBase instance or None, default='loky'
         Specify the parallelization backend implementation.
         Supported backends are:
 
@@ -977,8 +1005,7 @@ class Parallel(Logger):
         soft hints (prefer) or hard constraints (require) so as to make it
         possible for library users to change the backend from the outside
         using the :func:`~parallel_config` context manager.
-    return_as: str in {'list', 'generator', 'generator_unordered'},
-        default: 'list'
+    return_as: str in {'list', 'generator', 'generator_unordered'}, default='list'
         If 'list', calls to this instance will return a list, only when
         all results have been processed and retrieved.
         If 'generator', it will return a generator that yields the results
@@ -988,32 +1015,32 @@ class Parallel(Logger):
         available results independently of the submission order. The output
         order is not deterministic in this case because it depends on the
         concurrency of the workers.
-    prefer: str in {'processes', 'threads'} or None, default: None
+    prefer: str in {'processes', 'threads'} or None, default=None
         Soft hint to choose the default backend if no specific backend
         was selected with the :func:`~parallel_config` context manager.
         The default process-based backend is 'loky' and the default
         thread-based backend is 'threading'. Ignored if the ``backend``
         parameter is specified.
-    require: 'sharedmem' or None, default None
+    require: 'sharedmem' or None, default=None
         Hard constraint to select the backend. If set to 'sharedmem',
         the selected backend will be single-host and thread-based even
         if the user asked for a non-thread based backend with
         :func:`~joblib.parallel_config`.
-    verbose: int, optional
+    verbose: int, default=0
         The verbosity level: if non zero, progress messages are
         printed. Above 50, the output is sent to stdout.
         The frequency of the messages increases with the verbosity level.
         If it more than 10, all iterations are reported.
-    timeout: float, optional
+    timeout: float or None, default=None
         Timeout limit for each task to complete.  If any task takes longer
         a TimeOutError will be raised. Only applied when n_jobs != 1
-    pre_dispatch: {'all', integer, or expression, as in '3*n_jobs'}
+    pre_dispatch: {'all', integer, or expression, as in '3*n_jobs'}, default='2*n_jobs'
         The number of batches (of tasks) to be pre-dispatched.
         Default is '2*n_jobs'. When batch_size="auto" this is reasonable
         default and the workers should never starve. Note that only basic
-        arithmetic is allowed here and no modules can be used in this
+        arithmetic are allowed here and no modules can be used in this
         expression.
-    batch_size: int or 'auto', default: 'auto'
+    batch_size: int or 'auto', default='auto'
         The number of atomic tasks to dispatch at once to each
         worker. When individual evaluations are very fast, dispatching
         calls to workers can be slower than sequential computation because
@@ -1027,7 +1054,7 @@ class Parallel(Logger):
         batches of a single task at a time as the threading backend has
         very little overhead and using larger batch size has not proved to
         bring any gain in that case.
-    temp_folder: str, optional
+    temp_folder: str or None, default=None
         Folder to be used by the pool for memmapping large arrays
         for sharing memory with worker processes. If None, this will try in
         order:
@@ -1041,8 +1068,8 @@ class Parallel(Logger):
           overridden with TMP, TMPDIR or TEMP environment
           variables, typically /tmp under Unix operating systems.
 
-        Only active when backend="loky" or "multiprocessing".
-    max_nbytes int, str, or None, optional, 1M by default
+        Only active when ``backend="loky"`` or ``"multiprocessing"``.
+    max_nbytes int, str, or None, optional, default='1M'
         Threshold on the size of arrays passed to the workers that
         triggers automated memory mapping in temp_folder. Can be an int
         in Bytes, or a human-readable string, e.g., '1M' for 1 megabyte.
@@ -1177,7 +1204,7 @@ class Parallel(Logger):
     [Parallel(n_jobs=2)]: Done 6 out of 6 | elapsed:  0.0s remaining: 0.0s
     [Parallel(n_jobs=2)]: Done 6 out of 6 | elapsed:  0.0s finished
 
-    """
+    """  # noqa: E501
 
     def __init__(
         self,
@@ -1292,6 +1319,11 @@ class Parallel(Logger):
             # No specific context override and no specific value request:
             # default to the default of the backend.
             n_jobs = backend.default_n_jobs
+
+        try:
+            n_jobs = int(n_jobs)
+        except ValueError:
+            raise ValueError("n_jobs could not be converted to int")
         self.n_jobs = n_jobs
 
         if require == "sharedmem" and not getattr(backend, "supports_sharedmem", False):
@@ -1315,6 +1347,7 @@ class Parallel(Logger):
             # with the async callback thread of our the pool.
             self._lock = threading.RLock()
             self._jobs = collections.deque()
+            self._jobs_set = set()
             self._pending_outputs = list()
             self._ready_batches = queue.Queue()
             self._reducer_callback = None
@@ -1392,8 +1425,7 @@ class Parallel(Logger):
 
         batch_tracker = BatchCompletionCallBack(dispatch_timestamp, batch_size, self)
 
-        if self.return_ordered:
-            self._jobs.append(batch_tracker)
+        self._register_new_job(batch_tracker)
 
         # If return_ordered is False, the batch_tracker is not stored in the
         # jobs queue at the time of submission. Instead, it will be appended to
@@ -1402,6 +1434,12 @@ class Parallel(Logger):
 
         job = self._backend.apply_async(batch, callback=batch_tracker)
         batch_tracker.register_job(job)
+
+    def _register_new_job(self, batch_tracker):
+        if self.return_ordered:
+            self._jobs.append(batch_tracker)
+        else:
+            self._jobs_set.add(batch_tracker)
 
     def dispatch_next(self):
         """Dispatch more data for parallel processing
@@ -1464,7 +1502,7 @@ class Parallel(Logger):
                         # with causes of the original error.
                         e.__cause__ = None
                     batch_tracker = BatchCompletionCallBack(0, batch_size, self)
-                    self._jobs.append(batch_tracker)
+                    self._register_new_job(batch_tracker)
                     batch_tracker._register_outcome(dict(result=e, status=TASK_ERROR))
                     return True
 
@@ -1535,35 +1573,44 @@ class Parallel(Logger):
         if not self.verbose:
             return
 
+        if self.n_tasks is not None and self.n_tasks > 0:
+            width = floor(log10(self.n_tasks)) + 1
+        else:
+            width = 3
         elapsed_time = time.time() - self._start_time
 
         if self._is_completed():
             # Make sure that we get a last message telling us we are done
             self._print(
-                f"Done {self.n_completed_tasks:3d} out of "
-                f"{self.n_completed_tasks:3d} | elapsed: "
+                f"Done {self.n_completed_tasks:{width}d} out of "
+                f"{self.n_completed_tasks:{width}d} | elapsed: "
                 f"{short_format_time(elapsed_time)} finished"
             )
             return
 
         # Original job iterator becomes None once it has been fully
-        # consumed : at this point we know the total number of jobs and we are
+        # consumed: at this point we know the total number of jobs and we are
         # able to display an estimation of the remaining time based on already
         # completed jobs. Otherwise, we simply display the number of completed
         # tasks.
         elif self._original_iterator is not None:
             if _verbosity_filter(self.n_dispatched_batches, self.verbose):
                 return
-            self._print(
-                f"Done {self.n_completed_tasks:3d} tasks      | elapsed: "
-                f"{short_format_time(elapsed_time)}"
-            )
+            fmt_time = f"| elapsed: {short_format_time(elapsed_time)}"
+            index = self.n_completed_tasks
+            if self.n_tasks is not None:
+                self._print(
+                    f"Done {index:{width}d} out of {self.n_tasks:{width}d} {fmt_time}"
+                )
+            else:
+                pad = " " * (len("out of ") + width - len("tasks"))
+                self._print(f"Done {index:{width}d} tasks {pad}{fmt_time}")
         else:
             index = self.n_completed_tasks
             # We are finished dispatching
             total_tasks = self.n_dispatched_tasks
             # We always display the first loop
-            if not index == 0:
+            if index != 0:
                 # Display depending on the number of remaining items
                 # A message as soon as we finish dispatching, cursor is 0
                 cursor = total_tasks - index + 1 - self._pre_dispatch_amount
@@ -1571,8 +1618,8 @@ class Parallel(Logger):
                 is_last_item = index + 1 == total_tasks
                 if is_last_item or cursor % frequency:
                     return
-            remaining_time = (elapsed_time / index) * (
-                self.n_dispatched_tasks - index * 1.0
+            remaining_time = (elapsed_time / max(index, 1)) * (
+                self.n_dispatched_tasks - index
             )
             # only display status if remaining time is greater or equal to 0
             self._print(
@@ -1647,15 +1694,14 @@ class Parallel(Logger):
             # the rest of the function does not call `_terminate_and_reset`
             # in finally.
             if dispatch_thread_id != threading.get_ident():
-                if not IS_PYPY:
-                    warnings.warn(
-                        "A generator produced by joblib.Parallel has been "
-                        "gc'ed in an unexpected thread. This behavior should "
-                        "not cause major -issues but to make sure, please "
-                        "report this warning and your use case at "
-                        "https://github.com/joblib/joblib/issues so it can "
-                        "be investigated."
-                    )
+                warnings.warn(
+                    "A generator produced by joblib.Parallel has been "
+                    "gc'ed in an unexpected thread. This behavior should "
+                    "not cause major -issues but to make sure, please "
+                    "report this warning and your use case at "
+                    "https://github.com/joblib/joblib/issues so it can "
+                    "be investigated."
+                )
 
                 detach_generator_exit = True
                 _parallel = self
@@ -1688,6 +1734,7 @@ class Parallel(Logger):
             # Store the unconsumed tasks and terminate the workers if necessary
             _remaining_outputs = [] if self._exception else self._jobs
             self._jobs = collections.deque()
+            self._jobs_set = set()
             self._running = False
             if not detach_generator_exit:
                 self._terminate_and_reset()
@@ -1702,7 +1749,7 @@ class Parallel(Logger):
         """Return True if we need to continue retrieving some tasks."""
 
         # If the input load is still being iterated over, it means that tasks
-        # are still on the dispatch wait list and their results will need to
+        # are still on the dispatch waitlist and their results will need to
         # be retrieved later on.
         if self._iterating:
             return True
@@ -1726,6 +1773,7 @@ class Parallel(Logger):
         return False
 
     def _retrieve(self):
+        timeout_control_job = None
         while self._wait_retrieval():
             # If the callback thread of a worker has signaled that its task
             # triggered an exception, or if the retrieval loop has raised an
@@ -1735,19 +1783,58 @@ class Parallel(Logger):
                 self._raise_error_fast()
                 break
 
-            # If the next job is not ready for retrieval yet, we just wait for
-            # async callbacks to progress.
-            if (len(self._jobs) == 0) or (
-                self._jobs[0].get_status(timeout=self.timeout) == TASK_PENDING
-            ):
+            nb_jobs = len(self._jobs)
+            # Now wait for a job to be ready for retrieval.
+            if self.return_ordered:
+                # Case ordered: wait for completion (or error) of the next job
+                # that have been dispatched and not retrieved yet. If no job
+                # have been dispatched yet, wait for dispatch.
+                # We assume that the time to wait for the next job to be
+                # dispatched is always low, so that the timeout
+                # control only have to be done on the amount of time the next
+                # dispatched job is pending.
+                if (nb_jobs == 0) or (
+                    self._jobs[0].get_status(timeout=self.timeout) == TASK_PENDING
+                ):
+                    time.sleep(0.01)
+                    continue
+
+            elif nb_jobs == 0:
+                # Case unordered: jobs are added to the list of jobs to
+                # retrieve `self._jobs` only once completed or in error, which
+                # is too late to enable timeout control in the same way than in
+                # the previous case.
+                # Instead, if no job is ready to be retrieved yet, we
+                # arbitrarily pick a dispatched job, and the timeout control is
+                # done such that an error is raised if this control job
+                # timeouts before any other dispatched job has completed and
+                # been added to `self._jobs` to be retrieved.
+                if timeout_control_job is None:
+                    timeout_control_job = next(iter(self._jobs_set), None)
+
+                # NB: it can be None if no job has been dispatched yet.
+                if timeout_control_job is not None:
+                    timeout_control_job.get_status(timeout=self.timeout)
+
                 time.sleep(0.01)
                 continue
+
+            elif timeout_control_job is not None:
+                # Case unordered, when `nb_jobs > 0`:
+                # It means that a job is ready to be retrieved, so no timeout
+                # will occur during this iteration.
+                # Before proceeding to retrieval of the next ready job, reset
+                # the timeout control state to prepare the next iteration.
+                timeout_control_job._completion_timeout_counter = None
+                timeout_control_job = None
 
             # We need to be careful: the job list can be filling up as
             # we empty it and Python list are not thread-safe by
             # default hence the use of the lock
             with self._lock:
                 batched_results = self._jobs.popleft()
+                if not self.return_ordered:
+                    self._jobs_set.remove(batched_results)
 
             # Flatten the batched results to output one output at a time
             batched_results = batched_results.get_result(self.timeout)
@@ -1834,10 +1921,10 @@ class Parallel(Logger):
             self._aborted = True
             raise
         finally:
-            self.print_progress()
             self._running = False
             self._iterating = False
             self._original_iterator = None
+            self.print_progress()
 
     def _reset_run_tracking(self):
         """Reset the counters and flags used to track the execution."""
@@ -1883,6 +1970,7 @@ class Parallel(Logger):
 
         self._reset_run_tracking()
         self._start_time = time.time()
+        self.n_tasks = len(iterable) if hasattr(iterable, "__len__") else None
 
         if not self._managed_backend:
             n_jobs = self._initialize_backend()
@@ -1976,7 +2064,7 @@ class Parallel(Logger):
 
         # The first item from the output is blank, but it makes the interpreter
         # progress until it enters the Try/Except block of the generator and
-        # reach the first `yield` statement. This starts the asynchronous
+        # reaches the first `yield` statement. This starts the asynchronous
         # dispatch of the tasks to the workers.
         next(output)
 
