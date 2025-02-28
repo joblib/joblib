@@ -128,7 +128,7 @@ def _buffered_write_file(fobj):
 
 
 @contextlib.contextmanager
-def _read_fileobject(fileobj, filename, mmap_mode=None):
+def _validate_fileobject_and_memmap(fileobj, filename, mmap_mode=None):
     """Utility function opening the right fileobject from a filename.
 
     The magic number is used to choose between the type of file object to open:
@@ -141,8 +141,6 @@ def _read_fileobject(fileobj, filename, mmap_mode=None):
     Parameters
     ----------
     fileobj: file object
-    compressor: str in {'zlib', 'gzip', 'bz2', 'lzma', 'xz', 'compat',
-                        'not-compressed'}
     filename: str
         filename path corresponding to the fileobj parameter.
     mmap_mode: str
