@@ -125,7 +125,9 @@ from .parallel import (
     effective_n_jobs,
     parallel_backend,
     parallel_config,
+    register_call_context,
     register_parallel_backend,
+    unregister_call_context,
 )
 
 __all__ = [
@@ -150,6 +152,8 @@ __all__ = [
     "config_context",
     "get_config",
     "set_config",
+    "register_call_context",
+    "unregister_call_context",
 ]
 
 
