@@ -94,7 +94,7 @@ class ParallelBackendBase(metaclass=ABCMeta):
         """
 
     def configure(
-        self, n_jobs=1, parallel=None, prefer=None, require=None, **backend_args
+        self, n_jobs=1, parallel=None, prefer=None, require=None, **backend_kwargs
     ):
         """Reconfigure the backend and return the number of workers.
 
@@ -297,7 +297,7 @@ class PoolManagerMixin(object):
             self.configure(
                 n_jobs=self.parallel.n_jobs,
                 parallel=self.parallel,
-                **self.parallel._backend_args,
+                **self.parallel._backend_kwargs,
             )
 
 
@@ -426,7 +426,7 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
     uses_threads = True
     supports_sharedmem = True
 
-    def configure(self, n_jobs=1, parallel=None, **backend_args):
+    def configure(self, n_jobs=1, parallel=None, **backend_kwargs):
         """Build a process or thread pool and return the number of workers"""
         n_jobs = self.effective_n_jobs(n_jobs)
         if n_jobs == 1:

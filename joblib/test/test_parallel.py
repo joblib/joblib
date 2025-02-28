@@ -2134,7 +2134,7 @@ def test_initializer(n_jobs, backend, context):
         backend=backend, n_jobs=n_jobs, initializer=initializer, initargs=(queue,)
     ):
         with Parallel() as parallel:
-            parallel(delayed(square)(i) for i in range(n_jobs))
+            parallel(delayed(time.sleep)(0.2) for i in range(n_jobs))
 
     assert len(queue) == n_jobs
     assert all(q == "spam" for q in queue)
