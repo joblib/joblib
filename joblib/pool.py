@@ -23,18 +23,15 @@ try:
 except NameError:
     WindowsError = type(None)
 
-from pickle import Pickler
-
-from pickle import HIGHEST_PROTOCOL
 from io import BytesIO
-
-from ._memmapping_reducer import get_memmapping_reducers
-from ._memmapping_reducer import TemporaryResourcesManager
-from ._multiprocessing_helpers import mp, assert_spawning
 
 # We need the class definition to derive from it, not the multiprocessing.Pool
 # factory function
 from multiprocessing.pool import Pool
+from pickle import HIGHEST_PROTOCOL, Pickler
+
+from ._memmapping_reducer import TemporaryResourcesManager, get_memmapping_reducers
+from ._multiprocessing_helpers import assert_spawning, mp
 
 try:
     import numpy as np
@@ -300,17 +297,9 @@ class MemmappingPool(PicklingPool):
         forward_reducers=None,
         backward_reducers=None,
         verbose=0,
-        context_id=None,
         prewarm=False,
         **kwargs,
     ):
-        if context_id is not None:
-            warnings.warn(
-                "context_id is deprecated and ignored in joblib"
-                " 0.9.4 and will be removed in 0.11",
-                DeprecationWarning,
-            )
-
         manager = TemporaryResourcesManager(temp_folder)
         self._temp_folder_manager = manager
 

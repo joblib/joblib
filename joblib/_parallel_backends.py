@@ -2,28 +2,28 @@
 Backends for embarrassingly parallel code.
 """
 
+import contextlib
 import gc
 import os
-import warnings
 import threading
-import contextlib
+import warnings
 from abc import ABCMeta, abstractmethod
 
+from ._multiprocessing_helpers import mp
 from ._utils import (
-    _TracebackCapturingWrapper,
     _retrieve_traceback_capturing_wrapped_call,
+    _TracebackCapturingWrapper,
 )
 
-from ._multiprocessing_helpers import mp
-
 if mp is not None:
-    from .pool import MemmappingPool
     from multiprocessing.pool import ThreadPool
+
     from .executor import get_memmapping_executor
 
     # Import loky only if multiprocessing is present
-    from .externals.loky import process_executor, cpu_count
+    from .externals.loky import cpu_count, process_executor
     from .externals.loky.process_executor import ShutdownExecutorError
+    from .pool import MemmappingPool
 
 
 class ParallelBackendBase(metaclass=ABCMeta):

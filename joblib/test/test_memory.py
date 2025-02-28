@@ -6,35 +6,40 @@ Test the memory module.
 # Copyright (c) 2009 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
+import datetime
 import functools
 import gc
 import logging
-import shutil
 import os
 import os.path
 import pathlib
 import pickle
+import shutil
 import sys
-import time
-import datetime
 import textwrap
+import time
 
 import pytest
 
-from joblib.memory import Memory
-from joblib.memory import expires_after
-from joblib.memory import MemorizedFunc, NotMemorizedFunc
-from joblib.memory import MemorizedResult, NotMemorizedResult
-from joblib.memory import _FUNCTION_HASHES
-from joblib.memory import register_store_backend, _STORE_BACKENDS
-from joblib.memory import _build_func_identifier, _store_backend_factory
-from joblib.memory import JobLibCollisionWarning
-from joblib.parallel import Parallel, delayed
-from joblib._store_backends import StoreBackendBase, FileSystemStoreBackend
-from joblib.test.common import with_numpy, np
-from joblib.test.common import with_multiprocessing
-from joblib.testing import parametrize, raises, warns
+from joblib._store_backends import FileSystemStoreBackend, StoreBackendBase
 from joblib.hashing import hash
+from joblib.memory import (
+    _FUNCTION_HASHES,
+    _STORE_BACKENDS,
+    JobLibCollisionWarning,
+    MemorizedFunc,
+    MemorizedResult,
+    Memory,
+    NotMemorizedFunc,
+    NotMemorizedResult,
+    _build_func_identifier,
+    _store_backend_factory,
+    expires_after,
+    register_store_backend,
+)
+from joblib.parallel import Parallel, delayed
+from joblib.test.common import np, with_multiprocessing, with_numpy
+from joblib.testing import parametrize, raises, warns
 
 
 ###############################################################################
@@ -649,18 +654,6 @@ def test_call_and_shelve(tmpdir):
         result.clear()  # Do nothing if there is no cache.
 
 
-def test_call_and_shelve_argument_hash(tmpdir):
-    # Verify that a warning is raised when accessing arguments_hash
-    # attribute from MemorizedResult
-    func = Memory(location=tmpdir.strpath, verbose=0).cache(f)
-    result = func.call_and_shelve(2)
-    assert isinstance(result, MemorizedResult)
-    with warns(DeprecationWarning) as w:
-        assert result.argument_hash == result.args_id
-    assert len(w) == 1
-    assert "The 'argument_hash' attribute has been deprecated" in str(w[-1].message)
-
-
 def test_call_and_shelve_lazily_load_stored_result(tmpdir):
     """Check call_and_shelve only load stored data if needed."""
     test_access_time_file = tmpdir.join("test_access")
@@ -1013,8 +1006,8 @@ def test_memory_reduce_size_items_limit(tmpdir):
 
 
 def test_memory_reduce_size_age_limit(tmpdir):
-    import time
     import datetime
+    import time
 
     memory, _, put_cache = _setup_toy_cache(tmpdir)
     ref_cache_items = memory.store_backend.get_items()

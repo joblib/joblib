@@ -1,16 +1,18 @@
 """Script comparing different pickling strategies."""
 
-from joblib.numpy_pickle import NumpyPickler, NumpyUnpickler
-from joblib.numpy_pickle_utils import BinaryZlibFile, BinaryGzipFile
-from pickle import _Pickler, _Unpickler, Pickler, Unpickler
-import numpy as np
 import bz2
-import lzma
-import time
 import io
-import sys
+import lzma
 import os
+import sys
+import time
 from collections import OrderedDict
+from pickle import Pickler, Unpickler, _Pickler, _Unpickler
+
+import numpy as np
+
+from joblib.numpy_pickle import NumpyPickler, NumpyUnpickler
+from joblib.numpy_pickle_utils import BinaryGzipFile, BinaryZlibFile
 
 
 def fileobj(obj, fname, mode, kwargs):

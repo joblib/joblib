@@ -25,8 +25,11 @@ import warnings
 import weakref
 
 from . import hashing
-from ._store_backends import CacheWarning  # noqa
-from ._store_backends import FileSystemStoreBackend, StoreBackendBase
+from ._store_backends import (
+    CacheWarning,  # noqa
+    FileSystemStoreBackend,
+    StoreBackendBase,
+)
 from .func_inspect import (
     filter_args,
     format_call,
@@ -227,17 +230,6 @@ class MemorizedResult(Logger):
     @property
     def args_id(self):
         return self._call_id[1]
-
-    @property
-    def argument_hash(self):
-        warnings.warn(
-            "The 'argument_hash' attribute has been deprecated in version "
-            "0.12 and will be removed in version 0.14.\n"
-            "Use `args_id` attribute instead.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.args_id
 
     def get(self):
         """Read value from cache and return it."""

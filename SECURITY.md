@@ -9,8 +9,11 @@
 
 ## Reporting a Vulnerability
 
-Please report security vulnerabilities by email to `joblib-security@scikit-learn.org`.
-This email is an alias to a subset of the joblib maintainers' team.
+Please report security vulnerabilities by opening a new [GitHub security
+advisory](https://github.com/joblib/joblib/security/advisories/new).
+
+You can also send an email to `joblib-security@scikit-learn.org`, which is an
+alias to a subset of the joblib maintainers' team.
 
 If the security vulnerability is accepted, a patch will be crafted privately
 in order to prepare a dedicated bugfix release as timely as possible (depending

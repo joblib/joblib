@@ -60,7 +60,6 @@ print(
 
 from joblib import Parallel, delayed
 
-
 tic = time.time()
 results = Parallel(n_jobs=2)(delayed(slow_mean)(data, sl) for sl in slices)
 toc = time.time()
@@ -76,6 +75,7 @@ print(
 # memmap and pass the memmap to :class:`joblib.Parallel`.
 
 import os
+
 from joblib import dump, load
 
 folder = "./joblib_memmap"

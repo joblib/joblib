@@ -1,9 +1,8 @@
 # Adapted from https://stackoverflow.com/a/9558001/2536294
 
 import ast
-from dataclasses import dataclass
 import operator as op
-
+from dataclasses import dataclass
 
 from ._multiprocessing_helpers import mp
 
