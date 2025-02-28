@@ -15,8 +15,8 @@ import shutil
 
 from joblib.disk import disk_used, memstr_to_bytes, mkdirp, rm_subdirs
 from joblib.memory import Memory
-from joblib.testing import parametrize, raises
 from joblib.test.common import np
+from joblib.testing import parametrize, raises
 
 ###############################################################################
 
