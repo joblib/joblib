@@ -2187,21 +2187,21 @@ def test_call_context_parallel(n_jobs, backend, return_as):
     if "generator" in return_as and backend == "multiprocessing":
         pytest.skip("multiprocessing backend does not support generator")
 
-    ii = np.arange(5)
-    jj = ii + 1
+    ii = range(5)
+    jj = range(1, 6)
 
     parallel = Parallel(
         n_jobs=n_jobs, call_context=None, backend=backend, return_as=return_as
     )
     result = parallel(delayed(maybe_warn)(i, j) for i, j in zip(ii, jj))
-    assert np.sum(result) == 2
+    assert sum(result) == 2
 
     call_context = [(SilenceWarnings, lambda: {})]
     parallel = Parallel(
         n_jobs=n_jobs, call_context=call_context, backend=backend, return_as=return_as
     )
     result = parallel(delayed(maybe_warn)(i, j) for i, j in zip(ii, jj))
-    assert np.sum(result) == 0
+    assert sum(result) == 0
 
     set_config(parameter=123)
     call_context = [(config_context, get_config)]
