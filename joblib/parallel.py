@@ -40,7 +40,6 @@ from ._utils import _Sentinel, eval_expr
 from .disk import memstr_to_bytes
 from .logger import Logger, short_format_time
 
-
 BACKENDS = {
     "threading": ThreadingBackend,
     "sequential": SequentialBackend,
@@ -63,7 +62,6 @@ if mp is not None:
 
     BACKENDS["loky"] = LokyBackend
     DEFAULT_BACKEND = "loky"
-
 
 # Thread local value that can be overridden by the ``parallel_config`` context
 # manager
@@ -151,6 +149,7 @@ def _get_active_backend(
     backend = _get_config_param(
         default_parallel_config["backend"], backend_config, "backend"
     )
+
     prefer = _get_config_param(prefer, backend_config, "prefer")
     require = _get_config_param(require, backend_config, "require")
     verbose = _get_config_param(verbose, backend_config, "verbose")
@@ -264,7 +263,7 @@ class parallel_config:
         The maximum number of concurrently running jobs, such as the number
         of Python worker processes when ``backend="loky"`` or the size of the
         thread-pool when ``backend="threading"``.
-                This argument is converted to an integer, rounded below for float.
+        This argument is converted to an integer, rounded below for float.
         If -1 is given, `joblib` tries to use all CPUs. The number of CPUs
         ``n_cpus`` is obtained with :func:`~cpu_count`.
         For n_jobs below -1, (n_cpus + 1 + n_jobs) are used. For instance,
@@ -1074,8 +1073,8 @@ class Parallel(Logger):
         triggers automated memory mapping in temp_folder. Can be an int
         in Bytes, or a human-readable string, e.g., '1M' for 1 megabyte.
         Use None to disable memmapping of large arrays.
-        Only active when backend="loky" or "multiprocessing".
-    mmap_mode: {None, 'r+', 'r', 'w+', 'c'}, default: 'r'
+        Only active when ``backend="loky"`` or ``"multiprocessing"``.
+    mmap_mode: {None, 'r+', 'r', 'w+', 'c'}, default='r'
         Memmapping mode for numpy arrays passed to workers. None will
         disable memmapping, other modes defined in the numpy.memmap doc:
         https://numpy.org/doc/stable/reference/generated/numpy.memmap.html
@@ -1319,7 +1318,6 @@ class Parallel(Logger):
             # No specific context override and no specific value request:
             # default to the default of the backend.
             n_jobs = backend.default_n_jobs
-
         try:
             n_jobs = int(n_jobs)
         except ValueError:
@@ -1623,8 +1621,8 @@ class Parallel(Logger):
             )
             # only display status if remaining time is greater or equal to 0
             self._print(
-                f"Done {index:3d} out of {total_tasks:3d} | elapsed: "
-                f"{short_format_time(elapsed_time)} remaining: "
+                f"Done {index:{width}d} out of {total_tasks:{width}d} "
+                f"| elapsed: {short_format_time(elapsed_time)} remaining: "
                 f"{short_format_time(remaining_time)}"
             )
 
@@ -1969,8 +1967,8 @@ class Parallel(Logger):
         """Main function to dispatch parallel tasks."""
 
         self._reset_run_tracking()
-        self._start_time = time.time()
         self.n_tasks = len(iterable) if hasattr(iterable, "__len__") else None
+        self._start_time = time.time()
 
         if not self._managed_backend:
             n_jobs = self._initialize_backend()
