@@ -36,25 +36,9 @@ a reference if you want to implement your own custom backend.
 
         supports_retrieve_callback = True
 
-        def __init__(self, nesting_level=None, inner_max_num_threads,
-                     **backend_kwargs):
-            super().__init__(
-                nesting_level=nesting_level,
-                inner_max_num_threads=inner_max_num_threads
-            )
-
-            # These arguments are the ones provided in the parallel_config
-            # context manager
-            self.backend_kwargs = backend_kwargs
-            self._executor = None
-
         def configure(self, n_jobs=1, parallel=None, **backend_kwargs):
             """Configure the backend for a specific instance of Parallel."""
             self.n_jobs = n_jobs
-
-            # The backend_kwargs are the ones provided in the Parallel instance.
-            # We merge them with the ones from the init of the backend.
-            backend_kwargs = {**self.backend_kwargs, **backend_kwargs}
 
             n_jobs = self.effective_n_jobs(n_jobs)
             self._executor = ThreadPoolExecutor(n_jobs)
@@ -153,7 +137,8 @@ for a remote cluster computing service:
 
     class MyCustomBackend(ParallelBackendBase):
 
-        def __init__(self, endpoint, api_key):
+        def __init__(self, endpoint, api_key, nesting_level=0):
+           super().__init__(nesting_level=nesting_level)
            self.endpoint = endpoint
            self.api_key = api_key
 
