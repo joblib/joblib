@@ -1184,6 +1184,11 @@ class Parallel(Logger):
         A list of tuple of (context_manager, state_retriever). The
         ``context_manager`` is a factory that takes as argument the state
         retrieved by the ``state_retriever`` and returns a context manager.
+        An alternative way is to register the call context using
+        :func:`~register_call_context`. See the example
+        :ref:`parallel_config` for more details.
+
+        .. versionadded:: 1.5
 
     Notes
     -----
