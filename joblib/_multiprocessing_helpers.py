@@ -3,18 +3,18 @@
 We use a distinct module to simplify import statements and avoid introducing
 circular dependencies (for instance for the assert_spawning name).
 """
+
 import os
 import warnings
-
 
 # Obtain possible configuration from the environment, assuming 1 (on)
 # by default, upon 0 set to None. Should instructively fail if some non
 # 0/1 value is set.
-mp = int(os.environ.get('JOBLIB_MULTIPROCESSING', 1)) or None
+mp = int(os.environ.get("JOBLIB_MULTIPROCESSING", 1)) or None
 if mp:
     try:
-        import multiprocessing as mp
         import _multiprocessing  # noqa
+        import multiprocessing as mp
     except ImportError:
         mp = None
 
@@ -32,18 +32,16 @@ if mp is not None:
         _rand = tempfile._RandomNameSequence()
         for i in range(100):
             try:
-                name = '/joblib-{}-{}' .format(
-                    os.getpid(), next(_rand))
+                name = "/joblib-{}-{}".format(os.getpid(), next(_rand))
                 _sem = SemLock(0, 0, 1, name=name, unlink=True)
                 del _sem  # cleanup
                 break
             except FileExistsError as e:  # pragma: no cover
                 if i >= 99:
-                    raise FileExistsError(
-                        'cannot find name for semaphore') from e
+                    raise FileExistsError("cannot find name for semaphore") from e
     except (FileExistsError, AttributeError, ImportError, OSError) as e:
         mp = None
-        warnings.warn('%s.  joblib will operate in serial mode' % (e,))
+        warnings.warn("%s.  joblib will operate in serial mode" % (e,))
 
 
 # 3rd stage: backward compat for the assert_spawning helper

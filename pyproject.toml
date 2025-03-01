@@ -16,16 +16,16 @@ classifiers = [
     "License :: OSI Approved :: BSD License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering",
     "Topic :: Utilities",
     "Topic :: Software Development :: Libraries",
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 dynamic = ["version"]
 
 [project.readme]
@@ -100,6 +100,23 @@ relative_files = true
 
 [tool.coverage.report]
 show_missing = true
+
+[tool.ruff]
+# Enable Pyflakes `E`, `F` and `W` codes by default.
+lint.select = [
+    "E", "W",  # see: https://pypi.org/project/pycodestyle
+    "F",  # see: https://pypi.org/project/pyflakes
+    "I", # https://docs.astral.sh/ruff/rules/#isort-i
+]
+# Exclude a variety of commonly ignored directories.
+exclude = [
+    "joblib/externals/*",
+    # this file has special encoding
+    "joblib/test/test_func_inspect_special_encoding.py"
+]
+
+[tool.ruff.lint.per-file-ignores]
+"examples/*" = ["E402"]
 
 [tool.codespell]
 # Ref: https://github.com/codespell-project/codespell#using-a-config-file

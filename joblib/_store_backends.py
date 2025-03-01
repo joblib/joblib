@@ -1,31 +1,31 @@
 """Storage providers backends for Memory caching."""
 
-from pickle import PicklingError
-import re
-import os
-import os.path
+import collections
 import datetime
 import json
+import operator
+import os
+import os.path
+import re
 import shutil
 import time
 import warnings
-import collections
-import operator
 import threading
 import socket
 from abc import ABCMeta, abstractmethod
+from pickle import PicklingError
 
-from .backports import concurrency_safe_rename
-from .disk import mkdirp, memstr_to_bytes, rm_subdirs
-from .logger import format_time
 from . import numpy_pickle
+from .backports import concurrency_safe_rename
+from .disk import memstr_to_bytes, mkdirp, rm_subdirs
+from .logger import format_time
 
-CacheItemInfo = collections.namedtuple('CacheItemInfo',
-                                       'path size last_access')
+CacheItemInfo = collections.namedtuple("CacheItemInfo", "path size last_access")
 
 
 class CacheWarning(Warning):
     """Warning to capture dump failures except for PicklingError."""
+
     pass
 
 
@@ -42,7 +42,7 @@ def concurrency_safe_write(object_to_write, filename, write_func):
 
 class StoreBackendBase(metaclass=ABCMeta):
     """Helper Abstract Base Class which defines all methods that
-       a StorageBackend must implement."""
+    a StorageBackend must implement."""
 
     location = None
 
@@ -160,26 +160,31 @@ class StoreBackendMixin(object):
         full_path = os.path.join(self.location, *call_id)
 
         if verbose > 1:
-            ts_string = ('{: <16}'.format(format_time(time.time() - timestamp))
-                         if timestamp is not None else '')
+            ts_string = (
+                "{: <16}".format(format_time(time.time() - timestamp))
+                if timestamp is not None
+                else ""
+            )
             signature = os.path.basename(call_id[0])
-            if metadata is not None and 'input_args' in metadata:
-                kwargs = ', '.join('{}={}'.format(*item)
-                                   for item in metadata['input_args'].items())
-                signature += '({})'.format(kwargs)
-            msg = '[Memory]{}: Loading {}'.format(ts_string, signature)
+            if metadata is not None and "input_args" in metadata:
+                kwargs = ", ".join(
+                    "{}={}".format(*item) for item in metadata["input_args"].items()
+                )
+                signature += "({})".format(kwargs)
+            msg = "[Memory]{}: Loading {}".format(ts_string, signature)
             if verbose < 10:
-                print('{0}...'.format(msg))
+                print("{0}...".format(msg))
             else:
-                print('{0} from {1}'.format(msg, full_path))
+                print("{0} from {1}".format(msg, full_path))
 
-        mmap_mode = (None if not hasattr(self, 'mmap_mode')
-                     else self.mmap_mode)
+        mmap_mode = None if not hasattr(self, "mmap_mode") else self.mmap_mode
 
-        filename = os.path.join(full_path, 'output.pkl')
+        filename = os.path.join(full_path, "output.pkl")
         if not self._item_exists(filename):
-            raise KeyError("Non-existing item (may have been "
-                           "cleared).\nFile %s does not exist" % filename)
+            raise KeyError(
+                "Non-existing item (may have been "
+                "cleared).\nFile %s does not exist" % filename
+            )
 
         # file-like object cannot be used when mmap_mode is set
         if mmap_mode is None:
@@ -195,9 +200,9 @@ class StoreBackendMixin(object):
             item_path = os.path.join(self.location, *call_id)
             if not self._item_exists(item_path):
                 self.create_location(item_path)
-            filename = os.path.join(item_path, 'output.pkl')
+            filename = os.path.join(item_path, "output.pkl")
             if verbose > 10:
-                print('Persisting in %s' % item_path)
+                print("Persisting in %s" % item_path)
 
             def write_func(to_write, dest_filename):
                 with self._open_item(dest_filename, "wb") as f:
@@ -209,7 +214,7 @@ class StoreBackendMixin(object):
                             "Unable to cache to disk: failed to pickle "
                             "output. In version 1.5 this will raise an "
                             f"exception. Exception: {e}.",
-                            FutureWarning
+                            FutureWarning,
                         )
 
             self._concurrency_safe_write(item, filename, write_func)
@@ -217,7 +222,7 @@ class StoreBackendMixin(object):
             warnings.warn(
                 "Unable to cache to disk. Possibly a race condition in the "
                 f"creation of the directory. Exception: {e}.",
-                CacheWarning
+                CacheWarning,
             )
 
     def clear_item(self, call_id):
@@ -229,21 +234,21 @@ class StoreBackendMixin(object):
     def contains_item(self, call_id):
         """Check if there is an item at the id, given as a list of str."""
         item_path = os.path.join(self.location, *call_id)
-        filename = os.path.join(item_path, 'output.pkl')
+        filename = os.path.join(item_path, "output.pkl")
 
         return self._item_exists(filename)
 
     def get_item_info(self, call_id):
         """Return information about item."""
-        return {'location': os.path.join(self.location, *call_id)}
+        return {"location": os.path.join(self.location, *call_id)}
 
     def get_metadata(self, call_id):
         """Return actual metadata of an item."""
         try:
             item_path = os.path.join(self.location, *call_id)
-            filename = os.path.join(item_path, 'metadata.json')
-            with self._open_item(filename, 'rb') as f:
-                return json.loads(f.read().decode('utf-8'))
+            filename = os.path.join(item_path, "metadata.json")
+            with self._open_item(filename, "rb") as f:
+                return json.loads(f.read().decode("utf-8"))
         except:  # noqa: E722
             return {}
 
@@ -252,11 +257,11 @@ class StoreBackendMixin(object):
         try:
             item_path = os.path.join(self.location, *call_id)
             self.create_location(item_path)
-            filename = os.path.join(item_path, 'metadata.json')
+            filename = os.path.join(item_path, "metadata.json")
 
             def write_func(to_write, dest_filename):
                 with self._open_item(dest_filename, "wb") as f:
-                    f.write(json.dumps(to_write).encode('utf-8'))
+                    f.write(json.dumps(to_write).encode("utf-8"))
 
             self._concurrency_safe_write(metadata, filename, write_func)
         except:  # noqa: E722
@@ -281,39 +286,35 @@ class StoreBackendMixin(object):
 
         if func_code is not None:
             filename = os.path.join(func_path, "func_code.py")
-            with self._open_item(filename, 'wb') as f:
-                f.write(func_code.encode('utf-8'))
+            with self._open_item(filename, "wb") as f:
+                f.write(func_code.encode("utf-8"))
 
     def get_cached_func_code(self, call_id):
         """Store the code of the cached function."""
-        filename = os.path.join(self.location, *call_id, 'func_code.py')
+        filename = os.path.join(self.location, *call_id, "func_code.py")
         try:
-            with self._open_item(filename, 'rb') as f:
-                return f.read().decode('utf-8')
+            with self._open_item(filename, "rb") as f:
+                return f.read().decode("utf-8")
         except:  # noqa: E722
             raise
 
     def get_cached_func_info(self, call_id):
         """Return information related to the cached function if it exists."""
-        return {'location': os.path.join(self.location, *call_id)}
+        return {"location": os.path.join(self.location, *call_id)}
 
     def clear(self):
         """Clear the whole store content."""
         self.clear_location(self.location)
 
-    def enforce_store_limits(
-            self, bytes_limit, items_limit=None, age_limit=None
-    ):
+    def enforce_store_limits(self, bytes_limit, items_limit=None, age_limit=None):
         """
         Remove the store's oldest files to enforce item, byte, and age limits.
         """
-        items_to_delete = self._get_items_to_delete(
-            bytes_limit, items_limit, age_limit
-        )
+        items_to_delete = self._get_items_to_delete(bytes_limit, items_limit, age_limit)
 
         for item in items_to_delete:
             if self.verbose > 10:
-                print('Deleting item {0}'.format(item))
+                print("Deleting item {0}".format(item))
             try:
                 self.clear_location(item.path)
             except OSError:
@@ -323,9 +324,7 @@ class StoreBackendMixin(object):
                 # the folder already.
                 pass
 
-    def _get_items_to_delete(
-            self, bytes_limit, items_limit=None, age_limit=None
-    ):
+    def _get_items_to_delete(self, bytes_limit, items_limit=None, age_limit=None):
         """
         Get items to delete to keep the store under size, file, & age limits.
         """
@@ -357,14 +356,15 @@ class StoreBackendMixin(object):
             deadline = None
 
         if (
-            to_delete_size <= 0 and to_delete_items <= 0
+            to_delete_size <= 0
+            and to_delete_items <= 0
             and (deadline is None or older_item > deadline)
         ):
             return []
 
         # We want to delete first the cache items that were accessed a
         # long time ago
-        items.sort(key=operator.attrgetter('last_access'))
+        items.sort(key=operator.attrgetter("last_access"))
 
         items_to_delete = []
         size_so_far = 0
@@ -386,14 +386,14 @@ class StoreBackendMixin(object):
 
     def _concurrency_safe_write(self, to_write, filename, write_func):
         """Writes an object into a file in a concurrency-safe way."""
-        temporary_filename = concurrency_safe_write(to_write,
-                                                    filename, write_func)
+        temporary_filename = concurrency_safe_write(to_write, filename, write_func)
         self._move_item(temporary_filename, filename)
 
     def __repr__(self):
         """Printable representation of the store location."""
         return '{class_name}(location="{location}")'.format(
-            class_name=self.__class__.__name__, location=self.location)
+            class_name=self.__class__.__name__, location=self.location
+        )
 
 
 class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
@@ -405,7 +405,7 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
 
     def clear_location(self, location):
         """Delete location on store."""
-        if (location == self.location):
+        if location == self.location:
             rm_subdirs(location)
         else:
             shutil.rmtree(location, ignore_errors=True)
@@ -419,11 +419,10 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
         items = []
 
         for dirpath, _, filenames in os.walk(self.location):
-            is_cache_hash_dir = re.match('[a-f0-9]{32}',
-                                         os.path.basename(dirpath))
+            is_cache_hash_dir = re.match("[a-f0-9]{32}", os.path.basename(dirpath))
 
             if is_cache_hash_dir:
-                output_filename = os.path.join(dirpath, 'output.pkl')
+                output_filename = os.path.join(dirpath, "output.pkl")
                 try:
                     last_access = os.path.getatime(output_filename)
                 except OSError:
@@ -435,18 +434,15 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
 
                 last_access = datetime.datetime.fromtimestamp(last_access)
                 try:
-                    full_filenames = [os.path.join(dirpath, fn)
-                                      for fn in filenames]
-                    dirsize = sum(os.path.getsize(fn)
-                                  for fn in full_filenames)
+                    full_filenames = [os.path.join(dirpath, fn) for fn in filenames]
+                    dirsize = sum(os.path.getsize(fn) for fn in full_filenames)
                 except OSError:
                     # Either output_filename or one of the files in
                     # dirpath does not exist any more. We assume this
                     # directory is being cleaned by another process already
                     continue
 
-                items.append(CacheItemInfo(dirpath, dirsize,
-                                           last_access))
+                items.append(CacheItemInfo(dirpath, dirsize, last_access))
 
         return items
 
@@ -464,15 +460,17 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
             mkdirp(self.location)
 
         # item can be stored compressed for faster I/O
-        self.compress = backend_options.get('compress', False)
+        self.compress = backend_options.get("compress", False)
 
         # FileSystemStoreBackend can be used with mmap_mode options under
         # certain conditions.
-        mmap_mode = backend_options.get('mmap_mode')
+        mmap_mode = backend_options.get("mmap_mode")
         if self.compress and mmap_mode is not None:
-            warnings.warn('Compressed items cannot be memmapped in a '
-                          'filesystem store. Option will be ignored.',
-                          stacklevel=2)
+            warnings.warn(
+                "Compressed items cannot be memmapped in a "
+                "filesystem store. Option will be ignored.",
+                stacklevel=2,
+            )
 
         self.mmap_mode = mmap_mode
         self.verbose = verbose

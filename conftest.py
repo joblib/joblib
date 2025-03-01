@@ -1,14 +1,15 @@
+import faulthandler
+import logging
 import os
 import sys
-import logging
-import faulthandler
 
 import pytest
 from _pytest.doctest import DoctestItem
 
-from joblib.parallel import mp, ParallelBackendBase
-from joblib.backports import LooseVersion
 from joblib import Memory
+from joblib.backports import LooseVersion
+from joblib.parallel import ParallelBackendBase, mp
+
 try:
     import lz4
 except ImportError:
@@ -30,16 +31,17 @@ def pytest_collection_modifyitems(config, items):
             # Only run doctests for numpy >= 2 and Python >= 3.10 to avoid
             # formatting changes
             import numpy as np
-            if (LooseVersion(np.__version__) >= LooseVersion('2')
-                    and sys.version_info[:2] >= (3, 10)):
+
+            if LooseVersion(np.__version__) >= LooseVersion("2") and sys.version_info[
+                :2
+            ] >= (3, 10):
                 skip_doctests = False
         except ImportError:
             pass
 
     if skip_doctests:
         reason = (
-            'doctests are only run in some conditions, '
-            'see conftest.py for more details'
+            "doctests are only run in some conditions, see conftest.py for more details"
         )
         skip_marker = pytest.mark.skip(reason=reason)
 
@@ -49,36 +51,37 @@ def pytest_collection_modifyitems(config, items):
 
     if lz4 is None:
         for item in items:
-            if item.name == 'persistence.rst':
-                item.add_marker(pytest.mark.skip(reason='lz4 is missing'))
+            if item.name == "persistence.rst":
+                item.add_marker(pytest.mark.skip(reason="lz4 is missing"))
 
 
 def pytest_configure(config):
     """Setup multiprocessing logging for the tests"""
     if mp is not None:
         log = mp.util.log_to_stderr(logging.DEBUG)
-        log.handlers[0].setFormatter(logging.Formatter(
-            '[%(levelname)s:%(processName)s:%(threadName)s] %(message)s'))
+        log.handlers[0].setFormatter(
+            logging.Formatter(
+                "[%(levelname)s:%(processName)s:%(threadName)s] %(message)s"
+            )
+        )
 
     # Some CI runs failed with hanging processes that were not terminated
     # with the timeout. To make sure we always get a proper trace, set a large
     # enough dump_traceback_later to kill the process with a report.
     faulthandler.dump_traceback_later(30 * 60, exit=True)
 
-    DEFAULT_BACKEND = os.environ.get(
-        "JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND", None
-    )
+    DEFAULT_BACKEND = os.environ.get("JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND", None)
     if DEFAULT_BACKEND is not None:
         print(
             f"Setting joblib parallel default backend to {DEFAULT_BACKEND} "
             "from JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND environment variable"
         )
         from joblib import parallel
+
         parallel.DEFAULT_BACKEND = DEFAULT_BACKEND
 
 
 def pytest_unconfigure(config):
-
     # Setup a global traceback printer callback to debug deadlocks that
     # would happen once pytest has completed: for instance in atexit
     # finalizers. At this point the stdout/stderr capture of pytest
@@ -91,7 +94,7 @@ def pytest_unconfigure(config):
     faulthandler.dump_traceback_later(60, exit=True)
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture(scope="function")
 def memory(tmp_path):
     "Fixture to get an independent and self-cleaning Memory"
     mem = Memory(location=tmp_path, verbose=0)
@@ -99,11 +102,10 @@ def memory(tmp_path):
     mem.clear()
 
 
-@pytest.fixture(scope='function', autouse=True)
+@pytest.fixture(scope="function", autouse=True)
 def avoid_env_var_leakage():
     "Fixture to avoid MAX_NUM_THREADS env vars leakage between tests"
     yield
     assert all(
-        os.environ.get(k) is None
-        for k in ParallelBackendBase.MAX_NUM_THREADS_VARS
+        os.environ.get(k) is None for k in ParallelBackendBase.MAX_NUM_THREADS_VARS
     )

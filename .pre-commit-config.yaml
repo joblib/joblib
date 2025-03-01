@@ -1,0 +1,21 @@
+default_language_version:
+  python: python3
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-yaml
+      - id: check-toml
+      - id: check-case-conflict
+      - id: check-added-large-files
+      - id: detect-private-key
+
+  - repo: https://github.com/charliermarsh/ruff-pre-commit
+    rev: 'v0.9.7'
+    hooks:
+      - id: ruff
+        args: ["--fix"]
+      - id: ruff-format

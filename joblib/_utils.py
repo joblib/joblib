@@ -1,9 +1,8 @@
 # Adapted from https://stackoverflow.com/a/9558001/2536294
 
 import ast
-from dataclasses import dataclass
 import operator as op
-
+from dataclasses import dataclass
 
 from ._multiprocessing_helpers import mp
 
@@ -55,6 +54,7 @@ def eval_(node):
 @dataclass(frozen=True)
 class _Sentinel:
     """A sentinel to mark a parameter as not explicitly set"""
+
     default_value: object
 
     def __repr__(self):

@@ -22,15 +22,16 @@ import time
 #
 # First fetch the benchmark dataset from an online machine-learning database
 # and load it in a pandas dataframe.
-
 import pandas as pd
 
 url = "https://github.com/joblib/dataset/raw/main/kddcup.data.gz"
-names = ("duration, protocol_type, service, flag, src_bytes, "
-         "dst_bytes, land, wrong_fragment, urgent, hot, "
-         "num_failed_logins, logged_in, num_compromised, "
-         "root_shell, su_attempted, num_root, "
-         "num_file_creations, ").split(', ')
+names = (
+    "duration, protocol_type, service, flag, src_bytes, "
+    "dst_bytes, land, wrong_fragment, urgent, hot, "
+    "num_failed_logins, logged_in, num_compromised, "
+    "root_shell, su_attempted, num_root, "
+    "num_file_creations, "
+).split(", ")
 
 data = pd.read_csv(url, names=names, nrows=1e6)
 
@@ -42,12 +43,12 @@ data = pd.read_csv(url, names=names, nrows=1e6)
 
 from joblib import dump, load
 
-pickle_file = './pickle_data.joblib'
+pickle_file = "./pickle_data.joblib"
 
 ###############################################################################
 # Start by measuring the time spent for dumping the raw data:
 start = time.time()
-with open(pickle_file, 'wb') as f:
+with open(pickle_file, "wb") as f:
     dump(data, f)
 raw_dump_duration = time.time() - start
 print("Raw dump duration: %0.3fs" % raw_dump_duration)
@@ -60,7 +61,7 @@ print("Raw dump file size: %0.3fMB" % raw_file_size)
 ###############################################################################
 # Finally measure the time spent for loading the raw data:
 start = time.time()
-with open(pickle_file, 'rb') as f:
+with open(pickle_file, "rb") as f:
     load(f)
 raw_load_duration = time.time() - start
 print("Raw load duration: %0.3fs" % raw_load_duration)
@@ -76,8 +77,8 @@ print("Raw load duration: %0.3fs" % raw_load_duration)
 # Start by measuring the time spent for dumping of the zlib data:
 
 start = time.time()
-with open(pickle_file, 'wb') as f:
-    dump(data, f, compress='zlib')
+with open(pickle_file, "wb") as f:
+    dump(data, f, compress="zlib")
 zlib_dump_duration = time.time() - start
 print("Zlib dump duration: %0.3fs" % zlib_dump_duration)
 
@@ -91,7 +92,7 @@ print("Zlib file size: %0.3fMB" % zlib_file_size)
 # Finally measure the time spent for loading the compressed dataset:
 
 start = time.time()
-with open(pickle_file, 'rb') as f:
+with open(pickle_file, "rb") as f:
     load(f)
 zlib_load_duration = time.time() - start
 print("Zlib load duration: %0.3fs" % zlib_load_duration)
@@ -116,8 +117,8 @@ print("Zlib load duration: %0.3fs" % zlib_load_duration)
 # Start by measuring the time spent for dumping the lzma data:
 
 start = time.time()
-with open(pickle_file, 'wb') as f:
-    dump(data, f, compress=('lzma', 3))
+with open(pickle_file, "wb") as f:
+    dump(data, f, compress=("lzma", 3))
 lzma_dump_duration = time.time() - start
 print("LZMA dump duration: %0.3fs" % lzma_dump_duration)
 
@@ -131,7 +132,7 @@ print("LZMA file size: %0.3fMB" % lzma_file_size)
 # Finally measure the time spent for loading the lzma data:
 
 start = time.time()
-with open(pickle_file, 'rb') as f:
+with open(pickle_file, "rb") as f:
     load(f)
 lzma_load_duration = time.time() - start
 print("LZMA load duration: %0.3fs" % lzma_load_duration)
@@ -153,8 +154,8 @@ print("LZMA load duration: %0.3fs" % lzma_load_duration)
 # Start by measuring the time spent for dumping the lz4 data:
 
 start = time.time()
-with open(pickle_file, 'wb') as f:
-    dump(data, f, compress='lz4')
+with open(pickle_file, "wb") as f:
+    dump(data, f, compress="lz4")
 lz4_dump_duration = time.time() - start
 print("LZ4 dump duration: %0.3fs" % lz4_dump_duration)
 
@@ -168,7 +169,7 @@ print("LZ4 file size: %0.3fMB" % lz4_file_size)
 # Finally measure the time spent for loading the lz4 data:
 
 start = time.time()
-with open(pickle_file, 'rb') as f:
+with open(pickle_file, "rb") as f:
     load(f)
 lz4_load_duration = time.time() - start
 print("LZ4 load duration: %0.3fs" % lz4_load_duration)
@@ -177,14 +178,22 @@ print("LZ4 load duration: %0.3fs" % lz4_load_duration)
 # Comparing the results
 # ---------------------
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 
 N = 4
-load_durations = (raw_load_duration, lz4_load_duration, zlib_load_duration,
-                  lzma_load_duration)
-dump_durations = (raw_dump_duration, lz4_dump_duration, zlib_dump_duration,
-                  lzma_dump_duration)
+load_durations = (
+    raw_load_duration,
+    lz4_load_duration,
+    zlib_load_duration,
+    lzma_load_duration,
+)
+dump_durations = (
+    raw_dump_duration,
+    lz4_dump_duration,
+    zlib_dump_duration,
+    lzma_dump_duration,
+)
 file_sizes = (raw_file_size, lz4_file_size, zlib_file_size, lzma_file_size)
 ind = np.arange(N)
 width = 0.5
@@ -192,11 +201,11 @@ width = 0.5
 plt.figure(1, figsize=(5, 4))
 p1 = plt.bar(ind, dump_durations, width)
 p2 = plt.bar(ind, load_durations, width, bottom=dump_durations)
-plt.ylabel('Time in seconds')
-plt.title('Dump and load durations')
-plt.xticks(ind, ('Raw', 'LZ4', 'Zlib', 'LZMA'))
+plt.ylabel("Time in seconds")
+plt.title("Dump and load durations")
+plt.xticks(ind, ("Raw", "LZ4", "Zlib", "LZMA"))
 plt.yticks(np.arange(0, lzma_load_duration + lzma_dump_duration))
-plt.legend((p1[0], p2[0]), ('Dump duration', 'Load duration'))
+plt.legend((p1[0], p2[0]), ("Dump duration", "Load duration"))
 
 ###############################################################################
 # Compared with other compressors, LZ4 is clearly the fastest, especially for
@@ -212,8 +221,8 @@ plt.legend((p1[0], p2[0]), ('Dump duration', 'Load duration'))
 
 plt.figure(2, figsize=(5, 4))
 plt.bar(ind, file_sizes, width, log=True)
-plt.ylabel('File size in MB')
-plt.xticks(ind, ('Raw', 'LZ4', 'Zlib', 'LZMA'))
+plt.ylabel("File size in MB")
+plt.xticks(ind, ("Raw", "LZ4", "Zlib", "LZMA"))
 
 ###############################################################################
 # Compressed data obviously takes a lot less space on disk than raw data. LZMA
@@ -227,4 +236,5 @@ plt.show()
 # ---------------------
 
 import os
+
 os.remove(pickle_file)

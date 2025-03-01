@@ -13,6 +13,7 @@ how to work around it.
 """
 
 import numpy as np
+
 from joblib import Parallel, delayed
 
 
@@ -20,8 +21,11 @@ from joblib import Parallel, delayed
 # A utility function for the example
 def print_vector(vector, backend):
     """Helper function to print the generated vector with a given backend."""
-    print('\nThe different generated vectors using the {} backend are:\n {}'
-          .format(backend, np.array(vector)))
+    print(
+        "\nThe different generated vectors using the {} backend are:\n {}".format(
+            backend, np.array(vector)
+        )
+    )
 
 
 # %%
@@ -42,8 +46,11 @@ def stochastic_function(max_value):
 
 n_vectors = 5
 random_vector = [stochastic_function(10) for _ in range(n_vectors)]
-print('\nThe different generated vectors in a sequential manner are:\n {}'
-      .format(np.array(random_vector)))
+print(
+    "\nThe different generated vectors in a sequential manner are:\n {}".format(
+        np.array(random_vector)
+    )
+)
 
 # %%
 # Parallel behavior
@@ -52,16 +59,18 @@ print('\nThe different generated vectors in a sequential manner are:\n {}'
 # Joblib provides three different backends: loky (default), threading, and
 # multiprocessing.
 
-backend = 'loky'
-random_vector = Parallel(n_jobs=2, backend=backend)(delayed(
-    stochastic_function)(10) for _ in range(n_vectors))
+backend = "loky"
+random_vector = Parallel(n_jobs=2, backend=backend)(
+    delayed(stochastic_function)(10) for _ in range(n_vectors)
+)
 print_vector(random_vector, backend)
 
 ###############################################################################
 
-backend = 'threading'
-random_vector = Parallel(n_jobs=2, backend=backend)(delayed(
-    stochastic_function)(10) for _ in range(n_vectors))
+backend = "threading"
+random_vector = Parallel(n_jobs=2, backend=backend)(
+    delayed(stochastic_function)(10) for _ in range(n_vectors)
+)
 print_vector(random_vector, backend)
 
 # %%
@@ -77,10 +86,12 @@ print_vector(random_vector, backend)
 # early if that's the case:
 
 import multiprocessing as mp
+
 if mp.get_start_method() != "spawn":
-    backend = 'multiprocessing'
-    random_vector = Parallel(n_jobs=2, backend=backend)(delayed(
-        stochastic_function)(10) for _ in range(n_vectors))
+    backend = "multiprocessing"
+    random_vector = Parallel(n_jobs=2, backend=backend)(
+        delayed(stochastic_function)(10) for _ in range(n_vectors)
+    )
     print_vector(random_vector, backend)
 
 # %%
@@ -105,8 +116,9 @@ def stochastic_function_seeded(max_value, random_state):
 # see that the generated vectors are all different.
 
 if mp.get_start_method() != "spawn":
-    random_vector = Parallel(n_jobs=2, backend=backend)(delayed(
-        stochastic_function_seeded)(10, None) for _ in range(n_vectors))
+    random_vector = Parallel(n_jobs=2, backend=backend)(
+        delayed(stochastic_function_seeded)(10, None) for _ in range(n_vectors)
+    )
     print_vector(random_vector, backend)
 
 # %%
@@ -123,10 +135,12 @@ if mp.get_start_method() != "spawn":
 
 if mp.get_start_method() != "spawn":
     seed = 42
-    random_vector = Parallel(n_jobs=2, backend=backend)(delayed(
-        stochastic_function_seeded)(10, [i, seed]) for i in range(n_vectors))
+    random_vector = Parallel(n_jobs=2, backend=backend)(
+        delayed(stochastic_function_seeded)(10, [i, seed]) for i in range(n_vectors)
+    )
     print_vector(random_vector, backend)
 
-    random_vector = Parallel(n_jobs=2, backend=backend)(delayed(
-        stochastic_function_seeded)(10, [i, seed]) for i in range(n_vectors))
+    random_vector = Parallel(n_jobs=2, backend=backend)(
+        delayed(stochastic_function_seeded)(10, [i, seed]) for i in range(n_vectors)
+    )
     print_vector(random_vector, backend)

@@ -3,8 +3,10 @@ Test that our implementation of wrap_non_picklable_objects mimics
 properly the loky implementation.
 """
 
-from .._cloudpickle_wrapper import wrap_non_picklable_objects
-from .._cloudpickle_wrapper import _my_wrap_non_picklable_objects
+from .._cloudpickle_wrapper import (
+    _my_wrap_non_picklable_objects,
+    wrap_non_picklable_objects,
+)
 
 
 def a_function(x):
@@ -12,7 +14,6 @@ def a_function(x):
 
 
 class AClass(object):
-
     def __call__(self, x):
         return x
 

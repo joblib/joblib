@@ -46,7 +46,7 @@ the changes are local to your account and easy to clean up.
 Simply move to the directory created by expanding the `joblib` tarball
 and run the following command::
 
-    python setup.py install --user
+    python -m pip install --user .
 
 Installing for all users
 ........................
@@ -55,9 +55,9 @@ If you have administrator rights and want to install for all users, all
 you need to do is to go in directory created by expanding the `joblib`
 tarball and run the following line::
 
-    python setup.py install
+    python -m pip install .
 
 If you are under Unix, we suggest that you install in '/usr/local' in
 order not to interfere with your system::
 
-    python setup.py install --prefix /usr/local
+    python -m pip install --prefix /usr/local .
