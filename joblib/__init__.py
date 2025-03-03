@@ -57,11 +57,18 @@ Main features
 
       >>> from joblib import Memory
       >>> location = 'your_cache_dir_goes_here'
-      >>> mem = Memory(location, verbose=0)
+      >>> mem = Memory(location, verbose=1)
       >>> import numpy as np
       >>> a = np.vander(np.arange(3)).astype(float)
       >>> square = mem.cache(np.square)
-      >>> b = square(a)
+      >>> b = square(a)                                   # doctest: +ELLIPSIS
+      ______________________________________________________________________...
+      [Memory] Calling ...square...
+      square(array([[0., 0., 1.],
+             [1., 1., 1.],
+             [4., 2., 1.]]))
+      _________________________________________________...square - ...s, 0.0min
+
       >>> c = square(a)
       >>> # The above call did not trigger an evaluation
 
