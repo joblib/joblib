@@ -977,9 +977,8 @@ class Memory(Logger):
         the Memory object is completely transparent. This option
         replaces cachedir since version 0.12.
 
-    backend: str, optional
+    backend: str, optional, default='local'
         Type of store backend for reading/writing cache files.
-        Default: 'local'.
         The 'local' backend is using regular filesystem operations to
         manipulate data (open, mv, etc) in the backend.
 
