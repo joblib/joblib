@@ -200,7 +200,8 @@ def test_parallel_call_cached_function_defined_in_jupyter(tmpdir, call_before_re
                 # Two files were just created, func_code.py, and a folder
                 # containing the information (inputs hash/ouptput) of
                 # cached_f(3)
-                assert len(os.listdir(f_cache_directory / "f")) == 2
+                cached_files = os.listdir(f_cache_directory / "f")
+                assert len(cached_files) == 2
 
                 # Now, testing  #1035: when calling a cached function, joblib
                 # used to dynamically inspect the underlying function to
@@ -218,23 +219,27 @@ def test_parallel_call_cached_function_defined_in_jupyter(tmpdir, call_before_re
                 Parallel(n_jobs=2)(delayed(cached_f)(i) for i in [1, 2])
                 # Ensure the child process has time to close the file.
                 time.sleep(0.2)
-                assert len(os.listdir(f_cache_directory / "f")) == 3
+                cached_files = os.listdir(f_cache_directory / "f")
+                assert len(cached_files) == 3
 
                 cached_f(3)
 
             # Making sure f's cache does not get cleared after the parallel
             # calls, and contains ALL cached functions calls (f(1), f(2), f(3))
             # and 'func_code.py'
-            assert len(os.listdir(f_cache_directory / "f")) == 4
+            cache_files = os.listdir(f_cache_directory / "f")
+            assert len(cache_files) == 4, cache_files
         else:
             # For the second session, there should be an already existing cache
-            assert len(os.listdir(f_cache_directory / "f")) == 4
+            cache_files = os.listdir(f_cache_directory / "f")
+            assert len(cache_files) == 4, cache_files
 
             cached_f(3)
 
             # The previous cache should not be invalidated after calling the
             # function in a new session
-            assert len(os.listdir(f_cache_directory / "f")) == 4
+            cache_files = os.listdir(f_cache_directory / "f")
+            assert len(cache_files) == 4, cache_files
 
 
 def test_no_memory():
