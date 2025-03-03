@@ -1543,7 +1543,7 @@ class TestMemorizedFunc:
         )
 
 
-@pytest.mark.skipif(np is None, reason="Numpy is not installed.")
+@with_numpy
 @parametrize("location", ["my_cache_dir", pathlib.Path("my_cache_dir")])
 def test_memory_creates_gitignore(location):
     """Test that using the memory object automatically creates a `.gitignore` file
