@@ -72,8 +72,8 @@ RM_SUBDIRS_N_RETRY = 10
 def rm_subdirs(path, onerror=None):
     """Remove all subdirectories in this path.
 
-    The directory indicated by `path` is left in place, and its subdirectories and the
-    .gitignore file are erased.
+    The directory indicated by `path` is left in place, and its subdirectories
+    are erased.
 
     If onerror is set, it is called to handle the error with arguments (func,
     path, exc_info) where func is os.listdir, os.remove, or os.rmdir;
@@ -97,13 +97,6 @@ def rm_subdirs(path, onerror=None):
     for name in names:
         fullname = os.path.join(path, name)
         delete_folder(fullname, onerror=onerror)
-        if os.path.exists(os.path.join(path, ".gitignore")):
-            path_to_gitignore_file = os.path.join(path, ".gitignore")
-            with open(path_to_gitignore_file) as file:
-                first_line = file.readline().strip("\n")
-            if first_line == "# Created by joblib automatically.":
-                # delete .gitignore if it is the automatically added file by joblib
-                os.remove(path_to_gitignore_file)
 
 
 def delete_folder(folder_path, onerror=None, allow_non_empty=True):
