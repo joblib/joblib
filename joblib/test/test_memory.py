@@ -1559,7 +1559,8 @@ def test_memory_creates_gitignore(location):
     try:
         path_to_gitignore_file = os.path.join(location, ".gitignore")
         gitignore_file_content = "# Created by joblib automatically.\n*\n"
-        assert gitignore_file_content == open(path_to_gitignore_file).read()
+        with open(path_to_gitignore_file) as f:
+            assert gitignore_file_content == f.read()
 
     finally:  # remove cache folder after test
         shutil.rmtree(location, ignore_errors=True)
