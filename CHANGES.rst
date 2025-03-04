@@ -33,6 +33,10 @@ In development
 - Drop support for PyPy.
   https://github.com/joblib/joblib/pull/1670
 
+- The Memory object now automatically creates a .gitignore file in its cache directory,
+  instructing git to ignore the entire folder.
+  https://github.com/joblib/joblib/pull/1674
+
 Release 1.4.2 -- 2024/05/02
 ---------------------------
 
