@@ -1544,7 +1544,7 @@ class TestMemorizedFunc:
 
 
 @with_numpy
-@parametrize("location", ["my_cache_dir", pathlib.Path("my_cache_dir")])
+@parametrize("location", ["test_cache_dir", pathlib.Path("test_cache_dir")])
 def test_memory_creates_gitignore(location):
     """Test that using the memory object automatically creates a `.gitignore` file
     within the new cache directory."""
