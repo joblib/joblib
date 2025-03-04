@@ -38,7 +38,7 @@ from .numpy_pickle_utils import (
     Unpickler,
     _ensure_native_byte_order,
     _read_bytes,
-    _read_fileobject,
+    _validate_fileobject_and_memmap,
     _write_fileobject,
 )
 
@@ -678,16 +678,19 @@ def load(filename, mmap_mode=None):
     if hasattr(filename, "read"):
         fobj = filename
         filename = getattr(fobj, "name", "")
-        with _read_fileobject(fobj, filename, mmap_mode) as fobj:
+        with _validate_fileobject_and_memmap(fobj, filename, mmap_mode) as (fobj, _):
             obj = _unpickle(fobj)
     else:
         with open(filename, "rb") as f:
-            with _read_fileobject(f, filename, mmap_mode) as fobj:
+            with _validate_fileobject_and_memmap(f, filename, mmap_mode) as (
+                fobj,
+                validated_mmap_mode,
+            ):
                 if isinstance(fobj, str):
                     # if the returned file object is a string, this means we
                     # try to load a pickle file generated with an version of
                     # Joblib so we load it with joblib compatibility function.
                     return load_compatibility(fobj)
 
-                obj = _unpickle(fobj, filename, mmap_mode)
+                obj = _unpickle(fobj, filename, validated_mmap_mode)
     return obj
