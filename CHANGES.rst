@@ -36,6 +36,14 @@ In development
 - Drop support for PyPy.
   https://github.com/joblib/joblib/pull/1670
 
+- Fixed an issue affecting ``joblib.load`` calls with non-null ``mmap_mode``
+  parameter when loading compressed python objects. It wrongly attempted to load
+  with ``np.memmap`` anyway, resulting in python exceptions or corrupted data.
+  The result now properly use in-memory ``np.array`` arrays, in accordance with
+  the warnings that are emitted in this case.
+  https://github.com/joblib/joblib/pull/1681
+
+
 Release 1.4.2 -- 2024/05/02
 ---------------------------
 

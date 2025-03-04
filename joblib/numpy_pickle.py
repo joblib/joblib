@@ -38,7 +38,7 @@ from .numpy_pickle_utils import (
     Unpickler,
     _ensure_native_byte_order,
     _read_bytes,
-    _read_fileobject,
+    _validate_fileobject_and_memmap,
     _write_fileobject,
 )
 
@@ -649,12 +649,15 @@ def load_temporary_memmap(filename, mmap_mode, unlink_on_gc_collect):
     from ._memmapping_reducer import JOBLIB_MMAPS, add_maybe_unlink_finalizer
 
     with open(filename, "rb") as f:
-        with _read_fileobject(f, filename, mmap_mode) as fobj:
+        with _validate_fileobject_and_memmap(f, filename, mmap_mode) as (
+            fobj,
+            validated_mmap_mode,
+        ):
             obj = _unpickle(
                 fobj,
                 ensure_native_byte_order=False,
                 filename=filename,
-                mmap_mode=mmap_mode,
+                mmap_mode=validated_mmap_mode,
             )
 
     JOBLIB_MMAPS.add(obj.filename)
@@ -703,29 +706,31 @@ def load(filename, mmap_mode=None):
     if Path is not None and isinstance(filename, Path):
         filename = str(filename)
 
-    # A memory-mapped array has to be mapped with the endianness
-    # it has been written with. Other arrays are coerced to the
-    # native endianness of the host system.
-    ensure_native_byte_order = mmap_mode is None
-
     if hasattr(filename, "read"):
         fobj = filename
         filename = getattr(fobj, "name", "")
-        with _read_fileobject(fobj, filename, mmap_mode) as fobj:
-            obj = _unpickle(fobj, ensure_native_byte_order=ensure_native_byte_order)
+        with _validate_fileobject_and_memmap(fobj, filename, mmap_mode) as (fobj, _):
+            obj = _unpickle(fobj, ensure_native_byte_order=True)
     else:
         with open(filename, "rb") as f:
-            with _read_fileobject(f, filename, mmap_mode) as fobj:
+            with _validate_fileobject_and_memmap(f, filename, mmap_mode) as (
+                fobj,
+                validated_mmap_mode,
+            ):
                 if isinstance(fobj, str):
                     # if the returned file object is a string, this means we
                     # try to load a pickle file generated with an version of
                     # Joblib so we load it with joblib compatibility function.
                     return load_compatibility(fobj)
 
+                # A memory-mapped array has to be mapped with the endianness
+                # it has been written with. Other arrays are coerced to the
+                # native endianness of the host system.
                 obj = _unpickle(
                     fobj,
-                    ensure_native_byte_order=ensure_native_byte_order,
+                    ensure_native_byte_order=validated_mmap_mode is None,
                     filename=filename,
-                    mmap_mode=mmap_mode,
+                    mmap_mode=validated_mmap_mode,
                 )
+
     return obj
