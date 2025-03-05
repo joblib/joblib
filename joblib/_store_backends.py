@@ -463,7 +463,9 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
         # The proper resolution of this inconsistency is tracked in:
         # https://github.com/joblib/joblib/issues/1684
         cache_directory = (
-            os.path.dirname(location) if os.path.dirname(location) else location
+            os.path.dirname(location)
+            if os.path.dirname(location) and os.path.basename(location) == "joblib"
+            else location
         )
         with open(os.path.join(cache_directory, ".gitignore"), "w") as file:
             file.write("# Created by joblib automatically.\n")
