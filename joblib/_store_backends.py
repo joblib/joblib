@@ -456,6 +456,21 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
         if not os.path.exists(self.location):
             mkdirp(self.location)
 
+        # Automatically add `.gitignore` file to the cache folder.
+        # XXX: the condition is necessary because in `Memory.__init__`, the user
+        # passed `location` param is modified to be either `{location}` or
+        # `{location}/joblib` depending on input type (`pathlib.Path` vs `str`).
+        # The proper resolution of this inconsistency is tracked in:
+        # https://github.com/joblib/joblib/issues/1684
+        cache_directory = (
+            os.path.dirname(location)
+            if os.path.dirname(location) and os.path.basename(location) == "joblib"
+            else location
+        )
+        with open(os.path.join(cache_directory, ".gitignore"), "w") as file:
+            file.write("# Created by joblib automatically.\n")
+            file.write("*\n")
+
         # item can be stored compressed for faster I/O
         self.compress = backend_options.get("compress", False)
 

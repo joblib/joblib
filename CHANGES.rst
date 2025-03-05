@@ -40,6 +40,9 @@ In development
   the warnings that are emitted in this case.
   https://github.com/joblib/joblib/pull/1681
 
+- The Memory object now automatically creates a .gitignore file in its cache directory,
+  instructing git to ignore the entire folder.
+  https://github.com/joblib/joblib/pull/1674
 
 Release 1.4.2 -- 2024/05/02
 ---------------------------

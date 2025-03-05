@@ -1262,7 +1262,10 @@ def test_instanciate_store_backend_with_pathlib_path():
     # Instantiate a FileSystemStoreBackend using a pathlib.Path object
     path = pathlib.Path("some_folder")
     backend_obj = _store_backend_factory("local", path)
-    assert backend_obj.location == "some_folder"
+    try:
+        assert backend_obj.location == "some_folder"
+    finally:  # remove cache folder after test
+        shutil.rmtree("some_folder", ignore_errors=True)
 
 
 def test_filesystem_store_backend_repr(tmpdir):
@@ -1538,3 +1541,33 @@ class TestMemorizedFunc:
         assert isinstance(meta, dict), (
             "Metadata are not returned by MemorizedFunc.call."
         )
+
+
+@with_numpy
+@parametrize(
+    "location",
+    [
+        "test_cache_dir",
+        pathlib.Path("test_cache_dir"),
+        pathlib.Path("test_cache_dir").resolve(),
+    ],
+)
+def test_memory_creates_gitignore(location):
+    """Test that using the memory object automatically creates a `.gitignore` file
+    within the new cache directory."""
+
+    mem = Memory(location)
+    arr = np.asarray([[1, 2, 3], [4, 5, 6]])
+    costly_operation = mem.cache(np.square)
+    costly_operation(arr)
+
+    location = pathlib.Path(location)
+
+    try:
+        path_to_gitignore_file = os.path.join(location, ".gitignore")
+        gitignore_file_content = "# Created by joblib automatically.\n*\n"
+        with open(path_to_gitignore_file) as f:
+            assert gitignore_file_content == f.read()
+
+    finally:  # remove cache folder after test
+        shutil.rmtree(location, ignore_errors=True)
