@@ -14,7 +14,7 @@ import threading
 import time
 import warnings
 import weakref
-from contextlib import nullcontext
+from contextlib import AbstractContextManager, nullcontext
 from math import sqrt
 from multiprocessing import TimeoutError
 from pickle import PicklingError
@@ -24,7 +24,7 @@ from traceback import format_exception
 import pytest
 
 import joblib
-from joblib import dump, load, parallel
+from joblib import config_context, dump, get_config, load, parallel, set_config
 from joblib._multiprocessing_helpers import mp
 from joblib.test.common import (
     IS_GIL_DISABLED,
@@ -63,15 +63,19 @@ from joblib._parallel_backends import (
     ThreadingBackend,
 )
 from joblib.parallel import (
+    _CALL_CONTEXT,
     BACKENDS,
     Parallel,
     cpu_count,
     delayed,
     effective_n_jobs,
+    list_call_context_names,
     mp,
     parallel_backend,
     parallel_config,
+    register_call_context,
     register_parallel_backend,
+    unregister_call_context,
 )
 
 RETURN_GENERATOR_BACKENDS = BACKENDS.copy()
@@ -2122,3 +2126,92 @@ def test_loky_reuse_workers(n_jobs):
         parallel_call(n_jobs)
         executor = get_reusable_executor(reuse=True)
         assert executor == first_executor
+
+
+###############################################################################
+# Test for call context
+
+
+def test_register_unregister_call_context():
+    """Check that we can register and unregister call context."""
+    assert len(_CALL_CONTEXT) == 1
+    register_call_context("test", config_context, get_config)
+    assert len(_CALL_CONTEXT) == 2
+    err_msg = "The context name test is already registered"
+    with pytest.raises(ValueError, match=err_msg):
+        register_call_context("test", config_context, get_config)
+    assert len(_CALL_CONTEXT) == 2
+    register_call_context("test2", config_context, get_config)
+    assert len(_CALL_CONTEXT) == 3
+    assert _CALL_CONTEXT[-1][0] == "test2"
+    register_call_context("test3", config_context, get_config, prepend=True)
+    assert len(_CALL_CONTEXT) == 4
+    assert _CALL_CONTEXT[0][0] == "test3"
+    err_msg = "The context name unknown is not registered"
+    with pytest.raises(ValueError, match=err_msg):
+        unregister_call_context("unknown")
+    unregister_call_context("test")
+    assert len(_CALL_CONTEXT) == 3
+    assert _CALL_CONTEXT[0][0] == "test3"
+    assert _CALL_CONTEXT[1][0] == "joblib"
+    assert _CALL_CONTEXT[2][0] == "test2"
+    context_names = list_call_context_names()
+    assert context_names == ["test3", "joblib", "test2"]
+
+
+def maybe_warn(a, b):
+    with warnings.catch_warnings(record=True) as w:
+        if a * b > 10:
+            warnings.warn("You are being warned!!", RuntimeWarning)
+
+    return len(w)
+
+
+def get_parameter():
+    return get_config()["parameter"]
+
+
+class SilenceWarnings(AbstractContextManager):
+    # With python >= 3.11, we could use directly `warnings.catch_warnings` context
+    # manager since `action` parameter is supported.
+    def __enter__(self):
+        warnings.filterwarnings(action="ignore", category=RuntimeWarning)
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        warnings.resetwarnings()
+
+
+@parametrize("n_jobs", [1, 2])
+@parametrize("backend", PARALLEL_BACKENDS)
+@parametrize("return_as", ["list", "generator", "generator_unordered"])
+def test_call_context_parallel(n_jobs, backend, return_as):
+    """Check that the call context is properly propagated to the parallel
+    backend."""
+
+    if "generator" in return_as and backend == "multiprocessing":
+        pytest.skip("multiprocessing backend does not support generator")
+
+    ii = range(5)
+    jj = range(1, 6)
+
+    parallel = Parallel(
+        n_jobs=n_jobs, call_context=None, backend=backend, return_as=return_as
+    )
+    result = parallel(delayed(maybe_warn)(i, j) for i, j in zip(ii, jj))
+    assert sum(result) == 2
+
+    call_context = [(SilenceWarnings, lambda: {})]
+    parallel = Parallel(
+        n_jobs=n_jobs, call_context=call_context, backend=backend, return_as=return_as
+    )
+    result = parallel(delayed(maybe_warn)(i, j) for i, j in zip(ii, jj))
+    assert sum(result) == 0
+
+    set_config(parameter=123)
+    call_context = [(config_context, get_config)]
+    parallel = Parallel(
+        n_jobs=n_jobs, call_context=call_context, backend=backend, return_as=return_as
+    )
+    with config_context(parameter=456):
+        results = parallel(delayed(get_parameter)() for _ in range(2))
+    assert list(results) == [456] * 2

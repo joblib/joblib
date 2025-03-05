@@ -244,6 +244,20 @@ number of threads using the ``inner_max_num_threads`` argument of the
 In this example, 4 Python worker processes will be allowed to use 2 threads
 each, meaning that this program will be able to use up to 8 CPUs concurrently.
 
+Propagating configuration to parallel workers
+=============================================
+
+By default, "global" configuration defined in the main process are not necessarily
+propagated into the parallel workers. The function :func:`~joblib.register_call_context`
+allows to register a "call context" that will be applied to each function call in the
+parallel workers.
+
+Alternatively, you can pass a list of tuples to the :class:`~joblib.Parallel` class
+constructor, where each tuple contains a context manager and a function to retrieve
+the state of the context manager.
+
+The example :ref:`parallel_config` shows how to use this feature to share configuration
+between the main process and the parallel workers.
 
 Custom backend API
 ==================

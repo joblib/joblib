@@ -1,6 +1,7 @@
 """
 Helpers for embarrassingly parallel code.
 """
+
 # Author: Gael Varoquaux < gael dot varoquaux at normalesup dot org >
 # Copyright: 2010, Gael Varoquaux
 # License: BSD 3 clause
@@ -17,12 +18,14 @@ import threading
 import time
 import warnings
 import weakref
-from contextlib import nullcontext
+from contextlib import ExitStack, nullcontext
+from functools import update_wrapper
 from math import floor, log10, sqrt
 from multiprocessing import TimeoutError
 from numbers import Integral
 from uuid import uuid4
 
+from ._config import config_context, get_config
 from ._multiprocessing_helpers import mp
 
 # Make sure that those two classes are part of the public joblib.parallel API
@@ -675,7 +678,7 @@ def delayed(function):
     try:
         delayed_function = functools.wraps(function)(delayed_function)
     except AttributeError:
-        " functools.wraps fails on some callable objects "
+        "functools.wraps fails on some callable objects"
     return delayed_function
 
 
@@ -953,6 +956,102 @@ def effective_n_jobs(n_jobs=-1):
 
 
 ###############################################################################
+
+_CALL_CONTEXT = [("joblib", config_context, get_config)]
+
+
+def register_call_context(
+    context_name, context_manager, state_retriever, prepend=False
+):
+    """Register a new call context to be executed before the function
+    execution.
+
+    .. versionadded:: 1.5
+
+    Parameters
+    ----------
+    context_name: str
+        The name of the call context.
+    context_manager: contextmanager
+        A factory to create a context manager. It takes as argument the
+        states retrieved by the ``state_retriever`` and returns a context
+        manager.
+    state_retriever: callable
+        A callable that takes no argument and returns a dictionary of states
+        that will be given to the ``context_manager`` factory to create the
+        actual context manager.
+    prepend: bool, default=False
+        If True, the context will be executed before the existing contexts.
+
+    Raises
+    ------
+    ValueError
+        If the context name is already registered.
+    """
+    if any(context_name == ctx[0] for ctx in _CALL_CONTEXT):
+        raise ValueError(
+            f"The context name {context_name} is already registered. You need "
+            "to unregister it first using the `unregister_call_context` "
+            "function."
+        )
+
+    if prepend:
+        _CALL_CONTEXT.insert(0, (context_name, context_manager, state_retriever))
+    else:
+        _CALL_CONTEXT.append((context_name, context_manager, state_retriever))
+
+
+def unregister_call_context(context_name):
+    """Unregister a call context.
+
+    .. versionadded:: 1.5
+
+    Parameters
+    ----------
+    context_name: str
+        The name of the call context to unregister.
+
+    Raises
+    ------
+    ValueError
+        If the context name is not registered.
+    """
+    for i, (name, _, _) in enumerate(_CALL_CONTEXT):
+        if name == context_name:
+            del _CALL_CONTEXT[i]
+            return
+    raise ValueError(
+        f"The context name {context_name} is not registered. You need to "
+        "register it first using the `register_call_context` function."
+    )
+
+
+def list_call_context_names():
+    """List all registered call context names.
+
+    Returns
+    -------
+    call_context_names : list
+        The list of registered call context names.
+    """
+    return [ctx[0] for ctx in _CALL_CONTEXT]
+
+
+class _DelayedFunctionInCallContext:
+    """Wrap the delayed function to execute it in the context managers."""
+
+    def __init__(self, function, call_context):
+        self.function = function
+        self.call_context = call_context
+        update_wrapper(self, self.function)
+
+    def __call__(self, *args, **kwargs):
+        with ExitStack() as stack:
+            for ctx, state in self.call_context:
+                stack.enter_context(ctx(**state))
+            return self.function(*args, **kwargs)
+
+
 class Parallel(Logger):
     """Helper class for readable parallel mapping.
 
@@ -1081,6 +1180,15 @@ class Parallel(Logger):
         disable memmapping, other modes defined in the numpy.memmap doc:
         https://numpy.org/doc/stable/reference/generated/numpy.memmap.html
         Also, see 'max_nbytes' parameter documentation for more details.
+    call_context: list of tuple of (context_manager, state_retriever), default=None
+        A list of tuple of (context_manager, state_retriever). The
+        ``context_manager`` is a factory that takes as argument the state
+        retrieved by the ``state_retriever`` and returns a context manager.
+        An alternative way is to register the call context using
+        :func:`~register_call_context`. See the example
+        :ref:`parallel_config` for more details.
+
+        .. versionadded:: 1.5
 
     Notes
     -----
@@ -1219,6 +1327,7 @@ class Parallel(Logger):
         mmap_mode=default_parallel_config["mmap_mode"],
         prefer=default_parallel_config["prefer"],
         require=default_parallel_config["require"],
+        call_context=None,
     ):
         # Initiate parent Logger class state
         super().__init__()
@@ -1246,6 +1355,8 @@ class Parallel(Logger):
         self.return_as = return_as
         self.return_generator = return_as != "list"
         self.return_ordered = return_as != "generator_unordered"
+
+        self.call_context = call_context
 
         # Check if we are under a parallel_config or parallel_backend
         # context manager and use the config from the context manager
@@ -1961,6 +2072,25 @@ class Parallel(Logger):
 
     def __call__(self, iterable):
         """Main function to dispatch parallel tasks."""
+
+        # Retrieve the configuration of the driver to be passed to the workers
+        # together with the context managers
+        self._call_context = []
+        for _, ctx_manager, ctx_retriever in _CALL_CONTEXT:
+            self._call_context.append((ctx_manager, ctx_retriever()))
+        if self.call_context:
+            for ctx_manager, ctx_retriever in self.call_context:
+                self._call_context.append((ctx_manager, ctx_retriever()))
+
+        # Wrap the delayed function such that we execute it within the context managers
+        iterable = (
+            (
+                _DelayedFunctionInCallContext(delayed_func, self._call_context),
+                args,
+                kwargs,
+            )
+            for delayed_func, args, kwargs in iterable
+        )
 
         self._reset_run_tracking()
         self.n_tasks = len(iterable) if hasattr(iterable, "__len__") else None

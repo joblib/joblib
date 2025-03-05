@@ -63,11 +63,17 @@ Module reference
    :toctree: generated/
    :template: function.rst
 
+   config_context
    cpu_count
    dump
-   load
+   get_config
    hash
+   list_call_context_names
+   load
+   register_call_context
    register_compressor
+   set_config
+   unregister_call_context
 
 Deprecated functionalities
 --------------------------

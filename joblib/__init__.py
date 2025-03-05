@@ -112,6 +112,7 @@ __version__ = "1.5.dev0"
 import os
 
 from ._cloudpickle_wrapper import wrap_non_picklable_objects
+from ._config import config_context, get_config, set_config
 from .compressor import register_compressor
 from .hashing import hash
 from .logger import Logger, PrintTime
@@ -122,9 +123,12 @@ from .parallel import (
     cpu_count,
     delayed,
     effective_n_jobs,
+    list_call_context_names,
     parallel_backend,
     parallel_config,
+    register_call_context,
     register_parallel_backend,
+    unregister_call_context,
 )
 
 __all__ = [
@@ -146,6 +150,12 @@ __all__ = [
     "register_compressor",
     "wrap_non_picklable_objects",
     "parallel_config",
+    "config_context",
+    "get_config",
+    "set_config",
+    "register_call_context",
+    "unregister_call_context",
+    "list_call_context_names",
 ]
 
 
