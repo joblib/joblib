@@ -459,7 +459,7 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
         # Automatically add `.gitignore` file to the cache folder.
         # XXX: the condition is necessary because in `Memory.__init__`, the user
         # passed `location` param is modified to be either `{location}` or
-        # `{location}/joblib `depending on input type (`pathlib.Path` vs `str`).
+        # `{location}/joblib` depending on input type (`pathlib.Path` vs `str`).
         # The proper resolution of this inconsistency is tracked in:
         # https://github.com/joblib/joblib/issues/1684
         cache_directory = (
