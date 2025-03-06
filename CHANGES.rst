@@ -4,8 +4,8 @@ Latest changes
 In development
 --------------
 
-- Drop support for Python 3.8.
-  https://github.com/joblib/joblib/pull/1669
+Memory:
+~~~~~~~
 
 - Enforce ``age_limit`` is a positive timedelta for ``Memory.reduce_size``,
   to avoid silently ignoring it.
@@ -20,12 +20,16 @@ In development
   if it is in cache memory.
   https://github.com/joblib/joblib/pull/1584
 
+- The Memory object now automatically creates a .gitignore file in its cache directory,
+  instructing git to ignore the entire folder.
+  https://github.com/joblib/joblib/pull/1674
+
+Parallel:
+~~~~~~~~~
+
 - Fixed a bug that caused the ``timeout`` parameter in ``joblib.Parallel`` to be
   ineffective when used along with ``return_as='generator_unordered'``.
   https://github.com/joblib/joblib/issues/1586
-
-- Support for Python 3.13 free-threaded has been added.
-  https://github.com/joblib/joblib/pull/1589
 
 - Pretty printing of ``Parallel`` execution progress when the number of tasks is
   known. https://github.com/joblib/joblib/pull/1608
@@ -34,8 +38,28 @@ In development
   ``MultiprocessingBackend``, enabling the use of ``initializer``.
   https://github.com/joblib/joblib/pull/1525
 
+- Refactor and document the custom parallel backend API.
+  https://github.com/joblib/joblib/pull/1667
+
+Maintenance:
+~~~~~~~~~~~~
+
+- Drop support for Python 3.8.
+  https://github.com/joblib/joblib/pull/1669
+
+- Support for Python 3.13 free-threaded has been added.
+  https://github.com/joblib/joblib/pull/1589
+
 - Drop support for PyPy.
   https://github.com/joblib/joblib/pull/1670
+
+- Fixed an issue affecting ``joblib.load`` calls with non-null ``mmap_mode``
+  parameter when loading compressed python objects. It wrongly attempted to load
+  with ``np.memmap`` anyway, resulting in python exceptions or corrupted data.
+  The result now properly use in-memory ``np.array`` arrays, in accordance with
+  the warnings that are emitted in this case.
+  https://github.com/joblib/joblib/pull/1681
+
 
 Release 1.4.2 -- 2024/05/02
 ---------------------------
