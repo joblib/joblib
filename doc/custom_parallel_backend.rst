@@ -46,18 +46,20 @@ The key methods for the backend factory are:
   parallel computation and return the effective number of jobs that can be run
   in parallel.
 - ``effective_n_jobs``: This method is called to determine the number of jobs
-  that can be run in parallel. It can be used to limit the number of jobs that
-  can be run in parallel.
+  that can be run in parallel. It can be used to limit the number of jobs depending
+  on the specified ``n_jobs`` and the system it runs on.
 - ``terminate``: this method is called when the parallel computation is
   finished. It can be used to clean up the resources allocated by the backend.
 - ``submit``: this method is called to launch the computation for a given task
   in the ``Parallel`` call. The task is a single callable that takes no
   argument and the method should return a future-like object that allows
   tracking the task's progress. The ``callback`` argument passed to this method
-  is a callable that should be called when the task is completed, typically through the ``add_done_callback`` method of the future-like object.
+  is a callable that should be called when the task is completed, typically through
+  the ``add_done_callback`` method of the future-like object.
 - ``retrieve_result_callback``: This method is called within the callback
   function passed to ``submit``. It is called with the same arguments provided
-  by the backend to the callback functionality. It should retrieve and return the result of the function executed in parallel.
+  by the backend to the callback functionality -- typically the future-like object.
+  It should retrieve and return the result of the function executed in parallel.
 
 Below is a minimal example of a custom backend factory that uses a
 ``ThreadPoolExecutor`` to run the tasks in parallel:
@@ -197,7 +199,8 @@ This method have an extra parameters ``ensure_ready`` that informs the backend
 whether the error was part of a single call to ``Parallel`` or in a context
 manager block. In the case of a single call (``ensure_ready=False``), there is
 no need to re-spawn workers for future calls, while in the case of a context
-(``ensure_ready=True``),
+(``ensure_ready=True``), one could call ``configure`` to re-allocate computational
+resources.
 
 .. code-block:: python
 
@@ -256,8 +259,9 @@ environment variables provided by ``self._prepare_worker_env(n_jobs)``.
 Third-party backend registration
 ================================
 
-A problem exists that external packages that register new parallel backends
-must now be imported explicitly for their backends to be identified by joblib::
+To be used seamlessly within :func:`~joblib.parallel_config`, external packages need
+to register their parallel backends so they are identified by joblib. This requires
+importing extra packages as in::
 
    >>> import joblib
    >>> with joblib.parallel_config(backend='custom'):  # doctest: +SKIP
