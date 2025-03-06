@@ -5,12 +5,6 @@
     >>> setup = getfixture('parallel_numpy_fixture')
     >>> fixture = setup(sys.modules[__name__])
 
-
-.. _auto_memmapping:
-
-Working with numerical data in shared memory (memmapping)
-=========================================================
-
 By default the workers of the pool are real Python processes forked using the
 ``multiprocessing`` module of the Python standard library when ``n_jobs != 1``.
 The arguments passed as input to the ``Parallel`` call are serialized and

@@ -54,12 +54,12 @@ The key methods for the backend factory are:
   in the ``Parallel`` call. The task is a single callable that takes no
   argument and the method should return a future-like object that allows
   tracking the task's progress. The ``callback`` argument passed to this method
-  is a callable that should be called when the task is completed, typically trough the ``add_done_callback`` method of the future-like object.
+  is a callable that should be called when the task is completed, typically through the ``add_done_callback`` method of the future-like object.
 - ``retrieve_result_callback``: This method is called within the callback
   function passed to ``submit``. It is called with the same arguments provided
   by the backend to the callback functionality. It should retrieve and return the result of the function executed in parallel.
 
-Bellow is a minimal example of a custom backend factory that uses a
+Below is a minimal example of a custom backend factory that uses a
 ``ThreadPoolExecutor`` to run the tasks in parallel:
 
 .. code-block:: python

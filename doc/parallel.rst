@@ -126,7 +126,7 @@ The context manager allow to set various backend parameters:
   is only supported by backend that set the ``supports_inner_max_num_threads``
   class attribute to ``True``, such as the ``'loky'`` backend.
 - ``temp_folder, max_nbytes, mmap_mode``: Control the auto-memmapping behavior
-  of the backend. See :ref:`auto_memmapping` for more details.
+  of the backend. See :ref:`auto_memmapping_doc` for more details.
 
 Extra arguments passed in the :func:`~joblib.parallel_config` context are
 passed to the backend constructor, giving the possibility to set up the
@@ -220,6 +220,12 @@ calls to the :class:`joblib.Parallel` object::
 Note that the ``'loky'`` backend now used by default for process-based
 parallelism automatically tries to maintain and reuse a pool of workers
 by it-self even for calls without the context manager.
+
+
+.. _auto_memmapping_doc:
+
+Working with numerical data in shared memory (memmapping)
+=========================================================
 
 .. include:: parallel_numpy.rst
 
