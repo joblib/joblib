@@ -92,6 +92,10 @@ def test_parallel_config_constructor_params():
         with parallel_config(backend_param=1):
             pass
 
+    with raises(ValueError, match="only supported when backend is a string"):
+        with parallel_config(backend=BACKENDS[DEFAULT_BACKEND], backend_param=1):
+            pass
+
 
 def test_parallel_config_nested():
     # Check that nested configuration retrieves the info from the

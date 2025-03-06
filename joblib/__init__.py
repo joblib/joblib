@@ -112,6 +112,8 @@ __version__ = "1.5.dev0"
 import os
 
 from ._cloudpickle_wrapper import wrap_non_picklable_objects
+from ._parallel_backends import ParallelBackendBase
+from ._store_backends import StoreBackendBase
 from .compressor import register_compressor
 from .hashing import hash
 from .logger import Logger, PrintTime
@@ -128,24 +130,31 @@ from .parallel import (
 )
 
 __all__ = [
+    # On-disk result caching
     "Memory",
     "MemorizedResult",
+    "expires_after",
+    # Parallel code execution
+    "Parallel",
+    "delayed",
+    "cpu_count",
+    "effective_n_jobs",
+    "wrap_non_picklable_objects",
+    # Context to change the backend globally
+    "parallel_config",
+    "parallel_backend",
+    # Helpers to define and register store/parallel backends
+    "ParallelBackendBase",
+    "StoreBackendBase",
+    "register_compressor",
+    "register_parallel_backend",
+    "register_store_backend",
+    # Helpers kept for backward compatibility
     "PrintTime",
     "Logger",
     "hash",
     "dump",
     "load",
-    "Parallel",
-    "delayed",
-    "cpu_count",
-    "effective_n_jobs",
-    "register_parallel_backend",
-    "parallel_backend",
-    "expires_after",
-    "register_store_backend",
-    "register_compressor",
-    "wrap_non_picklable_objects",
-    "parallel_config",
 ]
 
 
