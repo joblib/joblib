@@ -15,7 +15,7 @@ On demand recomputing: the `Memory` class
 Use case
 --------
 
-The :class:`~joblib.Memory` class defines a context for lazy evaluation of
+The :class:`~joblib.Memory` class defines a context for lazy evaluation of a
 function, by putting the results in a store, by default using a disk, and not
 re-running the function twice for the same arguments.
 
@@ -28,12 +28,12 @@ A simple example:
 
   First, define the cache directory::
 
-    >>> cachedir = 'your_cache_location_directory'
+    >>> location = 'your_cache_location_directory'
 
   Then, instantiate a memory context that uses this cache directory::
 
     >>> from joblib import Memory
-    >>> memory = Memory(cachedir, verbose=0)
+    >>> memory = Memory(location, verbose=0)
 
   After these initial steps, just decorate a function to cache its output in
   this context::
@@ -131,8 +131,8 @@ Using memmapping
 Memmapping (memory mapping) speeds up cache looking when reloading large numpy
 arrays::
 
-    >>> cachedir2 = 'your_cachedir2_location'
-    >>> memory2 = Memory(cachedir2, mmap_mode='r')
+    >>> location2 = 'your_2nd_cache_location_directory'
+    >>> memory2 = Memory(location2, mmap_mode='r')
     >>> square = memory2.cache(np.square)
     >>> a = np.vander(np.arange(3)).astype(float)
     >>> square(a)
@@ -521,8 +521,8 @@ without actually needing to call the function itself::
 
     >>> import shutil
     >>> try:
-    ...     shutil.rmtree(cachedir)
-    ...     shutil.rmtree(cachedir2)
+    ...     shutil.rmtree(location)
+    ...     shutil.rmtree(location2)
     ... except OSError:
     ...     pass  # this can sometimes fail under Windows
 
