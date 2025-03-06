@@ -19,8 +19,8 @@ For instance, to register a custom backend named ``'custom'`` with a factory ``M
     # Register the backend so it can be used with parallel_config
     register_parallel_backend('custom', MyCustomBackend)
 
-This backend can then be used within the ``parallel_config`` context manager,
-as:
+This backend can then be used within the :func:`~joblib.parallel_config`
+context manager, as:
 
 .. code-block:: python
 
@@ -250,11 +250,12 @@ threads on the host.
 Another nested parallelism that needs to be controlled is the numbers of thread
 in third-party C-level threadpools, *e.g.* OpenMP, MKL, or BLAS. In ``joblib``,
 this is controlled with the ``inner_max_num_threads`` argument that can be
-provided to the backend in the ``parallel_config`` context manager. To support
-this argument, the backend should set the ``supports_inner_max_num_threads``
-class attribute to ``True`` and accept the argument in the constructor to set
-this up in the workers. A helper to set this in the workers is to use
-environment variables provided by ``self._prepare_worker_env(n_jobs)``.
+provided to the backend in the :func:`~joblib.parallel_config` context manager.
+To support this argument, the backend should set the
+``supports_inner_max_num_threads`` class attribute to ``True`` and accept the
+argument in the constructor to set this up in the workers. A helper to set this
+in the workers is to use environment variables provided by
+``self._prepare_worker_env(n_jobs)``.
 
 Third-party backend registration
 ================================
@@ -276,7 +277,7 @@ importing extra packages as in::
 This can be confusing for users.  To resolve this, external packages can
 safely register their backends directly within the joblib codebase by creating
 a small function that registers their backend, and including this function
-within the ``joblib.parallel.EXTERNAL_PACKAGES`` dictionary::
+within the ``joblib.parallel.EXTERNAL_BACKENDS`` dictionary::
 
    def _register_custom():
        try:
