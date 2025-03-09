@@ -2123,7 +2123,6 @@ def test_loky_reuse_workers(n_jobs):
 @parametrize("backend", PROCESS_BACKENDS)
 @parametrize("context", [parallel_config, parallel_backend])
 def test_initializer(n_jobs, backend, context):
-
     n_jobs = effective_n_jobs(n_jobs)
     manager = mp.Manager()
     queue = manager.list()
