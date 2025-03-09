@@ -2118,6 +2118,16 @@ def test_loky_reuse_workers(n_jobs):
         assert executor == first_executor
 
 
+def _set_initialized(initialized):
+    import os
+    initialized[os.getpid()] = True
+
+
+def _check_initialized(initialized):
+    time.sleep(0.1)
+    return initialized.get(os.getpid(), False)
+
+
 @with_multiprocessing
 @parametrize("n_jobs", [2, 4, -1])
 @parametrize("backend", PROCESS_BACKENDS)
@@ -2125,19 +2135,18 @@ def test_loky_reuse_workers(n_jobs):
 def test_initializer(n_jobs, backend, context):
     n_jobs = effective_n_jobs(n_jobs)
     manager = mp.Manager()
-    queue = manager.list()
-
-    def initializer(queue):
-        queue.append("spam")
+    initialized = manager.dict()
 
     with context(
-        backend=backend, n_jobs=n_jobs, initializer=initializer, initargs=(queue,)
+        backend=backend, n_jobs=n_jobs, initializer=_set_initialized,
+        initargs=(initialized,)
     ):
         with Parallel() as parallel:
-            parallel(delayed(time.sleep)(0.5) for i in range(n_jobs))
+            result = parallel(
+                delayed(_check_initialized)(initialized) for i in range(n_jobs)
+            )
 
-    assert len(queue) == n_jobs
-    assert all(q == "spam" for q in queue)
+        assert all(result)
 
 
 @with_multiprocessing
