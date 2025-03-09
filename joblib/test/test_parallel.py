@@ -2124,7 +2124,7 @@ def _set_initialized(initialized):
 
 
 def _check_initialized(initialized):
-    time.sleep(0.1)
+    time.sleep(0.01)
     return initialized.get(os.getpid(), False)
 
 
@@ -2156,22 +2156,17 @@ def test_initializer_reuse(n_jobs):
     # when the executor is reused
     n_jobs = effective_n_jobs(n_jobs)
     manager = mp.Manager()
-    queue = manager.list()
 
-    def initializer(queue):
-        queue.append("spam")
-
-    def parallel_call(n_jobs, initializer, initargs):
-        Parallel(
+    def parallel_call(n_jobs):
+        initialized = manager.dict()
+        return Parallel(
             backend="loky",
             n_jobs=n_jobs,
-            initializer=initializer,
-            initargs=(queue,),
-        )(delayed(square)(i) for i in range(n_jobs))
+            initializer=_set_initialized,
+            initargs=(initialized,),
+        )(delayed(_check_initialized)(initialized) for i in range(n_jobs))
 
-    parallel_call(n_jobs, initializer, (queue,))
-    assert len(queue) == n_jobs
+    assert all(parallel_call(n_jobs))
 
-    for i in range(10):
-        parallel_call(n_jobs, initializer, (queue,))
-        assert len(queue) == n_jobs
+    for i in range(3):
+        assert all(parallel_call(n_jobs))
