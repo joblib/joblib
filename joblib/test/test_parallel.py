@@ -1087,7 +1087,7 @@ def test_dispatch_race_condition(n_tasks, n_jobs, pre_dispatch, batch_size):
 def test_default_mp_context():
     mp_start_method = mp.get_start_method()
     p = Parallel(n_jobs=2, backend="multiprocessing")
-    context = p._backend_args.get("context")
+    context = p._backend_kwargs.get("context")
     start_method = context.get_start_method()
     assert start_method == mp_start_method
 
@@ -2123,6 +2123,7 @@ def test_loky_reuse_workers(n_jobs):
 @parametrize("backend", PROCESS_BACKENDS)
 @parametrize("context", [parallel_config, parallel_backend])
 def test_initializer(n_jobs, backend, context):
+
     n_jobs = effective_n_jobs(n_jobs)
     manager = mp.Manager()
     queue = manager.list()
@@ -2134,7 +2135,7 @@ def test_initializer(n_jobs, backend, context):
         backend=backend, n_jobs=n_jobs, initializer=initializer, initargs=(queue,)
     ):
         with Parallel() as parallel:
-            parallel(delayed(time.sleep)(0.2) for i in range(n_jobs))
+            parallel(delayed(time.sleep)(0.5) for i in range(n_jobs))
 
     assert len(queue) == n_jobs
     assert all(q == "spam" for q in queue)
