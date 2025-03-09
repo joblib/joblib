@@ -2120,6 +2120,7 @@ def test_loky_reuse_workers(n_jobs):
 
 def _set_initialized(initialized):
     import os
+
     initialized[os.getpid()] = True
 
 
@@ -2138,8 +2139,10 @@ def test_initializer(n_jobs, backend, context):
     initialized = manager.dict()
 
     with context(
-        backend=backend, n_jobs=n_jobs, initializer=_set_initialized,
-        initargs=(initialized,)
+        backend=backend,
+        n_jobs=n_jobs,
+        initializer=_set_initialized,
+        initargs=(initialized,),
     ):
         with Parallel() as parallel:
             result = parallel(
