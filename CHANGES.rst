@@ -4,8 +4,20 @@ Latest changes
 In development
 --------------
 
-- Drop support for Python 3.8.
-  https://github.com/joblib/joblib/pull/1669
+joblib.load:
+~~~~~~~~~~~~
+
+- Added a ``ensure_native_byte_order`` parameter to ``joblib.load``. When True
+  and ``mmap_mode`` is None, loaded arrays are automatically coerced to a byte
+  ordering that matches the endianness of the host system. This behavior has been
+  the default since ``joblib==1.3``, and can now be disabled if the parameter is
+  set to False instead. Note that setting it to True will raise an error if
+  ``mmap_mode`` is not null. The default value ``'auto'`` it equivalent to always
+  setting True if ``mmap_mode`` is None, else always False.
+  https://github.com/joblib/joblib/pull/1561
+
+Memory:
+~~~~~~~
 
 - Enforce ``age_limit`` is a positive timedelta for ``Memory.reduce_size``,
   to avoid silently ignoring it.
@@ -20,26 +32,31 @@ In development
   if it is in cache memory.
   https://github.com/joblib/joblib/pull/1584
 
+- The Memory object now automatically creates a .gitignore file in its cache directory,
+  instructing git to ignore the entire folder.
+  https://github.com/joblib/joblib/pull/1674
+
+Parallel:
+~~~~~~~~~
+
 - Fixed a bug that caused the ``timeout`` parameter in ``joblib.Parallel`` to be
   ineffective when used along with ``return_as='generator_unordered'``.
   https://github.com/joblib/joblib/issues/1586
 
-- Support for Python 3.13 free-threaded has been added.
-  https://github.com/joblib/joblib/pull/1589
-
 - Pretty printing of ``Parallel`` execution progress when the number of tasks is
   known. https://github.com/joblib/joblib/pull/1608
 
-- Fix a regression in 1.3 and 1.4 that caused large big endian arrays to trigger
-  a serialization error. https://github.com/joblib/joblib/issues/1545
+- Refactor and document the custom parallel backend API.
+  https://github.com/joblib/joblib/pull/1667
 
-- Added a ``ensure_native_byte_order`` parameter to ``joblib.load``. When True
-and ``mmap_mode`` is None, loaded arrays are automatically coerced to a byte
-ordering that matches the endianness of the host system. This behavior has been
-the default since ``joblib==1.3``, and can now be disabled if the parameter is
-set to False instead. Note that setting it to True will raise an error if
-``mmap_mode`` is not null. The default value ``'auto'`` it equivalent to always
-setting True if ``mmap_mode`` is None, else always False.
+Maintenance:
+~~~~~~~~~~~~
+
+- Drop support for Python 3.8.
+  https://github.com/joblib/joblib/pull/1669
+
+- Support for Python 3.13 free-threaded has been added.
+  https://github.com/joblib/joblib/pull/1589
 
 - Drop support for PyPy.
   https://github.com/joblib/joblib/pull/1670
@@ -50,6 +67,9 @@ setting True if ``mmap_mode`` is None, else always False.
   The result now properly use in-memory ``np.array`` arrays, in accordance with
   the warnings that are emitted in this case.
   https://github.com/joblib/joblib/pull/1681
+
+- Fix a regression in 1.3 and 1.4 that caused large big endian arrays to trigger
+  a serialization error. https://github.com/joblib/joblib/issues/1545
 
 
 Release 1.4.2 -- 2024/05/02
