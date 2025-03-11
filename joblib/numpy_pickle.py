@@ -719,7 +719,7 @@ def load(filename, mmap_mode=None, ensure_native_byte_order="auto"):
     file was saved with compression, the arrays cannot be memmapped.
     """
     if ensure_native_byte_order == "auto":
-        ensure_native_byte_order = mmap_mode is not None
+        ensure_native_byte_order = mmap_mode is None
 
     if ensure_native_byte_order and mmap_mode is not None:
         raise ValueError(
