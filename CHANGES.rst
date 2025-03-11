@@ -11,9 +11,9 @@ joblib.load:
   and ``mmap_mode`` is None, loaded arrays are automatically coerced to a byte
   ordering that matches the endianness of the host system. This behavior has been
   the default since ``joblib==1.3``, and can now be disabled if the parameter is
-  set to False instead. Note that setting it to True will raise an error if
+  set to False instead. Note that setting it to ``True`` will raise an error if
   ``mmap_mode`` is not null. The default value ``'auto'`` it equivalent to always
-  setting True if ``mmap_mode`` is None, else always False.
+  setting ``True`` if ``mmap_mode`` is None, else always False.
   https://github.com/joblib/joblib/pull/1561
 
 Memory:
