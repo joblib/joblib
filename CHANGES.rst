@@ -33,6 +33,14 @@ In development
 - Fix a regression in 1.3 and 1.4 that caused large big endian arrays to trigger
   a serialization error. https://github.com/joblib/joblib/issues/1545
 
+- Added a ``ensure_native_byte_order`` parameter to ``joblib.load``. When True
+and ``mmap_mode`` is None, loaded arrays are automatically coerced to a byte
+ordering that matches the endianness of the host system. This behavior has been
+the default since ``joblib==1.3``, and can now be disabled if the parameter is
+set to False instead. Note that setting it to True will raise an error if
+``mmap_mode`` is not null. The default value ``'auto'`` it equivalent to always
+setting True if ``mmap_mode`` is None, else always False.
+
 - Drop support for PyPy.
   https://github.com/joblib/joblib/pull/1670
 

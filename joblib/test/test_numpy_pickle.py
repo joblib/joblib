@@ -375,6 +375,18 @@ def test_memmap_load(tmpdir):
             assert result == expected
 
 
+def test_invalid_parameters_raise():
+    expected_msg = (
+        "Native byte ordering can only be enforced if 'mmap_mode' parameter "
+        "is set to None, but got 'mmap_mode=r+' instead."
+    )
+
+    with raises(ValueError, match=re.escape(expected_msg)):
+        numpy_pickle.load(
+            "/path/to/some/dump.pkl", ensure_native_byte_order=True, mmap_mode="r+"
+        )
+
+
 def _check_pickle(filename, expected_list, mmap_mode=None):
     """Helper function to test joblib pickle content.
 

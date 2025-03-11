@@ -653,6 +653,15 @@ def load_temporary_memmap(filename, mmap_mode, unlink_on_gc_collect):
             fobj,
             validated_mmap_mode,
         ):
+            # Pass `ensure_native_byte_order=False` to remain consistent with
+            # the loading behavior of non-memmaped arrays in workers, where
+            # the byte order is preserved.
+            #
+            # Do note however that native byte order cannot be enforced at
+            # loading time for memmaps in any case, since that would require
+            # either copying the buffer in memory, or attempting an inplace
+            # byteswap on the memmaped buffer and cause undesired side effects
+            # on the filesystem.
             obj = _unpickle(
                 fobj,
                 ensure_native_byte_order=False,
@@ -666,7 +675,7 @@ def load_temporary_memmap(filename, mmap_mode, unlink_on_gc_collect):
     return obj
 
 
-def load(filename, mmap_mode=None):
+def load(filename, mmap_mode=None, ensure_native_byte_order="auto"):
     """Reconstruct a Python object from a file persisted with joblib.dump.
 
     Read more in the :ref:`User Guide <persistence>`.
@@ -684,6 +693,12 @@ def load(filename, mmap_mode=None):
         mode has no effect for compressed files. Note that in this
         case the reconstructed object might no longer match exactly
         the originally pickled object.
+    ensure_native_byte_order: bool, or 'auto', default=='auto'
+        If True, ensures that the byte order of the loaded arrays matches the
+        native byte ordering (or _endianness_) of the host system. This is not
+        possible for memory-mapped arrays and using non-null `mmap_mode`
+        parameter at the same time will raise an error. The default 'auto'
+        parameter is equivalent to True if `mmap_mode` is None, else False.
 
     Returns
     -------
@@ -703,6 +718,15 @@ def load(filename, mmap_mode=None):
     object might not match the original pickled object. Note that if the
     file was saved with compression, the arrays cannot be memmapped.
     """
+    if ensure_native_byte_order == "auto":
+        ensure_native_byte_order = mmap_mode is not None
+
+    if ensure_native_byte_order and mmap_mode is not None:
+        raise ValueError(
+            "Native byte ordering can only be enforced if 'mmap_mode' parameter "
+            f"is set to None, but got 'mmap_mode={mmap_mode}' instead."
+        )
+
     if Path is not None and isinstance(filename, Path):
         filename = str(filename)
 
