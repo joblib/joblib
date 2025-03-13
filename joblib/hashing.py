@@ -17,38 +17,26 @@ import types
 
 Pickler = pickle._Pickler
 
-_HASHES = {}
 
-
-def register_hash(hash_name, hash, force=False):
-    """Register a new hash function.
+def _check_hash(hash):
+    """Check validity of hash function.
 
     Parameters
     -----------
-    hash_name: str
-        The name of the hash function.
-    hash:
-        A hashlib-compliant hash function.
+    hash_func: string or `hashlib`-compatible hash object, optional
+        The hash algorithm to use. If a string, will be passed to `hashlib.new`
+        to create a hash object. Otherwise, will be checked to see if it
+        supports `update` and `hexdigest` and returned as-is.
     """
-    global _HASHES
-    if not isinstance(hash_name, str):
-        raise ValueError(
-            "Hash name should be a string, " "'{}' given.".format(hash_name)
-        )
+    if isinstance(hash, str):
+        return hashlib.new(hash, usedforsecurity=False)
 
-    if not hasattr(hash(), "update") or not hasattr(hash(), "hexdigest"):
+    if not hasattr(hash, "update") or not hasattr(hash, "hexdigest"):
         raise ValueError(
             "Hash function instance must implement `update` and `hexdigest` methods."
         )
 
-    if hash_name in _HASHES and not force:
-        raise ValueError("Hash function '{}' already registered.".format(hash_name))
-
-    _HASHES[hash_name] = hash
-
-
-register_hash("md5", hashlib.md5)
-register_hash("sha1", hashlib.sha1)
+    return hash
 
 
 class _ConsistentSet(object):
@@ -83,14 +71,14 @@ class Hasher(Pickler):
     Python object that is not necessarily cryptographically secure.
     """
 
-    def __init__(self, hash_name="md5"):
+    def __init__(self, hash_func="md5"):
         self.stream = io.BytesIO()
         # By default we want a pickle protocol that only changes with
         # the major python version and not the minor one
         protocol = 3
         Pickler.__init__(self, self.stream, protocol=protocol)
         # Initialise the hash obj
-        self._hash = _HASHES[hash_name]()
+        self._hash = _check_hash(hash_func)
 
     def hash(self, obj, return_digest=True):
         try:
@@ -187,18 +175,18 @@ class Hasher(Pickler):
 class NumpyHasher(Hasher):
     """Special case the hasher for when numpy is loaded."""
 
-    def __init__(self, hash_name="md5", coerce_mmap=False):
+    def __init__(self, hash_func="md5", coerce_mmap=False):
         """
         Parameters
         ----------
-        hash_name: string
-            The hash algorithm to be used
+        hash_func: string or `hashlib`-compatible hash object, optional
+            The hash to use. Defaults to 'md5'.
         coerce_mmap: boolean
             Make no difference between np.memmap and np.ndarray
             objects.
         """
         self.coerce_mmap = coerce_mmap
-        Hasher.__init__(self, hash_name=hash_name)
+        Hasher.__init__(self, hash_func=hash_func)
         # delayed import of numpy, to avoid tight coupling
         import numpy as np
 
@@ -273,27 +261,24 @@ class NumpyHasher(Hasher):
         Hasher.save(self, obj)
 
 
-def hash(obj, hash_name="md5", coerce_mmap=False):
+def hash(obj, hash_func="md5", coerce_mmap=False):
     """Quick calculation of a hash to identify uniquely Python objects
     containing numpy arrays.
 
     Parameters
     ----------
-    hash_name: 'md5' or 'sha1'
-        Hashing algorithm used. sha1 is supposedly safer, but md5 is
-        faster.
+    hash_func: string or `hashlib`-compatible hash object, optional
+        The hash algorithm to use. If a string, will be passed to `hashlib.new`
+        to create a hash object. Defaults to 'md5'.
     coerce_mmap: boolean
         Make no difference between np.memmap and np.ndarray
+
+    Notes
+    -----
+    [hashlib.new](https://docs.python.org/3/library/hashlib.html#hashlib.new)
     """
-    valid_hash_names = tuple(_HASHES.keys())
-    if hash_name not in valid_hash_names:
-        raise ValueError(
-            "Valid options for 'hash_name' are {}. Got hash_name={!r} instead.".format(
-                valid_hash_names, hash_name
-            )
-        )
     if "numpy" in sys.modules:
-        hasher = NumpyHasher(hash_name=hash_name, coerce_mmap=coerce_mmap)
+        hasher = NumpyHasher(hash_func=hash_func, coerce_mmap=coerce_mmap)
     else:
-        hasher = Hasher(hash_name=hash_name)
+        hasher = Hasher(hash_func=hash_func)
     return hasher.hash(obj)

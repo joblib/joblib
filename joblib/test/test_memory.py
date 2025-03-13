@@ -391,14 +391,14 @@ def test_argument_change(tmpdir):
     assert func() == 1
 
 
-def test_memory_invalid_hash_name(tmpdir):
-    with raises(ValueError, match="Valid options for 'hash_name' are"):
-        Memory(tmpdir.strpath, hash_name="not_valid")
+def test_memory_invalid_hash_func(tmpdir):
+    with raises(ValueError, match="unsupported hash type"):
+        Memory(tmpdir.strpath, hash_func="not_valid")
 
 
-def test_memorized_func_invalid_hash_name(tmpdir):
-    with raises(ValueError, match="Valid options for 'hash_name' are"):
-        MemorizedFunc(int, tmpdir.strpath, hash_name="not_valid")
+def test_memorized_func_invalid_hash_func(tmpdir):
+    with raises(ValueError, match="unsupported hash type"):
+        MemorizedFunc(int, tmpdir.strpath, hash_func="not_valid")
 
 
 def test_memory_custom_hash(tmpdir):
@@ -409,7 +409,7 @@ def test_memory_custom_hash(tmpdir):
         accumulator.append(1)
         return ls
 
-    memory = Memory(location=tmpdir.strpath, verbose=0, hash_name="sha1")
+    memory = Memory(location=tmpdir.strpath, verbose=0, hash_func="sha1")
     cached_n = memory.cache(n)
 
     vals = (1, 2, 3)

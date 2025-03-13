@@ -19,7 +19,7 @@ from concurrent.futures import ProcessPoolExecutor
 from decimal import Decimal
 
 from joblib.func_inspect import filter_args
-from joblib.hashing import _HASHES, hash, register_hash
+from joblib.hashing import _check_hash, hash
 from joblib.memory import Memory
 from joblib.test.common import np, with_numpy
 from joblib.testing import fixture, parametrize, raises, skipif
@@ -513,26 +513,25 @@ def test_hashing_pickling_error():
     excinfo.match("PicklingError while hashing")
 
 
-def test_wrong_hash_name():
-    msg = "Valid options for 'hash_name' are"
-    with raises(ValueError, match=msg):
+def test_wrong_hash_func():
+    with raises(ValueError, match="unsupported hash type"):
         data = {"foo": "bar"}
-        hash(data, hash_name="invalid")
+        hash(data, hash_func="invalid")
 
 
-def test_right_register_hash():
-    hash_name = "my_hash"
-    assert hash_name not in _HASHES
-    register_hash(hash_name, hashlib.sha256)
-    assert _HASHES[hash_name] == hashlib.sha256
+def test_right_check_hash():
+    _check_hash("sha1")
+    _check_hash(hashlib.new("sha1"))
+    _check_hash(hashlib.sha1())
 
 
-def test_wrong_register_hash():
-    with raises(ValueError, match="Hash name should be a string"):
-        register_hash(0, hashlib.md5)
+def test_wrong_check_hash():
+    with raises(ValueError, match="Hash function instance must implement"):
+        # Must be an instance, not a function
+        _check_hash(hashlib.sha1)
 
     with raises(ValueError, match="Hash function instance must implement"):
-        register_hash('test_hash', int)
+        _check_hash(0)
 
-    with raises(ValueError, match="Hash function 'md5' already registered."):
-        register_hash('md5', hashlib.md5)
+    with raises(ValueError, match="Hash function instance must implement"):
+        _check_hash(int)
