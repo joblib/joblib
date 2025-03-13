@@ -391,6 +391,35 @@ def test_argument_change(tmpdir):
     assert func() == 1
 
 
+def test_memory_invalid_hash_name(tmpdir):
+    with raises(ValueError, match="Valid options for 'hash_name' are"):
+        Memory(tmpdir.strpath, hash_name="not_valid")
+
+
+def test_memorized_func_invalid_hash_name(tmpdir):
+    with raises(ValueError, match="Valid options for 'hash_name' are"):
+        MemorizedFunc(int, tmpdir.strpath, hash_name="not_valid")
+
+
+def test_memory_custom_hash(tmpdir):
+    "Test memory with a function with numpy arrays."
+    accumulator = list()
+
+    def n(ls=None):
+        accumulator.append(1)
+        return ls
+
+    memory = Memory(location=tmpdir.strpath, verbose=0, hash_name="sha1")
+    cached_n = memory.cache(n)
+
+    vals = (1, 2, 3)
+    for i in range(3):
+        a = vals[i - 1]
+        for _ in range(3):
+            assert cached_n(a) == a
+            assert len(accumulator) == i + 1
+
+
 @with_numpy
 @parametrize("mmap_mode", [None, "r"])
 def test_memory_numpy(tmpdir, mmap_mode):

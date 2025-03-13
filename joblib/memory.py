@@ -387,6 +387,12 @@ class MemorizedFunc(Logger):
         of compression. Note that compressed arrays cannot be
         read by memmapping.
 
+    hash_name: {'md5', 'sha1'}, optional
+        The name of the hash function to use to hash arguments.
+        Other hash functions can be used if they have been registered using
+        `register_hash`.
+        Defaults to 'md5'.
+
     verbose: int, optional
         The verbosity flag, controls messages that are issued as
         the function is evaluated.
@@ -411,6 +417,7 @@ class MemorizedFunc(Logger):
         ignore=None,
         mmap_mode=None,
         compress=False,
+        hash_name="md5",
         verbose=1,
         timestamp=None,
         cache_validation_callback=None,
@@ -418,6 +425,12 @@ class MemorizedFunc(Logger):
         Logger.__init__(self)
         self.mmap_mode = mmap_mode
         self.compress = compress
+        if hash_name not in hashing._HASHES:
+            raise ValueError(
+                "Valid options for 'hash_name' are {}. "
+                "Got hash_name={!r} instead.".format(hashing._HASHES, hash_name)
+            )
+        self.hash_name = hash_name
         self.func = func
         self.cache_validation_callback = cache_validation_callback
         self.func_id = _build_func_identifier(func)
@@ -650,6 +663,7 @@ class MemorizedFunc(Logger):
         return hashing.hash(
             filter_args(self.func, self.ignore, args, kwargs),
             coerce_mmap=self.mmap_mode is not None,
+            hash_name=self.hash_name,
         )
 
     def _hash_func(self):
@@ -993,6 +1007,12 @@ class Memory(Logger):
         of compression. Note that compressed arrays cannot be
         read by memmapping.
 
+    hash_name: {'md5', 'sha1'}, optional
+        The name of the hash function to use to hash arguments.
+        Other hash functions can be used if they have been registered using
+        `register_hash`.
+        Defaults to 'md5'.
+
     verbose: int, optional
         Verbosity flag, controls the debug messages that are issued
         as functions are evaluated.
@@ -1012,6 +1032,7 @@ class Memory(Logger):
         backend="local",
         mmap_mode=None,
         compress=False,
+        hash_name="md5",
         verbose=1,
         backend_options=None,
     ):
@@ -1021,6 +1042,12 @@ class Memory(Logger):
         self.timestamp = time.time()
         self.backend = backend
         self.compress = compress
+        if hash_name not in hashing._HASHES:
+            raise ValueError(
+                "Valid options for 'hash_name' are {}. "
+                "Got hash_name={!r} instead.".format(hash_name, hash_name)
+            )
+        self.hash_name = hash_name
         if backend_options is None:
             backend_options = {}
         self.backend_options = backend_options
@@ -1119,6 +1146,7 @@ class Memory(Logger):
             ignore=ignore,
             mmap_mode=mmap_mode,
             compress=self.compress,
+            hash_name=self.hash_name,
             verbose=verbose,
             timestamp=self.timestamp,
             cache_validation_callback=cache_validation_callback,
