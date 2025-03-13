@@ -27,7 +27,6 @@ if mp is not None:
         # _multiprocessing.SemLock to avoid spawning a resource tracker on
         # Unix system or changing the default backend.
         import tempfile
-
         from _multiprocessing import SemLock
 
         _rand = tempfile._RandomNameSequence()
