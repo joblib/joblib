@@ -19,7 +19,7 @@ from concurrent.futures import ProcessPoolExecutor
 from decimal import Decimal
 
 from joblib.func_inspect import filter_args
-from joblib.hashing import hash
+from joblib.hashing import _check_hash, hash
 from joblib.memory import Memory
 from joblib.test.common import np, with_numpy
 from joblib.testing import fixture, parametrize, raises, skipif
@@ -513,8 +513,25 @@ def test_hashing_pickling_error():
     excinfo.match("PicklingError while hashing")
 
 
-def test_wrong_hash_name():
-    msg = "Valid options for 'hash_name' are"
-    with raises(ValueError, match=msg):
+def test_wrong_hash_func():
+    with raises(ValueError, match="unsupported hash type"):
         data = {"foo": "bar"}
-        hash(data, hash_name="invalid")
+        hash(data, hash_func="invalid")
+
+
+def test_right_check_hash():
+    _check_hash("sha1")
+    _check_hash(hashlib.new("sha1"))
+    _check_hash(hashlib.sha1())
+
+
+def test_wrong_check_hash():
+    with raises(ValueError, match="Hash function instance must implement"):
+        # Must be an instance, not a function
+        _check_hash(hashlib.sha1)
+
+    with raises(ValueError, match="Hash function instance must implement"):
+        _check_hash(0)
+
+    with raises(ValueError, match="Hash function instance must implement"):
+        _check_hash(int)
