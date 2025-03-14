@@ -8,9 +8,9 @@ hashing of numpy arrays.
 # License: BSD Style, 3 clauses.
 
 import decimal
+import functools
 import hashlib
 import io
-import functools
 import pickle
 import struct
 import sys
@@ -33,22 +33,23 @@ def register_hash(hash_name, hash, force=False):
     """
     global _HASHES
     if not isinstance(hash_name, str):
-        raise ValueError("Hash name should be a string, "
-                         "'{}' given.".format(hash_name))
+        raise ValueError(
+            "Hash name should be a string, " "'{}' given.".format(hash_name)
+        )
 
-    if not hasattr(hash(), 'update') or not hasattr(hash(), 'hexdigest'):
-        raise ValueError("Hash function instance must implement `update` "
-                         "and `hexdigest` methods.")
+    if not hasattr(hash(), "update") or not hasattr(hash(), "hexdigest"):
+        raise ValueError(
+            "Hash function instance must implement `update` " "and `hexdigest` methods."
+        )
 
     if hash_name in _HASHES and not force:
-        raise ValueError("Hash function '{}' already registered."
-                         .format(hash_name))
+        raise ValueError("Hash function '{}' already registered.".format(hash_name))
 
     _HASHES[hash_name] = hash
 
 
-register_hash('md5', functools.partial(hashlib.md5, usedforsecurity=False))
-register_hash('sha1', functools.partial(hashlib.sha1, usedforsecurity=False))
+register_hash("md5", functools.partial(hashlib.md5, usedforsecurity=False))
+register_hash("sha1", functools.partial(hashlib.sha1, usedforsecurity=False))
 
 
 class _ConsistentSet(object):

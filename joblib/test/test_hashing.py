@@ -18,9 +18,8 @@ import time
 from concurrent.futures import ProcessPoolExecutor
 from decimal import Decimal
 
-from joblib.hashing import hash, register_hash, _HASHES
 from joblib.func_inspect import filter_args
-from joblib.hashing import hash
+from joblib.hashing import _HASHES, hash, register_hash
 from joblib.memory import Memory
 from joblib.test.common import np, with_numpy
 from joblib.testing import fixture, parametrize, raises, skipif
@@ -532,10 +531,8 @@ def test_wrong_register_hash():
     with raises(ValueError, match="Hash name should be a string"):
         register_hash(0, hashlib.md5)
 
-    with raises(
-            ValueError, match="Hash function instance must implement"):
+    with raises(ValueError, match="Hash function instance must implement"):
         register_hash("test_hash", int)
 
-    with raises(
-            ValueError, match="Hash function 'md5' already registered."):
+    with raises(ValueError, match="Hash function 'md5' already registered."):
         register_hash("md5", hashlib.md5)

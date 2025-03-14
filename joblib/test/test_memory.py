@@ -393,24 +393,23 @@ def test_argument_change(tmpdir):
 
 def test_memory_invalid_hash_name(tmpdir):
     with raises(ValueError, match="Valid options for 'hash_name' are"):
-        Memory(tmpdir.strpath, hash_name='not_valid')
+        Memory(tmpdir.strpath, hash_name="not_valid")
 
 
 def test_memorized_func_invalid_hash_name(tmpdir):
     with raises(ValueError, match="Valid options for 'hash_name' are"):
-        MemorizedFunc(int, tmpdir.strpath, hash_name='not_valid')
+        MemorizedFunc(int, tmpdir.strpath, hash_name="not_valid")
 
 
 def test_memory_custom_hash(tmpdir):
-    " Test memory with a function with numpy arrays."
+    "Test memory with a function with numpy arrays."
     accumulator = list()
 
     def n(ls=None):
         accumulator.append(1)
         return ls
 
-    memory = Memory(location=tmpdir.strpath,
-                    verbose=0, hash_name='sha1')
+    memory = Memory(location=tmpdir.strpath, verbose=0, hash_name="sha1")
     cached_n = memory.cache(n)
 
     vals = (1, 2, 3)
@@ -1553,9 +1552,9 @@ class TestMemorizedFunc:
 
         x, meta = f.call(2, counter)
         assert x == 2, "f has not been called properly"
-        assert isinstance(meta, dict), (
-            "Metadata are not returned by MemorizedFunc.call."
-        )
+        assert isinstance(
+            meta, dict
+        ), "Metadata are not returned by MemorizedFunc.call."
 
     def test_call_method_not_memorized(self, memory):
         "Test calling the function"
@@ -1568,9 +1567,9 @@ class TestMemorizedFunc:
 
         x, meta = f.call(2, counter)
         assert x == 3, "f has not been called properly"
-        assert isinstance(meta, dict), (
-            "Metadata are not returned by MemorizedFunc.call."
-        )
+        assert isinstance(
+            meta, dict
+        ), "Metadata are not returned by MemorizedFunc.call."
 
 
 @with_numpy

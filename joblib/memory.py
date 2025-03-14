@@ -424,9 +424,10 @@ class MemorizedFunc(Logger):
         self.mmap_mode = mmap_mode
         self.compress = compress
         if hash_name not in hashing._HASHES:
-            raise ValueError("Valid options for 'hash_name' are {}. "
-                             "Got hash_name={!r} instead."
-                             .format(hashing._HASHES, hash_name))
+            raise ValueError(
+                "Valid options for 'hash_name' are {}. "
+                "Got hash_name={!r} instead.".format(hashing._HASHES, hash_name)
+            )
         self.hash_name = hash_name
         self.func = func
         self.cache_validation_callback = cache_validation_callback
@@ -1037,9 +1038,10 @@ class Memory(Logger):
         self.backend = backend
         self.compress = compress
         if hash_name not in hashing._HASHES:
-            raise ValueError("Valid options for 'hash_name' are {}. "
-                             "Got hash_name={!r} instead."
-                             .format(hash_name, hash_name))
+            raise ValueError(
+                "Valid options for 'hash_name' are {}. "
+                "Got hash_name={!r} instead.".format(hash_name, hash_name)
+            )
         self.hash_name = hash_name
         if backend_options is None:
             backend_options = {}
