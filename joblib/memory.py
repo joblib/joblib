@@ -389,8 +389,7 @@ class MemorizedFunc(Logger):
 
     hash_name: {'md5', 'sha1'}, optional
             The name of the hash function to use to hash arguments.
-            Defaults to 'md5'. Additionally, if `xxhash` is installed
-            'xxh3_64' is valid.
+            Defaults to 'md5'.
 
     verbose: int, optional
         The verbosity flag, controls messages that are issued as
@@ -1006,8 +1005,7 @@ class Memory(Logger):
 
     hash_name: {'md5', 'sha1'}, optional
         The name of the hash function to use to hash arguments.
-        Defaults to 'md5'. Additionally, if `xxhash` is installed
-        'xxh3_64' is valid.
+        Defaults to 'md5'.
 
     verbose: int, optional
         Verbosity flag, controls the debug messages that are issued
