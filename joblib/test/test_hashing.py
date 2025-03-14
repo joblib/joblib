@@ -521,7 +521,7 @@ def test_wrong_hash_name():
         hash(data, hash_name="invalid")
 
 
-def test_right_regist_hash():
+def test_right_register_hash():
     hash_name = "my_hash"
     assert hash_name not in _HASHES
     register_hash(hash_name, hashlib.sha256)

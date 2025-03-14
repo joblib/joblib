@@ -427,7 +427,7 @@ class MemorizedFunc(Logger):
         if hash_name not in hashing._HASHES:
             raise ValueError("Valid options for 'hash_name' are {}. "
                              "Got hash_name={!r} instead."
-                             .format(hash_name, hash_name))
+                             .format(hashing._HASHES, hash_name))
         self.hash_name = hash_name
         self.func = func
         self.cache_validation_callback = cache_validation_callback
