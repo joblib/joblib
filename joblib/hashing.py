@@ -8,6 +8,7 @@ hashing of numpy arrays.
 # License: BSD Style, 3 clauses.
 
 import decimal
+import functools
 import hashlib
 import io
 import pickle
@@ -16,6 +17,39 @@ import sys
 import types
 
 Pickler = pickle._Pickler
+
+_HASHES = {}
+
+
+def register_hash(hash_name, hash, force=False):
+    """Register a new hash function.
+
+    Parameters
+    -----------
+    hash_name: str.
+        The name of the hash function.
+    hash:
+        A hashlib compliant hash function.
+    """
+    global _HASHES
+    if not isinstance(hash_name, str):
+        raise ValueError(
+            "Hash name should be a string, " "'{}' given.".format(hash_name)
+        )
+
+    if not hasattr(hash(), "update") or not hasattr(hash(), "hexdigest"):
+        raise ValueError(
+            "Hash function instance must implement `update` " "and `hexdigest` methods."
+        )
+
+    if hash_name in _HASHES and not force:
+        raise ValueError("Hash function '{}' already registered.".format(hash_name))
+
+    _HASHES[hash_name] = hash
+
+
+register_hash("md5", functools.partial(hashlib.md5, usedforsecurity=False))
+register_hash("sha1", functools.partial(hashlib.sha1, usedforsecurity=False))
 
 
 class _ConsistentSet(object):
@@ -57,7 +91,7 @@ class Hasher(Pickler):
         protocol = 3
         Pickler.__init__(self, self.stream, protocol=protocol)
         # Initialise the hash obj
-        self._hash = hashlib.new(hash_name, usedforsecurity=False)
+        self._hash = _HASHES[hash_name]()
 
     def hash(self, obj, return_digest=True):
         try:
@@ -252,7 +286,7 @@ def hash(obj, hash_name="md5", coerce_mmap=False):
     coerce_mmap: boolean
         Make no difference between np.memmap and np.ndarray
     """
-    valid_hash_names = ("md5", "sha1")
+    valid_hash_names = tuple(_HASHES.keys())
     if hash_name not in valid_hash_names:
         raise ValueError(
             "Valid options for 'hash_name' are {}. Got hash_name={!r} instead.".format(
