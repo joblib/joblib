@@ -10,6 +10,7 @@ hashing of numpy arrays.
 import decimal
 import hashlib
 import io
+import functools
 import pickle
 import struct
 import sys
@@ -46,8 +47,8 @@ def register_hash(hash_name, hash, force=False):
     _HASHES[hash_name] = hash
 
 
-register_hash('md5', hashlib.md5)
-register_hash('sha1', hashlib.sha1)
+register_hash('md5', functools.partial(hashlib.md5, usedforsecurity=False))
+register_hash('sha1', functools.partial(hashlib.sha1, usedforsecurity=False))
 
 
 class _ConsistentSet(object):
