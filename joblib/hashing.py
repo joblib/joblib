@@ -7,6 +7,8 @@ hashing of numpy arrays.
 # Copyright (c) 2009 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
+from __future__ import annotations
+
 import decimal
 import hashlib
 import io
@@ -18,6 +20,8 @@ from collections.abc import Callable
 from typing import Protocol, Union, runtime_checkable
 
 Pickler = pickle._Pickler
+
+HasherFactory = Callable[[], "_HashObject"]
 
 
 @runtime_checkable
@@ -58,7 +62,7 @@ class Hasher(Pickler):
     Python object that is not necessarily cryptographically secure.
     """
 
-    def __init__(self, hash_name: Union[str, Callable[..., _HashObject]] = "md5"):
+    def __init__(self, hash_name: Union[str, HasherFactory] = "md5"):
         self.stream = io.BytesIO()
         # By default we want a pickle protocol that only changes with
         # the major python version and not the minor one
@@ -172,14 +176,14 @@ class NumpyHasher(Hasher):
 
     def __init__(
         self,
-        hash_name: Union[str, Callable[..., _HashObject]] = "md5",
+        hash_name: Union[str, HasherFactory] = "md5",
         coerce_mmap=False,
     ):
         """
         Parameters
         ----------
         hash_name: string or callable
-            Either the a string which will be passed to `hashlib.new` to obtain
+            Either a string which will be passed to `hashlib.new` to obtain
             a hash object, or a callable that will return an object compatible
             with PEP 452.
             Defaults to 'md5'.
@@ -264,7 +268,7 @@ class NumpyHasher(Hasher):
 
 
 def hash(
-    obj, hash_name: Union[str, Callable[..., _HashObject]] = "md5", coerce_mmap=False
+    obj, hash_name: Union[str, HasherFactory] = "md5", coerce_mmap=False
 ):
     """Quick calculation of a hash to identify uniquely Python objects
     containing numpy arrays.
