@@ -2169,7 +2169,5 @@ def test_initializer_reuse(n_jobs):
             initargs=(initialized,),
         )(delayed(_check_initialized)(initialized) for i in range(n_jobs))
 
-    assert all(parallel_call(n_jobs))
-
     for i in range(3):
         assert all(parallel_call(n_jobs))
