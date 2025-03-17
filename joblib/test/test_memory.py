@@ -1552,9 +1552,9 @@ class TestMemorizedFunc:
 
         x, meta = f.call(2, counter)
         assert x == 2, "f has not been called properly"
-        assert isinstance(
-            meta, dict
-        ), "Metadata are not returned by MemorizedFunc.call."
+        assert isinstance(meta, dict), (
+            "Metadata are not returned by MemorizedFunc.call."
+        )
 
     def test_call_method_not_memorized(self, memory):
         "Test calling the function"
@@ -1567,9 +1567,9 @@ class TestMemorizedFunc:
 
         x, meta = f.call(2, counter)
         assert x == 3, "f has not been called properly"
-        assert isinstance(
-            meta, dict
-        ), "Metadata are not returned by MemorizedFunc.call."
+        assert isinstance(meta, dict), (
+            "Metadata are not returned by MemorizedFunc.call."
+        )
 
 
 @with_numpy

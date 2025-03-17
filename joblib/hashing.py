@@ -33,13 +33,11 @@ def register_hash(hash_name, hash, force=False):
     """
     global _HASHES
     if not isinstance(hash_name, str):
-        raise ValueError(
-            "Hash name should be a string, " "'{}' given.".format(hash_name)
-        )
+        raise ValueError("Hash name should be a string, '{}' given.".format(hash_name))
 
     if not hasattr(hash(), "update") or not hasattr(hash(), "hexdigest"):
         raise ValueError(
-            "Hash function instance must implement `update` " "and `hexdigest` methods."
+            "Hash function instance must implement `update` and `hexdigest` methods."
         )
 
     if hash_name in _HASHES and not force:
