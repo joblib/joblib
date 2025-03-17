@@ -41,7 +41,7 @@ def get_func_code(func):
     source_file = None
     try:
         source_file = inspect.getsourcefile(func)
-        code, first_line = inspect.getsourcefile(func)
+        code, first_line = inspect.getsourcelines(func)
         return ''.join(code), source_file, first_line
     except:
         # If the source code fails, we use the hash. This is fragile and
