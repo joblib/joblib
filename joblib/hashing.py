@@ -15,12 +15,11 @@ import struct
 import sys
 import types
 from collections.abc import Callable
-from typing import Protocol, Self, type_check_only
+from typing import Protocol, Self
 
 Pickler = pickle._Pickler
 
 
-@type_check_only
 class _HashObject(Protocol):
     @property
     def digest_size(self) -> int: ...
