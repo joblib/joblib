@@ -19,7 +19,7 @@ from concurrent.futures import ProcessPoolExecutor
 from decimal import Decimal
 
 from joblib.func_inspect import filter_args
-from joblib.hashing import _HASHES, hash, register_hash
+from joblib.hashing import hash
 from joblib.memory import Memory
 from joblib.test.common import np, with_numpy
 from joblib.testing import fixture, parametrize, raises, skipif
@@ -514,25 +514,15 @@ def test_hashing_pickling_error():
 
 
 def test_wrong_hash_name():
-    msg = "Valid options for 'hash_name' are"
+    msg = "Valid string options for 'hash_func' are"
     with raises(ValueError, match=msg):
         data = {"foo": "bar"}
-        hash(data, hash_name="invalid")
+        hash(data, hash_func="invalid")
 
 
-def test_right_register_hash():
-    hash_name = "my_hash"
-    assert hash_name not in _HASHES
-    register_hash(hash_name, hashlib.sha256)
-    assert _HASHES[hash_name] == hashlib.sha256
+def test_hash_func():
+    def custom_hash_func():
+        return hashlib.new("sha1", usedforsecurity=False)
 
-
-def test_wrong_register_hash():
-    with raises(ValueError, match="Hash name should be a string"):
-        register_hash(0, hashlib.md5)
-
-    with raises(ValueError, match="Hash function instance must implement"):
-        register_hash("test_hash", int)
-
-    with raises(ValueError, match="Hash function 'md5' already registered."):
-        register_hash("md5", hashlib.md5)
+    data = {"foo": "bar"}
+    assert hash(data, hash_func=custom_hash_func) == hash(data, hash_func="sha1")

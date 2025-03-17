@@ -11,6 +11,7 @@ is called with the same input arguments.
 import asyncio
 import datetime
 import functools
+import hashlib
 import inspect
 import logging
 import os
@@ -387,9 +388,11 @@ class MemorizedFunc(Logger):
         of compression. Note that compressed arrays cannot be
         read by memmapping.
 
-    hash_name: {'md5', 'sha1'}, optional
-            The name of the hash function to use to hash arguments.
-            Defaults to 'md5'.
+    hash_func: string or callable
+        Either the a string which will be passed to `hashlib.new` to obtain
+        a hash object, or a callable that will return an object compatible
+        with the `_HashObject` protocol from `typeshed`.
+        Defaults to 'md5'.
 
     verbose: int, optional
         The verbosity flag, controls messages that are issued as
@@ -415,7 +418,7 @@ class MemorizedFunc(Logger):
         ignore=None,
         mmap_mode=None,
         compress=False,
-        hash_name="md5",
+        hash_func="md5",
         verbose=1,
         timestamp=None,
         cache_validation_callback=None,
@@ -423,12 +426,15 @@ class MemorizedFunc(Logger):
         Logger.__init__(self)
         self.mmap_mode = mmap_mode
         self.compress = compress
-        if hash_name not in hashing._HASHES:
-            raise ValueError(
-                "Valid options for 'hash_name' are {}. "
-                "Got hash_name={!r} instead.".format(hashing._HASHES, hash_name)
-            )
-        self.hash_name = hash_name
+        if isinstance(hash_func, str):
+            valid_hash_names = hashlib.algorithms_available
+            if hash_func not in valid_hash_names:
+                raise ValueError(
+                    "Valid string options for 'hash_func' are {}. Got hash_func={!r} instead.".format(
+                        valid_hash_names, hash_func
+                    )
+                )
+        self.hash_func = hash_func
         self.func = func
         self.cache_validation_callback = cache_validation_callback
         self.func_id = _build_func_identifier(func)
@@ -1004,8 +1010,10 @@ class Memory(Logger):
         of compression. Note that compressed arrays cannot be
         read by memmapping.
 
-    hash_name: {'md5', 'sha1'}, optional
-        The name of the hash function to use to hash arguments.
+    hash_func: string or callable, optional
+        Either the a string which will be passed to `hashlib.new` to obtain
+        a hash object, or a callable that will return an object compatible
+        with the `_HashObject` protocol from `typeshed`.
         Defaults to 'md5'.
 
     verbose: int, optional
@@ -1027,7 +1035,7 @@ class Memory(Logger):
         backend="local",
         mmap_mode=None,
         compress=False,
-        hash_name="md5",
+        hash_func="md5",
         verbose=1,
         backend_options=None,
     ):
@@ -1037,12 +1045,15 @@ class Memory(Logger):
         self.timestamp = time.time()
         self.backend = backend
         self.compress = compress
-        if hash_name not in hashing._HASHES:
-            raise ValueError(
-                "Valid options for 'hash_name' are {}. "
-                "Got hash_name={!r} instead.".format(hash_name, hash_name)
-            )
-        self.hash_name = hash_name
+        if isinstance(hash_func, str):
+            valid_hash_names = hashlib.algorithms_available
+            if hash_func not in valid_hash_names:
+                raise ValueError(
+                    "Valid string options for 'hash_func' are {}. Got hash_func={!r} instead.".format(
+                        valid_hash_names, hash_func
+                    )
+                )
+        self.hash_func = hash_func
         if backend_options is None:
             backend_options = {}
         self.backend_options = backend_options
@@ -1141,7 +1152,7 @@ class Memory(Logger):
             ignore=ignore,
             mmap_mode=mmap_mode,
             compress=self.compress,
-            hash_name=self.hash_name,
+            hash_func=self.hash_func,
             verbose=verbose,
             timestamp=self.timestamp,
             cache_validation_callback=cache_validation_callback,

@@ -8,7 +8,6 @@ hashing of numpy arrays.
 # License: BSD Style, 3 clauses.
 
 import decimal
-import functools
 import hashlib
 import io
 import pickle
@@ -17,37 +16,6 @@ import sys
 import types
 
 Pickler = pickle._Pickler
-
-_HASHES = {}
-
-
-def register_hash(hash_name, hash, force=False):
-    """Register a new hash function.
-
-    Parameters
-    -----------
-    hash_name: str.
-        The name of the hash function.
-    hash:
-        A hashlib compliant hash function.
-    """
-    global _HASHES
-    if not isinstance(hash_name, str):
-        raise ValueError("Hash name should be a string, '{}' given.".format(hash_name))
-
-    if not hasattr(hash(), "update") or not hasattr(hash(), "hexdigest"):
-        raise ValueError(
-            "Hash function instance must implement `update` and `hexdigest` methods."
-        )
-
-    if hash_name in _HASHES and not force:
-        raise ValueError("Hash function '{}' already registered.".format(hash_name))
-
-    _HASHES[hash_name] = hash
-
-
-register_hash("md5", functools.partial(hashlib.md5, usedforsecurity=False))
-register_hash("sha1", functools.partial(hashlib.sha1, usedforsecurity=False))
 
 
 class _ConsistentSet(object):
@@ -82,14 +50,17 @@ class Hasher(Pickler):
     Python object that is not necessarily cryptographically secure.
     """
 
-    def __init__(self, hash_name="md5"):
+    def __init__(self, hash_func="md5"):
         self.stream = io.BytesIO()
         # By default we want a pickle protocol that only changes with
         # the major python version and not the minor one
         protocol = 3
         Pickler.__init__(self, self.stream, protocol=protocol)
         # Initialise the hash obj
-        self._hash = _HASHES[hash_name]()
+        if isinstance(hash_func, str):
+            self._hash = hashlib.new(hash_func, usedforsecurity=False)
+        else:
+            self._hash = hash_func()
 
     def hash(self, obj, return_digest=True):
         try:
@@ -186,18 +157,21 @@ class Hasher(Pickler):
 class NumpyHasher(Hasher):
     """Special case the hasher for when numpy is loaded."""
 
-    def __init__(self, hash_name="md5", coerce_mmap=False):
+    def __init__(self, hash_func="md5", coerce_mmap=False):
         """
         Parameters
         ----------
-        hash_name: string
-            The hash algorithm to be used
+        hash_func: string or callable
+            Either the a string which will be passed to `hashlib.new` to obtain
+            a hash object, or a callable that will return an object compatible
+            with the `_HashObject` protocol from `typeshed`.
+            Defaults to 'md5'.
         coerce_mmap: boolean
             Make no difference between np.memmap and np.ndarray
             objects.
         """
         self.coerce_mmap = coerce_mmap
-        Hasher.__init__(self, hash_name=hash_name)
+        Hasher.__init__(self, hash_func=hash_func)
         # delayed import of numpy, to avoid tight coupling
         import numpy as np
 
@@ -272,27 +246,31 @@ class NumpyHasher(Hasher):
         Hasher.save(self, obj)
 
 
-def hash(obj, hash_name="md5", coerce_mmap=False):
+def hash(obj, hash_func="md5", coerce_mmap=False):
     """Quick calculation of a hash to identify uniquely Python objects
     containing numpy arrays.
 
     Parameters
     ----------
-    hash_name: 'md5' or 'sha1'
-        Hashing algorithm used. sha1 is supposedly safer, but md5 is
-        faster.
+    hash_func: string or callable
+        Either the a string which will be passed to `hashlib.new` to obtain
+        a hash object, or a callable that will return an object compatible
+        with the `_HashObject` protocol from `typeshed`.
+        Defaults to 'md5' though sha1 is supposedly safer.
+
     coerce_mmap: boolean
         Make no difference between np.memmap and np.ndarray
     """
-    valid_hash_names = tuple(_HASHES.keys())
-    if hash_name not in valid_hash_names:
-        raise ValueError(
-            "Valid options for 'hash_name' are {}. Got hash_name={!r} instead.".format(
-                valid_hash_names, hash_name
+    if isinstance(hash_func, str):
+        valid_hash_names = hashlib.algorithms_available
+        if hash_func not in valid_hash_names:
+            raise ValueError(
+                "Valid string options for 'hash_func' are {}. Got hash_func={!r} instead.".format(
+                    valid_hash_names, hash_func
+                )
             )
-        )
     if "numpy" in sys.modules:
-        hasher = NumpyHasher(hash_name=hash_name, coerce_mmap=coerce_mmap)
+        hasher = NumpyHasher(hash_func=hash_func, coerce_mmap=coerce_mmap)
     else:
-        hasher = Hasher(hash_name=hash_name)
+        hasher = Hasher(hash_func=hash_func)
     return hasher.hash(obj)

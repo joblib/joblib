@@ -9,6 +9,7 @@ Test the memory module.
 import datetime
 import functools
 import gc
+import hashlib
 import logging
 import os
 import os.path
@@ -391,14 +392,14 @@ def test_argument_change(tmpdir):
     assert func() == 1
 
 
-def test_memory_invalid_hash_name(tmpdir):
-    with raises(ValueError, match="Valid options for 'hash_name' are"):
-        Memory(tmpdir.strpath, hash_name="not_valid")
+def test_memory_invalid_hash_func(tmpdir):
+    with raises(ValueError, match="Valid string options for 'hash_func' are"):
+        Memory(tmpdir.strpath, hash_func="not_valid")
 
 
-def test_memorized_func_invalid_hash_name(tmpdir):
-    with raises(ValueError, match="Valid options for 'hash_name' are"):
-        MemorizedFunc(int, tmpdir.strpath, hash_name="not_valid")
+def test_memorized_func_invalid_hash_func(tmpdir):
+    with raises(ValueError, match="Valid string options for 'hash_func' are"):
+        MemorizedFunc(int, tmpdir.strpath, hash_func="not_valid")
 
 
 def test_memory_custom_hash(tmpdir):
@@ -409,7 +410,11 @@ def test_memory_custom_hash(tmpdir):
         accumulator.append(1)
         return ls
 
-    memory = Memory(location=tmpdir.strpath, verbose=0, hash_name="sha1")
+    def custom_hash():
+        return hashlib.sha1
+
+
+    memory = Memory(location=tmpdir.strpath, verbose=0, hash_func=custom_hash)
     cached_n = memory.cache(n)
 
     vals = (1, 2, 3)
