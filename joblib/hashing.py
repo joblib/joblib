@@ -15,11 +15,12 @@ import struct
 import sys
 import types
 from collections.abc import Callable
-from typing import Protocol, Self
+from typing import Protocol, Self, runtime_checkable
 
 Pickler = pickle._Pickler
 
 
+@runtime_checkable
 class _HashObject(Protocol):
     @property
     def digest_size(self) -> int: ...
@@ -76,6 +77,11 @@ class Hasher(Pickler):
             self._hash = hashlib.new(hash_func, usedforsecurity=False)
         else:
             self._hash = hash_func()
+            if not isinstance(self._hash, _HashObject):
+                raise ValueError(
+                    "The hash_func argument must return a hash object "
+                    "that implements the PEP 452 interface."
+                )
 
     def hash(self, obj, return_digest=True):
         try:
