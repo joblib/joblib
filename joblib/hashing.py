@@ -15,7 +15,7 @@ import struct
 import sys
 import types
 from collections.abc import Callable
-from typing import Protocol, runtime_checkable
+from typing import Protocol, Union, runtime_checkable
 
 Pickler = pickle._Pickler
 
@@ -23,7 +23,7 @@ Pickler = pickle._Pickler
 @runtime_checkable
 class _HashObject(Protocol):
     def hexdigest(self) -> str: ...
-    def update(self, obj: bytes | bytearray | memoryview, /) -> None: ...
+    def update(self, obj: Union[bytes, bytearray, memoryview], /) -> None: ...
 
 
 class _ConsistentSet(object):
@@ -58,7 +58,7 @@ class Hasher(Pickler):
     Python object that is not necessarily cryptographically secure.
     """
 
-    def __init__(self, hash_func: str | Callable[..., _HashObject] = "md5"):
+    def __init__(self, hash_func: Union[str, Callable[..., _HashObject]] = "md5"):
         self.stream = io.BytesIO()
         # By default we want a pickle protocol that only changes with
         # the major python version and not the minor one
@@ -171,7 +171,9 @@ class NumpyHasher(Hasher):
     """Special case the hasher for when numpy is loaded."""
 
     def __init__(
-        self, hash_func: str | Callable[..., _HashObject] = "md5", coerce_mmap=False
+        self,
+        hash_func: Union[str, Callable[..., _HashObject]] = "md5",
+        coerce_mmap=False,
     ):
         """
         Parameters
@@ -261,7 +263,9 @@ class NumpyHasher(Hasher):
         Hasher.save(self, obj)
 
 
-def hash(obj, hash_func: str | Callable[..., _HashObject] = "md5", coerce_mmap=False):
+def hash(
+    obj, hash_func: Union[str, Callable[..., _HashObject]] = "md5", coerce_mmap=False
+):
     """Quick calculation of a hash to identify uniquely Python objects
     containing numpy arrays.
 

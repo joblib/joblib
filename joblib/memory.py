@@ -25,6 +25,7 @@ import traceback
 import warnings
 import weakref
 from collections.abc import Callable
+from typing import Union
 
 from . import hashing
 from ._store_backends import (
@@ -420,7 +421,7 @@ class MemorizedFunc(Logger):
         ignore=None,
         mmap_mode=None,
         compress=False,
-        hash_func: str | Callable[..., _HashObject] = "md5",
+        hash_func: Union[str, Callable[..., _HashObject]] = "md5",
         verbose=1,
         timestamp=None,
         cache_validation_callback=None,
@@ -1036,7 +1037,7 @@ class Memory(Logger):
         backend="local",
         mmap_mode=None,
         compress=False,
-        hash_func: str | Callable[..., _HashObject] = "md5",
+        hash_func: Union[str, Callable[..., _HashObject]] = "md5",
         verbose=1,
         backend_options=None,
     ):
