@@ -392,14 +392,14 @@ def test_argument_change(tmpdir):
     assert func() == 1
 
 
-def test_memory_invalid_hash_name(tmpdir):
-    with raises(ValueError, match="Valid string options for 'hash_name' are"):
-        Memory(tmpdir.strpath, hash_name="not_valid")
+def test_memory_invalid_hash_factory(tmpdir):
+    with raises(ValueError, match="Valid string options for 'hash_factory' are"):
+        Memory(tmpdir.strpath, hash_factory="not_valid")
 
 
-def test_memorized_func_invalid_hash_name(tmpdir):
-    with raises(ValueError, match="Valid string options for 'hash_name' are"):
-        MemorizedFunc(int, tmpdir.strpath, hash_name="not_valid")
+def test_memorized_func_invalid_hash_factory(tmpdir):
+    with raises(ValueError, match="Valid string options for 'hash_factory' are"):
+        MemorizedFunc(int, tmpdir.strpath, hash_factory="not_valid")
 
 
 def test_memory_custom_hash(tmpdir):
@@ -413,7 +413,7 @@ def test_memory_custom_hash(tmpdir):
     def custom_hash():
         return hashlib.sha1
 
-    memory = Memory(location=tmpdir.strpath, verbose=0, hash_name=custom_hash)
+    memory = Memory(location=tmpdir.strpath, verbose=0, hash_factory=custom_hash)
     cached_n = memory.cache(n)
 
     vals = (1, 2, 3)
