@@ -58,20 +58,20 @@ class Hasher(Pickler):
     Python object that is not necessarily cryptographically secure.
     """
 
-    def __init__(self, hash_func: Union[str, Callable[..., _HashObject]] = "md5"):
+    def __init__(self, hash_name: Union[str, Callable[..., _HashObject]] = "md5"):
         self.stream = io.BytesIO()
         # By default we want a pickle protocol that only changes with
         # the major python version and not the minor one
         protocol = 3
         Pickler.__init__(self, self.stream, protocol=protocol)
         # Initialise the hash obj
-        if isinstance(hash_func, str):
-            self._hash = hashlib.new(hash_func, usedforsecurity=False)
+        if isinstance(hash_name, str):
+            self._hash = hashlib.new(hash_name, usedforsecurity=False)
         else:
-            self._hash = hash_func()
+            self._hash = hash_name()
             if not isinstance(self._hash, _HashObject):
                 raise ValueError(
-                    "The hash_func argument must return a hash object "
+                    "The hash_name argument must return a hash object "
                     "that implements the PEP 452 interface."
                 )
 
@@ -172,13 +172,13 @@ class NumpyHasher(Hasher):
 
     def __init__(
         self,
-        hash_func: Union[str, Callable[..., _HashObject]] = "md5",
+        hash_name: Union[str, Callable[..., _HashObject]] = "md5",
         coerce_mmap=False,
     ):
         """
         Parameters
         ----------
-        hash_func: string or callable
+        hash_name: string or callable
             Either the a string which will be passed to `hashlib.new` to obtain
             a hash object, or a callable that will return an object compatible
             with PEP 452.
@@ -188,7 +188,7 @@ class NumpyHasher(Hasher):
             objects.
         """
         self.coerce_mmap = coerce_mmap
-        Hasher.__init__(self, hash_func=hash_func)
+        Hasher.__init__(self, hash_name=hash_name)
         # delayed import of numpy, to avoid tight coupling
         import numpy as np
 
@@ -264,14 +264,14 @@ class NumpyHasher(Hasher):
 
 
 def hash(
-    obj, hash_func: Union[str, Callable[..., _HashObject]] = "md5", coerce_mmap=False
+    obj, hash_name: Union[str, Callable[..., _HashObject]] = "md5", coerce_mmap=False
 ):
     """Quick calculation of a hash to identify uniquely Python objects
     containing numpy arrays.
 
     Parameters
     ----------
-    hash_func: string or callable
+    hash_name: string or callable
         Either the a string which will be passed to `hashlib.new` to obtain
         a hash object, or a callable that will return an object compatible
         with PEP 452.
@@ -280,15 +280,15 @@ def hash(
     coerce_mmap: boolean
         Make no difference between np.memmap and np.ndarray
     """
-    if isinstance(hash_func, str):
+    if isinstance(hash_name, str):
         valid_hash_names = hashlib.algorithms_available
-        if hash_func not in valid_hash_names:
+        if hash_name not in valid_hash_names:
             raise ValueError(
-                f"Valid string options for 'hash_func' are {valid_hash_names}. "
-                "Got hash_func={hash_func!r} instead."
+                f"Valid string options for 'hash_name' are {valid_hash_names}. "
+                "Got hash_name={hash_name!r} instead."
             )
     if "numpy" in sys.modules:
-        hasher = NumpyHasher(hash_func=hash_func, coerce_mmap=coerce_mmap)
+        hasher = NumpyHasher(hash_name=hash_name, coerce_mmap=coerce_mmap)
     else:
-        hasher = Hasher(hash_func=hash_func)
+        hasher = Hasher(hash_name=hash_name)
     return hasher.hash(obj)

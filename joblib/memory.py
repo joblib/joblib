@@ -391,7 +391,7 @@ class MemorizedFunc(Logger):
         of compression. Note that compressed arrays cannot be
         read by memmapping.
 
-    hash_func: string or callable
+    hash_name: string or callable
         Either the a string which will be passed to `hashlib.new` to obtain
         a hash object, or a callable that will return an object compatible
         with PEP 452.
@@ -421,7 +421,7 @@ class MemorizedFunc(Logger):
         ignore=None,
         mmap_mode=None,
         compress=False,
-        hash_func: Union[str, Callable[..., _HashObject]] = "md5",
+        hash_name: Union[str, Callable[..., _HashObject]] = "md5",
         verbose=1,
         timestamp=None,
         cache_validation_callback=None,
@@ -429,14 +429,14 @@ class MemorizedFunc(Logger):
         Logger.__init__(self)
         self.mmap_mode = mmap_mode
         self.compress = compress
-        if isinstance(hash_func, str):
+        if isinstance(hash_name, str):
             valid_hash_names = hashlib.algorithms_available
-            if hash_func not in valid_hash_names:
+            if hash_name not in valid_hash_names:
                 raise ValueError(
-                    f"Valid string options for 'hash_func' are {valid_hash_names}. "
-                    "Got hash_func={hash_func!r} instead."
+                    f"Valid string options for 'hash_name' are {valid_hash_names}. "
+                    "Got hash_name={hash_name!r} instead."
                 )
-        self.hash_func = hash_func
+        self.hash_name = hash_name
         self.func = func
         self.cache_validation_callback = cache_validation_callback
         self.func_id = _build_func_identifier(func)
@@ -671,7 +671,7 @@ class MemorizedFunc(Logger):
             coerce_mmap=self.mmap_mode is not None,
         )
 
-    def _hash_func(self):
+    def _hash_name(self):
         """Hash a function to key the online cache"""
         func_code_h = hash(getattr(self.func, "__code__", None))
         return id(self.func), hash(self.func), func_code_h
@@ -693,7 +693,7 @@ class MemorizedFunc(Logger):
         if is_named_callable:
             # Don't do this for lambda functions or strange callable
             # objects, as it ends up being too fragile
-            func_hash = self._hash_func()
+            func_hash = self._hash_name()
             try:
                 _FUNCTION_HASHES[self.func] = func_hash
             except TypeError:
@@ -714,7 +714,7 @@ class MemorizedFunc(Logger):
                 # We use as an identifier the id of the function and its
                 # hash. This is more likely to falsely change than have hash
                 # collisions, thus we are on the safe side.
-                func_hash = self._hash_func()
+                func_hash = self._hash_name()
                 if func_hash == _FUNCTION_HASHES[self.func]:
                     return True
         except TypeError:
@@ -1012,7 +1012,7 @@ class Memory(Logger):
         of compression. Note that compressed arrays cannot be
         read by memmapping.
 
-    hash_func: string or callable, optional
+    hash_name: string or callable, optional
         Either the a string which will be passed to `hashlib.new` to obtain
         a hash object, or a callable that will return an object compatible
         with PEP 452.
@@ -1037,7 +1037,7 @@ class Memory(Logger):
         backend="local",
         mmap_mode=None,
         compress=False,
-        hash_func: Union[str, Callable[..., _HashObject]] = "md5",
+        hash_name: Union[str, Callable[..., _HashObject]] = "md5",
         verbose=1,
         backend_options=None,
     ):
@@ -1047,14 +1047,14 @@ class Memory(Logger):
         self.timestamp = time.time()
         self.backend = backend
         self.compress = compress
-        if isinstance(hash_func, str):
+        if isinstance(hash_name, str):
             valid_hash_names = hashlib.algorithms_available
-            if hash_func not in valid_hash_names:
+            if hash_name not in valid_hash_names:
                 raise ValueError(
-                    f"Valid string options for 'hash_func' are {valid_hash_names}. "
-                    "Got hash_func={hash_func!r} instead."
+                    f"Valid string options for 'hash_name' are {valid_hash_names}. "
+                    "Got hash_name={hash_name!r} instead."
                 )
-        self.hash_func = hash_func
+        self.hash_name = hash_name
         if backend_options is None:
             backend_options = {}
         self.backend_options = backend_options
@@ -1153,7 +1153,7 @@ class Memory(Logger):
             ignore=ignore,
             mmap_mode=mmap_mode,
             compress=self.compress,
-            hash_func=self.hash_func,
+            hash_name=self.hash_name,
             verbose=verbose,
             timestamp=self.timestamp,
             cache_validation_callback=cache_validation_callback,
