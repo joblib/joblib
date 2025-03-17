@@ -182,7 +182,7 @@ class NumpyHasher(Hasher):
         hash_func: string or callable
             Either the a string which will be passed to `hashlib.new` to obtain
             a hash object, or a callable that will return an object compatible
-            with the `_HashObject` protocol from `typeshed`.
+            with PEP 452.
             Defaults to 'md5'.
         coerce_mmap: boolean
             Make no difference between np.memmap and np.ndarray
@@ -273,8 +273,8 @@ def hash(obj, hash_func: str | Callable[..., _HashObject] = "md5", coerce_mmap=F
     hash_func: string or callable
         Either the a string which will be passed to `hashlib.new` to obtain
         a hash object, or a callable that will return an object compatible
-        with the `_HashObject` protocol from `typeshed`.
-        Defaults to 'md5' though sha1 is supposedly safer.
+        with PEP 452.
+        Defaults to 'md5'.
 
     coerce_mmap: boolean
         Make no difference between np.memmap and np.ndarray
