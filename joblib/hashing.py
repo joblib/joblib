@@ -276,7 +276,7 @@ def hash(
     Parameters
     ----------
     hash_name: string or callable
-        Either the a string which will be passed to `hashlib.new` to obtain
+        Either a string which will be passed to `hashlib.new` to obtain
         a hash object, or a callable that will return an object compatible
         with PEP 452.
         Defaults to 'md5'.
