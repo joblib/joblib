@@ -24,6 +24,7 @@ import tokenize
 import traceback
 import warnings
 import weakref
+from collections.abc import Callable
 
 from . import hashing
 from ._store_backends import (
@@ -38,6 +39,7 @@ from .func_inspect import (
     get_func_code,
     get_func_name,
 )
+from .hashing import _HashObject
 from .logger import Logger, format_time, pformat
 
 FIRST_LINE_TEXT = "# first line:"
@@ -418,7 +420,7 @@ class MemorizedFunc(Logger):
         ignore=None,
         mmap_mode=None,
         compress=False,
-        hash_func="md5",
+        hash_func: str | Callable[..., _HashObject] = "md5",
         verbose=1,
         timestamp=None,
         cache_validation_callback=None,
@@ -430,9 +432,8 @@ class MemorizedFunc(Logger):
             valid_hash_names = hashlib.algorithms_available
             if hash_func not in valid_hash_names:
                 raise ValueError(
-                    "Valid string options for 'hash_func' are {}. Got hash_func={!r} instead.".format(
-                        valid_hash_names, hash_func
-                    )
+                    f"Valid string options for 'hash_func' are {valid_hash_names}. "
+                    "Got hash_func={hash_func!r} instead."
                 )
         self.hash_func = hash_func
         self.func = func
@@ -1035,7 +1036,7 @@ class Memory(Logger):
         backend="local",
         mmap_mode=None,
         compress=False,
-        hash_func="md5",
+        hash_func: str | Callable[..., _HashObject] = "md5",
         verbose=1,
         backend_options=None,
     ):
@@ -1049,9 +1050,8 @@ class Memory(Logger):
             valid_hash_names = hashlib.algorithms_available
             if hash_func not in valid_hash_names:
                 raise ValueError(
-                    "Valid string options for 'hash_func' are {}. Got hash_func={!r} instead.".format(
-                        valid_hash_names, hash_func
-                    )
+                    f"Valid string options for 'hash_func' are {valid_hash_names}. "
+                    "Got hash_func={hash_func!r} instead."
                 )
         self.hash_func = hash_func
         if backend_options is None:

@@ -413,7 +413,6 @@ def test_memory_custom_hash(tmpdir):
     def custom_hash():
         return hashlib.sha1
 
-
     memory = Memory(location=tmpdir.strpath, verbose=0, hash_func=custom_hash)
     cached_n = memory.cache(n)
 

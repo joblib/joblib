@@ -14,8 +14,24 @@ import pickle
 import struct
 import sys
 import types
+from collections.abc import Callable
+from typing import Protocol, Self, type_check_only
 
 Pickler = pickle._Pickler
+
+
+@type_check_only
+class _HashObject(Protocol):
+    @property
+    def digest_size(self) -> int: ...
+    @property
+    def block_size(self) -> int: ...
+    @property
+    def name(self) -> str: ...
+    def copy(self) -> Self: ...
+    def digest(self) -> bytes: ...
+    def hexdigest(self) -> str: ...
+    def update(self, obj: bytes, /) -> None: ...
 
 
 class _ConsistentSet(object):
@@ -50,7 +66,7 @@ class Hasher(Pickler):
     Python object that is not necessarily cryptographically secure.
     """
 
-    def __init__(self, hash_func="md5"):
+    def __init__(self, hash_func: str | Callable[..., _HashObject] = "md5"):
         self.stream = io.BytesIO()
         # By default we want a pickle protocol that only changes with
         # the major python version and not the minor one
@@ -157,7 +173,9 @@ class Hasher(Pickler):
 class NumpyHasher(Hasher):
     """Special case the hasher for when numpy is loaded."""
 
-    def __init__(self, hash_func="md5", coerce_mmap=False):
+    def __init__(
+        self, hash_func: str | Callable[..., _HashObject] = "md5", coerce_mmap=False
+    ):
         """
         Parameters
         ----------
@@ -246,7 +264,7 @@ class NumpyHasher(Hasher):
         Hasher.save(self, obj)
 
 
-def hash(obj, hash_func="md5", coerce_mmap=False):
+def hash(obj, hash_func: str | Callable[..., _HashObject] = "md5", coerce_mmap=False):
     """Quick calculation of a hash to identify uniquely Python objects
     containing numpy arrays.
 
@@ -265,9 +283,8 @@ def hash(obj, hash_func="md5", coerce_mmap=False):
         valid_hash_names = hashlib.algorithms_available
         if hash_func not in valid_hash_names:
             raise ValueError(
-                "Valid string options for 'hash_func' are {}. Got hash_func={!r} instead.".format(
-                    valid_hash_names, hash_func
-                )
+                f"Valid string options for 'hash_func' are {valid_hash_names}. "
+                "Got hash_func={hash_func!r} instead."
             )
     if "numpy" in sys.modules:
         hasher = NumpyHasher(hash_func=hash_func, coerce_mmap=coerce_mmap)
