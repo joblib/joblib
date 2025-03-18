@@ -131,19 +131,22 @@ class Hasher(Pickler):
     # function
     dispatch[type(pickle.dump)] = save_global
 
-    def _batch_setitems(self, items, *args):
+    def _batch_setitems(self, items, obj=None):
+        # Python 3.14 _batch_setitems has an additional obj argument, see
+        # https://github.com/python/cpython/pull/122214
+        additional_args = [] if obj is None else [obj]
         # forces order of keys in dict to ensure consistent hash.
         try:
             # Trying first to compare dict assuming the type of keys is
             # consistent and orderable.
             # This fails on python 3 when keys are unorderable
             # but we keep it in a try as it's faster.
-            Pickler._batch_setitems(self, iter(sorted(items)), *args)
+            Pickler._batch_setitems(self, iter(sorted(items)), *additional_args)
         except TypeError:
             # If keys are unorderable, sorting them using their hash. This is
             # slower but works in any case.
             Pickler._batch_setitems(
-                self, iter(sorted((hash(k), v) for k, v in items)), *args
+                self, iter(sorted((hash(k), v) for k, v in items)), *additional_args
             )
 
     def save_set(self, set_items):
