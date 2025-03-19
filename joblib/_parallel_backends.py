@@ -613,7 +613,7 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
         parallel=None,
         prefer=None,
         require=None,
-        idle_worker_timeout=300,
+        idle_worker_timeout=None,
         **memmapping_executor_kwargs,
     ):
         """Build a process executor and return the number of workers"""
@@ -625,6 +625,16 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
             **self.backend_kwargs,
             **memmapping_executor_kwargs,
         }
+
+        # Prohibit the use of 'timeout' in the LokyBackend, as 'idle_worker_timeout'
+        # better describes the backend's behavior.
+        if "timeout" in memmapping_executor_kwargs:
+            raise ValueError(
+                "The 'timeout' parameter is not supported by the LokyBackend. "
+                "Please use the `idle_worker_timeout` parameter instead."
+            )
+        if idle_worker_timeout is None:
+            idle_worker_timeout = self.backend_kwargs.get("idle_worker_timeout", 300)
 
         self._workers = get_memmapping_executor(
             n_jobs,
