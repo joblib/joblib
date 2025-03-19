@@ -20,9 +20,14 @@ Memory:
   if it is in cache memory.
   https://github.com/joblib/joblib/pull/1584
 
-- The Memory object now automatically creates a .gitignore file in its cache directory,
-  instructing git to ignore the entire folder.
+- The ``Memory`` object now automatically creates a .gitignore file in its
+  cache directory, instructing git to ignore the entire folder.
   https://github.com/joblib/joblib/pull/1674
+
+- Ensure that temporary files managed by the ``Memory`` object do not collide
+  when using the same cache directory when the cache directory is accessed
+  concurrently from different nodes on a cluster with a shared filesystem.
+  https://github.com/joblib/joblib/pull/1656
 
 Parallel:
 ~~~~~~~~~
