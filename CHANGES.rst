@@ -56,6 +56,10 @@ Maintenance:
   the warnings that are emitted in this case.
   https://github.com/joblib/joblib/pull/1681
 
+- Fix support for python 3.14 in ``hashing``, with the addition of
+  an extra argument in ``Pickler._batch_setitems``.
+  https://github.com/joblib/joblib/pull/1688
+
 
 Release 1.4.2 -- 2024/05/02
 ---------------------------
