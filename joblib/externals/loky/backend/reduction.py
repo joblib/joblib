@@ -53,13 +53,12 @@ register(type(_C().f), _reduce_method)
 register(type(_C.h), _reduce_method)
 
 
-if not hasattr(sys, "pypy_version_info"):
-    # PyPy uses functions instead of method_descriptors and wrapper_descriptors
-    def _reduce_method_descriptor(m):
-        return getattr, (m.__objclass__, m.__name__)
+def _reduce_method_descriptor(m):
+    return getattr, (m.__objclass__, m.__name__)
 
-    register(type(list.append), _reduce_method_descriptor)
-    register(type(int.__add__), _reduce_method_descriptor)
+
+register(type(list.append), _reduce_method_descriptor)
+register(type(int.__add__), _reduce_method_descriptor)
 
 
 # Make partial func pickable
