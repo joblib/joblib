@@ -4,8 +4,8 @@ Latest changes
 In development
 --------------
 
-- Drop support for Python 3.8.
-  https://github.com/joblib/joblib/pull/1669
+Memory:
+~~~~~~~
 
 - Enforce ``age_limit`` is a positive timedelta for ``Memory.reduce_size``,
   to avoid silently ignoring it.
@@ -20,15 +20,31 @@ In development
   if it is in cache memory.
   https://github.com/joblib/joblib/pull/1584
 
+- The Memory object now automatically creates a .gitignore file in its cache directory,
+  instructing git to ignore the entire folder.
+  https://github.com/joblib/joblib/pull/1674
+
+Parallel:
+~~~~~~~~~
+
 - Fixed a bug that caused the ``timeout`` parameter in ``joblib.Parallel`` to be
   ineffective when used along with ``return_as='generator_unordered'``.
   https://github.com/joblib/joblib/issues/1586
 
-- Support for Python 3.13 free-threaded has been added.
-  https://github.com/joblib/joblib/pull/1589
-
 - Pretty printing of ``Parallel`` execution progress when the number of tasks is
   known. https://github.com/joblib/joblib/pull/1608
+
+- Refactor and document the custom parallel backend API.
+  https://github.com/joblib/joblib/pull/1667
+
+Maintenance:
+~~~~~~~~~~~~
+
+- Drop support for Python 3.8.
+  https://github.com/joblib/joblib/pull/1669
+
+- Support for Python 3.13 free-threaded has been added.
+  https://github.com/joblib/joblib/pull/1589
 
 - Drop support for PyPy.
   https://github.com/joblib/joblib/pull/1670
@@ -39,6 +55,18 @@ In development
   The result now properly use in-memory ``np.array`` arrays, in accordance with
   the warnings that are emitted in this case.
   https://github.com/joblib/joblib/pull/1681
+
+- Fix support for python 3.14 in ``hashing``, with the addition of
+  an extra argument in ``Pickler._batch_setitems``.
+  https://github.com/joblib/joblib/pull/1688
+
+- Bump vendored cloudpickle to 3.1.1 to support Python 3.14 (dev) and
+  various other fixes.
+
+- Bump vendored loky to 3.5.1 to support recent Python versions without raising
+  the warning on calls to `os.fork` and fix various sources of crashes and
+  deadlocks.
+
 
 
 Release 1.4.2 -- 2024/05/02

@@ -1983,9 +1983,8 @@ def _check_numpy_threadpool_limits():
     # implementation is actually used so as to force its initialization.
     a = np.random.randn(100, 100)
     np.dot(a, a)
-    from threadpoolctl import threadpool_info
-
-    return threadpool_info()
+    threadpoolctl = pytest.importorskip("threadpoolctl")
+    return threadpoolctl.threadpool_info()
 
 
 def _parent_max_num_threads_for(child_module, parent_info):
