@@ -18,20 +18,15 @@ import warnings
 import multiprocessing as mp
 from multiprocessing import get_context as mp_get_context
 from multiprocessing.context import BaseContext
+from concurrent.futures.process import _MAX_WINDOWS_WORKERS
 
 
 from .process import LokyProcess, LokyInitMainProcess
 
 # Apparently, on older Python versions, loky cannot work 61 workers on Windows
 # but instead 60: ¯\_(ツ)_/¯
-if sys.version_info >= (3, 8):
-    from concurrent.futures.process import _MAX_WINDOWS_WORKERS
-
-    if sys.version_info < (3, 10):
-        _MAX_WINDOWS_WORKERS = _MAX_WINDOWS_WORKERS - 1
-else:
-    # compat for versions before 3.8 which do not define this.
-    _MAX_WINDOWS_WORKERS = 60
+if sys.version_info < (3, 10):
+    _MAX_WINDOWS_WORKERS = _MAX_WINDOWS_WORKERS - 1
 
 START_METHODS = ["loky", "loky_init_main", "spawn"]
 if sys.platform != "win32":
@@ -177,7 +172,7 @@ def _cpu_count_cgroup(os_cpu_count):
             return math.ceil(cpu_quota_us / cpu_period_us)
         else:  # pragma: no cover
             # Setting a negative cpu_quota_us value is a valid way to disable
-            # cgroup CPU bandwidth limits
+            # cgroup CPU bandwith limits
             return os_cpu_count
 
 
@@ -189,8 +184,8 @@ def _cpu_count_affinity(os_cpu_count):
         except NotImplementedError:
             pass
 
-    # On PyPy and possibly other platforms, os.sched_getaffinity does not exist
-    # or raises NotImplementedError, let's try with the psutil if installed.
+    # On some platforms, os.sched_getaffinity does not exist or raises
+    # NotImplementedError, let's try with the psutil if installed.
     try:
         import psutil
 
@@ -203,13 +198,13 @@ def _cpu_count_affinity(os_cpu_count):
             sys.platform == "linux"
             and os.environ.get("LOKY_MAX_CPU_COUNT") is None
         ):
-            # PyPy does not implement os.sched_getaffinity on Linux which
+            # Some platforms don't implement os.sched_getaffinity on Linux which
             # can cause severe oversubscription problems. Better warn the
             # user in this particularly pathological case which can wreck
             # havoc, typically on CI workers.
             warnings.warn(
                 "Failed to inspect CPU affinity constraints on this system. "
-                "Please install psutil or explicitly set LOKY_MAX_CPU_COUNT."
+                "Please install psutil or explictly set LOKY_MAX_CPU_COUNT."
             )
 
     # This can happen for platforms that do not implement any kind of CPU
@@ -247,33 +242,11 @@ def _count_physical_cores():
     # Not cached yet, find it
     try:
         if sys.platform == "linux":
-            cpu_info = subprocess.run(
-                "lscpu --parse=core".split(), capture_output=True, text=True
-            )
-            cpu_info = cpu_info.stdout.splitlines()
-            cpu_info = {line for line in cpu_info if not line.startswith("#")}
-            cpu_count_physical = len(cpu_info)
+            cpu_count_physical = _count_physical_cores_linux()
         elif sys.platform == "win32":
-            cpu_info = subprocess.run(
-                "wmic CPU Get NumberOfCores /Format:csv".split(),
-                capture_output=True,
-                text=True,
-            )
-            cpu_info = cpu_info.stdout.splitlines()
-            cpu_info = [
-                l.split(",")[1]
-                for l in cpu_info
-                if (l and l != "Node,NumberOfCores")
-            ]
-            cpu_count_physical = sum(map(int, cpu_info))
+            cpu_count_physical = _count_physical_cores_win32()
         elif sys.platform == "darwin":
-            cpu_info = subprocess.run(
-                "sysctl -n hw.physicalcpu".split(),
-                capture_output=True,
-                text=True,
-            )
-            cpu_info = cpu_info.stdout
-            cpu_count_physical = int(cpu_info)
+            cpu_count_physical = _count_physical_cores_darwin()
         else:
             raise NotImplementedError(f"unsupported platform: {sys.platform}")
 
@@ -289,6 +262,60 @@ def _count_physical_cores():
     physical_cores_cache = cpu_count_physical
 
     return cpu_count_physical, exception
+
+
+def _count_physical_cores_linux():
+    try:
+        cpu_info = subprocess.run(
+            "lscpu --parse=core".split(), capture_output=True, text=True
+        )
+        cpu_info = cpu_info.stdout.splitlines()
+        cpu_info = {line for line in cpu_info if not line.startswith("#")}
+        return len(cpu_info)
+    except:
+        pass  # fallback to /proc/cpuinfo
+
+    cpu_info = subprocess.run(
+        "cat /proc/cpuinfo".split(), capture_output=True, text=True
+    )
+    cpu_info = cpu_info.stdout.splitlines()
+    cpu_info = {line for line in cpu_info if line.startswith("core id")}
+    return len(cpu_info)
+
+
+def _count_physical_cores_win32():
+    try:
+        cmd = "-Command (Get-CimInstance -ClassName Win32_Processor).NumberOfCores"
+        cpu_info = subprocess.run(
+            f"powershell.exe {cmd}".split(),
+            capture_output=True,
+            text=True,
+        )
+        cpu_info = cpu_info.stdout.splitlines()
+        return int(cpu_info[0])
+    except:
+        pass  # fallback to wmic (older Windows versions; deprecated now)
+
+    cpu_info = subprocess.run(
+        "wmic CPU Get NumberOfCores /Format:csv".split(),
+        capture_output=True,
+        text=True,
+    )
+    cpu_info = cpu_info.stdout.splitlines()
+    cpu_info = [
+        l.split(",")[1] for l in cpu_info if (l and l != "Node,NumberOfCores")
+    ]
+    return sum(map(int, cpu_info))
+
+
+def _count_physical_cores_darwin():
+    cpu_info = subprocess.run(
+        "sysctl -n hw.physicalcpu".split(),
+        capture_output=True,
+        text=True,
+    )
+    cpu_info = cpu_info.stdout
+    return int(cpu_info)
 
 
 class LokyContext(BaseContext):

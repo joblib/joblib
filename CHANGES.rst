@@ -56,6 +56,13 @@ Maintenance:
   the warnings that are emitted in this case.
   https://github.com/joblib/joblib/pull/1681
 
+- Bump vendored cloudpickle to 3.1.1 to support Python 3.14 (dev) and
+  various other fixes.
+
+- Bump vendored loky to 3.5.1 to support recent Python versions without raising
+  the warning on calls to `os.fork` and fix various sources of crashes and
+  deadlocks.
+
 
 Release 1.4.2 -- 2024/05/02
 ---------------------------
