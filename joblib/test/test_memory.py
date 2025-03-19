@@ -221,7 +221,7 @@ def test_parallel_call_cached_function_defined_in_jupyter(tmpdir, call_before_re
                 for _ in range(25):
                     if len(os.listdir(f_cache_directory / "f")) == 3:
                         break
-                    time.sleep(0.2)
+                    time.sleep(0.2)  # pragma: no cover
                 assert len(os.listdir(f_cache_directory / "f")) == 3
 
                 cached_f(3)
