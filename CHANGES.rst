@@ -71,6 +71,17 @@ Maintenance:
 - Fix a regression in 1.3 and 1.4 that caused large big endian arrays to trigger
   a serialization error. https://github.com/joblib/joblib/issues/1545
 
+- Fix support for python 3.14 in ``hashing``, with the addition of
+  an extra argument in ``Pickler._batch_setitems``.
+  https://github.com/joblib/joblib/pull/1688
+
+- Bump vendored cloudpickle to 3.1.1 to support Python 3.14 (dev) and
+  various other fixes.
+
+- Bump vendored loky to 3.5.1 to support recent Python versions without raising
+  the warning on calls to `os.fork` and fix various sources of crashes and
+  deadlocks.
+
 
 Release 1.4.2 -- 2024/05/02
 ---------------------------
