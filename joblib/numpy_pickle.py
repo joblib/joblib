@@ -406,7 +406,7 @@ class NumpyUnpickler(Unpickler):
     file_handle: file_like
         File object to unpickle from.
     ensure_native_byte_order: bool
-        If true, coerce the array to use the native endianness of the
+        If True, coerce the array to use the native endianness of the
         host system.
     filename: str
         Name of the file to unpickle from. It should correspond to file_handle.
@@ -696,7 +696,7 @@ def load(filename, mmap_mode=None, ensure_native_byte_order="auto"):
     ensure_native_byte_order: bool, or 'auto', default=='auto'
         If True, ensures that the byte order of the loaded arrays matches the
         native byte ordering (or _endianness_) of the host system. This is not
-        possible for memory-mapped arrays and using non-null `mmap_mode`
+        compatible with memory-mapped arrays and using non-null `mmap_mode`
         parameter at the same time will raise an error. The default 'auto'
         parameter is equivalent to True if `mmap_mode` is None, else False.
 
@@ -734,7 +734,7 @@ def load(filename, mmap_mode=None, ensure_native_byte_order="auto"):
         fobj = filename
         filename = getattr(fobj, "name", "")
         with _validate_fileobject_and_memmap(fobj, filename, mmap_mode) as (fobj, _):
-            obj = _unpickle(fobj, ensure_native_byte_order=True)
+            obj = _unpickle(fobj, ensure_native_byte_order=ensure_native_byte_order)
     else:
         with open(filename, "rb") as f:
             with _validate_fileobject_and_memmap(f, filename, mmap_mode) as (
@@ -752,7 +752,7 @@ def load(filename, mmap_mode=None, ensure_native_byte_order="auto"):
                 # native endianness of the host system.
                 obj = _unpickle(
                     fobj,
-                    ensure_native_byte_order=validated_mmap_mode is None,
+                    ensure_native_byte_order=ensure_native_byte_order,
                     filename=filename,
                     mmap_mode=validated_mmap_mode,
                 )

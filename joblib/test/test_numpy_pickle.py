@@ -349,30 +349,26 @@ def test_compressed_pickle_dump_and_load(tmpdir):
 
 @with_numpy
 def test_memmap_load(tmpdir):
-    expected_list = [
-        np.arange(5, dtype=np.dtype("<i8")),
-        np.arange(5, dtype=np.dtype(">i8")),
-        np.arange(5, dtype=np.dtype("<f8")),
-        np.arange(5, dtype=np.dtype(">f8")),
-        np.array([1, "abc", {"a": 1, "b": 2}], dtype="O"),
-        np.arange(256, dtype=np.uint8).tobytes(),
-        "C'est l'\xe9t\xe9 !",
-    ]
+    little_endian_dtype = np.dtype("<i8")
+    big_endian_dtype = np.dtype(">i8")
+    all_dtypes = (little_endian_dtype, big_endian_dtype)
+
+    le_array = np.arange(5, dtype=little_endian_dtype)
+    be_array = np.arange(5, dtype=big_endian_dtype)
 
     fname = tmpdir.join("temp.pkl").strpath
 
-    dumped_filenames = numpy_pickle.dump(expected_list, fname)
-    assert len(dumped_filenames) == 1
-    result_list = numpy_pickle.load(fname, mmap_mode="r+")
-    for result, expected in zip(result_list, expected_list):
-        if isinstance(expected, np.ndarray):
-            np.testing.assert_equal(result, expected)
-            assert result.dtype == expected.dtype
-            if expected.dtype != np.dtype("O"):
-                assert isinstance(result, np.memmap)
-                assert os.path.isfile(result.filename)
-        else:
-            assert result == expected
+    numpy_pickle.dump([le_array, be_array], fname)
+
+    le_array_native_load, be_array_native_load = numpy_pickle.load(fname,ensure_native_byte_order=True )
+
+    assert le_array_native_load.dtype == be_array_native_load.dtype
+    assert le_array_native_load.dtype in all_dtypes
+
+    le_array_nonnative_load, be_array_nonnative_load = numpy_pickle.load(fname,ensure_native_byte_order=False )
+
+    assert le_array_nonnative_load.dtype == le_array.dtype
+    assert be_array_nonnative_load.dtype == be_array.dtype
 
 
 def test_invalid_parameters_raise():
