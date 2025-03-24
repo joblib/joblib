@@ -360,12 +360,16 @@ def test_memmap_load(tmpdir):
 
     numpy_pickle.dump([le_array, be_array], fname)
 
-    le_array_native_load, be_array_native_load = numpy_pickle.load(fname,ensure_native_byte_order=True )
+    le_array_native_load, be_array_native_load = numpy_pickle.load(
+        fname, ensure_native_byte_order=True
+    )
 
     assert le_array_native_load.dtype == be_array_native_load.dtype
     assert le_array_native_load.dtype in all_dtypes
 
-    le_array_nonnative_load, be_array_nonnative_load = numpy_pickle.load(fname,ensure_native_byte_order=False )
+    le_array_nonnative_load, be_array_nonnative_load = numpy_pickle.load(
+        fname, ensure_native_byte_order=False
+    )
 
     assert le_array_nonnative_load.dtype == le_array.dtype
     assert be_array_nonnative_load.dtype == be_array.dtype
