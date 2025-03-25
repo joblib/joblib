@@ -653,15 +653,12 @@ def load_temporary_memmap(filename, mmap_mode, unlink_on_gc_collect):
             fobj,
             validated_mmap_mode,
         ):
-            # Pass `ensure_native_byte_order=False` to remain consistent with
-            # the loading behavior of non-memmaped arrays in workers, where
-            # the byte order is preserved.
-            #
-            # Do note however that native byte order cannot be enforced at
-            # loading time for memmaps in any case, since that would require
-            # either copying the buffer in memory, or attempting an inplace
-            # byteswap on the memmaped buffer and cause undesired side effects
-            # on the filesystem.
+            # Memmap are used for interprocess communication, which should
+            # keep the objects untouched. We pass `ensure_native_byte_order=False`
+            # to remain consistent with the loading behavior of non-memmaped arrays
+            # in workers, where the byte order is preserved.
+            # Note that we do not implement endianness change for memmaps, as this
+            # would result in inconsistent behavior.
             obj = _unpickle(
                 fobj,
                 ensure_native_byte_order=False,
