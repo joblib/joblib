@@ -1,7 +1,7 @@
 {% extends '!layout.html' %}
 
 {%- if pagename == 'index' %}
-    {% set title = 'Joblib: running Python function as pipeline jobs' %}
+    {% set title = 'Joblib: running Python functions as pipeline jobs' %}
 {%- endif %}
 
 {%- block sidebarsourcelink %}
@@ -13,15 +13,9 @@
     <hr/>
     <div>
 	<h3>Mailing list</h3>
-	<a href="http://librelist.com/browser/joblib/">joblib@librelist.com</a>
+	<a href="https://librelist.com/browser/joblib/">joblib@librelist.com</a>
     <p class="searchtip" style="font-size: 80%">
     Send an email to subscribe</p>
     </div>
-{%- if show_source and has_source and sourcename %}
 <hr/>
-<small><a href="{{ pathto('_sources/' + sourcename, true)|e }}"
-           rel="nofollow">{{ _('Show this page source') }}</a>
-</small>
-{%- endif %}
 {% endblock %}
-

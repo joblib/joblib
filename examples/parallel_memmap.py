@@ -1,81 +1,167 @@
-"""Demonstrate the usage of numpy.memmap with joblib.Parallel
+"""
+===============================
+NumPy memmap in joblib.Parallel
+===============================
 
-This example shows how to preallocate data in memmap arrays both for input and
-output of the parallel worker processes.
-
-Sample output for this program::
-
-    [Worker 93486] Sum for row 0 is -1599.756454
-    [Worker 93487] Sum for row 1 is -243.253165
-    [Worker 93488] Sum for row 3 is 610.201883
-    [Worker 93489] Sum for row 2 is 187.982005
-    [Worker 93489] Sum for row 7 is 326.381617
-    [Worker 93486] Sum for row 4 is 137.324438
-    [Worker 93489] Sum for row 8 is -198.225809
-    [Worker 93487] Sum for row 5 is -1062.852066
-    [Worker 93488] Sum for row 6 is 1666.334107
-    [Worker 93486] Sum for row 9 is -463.711714
-    Expected sums computed in the parent process:
-    [-1599.75645426  -243.25316471   187.98200458   610.20188337   137.32443803
-     -1062.85206633  1666.33410715   326.38161713  -198.22580876  -463.71171369]
-    Actual sums computed by the worker processes:
-    [-1599.75645426  -243.25316471   187.98200458   610.20188337   137.32443803
-     -1062.85206633  1666.33410715   326.38161713  -198.22580876  -463.71171369]
+This example illustrates some features enabled by using a memory map
+(:class:`numpy.memmap`) within :class:`joblib.Parallel`. First, we show that
+dumping a huge data array ahead of passing it to :class:`joblib.Parallel`
+speeds up computation. Then, we show the possibility to provide write access to
+original data.
 
 """
-import tempfile
-import shutil
-import os
+
+##############################################################################
+# Speed up processing of a large data array
+##############################################################################
+#
+# We create a large data array for which the average is computed for several
+# slices.
+
 import numpy as np
 
+data = np.random.random((int(1e7),))
+window_size = int(5e5)
+slices = [
+    slice(start, start + window_size)
+    for start in range(0, data.size - window_size, int(1e5))
+]
+
+###############################################################################
+# The ``slow_mean`` function introduces a :func:`time.sleep` call to simulate a
+# more expensive computation cost for which parallel computing is beneficial.
+# Parallel may not be beneficial for very fast operation, due to extra overhead
+# (workers creations, communication, etc.).
+
+import time
+
+
+def slow_mean(data, sl):
+    """Simulate a time consuming processing."""
+    time.sleep(0.01)
+    return data[sl].mean()
+
+
+###############################################################################
+# First, we will evaluate the sequential computing on our problem.
+
+tic = time.time()
+results = [slow_mean(data, sl) for sl in slices]
+toc = time.time()
+print(
+    "\nElapsed time computing the average of couple of slices {:.2f} s".format(
+        toc - tic
+    )
+)
+
+###############################################################################
+# :class:`joblib.Parallel` is used to compute in parallel the average of all
+# slices using 2 workers.
+
 from joblib import Parallel, delayed
-from joblib import load, dump
+
+tic = time.time()
+results = Parallel(n_jobs=2)(delayed(slow_mean)(data, sl) for sl in slices)
+toc = time.time()
+print(
+    "\nElapsed time computing the average of couple of slices {:.2f} s".format(
+        toc - tic
+    )
+)
+
+###############################################################################
+# Parallel processing is already faster than the sequential processing. It is
+# also possible to remove a bit of overhead by dumping the ``data`` array to a
+# memmap and pass the memmap to :class:`joblib.Parallel`.
+
+import os
+
+from joblib import dump, load
+
+folder = "./joblib_memmap"
+try:
+    os.mkdir(folder)
+except FileExistsError:
+    pass
+
+data_filename_memmap = os.path.join(folder, "data_memmap")
+dump(data, data_filename_memmap)
+data = load(data_filename_memmap, mmap_mode="r")
+
+tic = time.time()
+results = Parallel(n_jobs=2)(delayed(slow_mean)(data, sl) for sl in slices)
+toc = time.time()
+print(
+    "\nElapsed time computing the average of couple of slices {:.2f} s\n".format(
+        toc - tic
+    )
+)
+
+###############################################################################
+# Therefore, dumping large ``data`` array ahead of calling
+# :class:`joblib.Parallel` can speed up the processing by removing some
+# overhead.
+
+###############################################################################
+# Writable memmap for shared memory :class:`joblib.Parallel`
+###############################################################################
+#
+# ``slow_mean_write_output`` will compute the mean for some given slices as in
+# the previous example. However, the resulting mean will be directly written on
+# the output array.
 
 
-def sum_row(input, output, i):
-    """Compute the sum of a row in input and store it in output"""
-    sum_ = input[i, :].sum()
-    print("[Worker %d] Sum for row %d is %f" % (os.getpid(), i, sum_))
-    output[i] = sum_
+def slow_mean_write_output(data, sl, output, idx):
+    """Simulate a time consuming processing."""
+    time.sleep(0.005)
+    res_ = data[sl].mean()
+    print("[Worker %d] Mean for slice %d is %f" % (os.getpid(), idx, res_))
+    output[idx] = res_
 
-if __name__ == "__main__":
-    rng = np.random.RandomState(42)
-    folder = tempfile.mkdtemp()
-    samples_name = os.path.join(folder, 'samples')
-    sums_name = os.path.join(folder, 'sums')
-    try:
-        # Generate some data and an allocate an output buffer
-        samples = rng.normal(size=(10, int(1e6)))
 
-        # Pre-allocate a writeable shared memory map as a container for the
-        # results of the parallel computation
-        sums = np.memmap(sums_name, dtype=samples.dtype,
-                         shape=samples.shape[0], mode='w+')
+###############################################################################
+# Prepare the folder where the memmap will be dumped.
 
-        # Dump the input data to disk to free the memory
-        dump(samples, samples_name)
+output_filename_memmap = os.path.join(folder, "output_memmap")
 
-        # Release the reference on the original in memory array and replace it
-        # by a reference to the memmap array so that the garbage collector can
-        # release the memory before forking. gc.collect() is internally called
-        # in Parallel just before forking.
-        samples = load(samples_name, mmap_mode='r')
+###############################################################################
+# Pre-allocate a writable shared memory map as a container for the results of
+# the parallel computation.
 
-        # Fork the worker processes to perform computation concurrently
-        Parallel(n_jobs=4)(delayed(sum_row)(samples, sums, i)
-                           for i in range(samples.shape[0]))
+output = np.memmap(
+    output_filename_memmap, dtype=data.dtype, shape=len(slices), mode="w+"
+)
 
-        # Compare the results from the output buffer with the ground truth
-        print("Expected sums computed in the parent process:")
-        expected_result = samples.sum(axis=1)
-        print(expected_result)
+###############################################################################
+# ``data`` is replaced by its memory mapped version. Note that the buffer has
+# already been dumped in the previous section.
 
-        print("Actual sums computed by the worker processes:")
-        print(sums)
+data = load(data_filename_memmap, mmap_mode="r")
 
-        assert np.allclose(expected_result, sums)
-    finally:
-        try:
-            shutil.rmtree(folder)
-        except:
-            print("Failed to delete: " + folder)
+###############################################################################
+# Fork the worker processes to perform computation concurrently
+
+Parallel(n_jobs=2)(
+    delayed(slow_mean_write_output)(data, sl, output, idx)
+    for idx, sl in enumerate(slices)
+)
+
+###############################################################################
+# Compare the results from the output buffer with the expected results
+
+print("\nExpected means computed in the parent process:\n {}".format(np.array(results)))
+print("\nActual means computed by the worker processes:\n {}".format(output))
+
+###############################################################################
+# Clean-up the memmap
+###############################################################################
+#
+# Remove the different memmap that we created. It might fail in Windows due
+# to file permissions.
+
+import shutil
+
+try:
+    shutil.rmtree(folder)
+except:  # noqa
+    print("Could not clean-up automatically.")

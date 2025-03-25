@@ -1,134 +1,143 @@
+|PyPi| |CIStatus| |ReadTheDocs| |Codecov|
+
+.. |PyPi| image:: https://badge.fury.io/py/joblib.svg
+   :target: https://badge.fury.io/py/joblib
+   :alt: Joblib version
+
+.. |CIStatus| image:: https://github.com/joblib/joblib/actions/workflows/test.yml/badge.svg
+   :target: https://github.com/joblib/joblib/actions/workflows/test.yml?query=branch%3Amain
+   :alt: CI status
+
+.. |ReadTheDocs| image:: https://readthedocs.org/projects/joblib/badge/?version=latest
+    :target: https://joblib.readthedocs.io/en/latest/?badge=latest
+    :alt: Documentation Status
+
+.. |Codecov| image:: https://codecov.io/gh/joblib/joblib/branch/main/graph/badge.svg
+   :target: https://codecov.io/gh/joblib/joblib
+   :alt: Codecov coverage
+
+
 The homepage of joblib with user documentation is located on:
 
-http://packages.python.org/joblib/
+https://joblib.readthedocs.io
 
 Getting the latest code
-=========================
+=======================
 
 To get the latest code using git, simply type::
 
-    git clone git://github.com/joblib/joblib.git
+    git clone https://github.com/joblib/joblib.git
 
-If you don't have git installed, you can download a zip or tarball
-of the latest code: http://github.com/joblib/joblib/archives/master
+If you don't have git installed, you can download a zip
+of the latest code: https://github.com/joblib/joblib/archive/refs/heads/main.zip
 
 Installing
-=========================
+==========
 
-As any Python packages, to install joblib, simply do::
+You can use `pip` to install joblib from any directory::
 
-    python setup.py install
+    pip install joblib
 
-in the source code directory.
+or install it in editable mode from the source directory::
 
-Joblib has no other mandatory dependency than Python (at least version
-2.6). Numpy (at least version 1.3) is an optional dependency for array
-manipulation.
+    pip install -e .
+
+Dependencies
+============
+
+- Joblib has no mandatory dependencies besides Python (supported versions are
+  3.9+).
+- Joblib has an optional dependency on Numpy (at least version 1.6.1) for array
+  manipulation.
+- Joblib includes its own vendored copy of
+  `loky <https://github.com/tomMoral/loky>`_ for process management.
+- Joblib can efficiently dump and load numpy arrays but does not require numpy
+  to be installed.
+- Joblib has an optional dependency on
+  `python-lz4 <https://pypi.python.org/pypi/lz4>`_ as a faster alternative to
+  zlib and gzip for compressed serialization.
+- Joblib has an optional dependency on psutil to mitigate memory leaks in
+  parallel worker processes.
+- Some examples require external dependencies such as pandas. See the
+  instructions in the `Building the docs`_ section for details.
 
 Workflow to contribute
-=========================
+======================
 
 To contribute to joblib, first create an account on `github
-<http://github.com/>`_. Once this is done, fork the `joblib repository
-<http://github.com/joblib/joblib>`_ to have you own repository,
-clone it using 'git clone' on the computers where you want to work. Make
-your changes in your clone, push them to your github account, test them
-on several computer, and when you are happy with them, send a pull
-request to the main repository.
+<https://github.com/>`_. Once this is done, fork the `joblib repository
+<https://github.com/joblib/joblib>`_ to have your own repository,
+clone it using ``git clone``. Make your changes in a branch of your clone, push
+them to your github account, test them locally, and when you are happy with
+them, send a pull request to the main repository.
+
+You can use `pre-commit <https://pre-commit.com/#install>`_ to run code style checks
+before each commit::
+
+    pip install pre-commit
+    pre-commit install
+
+pre-commit checks can be disabled for a single commit with::
+
+    git commit -n
 
 Running the test suite
-=========================
+======================
 
-To run the test suite, you need nosetests and the coverage modules.
+To run the test suite, you need the pytest (version >= 3) and coverage modules.
 Run the test suite using::
 
-    nosetests
+    pytest joblib
 
 from the root of the project.
 
-.. image:: https://secure.travis-ci.org/joblib/joblib.png
-   :target: https://secure.travis-ci.org/joblib/joblib
-   :alt: Build status
-   :align: right
-
-
 Building the docs
-=========================
+=================
 
-To build the docs you need to have setuptools and sphinx (>=0.5) installed. 
-Run the command::
+To build the docs you need to have sphinx (>=1.4) and some dependencies
+installed::
 
-    python setup.py build_sphinx
+    pip install -U -r .readthedocs-requirements.txt
 
-The docs are built in the build/sphinx/html directory.
+The docs can then be built with the following command::
+
+    make doc
+
+The html docs are located in the ``doc/_build/html`` directory.
 
 
 Making a source tarball
-=========================
+=======================
 
 To create a source tarball, eg for packaging or distributing, run the
 following command::
 
-    python setup.py sdist
+    pip install build
+    python -m build --sdist
 
-The tarball will be created in the `dist` directory. This command will
-compile the docs, and the resulting tarball can be installed with
-no extra dependencies than the Python standard library. You will need
-setuptool and sphinx.
+The tarball will be created in the `dist` directory. This command will create
+the resulting tarball that can be installed with no extra dependencies than the
+Python standard library.
 
 Making a release and uploading it to PyPI
-==================================================
+=========================================
 
 This command is only run by project manager, to make a release, and
 upload in to PyPI::
 
-    python setup.py sdist bdist_egg register upload
+    pip install build
+    python -m build --sdist --wheel
+    twine upload dist/*
+
+
+Note that the documentation should automatically get updated at each git
+push. If that is not the case, try building th doc locally and resolve
+any doc build error (in particular when running the examples).
 
 Updating the changelog
-========================
+======================
 
 Changes are listed in the CHANGES.rst file. They must be manually updated
 but, the following git command may be used to generate the lines::
 
     git log --abbrev-commit --date=short --no-merges --sparse
-
-Licensing
-----------
-
-joblib is **BSD-licenced** (3 clause):
-
-    This software is OSI Certified Open Source Software.
-    OSI Certified is a certification mark of the Open Source Initiative.
-
-    Copyright (c) 2009-2011, joblib developpers
-    All rights reserved.
-
-    Redistribution and use in source and binary forms, with or without
-    modification, are permitted provided that the following conditions are met:
-
-    * Redistributions of source code must retain the above copyright notice, 
-      this list of conditions and the following disclaimer.
-
-    * Redistributions in binary form must reproduce the above copyright notice,
-      this list of conditions and the following disclaimer in the documentation
-      and/or other materials provided with the distribution.
-
-    * Neither the name of Gael Varoquaux. nor the names of other joblib 
-      contributors may be used to endorse or promote products derived from 
-      this software without specific prior written permission.
-
-    **This software is provided by the copyright holders and contributors
-    "as is" and any express or implied warranties, including, but not
-    limited to, the implied warranties of merchantability and fitness for
-    a particular purpose are disclaimed. In no event shall the copyright
-    owner or contributors be liable for any direct, indirect, incidental,
-    special, exemplary, or consequential damages (including, but not
-    limited to, procurement of substitute goods or services; loss of use,
-    data, or profits; or business interruption) however caused and on any
-    theory of liability, whether in contract, strict liability, or tort
-    (including negligence or otherwise) arising in any way out of the use
-    of this software, even if advised of the possibility of such
-    damage.**
-
-
-

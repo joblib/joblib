@@ -1,0 +1,73 @@
+/* Avoid white space above the logo */
+div.document {
+    margin-top: 0px;
+}
+div.body {
+    padding-top: 30px;
+}
+
+
+/* Main page title */
+div.body h1 {
+    text-align: center;
+    font-size: 270%;
+    color: #643200;
+}
+
+/* Secondary sections title */
+div.body h2 {
+    color: #643200;
+}
+
+/* Third sections title */
+
+div.sphinxsidebar h3 {
+    font-size: xx-large;
+}
+
+/* Python examples code block */
+div.highlight pre {
+    background-color: #f5f5f5;
+    font-size: 80%;
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+/* restyle table */
+div.body table.docutils tr{
+    background: #ccc; /* fallback if nth-child is not supported */
+}
+div.body table.docutils tr:nth-child(odd){
+    background: #f8f4ee;
+}
+div.body table.docutils tr:nth-child(even){
+    background: #fff;
+}
+div.body table.docutils td{
+    border: none;
+}
+
+/* Move the ads down in read the docs */
+div.sphinxsidebarwrapper ul:last-of-type {
+    margin-top: -10px;
+    margin-bottom: 100px;
+}
+
+/* But don't apply this to nested ul */
+div.sphinxsidebarwrapper ul ul:last-of-type {
+    margin-top: 0px;
+    margin-bottom: 20px;
+}
+
+/* Sidebar subtitle */
+p.caption {
+    font-size: x-large;
+    font-weight: 400;
+}
+
+div.body p.caption {
+    color: #643200;
+    font-size: 180%;
+    font-family: Georgia, serif;
+    font-weight: normal;
+}

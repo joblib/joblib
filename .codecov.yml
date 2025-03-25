@@ -1,0 +1,9 @@
+codecov:
+  token: 1b7eb264-fd77-469a-829a-e9cd5efd7cef
+coverage:
+  status:
+    project:
+      default:
+        # Allow coverage to drop by up to 1% in a PR before marking it as
+        # failed
+        threshold: '1%'
