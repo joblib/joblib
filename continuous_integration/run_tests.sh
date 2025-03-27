@@ -10,6 +10,10 @@ python -V
 python -c "import multiprocessing as mp; print('multiprocessing.cpu_count():', mp.cpu_count())"
 python -c "import joblib; print('joblib.cpu_count():', joblib.cpu_count())"
 
+if [[ "$PYTHON_VERSION" == free-threaded* ]]; then
+    export PYTHON_GIL=0
+fi
+
 if [[ "$SKLEARN_TESTS" != "true" ]]; then
     pytest joblib -vl --timeout=120 --cov=joblib --cov-report xml
 
