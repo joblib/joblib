@@ -3,14 +3,8 @@
 set -xe
 
 echo "Activating test environment:"
-if [[ "$PYTHON_VERSION" == free-threaded* ]]; then
-    source testenv/bin/activate
-    # This is needed because for now some C extensions have not declared their
-    # thread-safety with free-threaded Python, for example numpy and coverage.tracer
-    export PYTHON_GIL=0
-else
-    conda activate testenv
-fi
+conda activate testenv
+
 which python
 python -V
 python -c "import multiprocessing as mp; print('multiprocessing.cpu_count():', mp.cpu_count())"
