@@ -11,6 +11,8 @@ python -c "import multiprocessing as mp; print('multiprocessing.cpu_count():', m
 python -c "import joblib; print('joblib.cpu_count():', joblib.cpu_count())"
 
 if [[ "$PYTHON_VERSION" == free-threaded* ]]; then
+    # This is needed because for now some C extensions have not declared their
+    # thread-safety with free-threaded Python, for example numpy and coverage.tracer
     export PYTHON_GIL=0
 fi
 
