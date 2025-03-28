@@ -5,16 +5,16 @@ set -xe
 echo "Activating test environment:"
 conda activate testenv
 
-which python
-python -V
-python -c "import multiprocessing as mp; print('multiprocessing.cpu_count():', mp.cpu_count())"
-python -c "import joblib; print('joblib.cpu_count():', joblib.cpu_count())"
-
 if [[ "$PYTHON_VERSION" == free-threaded* ]]; then
     # This is needed because for now some C extensions have not declared their
     # thread-safety with free-threaded Python, for example numpy and coverage.tracer
     export PYTHON_GIL=0
 fi
+
+which python
+python -V
+python -c "import multiprocessing as mp; print('multiprocessing.cpu_count():', mp.cpu_count())"
+python -c "import joblib; print('joblib.cpu_count():', joblib.cpu_count())"
 
 if [[ "$SKLEARN_TESTS" != "true" ]]; then
     pytest joblib -vl --timeout=120 --cov=joblib --cov-report xml
