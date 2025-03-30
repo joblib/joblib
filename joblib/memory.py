@@ -696,7 +696,10 @@ class MemorizedFunc(Logger):
         args_hashes = {k: hash_fn(v) for k, v in args_dict.items()}
         if self._verbose > 50:
             import pprint
-            self.info(pprint.pformat(args_hashes))
+            info_str = ""
+            for k, hashval_ in args_hashes.items():
+                info_str += f"arg : {k}\nstr : {args_dict[k]}\nhash: {hashval_[:8]}\n\n"
+            self.info(info_str)
         return hashing.hash_any(''.join(list(args_hashes.values())))
 
     def _get_output_identifiers(self, *args, **kwargs):
