@@ -421,7 +421,8 @@ def test_parallel_pickling():
 @with_numpy
 @with_multiprocessing
 @parametrize("byteorder", ["<", ">", "="])
-def test_parallel_byteorder_corruption(byteorder):
+@parametrize("max_nbytes", [1, "1M"])
+def test_parallel_byteorder_corruption(byteorder, max_nbytes):
     def inspect_byteorder(x):
         return x, x.dtype.byteorder
 
@@ -429,7 +430,7 @@ def test_parallel_byteorder_corruption(byteorder):
 
     initial_np_byteorder = x.dtype.byteorder
 
-    result = Parallel(n_jobs=2, backend="loky")(
+    result = Parallel(n_jobs=2, backend="loky", max_nbytes=max_nbytes)(
         delayed(inspect_byteorder)(x) for _ in range(3)
     )
 

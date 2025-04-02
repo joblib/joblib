@@ -347,6 +347,46 @@ def test_compressed_pickle_dump_and_load(tmpdir):
             assert result == expected
 
 
+@with_numpy
+def test_memmap_load(tmpdir):
+    little_endian_dtype = np.dtype("<i8")
+    big_endian_dtype = np.dtype(">i8")
+    all_dtypes = (little_endian_dtype, big_endian_dtype)
+
+    le_array = np.arange(5, dtype=little_endian_dtype)
+    be_array = np.arange(5, dtype=big_endian_dtype)
+
+    fname = tmpdir.join("temp.pkl").strpath
+
+    numpy_pickle.dump([le_array, be_array], fname)
+
+    le_array_native_load, be_array_native_load = numpy_pickle.load(
+        fname, ensure_native_byte_order=True
+    )
+
+    assert le_array_native_load.dtype == be_array_native_load.dtype
+    assert le_array_native_load.dtype in all_dtypes
+
+    le_array_nonnative_load, be_array_nonnative_load = numpy_pickle.load(
+        fname, ensure_native_byte_order=False
+    )
+
+    assert le_array_nonnative_load.dtype == le_array.dtype
+    assert be_array_nonnative_load.dtype == be_array.dtype
+
+
+def test_invalid_parameters_raise():
+    expected_msg = (
+        "Native byte ordering can only be enforced if 'mmap_mode' parameter "
+        "is set to None, but got 'mmap_mode=r+' instead."
+    )
+
+    with raises(ValueError, match=re.escape(expected_msg)):
+        numpy_pickle.load(
+            "/path/to/some/dump.pkl", ensure_native_byte_order=True, mmap_mode="r+"
+        )
+
+
 def _check_pickle(filename, expected_list, mmap_mode=None):
     """Helper function to test joblib pickle content.
 

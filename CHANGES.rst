@@ -56,6 +56,18 @@ Maintenance:
   the warnings that are emitted in this case.
   https://github.com/joblib/joblib/pull/1681
 
+- Fix a regression in 1.3 and 1.4 that caused large big endian arrays to trigger
+  a serialization error. https://github.com/joblib/joblib/issues/1545
+
+- Added a ``ensure_native_byte_order`` parameter to ``joblib.load``. When
+  ``True`` and ``mmap_mode`` is ``None``, loaded arrays are automatically coerced
+  to a byte order that matches the endianness of the host system. This behavior
+  has been the default since ``joblib==1.3``, and can now be disabled if the
+  parameter is set to ``False`` instead. Note that setting it to ``True`` will
+  raise an error if ``mmap_mode`` is not null. The default value ``'auto'`` is
+  equivalent to always setting ``True`` if ``mmap_mode`` is ``None``, else always
+  ``False``.  https://github.com/joblib/joblib/pull/1561
+
 - Fix support for python 3.14 in ``hashing``, with the addition of
   an extra argument in ``Pickler._batch_setitems``.
   https://github.com/joblib/joblib/pull/1688
@@ -66,7 +78,6 @@ Maintenance:
 - Bump vendored loky to 3.5.1 to support recent Python versions without raising
   the warning on calls to `os.fork` and fix various sources of crashes and
   deadlocks.
-
 
 
 Release 1.4.2 -- 2024/05/02
