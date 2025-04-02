@@ -12,7 +12,8 @@ if [[ "$PYTHON_VERSION" == free-threaded* ]]; then
 fi
 
 which python
-python -V
+# Show python version and build information (e.g. free-threaded or not)
+python -VV
 python -c "import multiprocessing as mp; print('multiprocessing.cpu_count():', mp.cpu_count())"
 python -c "import joblib; print('joblib.cpu_count():', joblib.cpu_count())"
 
