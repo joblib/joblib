@@ -129,8 +129,20 @@ The context manager allow to set various backend parameters:
   of the backend. See :ref:`auto_memmapping_doc` for more details.
 
 Extra arguments passed in the :func:`~joblib.parallel_config` context are
-passed to the backend constructor, giving the possibility to set up the
-backend with additional parameters.
+passed to the backend constructor, allowing additional parameters to be set up:
+
+- ``LokyBackend``
+    - ``initializer``, ``initargs``: setup function and its arguments to call
+      in each worker process.
+    - ``idle_worker_timeout``: timeout in seconds for a worker to wait
+      for a new task before being clean up. The default is `300 s`.
+- ``MultprocessingBackend``
+    - ``initializer``, ``initargs``: setup function and its arguments to call
+      in each worker process.
+    - ``maxtasksperchild``: maximum number of tasks a worker can
+      execute before being replace with a fresh one.
+    - ``context``: specify the start method to use for creating new worker
+      processes.
 
 In addition to the builtin joblib backends, there are several cluster-specific
 backends you can use:
