@@ -1241,3 +1241,19 @@ def test_direct_mmap(tmpdir):
 
     results = Parallel(n_jobs=2)(delayed(worker)() for _ in range(1))
     np.testing.assert_array_equal(results[0], arr)
+
+
+def test__reduce_memmap_backed(tmpdir):
+    testfile = str(tmpdir.join("arr.dat"))
+    a = np.arange(10, dtype="uint8")
+    a.tofile(testfile)
+
+    m = np.memmap(testfile, dtype="uint8")
+    a = m.reshape(2, 5)
+
+    reconstruct, args = jmr._reduce_memmap_backed(a, m)
+    reconstructed = reconstruct(*args)
+    assert (reconstructed == a).all()
+
+
+# TODO Add test with parallel as well
