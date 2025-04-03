@@ -462,8 +462,8 @@ keys:
   - ``input_args``: a dictionary of keywords arguments for the cached function call.
 
 Note a validity duration for cached results can be defined via
-:func:`joblib.expires_after` by providing similar with arguments similar to the
-ones of a ``datetime.timedelta``:
+:func:`joblib.expires_after` by providing arguments similar to the ones of a
+``datetime.timedelta``:
 
     >>> from joblib import expires_after
     >>> @memory.cache(cache_validation_callback=expires_after(seconds=0.5))
