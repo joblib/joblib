@@ -305,7 +305,7 @@ def _reduce_memmap_backed(a, m):
     # offset from the backing memmap
     offset += m.offset
 
-    if m.flags["F_CONTIGUOUS"]:
+    if m.flags["F_CONTIGUOUS"] and m.ndim > 1:
         order = "F"
     else:
         # The backing memmap buffer is necessarily contiguous hence C if not

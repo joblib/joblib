@@ -101,6 +101,10 @@ def test_memmap_based_array_reducing(tmpdir):
     # b is an memmap sliced view on an memmap instance
     b = a[1:-1, 2:-1, 2:4]
 
+    # b2 is a memmap 2d with memmap 1d as base
+    # non-regression test for https://github.com/joblib/joblib/issues/1703
+    b2 = buffer.reshape(10, 50)
+
     # c and d are array views
     c = np.asarray(b)
     d = c.T
@@ -122,6 +126,11 @@ def test_memmap_based_array_reducing(tmpdir):
     b_reconstructed = reconstruct_array_or_memmap(b)
     assert has_shareable_memory(b_reconstructed)
     assert_array_equal(b_reconstructed, b)
+
+    # Reconstruct memmap 2d with memmap 1d as base
+    b2_reconstructed = reconstruct_array_or_memmap(b2)
+    assert has_shareable_memory(b2_reconstructed)
+    assert_array_equal(b2_reconstructed, b2)
 
     # Reconstruct arrays views on memmap base
     c_reconstructed = reconstruct_array_or_memmap(c)
@@ -1222,6 +1231,38 @@ def test_direct_mmap(tmpdir):
         with open(testfile) as fd:
             mm = mmap.mmap(fd.fileno(), 0, access=mmap.ACCESS_READ, offset=0)
         return np.ndarray((10,), dtype=np.uint8, buffer=mm, offset=0)
+
+    def func(x):
+        return x**2
+
+    arr = _read_array()
+
+    # this is expected to work and gives the reference
+    ref = Parallel(n_jobs=2)(delayed(func)(x) for x in [a])
+
+    # now test that it work with the mmap array
+    results = Parallel(n_jobs=2)(delayed(func)(x) for x in [arr])
+    np.testing.assert_array_equal(results, ref)
+
+    # also test with a mmap array read in the subprocess
+    def worker():
+        return _read_array()
+
+    results = Parallel(n_jobs=2)(delayed(worker)() for _ in range(1))
+    np.testing.assert_array_equal(results[0], arr)
+
+
+@with_numpy
+@with_multiprocessing
+def test_parallel_memmap2d_as_memmap_1d_base(tmpdir):
+    # non-regression test for https://github.com/joblib/joblib/issues/1703
+    testfile = str(tmpdir.join("arr2.dat"))
+    a = np.arange(10, dtype="uint8").reshape(5, 2)
+    a.tofile(testfile)
+
+    def _read_array():
+        mm = np.memmap(testfile)
+        return mm.reshape(5, 2)
 
     def func(x):
         return x**2
