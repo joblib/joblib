@@ -102,6 +102,7 @@ def test_memmap_based_array_reducing(tmpdir):
     b = a[1:-1, 2:-1, 2:4]
 
     # b2 is a memmap 2d with memmap 1d as base
+    # non-regression test for https://github.com/joblib/joblib/issues/1703
     b2 = buffer.reshape(10, 50)
 
     # c and d are array views
@@ -1251,4 +1252,33 @@ def test_direct_mmap(tmpdir):
     np.testing.assert_array_equal(results[0], arr)
 
 
-# TODO Add test with parallel as well
+@with_numpy
+@with_multiprocessing
+def test_parallel_memmap2d_as_memmap_1d_base(tmpdir):
+    # non-regression test for https://github.com/joblib/joblib/issues/1703
+    testfile = str(tmpdir.join("arr2.dat"))
+    a = np.arange(10, dtype="uint8").reshape(5, 2)
+    a.tofile(testfile)
+
+    def _read_array():
+        mm = np.memmap(testfile)
+        return mm.reshape(5, 2)
+
+    def func(x):
+        return x**2
+
+    arr = _read_array()
+
+    # this is expected to work and gives the reference
+    ref = Parallel(n_jobs=2)(delayed(func)(x) for x in [a])
+
+    # now test that it work with the mmap array
+    results = Parallel(n_jobs=2)(delayed(func)(x) for x in [arr])
+    np.testing.assert_array_equal(results, ref)
+
+    # also test with a mmap array read in the subprocess
+    def worker():
+        return _read_array()
+
+    results = Parallel(n_jobs=2)(delayed(worker)() for _ in range(1))
+    np.testing.assert_array_equal(results[0], arr)
