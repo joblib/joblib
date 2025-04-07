@@ -2155,8 +2155,10 @@ def test_initializer(n_jobs, backend, context):
 @with_multiprocessing
 @pytest.mark.parametrize("n_jobs", [2, 4, -1])
 def test_initializer_reuse(n_jobs):
-    # test that the initializer is called only once
-    # when the executor is reused
+    # Check that it is possible to pass initializer config via the `Parallel`
+    # call directly. Each parallel call set its own initializer args,
+    # independently of the previous calls, hence the loky workers are not
+    # reused.
     n_jobs = effective_n_jobs(n_jobs)
     manager = mp.Manager()
 
