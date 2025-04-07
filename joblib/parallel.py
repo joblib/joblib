@@ -1083,7 +1083,7 @@ class Parallel(Logger):
         https://numpy.org/doc/stable/reference/generated/numpy.memmap.html
         Also, see 'max_nbytes' parameter documentation for more details.
     backend_kwargs: dict, optional
-        Additional parameters to pass to the backend config method.
+        Additional parameters to pass to the backend `configure` method.
 
     Notes
     -----
