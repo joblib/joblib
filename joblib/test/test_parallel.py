@@ -2124,9 +2124,14 @@ def _set_initialized(initialized):
     initialized[os.getpid()] = True
 
 
-def _check_initialized(initialized):
-    time.sleep(0.01)
-    return initialized.get(os.getpid(), False)
+def _check_initialized(initialized, n_jobs):
+    # wait up to 5 seconds for the workers to be initialized
+    deadline = time.time() + 5
+    while time.time() < deadline and len(initialized) < n_jobs:
+        time.sleep(0.1)
+
+    pid = os.getpid()
+    return initialized.get(pid, False), pid
 
 
 @with_multiprocessing
@@ -2138,6 +2143,7 @@ def test_initializer(n_jobs, backend, context):
     manager = mp.Manager()
     initialized = manager.dict()
 
+    # pass the initializer to the backend context
     with context(
         backend=backend,
         n_jobs=n_jobs,
@@ -2145,31 +2151,68 @@ def test_initializer(n_jobs, backend, context):
         initargs=(initialized,),
     ):
         with Parallel() as parallel:
-            result = parallel(
-                delayed(_check_initialized)(initialized) for i in range(n_jobs)
+            results = parallel(
+                delayed(_check_initialized)(initialized, n_jobs) for i in range(n_jobs)
             )
 
-        assert all(result)
+        assert all(v for v, _ in results)
+
+    # pass the initializer directly to the Parallel call
+    results = Parallel(
+        backend=backend,
+        n_jobs=n_jobs,
+        initializer=_set_initialized,
+        initargs=(initialized,),
+    )(delayed(_check_initialized)(initialized, n_jobs) for i in range(n_jobs))
+    assert all(v for v, _ in results)
 
 
 @with_multiprocessing
 @pytest.mark.parametrize("n_jobs", [2, 4, -1])
 def test_initializer_reuse(n_jobs):
     # Check that it is possible to pass initializer config via the `Parallel`
-    # call directly. Each parallel call set its own initializer args,
-    # independently of the previous calls, hence the loky workers are not
-    # reused.
+    # call directly and the worker are reused when the arguments are the same.
+    n_repetitions = 3
+    n_jobs = effective_n_jobs(n_jobs)
+    manager = mp.Manager()
+    initialized = manager.dict()
+
+    pids = set()
+    for i in range(n_repetitions):
+        results = Parallel(
+                backend="loky",
+                n_jobs=n_jobs,
+                initializer=_set_initialized,
+                initargs=(initialized,),
+            )(delayed(_check_initialized)(initialized, n_jobs) for i in range(n_jobs))
+        assert all(v for v, _ in results)
+        pids = pids.union(set(pid for _, pid in results))
+    assert len(pids) == n_jobs, (
+        "The workers should be reused when the initializer is the same"
+    )
+
+
+@with_multiprocessing
+@pytest.mark.parametrize("n_jobs", [2, 4, -1])
+def test_initializer_not_reuse(n_jobs):
+    # Check that when changing the initializer arguments, each parallel call uses its
+    # own initializer args, independently of the previous calls, hence the loky workers
+    # are not reused.
+    n_repetitions = 3
     n_jobs = effective_n_jobs(n_jobs)
     manager = mp.Manager()
 
-    def parallel_call(n_jobs):
+    pids = set()
+    for i in range(n_repetitions):
         initialized = manager.dict()
-        return Parallel(
-            backend="loky",
-            n_jobs=n_jobs,
-            initializer=_set_initialized,
-            initargs=(initialized,),
-        )(delayed(_check_initialized)(initialized) for i in range(n_jobs))
-
-    for i in range(3):
-        assert all(parallel_call(n_jobs))
+        results = Parallel(
+                backend="loky",
+                n_jobs=n_jobs,
+                initializer=_set_initialized,
+                initargs=(initialized,),
+            )(delayed(_check_initialized)(initialized, n_jobs) for i in range(n_jobs))
+        assert all(v for v, _ in results)
+        pids = pids.union(set(pid for _, pid in results))
+    assert len(pids) == n_repetitions * n_jobs, (
+        "The workers should not be reused when the initializer arguments change"
+    )
