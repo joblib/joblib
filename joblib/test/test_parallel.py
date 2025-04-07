@@ -2180,11 +2180,11 @@ def test_initializer_reuse(n_jobs):
     pids = set()
     for i in range(n_repetitions):
         results = Parallel(
-                backend="loky",
-                n_jobs=n_jobs,
-                initializer=_set_initialized,
-                initargs=(initialized,),
-            )(delayed(_check_initialized)(initialized, n_jobs) for i in range(n_jobs))
+            backend="loky",
+            n_jobs=n_jobs,
+            initializer=_set_initialized,
+            initargs=(initialized,),
+        )(delayed(_check_initialized)(initialized, n_jobs) for i in range(n_jobs))
         assert all(v for v, _ in results)
         pids = pids.union(set(pid for _, pid in results))
     assert len(pids) == n_jobs, (
@@ -2206,11 +2206,11 @@ def test_initializer_not_reuse(n_jobs):
     for i in range(n_repetitions):
         initialized = manager.dict()
         results = Parallel(
-                backend="loky",
-                n_jobs=n_jobs,
-                initializer=_set_initialized,
-                initargs=(initialized,),
-            )(delayed(_check_initialized)(initialized, n_jobs) for i in range(n_jobs))
+            backend="loky",
+            n_jobs=n_jobs,
+            initializer=_set_initialized,
+            initargs=(initialized,),
+        )(delayed(_check_initialized)(initialized, n_jobs) for i in range(n_jobs))
         assert all(v for v, _ in results)
         pids = pids.union(set(pid for _, pid in results))
     assert len(pids) == n_repetitions * n_jobs, (
