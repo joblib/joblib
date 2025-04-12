@@ -1237,25 +1237,23 @@ def test_direct_mmap(tmpdir):
 
     arr = _read_array()
 
-    # this is expected to work and gives the reference
+    # this gives the reference result of the function with an array
     ref = Parallel(n_jobs=2)(delayed(func)(x) for x in [a])
 
-    # now test that it work with the mmap array
+    # now test that it works with the mmap array
     results = Parallel(n_jobs=2)(delayed(func)(x) for x in [arr])
     np.testing.assert_array_equal(results, ref)
 
-    # also test with a mmap array read in the subprocess
-    def worker():
-        return _read_array()
-
-    results = Parallel(n_jobs=2)(delayed(worker)() for _ in range(1))
+    # also test that a mmap array read in the subprocess is correctly returned
+    results = Parallel(n_jobs=2)(delayed(_read_array)() for _ in range(1))
     np.testing.assert_array_equal(results[0], arr)
 
 
 @with_numpy
 @with_multiprocessing
 def test_parallel_memmap2d_as_memmap_1d_base(tmpdir):
-    # non-regression test for https://github.com/joblib/joblib/issues/1703
+    # non-regression test for https://github.com/joblib/joblib/issues/1703,
+    # where 2D arrays backed by 1D memmap had un-wanted order changes.
     testfile = str(tmpdir.join("arr2.dat"))
     a = np.arange(10, dtype="uint8").reshape(5, 2)
     a.tofile(testfile)
@@ -1269,16 +1267,14 @@ def test_parallel_memmap2d_as_memmap_1d_base(tmpdir):
 
     arr = _read_array()
 
-    # this is expected to work and gives the reference
+    # this gives the reference result of the function with an array
     ref = Parallel(n_jobs=2)(delayed(func)(x) for x in [a])
 
-    # now test that it work with the mmap array
+    # now test that it works with a view on a 1D mmap array
     results = Parallel(n_jobs=2)(delayed(func)(x) for x in [arr])
+    assert not results[0].flags["F_CONTIGUOUS"]
     np.testing.assert_array_equal(results, ref)
 
-    # also test with a mmap array read in the subprocess
-    def worker():
-        return _read_array()
-
-    results = Parallel(n_jobs=2)(delayed(worker)() for _ in range(1))
-    np.testing.assert_array_equal(results[0], arr)
+    # also test that returned memmap arrays are correctly ordered
+    results = Parallel(n_jobs=2)(delayed(_read_array)() for _ in range(1))
+    np.testing.assert_array_equal(results[0], a)
