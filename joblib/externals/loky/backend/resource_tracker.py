@@ -40,8 +40,8 @@
 
 import os
 import shutil
-import sys
 import signal
+import sys
 import warnings
 from _multiprocessing import sem_unlink
 from multiprocessing import util
@@ -171,6 +171,14 @@ class ResourceTracker(_ResourceTracker):
                 else:
                     os.close(r)
 
+    def __del__(self):
+        """Hotfix following the recent release of this upstream patch:
+        https://github.com/python/cpython/commit/f53e7de6a84a0f535efb75c3671283b801a1af0f
+        to suppress a ChildProcessError arising in loky.
+        See relevant issues
+        https://github.com/joblib/joblib/issues/1708 and
+        https://github.com/python/cpython/issues/88887
+        """
 
 _resource_tracker = ResourceTracker()
 ensure_running = _resource_tracker.ensure_running
