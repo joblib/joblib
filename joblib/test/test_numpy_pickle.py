@@ -419,7 +419,11 @@ def _check_pickle(filename, expected_list, mmap_mode=None):
             expected_nb_warnings = (
                 expected_nb_deprecation_warnings + expected_nb_user_warnings
             )
-            assert len(warninfo) == expected_nb_warnings
+            assert len(warninfo) == expected_nb_warnings, (
+                "Did not get the expected number of warnings. Expected "
+                f"{expected_nb_warnings} but got wargnings: "
+                f"{[w.message for w in warninfo]}"
+            )
 
             deprecation_warnings = [
                 w for w in warninfo if issubclass(w.category, DeprecationWarning)
