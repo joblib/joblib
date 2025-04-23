@@ -56,7 +56,7 @@ jobs:
             SKLEARN_TESTS: "true"
           - name: distributed-latest
             os: ubuntu-latest
-            PYTHON_VERSION: "3.10"
+            PYTHON_VERSION: "3.12"
             EXTRA_CONDA_PACKAGES: numpy distributed
           - name: distributed
             os: ubuntu-latest
