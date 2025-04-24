@@ -421,7 +421,7 @@ def _check_pickle(filename, expected_list, mmap_mode=None):
             )
             assert len(warninfo) == expected_nb_warnings, (
                 "Did not get the expected number of warnings. Expected "
-                f"{expected_nb_warnings} but got wargnings: "
+                f"{expected_nb_warnings} but got warnings: "
                 f"{[w.message for w in warninfo]}"
             )
 

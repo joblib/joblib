@@ -38,6 +38,7 @@ from .numpy_pickle_utils import (
     Unpickler,
     _ensure_native_byte_order,
     _read_bytes,
+    _reconstruct,
     _validate_fileobject_and_memmap,
     _write_fileobject,
 )
@@ -288,9 +289,7 @@ class NumpyArrayWrapper(object):
             unpickler.np.memmap,
         ):
             # We need to reconstruct another subclass
-            new_array = unpickler.np.core.multiarray._reconstruct(
-                self.subclass, (0,), "b"
-            )
+            new_array = _reconstruct(self.subclass, (0,), "b")
             return new_array.__array_prepare__(array)
         else:
             return array
