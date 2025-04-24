@@ -47,15 +47,15 @@ jobs:
       fail-fast: false
       matrix:
         name: [default]
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-22.04, macos-latest, windows-latest]
         PYTHON_VERSION: ["3.9", "3.10", "3.11", "3.12", "3.13"]
         include:
           - name: test-sklearn
-            os: ubuntu-latest
+            os: ubuntu-22.04
             PYTHON_VERSION: "3.10"
             SKLEARN_TESTS: "true"
           - name: distributed-latest
-            os: ubuntu-latest
+            os: ubuntu-22.04
             PYTHON_VERSION: "3.10"
             EXTRA_CONDA_PACKAGES: numpy distributed
           - name: distributed
@@ -78,15 +78,15 @@ jobs:
             PYTHON_VERSION: "3.9"
             NO_NUMPY: true
           - name: no-lz4
-            os: ubuntu-latest
+            os: ubuntu-22.04
             PYTHON_VERSION: "3.10"
             NO_LZ4: true
           - name: default-backend-threading
-            os: ubuntu-latest
+            os: ubuntu-22.04
             PYTHON_VERSION: "3.9"
             JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND: "threading"
           - name: python-free-threaded
-            os: 'ubuntu-latest'
+            os: 'ubuntu-22.04'
             PYTHON_VERSION: "free-threaded-3.13"
 
     env: ${{ matrix }}
