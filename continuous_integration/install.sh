@@ -15,7 +15,7 @@ create_new_conda_env() {
         PYTHON_VERSION=${PYTHON_VERSION/free-threaded-/}
         EXTRA_CONDA_PACKAGES="python-freethreading $EXTRA_CONDA_PACKAGES"
     fi
-    to_install="python=$PYTHON_VERSION pip pytest $EXTRA_CONDA_PACKAGES binutils"
+    to_install="python=$PYTHON_VERSION pip pytest $EXTRA_CONDA_PACKAGES binutils=2.40"
     conda create -n testenv --yes -c conda-forge $to_install
     conda activate testenv
 }
