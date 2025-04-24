@@ -284,8 +284,8 @@ def _reconstruct(*args, **kwargs):
 
     np_major_version = np.__version__[:2]
     if np_major_version == "1.":
-        from numpy.core.multiarray import np_reconstruct
+        from numpy.core.multiarray import _reconstruct as np_reconstruct
     elif np_major_version == "2.":
-        from numpy._core.multiarray import np_reconstruct
+        from numpy._core.multiarray import _reconstruct as np_reconstruct
 
     return np_reconstruct(*args, **kwargs)
