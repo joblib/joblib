@@ -38,6 +38,7 @@ from .numpy_pickle_utils import (
     Unpickler,
     _ensure_native_byte_order,
     _read_bytes,
+    _reconstruct,
     _validate_fileobject_and_memmap,
     _write_fileobject,
 )
@@ -288,7 +289,7 @@ class NumpyArrayWrapper(object):
             unpickler.np.memmap,
         ):
             # We need to reconstruct another subclass
-            new_array = unpickler._reconstruct(self.subclass, (0,), "b")
+            new_array = _reconstruct(self.subclass, (0,), "b")
             return new_array.__array_prepare__(array)
         else:
             return array
@@ -328,13 +329,6 @@ class NumpyPickler(Pickler):
         # delayed import of numpy, to avoid tight coupling
         try:
             import numpy as np
-
-            np_major_version = np.__version__[:2]
-            if np_major_version == "1.":
-                from numpy.core.multiarray import _reconstruct
-            elif np_major_version == "2.":
-                from numpy._core.multiarray import _reconstruct
-            self._reconstruct = _reconstruct
         except ImportError:
             np = None
         self.np = np
@@ -437,13 +431,6 @@ class NumpyUnpickler(Unpickler):
         Unpickler.__init__(self, self.file_handle)
         try:
             import numpy as np
-
-            np_major_version = np.__version__[:2]
-            if np_major_version == "1.":
-                from numpy.core.multiarray import _reconstruct
-            elif np_major_version == "2.":
-                from numpy._core.multiarray import _reconstruct
-            self._reconstruct = _reconstruct
         except ImportError:
             np = None
         self.np = np
