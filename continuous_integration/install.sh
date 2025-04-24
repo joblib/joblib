@@ -9,6 +9,10 @@
 
 set -xe
 
+if [[ "$RUNNER_VERSION" == *"ubuntu"* ]]; then
+    apt-get install "binutils=2.42-4ubuntu2.4"
+fi
+
 create_new_conda_env() {
     conda config --set solver libmamba
     if [[ "$PYTHON_VERSION" == free-threaded* ]]; then
