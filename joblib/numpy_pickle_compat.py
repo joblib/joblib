@@ -115,9 +115,7 @@ class NDArrayWrapper(object):
             unpickler.np.memmap,
         ):
             # We need to reconstruct another subclass
-            new_array = unpickler._reconstruct(
-                self.subclass, (0,), "b"
-            )
+            new_array = unpickler._reconstruct(self.subclass, (0,), "b")
             return new_array.__array_prepare__(array)
         else:
             return array
@@ -171,6 +169,7 @@ class ZipNumpyUnpickler(Unpickler):
         Unpickler.__init__(self, self.file_handle)
         try:
             import numpy as np
+
             np_major_version = np.__version__[:2]
             if np_major_version == "1.":
                 from numpy.core.multiarray import _reconstruct
