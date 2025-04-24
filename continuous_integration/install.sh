@@ -9,18 +9,13 @@
 
 set -xe
 
-if [[ "$RUNNER_VERSION" == *"ubuntu"* ]]; then
-    sudo apt-get update
-    sudo apt-get install "binutils=2.42-4ubuntu2.4"
-fi
-
 create_new_conda_env() {
     conda config --set solver libmamba
     if [[ "$PYTHON_VERSION" == free-threaded* ]]; then
         PYTHON_VERSION=${PYTHON_VERSION/free-threaded-/}
         EXTRA_CONDA_PACKAGES="python-freethreading $EXTRA_CONDA_PACKAGES"
     fi
-    to_install="python=$PYTHON_VERSION pip pytest $EXTRA_CONDA_PACKAGES"
+    to_install="python=$PYTHON_VERSION pip pytest $EXTRA_CONDA_PACKAGES binutils"
     conda create -n testenv --yes -c conda-forge $to_install
     conda activate testenv
 }

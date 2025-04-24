@@ -114,8 +114,6 @@ jobs:
       - name: Install dependencies
         run: |
           bash -el continuous_integration/install.sh
-        env:
-          RUNNER_VERSION: ${{ matrix.os }}
 
       - name: Run tests
         run: |
