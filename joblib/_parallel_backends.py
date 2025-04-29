@@ -29,9 +29,14 @@ if mp is not None:
 class ParallelBackendBase(metaclass=ABCMeta):
     """Helper abc which defines all methods a ParallelBackend must implement"""
 
-    supports_inner_max_num_threads = False
-    supports_retrieve_callback = False
     default_n_jobs = 1
+
+    supports_inner_max_num_threads = False
+
+    # This flag was introduced for backward compatibility reasons.
+    # New backends should always set it to True and implement the
+    # `retrieve_result_callback` method.
+    supports_retrieve_callback = False
 
     @property
     def supports_return_generator(self):
@@ -43,10 +48,13 @@ class ParallelBackendBase(metaclass=ABCMeta):
 
     nesting_level = None
 
-    def __init__(self, nesting_level=None, inner_max_num_threads=None, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(
+        self, nesting_level=None, inner_max_num_threads=None, **backend_kwargs
+    ):
+        super().__init__()
         self.nesting_level = nesting_level
         self.inner_max_num_threads = inner_max_num_threads
+        self.backend_kwargs = backend_kwargs
 
     MAX_NUM_THREADS_VARS = [
         "OMP_NUM_THREADS",
@@ -78,20 +86,76 @@ class ParallelBackendBase(metaclass=ABCMeta):
         as long as all the workers have enough work to do.
         """
 
-    @abstractmethod
     def apply_async(self, func, callback=None):
-        """Schedule a func to be run"""
+        """Deprecated: implement `submit` instead."""
+        raise NotImplementedError("Implement `submit` instead.")
+
+    def submit(self, func, callback=None):
+        """Schedule a function to be run and return a future-like object.
+
+        This method should return a future-like object that allow tracking
+        the progress of the task.
+
+        If ``supports_retrieve_callback`` is False, the return value of this
+        method is passed to ``retrieve_result`` instead of calling
+        ``retrieve_result_callback``.
+
+        Parameters
+        ----------
+        func: callable
+            The function to be run in parallel.
+
+        callback: callable
+            A callable that will be called when the task is completed. This callable
+            is a wrapper around ``retrieve_result_callback``. This should be added
+            to the future-like object returned by this method, so that the callback
+            is called when the task is completed.
+
+            For future-like backends, this can be achieved with something like
+            ``future.add_done_callback(callback)``.
+
+        Returns
+        -------
+        future: future-like
+            A future-like object to track the execution of the submitted function.
+        """
+        warnings.warn(
+            "`apply_async` is deprecated, implement and use `submit` instead.",
+            DeprecationWarning,
+        )
+        return self.apply_async(func, callback)
 
     def retrieve_result_callback(self, out):
-        """Called within the callback function passed in apply_async.
+        """Called within the callback function passed to `submit`.
 
-        The argument of this function is the argument given to a callback in
-        the considered backend. It is supposed to return the outcome of a task
-        if it succeeded or raise the exception if it failed.
+        This method can customise how the result of the function is retrieved
+        from the future-like object.
+
+        Parameters
+        ----------
+        future: future-like
+            The future-like object returned by the `submit` method.
+
+        Returns
+        -------
+        result: object
+            The result of the function executed in parallel.
         """
 
+    def retrieve_result(self, out, timeout=None):
+        """Hook to retrieve the result when support_retrieve_callback=False.
+
+        The argument `out` is the result of the `submit` call. This method
+        should return the result of the computation or raise an exception if
+        the computation failed.
+        """
+        if self.supports_timeout:
+            return out.get(timeout=timeout)
+        else:
+            return out.get()
+
     def configure(
-        self, n_jobs=1, parallel=None, prefer=None, require=None, **backend_args
+        self, n_jobs=1, parallel=None, prefer=None, require=None, **backend_kwargs
     ):
         """Reconfigure the backend and return the number of workers.
 
@@ -116,10 +180,6 @@ class ParallelBackendBase(metaclass=ABCMeta):
 
     def batch_completed(self, batch_size, duration):
         """Callback indicate how long it took to run a batch"""
-
-    def get_exceptions(self):
-        """List of exception types to be captured."""
-        return []
 
     def abort_everything(self, ensure_ready=True):
         """Abort any running tasks
@@ -158,23 +218,6 @@ class ParallelBackendBase(metaclass=ABCMeta):
         else:
             return ThreadingBackend(nesting_level=nesting_level), None
 
-    @contextlib.contextmanager
-    def retrieval_context(self):
-        """Context manager to manage an execution context.
-
-        Calls to Parallel.retrieve will be made inside this context.
-
-        By default, this does nothing. It may be useful for subclasses to
-        handle nested parallelism. In particular, it may be required to avoid
-        deadlocks if a backend manages a fixed number of workers, when those
-        workers may be asked to do nested Parallel calls. Without
-        'retrieval_context' this could lead to deadlock, as all the workers
-        managed by the backend may be "busy" waiting for the nested parallel
-        calls to finish, but the backend has no free workers to execute those
-        tasks.
-        """
-        yield
-
     def _prepare_worker_env(self, n_jobs):
         """Return environment variables limiting threadpools in external libs.
 
@@ -204,6 +247,23 @@ class ParallelBackendBase(metaclass=ABCMeta):
             env[self.TBB_ENABLE_IPC_VAR] = "1"
         return env
 
+    @contextlib.contextmanager
+    def retrieval_context(self):
+        """Context manager to manage an execution context.
+
+        Calls to Parallel.retrieve will be made inside this context.
+
+        By default, this does nothing. It may be useful for subclasses to
+        handle nested parallelism. In particular, it may be required to avoid
+        deadlocks if a backend manages a fixed number of workers, when those
+        workers may be asked to do nested Parallel calls. Without
+        'retrieval_context' this could lead to deadlock, as all the workers
+        managed by the backend may be "busy" waiting for the nested parallel
+        calls to finish, but the backend has no free workers to execute those
+        tasks.
+        """
+        yield
+
     @staticmethod
     def in_main_thread():
         return isinstance(threading.current_thread(), threading._MainThread)
@@ -227,7 +287,7 @@ class SequentialBackend(ParallelBackendBase):
             raise ValueError("n_jobs == 0 in Parallel has no meaning")
         return 1
 
-    def apply_async(self, func, callback=None):
+    def submit(self, func, callback=None):
         """Schedule a func to be run"""
         raise RuntimeError("Should never be called for SequentialBackend.")
 
@@ -268,10 +328,10 @@ class PoolManagerMixin(object):
             self._pool = None
 
     def _get_pool(self):
-        """Used by apply_async to make it possible to implement lazy init"""
+        """Used by `submit` to make it possible to implement lazy init"""
         return self._pool
 
-    def apply_async(self, func, callback=None):
+    def submit(self, func, callback=None):
         """Schedule a func to be run"""
         # Here, we need a wrapper to avoid crashes on KeyboardInterruptErrors.
         # We also call the callback on error, to make sure the pool does not
@@ -283,9 +343,13 @@ class PoolManagerMixin(object):
             error_callback=callback,
         )
 
-    def retrieve_result_callback(self, out):
+    def retrieve_result_callback(self, result):
         """Mimic concurrent.futures results, raising an error if needed."""
-        return _retrieve_traceback_capturing_wrapped_call(out)
+        # In the multiprocessing Pool API, the callback are called with the
+        # result value as an argument so `result`(`out`) is the output of
+        # job.get(). It's either the result or the exception raised while
+        # collecting the result.
+        return _retrieve_traceback_capturing_wrapped_call(result)
 
     def abort_everything(self, ensure_ready=True):
         """Shutdown the pool and restart a new one with the same parameters"""
@@ -294,7 +358,7 @@ class PoolManagerMixin(object):
             self.configure(
                 n_jobs=self.parallel.n_jobs,
                 parallel=self.parallel,
-                **self.parallel._backend_args,
+                **self.parallel._backend_kwargs,
             )
 
 
@@ -423,7 +487,7 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
     uses_threads = True
     supports_sharedmem = True
 
-    def configure(self, n_jobs=1, parallel=None, **backend_args):
+    def configure(self, n_jobs=1, parallel=None, **backend_kwargs):
         """Build a process or thread pool and return the number of workers"""
         n_jobs = self.effective_n_jobs(n_jobs)
         if n_jobs == 1:
@@ -508,16 +572,26 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin, ParallelBacken
         return super(MultiprocessingBackend, self).effective_n_jobs(n_jobs)
 
     def configure(
-        self, n_jobs=1, parallel=None, prefer=None, require=None, **memmappingpool_args
+        self,
+        n_jobs=1,
+        parallel=None,
+        prefer=None,
+        require=None,
+        **memmapping_pool_kwargs,
     ):
         """Build a process or thread pool and return the number of workers"""
         n_jobs = self.effective_n_jobs(n_jobs)
         if n_jobs == 1:
             raise FallbackToBackend(SequentialBackend(nesting_level=self.nesting_level))
 
+        memmapping_pool_kwargs = {
+            **self.backend_kwargs,
+            **memmapping_pool_kwargs,
+        }
+
         # Make sure to free as much memory as possible before forking
         gc.collect()
-        self._pool = MemmappingPool(n_jobs, **memmappingpool_args)
+        self._pool = MemmappingPool(n_jobs, **memmapping_pool_kwargs)
         self.parallel = parallel
         return n_jobs
 
@@ -539,20 +613,35 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
         parallel=None,
         prefer=None,
         require=None,
-        idle_worker_timeout=300,
-        **memmappingexecutor_args,
+        idle_worker_timeout=None,
+        **memmapping_executor_kwargs,
     ):
         """Build a process executor and return the number of workers"""
         n_jobs = self.effective_n_jobs(n_jobs)
         if n_jobs == 1:
             raise FallbackToBackend(SequentialBackend(nesting_level=self.nesting_level))
 
+        memmapping_executor_kwargs = {
+            **self.backend_kwargs,
+            **memmapping_executor_kwargs,
+        }
+
+        # Prohibit the use of 'timeout' in the LokyBackend, as 'idle_worker_timeout'
+        # better describes the backend's behavior.
+        if "timeout" in memmapping_executor_kwargs:
+            raise ValueError(
+                "The 'timeout' parameter is not supported by the LokyBackend. "
+                "Please use the `idle_worker_timeout` parameter instead."
+            )
+        if idle_worker_timeout is None:
+            idle_worker_timeout = self.backend_kwargs.get("idle_worker_timeout", 300)
+
         self._workers = get_memmapping_executor(
             n_jobs,
             timeout=idle_worker_timeout,
             env=self._prepare_worker_env(n_jobs=n_jobs),
             context_id=parallel._id,
-            **memmappingexecutor_args,
+            **memmapping_executor_kwargs,
         )
         self.parallel = parallel
         return n_jobs
@@ -599,16 +688,17 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
             n_jobs = max(cpu_count() + 1 + n_jobs, 1)
         return n_jobs
 
-    def apply_async(self, func, callback=None):
+    def submit(self, func, callback=None):
         """Schedule a func to be run"""
         future = self._workers.submit(func)
         if callback is not None:
             future.add_done_callback(callback)
         return future
 
-    def retrieve_result_callback(self, out):
+    def retrieve_result_callback(self, future):
+        """Retrieve the result, here out is the future given by submit"""
         try:
-            return out.result()
+            return future.result()
         except ShutdownExecutorError:
             raise RuntimeError(
                 "The executor underlying Parallel has been shutdown. "

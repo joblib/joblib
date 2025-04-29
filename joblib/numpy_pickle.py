@@ -38,7 +38,8 @@ from .numpy_pickle_utils import (
     Unpickler,
     _ensure_native_byte_order,
     _read_bytes,
-    _read_fileobject,
+    _reconstruct,
+    _validate_fileobject_and_memmap,
     _write_fileobject,
 )
 
@@ -155,7 +156,7 @@ class NumpyArrayWrapper(object):
             ):
                 pickler.file_handle.write(chunk.tobytes("C"))
 
-    def read_array(self, unpickler):
+    def read_array(self, unpickler, ensure_native_byte_order):
         """Read array from unpickler file handle.
 
         This function is an adaptation of the numpy read_array function
@@ -205,8 +206,11 @@ class NumpyArrayWrapper(object):
             else:
                 array.shape = self.shape
 
-        # Detect byte order mismatch and swap as needed.
-        return _ensure_native_byte_order(array)
+        if ensure_native_byte_order:
+            # Detect byte order mismatch and swap as needed.
+            array = _ensure_native_byte_order(array)
+
+        return array
 
     def read_mmap(self, unpickler):
         """Read an array using numpy memmap."""
@@ -250,9 +254,9 @@ class NumpyArrayWrapper(object):
             )
             warnings.warn(message)
 
-        return _ensure_native_byte_order(marray)
+        return marray
 
-    def read(self, unpickler):
+    def read(self, unpickler, ensure_native_byte_order):
         """Read the array corresponding to this wrapper.
 
         Use the unpickler to get all information to correctly read the array.
@@ -260,6 +264,9 @@ class NumpyArrayWrapper(object):
         Parameters
         ----------
         unpickler: NumpyUnpickler
+        ensure_native_byte_order: bool
+            If true, coerce the array to use the native endianness of the
+            host system.
 
         Returns
         -------
@@ -268,9 +275,13 @@ class NumpyArrayWrapper(object):
         """
         # When requested, only use memmap mode if allowed.
         if unpickler.mmap_mode is not None and self.allow_mmap:
+            assert not ensure_native_byte_order, (
+                "Memmaps cannot be coerced to a given byte order, "
+                "this code path is impossible."
+            )
             array = self.read_mmap(unpickler)
         else:
-            array = self.read_array(unpickler)
+            array = self.read_array(unpickler, ensure_native_byte_order)
 
         # Manage array subclass case
         if hasattr(array, "__array_prepare__") and self.subclass not in (
@@ -278,9 +289,7 @@ class NumpyArrayWrapper(object):
             unpickler.np.memmap,
         ):
             # We need to reconstruct another subclass
-            new_array = unpickler.np.core.multiarray._reconstruct(
-                self.subclass, (0,), "b"
-            )
+            new_array = _reconstruct(self.subclass, (0,), "b")
             return new_array.__array_prepare__(array)
         else:
             return array
@@ -395,6 +404,9 @@ class NumpyUnpickler(Unpickler):
         The memorymap mode to use for reading numpy arrays.
     file_handle: file_like
         File object to unpickle from.
+    ensure_native_byte_order: bool
+        If True, coerce the array to use the native endianness of the
+        host system.
     filename: str
         Name of the file to unpickle from. It should correspond to file_handle.
         This parameter is required when using mmap_mode.
@@ -405,7 +417,7 @@ class NumpyUnpickler(Unpickler):
 
     dispatch = Unpickler.dispatch.copy()
 
-    def __init__(self, filename, file_handle, mmap_mode=None):
+    def __init__(self, filename, file_handle, ensure_native_byte_order, mmap_mode=None):
         # The next line is for backward compatibility with pickle generated
         # with joblib versions less than 0.10.
         self._dirname = os.path.dirname(filename)
@@ -415,6 +427,7 @@ class NumpyUnpickler(Unpickler):
         # filename is required for numpy mmap mode.
         self.filename = filename
         self.compat_mode = False
+        self.ensure_native_byte_order = ensure_native_byte_order
         Unpickler.__init__(self, self.file_handle)
         try:
             import numpy as np
@@ -444,7 +457,11 @@ class NumpyUnpickler(Unpickler):
             # the end of the unpickling.
             if isinstance(array_wrapper, NDArrayWrapper):
                 self.compat_mode = True
-            self.stack.append(array_wrapper.read(self))
+                _array_payload = array_wrapper.read(self)
+            else:
+                _array_payload = array_wrapper.read(self, self.ensure_native_byte_order)
+
+            self.stack.append(_array_payload)
 
     # Be careful to register our new method.
     dispatch[pickle.BUILD[0]] = load_build
@@ -593,7 +610,7 @@ def dump(value, filename, compress=0, protocol=None):
     return [filename]
 
 
-def _unpickle(fobj, filename="", mmap_mode=None):
+def _unpickle(fobj, ensure_native_byte_order, filename="", mmap_mode=None):
     """Internal unpickling function."""
     # We are careful to open the file handle early and keep it open to
     # avoid race-conditions on renames.
@@ -601,7 +618,9 @@ def _unpickle(fobj, filename="", mmap_mode=None):
     # the case with the old persistence format, moving the directory
     # will create a race when joblib tries to access the companion
     # files.
-    unpickler = NumpyUnpickler(filename, fobj, mmap_mode=mmap_mode)
+    unpickler = NumpyUnpickler(
+        filename, fobj, ensure_native_byte_order, mmap_mode=mmap_mode
+    )
     obj = None
     try:
         obj = unpickler.load()
@@ -628,14 +647,31 @@ def _unpickle(fobj, filename="", mmap_mode=None):
 def load_temporary_memmap(filename, mmap_mode, unlink_on_gc_collect):
     from ._memmapping_reducer import JOBLIB_MMAPS, add_maybe_unlink_finalizer
 
-    obj = load(filename, mmap_mode)
+    with open(filename, "rb") as f:
+        with _validate_fileobject_and_memmap(f, filename, mmap_mode) as (
+            fobj,
+            validated_mmap_mode,
+        ):
+            # Memmap are used for interprocess communication, which should
+            # keep the objects untouched. We pass `ensure_native_byte_order=False`
+            # to remain consistent with the loading behavior of non-memmaped arrays
+            # in workers, where the byte order is preserved.
+            # Note that we do not implement endianness change for memmaps, as this
+            # would result in inconsistent behavior.
+            obj = _unpickle(
+                fobj,
+                ensure_native_byte_order=False,
+                filename=filename,
+                mmap_mode=validated_mmap_mode,
+            )
+
     JOBLIB_MMAPS.add(obj.filename)
     if unlink_on_gc_collect:
         add_maybe_unlink_finalizer(obj)
     return obj
 
 
-def load(filename, mmap_mode=None):
+def load(filename, mmap_mode=None, ensure_native_byte_order="auto"):
     """Reconstruct a Python object from a file persisted with joblib.dump.
 
     Read more in the :ref:`User Guide <persistence>`.
@@ -653,6 +689,12 @@ def load(filename, mmap_mode=None):
         mode has no effect for compressed files. Note that in this
         case the reconstructed object might no longer match exactly
         the originally pickled object.
+    ensure_native_byte_order: bool, or 'auto', default=='auto'
+        If True, ensures that the byte order of the loaded arrays matches the
+        native byte ordering (or _endianness_) of the host system. This is not
+        compatible with memory-mapped arrays and using non-null `mmap_mode`
+        parameter at the same time will raise an error. The default 'auto'
+        parameter is equivalent to True if `mmap_mode` is None, else False.
 
     Returns
     -------
@@ -672,22 +714,43 @@ def load(filename, mmap_mode=None):
     object might not match the original pickled object. Note that if the
     file was saved with compression, the arrays cannot be memmapped.
     """
+    if ensure_native_byte_order == "auto":
+        ensure_native_byte_order = mmap_mode is None
+
+    if ensure_native_byte_order and mmap_mode is not None:
+        raise ValueError(
+            "Native byte ordering can only be enforced if 'mmap_mode' parameter "
+            f"is set to None, but got 'mmap_mode={mmap_mode}' instead."
+        )
+
     if Path is not None and isinstance(filename, Path):
         filename = str(filename)
 
     if hasattr(filename, "read"):
         fobj = filename
         filename = getattr(fobj, "name", "")
-        with _read_fileobject(fobj, filename, mmap_mode) as fobj:
-            obj = _unpickle(fobj)
+        with _validate_fileobject_and_memmap(fobj, filename, mmap_mode) as (fobj, _):
+            obj = _unpickle(fobj, ensure_native_byte_order=ensure_native_byte_order)
     else:
         with open(filename, "rb") as f:
-            with _read_fileobject(f, filename, mmap_mode) as fobj:
+            with _validate_fileobject_and_memmap(f, filename, mmap_mode) as (
+                fobj,
+                validated_mmap_mode,
+            ):
                 if isinstance(fobj, str):
                     # if the returned file object is a string, this means we
                     # try to load a pickle file generated with an version of
                     # Joblib so we load it with joblib compatibility function.
                     return load_compatibility(fobj)
 
-                obj = _unpickle(fobj, filename, mmap_mode)
+                # A memory-mapped array has to be mapped with the endianness
+                # it has been written with. Other arrays are coerced to the
+                # native endianness of the host system.
+                obj = _unpickle(
+                    fobj,
+                    ensure_native_byte_order=ensure_native_byte_order,
+                    filename=filename,
+                    mmap_mode=validated_mmap_mode,
+                )
+
     return obj

@@ -128,7 +128,7 @@ def _buffered_write_file(fobj):
 
 
 @contextlib.contextmanager
-def _read_fileobject(fileobj, filename, mmap_mode=None):
+def _validate_fileobject_and_memmap(fileobj, filename, mmap_mode=None):
     """Utility function opening the right fileobject from a filename.
 
     The magic number is used to choose between the type of file object to open:
@@ -141,8 +141,6 @@ def _read_fileobject(fileobj, filename, mmap_mode=None):
     Parameters
     ----------
     fileobj: file object
-    compressor: str in {'zlib', 'gzip', 'bz2', 'lzma', 'xz', 'compat',
-                        'not-compressed'}
     filename: str
         filename path corresponding to the fileobj parameter.
     mmap_mode: str
@@ -152,11 +150,12 @@ def _read_fileobject(fileobj, filename, mmap_mode=None):
 
     Returns
     -------
-        a file like object
+        a tuple with a file like object, and the validated mmap_mode.
 
     """
     # Detect if the fileobj contains compressed data.
     compressor = _detect_compressor(fileobj)
+    validated_mmap_mode = mmap_mode
 
     if compressor == "compat":
         # Compatibility with old pickle mode: simply return the input
@@ -169,7 +168,7 @@ def _read_fileobject(fileobj, filename, mmap_mode=None):
             DeprecationWarning,
             stacklevel=2,
         )
-        yield filename
+        yield filename, validated_mmap_mode
     else:
         if compressor in _COMPRESSORS:
             # based on the compressor detected in the file, we open the
@@ -182,6 +181,7 @@ def _read_fileobject(fileobj, filename, mmap_mode=None):
         # mmap_mode cannot be used with compressed file or in memory buffers
         # such as io.BytesIO.
         if mmap_mode is not None:
+            validated_mmap_mode = None
             if isinstance(fileobj, io.BytesIO):
                 warnings.warn(
                     "In memory persistence is not compatible with "
@@ -202,8 +202,10 @@ def _read_fileobject(fileobj, filename, mmap_mode=None):
                     '"%(mmap_mode)s" flag will be ignored.' % locals(),
                     stacklevel=2,
                 )
+            else:
+                validated_mmap_mode = mmap_mode
 
-        yield fileobj
+        yield fileobj, validated_mmap_mode
 
 
 def _write_fileobject(filename, compress=("zlib", 3)):
@@ -272,3 +274,18 @@ def _read_bytes(fp, size, error_template="ran out of data"):
         raise ValueError(msg % (error_template, size, len(data)))
     else:
         return data
+
+
+def _reconstruct(*args, **kwargs):
+    # Wrapper for numpy._core.multiarray._reconstruct with backward compat
+    # for numpy 1.X
+    #
+    # XXX: Remove this function when numpy 1.X is not supported anymore
+
+    np_major_version = np.__version__[:2]
+    if np_major_version == "1.":
+        from numpy.core.multiarray import _reconstruct as np_reconstruct
+    elif np_major_version == "2.":
+        from numpy._core.multiarray import _reconstruct as np_reconstruct
+
+    return np_reconstruct(*args, **kwargs)

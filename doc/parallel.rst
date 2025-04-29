@@ -45,21 +45,24 @@ This generator enables reducing the memory footprint of
 aggregation, as illustrated in
 :ref:`sphx_glr_auto_examples_parallel_generator.py`.
 
-Future releases are planned to also support returning a generator that yields
-the results in the order of completion rather than the order of submission, by
-using ``return_as="generator_unordered"`` instead of ``return_as="generator"``.
-In this case the order of the outputs will depend on the concurrency of workers
-and will not be guaranteed to be deterministic, meaning the results can be
-yielded with a different order every time the code is executed.
+It is also possible to return a generator that yields the results in the order
+of completion rather than the order of submission, by using
+``return_as="generator_unordered"`` instead of ``return_as="generator"``.
+In this case the order of the outputs depends on the concurrency of workers
+and is not deterministic, meaning the results can be yielded with a different
+order every time the code is executed.
 
 Thread-based parallelism vs process-based parallelism
 =====================================================
 
 By default :class:`joblib.Parallel` uses the ``'loky'`` backend module to start
-separate Python worker processes to execute tasks concurrently on
-separate CPUs. This is a reasonable default for generic Python programs
-but can induce a significant overhead as the input and output data need
-to be serialized in a queue for communication with the worker processes (see
+separate Python worker processes to execute tasks concurrently on separate CPUs.
+But ``joblib`` also supports other backends to execute tasks concurrently, with
+different trade-offs (see :ref:`parallel_config_backend`).
+
+While ``'loky'`` is a reasonable default for generic Python programs , it
+can induce a significant overhead as the input and output data need to be
+serialized in a queue for communication with the worker processes (see
 :ref:`serialization_and_processes`).
 
 When you know that the function you are calling is based on a compiled
@@ -80,31 +83,66 @@ instead of the default ``"loky"`` backend:
     ...     delayed(sqrt)(i ** 2) for i in range(10))
     [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
 
-The :func:`~joblib.parallel_config` context manager helps selecting
-a specific backend implementation or setting the default number of jobs:
-
-    >>> from joblib import parallel_config
-    >>> with parallel_config(backend='threading', n_jobs=2):
-    ...    Parallel()(delayed(sqrt)(i ** 2) for i in range(10))
-    [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
-
-The latter is especially useful when calling a library that uses
-:class:`joblib.Parallel` internally without exposing backend selection as
-part of its public API.
-
 Note that the ``prefer="threads"`` option was introduced in joblib 0.12.
 In prior versions, the same effect could be achieved by hardcoding a
 specific backend implementation such as ``backend="threading"`` in the
 call to :class:`joblib.Parallel` but this is now considered a bad pattern
 (when done in a library) as it does not make it possible to override that
-choice with the :func:`~joblib.parallel_config` context manager.
-
+choice with the :func:`~joblib.parallel_config` context manager (see the next session).
 
 .. topic:: The loky backend may not always be available
 
    Some rare systems do not support multiprocessing (for instance
    Pyodide). In this case the loky backend is not available and the
    default backend falls back to threading.
+
+.. _parallel_config_backend:
+
+Setting up ``joblib``'s backend with ``parallel_config``
+========================================================
+
+The :func:`~joblib.parallel_config` context manager allows selecting
+a specific backend implementation or setting the default parameters like the
+number of jobs in the backend as:
+
+    >>> from joblib import parallel_config
+    >>> with parallel_config(backend='threading', n_jobs=2):
+    ...    Parallel()(delayed(sqrt)(i ** 2) for i in range(10))
+    [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
+
+This context manager is especially useful when calling a library that uses
+:class:`joblib.Parallel` internally without exposing backend selection as
+part of its public API.
+
+The context manager allow to set various backend parameters:
+
+- ``n_jobs``: Set the number of jobs to run in parallel.
+- ``verbose``: Set the verbosity level of the backend.
+- ``prefer``: Set the preferred backend to use. Can be ``'processes'`` or
+  ``'threads'``.
+- ``require``: Set the requirement for the backend. Can be ``'sharedmem'``.
+- ``inner_max_num_threads``: Limit the maximum number of threads used by
+  third-party libraries that manage their own C-level thread-pool. This argument
+  is only supported by backend that set the ``supports_inner_max_num_threads``
+  class attribute to ``True``, such as the ``'loky'`` backend.
+- ``temp_folder, max_nbytes, mmap_mode``: Control the auto-memmapping behavior
+  of the backend. See :ref:`auto_memmapping_doc` for more details.
+
+Extra arguments passed in the :func:`~joblib.parallel_config` context are
+passed to the backend constructor, allowing additional parameters to be set up:
+
+- ``LokyBackend``
+    - ``initializer``, ``initargs``: setup function and its arguments to call
+      in each worker process.
+    - ``idle_worker_timeout``: timeout in seconds for a worker to wait
+      for a new task before being clean up. The default is `300 s`.
+- ``MultprocessingBackend``
+    - ``initializer``, ``initargs``: setup function and its arguments to call
+      in each worker process.
+    - ``maxtasksperchild``: maximum number of tasks a worker can
+      execute before being replace with a fresh one.
+    - ``context``: specify the start method to use for creating new worker
+      processes.
 
 In addition to the builtin joblib backends, there are several cluster-specific
 backends you can use:
@@ -114,6 +152,9 @@ backends you can use:
 * `Ray <https://docs.ray.io/en/latest/index.html>`_ backend for Ray clusters,
 * `Joblib Apache Spark Backend <https://github.com/joblib/joblib-spark>`_
   to distribute joblib tasks on a Spark cluster.
+
+It is also possible to provide a custom backend implementation, as described in
+:ref:`custom_parallel_backend`.
 
 .. _serialization_and_processes:
 
@@ -192,8 +233,13 @@ Note that the ``'loky'`` backend now used by default for process-based
 parallelism automatically tries to maintain and reuse a pool of workers
 by it-self even for calls without the context manager.
 
-.. include:: parallel_numpy.rst
 
+.. _auto_memmapping_doc:
+
+Working with numerical data in shared memory (memmapping)
+=========================================================
+
+.. include:: parallel_numpy.rst
 
 Avoiding over-subscription of CPU resources
 ============================================
@@ -243,81 +289,6 @@ number of threads using the ``inner_max_num_threads`` argument of the
 
 In this example, 4 Python worker processes will be allowed to use 2 threads
 each, meaning that this program will be able to use up to 8 CPUs concurrently.
-
-
-Custom backend API
-==================
-
-.. versionadded:: 0.10
-
-User can provide their own implementation of a parallel processing
-backend in addition to the ``'loky'``, ``'threading'``,
-``'multiprocessing'`` backends provided by default. A backend is
-registered with the :func:`joblib.register_parallel_backend` function by
-passing a name and a backend factory.
-
-The backend factory can be any callable that returns an instance of
-``ParallelBackendBase``. Please refer to the `default backends source code`_ as
-a reference if you want to implement your own custom backend.
-
-.. _`default backends source code`: https://github.com/joblib/joblib/blob/main/joblib/_parallel_backends.py
-
-Note that it is possible to register a backend class that has some mandatory
-constructor parameters such as the network address and connection credentials
-for a remote cluster computing service::
-
-    class MyCustomBackend(ParallelBackendBase):
-
-        def __init__(self, endpoint, api_key):
-           self.endpoint = endpoint
-           self.api_key = api_key
-
-        ...
-        # Do something with self.endpoint and self.api_key somewhere in
-        # one of the method of the class
-
-    register_parallel_backend('custom', MyCustomBackend)
-
-The connection parameters can then be passed to the
-:func:`~joblib.parallel_config` context manager::
-
-    with parallel_config(backend='custom', endpoint='http://compute',
-                         api_key='42'):
-        Parallel()(delayed(some_function)(i) for i in range(10))
-
-Using the context manager can be helpful when using a third-party library that
-uses :class:`joblib.Parallel` internally while not exposing the ``backend``
-argument in its own API.
-
-
-A problem exists that external packages that register new parallel backends
-must now be imported explicitly for their backends to be identified by joblib::
-
-   >>> import joblib
-   >>> with joblib.parallel_config(backend='custom'):  # doctest: +SKIP
-   ...     ...  # this fails
-   KeyError: 'custom'
-
-   # Import library to register external backend
-   >>> import my_custom_backend_library  # doctest: +SKIP
-   >>> with joblib.parallel_config(backend='custom'):  # doctest: +SKIP
-   ...     ... # this works
-
-This can be confusing for users.  To resolve this, external packages can
-safely register their backends directly within the joblib codebase by creating
-a small function that registers their backend, and including this function
-within the ``joblib.parallel.EXTERNAL_PACKAGES`` dictionary::
-
-   def _register_custom():
-       try:
-           import my_custom_library
-       except ImportError:
-           raise ImportError("an informative error message")
-
-   EXTERNAL_BACKENDS['custom'] = _register_custom
-
-This is subject to community review, but can reduce the confusion for users
-when relying on side effects of external package imports.
 
 
 Old multiprocessing backend

@@ -175,7 +175,6 @@ def _get_active_backend(
         # context manager or the context manager did not set a backend.
         # create the default backend instance now.
         backend = BACKENDS[DEFAULT_BACKEND](nesting_level=0)
-
         explicit_backend = False
 
     # Try to use the backend set by the user with the context manager.
@@ -300,7 +299,7 @@ class parallel_config:
           overridden with ``TMP``, ``TMPDIR`` or ``TEMP`` environment
           variables, typically ``/tmp`` under Unix operating systems.
 
-    max_nbytes int, str, or None, optional, default='1M'
+    max_nbytes: int, str, or None, optional, default='1M'
         Threshold on the size of arrays passed to the workers that
         triggers automated memory mapping in temp_folder. Can be an int
         in Bytes, or a human-readable string, e.g., '1M' for 1 megabyte.
@@ -427,6 +426,12 @@ class parallel_config:
                     )
 
             backend = BACKENDS[backend](**backend_params)
+        else:
+            if len(backend_params) > 0:
+                raise ValueError(
+                    "Constructor parameters backend_params are only "
+                    "supported when backend is a string."
+                )
 
         if inner_max_num_threads is not None:
             msg = (
@@ -536,8 +541,7 @@ class parallel_backend(parallel_config):
 
     See Also
     --------
-    joblib.parallel_config: context manager to change the backend
-        configuration.
+    joblib.parallel_config: context manager to change the backend configuration.
     """
 
     def __init__(
@@ -723,7 +727,7 @@ class BatchCompletionCallBack(object):
             self.status = TASK_PENDING
 
     def register_job(self, job):
-        """Register the object returned by `apply_async`."""
+        """Register the object returned by `submit`."""
         self.job = job
 
     def get_result(self, timeout):
@@ -754,10 +758,7 @@ class BatchCompletionCallBack(object):
 
         # For other backends, the main thread needs to run the retrieval step.
         try:
-            if backend.supports_timeout:
-                result = self.job.get(timeout=timeout)
-            else:
-                result = self.job.get()
+            result = backend.retrieve_result(self.job, timeout=timeout)
             outcome = dict(result=result, status=TASK_DONE)
         except BaseException as e:
             outcome = dict(result=e, status=TASK_ERROR)
@@ -797,7 +798,7 @@ class BatchCompletionCallBack(object):
     ##########################################################################
     #                     METHODS CALLED BY CALLBACK THREADS                 #
     ##########################################################################
-    def __call__(self, out):
+    def __call__(self, *args, **kwargs):
         """Function called by the callback thread after a job is completed."""
 
         # If the backend doesn't support callback retrievals, the next batch of
@@ -825,7 +826,7 @@ class BatchCompletionCallBack(object):
 
             # Retrieves the result of the task in the main process and dispatch
             # a new batch if needed.
-            job_succeeded = self._retrieve_result(out)
+            job_succeeded = self._retrieve_result(*args, **kwargs)
 
         if job_succeeded:
             self._dispatch_new()
@@ -1081,6 +1082,8 @@ class Parallel(Logger):
         disable memmapping, other modes defined in the numpy.memmap doc:
         https://numpy.org/doc/stable/reference/generated/numpy.memmap.html
         Also, see 'max_nbytes' parameter documentation for more details.
+    backend_kwargs: dict, optional
+        Additional parameters to pass to the backend `configure` method.
 
     Notes
     -----
@@ -1219,6 +1222,7 @@ class Parallel(Logger):
         mmap_mode=default_parallel_config["mmap_mode"],
         prefer=default_parallel_config["prefer"],
         require=default_parallel_config["require"],
+        **backend_kwargs,
     ):
         # Initiate parent Logger class state
         super().__init__()
@@ -1250,28 +1254,31 @@ class Parallel(Logger):
         # Check if we are under a parallel_config or parallel_backend
         # context manager and use the config from the context manager
         # for arguments that are not explicitly set.
-        self._backend_args = {
-            k: _get_config_param(param, context_config, k)
-            for param, k in [
-                (max_nbytes, "max_nbytes"),
-                (temp_folder, "temp_folder"),
-                (mmap_mode, "mmap_mode"),
-                (prefer, "prefer"),
-                (require, "require"),
-                (verbose, "verbose"),
-            ]
+        self._backend_kwargs = {
+            **backend_kwargs,
+            **{
+                k: _get_config_param(param, context_config, k)
+                for param, k in [
+                    (max_nbytes, "max_nbytes"),
+                    (temp_folder, "temp_folder"),
+                    (mmap_mode, "mmap_mode"),
+                    (prefer, "prefer"),
+                    (require, "require"),
+                    (verbose, "verbose"),
+                ]
+            },
         }
 
-        if isinstance(self._backend_args["max_nbytes"], str):
-            self._backend_args["max_nbytes"] = memstr_to_bytes(
-                self._backend_args["max_nbytes"]
+        if isinstance(self._backend_kwargs["max_nbytes"], str):
+            self._backend_kwargs["max_nbytes"] = memstr_to_bytes(
+                self._backend_kwargs["max_nbytes"]
             )
-        self._backend_args["verbose"] = max(0, self._backend_args["verbose"] - 50)
+        self._backend_kwargs["verbose"] = max(0, self._backend_kwargs["verbose"] - 50)
 
         if DEFAULT_MP_CONTEXT is not None:
-            self._backend_args["context"] = DEFAULT_MP_CONTEXT
+            self._backend_kwargs["context"] = DEFAULT_MP_CONTEXT
         elif hasattr(mp, "get_context"):
-            self._backend_args["context"] = mp.get_context()
+            self._backend_kwargs["context"] = mp.get_context()
 
         if backend is default_parallel_config["backend"] or backend is None:
             backend = active_backend
@@ -1286,7 +1293,7 @@ class Parallel(Logger):
             # Make it possible to pass a custom multiprocessing context as
             # backend to change the start method to forkserver or spawn or
             # preload modules on the forkserver helper process.
-            self._backend_args["context"] = backend
+            self._backend_kwargs["context"] = backend
             backend = MultiprocessingBackend(nesting_level=nesting_level)
 
         elif backend not in BACKENDS and backend in MAYBE_AVAILABLE_BACKENDS:
@@ -1369,7 +1376,7 @@ class Parallel(Logger):
         """Build a process or thread pool and return the number of workers"""
         try:
             n_jobs = self._backend.configure(
-                n_jobs=self.n_jobs, parallel=self, **self._backend_args
+                n_jobs=self.n_jobs, parallel=self, **self._backend_kwargs
             )
             if self.timeout is not None and not self._backend.supports_timeout:
                 warnings.warn(
@@ -1426,7 +1433,7 @@ class Parallel(Logger):
         # the queue by itself as soon as the callback is triggered to be able
         # to return the results in the order of completion.
 
-        job = self._backend.apply_async(batch, callback=batch_tracker)
+        job = self._backend.submit(batch, callback=batch_tracker)
         batch_tracker.register_job(job)
 
     def _register_new_job(self, batch_tracker):
@@ -1441,7 +1448,6 @@ class Parallel(Logger):
         This method is meant to be called concurrently by the multiprocessing
         callback. We rely on the thread-safety of dispatch_one_batch to protect
         against concurrent consumption of the unprotected iterator.
-
         """
         if not self.dispatch_one_batch(self._original_iterator):
             self._iterating = False

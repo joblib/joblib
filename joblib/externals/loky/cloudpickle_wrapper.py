@@ -19,7 +19,7 @@ class CloudpickledObjectWrapper:
         return _reconstruct_wrapper, (_pickled_object, self._keep_wrapper)
 
     def __getattr__(self, attr):
-        # Ensure that the wrapped object can be used seamlessly as the
+        # Ensure that the wrapped object can be used seemlessly as the
         # previous object.
         if attr not in ["_obj", "_keep_wrapper"]:
             return getattr(self._obj, attr)
@@ -54,7 +54,7 @@ def _wrap_objects_when_needed(obj):
             **{
                 k: _wrap_objects_when_needed(v)
                 for k, v in obj.keywords.items()
-            }
+            },
         )
     if callable(obj):
         # Need wrap if the object is a function defined in a local scope of

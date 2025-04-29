@@ -4,16 +4,11 @@
 #
 # author: Thomas Moreau
 #
-# adapted from multiprocessing/semaphore_tracker.py  (17/02/2017)
-#  * include custom spawnv_passfds to start the process
-#  * add some VERBOSE logging
-#
-# TODO: multiprocessing.resource_tracker was contributed to Python 3.8 so
-# once loky drops support for Python 3.7 it might be possible to stop
-# maintaining this loky-specific fork. As a consequence, it might also be
-# possible to stop maintaining the loky.backend.synchronize fork of
-# multiprocessing.synchronize.
-
+# Adapted from multiprocessing/resource_tracker.py
+#  * add some VERBOSE logging,
+#  * add support to track folders,
+#  * add Windows support,
+#  * refcounting scheme to avoid unlinking resources still in use.
 #
 # On Unix we run a server process which keeps track of unlinked
 # resources. The server ignores SIGINT and SIGTERM and reads from a
@@ -40,7 +35,7 @@
 # Note that this behavior differs from CPython's resource_tracker, which only
 # implements list of shared resources, and not a proper refcounting scheme.
 # Also, CPython's resource tracker will only attempt to cleanup those shared
-# resources once all procsses connected to the resource tracker have exited.
+# resources once all processes connected to the resource tracker have exited.
 
 
 import os
@@ -48,9 +43,11 @@ import shutil
 import sys
 import signal
 import warnings
-import threading
 from _multiprocessing import sem_unlink
 from multiprocessing import util
+from multiprocessing.resource_tracker import (
+    ResourceTracker as _ResourceTracker,
+)
 
 from . import spawn
 
@@ -74,15 +71,25 @@ if os.name == "posix":
 VERBOSE = False
 
 
-class ResourceTracker:
-    def __init__(self):
-        self._lock = threading.Lock()
-        self._fd = None
-        self._pid = None
+class ResourceTracker(_ResourceTracker):
+    """Resource tracker with refcounting scheme.
 
-    def getfd(self):
+    This class is an extension of the multiprocessing ResourceTracker class
+    which implements a reference counting scheme to avoid unlinking shared
+    resources still in use in other processes.
+
+    This feature is notably used by `joblib.Parallel` to share temporary
+    folders and memory mapped files between the main process and the worker
+    processes.
+
+    The actual implementation of the refcounting scheme is in the main
+    function, which is run in a dedicated process.
+    """
+
+    def maybe_unlink(self, name, rtype):
+        """Decrement the refcount of a resource, and delete it if it hits 0"""
         self.ensure_running()
-        return self._fd
+        self._send("MAYBE_UNLINK", name, rtype)
 
     def ensure_running(self):
         """Make sure that resource tracker process is running.
@@ -112,7 +119,7 @@ class ResourceTracker:
 
                 warnings.warn(
                     "resource_tracker: process died unexpectedly, "
-                    "relaunching.  Some folders/semaphores might "
+                    "relaunching.  Some folders/sempahores might "
                     "leak."
                 )
 
@@ -164,38 +171,16 @@ class ResourceTracker:
                 else:
                     os.close(r)
 
-    def _check_alive(self):
-        """Check for the existence of the resource tracker process."""
+    def __del__(self):
+        # ignore error due to trying to clean up child process which has already been
+        # shutdown on windows See https://github.com/joblib/loky/pull/450
+        # This is only required if __del__ is defined
+        if not hasattr(ResourceTracker, "__del__"):
+            return
         try:
-            self._send("PROBE", "", "")
-        except BrokenPipeError:
-            return False
-        else:
-            return True
-
-    def register(self, name, rtype):
-        """Register a named resource, and increment its refcount."""
-        self.ensure_running()
-        self._send("REGISTER", name, rtype)
-
-    def unregister(self, name, rtype):
-        """Unregister a named resource with resource tracker."""
-        self.ensure_running()
-        self._send("UNREGISTER", name, rtype)
-
-    def maybe_unlink(self, name, rtype):
-        """Decrement the refcount of a resource, and delete it if it hits 0"""
-        self.ensure_running()
-        self._send("MAYBE_UNLINK", name, rtype)
-
-    def _send(self, cmd, name, rtype):
-        if len(name) > 512:
-            # posix guarantees that writes to a pipe of less than PIPE_BUF
-            # bytes are atomic, and that PIPE_BUF >= 512
-            raise ValueError("name too long")
-        msg = f"{cmd}:{name}:{rtype}\n".encode("ascii")
-        nbytes = os.write(self._fd, msg)
-        assert nbytes == len(msg)
+            super().__del__()
+        except ChildProcessError:
+            pass
 
 
 _resource_tracker = ResourceTracker()
@@ -238,13 +223,13 @@ def main(fd, verbose=0):
                 if line == b"":  # EOF
                     break
                 try:
-                    split = line.strip().decode("ascii").split(":")
+                    splitted = line.strip().decode("ascii").split(":")
                     # name can potentially contain separator symbols (for
                     # instance folders on Windows)
                     cmd, name, rtype = (
-                        split[0],
-                        ":".join(split[1:-1]),
-                        split[-1],
+                        splitted[0],
+                        ":".join(splitted[1:-1]),
+                        splitted[-1],
                     )
 
                     if cmd == "PROBE":
@@ -348,25 +333,13 @@ def main(fd, verbose=0):
         util.debug("resource tracker shut down")
 
 
-#
-# Start a program with only specified fds kept open
-#
-
-
 def spawnv_passfds(path, args, passfds):
-    passfds = sorted(passfds)
     if sys.platform != "win32":
-        errpipe_read, errpipe_write = os.pipe()
-        try:
-            from .reduction import _mk_inheritable
-            from .fork_exec import fork_exec
-
-            _pass = [_mk_inheritable(fd) for fd in passfds]
-            return fork_exec(args, _pass)
-        finally:
-            os.close(errpipe_read)
-            os.close(errpipe_write)
+        args = [arg.encode("utf-8") for arg in args]
+        path = path.encode("utf-8")
+        return util.spawnv_passfds(path, args, passfds)
     else:
+        passfds = sorted(passfds)
         cmd = " ".join(f'"{x}"' for x in args)
         try:
             _, ht, pid, _ = _winapi.CreateProcess(

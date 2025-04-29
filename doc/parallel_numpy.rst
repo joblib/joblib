@@ -5,9 +5,6 @@
     >>> setup = getfixture('parallel_numpy_fixture')
     >>> fixture = setup(sys.modules[__name__])
 
-Working with numerical data in shared memory (memmapping)
-=========================================================
-
 By default the workers of the pool are real Python processes forked using the
 ``multiprocessing`` module of the Python standard library when ``n_jobs != 1``.
 The arguments passed as input to the ``Parallel`` call are serialized and
@@ -26,7 +23,7 @@ worker processes.
 
 .. note::
 
-  The following only applies with the ``"loky"` and
+  The following only applies with the ``"loky"`` and
   ``'multiprocessing'`` process-backends. If your code can release the
   GIL, then using a thread-based backend by passing
   ``prefer='threads'`` is even more efficient because it makes it

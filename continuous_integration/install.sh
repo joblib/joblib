@@ -11,28 +11,16 @@ set -xe
 
 create_new_conda_env() {
     conda config --set solver libmamba
+    if [[ "$PYTHON_VERSION" == free-threaded* ]]; then
+        PYTHON_VERSION=${PYTHON_VERSION/free-threaded-/}
+        EXTRA_CONDA_PACKAGES="python-freethreading $EXTRA_CONDA_PACKAGES"
+    fi
     to_install="python=$PYTHON_VERSION pip pytest $EXTRA_CONDA_PACKAGES"
     conda create -n testenv --yes -c conda-forge $to_install
     conda activate testenv
 }
 
-create_new_free_threaded_env() {
-    sudo apt-get -yq update
-    sudo apt-get install -yq ccache
-    sudo apt-get install -yq software-properties-common
-    sudo add-apt-repository --yes ppa:deadsnakes/nightly
-    sudo apt-get update -yq
-    sudo apt-get install -yq --no-install-recommends python3.13-dev python3.13-venv python3.13-nogil
-
-    python3.13t -m venv testenv
-    source testenv/bin/activate
-}
-
-if [[ "$PYTHON_VERSION" == free-threaded* ]]; then
-    create_new_free_threaded_env
-else
-    create_new_conda_env
-fi
+create_new_conda_env
 
 # Install pytest timeout to fasten failure in deadlocking tests
 PIP_INSTALL_PACKAGES="pytest-timeout pytest-asyncio==0.21.1 threadpoolctl"
