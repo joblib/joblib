@@ -83,6 +83,9 @@ Maintenance:
   the warning on calls to `os.fork` and fix various sources of crashes and
   deadlocks.
 
+- Use ``pickle`` protocol 5 for pickling ``numpy`` arrays with object type.
+  https://github.com/joblib/joblib/pull/1682
+
 
 Release 1.4.2 -- 2024/05/02
 ---------------------------
