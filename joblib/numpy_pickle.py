@@ -126,9 +126,9 @@ class NumpyArrayWrapper(object):
         buffersize = max(16 * 1024**2 // array.itemsize, 1)
         if array.dtype.hasobject:
             # We contain Python objects so we cannot write out the data
-            # directly. Instead, we will pickle it out with version 2 of the
+            # directly. Instead, we will pickle it out with version 5 of the
             # pickle protocol.
-            pickle.dump(array, pickler.file_handle, protocol=2)
+            pickle.dump(array, pickler.file_handle, protocol=5)
         else:
             numpy_array_alignment_bytes = self.safe_get_numpy_array_alignment_bytes()
             if numpy_array_alignment_bytes is not None:
