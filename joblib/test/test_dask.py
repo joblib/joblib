@@ -322,7 +322,15 @@ def test_manual_scatter(loop):
 
     assert n_serialization_scatter_with_parallel == n_serialization_scatter_native
 
-    assert z.count == n_serialization_with_parallel
+    distributed_version = tuple(int(v) for v in distributed.__version__.split("."))
+    if distributed_version < (2023, 4):
+        # Previous to 2023.4, the serialization was adding an extra call to
+        # __reduce__ for the last job `f(z, z, x, d=z, e=y)`, because `z`
+        # appears both in the args and kwargs, which is not the case when
+        # running with joblib. Cope with this discrepancy.
+        assert z.count == n_serialization_with_parallel + 1
+    else:
+        assert z.count == n_serialization_with_parallel
 
 
 # When the same IOLoop is used for multiple clients in a row, use
