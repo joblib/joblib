@@ -259,38 +259,70 @@ def add5(a, b, c, d=0, e=0):
 
 
 def test_manual_scatter(loop):
-    w = CountSerialized(0)
-    x = CountSerialized(1)
-    y = CountSerialized(2)
-    z = CountSerialized(3)
+    # Let's check that the number of times scattered and non-scattered
+    # variables are serialized is consistent between `joblib.Parallel` calls
+    # and equivalent native `client.submit` call.
+
+    # Number of serializations can vary from dask to another, so this test only
+    # checks that `joblib.Parallel` does not add more serialization steps than
+    # a native `client.submit` call, but does not check for an exact number of
+    # serialization steps.
+
+    w, x, y, z = (CountSerialized(i) for i in range(4))
+
+    f = delayed(add5)
+    tasks = [f(x, y, z, d=4, e=5) for _ in range(10)]
+    tasks += [
+        f(x, z, y, d=5, e=4),
+        f(y, x, z, d=x, e=5),
+        f(z, z, x, d=z, e=y),
+    ]
+    expected = [func(*args, **kwargs) for func, args, kwargs in tasks]
 
     with cluster() as (s, [a, b]):
         with Client(s["address"], loop=loop) as client:  # noqa: F841
             with parallel_config(backend="dask", scatter=[w, x, y]):
                 f = delayed(add5)
-                tasks = [f(x, y, z, d=4, e=5) for _ in range(10)]
-                tasks += [
-                    f(x, z, y, d=5, e=4),
-                    f(y, x, z, d=x, e=5),
-                    f(z, z, x, d=z, e=y),
-                ]
-                results = Parallel(batch_size=1)(tasks)
-
-            # Scatter must take a list/tuple
-            with pytest.raises(TypeError):
-                with parallel_config(backend="dask", loop=loop, scatter=1):
-                    pass
-
-    expected = [func(*args, **kwargs) for func, args, kwargs in tasks]
-    assert results == expected
+                results_parallel = Parallel(batch_size=1)(tasks)
 
     # Scattered variables only serialized during scatter. Checking with an
-    # extra variable as this count can vary from one dask version to another.
-    n_serialization_scatter = w.count
-    assert x.count == n_serialization_scatter
-    assert y.count == n_serialization_scatter
-    # Should be serialized once per task
-    assert z.count == 13
+    # extra variable as this count can vary from one dask version
+    # to another.
+    assert results_parallel == expected
+    n_serialization_scatter_with_parallel = w.count
+    assert x.count == n_serialization_scatter_with_parallel
+    assert y.count == n_serialization_scatter_with_parallel
+    n_serialization_with_parallel = z.count
+
+    # Reset the cluster and the serialization count
+    for var in (w, x, y, z):
+        var.count = 0
+
+    with cluster() as (s, [a, b]):
+        with Client(s["address"], loop=loop) as client:  # noqa: F841
+            scattered = dict()
+            for obj in w, x, y:
+                scattered[id(obj)] = client.scatter(obj, broadcast=True)
+            results_native = [
+                client.submit(
+                    task,
+                    *(scattered.get(id(arg), arg) for arg in args),
+                    **dict(
+                        (key, scattered.get(id(value), value))
+                        for (key, value) in kwargs.items()
+                    ),
+                ).result()
+                for (task, args, kwargs) in tasks
+            ]
+
+    assert results_native == expected
+    n_serialization_scatter_native = w.count
+    assert x.count == n_serialization_scatter_native
+    assert y.count == n_serialization_scatter_native
+
+    assert n_serialization_scatter_with_parallel == n_serialization_scatter_native
+
+    assert z.count == n_serialization_with_parallel
 
 
 # When the same IOLoop is used for multiple clients in a row, use
