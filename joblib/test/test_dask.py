@@ -279,10 +279,9 @@ def test_manual_scatter(loop):
     ]
     expected = [func(*args, **kwargs) for func, args, kwargs in tasks]
 
-    with cluster() as (s, [a, b]):
+    with cluster() as (s, _):
         with Client(s["address"], loop=loop) as client:  # noqa: F841
             with parallel_config(backend="dask", scatter=[w, x, y]):
-                f = delayed(add5)
                 results_parallel = Parallel(batch_size=1)(tasks)
 
     # Scattered variables only serialized during scatter. Checking with an
@@ -298,21 +297,22 @@ def test_manual_scatter(loop):
     for var in (w, x, y, z):
         var.count = 0
 
-    with cluster() as (s, [a, b]):
+    with cluster() as (s, _):
         with Client(s["address"], loop=loop) as client:  # noqa: F841
             scattered = dict()
             for obj in w, x, y:
                 scattered[id(obj)] = client.scatter(obj, broadcast=True)
             results_native = [
                 client.submit(
-                    task,
+                    func,
                     *(scattered.get(id(arg), arg) for arg in args),
                     **dict(
                         (key, scattered.get(id(value), value))
                         for (key, value) in kwargs.items()
                     ),
+                    key=str(uuid4()),
                 ).result()
-                for (task, args, kwargs) in tasks
+                for (func, args, kwargs) in tasks
             ]
 
     assert results_native == expected
