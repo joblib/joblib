@@ -283,11 +283,17 @@ def test_manual_scatter(loop):
         with Client(s["address"], loop=loop) as client:  # noqa: F841
             with parallel_config(backend="dask", scatter=[w, x, y]):
                 results_parallel = Parallel(batch_size=1)(tasks)
+                assert results_parallel == expected
+
+            # Check that an error is raised for bad arguments, as scatter must
+            # take a list/tuple
+            with pytest.raises(TypeError):
+                with parallel_config(backend="dask", loop=loop, scatter=1):
+                    pass
 
     # Scattered variables only serialized during scatter. Checking with an
     # extra variable as this count can vary from one dask version
     # to another.
-    assert results_parallel == expected
     n_serialization_scatter_with_parallel = w.count
     assert x.count == n_serialization_scatter_with_parallel
     assert y.count == n_serialization_scatter_with_parallel
@@ -314,8 +320,11 @@ def test_manual_scatter(loop):
                 ).result()
                 for (func, args, kwargs) in tasks
             ]
+            assert results_native == expected
 
-    assert results_native == expected
+
+    # Now check that the number of serialization steps is the same for joblib
+    # and native dask calls.
     n_serialization_scatter_native = w.count
     assert x.count == n_serialization_scatter_native
     assert y.count == n_serialization_scatter_native
