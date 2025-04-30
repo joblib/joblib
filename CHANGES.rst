@@ -20,8 +20,8 @@ Memory:
   if it is in cache memory.
   https://github.com/joblib/joblib/pull/1584
 
-- The Memory object now automatically creates a .gitignore file in its cache directory,
-  instructing git to ignore the entire folder.
+- The Memory object now automatically creates a .gitignore file in its cache
+  directory, instructing git to ignore the entire folder.
   https://github.com/joblib/joblib/pull/1674
 
 Parallel:
@@ -76,12 +76,15 @@ Maintenance:
   an extra argument in ``Pickler._batch_setitems``.
   https://github.com/joblib/joblib/pull/1688
 
-- Bump vendored cloudpickle to 3.1.1 to support Python 3.14 (dev) and
+- Fix tests on platforms with only one CPU core.
+  https://github.com/joblib/joblib/pull/1682
+
+- Bump vendored cloudpickle to ``3.1.1`` to support Python 3.14 (dev) and
   various other fixes.
 
-- Bump vendored loky to 3.5.1 to support recent Python versions without raising
-  the warning on calls to `os.fork` and fix various sources of crashes and
-  deadlocks.
+- Bump vendored loky to ``3.5.3`` to support recent Python versions without
+  raising the warning on calls to `os.fork` and fix various sources of crashes
+  and deadlocks.
 
 - Use ``pickle`` protocol 5 for pickling ``numpy`` arrays with object type.
   https://github.com/joblib/joblib/pull/1682

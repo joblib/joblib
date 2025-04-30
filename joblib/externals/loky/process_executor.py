@@ -1263,7 +1263,7 @@ class ProcessPoolExecutor(Executor):
             # This check avoids spawning new processes at exit.
             if _global_shutdown:
                 raise RuntimeError(
-                    "cannot schedule new futures after " "interpreter shutdown"
+                    "cannot schedule new futures after interpreter shutdown"
                 )
 
             f = Future()

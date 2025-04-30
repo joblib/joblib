@@ -81,6 +81,10 @@ jobs:
             os: ubuntu-latest
             PYTHON_VERSION: "3.10"
             NO_LZ4: true
+          - name: one-cpu
+            os: ubuntu-latest
+            PYTHON_VERSION: "3.12"
+            LOKY_MAX_CPU_COUNT: 1
           - name: default-backend-threading
             os: ubuntu-latest
             PYTHON_VERSION: "3.9"

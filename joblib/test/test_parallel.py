@@ -1825,19 +1825,12 @@ def test_nested_parallelism_limit(context, backend):
     with context(backend, n_jobs=2):
         backend_types_and_levels = _recursive_backend_info()
 
-    if cpu_count() == 1:
-        second_level_backend_type = "SequentialBackend"
-        max_level = 1
-    else:
-        second_level_backend_type = "ThreadingBackend"
-        max_level = 2
-
     top_level_backend_type = backend.title() + "Backend"
     expected_types_and_levels = [
         (top_level_backend_type, 0),
-        (second_level_backend_type, 1),
-        ("SequentialBackend", max_level),
-        ("SequentialBackend", max_level),
+        ("ThreadingBackend", 1),
+        ("SequentialBackend", 2),
+        ("SequentialBackend", 2),
     ]
     assert backend_types_and_levels == expected_types_and_levels
 
@@ -2051,7 +2044,9 @@ def test_threadpool_limitation_in_child_context(context, n_jobs, inner_max_num_t
         )
 
     n_jobs = effective_n_jobs(n_jobs)
-    if inner_max_num_threads is None:
+    if n_jobs == 1:
+        expected_child_num_threads = parent_info[0]["num_threads"]
+    elif inner_max_num_threads is None:
         expected_child_num_threads = max(cpu_count() // n_jobs, 1)
     else:
         expected_child_num_threads = inner_max_num_threads
@@ -2068,6 +2063,10 @@ def test_threadpool_limitation_in_child_context(context, n_jobs, inner_max_num_t
 def test_threadpool_limitation_in_child_override(context, n_jobs, var_name):
     # Check that environment variables set by the user on the main process
     # always have the priority.
+
+    # Skip this test if the process is run sequetially
+    if effective_n_jobs(n_jobs) == 1:
+        pytest.skip("Skip test when n_jobs == 1")
 
     # Clean up the existing executor because we change the environment of the
     # parent at runtime and it is not detected in loky intentionally.
@@ -2150,7 +2149,6 @@ def _check_status(status, n_jobs, wait_workers=False):
 @parametrize("backend", PROCESS_BACKENDS)
 @parametrize("context", [parallel_config, parallel_backend])
 def test_initializer_context(n_jobs, backend, context):
-    n_jobs = effective_n_jobs(n_jobs)
     manager = mp.Manager()
     status = manager.dict()
 
@@ -2169,7 +2167,6 @@ def test_initializer_context(n_jobs, backend, context):
 @parametrize("n_jobs", [2, 4])
 @parametrize("backend", PROCESS_BACKENDS)
 def test_initializer_parallel(n_jobs, backend):
-    n_jobs = effective_n_jobs(n_jobs)
     manager = mp.Manager()
     status = manager.dict()
 
@@ -2189,7 +2186,6 @@ def test_initializer_reused(n_jobs):
     # Check that it is possible to pass initializer config via the `Parallel`
     # call directly and the worker are reused when the arguments are the same.
     n_repetitions = 3
-    n_jobs = effective_n_jobs(n_jobs)
     manager = mp.Manager()
     status = manager.dict()
 
@@ -2217,7 +2213,6 @@ def test_initializer_not_reused(n_jobs):
     # own initializer args, independently of the previous calls, hence the loky workers
     # are not reused.
     n_repetitions = 3
-    n_jobs = effective_n_jobs(n_jobs)
     manager = mp.Manager()
 
     pids = set()
