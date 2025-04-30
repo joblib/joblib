@@ -322,7 +322,6 @@ def test_manual_scatter(loop):
             ]
             assert results_native == expected
 
-
     # Now check that the number of serialization steps is the same for joblib
     # and native dask calls.
     n_serialization_scatter_native = w.count
