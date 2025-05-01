@@ -54,7 +54,7 @@ def _wrap_objects_when_needed(obj):
             **{
                 k: _wrap_objects_when_needed(v)
                 for k, v in obj.keywords.items()
-            }
+            },
         )
     if callable(obj):
         # Need wrap if the object is a function defined in a local scope of

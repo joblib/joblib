@@ -421,7 +421,8 @@ def test_parallel_pickling():
 @with_numpy
 @with_multiprocessing
 @parametrize("byteorder", ["<", ">", "="])
-def test_parallel_byteorder_corruption(byteorder):
+@parametrize("max_nbytes", [1, "1M"])
+def test_parallel_byteorder_corruption(byteorder, max_nbytes):
     def inspect_byteorder(x):
         return x, x.dtype.byteorder
 
@@ -429,7 +430,7 @@ def test_parallel_byteorder_corruption(byteorder):
 
     initial_np_byteorder = x.dtype.byteorder
 
-    result = Parallel(n_jobs=2, backend="loky")(
+    result = Parallel(n_jobs=2, backend="loky", max_nbytes=max_nbytes)(
         delayed(inspect_byteorder)(x) for _ in range(3)
     )
 
@@ -1087,7 +1088,7 @@ def test_dispatch_race_condition(n_tasks, n_jobs, pre_dispatch, batch_size):
 def test_default_mp_context():
     mp_start_method = mp.get_start_method()
     p = Parallel(n_jobs=2, backend="multiprocessing")
-    context = p._backend_args.get("context")
+    context = p._backend_kwargs.get("context")
     start_method = context.get_start_method()
     assert start_method == mp_start_method
 
@@ -1322,11 +1323,6 @@ def test_parallel_with_exhausted_iterator():
     assert Parallel(n_jobs=2)(exhausted_iterator) == []
 
 
-def _cleanup_worker():
-    """Helper function to force gc in each worker."""
-    time.sleep(0.1)
-
-
 def check_memmap(a):
     if not isinstance(a, np.memmap):
         raise TypeError("Expected np.memmap instance, got %r", type(a))
@@ -1528,8 +1524,8 @@ def test_multiple_generator_call_managed(backend, return_as, n_jobs):
 
         # Make sure that the error is raised quickly
         assert time.time() - t_start < 2, (
-            "The error should be raised immediately when submitting a new task"
-            " but it took more than 2s."
+            "The error should be raised immediately when submitting a new task "
+            "but it took more than 2s."
         )
 
     del g
@@ -1640,7 +1636,6 @@ def test_memmapping_leaks(backend, tmpdir):
     # Make sure that the shared memory is cleaned at the end of a call
     p = Parallel(n_jobs=2, max_nbytes=1, backend=backend)
     p(delayed(check_memmap)(a) for a in [np.random.random(10)] * 2)
-    p(delayed(_cleanup_worker)() for _ in range(2))
 
     for _ in range(100):
         if not os.listdir(tmpdir):
@@ -1830,19 +1825,12 @@ def test_nested_parallelism_limit(context, backend):
     with context(backend, n_jobs=2):
         backend_types_and_levels = _recursive_backend_info()
 
-    if cpu_count() == 1:
-        second_level_backend_type = "SequentialBackend"
-        max_level = 1
-    else:
-        second_level_backend_type = "ThreadingBackend"
-        max_level = 2
-
     top_level_backend_type = backend.title() + "Backend"
     expected_types_and_levels = [
         (top_level_backend_type, 0),
-        (second_level_backend_type, 1),
-        ("SequentialBackend", max_level),
-        ("SequentialBackend", max_level),
+        ("ThreadingBackend", 1),
+        ("SequentialBackend", 2),
+        ("SequentialBackend", 2),
     ]
     assert backend_types_and_levels == expected_types_and_levels
 
@@ -2056,7 +2044,9 @@ def test_threadpool_limitation_in_child_context(context, n_jobs, inner_max_num_t
         )
 
     n_jobs = effective_n_jobs(n_jobs)
-    if inner_max_num_threads is None:
+    if n_jobs == 1:
+        expected_child_num_threads = parent_info[0]["num_threads"]
+    elif inner_max_num_threads is None:
         expected_child_num_threads = max(cpu_count() // n_jobs, 1)
     else:
         expected_child_num_threads = inner_max_num_threads
@@ -2073,6 +2063,10 @@ def test_threadpool_limitation_in_child_context(context, n_jobs, inner_max_num_t
 def test_threadpool_limitation_in_child_override(context, n_jobs, var_name):
     # Check that environment variables set by the user on the main process
     # always have the priority.
+
+    # Skip this test if the process is run sequetially
+    if effective_n_jobs(n_jobs) == 1:
+        pytest.skip("Skip test when n_jobs == 1")
 
     # Clean up the existing executor because we change the environment of the
     # parent at runtime and it is not detected in loky intentionally.
@@ -2121,3 +2115,119 @@ def test_loky_reuse_workers(n_jobs):
         parallel_call(n_jobs)
         executor = get_reusable_executor(reuse=True)
         assert executor == first_executor
+
+
+def _set_initialized(status):
+    status[os.getpid()] = "initialized"
+
+
+def _check_status(status, n_jobs, wait_workers=False):
+    pid = os.getpid()
+    state = status.get(pid, None)
+    assert state in ("initialized", "started"), (
+        f"worker should have been in initialized state, got {state}"
+    )
+    if not wait_workers:
+        return
+
+    status[pid] = "started"
+    # wait up to 30 seconds for the workers to be initialized
+    deadline = time.time() + 30
+    n_started = len([pid for pid, v in status.items() if v == "started"])
+    while time.time() < deadline and n_started < n_jobs:
+        time.sleep(0.1)
+        n_started = len([pid for pid, v in status.items() if v == "started"])
+
+    if time.time() >= deadline:
+        raise TimeoutError("Waited more than 30s to start all the workers")
+
+    return pid
+
+
+@with_multiprocessing
+@parametrize("n_jobs", [2, 4])
+@parametrize("backend", PROCESS_BACKENDS)
+@parametrize("context", [parallel_config, parallel_backend])
+def test_initializer_context(n_jobs, backend, context):
+    manager = mp.Manager()
+    status = manager.dict()
+
+    # pass the initializer to the backend context
+    with context(
+        backend=backend,
+        n_jobs=n_jobs,
+        initializer=_set_initialized,
+        initargs=(status,),
+    ):
+        # check_status checks that the initializer is correctly call
+        Parallel()(delayed(_check_status)(status, n_jobs) for i in range(100))
+
+
+@with_multiprocessing
+@parametrize("n_jobs", [2, 4])
+@parametrize("backend", PROCESS_BACKENDS)
+def test_initializer_parallel(n_jobs, backend):
+    manager = mp.Manager()
+    status = manager.dict()
+
+    # pass the initializer directly to the Parallel call
+    # check_status checks that the initializer is called in all tasks
+    Parallel(
+        backend=backend,
+        n_jobs=n_jobs,
+        initializer=_set_initialized,
+        initargs=(status,),
+    )(delayed(_check_status)(status, n_jobs) for i in range(100))
+
+
+@with_multiprocessing
+@pytest.mark.parametrize("n_jobs", [2, 4])
+def test_initializer_reused(n_jobs):
+    # Check that it is possible to pass initializer config via the `Parallel`
+    # call directly and the worker are reused when the arguments are the same.
+    n_repetitions = 3
+    manager = mp.Manager()
+    status = manager.dict()
+
+    pids = set()
+    for i in range(n_repetitions):
+        results = Parallel(
+            backend="loky",
+            n_jobs=n_jobs,
+            initializer=_set_initialized,
+            initargs=(status,),
+        )(
+            delayed(_check_status)(status, n_jobs, wait_workers=True)
+            for i in range(n_jobs)
+        )
+        pids = pids.union(set(results))
+    assert len(pids) == n_jobs, (
+        "The workers should be reused when the initializer is the same"
+    )
+
+
+@with_multiprocessing
+@pytest.mark.parametrize("n_jobs", [2, 4])
+def test_initializer_not_reused(n_jobs):
+    # Check that when changing the initializer arguments, each parallel call uses its
+    # own initializer args, independently of the previous calls, hence the loky workers
+    # are not reused.
+    n_repetitions = 3
+    manager = mp.Manager()
+
+    pids = set()
+    for i in range(n_repetitions):
+        status = manager.dict()
+        results = Parallel(
+            backend="loky",
+            n_jobs=n_jobs,
+            initializer=_set_initialized,
+            initargs=(status,),
+        )(
+            delayed(_check_status)(status, n_jobs, wait_workers=True)
+            for i in range(n_jobs)
+        )
+        pids = pids.union(set(results))
+    assert len(pids) == n_repetitions * n_jobs, (
+        "The workers should not be reused when the initializer arguments change"
+    )

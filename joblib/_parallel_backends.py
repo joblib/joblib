@@ -48,10 +48,13 @@ class ParallelBackendBase(metaclass=ABCMeta):
 
     nesting_level = None
 
-    def __init__(self, nesting_level=None, inner_max_num_threads=None, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(
+        self, nesting_level=None, inner_max_num_threads=None, **backend_kwargs
+    ):
+        super().__init__()
         self.nesting_level = nesting_level
         self.inner_max_num_threads = inner_max_num_threads
+        self.backend_kwargs = backend_kwargs
 
     MAX_NUM_THREADS_VARS = [
         "OMP_NUM_THREADS",
@@ -152,12 +155,7 @@ class ParallelBackendBase(metaclass=ABCMeta):
             return out.get()
 
     def configure(
-        self,
-        n_jobs=1,
-        parallel=None,
-        prefer=None,
-        require=None,
-        **backend_args,
+        self, n_jobs=1, parallel=None, prefer=None, require=None, **backend_kwargs
     ):
         """Reconfigure the backend and return the number of workers.
 
@@ -360,7 +358,7 @@ class PoolManagerMixin(object):
             self.configure(
                 n_jobs=self.parallel.n_jobs,
                 parallel=self.parallel,
-                **self.parallel._backend_args,
+                **self.parallel._backend_kwargs,
             )
 
 
@@ -489,7 +487,7 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
     uses_threads = True
     supports_sharedmem = True
 
-    def configure(self, n_jobs=1, parallel=None, **backend_args):
+    def configure(self, n_jobs=1, parallel=None, **backend_kwargs):
         """Build a process or thread pool and return the number of workers"""
         n_jobs = self.effective_n_jobs(n_jobs)
         if n_jobs == 1:
@@ -574,16 +572,26 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin, ParallelBacken
         return super(MultiprocessingBackend, self).effective_n_jobs(n_jobs)
 
     def configure(
-        self, n_jobs=1, parallel=None, prefer=None, require=None, **memmappingpool_args
+        self,
+        n_jobs=1,
+        parallel=None,
+        prefer=None,
+        require=None,
+        **memmapping_pool_kwargs,
     ):
         """Build a process or thread pool and return the number of workers"""
         n_jobs = self.effective_n_jobs(n_jobs)
         if n_jobs == 1:
             raise FallbackToBackend(SequentialBackend(nesting_level=self.nesting_level))
 
+        memmapping_pool_kwargs = {
+            **self.backend_kwargs,
+            **memmapping_pool_kwargs,
+        }
+
         # Make sure to free as much memory as possible before forking
         gc.collect()
-        self._pool = MemmappingPool(n_jobs, **memmappingpool_args)
+        self._pool = MemmappingPool(n_jobs, **memmapping_pool_kwargs)
         self.parallel = parallel
         return n_jobs
 
@@ -605,20 +613,35 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
         parallel=None,
         prefer=None,
         require=None,
-        idle_worker_timeout=300,
-        **memmappingexecutor_args,
+        idle_worker_timeout=None,
+        **memmapping_executor_kwargs,
     ):
         """Build a process executor and return the number of workers"""
         n_jobs = self.effective_n_jobs(n_jobs)
         if n_jobs == 1:
             raise FallbackToBackend(SequentialBackend(nesting_level=self.nesting_level))
 
+        memmapping_executor_kwargs = {
+            **self.backend_kwargs,
+            **memmapping_executor_kwargs,
+        }
+
+        # Prohibit the use of 'timeout' in the LokyBackend, as 'idle_worker_timeout'
+        # better describes the backend's behavior.
+        if "timeout" in memmapping_executor_kwargs:
+            raise ValueError(
+                "The 'timeout' parameter is not supported by the LokyBackend. "
+                "Please use the `idle_worker_timeout` parameter instead."
+            )
+        if idle_worker_timeout is None:
+            idle_worker_timeout = self.backend_kwargs.get("idle_worker_timeout", 300)
+
         self._workers = get_memmapping_executor(
             n_jobs,
             timeout=idle_worker_timeout,
             env=self._prepare_worker_env(n_jobs=n_jobs),
             context_id=parallel._id,
-            **memmappingexecutor_args,
+            **memmapping_executor_kwargs,
         )
         self.parallel = parallel
         return n_jobs

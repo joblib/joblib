@@ -20,7 +20,7 @@ Memory:
   if it is in cache memory.
   https://github.com/joblib/joblib/pull/1584
 
-- The ``Memory`` object now automatically creates a .gitignore file in its
+- The ``Memory`` object now automatically creates a ``.gitignore`` file in its
   cache directory, instructing git to ignore the entire folder.
   https://github.com/joblib/joblib/pull/1674
 
@@ -38,6 +38,10 @@ Parallel:
 
 - Pretty printing of ``Parallel`` execution progress when the number of tasks is
   known. https://github.com/joblib/joblib/pull/1608
+
+- Make it possible to pass extra arguments to the ``LokyBackend`` and
+  ``MultiprocessingBackend``, enabling the use of ``initializer``.
+  https://github.com/joblib/joblib/pull/1525
 
 - Refactor and document the custom parallel backend API.
   https://github.com/joblib/joblib/pull/1667
@@ -61,17 +65,34 @@ Maintenance:
   the warnings that are emitted in this case.
   https://github.com/joblib/joblib/pull/1681
 
+- Fix a regression in 1.3 and 1.4 that caused large big endian arrays to trigger
+  a serialization error. https://github.com/joblib/joblib/issues/1545
+
+- Added a ``ensure_native_byte_order`` parameter to ``joblib.load``. When
+  ``True`` and ``mmap_mode`` is ``None``, loaded arrays are automatically coerced
+  to a byte order that matches the endianness of the host system. This behavior
+  has been the default since ``joblib==1.3``, and can now be disabled if the
+  parameter is set to ``False`` instead. Note that setting it to ``True`` will
+  raise an error if ``mmap_mode`` is not null. The default value ``'auto'`` is
+  equivalent to always setting ``True`` if ``mmap_mode`` is ``None``, else always
+  ``False``.  https://github.com/joblib/joblib/pull/1561
+
 - Fix support for python 3.14 in ``hashing``, with the addition of
   an extra argument in ``Pickler._batch_setitems``.
   https://github.com/joblib/joblib/pull/1688
 
-- Bump vendored cloudpickle to 3.1.1 to support Python 3.14 (dev) and
+- Fix tests on platforms with only one CPU core.
+  https://github.com/joblib/joblib/pull/1682
+
+- Bump vendored cloudpickle to ``3.1.1`` to support Python 3.14 (dev) and
   various other fixes.
 
-- Bump vendored loky to 3.5.1 to support recent Python versions without raising
-  the warning on calls to `os.fork` and fix various sources of crashes and
-  deadlocks.
+- Bump vendored loky to ``3.5.3`` to support recent Python versions without
+  raising the warning on calls to `os.fork` and fix various sources of crashes
+  and deadlocks.
 
+- Use ``pickle`` protocol 5 for pickling ``numpy`` arrays with object type.
+  https://github.com/joblib/joblib/pull/1682
 
 
 Release 1.4.2 -- 2024/05/02

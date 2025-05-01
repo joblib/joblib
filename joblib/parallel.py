@@ -175,7 +175,6 @@ def _get_active_backend(
         # context manager or the context manager did not set a backend.
         # create the default backend instance now.
         backend = BACKENDS[DEFAULT_BACKEND](nesting_level=0)
-
         explicit_backend = False
 
     # Try to use the backend set by the user with the context manager.
@@ -300,7 +299,7 @@ class parallel_config:
           overridden with ``TMP``, ``TMPDIR`` or ``TEMP`` environment
           variables, typically ``/tmp`` under Unix operating systems.
 
-    max_nbytes int, str, or None, optional, default='1M'
+    max_nbytes: int, str, or None, optional, default='1M'
         Threshold on the size of arrays passed to the workers that
         triggers automated memory mapping in temp_folder. Can be an int
         in Bytes, or a human-readable string, e.g., '1M' for 1 megabyte.
@@ -542,8 +541,7 @@ class parallel_backend(parallel_config):
 
     See Also
     --------
-    joblib.parallel_config: context manager to change the backend
-        configuration.
+    joblib.parallel_config: context manager to change the backend configuration.
     """
 
     def __init__(
@@ -1084,6 +1082,8 @@ class Parallel(Logger):
         disable memmapping, other modes defined in the numpy.memmap doc:
         https://numpy.org/doc/stable/reference/generated/numpy.memmap.html
         Also, see 'max_nbytes' parameter documentation for more details.
+    backend_kwargs: dict, optional
+        Additional parameters to pass to the backend `configure` method.
 
     Notes
     -----
@@ -1222,6 +1222,7 @@ class Parallel(Logger):
         mmap_mode=default_parallel_config["mmap_mode"],
         prefer=default_parallel_config["prefer"],
         require=default_parallel_config["require"],
+        **backend_kwargs,
     ):
         # Initiate parent Logger class state
         super().__init__()
@@ -1253,28 +1254,31 @@ class Parallel(Logger):
         # Check if we are under a parallel_config or parallel_backend
         # context manager and use the config from the context manager
         # for arguments that are not explicitly set.
-        self._backend_args = {
-            k: _get_config_param(param, context_config, k)
-            for param, k in [
-                (max_nbytes, "max_nbytes"),
-                (temp_folder, "temp_folder"),
-                (mmap_mode, "mmap_mode"),
-                (prefer, "prefer"),
-                (require, "require"),
-                (verbose, "verbose"),
-            ]
+        self._backend_kwargs = {
+            **backend_kwargs,
+            **{
+                k: _get_config_param(param, context_config, k)
+                for param, k in [
+                    (max_nbytes, "max_nbytes"),
+                    (temp_folder, "temp_folder"),
+                    (mmap_mode, "mmap_mode"),
+                    (prefer, "prefer"),
+                    (require, "require"),
+                    (verbose, "verbose"),
+                ]
+            },
         }
 
-        if isinstance(self._backend_args["max_nbytes"], str):
-            self._backend_args["max_nbytes"] = memstr_to_bytes(
-                self._backend_args["max_nbytes"]
+        if isinstance(self._backend_kwargs["max_nbytes"], str):
+            self._backend_kwargs["max_nbytes"] = memstr_to_bytes(
+                self._backend_kwargs["max_nbytes"]
             )
-        self._backend_args["verbose"] = max(0, self._backend_args["verbose"] - 50)
+        self._backend_kwargs["verbose"] = max(0, self._backend_kwargs["verbose"] - 50)
 
         if DEFAULT_MP_CONTEXT is not None:
-            self._backend_args["context"] = DEFAULT_MP_CONTEXT
+            self._backend_kwargs["context"] = DEFAULT_MP_CONTEXT
         elif hasattr(mp, "get_context"):
-            self._backend_args["context"] = mp.get_context()
+            self._backend_kwargs["context"] = mp.get_context()
 
         if backend is default_parallel_config["backend"] or backend is None:
             backend = active_backend
@@ -1289,7 +1293,7 @@ class Parallel(Logger):
             # Make it possible to pass a custom multiprocessing context as
             # backend to change the start method to forkserver or spawn or
             # preload modules on the forkserver helper process.
-            self._backend_args["context"] = backend
+            self._backend_kwargs["context"] = backend
             backend = MultiprocessingBackend(nesting_level=nesting_level)
 
         elif backend not in BACKENDS and backend in MAYBE_AVAILABLE_BACKENDS:
@@ -1372,7 +1376,7 @@ class Parallel(Logger):
         """Build a process or thread pool and return the number of workers"""
         try:
             n_jobs = self._backend.configure(
-                n_jobs=self.n_jobs, parallel=self, **self._backend_args
+                n_jobs=self.n_jobs, parallel=self, **self._backend_kwargs
             )
             if self.timeout is not None and not self._backend.supports_timeout:
                 warnings.warn(

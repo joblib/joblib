@@ -192,11 +192,16 @@ class _ReusablePoolExecutor(ProcessPoolExecutor):
                     executor._flags.broken
                     or executor._flags.shutdown
                     or not reuse
+                    or executor.queue_size < max_workers
                 ):
                     if executor._flags.broken:
                         reason = "broken"
                     elif executor._flags.shutdown:
                         reason = "shutdown"
+                    elif executor.queue_size < max_workers:
+                        # Do not reuse the executor if the queue size is too
+                        # small as this would lead to limited parallelism.
+                        reason = "queue size is too small"
                     else:
                         reason = "arguments have changed"
                     mp.util.debug(
@@ -279,7 +284,11 @@ class _ReusablePoolExecutor(ProcessPoolExecutor):
     def _setup_queues(self, job_reducers, result_reducers):
         # As this executor can be resized, use a large queue size to avoid
         # underestimating capacity and introducing overhead
-        queue_size = 2 * cpu_count() + EXTRA_QUEUED_CALLS
+        # Also handle the case where the user set max_workers to a value larger
+        # than cpu_count(), to avoid limiting the number of parallel jobs.
+
+        min_queue_size = max(cpu_count(), self._max_workers)
+        self.queue_size = 2 * min_queue_size + EXTRA_QUEUED_CALLS
         super()._setup_queues(
-            job_reducers, result_reducers, queue_size=queue_size
+            job_reducers, result_reducers, queue_size=self.queue_size
         )

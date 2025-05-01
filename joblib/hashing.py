@@ -131,6 +131,8 @@ class Hasher(Pickler):
     # function
     dispatch[type(pickle.dump)] = save_global
 
+    # We use *args in _batch_setitems signature because _batch_setitems has an
+    # additional 'obj' argument in Python 3.14
     def _batch_setitems(self, items, *args):
         # forces order of keys in dict to ensure consistent hash.
         try:

@@ -6,7 +6,12 @@ import pickle
 import zlib
 from io import BytesIO
 
-from .numpy_pickle_utils import _ZFILE_PREFIX, Unpickler, _ensure_native_byte_order
+from .numpy_pickle_utils import (
+    _ZFILE_PREFIX,
+    Unpickler,
+    _ensure_native_byte_order,
+    _reconstruct,
+)
 
 
 def hex_str(an_int):
@@ -115,9 +120,7 @@ class NDArrayWrapper(object):
             unpickler.np.memmap,
         ):
             # We need to reconstruct another subclass
-            new_array = unpickler.np.core.multiarray._reconstruct(
-                self.subclass, (0,), "b"
-            )
+            new_array = _reconstruct(self.subclass, (0,), "b")
             return new_array.__array_prepare__(array)
         else:
             return array
@@ -149,7 +152,7 @@ class ZNDArrayWrapper(NDArrayWrapper):
         # Here we a simply reproducing the unpickling mechanism for numpy
         # arrays
         filename = os.path.join(unpickler._dirname, self.filename)
-        array = unpickler.np.core.multiarray._reconstruct(*self.init_args)
+        array = _reconstruct(*self.init_args)
         with open(filename, "rb") as f:
             data = read_zfile(f)
         state = self.state + (data,)
