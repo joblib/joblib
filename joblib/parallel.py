@@ -50,7 +50,7 @@ BACKENDS = {
 # threading is the only backend that is always everywhere
 DEFAULT_BACKEND = "threading"
 DEFAULT_THREAD_BACKEND = "threading"
-DEFAULT_PROCESS_BACKEND = "loky"
+DEFAULT_PROCESS_BACKEND = "threading"
 
 MAYBE_AVAILABLE_BACKENDS = {"multiprocessing", "loky"}
 
@@ -62,6 +62,7 @@ if mp is not None:
 
     BACKENDS["loky"] = LokyBackend
     DEFAULT_BACKEND = "loky"
+    DEFAULT_PROCESS_BACKEND = "loky"
 
 # Thread local value that can be overridden by the ``parallel_config`` context
 # manager

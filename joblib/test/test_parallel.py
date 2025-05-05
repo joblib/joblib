@@ -1728,6 +1728,23 @@ def test_backend_hinting_and_constraints(context):
         assert p.n_jobs == 3
 
 
+@parametrize("n_jobs", [1, 2])
+@parametrize("prefer", [None, "processes", "threads"])
+def test_backend_hinting_always_running(n_jobs, prefer):
+    # Check that the backend hinting never results in an error
+    # Non-regression test for https://github.com/joblib/joblib/issues/1720
+    expected_results = [i**2 for i in range(10)]
+
+    results = Parallel(n_jobs=n_jobs, prefer=prefer)(
+        delayed(square)(i) for i in range(10)
+    )
+    assert results == expected_results
+
+    with parallel_config(prefer=prefer, n_jobs=n_jobs):
+        results = Parallel()(delayed(square)(i) for i in range(10))
+    assert results == expected_results
+
+
 @parametrize("context", [parallel_config, parallel_backend])
 def test_backend_hinting_and_constraints_with_custom_backends(capsys, context):
     # Custom backends can declare that they use threads and have shared memory
