@@ -8,11 +8,13 @@ import os
 import os.path
 import re
 import shutil
+import socket
 import threading
 import time
 import warnings
 from abc import ABCMeta, abstractmethod
 from pickle import PicklingError
+# from urllib.parse import quote
 
 from . import numpy_pickle
 from .backports import concurrency_safe_rename
@@ -30,8 +32,13 @@ class CacheWarning(Warning):
 
 def concurrency_safe_write(object_to_write, filename, write_func):
     """Writes an object into a unique file in a concurrency-safe way."""
+    # hostname = quote(socket.getfqdn())
+    hostname = socket.getfqdn()
     thread_id = id(threading.current_thread())
-    temporary_filename = "{}.thread-{}-pid-{}".format(filename, thread_id, os.getpid())
+    temporary_filename = (
+        f"{filename}.hostname-{hostname}-thread-{thread_id}-pid-{os.getpid()}"
+    )
+
     write_func(object_to_write, temporary_filename)
 
     return temporary_filename
