@@ -60,6 +60,13 @@ A simple example:
     Running f(2)
     2
 
+.. note::
+
+  :class:`~joblib.Memory` use pickle to load saved results from files, which
+  means that pickle security considerations apply, see `pickle documentation
+  <https://docs.python.org/3/library/pickle.html>`_ for more details. In
+  particular, only use a cache directory if you trust it.
+
 Comparison with `memoize`
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
