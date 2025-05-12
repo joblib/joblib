@@ -62,10 +62,10 @@ A simple example:
 
 .. note::
 
-  :class:`~joblib.Memory` use pickle to load saved results from files, which
-  means that pickle security considerations apply, see `pickle documentation
-  <https://docs.python.org/3/library/pickle.html>`_ for more details. In
-  particular, only use a cache directory if you trust it.
+  :class:`~joblib.Memory` use pickle to load saved results from the file system.
+  This means that pickle security considerations apply, see `pickle documentation
+  <https://docs.python.org/3/library/pickle.html>`_ for more details.
+  In particular, only use a cache directory if you trust it.
 
 Comparison with `memoize`
 ~~~~~~~~~~~~~~~~~~~~~~~~~
