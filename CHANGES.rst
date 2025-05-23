@@ -4,6 +4,14 @@ Latest changes
 In development
 --------------
 
+Memory:
+~~~~~~~
+
+- Ensure that temporary files managed by the ``Memory`` object do not collide
+  when using the same cache directory when the cache directory is accessed
+  concurrently from different nodes on a cluster with a shared filesystem.
+  https://github.com/joblib/joblib/pull/1656
+
 Release 1.5.1 - 2025/05/23
 --------------------------
 
@@ -35,11 +43,6 @@ Memory:
 - The ``Memory`` object now automatically creates a ``.gitignore`` file in its
   cache directory, instructing git to ignore the entire folder.
   https://github.com/joblib/joblib/pull/1674
-
-- Ensure that temporary files managed by the ``Memory`` object do not collide
-  when using the same cache directory when the cache directory is accessed
-  concurrently from different nodes on a cluster with a shared filesystem.
-  https://github.com/joblib/joblib/pull/1656
 
 Parallel:
 ~~~~~~~~~
