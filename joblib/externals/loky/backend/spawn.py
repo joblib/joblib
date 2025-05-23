@@ -87,7 +87,7 @@ def get_preparation_data(name, init_main_module=True):
     else:
         d["tracker_fd"] = _resource_tracker._fd
 
-    if sys.version_info >= (3, 8) and os.name == "posix":
+    if os.name == "posix":
         # joblib/loky#242: allow loky processes to retrieve the resource
         # tracker of their parent in case the child processes depickles
         # shared_memory objects, that are still tracked by multiprocessing's
