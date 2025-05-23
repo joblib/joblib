@@ -175,7 +175,7 @@ class ResourceTracker(_ResourceTracker):
         # ignore error due to trying to clean up child process which has already been
         # shutdown on windows See https://github.com/joblib/loky/pull/450
         # This is only required if __del__ is defined
-        if not hasattr(ResourceTracker, "__del__"):
+        if not hasattr(_ResourceTracker, "__del__"):
             return
         try:
             super().__del__()

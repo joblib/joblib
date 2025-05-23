@@ -60,6 +60,15 @@ A simple example:
     Running f(2)
     2
 
+.. warning::
+
+  :class:`~joblib.Memory` use pickle to load saved results from the file system.
+  This means that pickle security considerations apply, see `pickle documentation
+  <https://docs.python.org/3/library/pickle.html>`_ for more details.
+  In particular, if an adversary gains write access to the cache directory,
+  it could lead to arbitrary code execution by the Python process(es) attempting to
+  load compromised cached entries from that folder.
+
 Comparison with `memoize`
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
