@@ -7,6 +7,9 @@ In development
 - Fix backend hints causing errors when no multiprocessing is present
   https://github.com/joblib/joblib/issues/1721
 
+- Vendor ``loky3.5.5`` fixing the resource_tracker clean up with earlier Python
+  versions. https://github.com/joblib/joblib/issues/1724
+
 Release 1.5.0 -- 2025/05/03
 ---------------------------
 
