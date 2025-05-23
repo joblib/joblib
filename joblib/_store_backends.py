@@ -31,7 +31,9 @@ class CacheWarning(Warning):
 
 def concurrency_safe_write(object_to_write, filename, write_func):
     """Writes an object into a unique file in a concurrency-safe way."""
-    # UUID is unique across node and time,
+    # UUID is unique across nodes and time and help avoid collisions, even if
+    # the cache folder is shared by several Python processes with the same pid and
+    # thread id on different nodes of a cluster for instance.
     # Add thread_id and process_id to avoid collisions due to concurrency
     thread_id = id(threading.current_thread())
     temporary_filename = f"{filename}.{uuid.uuid4().hex}-{os.getpid()}-{thread_id}"
