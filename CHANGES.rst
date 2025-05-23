@@ -1,8 +1,8 @@
 Latest changes
 ==============
 
-In development
---------------
+Release 1.5.1 - 2025/05/23
+--------------------------
 
 - Fix backend hints causing errors when no multiprocessing is present
   https://github.com/joblib/joblib/issues/1721
