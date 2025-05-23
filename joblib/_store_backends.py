@@ -10,6 +10,7 @@ import re
 import shutil
 import threading
 import time
+import uuid
 import warnings
 from abc import ABCMeta, abstractmethod
 from pickle import PicklingError
@@ -30,8 +31,14 @@ class CacheWarning(Warning):
 
 def concurrency_safe_write(object_to_write, filename, write_func):
     """Writes an object into a unique file in a concurrency-safe way."""
+    # Temporary name is composed of UUID, process_id and thread_id to avoid
+    # collisions due to concurrent write.
+    # UUID is unique across nodes and time and help avoid collisions, even if
+    # the cache folder is shared by several Python processes with the same pid and
+    # thread id on different nodes of a cluster for instance.
     thread_id = id(threading.current_thread())
-    temporary_filename = "{}.thread-{}-pid-{}".format(filename, thread_id, os.getpid())
+    temporary_filename = f"{filename}.{uuid.uuid4().hex}-{os.getpid()}-{thread_id}"
+
     write_func(object_to_write, temporary_filename)
 
     return temporary_filename
