@@ -7,6 +7,8 @@ hashing of numpy arrays.
 # Copyright (c) 2009 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
+from __future__ import annotations
+
 import decimal
 import hashlib
 import io
@@ -14,8 +16,18 @@ import pickle
 import struct
 import sys
 import types
+from collections.abc import Callable
+from typing import Protocol, Union, runtime_checkable
 
 Pickler = pickle._Pickler
+
+HasherFactory = Callable[[], "_HashObject"]
+
+
+@runtime_checkable
+class _HashObject(Protocol):
+    def hexdigest(self) -> str: ...
+    def update(self, obj: Union[bytes, bytearray, memoryview], /) -> None: ...
 
 
 class _ConsistentSet(object):
@@ -50,14 +62,22 @@ class Hasher(Pickler):
     Python object that is not necessarily cryptographically secure.
     """
 
-    def __init__(self, hash_name="md5"):
+    def __init__(self, hash_name: Union[str, HasherFactory] = "md5"):
         self.stream = io.BytesIO()
         # By default we want a pickle protocol that only changes with
         # the major python version and not the minor one
         protocol = 3
         Pickler.__init__(self, self.stream, protocol=protocol)
         # Initialise the hash obj
-        self._hash = hashlib.new(hash_name, usedforsecurity=False)
+        if isinstance(hash_name, str):
+            self._hash = hashlib.new(hash_name, usedforsecurity=False)
+        else:
+            self._hash = hash_name()
+            if not isinstance(self._hash, _HashObject):
+                raise ValueError(
+                    "The hash_name argument must return a hash object "
+                    "that implements the PEP 452 interface."
+                )
 
     def hash(self, obj, return_digest=True):
         try:
@@ -158,12 +178,19 @@ class Hasher(Pickler):
 class NumpyHasher(Hasher):
     """Special case the hasher for when numpy is loaded."""
 
-    def __init__(self, hash_name="md5", coerce_mmap=False):
+    def __init__(
+        self,
+        hash_name: Union[str, HasherFactory] = "md5",
+        coerce_mmap=False,
+    ):
         """
         Parameters
         ----------
-        hash_name: string
-            The hash algorithm to be used
+        hash_name: string or callable
+            Either a string which will be passed to `hashlib.new` to obtain
+            a hash object, or a callable that will return an object compatible
+            with PEP 452.
+            Defaults to 'md5'.
         coerce_mmap: boolean
             Make no difference between np.memmap and np.ndarray
             objects.
@@ -244,25 +271,30 @@ class NumpyHasher(Hasher):
         Hasher.save(self, obj)
 
 
-def hash(obj, hash_name="md5", coerce_mmap=False):
+def hash(
+    obj, hash_name: Union[str, HasherFactory] = "md5", coerce_mmap=False
+):
     """Quick calculation of a hash to identify uniquely Python objects
     containing numpy arrays.
 
     Parameters
     ----------
-    hash_name: 'md5' or 'sha1'
-        Hashing algorithm used. sha1 is supposedly safer, but md5 is
-        faster.
+    hash_name: string or callable
+        Either a string which will be passed to `hashlib.new` to obtain
+        a hash object, or a callable that will return an object compatible
+        with PEP 452.
+        Defaults to 'md5'.
+
     coerce_mmap: boolean
         Make no difference between np.memmap and np.ndarray
     """
-    valid_hash_names = ("md5", "sha1")
-    if hash_name not in valid_hash_names:
-        raise ValueError(
-            "Valid options for 'hash_name' are {}. Got hash_name={!r} instead.".format(
-                valid_hash_names, hash_name
+    if isinstance(hash_name, str):
+        valid_hash_names = hashlib.algorithms_available
+        if hash_name not in valid_hash_names:
+            raise ValueError(
+                f"Valid string options for 'hash_name' are {valid_hash_names}. "
+                "Got hash_name={hash_name!r} instead."
             )
-        )
     if "numpy" in sys.modules:
         hasher = NumpyHasher(hash_name=hash_name, coerce_mmap=coerce_mmap)
     else:
