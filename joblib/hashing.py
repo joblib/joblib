@@ -308,12 +308,17 @@ def hash(pytree_or_leaf, **hash_any_kwargs):
     else:
         leaf = pytree_or_leaf
         # If the input is an atomic object, hash it and return the hash
-        try:
-            leaf_hash = str(leaf.__hash__())
-        except:
-            # call the more general hasher that Pickle implements
-            leaf_hash = hash_any(leaf, **hash_any_kwargs)
-        return leaf_hash
+        if leaf is None:
+            return hash_any('none_manual_hash')
+        elif isinstance(leaf, (int, float, str, bool)):
+            return hash_any(str(leaf))
+        else:
+            try:
+                leaf_hash = hash_any(str(leaf.__hash__()))
+            except:
+                # call the more general hasher that Pickle implements
+                leaf_hash = hash_any(leaf, **hash_any_kwargs)
+            return leaf_hash
 
 
 def hash_any(obj, hash_name='md5', coerce_mmap=False):
@@ -338,3 +343,8 @@ def hash_any(obj, hash_name='md5', coerce_mmap=False):
     else:
         hasher = Hasher(hash_name=hash_name)
     return hasher.hash(obj)
+
+def to_mnemonic(hash_str, n_words=4):
+    from mnemonic import Mnemonic
+    m = Mnemonic("english")
+    return '-'.join(m.to_mnemonic(bytes.fromhex(hash_str)).split(" ")[:n_words])
