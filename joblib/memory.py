@@ -34,6 +34,7 @@ from .func_inspect import format_signature
 from .logger import Logger, format_time, pformat
 from ._store_backends import StoreBackendBase, FileSystemStoreBackend
 from ._store_backends import CacheWarning  # noqa
+from .tree import tree_map, tree_map_with_path, tree_flatten
 
 
 FIRST_LINE_TEXT = "# first line:"
@@ -545,7 +546,7 @@ class MemorizedFunc(Logger):
                         Querying {name} with signature
                         {signature}.
 
-                        (argument hash {args_id})
+                        (total argument hash {args_id}={hashing.to_mnemonic(args_id)})
 
                         The store location is {location}.
                         """
@@ -693,14 +694,13 @@ class MemorizedFunc(Logger):
         args_dict = filter_args(self.func, self.ignore, args, kwargs)
         hash_fn = functools.partial(hashing.hash,
                                     coerce_mmap=(self.mmap_mode is not None))
-        args_hashes = {k: hash_fn(v) for k, v in args_dict.items()}
+        args_hashes = tree_map(hash_fn, args_dict)
+        args_hashes_flat, treedef = tree_flatten(args_hashes)
         if self._verbose > 50:
-            import pprint
-            info_str = ""
-            for k, hashval_ in args_hashes.items():
-                info_str += f"arg : {k}\nstr : {args_dict[k]}\nhash: {hashval_[:8]}\n\n"
-            self.info(info_str)
-        return hashing.hash_any(''.join(list(args_hashes.values())))
+            info_str = "\n"
+            info_str_elems = tree_map_with_path(lambda kp, val, val_hash: f"arg : {kp}\nvalue : {val}\nvalue_hash: {val_hash[:8]}={hashing.to_mnemonic(val_hash, n_words=2)}\n\n", args_dict, args_hashes)
+            self.info(info_str + '\n'.join(tree_flatten(info_str_elems)[0]))
+        return hashing.hash_any(''.join(args_hashes_flat) + str(treedef))
 
     def _get_output_identifiers(self, *args, **kwargs):
         """Return the func identifier and input parameter hash of a result."""
@@ -1248,4 +1248,23 @@ def expires_after(days=0, seconds=0, microseconds=0, milliseconds=0, minutes=0,
 
     return cache_validation_callback
 
+if __name__ == "__main__":
+    # run: python -m joblib.memory
+    import logging, tempfile
+    from joblib.memory import Memory
 
+    # Configure root logger to display info messages
+    logging.basicConfig(level=logging.INFO)
+
+    def _test_hashing_verbose(a, b=dict()):
+        """Sample function to test hashing verbosity"""
+        return a * b['c']
+
+    print("=== Testing hashing verbosity ===")
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create a Memory with high verbosity to trigger detailed hash information
+        mem = Memory(location=tmpdir, verbose=60)
+        cached = mem.cache(_test_hashing_verbose, verbose=60)
+        print("First call (should display detailed hash info):")
+        result = cached(1, b=dict(c=2, d=None, e="a", f=False))
+        print("Result:", result)
