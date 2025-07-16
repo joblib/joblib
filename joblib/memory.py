@@ -1164,6 +1164,47 @@ class Memory(Logger):
             return func(*args, **kwargs)
         return self.cache(func)(*args, **kwargs)
 
+    def notebook_cache(self, module_name, **mem_kwargs):
+        """Decorator for caching functions in Jupyter notebooks with proper module handling.
+        
+        This method creates a decorator that modifies the function's __module__ and 
+        __qualname__ attributes to ensure proper caching behavior in Jupyter notebooks
+        where module names may not be consistent.
+        
+        Parameters
+        ----------
+        module_name : str
+            The module name to assign to the cached function. This should be 
+            consistent across notebook sessions.
+        **mem_kwargs : dict
+            Additional keyword arguments to pass to the cache method (e.g., ignore, 
+            verbose, mmap_mode, cache_validation_callback).
+            
+        Returns
+        -------
+        decorator : callable
+            A decorator function that can be applied to functions.
+            
+        Examples
+        --------
+        >>> from pathlib import Path
+        >>> mem = Memory(CACHE_DIR)
+        >>> module_name = Path(globals()["__vsc_ipynb_file__"]).stem if "__vsc_ipynb_file__" in globals() else "notebook"
+        >>> @mem.notebook_cache(module_name=module_name, ignore=['sim'], verbose=10)
+        ... def my_func(sim=None):
+        ...     # expensive computation
+        ...     return result
+        
+        References
+        ----------
+        Based on solution from: https://stackoverflow.com/questions/75202475/joblib-persistence-across-sessions-machines/
+        """
+        def cache_(f):
+            f.__module__ = module_name
+            f.__qualname__ = f.__name__
+            return self.cache(f, **mem_kwargs)
+        return cache_
+
     # ------------------------------------------------------------------------
     # Private `object` interface
     # ------------------------------------------------------------------------
@@ -1206,3 +1247,5 @@ def expires_after(days=0, seconds=0, microseconds=0, milliseconds=0, minutes=0,
         return computation_age < delta.total_seconds()
 
     return cache_validation_callback
+
+
