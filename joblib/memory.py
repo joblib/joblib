@@ -1101,7 +1101,7 @@ class Memory(Logger):
         if self.store_backend is None:
             cls = (
                 AsyncNotMemorizedFunc
-                if asyncio.iscoroutinefunction(func)
+                if inspect.iscoroutinefunction(func)
                 else NotMemorizedFunc
             )
             return cls(func)
@@ -1111,7 +1111,7 @@ class Memory(Logger):
             mmap_mode = self.mmap_mode
         if isinstance(func, MemorizedFunc):
             func = func.func
-        cls = AsyncMemorizedFunc if asyncio.iscoroutinefunction(func) else MemorizedFunc
+        cls = AsyncMemorizedFunc if inspect.iscoroutinefunction(func) else MemorizedFunc
         return cls(
             func,
             location=self.store_backend,
