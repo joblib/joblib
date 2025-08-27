@@ -1,8 +1,8 @@
 Latest changes
 ==============
 
-In development
---------------
+Release 1.5.2 - 2025/08/27
+--------------------------
 
 - Vendor ``loky3.5.6`` fixing the resource tracker for python 3.13.7+
   https://github.com/joblib/joblib/pull/1740
