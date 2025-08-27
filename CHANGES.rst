@@ -4,6 +4,9 @@ Latest changes
 In development
 --------------
 
+- Vendor ``loky3.5.6`` fixing the resource tracker for python 3.13.7+
+  https://github.com/joblib/joblib/pull/1740
+
 Memory:
 ~~~~~~~
 
