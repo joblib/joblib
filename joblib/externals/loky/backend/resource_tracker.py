@@ -43,7 +43,6 @@ import shutil
 import sys
 import signal
 import warnings
-from _multiprocessing import sem_unlink
 from multiprocessing import util
 from multiprocessing.resource_tracker import (
     ResourceTracker as _ResourceTracker,
@@ -62,10 +61,31 @@ __all__ = ["ensure_running", "register", "unregister"]
 _HAVE_SIGMASK = hasattr(signal, "pthread_sigmask")
 _IGNORED_SIGNALS = (signal.SIGINT, signal.SIGTERM)
 
-_CLEANUP_FUNCS = {"folder": shutil.rmtree, "file": os.unlink}
+
+def cleanup_noop(name):
+    raise RuntimeError("noop should never be registered or cleaned up")
+
+
+_CLEANUP_FUNCS = {
+    "noop": cleanup_noop,
+    "folder": shutil.rmtree,
+    "file": os.unlink,
+}
 
 if os.name == "posix":
-    _CLEANUP_FUNCS["semlock"] = sem_unlink
+    import _multiprocessing
+
+    # Use sem_unlink() to clean up named semaphores.
+    #
+    # sem_unlink() may be missing if the Python build process detected the
+    # absence of POSIX named semaphores. In that case, no named semaphores were
+    # ever opened, so no cleanup would be necessary.
+    if hasattr(_multiprocessing, "sem_unlink"):
+        _CLEANUP_FUNCS.update(
+            {
+                "semlock": _multiprocessing.sem_unlink,
+            }
+        )
 
 
 VERBOSE = False
@@ -88,92 +108,135 @@ class ResourceTracker(_ResourceTracker):
 
     def maybe_unlink(self, name, rtype):
         """Decrement the refcount of a resource, and delete it if it hits 0"""
-        self.ensure_running()
         self._send("MAYBE_UNLINK", name, rtype)
 
     def ensure_running(self):
         """Make sure that resource tracker process is running.
 
         This can be run from any process.  Usually a child process will use
-        the resource created by its parent."""
-        with self._lock:
-            if self._fd is not None:
-                # resource tracker was launched before, is it still running?
-                if self._check_alive():
-                    # => still alive
-                    return
-                # => dead, launch it again
-                os.close(self._fd)
-                if os.name == "posix":
-                    try:
-                        # At this point, the resource_tracker process has been
-                        # killed or crashed. Let's remove the process entry
-                        # from the process table to avoid zombie processes.
-                        os.waitpid(self._pid, 0)
-                    except OSError:
-                        # The process was terminated or is a child from an
-                        # ancestor of the current process.
-                        pass
-                self._fd = None
-                self._pid = None
+        the resource created by its parent.
 
-                warnings.warn(
-                    "resource_tracker: process died unexpectedly, "
-                    "relaunching.  Some folders/sempahores might "
-                    "leak."
-                )
+        This function is necessary for backward compatibility with python
+        versions before 3.13.7.
+        """
+        return self._ensure_running_and_write()
 
-            fds_to_pass = []
+    def _teardown_dead_process(self):
+        # Override this function for compatibility with windows and
+        # for python version before 3.13.7
+
+        # At this point, the resource_tracker process has been killed
+        # or crashed.
+        os.close(self._fd)
+
+        # Let's remove the process entry from the process table on POSIX system
+        # to avoid zombie processes.
+        if os.name == "posix":
             try:
-                fds_to_pass.append(sys.stderr.fileno())
-            except Exception:
+                # _pid can be None if this process is a child from another
+                # python process, which has started the resource_tracker.
+                if self._pid is not None:
+                    os.waitpid(self._pid, 0)
+            except OSError:
+                # The resource_tracker has already been terminated.
                 pass
+        self._fd = None
+        self._pid = None
 
-            r, w = os.pipe()
-            if sys.platform == "win32":
-                _r = duplicate(msvcrt.get_osfhandle(r), inheritable=True)
-                os.close(r)
-                r = _r
+        warnings.warn(
+            "resource_tracker: process died unexpectedly, relaunching. "
+            "Some folders/semaphores might leak."
+        )
 
-            cmd = f"from {main.__module__} import main; main({r}, {VERBOSE})"
+    def _launch(self):
+        # This is the overridden part of the resource tracker, which launches
+        # loky's version, which is compatible with windows and allow to track
+        # folders with external ref counting.
+
+        fds_to_pass = []
+        try:
+            fds_to_pass.append(sys.stderr.fileno())
+        except Exception:
+            pass
+
+        # Create a pipe for posix and windows
+        r, w = os.pipe()
+        if sys.platform == "win32":
+            _r = duplicate(msvcrt.get_osfhandle(r), inheritable=True)
+            os.close(r)
+            r = _r
+
+        cmd = f"from {main.__module__} import main; main({r}, {VERBOSE})"
+        try:
+            fds_to_pass.append(r)
+            # process will out live us, so no need to wait on pid
+            exe = spawn.get_executable()
+            args = [exe, *util._args_from_interpreter_flags(), "-c", cmd]
+            util.debug(f"launching resource tracker: {args}")
+            # bpo-33613: Register a signal mask that will block the
+            # signals.  This signal mask will be inherited by the child
+            # that is going to be spawned and will protect the child from a
+            # race condition that can make the child die before it
+            # registers signal handlers for SIGINT and SIGTERM. The mask is
+            # unregistered after spawning the child.
             try:
-                fds_to_pass.append(r)
-                # process will out live us, so no need to wait on pid
-                exe = spawn.get_executable()
-                args = [exe, *util._args_from_interpreter_flags(), "-c", cmd]
-                util.debug(f"launching resource tracker: {args}")
-                # bpo-33613: Register a signal mask that will block the
-                # signals.  This signal mask will be inherited by the child
-                # that is going to be spawned and will protect the child from a
-                # race condition that can make the child die before it
-                # registers signal handlers for SIGINT and SIGTERM. The mask is
-                # unregistered after spawning the child.
-                try:
-                    if _HAVE_SIGMASK:
-                        signal.pthread_sigmask(
-                            signal.SIG_BLOCK, _IGNORED_SIGNALS
-                        )
-                    pid = spawnv_passfds(exe, args, fds_to_pass)
-                finally:
-                    if _HAVE_SIGMASK:
-                        signal.pthread_sigmask(
-                            signal.SIG_UNBLOCK, _IGNORED_SIGNALS
-                        )
-            except BaseException:
-                os.close(w)
-                raise
-            else:
-                self._fd = w
-                self._pid = pid
+                if _HAVE_SIGMASK:
+                    signal.pthread_sigmask(signal.SIG_BLOCK, _IGNORED_SIGNALS)
+                pid = spawnv_passfds(exe, args, fds_to_pass)
             finally:
-                if sys.platform == "win32":
-                    _winapi.CloseHandle(r)
+                if _HAVE_SIGMASK:
+                    signal.pthread_sigmask(
+                        signal.SIG_UNBLOCK, _IGNORED_SIGNALS
+                    )
+        except BaseException:
+            os.close(w)
+            raise
+        else:
+            self._fd = w
+            self._pid = pid
+        finally:
+            if sys.platform == "win32":
+                _winapi.CloseHandle(r)
+            else:
+                os.close(r)
+
+    def _ensure_running_and_write(self, msg=None):
+        """Make sure that resource tracker process is running.
+
+        This can be run from any process.  Usually a child process will use
+        the resource created by its parent.
+
+
+        This function is added for compatibility with python version before 3.13.7.
+        """
+        with self._lock:
+            if (
+                self._fd is not None
+            ):  # resource tracker was launched before, is it still running?
+                if msg is None:
+                    to_send = b"PROBE:0:noop\n"
                 else:
-                    os.close(r)
+                    to_send = msg
+                try:
+                    self._write(to_send)
+                except OSError:
+                    self._teardown_dead_process()
+                    self._launch()
+
+                msg = None  # message was sent in probe
+            else:
+                self._launch()
+
+        if msg is not None:
+            self._write(msg)
+
+    def _write(self, msg):
+        nbytes = os.write(self._fd, msg)
+        assert nbytes == len(msg), f"{nbytes=} != {len(msg)=}"
 
     def __del__(self):
         # ignore error due to trying to clean up child process which has already been
-        # shutdown on windows See https://github.com/joblib/loky/pull/450
+        # shutdown on windows. See https://github.com/joblib/loky/pull/450
         # This is only required if __del__ is defined
         if not hasattr(_ResourceTracker, "__del__"):
             return
@@ -193,10 +256,10 @@ getfd = _resource_tracker.getfd
 
 def main(fd, verbose=0):
     """Run resource tracker."""
-    # protect the process from ^C and "killall python" etc
     if verbose:
         util.log_to_stderr(level=util.DEBUG)
 
+    # protect the process from ^C and "killall python" etc
     signal.signal(signal.SIGINT, signal.SIG_IGN)
     signal.signal(signal.SIGTERM, signal.SIG_IGN)
 
@@ -213,15 +276,13 @@ def main(fd, verbose=0):
         util.debug("Main resource tracker is running")
 
     registry = {rtype: {} for rtype in _CLEANUP_FUNCS.keys()}
+
     try:
-        # keep track of registered/unregistered resources
         if sys.platform == "win32":
             fd = msvcrt.open_osfhandle(fd, os.O_RDONLY)
+        # keep track of registered/unregistered resources
         with open(fd, "rb") as f:
-            while True:
-                line = f.readline()
-                if line == b"":  # EOF
-                    break
+            for line in f:
                 try:
                     splitted = line.strip().decode("ascii").split(":")
                     # name can potentially contain separator symbols (for
@@ -232,9 +293,6 @@ def main(fd, verbose=0):
                         splitted[-1],
                     )
 
-                    if cmd == "PROBE":
-                        continue
-
                     if rtype not in _CLEANUP_FUNCS:
                         raise ValueError(
                             f"Cannot register {name} for automatic cleanup: "
@@ -243,7 +301,9 @@ def main(fd, verbose=0):
                             f"{list(_CLEANUP_FUNCS.keys())}"
                         )
 
-                    if cmd == "REGISTER":
+                    if cmd == "PROBE":
+                        pass
+                    elif cmd == "REGISTER":
                         if name not in registry[rtype]:
                             registry[rtype][name] = 1
                         else:
