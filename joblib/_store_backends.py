@@ -474,9 +474,14 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
             if os.path.dirname(location) and os.path.basename(location) == "joblib"
             else location
         )
-        with open(os.path.join(cache_directory, ".gitignore"), "w") as file:
-            file.write("# Created by joblib automatically.\n")
-            file.write("*\n")
+        try:
+            with open(os.path.join(cache_directory, ".gitignore"), "w") as file:
+                file.write("# Created by joblib automatically.\n")
+                file.write("*\n")
+        except FileExistsError:
+            warnings.warn("Not overwriting existing .gitignore")
+        except OSError as e:
+            warnings.warn(f"Unable to write .gitignore. Exception: {e}.")
 
         # item can be stored compressed for faster I/O
         self.compress = backend_options.get("compress", False)
