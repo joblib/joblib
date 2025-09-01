@@ -345,6 +345,9 @@ def hash_any(obj, hash_name='md5', coerce_mmap=False):
     return hasher.hash(obj)
 
 def to_mnemonic(hash_str, n_words=4):
-    from mnemonic import Mnemonic
-    m = Mnemonic("english")
-    return '-'.join(m.to_mnemonic(bytes.fromhex(hash_str)).split(" ")[:n_words])
+    try: 
+        from mnemonic import Mnemonic
+        m = Mnemonic("english")
+        return '-'.join(m.to_mnemonic(bytes.fromhex(hash_str)).split(" ")[:n_words])
+    except ImportError:
+        return hash_str
