@@ -12,7 +12,7 @@ from joblib._utils import eval_expr
         "1+1; import os",
         "1^1",
         "' ' * 10**10",
-        "9. ** 10000."
+        "9. ** 10000.",
     ],
 )
 def test_eval_expr_invalid(expr):
