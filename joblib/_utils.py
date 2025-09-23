@@ -1,6 +1,7 @@
 # Adapted from https://stackoverflow.com/a/9558001/2536294
 
 import ast
+import functools
 import operator as op
 from dataclasses import dataclass
 
@@ -24,24 +25,60 @@ operators = {
 
 
 def eval_expr(expr):
-    """
+    """Somewhat safely evaluate an arithmetic expression.
+
     >>> eval_expr('2*6')
     12
     >>> eval_expr('2**6')
     64
     >>> eval_expr('1 + 2*3**(4) / (6 + -7)')
     -161.0
+
+    Raises ValueError if the expression is invalid, too long
+    or its computation involves too large values.
     """
+    # Restrict the length of the expression to avoid potential Python crashes
+    # as per the documentation of ast.parse.
+    max_length = 30
+    if len(expr) > max_length:
+        raise ValueError(
+            f"Expression {expr[:max_length]!r}... is too long. "
+            f"Max length is {max_length}, got {len(expr)}."
+        )
     try:
         return eval_(ast.parse(expr, mode="eval").body)
-    except (TypeError, SyntaxError, KeyError) as e:
+    except (TypeError, SyntaxError, OverflowError, KeyError) as e:
         raise ValueError(
             f"{expr!r} is not a valid or supported arithmetic expression."
         ) from e
 
 
+def limit(max_=None):
+    """Return decorator that limits allowed returned values."""
+
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            ret = func(*args, **kwargs)
+            try:
+                mag = abs(ret)
+            except TypeError:
+                pass  # not applicable
+            else:
+                if mag > max_:
+                    raise ValueError(
+                        f"Numeric literal {ret} is too large, max is {max_}."
+                    )
+            return ret
+
+        return wrapper
+
+    return decorator
+
+
+@limit(max_=10**6)
 def eval_(node):
-    if isinstance(node, ast.Constant):  # <constant>
+    if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
         return node.value
     elif isinstance(node, ast.BinOp):  # <left> <operator> <right>
         return operators[type(node.op)](eval_(node.left), eval_(node.right))
