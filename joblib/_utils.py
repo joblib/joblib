@@ -34,7 +34,7 @@ def eval_expr(expr):
     >>> eval_expr('1 + 2*3**(4) / (6 + -7)')
     -161.0
 
-    Raises ValueError if the expression if the expression is invalid, too long
+    Raises ValueError if the expression is invalid, too long
     or its computation involves too large values.
     """
     # Restrict the length of the expression to avoid potential Python crashes
