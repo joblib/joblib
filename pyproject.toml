@@ -1,11 +1,12 @@
 [build-system]
-requires = ["setuptools>=61.2"]
+requires = ["setuptools>=77.0.3"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "joblib"
 authors = [{name = "Gael Varoquaux", email = "gael.varoquaux@normalesup.org"}]
 license = {text = "BSD 3-Clause"}
+license-files = ["LICENSE.txt"]
 description = "Lightweight pipelining with Python functions"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -13,7 +14,6 @@ classifiers = [
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "Intended Audience :: Education",
-    "License :: OSI Approved :: BSD License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
