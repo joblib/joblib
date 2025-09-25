@@ -47,7 +47,7 @@ packages = [
 ]
 platforms = ["any"]
 include-package-data = false
-license-file = ["LICENSE.txt"]
+license-files = ["LICENSE.txt"]
 
 [tool.setuptools.package-data]
 "joblib.test" = [
