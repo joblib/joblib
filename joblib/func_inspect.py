@@ -44,6 +44,9 @@ def get_func_code(func):
     more robust.
     """
     source_file = None
+    # Ignore wrappers.
+    while hasattr(func, "__wrapped__"):
+        func = func.__wrapped__
     try:
         code = func.__code__
         source_file = code.co_filename
