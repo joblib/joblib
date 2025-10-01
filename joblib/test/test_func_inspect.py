@@ -336,3 +336,19 @@ def test_func_code_consistency():
 
     codes = Parallel(n_jobs=2)(delayed(_get_code)() for _ in range(5))
     assert len(set(codes)) == 1
+
+
+def wrapper(func):
+    @functools.wraps(func)
+    def inner(*args, **kwargs):
+        return func(*args, **kwargs)
+
+    return inner
+
+
+def test_wrapped_functions():
+    from joblib.test.test_func_inspect_special_encoding import big5_f
+
+    unwrapped = get_func_code(big5_f)
+    wrapped = get_func_code(wrapper(big5_f))
+    assert wrapped == unwrapped
