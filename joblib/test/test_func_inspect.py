@@ -347,9 +347,10 @@ def dummy_decorator(func):
 
 
 def test_decorated_functions():
-    def this_func():
+    # Non-regression test for https://github.com/joblib/joblib/issues/1371
+    def func():
         return 1 + 1
 
-    unwrapped = get_func_code(this_func)
-    wrapped = get_func_code(dummy_decorator(this_func))
-    assert wrapped == unwrapped
+    code = get_func_code(func)
+    decorated_code = get_func_code(dummy_decorator(func))
+    assert code == decorated_code
