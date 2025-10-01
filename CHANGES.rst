@@ -10,6 +10,10 @@ In development
   evaluating expressions with non-numeric literals.
   https://github.com/joblib/joblib/pull/1744
 
+- Fix bug in ``Memory`` with decorated function where code would not be
+  properly inspected for changes.
+  https://github.com/joblib/joblib/pull/1746
+
 Release 1.5.2 - 2025/08/27
 --------------------------
 
