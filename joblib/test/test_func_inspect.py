@@ -338,7 +338,7 @@ def test_func_code_consistency():
     assert len(set(codes)) == 1
 
 
-def wrapper(func):
+def dummy_decorator(func):
     @functools.wraps(func)
     def inner(*args, **kwargs):
         return func(*args, **kwargs)
@@ -346,9 +346,10 @@ def wrapper(func):
     return inner
 
 
-def test_wrapped_functions():
-    from joblib.test.test_func_inspect_special_encoding import big5_f
+def test_decorated_functions():
+    def this_func():
+        return 1 + 1
 
-    unwrapped = get_func_code(big5_f)
-    wrapped = get_func_code(wrapper(big5_f))
+    unwrapped = get_func_code(this_func)
+    wrapped = get_func_code(dummy_decorator(this_func))
     assert wrapped == unwrapped
