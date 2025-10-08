@@ -4,6 +4,10 @@ Latest changes
 In development
 --------------
 
+- The ``Memory`` object won't overwrite an already existing ``.gitignore`` file in its
+  cache directory anymore.
+  https://github.com/joblib/joblib/pull/1742
+
 Release 1.5.2 - 2025/08/27
 --------------------------
 
