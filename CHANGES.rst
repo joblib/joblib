@@ -8,6 +8,12 @@ In development
   cache directory anymore.
   https://github.com/joblib/joblib/pull/1742
 
+- Harden the safety checks in ``eval_expr(pre_dispatch)`` to prevent excessive
+  memory allocation and potential crashes by limiting the allowed length of the
+  expression and the maximum numeric value of sub-expressions and not
+  evaluating expressions with non-numeric literals.
+  https://github.com/joblib/joblib/pull/1744
+
 Release 1.5.2 - 2025/08/27
 --------------------------
 
