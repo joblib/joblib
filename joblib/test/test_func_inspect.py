@@ -182,12 +182,19 @@ def test_func_inspect_errors():
     assert get_func_name("a".lower)[-1] == "lower"
     assert get_func_code("a".lower)[1:] == (None, -1)
     ff = lambda x: x  # noqa: E731
+    correct_line = ff.__code__.co_firstlineno
     assert get_func_name(ff, win_characters=False)[-1] == "<lambda>"
-    assert get_func_code(ff)[1] == __file__.replace(".pyc", ".py")
+    code, file, first_line = get_func_code(ff)
+    assert "lambda x: x" in code
+    assert file == __file__.replace(".pyc", ".py")
+    assert first_line == correct_line
     # Simulate a function defined in __main__
     ff.__module__ = "__main__"
     assert get_func_name(ff, win_characters=False)[-1] == "<lambda>"
-    assert get_func_code(ff)[1] == __file__.replace(".pyc", ".py")
+    code, file, first_line = get_func_code(ff)
+    assert "lambda x: x" in code
+    assert file == __file__.replace(".pyc", ".py")
+    assert first_line == correct_line
 
 
 def func_with_kwonly_args(a, b, *, kw1="kw1", kw2="kw2"):
