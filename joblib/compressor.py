@@ -246,9 +246,13 @@ class ZstdCompressorWrapper(CompressorWrapper):
 
     def compressor_file(self, fileobj, compresslevel=None):
         self._check_versions()
-        cctx = (
-            None if compresslevel is None else zstd.ZstdCompressor(level=compresslevel)
-        )
+        if compresslevel is None:
+            scaled_level = None
+        else:
+            # Joblib levels range from 1-9 while zstd accepts up to 19.
+            # Scale the user-provided level to cover more of the zstd range.
+            scaled_level = max(1, min(19, compresslevel * 2))
+        cctx = None if scaled_level is None else zstd.ZstdCompressor(level=scaled_level)
         return self._open(fileobj, mode="wb", cctx=cctx)
 
     def decompressor_file(self, fileobj):

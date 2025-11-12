@@ -15,6 +15,7 @@ import warnings
 import zlib
 from contextlib import closing
 from pathlib import Path
+from types import SimpleNamespace
 
 try:
     import lzma
@@ -25,6 +26,7 @@ import pytest
 
 # numpy_pickle is not a drop-in replacement of pickle, as it takes
 # filenames instead of open files as arguments.
+from joblib import compressor as compressor_mod
 from joblib import numpy_pickle, register_compressor
 from joblib.compressor import (
     _COMPRESSORS,
@@ -1213,6 +1215,33 @@ def test_zstd_compression(tmpdir):
     with open(fname + ".zst", "rb") as f:
         assert f.read(len(_ZSTD_PREFIX)) == _ZSTD_PREFIX
     assert numpy_pickle.load(fname + ".zst") == data
+
+
+def test_zstd_compression_level_scaling(monkeypatch):
+    # Ensure joblib levels map to a wider zstd range.
+    recorded = {}
+
+    class DummyCctx:
+        def __init__(self, level):
+            self.level = level
+            recorded["level"] = level
+
+    def dummy_open(fileobj, mode="wb", cctx=None):
+        recorded["cctx"] = cctx
+        recorded["mode"] = mode
+        return io.BytesIO()
+
+    dummy_module = SimpleNamespace(ZstdCompressor=DummyCctx, ZstdFile=dummy_open)
+    monkeypatch.setattr(compressor_mod, "zstd", dummy_module)
+    # Keep the local module reference in sync for the duration of the test.
+    monkeypatch.setattr(sys.modules[__name__], "zstd", dummy_module, raising=False)
+
+    wrapper = compressor_mod.ZstdCompressorWrapper()
+    wrapper.compressor_file(io.BytesIO(), compresslevel=5)
+
+    assert recorded["cctx"] is not None
+    assert recorded["cctx"].level == 10
+    assert recorded["mode"] == "wb"
 
 
 @without_zstandard
