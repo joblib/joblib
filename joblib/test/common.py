@@ -15,6 +15,11 @@ try:
 except ImportError:
     lz4 = None
 
+try:
+    import zstandard as zstd
+except ImportError:
+    zstd = None
+
 # TODO straight removal since in joblib.test.common?
 IS_PYPY = hasattr(sys, "pypy_version_info")
 IS_GIL_DISABLED = (
@@ -82,3 +87,9 @@ with_dev_shm = skipif(
 with_lz4 = skipif(lz4 is None, reason="Needs lz4 compression to run")
 
 without_lz4 = skipif(lz4 is not None, reason="Needs lz4 not being installed to run")
+
+with_zstandard = skipif(zstd is None, reason="Needs zstandard compression to run")
+
+without_zstandard = skipif(
+    zstd is not None, reason="Needs zstandard not being installed to run"
+)

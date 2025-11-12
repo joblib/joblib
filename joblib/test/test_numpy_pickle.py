@@ -29,7 +29,9 @@ from joblib import numpy_pickle, register_compressor
 from joblib.compressor import (
     _COMPRESSORS,
     _LZ4_PREFIX,
+    _ZSTD_PREFIX,
     LZ4_NOT_INSTALLED_ERROR,
+    ZSTD_NOT_INSTALLED_ERROR,
     BinaryZlibFile,
     CompressorWrapper,
 )
@@ -46,7 +48,9 @@ from joblib.test.common import (
     with_lz4,
     with_memory_profiler,
     with_numpy,
+    with_zstandard,
     without_lz4,
+    without_zstandard,
 )
 from joblib.testing import parametrize, raises, warns
 
@@ -463,6 +467,9 @@ def _check_pickle(filename, expected_list, mmap_mode=None):
             elif filename.endswith(".lz4") and with_lz4.args[0]:
                 assert isinstance(exc, ValueError)
                 assert LZ4_NOT_INSTALLED_ERROR in str(exc)
+            elif filename.endswith(".zst") and with_zstandard.args[0]:
+                assert isinstance(exc, ValueError)
+                assert ZSTD_NOT_INSTALLED_ERROR in str(exc)
             else:
                 raise
     else:
@@ -618,7 +625,20 @@ def test_compress_tuple_argument_exception(tmpdir, compress_tuple, message):
     excinfo.match(message)
 
 
-@parametrize("compress_string", ["zlib", "gzip"])
+@parametrize(
+    "compress_string",
+    [
+        "zlib",
+        "gzip",
+        pytest.param(
+            "zstd",
+            marks=pytest.mark.skipif(
+                with_zstandard.args[0],
+                reason="zstandard is not installed.",
+            ),
+        ),
+    ],
+)
 def test_compress_string_argument(tmpdir, compress_string):
     # Verify the string is correctly taken into account.
     filename = tmpdir.join("test.pkl").strpath
@@ -651,6 +671,8 @@ def test_joblib_compression_formats(tmpdir, compress, cmethod):
         # Skip the test if lz4 is not installed. We here use the with_lz4
         # skipif fixture whose argument is True when lz4 is not installed
         pytest.skip("lz4 is not installed.")
+    elif cmethod == "zstd" and with_zstandard.args[0]:
+        pytest.skip("zstandard is not installed.")
 
     dump_filename = filename + "." + cmethod
     for obj in objects:
@@ -716,6 +738,13 @@ def test_load_externally_decompressed_files(tmpdir, extension, decompress):
         (".bz2", "bz2"),
         (".lzma", "lzma"),
         (".xz", "xz"),
+        pytest.param(
+            ".zst",
+            "zstd",
+            marks=pytest.mark.skipif(
+                with_zstandard.args[0], reason="zstandard is not installed."
+            ),
+        ),
         # invalid compressor extensions
         (".pkl", "not-compressed"),
         ("", "not-compressed"),
@@ -1161,6 +1190,43 @@ def test_lz4_compression_without_lz4(tmpdir):
 
     with raises(ValueError) as excinfo:
         numpy_pickle.dump(data, fname + ".lz4")
+    excinfo.match(msg)
+
+
+@with_zstandard
+def test_zstd_compression(tmpdir):
+    # Check that zstd can be used when dependency is available.
+
+    compressor = "zstd"
+    assert compressor in _COMPRESSORS
+    assert _COMPRESSORS[compressor].prefix == _ZSTD_PREFIX
+
+    fname = tmpdir.join("test.pkl").strpath
+    data = "test data"
+    numpy_pickle.dump(data, fname, compress=compressor)
+
+    with open(fname, "rb") as f:
+        assert f.read(len(_ZSTD_PREFIX)) == _ZSTD_PREFIX
+    assert numpy_pickle.load(fname) == data
+
+    numpy_pickle.dump(data, fname + ".zst")
+    with open(fname + ".zst", "rb") as f:
+        assert f.read(len(_ZSTD_PREFIX)) == _ZSTD_PREFIX
+    assert numpy_pickle.load(fname + ".zst") == data
+
+
+@without_zstandard
+def test_zstd_compression_without_zstandard(tmpdir):
+    # Check that zstd cannot be used when dependency is not available.
+    fname = tmpdir.join("test.nozstd").strpath
+    data = "test data"
+    msg = ZSTD_NOT_INSTALLED_ERROR
+    with raises(ValueError) as excinfo:
+        numpy_pickle.dump(data, fname, compress="zstd")
+    excinfo.match(msg)
+
+    with raises(ValueError) as excinfo:
+        numpy_pickle.dump(data, fname + ".zst")
     excinfo.match(msg)
 
 

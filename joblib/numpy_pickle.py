@@ -14,6 +14,7 @@ from .backports import make_memmap
 from .compressor import (
     _COMPRESSORS,
     LZ4_NOT_INSTALLED_ERROR,
+    ZSTD_NOT_INSTALLED_ERROR,
     BinaryZlibFile,
     BZ2CompressorWrapper,
     GzipCompressorWrapper,
@@ -21,8 +22,10 @@ from .compressor import (
     LZMACompressorWrapper,
     XZCompressorWrapper,
     ZlibCompressorWrapper,
+    ZstdCompressorWrapper,
     lz4,
     register_compressor,
+    zstd,
 )
 
 # For compatibility with old versions of joblib, we need ZNDArrayWrapper
@@ -50,6 +53,7 @@ register_compressor("bz2", BZ2CompressorWrapper())
 register_compressor("lzma", LZMACompressorWrapper())
 register_compressor("xz", XZCompressorWrapper())
 register_compressor("lz4", LZ4CompressorWrapper())
+register_compressor("zstd", ZstdCompressorWrapper())
 
 
 ###############################################################################
@@ -545,6 +549,8 @@ def dump(value, filename, compress=0, protocol=None):
 
     if compress_method == "lz4" and lz4 is None:
         raise ValueError(LZ4_NOT_INSTALLED_ERROR)
+    if compress_method == "zstd" and zstd is None:
+        raise ValueError(ZSTD_NOT_INSTALLED_ERROR)
 
     if (
         compress_level is not None

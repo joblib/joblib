@@ -26,10 +26,16 @@ try:
 except ImportError:
     lzma = None
 
+try:
+    import zstandard as zstd
+except ImportError:
+    zstd = None
+
 
 LZ4_NOT_INSTALLED_ERROR = (
     "LZ4 is not installed. Install it with pip: https://python-lz4.readthedocs.io/"
 )
+ZSTD_NOT_INSTALLED_ERROR = "Zstandard is not installed. Install it with pip: https://pypi.org/project/zstandard/"
 
 # Registered compressors
 _COMPRESSORS = {}
@@ -42,6 +48,7 @@ _BZ2_PREFIX = b"BZ"
 _XZ_PREFIX = b"\xfd\x37\x7a\x58\x5a"
 _LZMA_PREFIX = b"\x5d\x00"
 _LZ4_PREFIX = b"\x04\x22\x4d\x18"
+_ZSTD_PREFIX = b"\x28\xb5\x2f\xfd"
 
 
 def register_compressor(compressor_name, compressor, force=False):
@@ -218,6 +225,35 @@ class LZ4CompressorWrapper(CompressorWrapper):
         """Returns an instance of a decompressor file object."""
         self._check_versions()
         return self.fileobj_factory(fileobj, "rb")
+
+
+class ZstdCompressorWrapper(CompressorWrapper):
+    prefix = _ZSTD_PREFIX
+    extension = ".zst"
+
+    def __init__(self):
+        if zstd is not None:
+            self._open = getattr(zstd, "ZstdFile", None)
+            if self._open is None:
+                self._open = zstd.open
+        else:
+            self._open = None
+        self.fileobj_factory = None
+
+    def _check_versions(self):
+        if zstd is None:
+            raise ValueError(ZSTD_NOT_INSTALLED_ERROR)
+
+    def compressor_file(self, fileobj, compresslevel=None):
+        self._check_versions()
+        cctx = (
+            None if compresslevel is None else zstd.ZstdCompressor(level=compresslevel)
+        )
+        return self._open(fileobj, mode="wb", cctx=cctx)
+
+    def decompressor_file(self, fileobj):
+        self._check_versions()
+        return self._open(fileobj, mode="rb")
 
 
 ###############################################################################
