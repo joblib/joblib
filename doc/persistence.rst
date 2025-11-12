@@ -89,8 +89,10 @@ methods, the compressor will be used automatically:
   ['...test.joblib.z']
 
 By default, :func:`joblib.dump` uses the zlib compression method as it gives
-the best tradeoff between speed and disk space. The other supported compression
-methods are 'gzip', 'bz2', 'lzma' and 'xz':
+the best tradeoff between speed and disk space. Other built-in compression
+methods are ``'gzip'``, ``'bz2'``, ``'lzma'`` and ``'xz'``. Optional compressors
+such as ``'lz4'`` and ``'zstd'`` are also available when their respective
+dependencies are installed:
 
   >>> # Dumping in a gzip compressed file using a compress level of 3.
   >>> joblib.dump(to_persist, filename + '.gz', compress=('gzip', 3))  # doctest: +ELLIPSIS
@@ -135,6 +137,18 @@ available with the dump function.
 .. note::
 
     LZ4 compression is only available with python major versions >= 3
+
+If the ``zstandard`` package is installed, ``'zstd'`` compression is available:
+
+  >>> joblib.dump(to_persist, filename + '.zst')  # doctest: +ELLIPSIS
+  ['...test.joblib.zst']
+  >>> joblib.load(filename + '.zst')
+  [('a', [1, 2, 3]), ('b', array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]))]
+
+.. note::
+
+    Zstandard compression requires installing the `zstandard
+    <https://pypi.org/project/zstandard/>`_ package.
 
 More details can be found in the :func:`joblib.dump` and
 :func:`joblib.load` documentation.

@@ -2,7 +2,7 @@
 
 # Change the list according to your local conda/virtualenv env.
 CONDA_ENVS="py27-np16 py27-np18 py34-np110 py35-np112 py36-np114"
-COMPRESS_METHODS="zlib gzip bz2 xz lzma lz4"
+COMPRESS_METHODS="zlib gzip bz2 xz lzma lz4 zstd"
 
 for i in $CONDA_ENVS
 do

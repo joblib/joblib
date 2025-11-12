@@ -59,6 +59,7 @@ license-files = ["LICENSE.txt"]
     "data/*.pkl",
     "data/*.npy",
     "data/*.npy.z",
+    "data/*.zstd",
 ]
 
 [tool.setuptools.dynamic]
@@ -83,6 +84,11 @@ addopts = [
     "--doctest-glob='doc/*.rst'",
     "--doctest-modules",
     "--color=yes",
+]
+markers = [
+    "no_cover: mark tests that should be excluded from coverage tracking",
+    "timeout: tests relying on pytest-timeout for cleanup of long-running calls",
+    "asyncio: asynchronous tests requiring an event loop",
 ]
 testpaths = "joblib"
 norecursedirs = "joblib/externals/*"

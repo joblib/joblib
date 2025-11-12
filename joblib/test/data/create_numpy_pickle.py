@@ -85,7 +85,7 @@ if __name__ == "__main__":
         "--method",
         type=str,
         default="zlib",
-        choices=["zlib", "gzip", "bz2", "xz", "lzma", "lz4"],
+        choices=["zlib", "gzip", "bz2", "xz", "lzma", "lz4", "zstd"],
         help="Set compression method.",
     )
     # We need to be specific about dtypes in particular endianness
