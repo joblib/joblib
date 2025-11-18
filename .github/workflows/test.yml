@@ -28,9 +28,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v5
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: "3.x"
 
@@ -48,7 +48,7 @@ jobs:
       matrix:
         name: [default]
         os: [ubuntu-latest, macos-latest, windows-latest]
-        PYTHON_VERSION: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        PYTHON_VERSION: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
         include:
           - name: test-sklearn
             os: ubuntu-latest
@@ -89,9 +89,12 @@ jobs:
             os: ubuntu-latest
             PYTHON_VERSION: "3.9"
             JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND: "threading"
-          - name: python-free-threaded
+          - name: python3.13-free-threaded
             os: 'ubuntu-latest'
             PYTHON_VERSION: "free-threaded-3.13"
+          - name: python3.14-free-threaded
+            os: 'ubuntu-latest'
+            PYTHON_VERSION: "free-threaded-3.14"
 
     env: ${{ matrix }}
 
@@ -106,7 +109,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v5
 
       - name: Setup conda
         uses: conda-incubator/setup-miniconda@v3
