@@ -358,6 +358,8 @@ def test_decorated_functions():
     def func():
         return 1 + 1
 
+    decorated_func = dummy_decorator(func)
+    decorated_func()  # Code coverage!
     code = get_func_code(func)
-    decorated_code = get_func_code(dummy_decorator(func))
+    decorated_code = get_func_code(decorated_func)
     assert code == decorated_code
