@@ -1,12 +1,9 @@
 import faulthandler
 
-from joblib.parallel import mp
-from joblib.test.common import np
-from joblib.testing import fixture, skipif
+from joblib.testing import fixture
 
 
 @fixture(scope="module")
-@skipif(np is None or mp is None, "Numpy or Multiprocessing not available")
 def parallel_numpy_fixture(request):
     """Fixture to skip memmapping test if numpy or multiprocessing is not
     installed"""
