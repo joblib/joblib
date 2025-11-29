@@ -1556,7 +1556,7 @@ class TestAutoGitignore:
 
         location = Path(tmpdir.mkdir("test_cache_dir"))
 
-        mem = Memory(str(location))
+        mem = Memory(location)
         costly_operation = mem.cache(id)
         costly_operation(0)
 
@@ -1575,7 +1575,7 @@ class TestAutoGitignore:
         gitignore_file.write_text(existing_content)
 
         # Cache a function and call it.
-        mem = Memory(str(location))
+        mem = Memory(location)
         mem.cache(id)(0)
 
         assert gitignore_file.exists()
