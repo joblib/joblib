@@ -14,6 +14,9 @@ In development
   evaluating expressions with non-numeric literals.
   https://github.com/joblib/joblib/pull/1744
 
+- Vendor cloudpickle 3.1.2 to fix a pickling problem with interactively
+  defined abstract base classes and type annotations in Python 3.14+.
+
 Release 1.5.2 - 2025/08/27
 --------------------------
 
