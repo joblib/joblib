@@ -476,8 +476,8 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
         )
         gitignore = os.path.join(cache_directory, ".gitignore")
         if not os.path.exists(gitignore):
-            try
-                with open(, "w") as file:
+            try:
+                with open(gitignore, "w") as file:
                     file.write("# Created by joblib automatically.\n")
                     file.write("*\n")
             except OSError as e:
