@@ -4,6 +4,10 @@ Latest changes
 In development
 --------------
 
+- Add optional ``zstd`` compression support through the ``zstandard`` Python
+  package (``dump``/``load`` now recognize the ``.zst`` extension and the
+  ``compress='zstd'`` option).
+
 - Harden the safety checks in ``eval_expr(pre_dispatch)`` to prevent excessive
   memory allocation and potential crashes by limiting the allowed length of the
   expression and the maximum numeric value of sub-expressions and not

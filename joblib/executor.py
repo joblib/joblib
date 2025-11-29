@@ -121,6 +121,8 @@ class _TestingMemmappingExecutor(MemmappingExecutor):
 
     """
 
+    __test__ = False  # Prevent pytest from treating this helper as a test case
+
     def apply_async(self, func, args):
         """Schedule a func to be run"""
         future = self.submit(func, *args)
