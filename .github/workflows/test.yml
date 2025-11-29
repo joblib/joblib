@@ -52,7 +52,7 @@ jobs:
         include:
           - name: test-sklearn
             os: ubuntu-latest
-            PYTHON_VERSION: "3.10"
+            PYTHON_VERSION: "3.12"
             SKLEARN_TESTS: "true"
           - name: distributed-latest
             os: ubuntu-latest
