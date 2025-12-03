@@ -12,12 +12,12 @@ import gc
 import logging
 import os
 import os.path
-import pathlib
 import pickle
 import shutil
 import sys
 import textwrap
 import time
+from pathlib import Path
 
 import pytest
 
@@ -1264,7 +1264,7 @@ def test_dummy_store_backend():
 
 def test_instanciate_store_backend_with_pathlib_path():
     # Instantiate a FileSystemStoreBackend using a pathlib.Path object
-    path = pathlib.Path("some_folder")
+    path = Path("some_folder")
     backend_obj = _store_backend_factory("local", path)
     try:
         assert backend_obj.location == "some_folder"
@@ -1547,31 +1547,36 @@ class TestMemorizedFunc:
         )
 
 
-@with_numpy
-@parametrize(
-    "location",
-    [
-        "test_cache_dir",
-        pathlib.Path("test_cache_dir"),
-        pathlib.Path("test_cache_dir").resolve(),
-    ],
-)
-def test_memory_creates_gitignore(location):
-    """Test that using the memory object automatically creates a `.gitignore` file
-    within the new cache directory."""
+class TestAutoGitignore:
+    "Tests for the MemorizedFunc and NotMemorizedFunc classes"
 
-    mem = Memory(location)
-    arr = np.asarray([[1, 2, 3], [4, 5, 6]])
-    costly_operation = mem.cache(np.square)
-    costly_operation(arr)
+    def test_memory_creates_gitignore(self, tmpdir):
+        """Test that using the memory object automatically creates a `.gitignore` file
+        within the new cache directory."""
 
-    location = pathlib.Path(location)
+        location = Path(tmpdir.mkdir("test_cache_dir"))
 
-    try:
-        path_to_gitignore_file = os.path.join(location, ".gitignore")
-        gitignore_file_content = "# Created by joblib automatically.\n*\n"
-        with open(path_to_gitignore_file) as f:
-            assert gitignore_file_content == f.read()
+        mem = Memory(location)
+        costly_operation = mem.cache(id)
+        costly_operation(0)
 
-    finally:  # remove cache folder after test
-        shutil.rmtree(location, ignore_errors=True)
+        gitignore_file = location / ".gitignore"
+        assert gitignore_file.exists()
+        assert gitignore_file.read_text() == "# Created by joblib automatically.\n*\n"
+
+    def test_memory_does_not_overwrite_existing_gitignore(self, tmpdir):
+        """Test that using the memory object does not overwrite an existing
+        `.gitignore` file within the cache directory."""
+
+        location = Path(tmpdir.mkdir("test_cache_dir"))
+        gitignore_file = location / ".gitignore"
+
+        existing_content = "# Existing .gitignore file!"
+        gitignore_file.write_text(existing_content)
+
+        # Cache a function and call it.
+        mem = Memory(location)
+        mem.cache(id)(0)
+
+        assert gitignore_file.exists()
+        assert gitignore_file.read_text() == existing_content
