@@ -1237,6 +1237,46 @@ def test_warning_on_unknown_location_type():
     assert expected_mesage in str(warninfo[0].message)
 
 
+def _place_holder_function(a):
+    """Function to be executed in parallel
+
+    The code of this function is expected to be mutated by the execution of
+    the test_memory_code_change_race_condition test.
+
+    """
+    return a
+
+
+def test_memory_code_change_race_condition():
+    # Non-regression test for concurrent cache invalidation
+
+    mem = Memory(cachedir=env['dir'])
+
+    for i in range(2):
+        # Repeat the following several times to increase the probability
+        # of a cach invalidation race condition to happen
+        def identity(a):
+            return a
+
+        _place_holder_function.__code__ = identity.__code__
+        cached_function = mem.cache(_place_holder_function)
+        results = Parallel(n_jobs=10)(
+            delayed(cached_function)(i) for i in range(10))
+        nose.tools.assert_equal(results, list(range(10)))
+
+        # Simulate a code change for the _place_holder_function by injecting
+        # a new code object into the runtime definition of the memoized
+        # _place_holder_function:
+        def square(a):
+            return a ** 2
+
+        _place_holder_function.__code__ = square.__code__
+        cached_function = mem.cache(_place_holder_function)
+        results = Parallel(n_jobs=10)(
+            delayed(cached_function)(i) for i in range(10))
+        nose.tools.assert_equal(results, [i ** 2 for i in range(10)])
+
+
 def test_instanciate_incomplete_store_backend():
     # Verify that registering an external incomplete store backend raises an
     # exception when one tries to instantiate it.
