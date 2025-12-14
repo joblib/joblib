@@ -226,6 +226,29 @@ def test_parallel_call_cached_function_defined_in_jupyter(
             assert len(os.listdir(f_cache_directory / 'f')) == 4
 
 
+def test_memory_cache_notebook_module_override(tmpdir):
+    memory = Memory(location=tmpdir.strpath, verbose=0)
+
+    def make_func():
+        def inner(x):
+            return x + 1
+        return inner
+
+    func = make_func()
+    cached = memory.cache(func, func_module="my.notebook")
+
+    assert func.__module__ == "my.notebook"
+    assert func.__qualname__ == func.__name__
+    assert cached(1) == 2
+
+    func_id, _ = cached._get_output_identifiers(1)
+    expected_func_id = os.path.join("my", "notebook", func.__name__)
+    assert func_id == expected_func_id
+    assert '<locals>' not in func_id
+    cache_dir = os.path.join(memory.store_backend.location, func_id)
+    assert os.path.isdir(cache_dir)
+
+
 def test_no_memory():
     """ Test memory with location=None: no memoize """
     accumulator = list()

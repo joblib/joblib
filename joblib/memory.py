@@ -183,6 +183,42 @@ def _format_load_msg(func_id, args_id, timestamp=None, metadata=None):
     return '[Memory]{0}: Loading {1}'.format(ts_string, str(signature))
 
 
+def _override_func_identity_for_cache(func, func_module=None,
+                                      func_qualname=None):
+    """Stabilize how a function is identified when caching.
+
+    This is mainly useful for functions defined in interactive environments
+    such as notebooks where ``__module__`` and ``__qualname__`` can change
+    across sessions.
+    """
+    if func_module is not None:
+        try:
+            func.__module__ = func_module
+        except Exception:
+            warnings.warn(
+                f"Could not set __module__ on {func!r}; cache keys may change "
+                "across sessions.",
+                stacklevel=3
+            )
+
+    if func_qualname is None and func_module is not None:
+        qualname = getattr(func, '__qualname__', None)
+        if isinstance(qualname, str) and '<locals>' in qualname:
+            func_qualname = getattr(func, '__name__', qualname)
+
+    if func_qualname is not None:
+        try:
+            func.__qualname__ = func_qualname
+        except Exception:
+            warnings.warn(
+                f"Could not set __qualname__ on {func!r}; cache keys may "
+                "change across sessions.",
+                stacklevel=3
+            )
+
+    return func
+
+
 # An in-memory store to avoid looking at the disk-based function
 # source code to check if a function definition has changed
 _FUNCTION_HASHES = weakref.WeakKeyDictionary()
@@ -1032,7 +1068,8 @@ class Memory(Logger):
                                  **backend_options))
 
     def cache(self, func=None, ignore=None, verbose=None, mmap_mode=False,
-              cache_validation_callback=None):
+              cache_validation_callback=None, func_module=None,
+              func_qualname=None):
         """ Decorates the given function func to only compute its return
             value for input arguments not cached on disk.
 
@@ -1056,6 +1093,17 @@ class Memory(Logger):
                 result as its sole argument. If it returns True, then the
                 cached result is returned, else the cache for these arguments
                 is cleared and recomputed.
+            func_module: str, optional
+                Module name to assign to the cached function before building
+                the cache key. This is helpful when caching functions defined
+                in notebooks or other interactive environments whose module
+                would otherwise change across sessions.
+            func_qualname: str, optional
+                Qualname to assign to the cached function before building the
+                cache key. If not provided, but ``func_module`` is set and the
+                current qualname contains ``'<locals>'``, joblib will default to
+                using the function's ``__name__`` to make interactive caching
+                paths stable.
 
             Returns
             -------
@@ -1078,7 +1126,9 @@ class Memory(Logger):
                 self.cache, ignore=ignore,
                 mmap_mode=mmap_mode,
                 verbose=verbose,
-                cache_validation_callback=cache_validation_callback
+                cache_validation_callback=cache_validation_callback,
+                func_module=func_module,
+                func_qualname=func_qualname
             )
         if self.store_backend is None:
             return NotMemorizedFunc(func)
@@ -1088,6 +1138,9 @@ class Memory(Logger):
             mmap_mode = self.mmap_mode
         if isinstance(func, MemorizedFunc):
             func = func.func
+        func = _override_func_identity_for_cache(
+            func, func_module=func_module, func_qualname=func_qualname
+        )
         return MemorizedFunc(
             func, location=self.store_backend, backend=self.backend,
             ignore=ignore, mmap_mode=mmap_mode, compress=self.compress,
