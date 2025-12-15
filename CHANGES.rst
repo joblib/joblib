@@ -1,8 +1,8 @@
 Latest changes
 ==============
 
-In development
---------------
+Release 1.5.3 - 2025/12/15
+--------------------------
 
 - The ``Memory`` object won't overwrite an already existing ``.gitignore`` file in its
   cache directory anymore.
