@@ -416,6 +416,22 @@ def _check_pickle(filename, expected_list, mmap_mode=None):
                 if (re.search("_0.1.+.pkl$", filename_base) and mmap_mode is not None)
                 else 0
             )
+
+            if np.__version__.split(".") >= "2.4.0".split("."):
+                prefix = "joblib_"
+                version_index = filename_base.find(prefix) + len(prefix)
+                joblib_version = filename_base[version_index:]
+
+                def check_version(v):
+                    return joblib_version.startswith(v)
+
+                if check_version("0.9."):
+                    expected_nb_user_warnings += 1
+                    if "compressed" in filename_base:
+                        expected_nb_user_warnings += 2
+                elif check_version("0.10.") or check_version("0.11."):
+                    expected_nb_user_warnings += 4
+
             expected_nb_warnings = (
                 expected_nb_deprecation_warnings + expected_nb_user_warnings
             )
@@ -425,23 +441,27 @@ def _check_pickle(filename, expected_list, mmap_mode=None):
                 f"{[w.message for w in warninfo]}"
             )
 
-            deprecation_warnings = [
-                w for w in warninfo if issubclass(w.category, DeprecationWarning)
-            ]
-            user_warnings = [w for w in warninfo if issubclass(w.category, UserWarning)]
-            for w in deprecation_warnings:
-                assert (
-                    str(w.message)
-                    == "The file '{0}' has been generated with a joblib "
-                    "version less than 0.10. Please regenerate this "
-                    "pickle file.".format(filename)
-                )
-
-            for w in user_warnings:
-                escaped_filename = re.escape(filename)
-                assert re.search(
-                    f"memmapped.+{escaped_filename}.+segmentation fault", str(w.message)
-                )
+            for w in warninfo:
+                if issubclass(w.category, DeprecationWarning):
+                    assert (
+                        str(w.message)
+                        == "The file '{0}' has been generated with a joblib "
+                        "version less than 0.10. Please regenerate this "
+                        "pickle file.".format(filename)
+                    )
+                elif issubclass(w.category, np.exceptions.VisibleDeprecationWarning):
+                    assert (
+                        str(w.message)
+                        == "dtype(): align should be passed as Python or NumPy "
+                        "boolean but got `align=0`. Did you mean to pass a tuple "
+                        "to create a subarray type? (Deprecated NumPy 2.4)"
+                    )
+                elif issubclass(w.category, UserWarning):
+                    escaped_filename = re.escape(filename)
+                    assert re.search(
+                        f"memmapped.+{escaped_filename}.+segmentation fault",
+                        str(w.message),
+                    )
 
             for result, expected in zip(result_list, expected_list):
                 if isinstance(expected, np.ndarray):
