@@ -7,3 +7,4 @@ pandas
 lz4
 distributed
 psutil
+tqdm
