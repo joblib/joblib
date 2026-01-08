@@ -27,9 +27,11 @@ import time
 
 times = [7, 2, 3, 5, 6, 4, 1]
 
+
 def task(t):
-    time.sleep(0.1*t)
+    time.sleep(0.1 * t)
     return t
+
 
 ##############################################################################
 # A ``tqdm`` progress bar takes as input an iterable.
@@ -39,6 +41,7 @@ def task(t):
 # tasks to be completed before obtaining the output ``list``.
 
 from tqdm import tqdm
+
 from joblib import Parallel, delayed
 
 p = Parallel(n_jobs=2)
@@ -52,7 +55,7 @@ print(*tqdm(out, total=len(times)))
 # A solution is to use ``return_as='generator'`` to obtain a generator that
 # iterates over the outputs of each task.
 
-p = Parallel(n_jobs=2, return_as='generator')
+p = Parallel(n_jobs=2, return_as="generator")
 out = p(delayed(task)(t) for t in times)
 print(*tqdm(out, total=len(times)))
 
@@ -71,7 +74,7 @@ print(*tqdm(out, total=len(times)))
 # the first one, it will appear first in the generator, allowing the progress
 # bar to advance without waiting for the first task to finish.
 
-p = Parallel(n_jobs=2, return_as='generator_unordered')
+p = Parallel(n_jobs=2, return_as="generator_unordered")
 out = p(delayed(task)(t) for t in times)
 print(*tqdm(out, total=len(times)))
 
@@ -93,6 +96,7 @@ print(*tqdm(out, total=len(times)))
 # on the ``verbose`` parameter. Here, we can simply override it in order to
 # update our progress bar instead.
 
+
 class ParallelTqdm(Parallel):
     def __call__(self, iterable, n_tasks):
         self.tqdm = tqdm(total=n_tasks)
@@ -102,6 +106,7 @@ class ParallelTqdm(Parallel):
         self.tqdm.update()
         if self.n_completed_tasks == self.tqdm.total:
             self.tqdm.close()
+
 
 p = ParallelTqdm(n_jobs=2)
 out = p((delayed(task)(t) for t in times), len(times))
