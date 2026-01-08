@@ -28,8 +28,8 @@ import time
 times = [7, 2, 3, 5, 6, 4, 1]
 
 def task(t):
-	time.sleep(0.1*t)
-	return t
+    time.sleep(0.1*t)
+    return t
 
 ##############################################################################
 # A ``tqdm`` progress bar takes as input an iterable.
@@ -94,14 +94,14 @@ print(*tqdm(out, total=len(times)))
 # update our progress bar instead.
 
 class ParallelTqdm(Parallel):
-	def __call__(self, iterable, n_tasks):
-		self.tqdm = tqdm(total=n_tasks)
-		return super().__call__(iterable)
+    def __call__(self, iterable, n_tasks):
+        self.tqdm = tqdm(total=n_tasks)
+        return super().__call__(iterable)
 
-	def print_progress(self):
-		self.tqdm.update()
-		if self.n_completed_tasks == self.tqdm.total:
-			self.tqdm.close()
+    def print_progress(self):
+        self.tqdm.update()
+        if self.n_completed_tasks == self.tqdm.total:
+            self.tqdm.close()
 
 p = ParallelTqdm(n_jobs=2)
 out = p((delayed(task)(t) for t in times), len(times))
