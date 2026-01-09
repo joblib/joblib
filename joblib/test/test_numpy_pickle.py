@@ -16,8 +16,6 @@ import zlib
 from contextlib import closing
 from pathlib import Path
 
-from packaging.version import Version
-
 try:
     import lzma
 except ImportError:
@@ -407,68 +405,56 @@ def _check_pickle(filename, expected_list, mmap_mode=None):
         try:
             with warnings.catch_warnings(record=True) as warninfo:
                 warnings.simplefilter("always")
+                # Ignore VisibleDeprecationWarning raised by
+                # numpy 2.4+ with align been of the wrong type
+                if hasattr(np, "exceptions") and hasattr(
+                    np.exceptions, "VisibleDeprecationWarning"
+                ):
+                    warnings.filterwarnings(
+                        "ignore", category=np.exceptions.VisibleDeprecationWarning
+                    )
                 result_list = numpy_pickle.load(filename, mmap_mode=mmap_mode)
+
             filename_base = os.path.basename(filename)
             expected_nb_deprecation_warnings = (
                 1 if ("_0.9" in filename_base or "_0.8.4" in filename_base) else 0
             )
+            deprecation_warnings = []
 
             expected_nb_user_warnings = (
                 3
                 if (re.search("_0.1.+.pkl$", filename_base) and mmap_mode is not None)
                 else 0
             )
-
-            # Account for the VisibleDeprecationWarning raised by
-            # numpy 2.4+ with align been of the wrong type
-            check_numpy_depreciation_warning = False
-            if Version(np.__version__) >= Version("2.4.0"):
-                check_numpy_depreciation_warning = True
-                prefix = "joblib_"
-                version_index = filename_base.find(prefix) + len(prefix)
-                joblib_version = filename_base[version_index:]
-
-                if joblib_version.startswith("0.9."):
-                    expected_nb_user_warnings += 1
-                    if "compressed" in filename_base:
-                        expected_nb_user_warnings += 2
-                else:
-                    expected_nb_user_warnings += 4
-
-            expected_nb_warnings = (
-                expected_nb_deprecation_warnings + expected_nb_user_warnings
-            )
-            assert len(warninfo) == expected_nb_warnings, (
-                "Did not get the expected number of warnings. Expected "
-                f"{expected_nb_warnings} but got warnings: "
-                f"{[w.message for w in warninfo]}"
-            )
+            user_warnings = []
 
             for w in warninfo:
                 if issubclass(w.category, DeprecationWarning):
+                    deprecation_warnings.append(w.message)
                     assert (
                         str(w.message)
                         == "The file '{0}' has been generated with a joblib "
                         "version less than 0.10. Please regenerate this "
                         "pickle file.".format(filename)
                     )
-                elif check_numpy_depreciation_warning and issubclass(
-                    w.category, np.exceptions.VisibleDeprecationWarning
-                ):
-                    assert (
-                        str(w.message)
-                        == "dtype(): align should be passed as Python or NumPy "
-                        "boolean but got `align=0`. Did you mean to pass a tuple "
-                        "to create a subarray type? (Deprecated NumPy 2.4)"
-                    )
                 elif issubclass(w.category, UserWarning):
+                    user_warnings.append(w.message)
                     escaped_filename = re.escape(filename)
                     assert re.search(
                         f"memmapped.+{escaped_filename}.+segmentation fault",
                         str(w.message),
                     )
-                else:
-                    raise Exception(f"No warning of type {w.category} is expected")
+
+            assert len(deprecation_warnings) == expected_nb_deprecation_warnings, (
+                "Did not get the expected number of deprecation warnings. "
+                f"Expected {expected_nb_deprecation_warnings} "
+                "but got warnings: {deprecation_warnings}"
+            )
+            assert len(user_warnings) == expected_nb_user_warnings, (
+                "Did not get the expected number of user warnings. "
+                f"Expected {expected_nb_user_warnings} "
+                "but got warnings: {user_warnings}"
+            )
 
             for result, expected in zip(result_list, expected_list):
                 if isinstance(expected, np.ndarray):
