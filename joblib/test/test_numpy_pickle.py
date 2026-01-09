@@ -16,6 +16,8 @@ import zlib
 from contextlib import closing
 from pathlib import Path
 
+from packaging.version import Version
+
 try:
     import lzma
 except ImportError:
@@ -417,7 +419,11 @@ def _check_pickle(filename, expected_list, mmap_mode=None):
                 else 0
             )
 
-            if np.__version__.split(".") >= "2.4.0".split("."):
+            # Account for the VisibleDeprecationWarning raised by
+            # numpy 2.4+ with align been of the wrong type
+            numpyDepreciationWarning = False
+            if Version(np.__version__) >= Version("2.4.0"):
+                numpyDepreciationWarning = True
                 prefix = "joblib_"
                 version_index = filename_base.find(prefix) + len(prefix)
                 joblib_version = filename_base[version_index:]
@@ -429,7 +435,7 @@ def _check_pickle(filename, expected_list, mmap_mode=None):
                     expected_nb_user_warnings += 1
                     if "compressed" in filename_base:
                         expected_nb_user_warnings += 2
-                elif check_version("0.10.") or check_version("0.11."):
+                else:
                     expected_nb_user_warnings += 4
 
             expected_nb_warnings = (
@@ -449,7 +455,9 @@ def _check_pickle(filename, expected_list, mmap_mode=None):
                         "version less than 0.10. Please regenerate this "
                         "pickle file.".format(filename)
                     )
-                elif issubclass(w.category, np.exceptions.VisibleDeprecationWarning):
+                elif numpyDepreciationWarning and issubclass(
+                    w.category, np.exceptions.VisibleDeprecationWarning
+                ):
                     assert (
                         str(w.message)
                         == "dtype(): align should be passed as Python or NumPy "
@@ -462,6 +470,8 @@ def _check_pickle(filename, expected_list, mmap_mode=None):
                         f"memmapped.+{escaped_filename}.+segmentation fault",
                         str(w.message),
                     )
+                else:
+                    raise Exception(f"No warning of type {w.category} is expected")
 
             for result, expected in zip(result_list, expected_list):
                 if isinstance(expected, np.ndarray):
