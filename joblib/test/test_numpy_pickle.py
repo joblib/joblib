@@ -428,10 +428,7 @@ def _check_pickle(filename, expected_list, mmap_mode=None):
                 version_index = filename_base.find(prefix) + len(prefix)
                 joblib_version = filename_base[version_index:]
 
-                def check_version(v):
-                    return joblib_version.startswith(v)
-
-                if check_version("0.9."):
+                if joblib_version.startswith("0.9."):
                     expected_nb_user_warnings += 1
                     if "compressed" in filename_base:
                         expected_nb_user_warnings += 2
