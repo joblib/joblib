@@ -421,9 +421,9 @@ def _check_pickle(filename, expected_list, mmap_mode=None):
 
             # Account for the VisibleDeprecationWarning raised by
             # numpy 2.4+ with align been of the wrong type
-            numpyDepreciationWarning = False
+            check_numpy_depreciation_warning = False
             if Version(np.__version__) >= Version("2.4.0"):
-                numpyDepreciationWarning = True
+                check_numpy_depreciation_warning = True
                 prefix = "joblib_"
                 version_index = filename_base.find(prefix) + len(prefix)
                 joblib_version = filename_base[version_index:]
@@ -455,7 +455,13 @@ def _check_pickle(filename, expected_list, mmap_mode=None):
                         "version less than 0.10. Please regenerate this "
                         "pickle file.".format(filename)
                     )
-                elif numpyDepreciationWarning and issubclass(
+                elif issubclass(w.category, UserWarning):
+                    escaped_filename = re.escape(filename)
+                    assert re.search(
+                        f"memmapped.+{escaped_filename}.+segmentation fault",
+                        str(w.message),
+                    )
+                elif check_numpy_depreciation_warning and issubclass(
                     w.category, np.exceptions.VisibleDeprecationWarning
                 ):
                     assert (
@@ -463,12 +469,6 @@ def _check_pickle(filename, expected_list, mmap_mode=None):
                         == "dtype(): align should be passed as Python or NumPy "
                         "boolean but got `align=0`. Did you mean to pass a tuple "
                         "to create a subarray type? (Deprecated NumPy 2.4)"
-                    )
-                elif issubclass(w.category, UserWarning):
-                    escaped_filename = re.escape(filename)
-                    assert re.search(
-                        f"memmapped.+{escaped_filename}.+segmentation fault",
-                        str(w.message),
                     )
                 else:
                     raise Exception(f"No warning of type {w.category} is expected")
