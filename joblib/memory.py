@@ -35,6 +35,7 @@ from .logger import Logger, format_time, pformat
 from ._store_backends import StoreBackendBase, FileSystemStoreBackend
 from ._store_backends import CacheWarning  # noqa
 from .tree import tree_map, tree_map_with_path, tree_flatten
+from .tree import tree_flatten_with_path, keystr
 
 
 FIRST_LINE_TEXT = "# first line:"
@@ -217,6 +218,33 @@ def _override_func_identity_for_cache(func, func_module=None,
             )
 
     return func
+
+
+def _format_leaf_path(path):
+    path_str = keystr(path)
+    return path_str if path_str else "<root>"
+
+
+def _hash_leaf(leaf, coerce_mmap=False):
+    try:
+        return hashing.hash(leaf, coerce_mmap=coerce_mmap)
+    except Exception:
+        try:
+            return hashing.hash(repr(leaf), coerce_mmap=False)
+        except Exception:
+            return None
+
+
+def _hash_argument_leaves(argument_dict, coerce_mmap=False):
+    leaf_hashes = {}
+    for name, value in argument_dict.items():
+        path_leaf_pairs, _ = tree_flatten_with_path(value)
+        name_hashes = []
+        for path, leaf in path_leaf_pairs:
+            path_str = _format_leaf_path(path)
+            name_hashes.append([path_str, _hash_leaf(leaf, coerce_mmap)])
+        leaf_hashes[name] = name_hashes
+    return leaf_hashes
 
 
 # An in-memory store to avoid looking at the disk-based function
@@ -514,25 +542,35 @@ class MemorizedFunc(Logger):
         - Check if the function call is present in the cache.
         - Call `cache_validation_callback` for user define cache validation.
 
-        Returns True if the function call is in cache and can be used, and
-        returns False otherwise.
+        Returns
+        -------
+        is_cached: bool
+            Whether the function call is in cache and can be used.
+        miss_reason: str or None
+            Reason for cache miss when not cached.
+        had_cache: bool
+            Whether the function had cached results before a miss reason
+            cleared them.
         """
         # Check if the code of the function has changed
-        if not self._check_previous_func_code(stacklevel=4):
-            return False
+        code_ok, miss_reason, had_cache = self._check_previous_func_code(
+            stacklevel=4
+        )
+        if not code_ok:
+            return False, miss_reason, had_cache
 
         # Check if this specific call is in the cache
         if not self.store_backend.contains_item(path):
-            return False
+            return False, "missing_entry", False
 
         # Call the user defined cache validation callback
         metadata = self.store_backend.get_metadata(path)
         if (self.cache_validation_callback is not None and
                 not self.cache_validation_callback(metadata)):
             self.store_backend.clear_item(path)
-            return False
+            return False, "cache_validation_callback", True
 
-        return True
+        return True, None, False
 
     def _cached_call(self, args, kwargs, shelving=False):
         """Call wrapped function and cache result, or read cache if available.
@@ -592,7 +630,10 @@ class MemorizedFunc(Logger):
         # Compare the function code with the previous to see if the
         # function code has changed and check if the results are present in
         # the cache.
-        if self._is_in_cache_and_valid([func_id, args_id]):
+        in_cache, miss_reason, had_cache = self._is_in_cache_and_valid(
+            [func_id, args_id]
+        )
+        if in_cache:
             try:
                 t0 = time.time()
                 if self._verbose:
@@ -622,6 +663,14 @@ class MemorizedFunc(Logger):
 
                 must_call = True
         else:
+            if (self._verbose > 0 or
+                    logging.getLogger(self._name).isEnabledFor(
+                        logging.INFO)):
+                self._log_cache_miss(
+                    func_id, args, kwargs,
+                    miss_reason=miss_reason,
+                    had_cache=had_cache
+                )
             if self._verbose > 10:
                 _, name = get_func_name(self.func)
                 self.warn('Computing func {0}, argument hash {1} '
@@ -726,6 +775,127 @@ class MemorizedFunc(Logger):
     # Private interface
     # ------------------------------------------------------------------------
 
+    def _get_cached_call_metadata(self, func_id):
+        try:
+            func_path = os.path.join(self.store_backend.location, func_id)
+        except Exception:
+            return []
+        if not os.path.isdir(func_path):
+            return []
+        try:
+            entries = os.listdir(func_path)
+        except OSError:
+            return []
+
+        cached = []
+        for entry in entries:
+            if entry == "func_code.py":
+                continue
+            if re.match(r"^[a-f0-9]{32}$", entry) is None:
+                continue
+            if not self.store_backend.contains_item([func_id, entry]):
+                continue
+            cached.append((entry, self.store_backend.get_metadata(
+                [func_id, entry])))
+        return cached
+
+    def _has_cached_results(self, func_id):
+        return bool(self._get_cached_call_metadata(func_id))
+
+    def _collect_changed_arguments(self, args, kwargs, cached_metadata,
+                                   max_items=20):
+        argument_dict = filter_args(self.func, self.ignore, args, kwargs)
+        coerce_mmap = (self.mmap_mode is not None)
+        cached_hashes = cached_metadata.get("input_args_hashes")
+        changed = []
+        if isinstance(cached_hashes, dict):
+            current_hashes = _hash_argument_leaves(argument_dict, coerce_mmap)
+            all_names = set(current_hashes) | set(cached_hashes)
+            structure_changed = []
+            for name in sorted(all_names):
+                current = current_hashes.get(name)
+                previous = cached_hashes.get(name)
+                if current is None or previous is None:
+                    changed.append(name)
+                    continue
+                current_map = {path: h for path, h in current}
+                previous_map = {path: h for path, h in previous}
+                if current_map.keys() != previous_map.keys():
+                    structure_changed.append(name)
+                    continue
+                for path in sorted(current_map):
+                    if current_map[path] != previous_map[path]:
+                        if path == "<root>":
+                            changed.append(name)
+                        else:
+                            changed.append(f"{name}{path}")
+            for name in structure_changed:
+                changed.append(f"{name} (structure changed)")
+        else:
+            current_repr = dict(
+                (k, repr(v)) for k, v in argument_dict.items()
+            )
+            previous_repr = cached_metadata.get("input_args", {})
+            all_names = set(current_repr) | set(previous_repr)
+            for name in sorted(all_names):
+                if current_repr.get(name) != previous_repr.get(name):
+                    changed.append(name)
+
+        if len(changed) <= max_items:
+            return changed, 0
+        extra = len(changed) - max_items
+        return changed[:max_items], extra
+
+    def _emit_cache_miss_info(self, message):
+        logger = logging.getLogger(self._name)
+        if logger.isEnabledFor(logging.INFO):
+            self.info(message)
+        elif self._verbose > 0:
+            print("[{0}]: {1}".format(self, message))
+
+    def _log_cache_miss(self, func_id, args, kwargs, miss_reason=None,
+                        had_cache=False):
+        if miss_reason == "func_code_unavailable":
+            return
+        _, func_name = get_func_name(self.func)
+        if miss_reason == "func_code_changed":
+            if had_cache:
+                self._emit_cache_miss_info(
+                    "Cache miss for {0}: function code changed since the "
+                    "last cache; cache cleared.".format(func_name)
+                )
+            return
+        if miss_reason == "cache_validation_callback":
+            self._emit_cache_miss_info(
+                "Cache miss for {0}: cache_validation_callback rejected the "
+                "cached result.".format(func_name)
+            )
+            return
+
+        cached_calls = self._get_cached_call_metadata(func_id)
+        if not cached_calls:
+            return
+        _, cached_metadata = max(
+            cached_calls,
+            key=lambda item: item[1].get("time", -1)
+        )
+        changed, extra = self._collect_changed_arguments(
+            args, kwargs, cached_metadata
+        )
+        if changed:
+            detail = ", ".join(changed)
+            if extra:
+                detail = "{0}, ... (+{1} more)".format(detail, extra)
+            self._emit_cache_miss_info(
+                "Cache miss for {0}: arguments differ from the previous "
+                "cached call. Changed: {1}.".format(func_name, detail)
+            )
+        else:
+            self._emit_cache_miss_info(
+                "Cache miss for {0}: arguments differ from the previous "
+                "cached call.".format(func_name)
+            )
+
     def _get_argument_hash(self, *args, **kwargs):
         args_dict = filter_args(self.func, self.ignore, args, kwargs)
         hash_fn = functools.partial(hashing.hash,
@@ -791,7 +961,7 @@ class MemorizedFunc(Logger):
                 # collisions, thus we are on the safe side.
                 func_hash = self._hash_func()
                 if func_hash == _FUNCTION_HASHES[self.func]:
-                    return True
+                    return True, None, False
         except TypeError:
             # Some callables are not hashable
             pass
@@ -808,13 +978,14 @@ class MemorizedFunc(Logger):
                     self.store_backend.get_cached_func_code([func_id]))
         except (IOError, OSError):  # some backend can also raise OSError
             self._write_func_code(func_code, first_line)
-            return False
+            return False, "func_code_unavailable", False
         if old_func_code == func_code:
-            return True
+            return True, None, False
 
         # We have differing code, is this because we are referring to
         # different functions, or because the function we are referring to has
         # changed?
+        had_cache = self._has_cached_results(func_id)
 
         _, func_name = get_func_name(self.func, resolv_alias=False,
                                      win_characters=False)
@@ -861,7 +1032,7 @@ class MemorizedFunc(Logger):
             self.warn("Function {0} (identified by {1}) has changed"
                       ".".format(func_name, func_id))
         self.clear(warn=True)
-        return False
+        return False, "func_code_changed", had_cache
 
     def clear(self, warn=True):
         """Empty the function's cache."""
@@ -933,10 +1104,16 @@ class MemorizedFunc(Logger):
                                     args, kwargs)
 
         input_repr = dict((k, repr(v)) for k, v in argument_dict.items())
+        input_hashes = _hash_argument_leaves(
+            argument_dict, coerce_mmap=(self.mmap_mode is not None)
+        )
         # This can fail due to race-conditions with multiple
         # concurrent joblibs removing the file or the directory
         metadata = {
-            "duration": duration, "input_args": input_repr, "time": start_time,
+            "duration": duration,
+            "input_args": input_repr,
+            "input_args_hashes": input_hashes,
+            "time": start_time,
         }
 
         func_id, args_id = self._get_output_identifiers(*args, **kwargs)
