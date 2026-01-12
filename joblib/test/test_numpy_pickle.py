@@ -405,7 +405,7 @@ def _check_pickle(filename, expected_list, mmap_mode=None):
         try:
             with warnings.catch_warnings(record=True) as warninfo:
                 warnings.simplefilter("always")
-                # Ignore numpy >= 2.4 warning when load old pickle where
+                # Ignore numpy >= 2.4 warning when loading old pickles, where
                 # align=0 but it should be a Python or Numpy boolean
                 warnings.filterwarnings(
                     "ignore", message=".+align should be passed.+boolean.+align=0"
