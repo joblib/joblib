@@ -46,7 +46,7 @@ Dependencies
 ============
 
 - Joblib has no mandatory dependencies besides Python (supported versions are
-  3.9+).
+  3.10+).
 - Joblib has an optional dependency on Numpy (at least version 1.6.1) for array
   manipulation.
 - Joblib includes its own vendored copy of
