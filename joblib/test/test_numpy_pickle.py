@@ -405,56 +405,48 @@ def _check_pickle(filename, expected_list, mmap_mode=None):
         try:
             with warnings.catch_warnings(record=True) as warninfo:
                 warnings.simplefilter("always")
-                # Ignore VisibleDeprecationWarning raised by
-                # numpy 2.4+ with align been of the wrong type
-                if hasattr(np, "exceptions") and hasattr(
-                    np.exceptions, "VisibleDeprecationWarning"
-                ):
-                    warnings.filterwarnings(
-                        "ignore", category=np.exceptions.VisibleDeprecationWarning
-                    )
+                # Ignore numpy >= 2.4 warning when load old pickle where
+                # align=0 but it should be a Python or Numpy boolean
+                warnings.filterwarnings(
+                    "ignore", message=".+align should be passed.+boolean.+align=0"
+                )
                 result_list = numpy_pickle.load(filename, mmap_mode=mmap_mode)
-
             filename_base = os.path.basename(filename)
             expected_nb_deprecation_warnings = (
                 1 if ("_0.9" in filename_base or "_0.8.4" in filename_base) else 0
             )
-            deprecation_warnings = []
 
             expected_nb_user_warnings = (
                 3
                 if (re.search("_0.1.+.pkl$", filename_base) and mmap_mode is not None)
                 else 0
             )
-            user_warnings = []
-
-            for w in warninfo:
-                if issubclass(w.category, DeprecationWarning):
-                    deprecation_warnings.append(w.message)
-                    assert (
-                        str(w.message)
-                        == "The file '{0}' has been generated with a joblib "
-                        "version less than 0.10. Please regenerate this "
-                        "pickle file.".format(filename)
-                    )
-                elif issubclass(w.category, UserWarning):
-                    user_warnings.append(w.message)
-                    escaped_filename = re.escape(filename)
-                    assert re.search(
-                        f"memmapped.+{escaped_filename}.+segmentation fault",
-                        str(w.message),
-                    )
-
-            assert len(deprecation_warnings) == expected_nb_deprecation_warnings, (
-                "Did not get the expected number of deprecation warnings. "
-                f"Expected {expected_nb_deprecation_warnings} "
-                "but got warnings: {deprecation_warnings}"
+            expected_nb_warnings = (
+                expected_nb_deprecation_warnings + expected_nb_user_warnings
             )
-            assert len(user_warnings) == expected_nb_user_warnings, (
-                "Did not get the expected number of user warnings. "
-                f"Expected {expected_nb_user_warnings} "
-                "but got warnings: {user_warnings}"
+            assert len(warninfo) == expected_nb_warnings, (
+                "Did not get the expected number of warnings. Expected "
+                f"{expected_nb_warnings} but got warnings: "
+                f"{[w.message for w in warninfo]}"
             )
+
+            deprecation_warnings = [
+                w for w in warninfo if issubclass(w.category, DeprecationWarning)
+            ]
+            user_warnings = [w for w in warninfo if issubclass(w.category, UserWarning)]
+            for w in deprecation_warnings:
+                assert (
+                    str(w.message)
+                    == "The file '{0}' has been generated with a joblib "
+                    "version less than 0.10. Please regenerate this "
+                    "pickle file.".format(filename)
+                )
+
+            for w in user_warnings:
+                escaped_filename = re.escape(filename)
+                assert re.search(
+                    f"memmapped.+{escaped_filename}.+segmentation fault", str(w.message)
+                )
 
             for result, expected in zip(result_list, expected_list):
                 if isinstance(expected, np.ndarray):
