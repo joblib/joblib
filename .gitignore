@@ -30,8 +30,8 @@ dist
 .DS_Store
 doc/documentation.zip
 doc/generated
-doc/user/CHANGES.rst
-doc/user/README.rst
+doc/CHANGES.rst
+doc/README.rst
 # Coverage report
 .coverage
 

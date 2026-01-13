@@ -111,8 +111,8 @@ latex_documents = [
 import shutil  # noqa: E402
 
 try:
-    shutil.copyfile("../CHANGES.rst", "user/CHANGES.rst")
-    shutil.copyfile("../README.rst", "user/README.rst")
+    shutil.copyfile("../CHANGES.rst", "CHANGES.rst")
+    shutil.copyfile("../README.rst", "README.rst")
 except IOError:
     pass
     # This fails during the testing, as the code is ran in a different

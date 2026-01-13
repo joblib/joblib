@@ -5,4 +5,8 @@ Development
 
 .. include:: README.rst
 
-.. include:: CHANGES.rst
+
+.. toctree::
+	:hidden:
+
+	Release notes <CHANGES.rst>

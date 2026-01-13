@@ -11,4 +11,8 @@ User Manual
     persistence.rst
     custom_parallel_backend.rst
     ../auto_examples/index
-    developing.rst
+
+ .. toctree::
+    :maxdepth: 1
+
+	Release notes <../CHANGES.rst>
