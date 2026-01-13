@@ -1,4 +1,5 @@
 sphinx
+pydata-sphinx-theme
 numpy
 matplotlib
 sphinx-gallery
