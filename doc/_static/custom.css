@@ -7,3 +7,13 @@ html[data-theme="dark"] {
 	--pst-color-link: #aa560c;
 	--pst-color-inline-code-links: #aa560c;
 }
+
+.bd-article li.toctree-l1 > a {
+	font-size: 140%;
+	color: var(--pst-color-primary);
+	font-weight: bold;
+}
+
+.bd-article li.toctree-l1 {
+	padding-bottom: 1em;
+}
