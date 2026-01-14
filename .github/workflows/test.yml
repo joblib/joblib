@@ -61,7 +61,7 @@ jobs:
           - name: distributed
             os: ubuntu-latest
             PYTHON_VERSION: "3.10"
-            EXTRA_CONDA_PACKAGES: numpy=1.22.4 distributed=2022.2.4
+            EXTRA_CONDA_PACKAGES: numpy=1.22.4 distributed=2022.4.2
           - name: numpy-1.24
             os: ubuntu-latest
             PYTHON_VERSION: "3.11"
