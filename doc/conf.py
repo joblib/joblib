@@ -95,7 +95,10 @@ html_theme_options = {
 
 html_favicon = "_static/favicon.ico"
 
-html_css_files = ["custom.css"]
+html_css_files = [
+    "custom.css",
+    "custom_pygments.css",
+]
 
 htmlhelp_basename = "joblibdoc"
 
