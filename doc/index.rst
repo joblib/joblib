@@ -11,4 +11,5 @@ Introduction
 
     user/index
     references
+    ../auto_examples/index
     developing

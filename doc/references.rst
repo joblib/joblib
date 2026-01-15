@@ -1,4 +1,4 @@
-Module reference
+Module Reference
 ================
 
 .. currentmodule:: joblib

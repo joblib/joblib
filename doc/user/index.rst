@@ -10,7 +10,6 @@ User Manual
     parallel.rst
     persistence.rst
     custom_parallel_backend.rst
-    ../auto_examples/index
 
  .. toctree::
     :maxdepth: 1
