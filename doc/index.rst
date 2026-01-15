@@ -9,7 +9,7 @@ Introduction
  .. toctree::
     :hidden:
 
-    user/index
+    user_guide/index
     references
     ../auto_examples/index
     developing
