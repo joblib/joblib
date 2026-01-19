@@ -26,6 +26,9 @@ classifiers = [
 ]
 requires-python = ">=3.9"
 dynamic = ["version"]
+dependencies = [
+    "cloudpickle",
+]
 
 [project.readme]
 file = "README.rst"
@@ -41,7 +44,6 @@ packages = [
     "joblib.test",
     "joblib.test.data",
     "joblib.externals",
-    "joblib.externals.cloudpickle",
     "joblib.externals.loky",
     "joblib.externals.loky.backend",
 ]
