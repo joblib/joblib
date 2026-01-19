@@ -79,7 +79,7 @@ else:
 
 # global variable to change the pickler behavior
 try:
-    from joblib.externals import cloudpickle  # noqa: F401
+    import cloudpickle  # noqa: F401
 
     DEFAULT_ENV = "cloudpickle"
 except ImportError:
