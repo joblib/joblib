@@ -22,13 +22,6 @@ concurrency:
 
 env:
   COVERAGE: 'true'
-  PYTHON_OLDEST: "3.10"
-  PYTHON_LATEST: "3.14"
-  # Use oldest packages versions supporting PYTHON_OLDEST
-  # For distributed, some behavior changed starting from 2022.8
-  # We decided to not support older versions
-  NUMPY_OLDEST: "numpy=1.21.2"
-  DISTRIBUTED_OLDEST: "distributed=2022.8.1"
 
 jobs:
   linting:
@@ -57,44 +50,48 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
         PYTHON_VERSION: ["3.10", "3.11", "3.12", "3.13", "3.14"]
         include:
+          # When a package version is specified
+          # Use the oldest version supporting the used python version
+          # For distributed a changed, some behavior changed starting
+          # from 2022.8. We decided to not support older versions
           - name: test-sklearn
             os: ubuntu-latest
-            PYTHON_VERSION: ${{ env.PYTHON_LATEST }}
+            PYTHON_VERSION: "3.14" # Latest
             SKLEARN_TESTS: "true"
           - name: distributed-latest
             os: ubuntu-latest
-            PYTHON_VERSION: ${{ env.PYTHON_OLDEST }}
+            PYTHON_VERSION: "3.10"  # Oldest
             EXTRA_CONDA_PACKAGES: numpy distributed
           - name: distributed
             os: ubuntu-latest
-            PYTHON_VERSION: ${{ env.PYTHON_OLDEST }}
-            EXTRA_CONDA_PACKAGES: "${{ env.NUMPY_OLDEST }} ${{ env.DISTRIBUTED_OLDEST }}"
+            PYTHON_VERSION: "3.10"  # Oldest
+            EXTRA_CONDA_PACKAGES: numpy=1.21.2 distributed=2022.8.1
           - name: cython
             os: ubuntu-latest
-            PYTHON_VERSION: ${{ env.PYTHON_OLDEST }}
-            EXTRA_CONDA_PACKAGES: "${{ env.NUMPY_OLDEST }}"
+            PYTHON_VERSION: "3.10"  # Oldest
+            EXTRA_CONDA_PACKAGES: numpy=1.21.2
             CYTHON: true
           - name: no-multiprocessing
             os: ubuntu-latest
-            PYTHON_VERSION: ${{ env.PYTHON_OLDEST }}
-            EXTRA_CONDA_PACKAGES: "${{ env.NUMPY_OLDEST }}"
+            PYTHON_VERSION: "3.10"  # Oldest
+            EXTRA_CONDA_PACKAGES: numpy=1.21.2
             JOBLIB_MULTIPROCESSING: "0"
             NO_LZMA: true
           - name: no-numpy
             os: ubuntu-latest
-            PYTHON_VERSION: ${{ env.PYTHON_OLDEST }}
+            PYTHON_VERSION: "3.10"  # Oldest
             NO_NUMPY: true
           - name: no-lz4
             os: ubuntu-latest
-            PYTHON_VERSION: ${{ env.PYTHON_OLDEST }}
+            PYTHON_VERSION: "3.10"  # Oldest
             NO_LZ4: true
           - name: one-cpu
             os: ubuntu-latest
-            PYTHON_VERSION: ${{ env.PYTHON_LATEST }}
+            PYTHON_VERSION: "3.14"  # Latest
             LOKY_MAX_CPU_COUNT: 1
           - name: default-backend-threading
             os: ubuntu-latest
-            PYTHON_VERSION: ${{ env.PYTHON_OLDEST }}
+            PYTHON_VERSION: "3.10"  # Oldest
             JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND: "threading"
           - name: python3.13-free-threaded
             os: 'ubuntu-latest'
