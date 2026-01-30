@@ -60,21 +60,21 @@ jobs:
             SKLEARN_TESTS: "true"
           - name: distributed-latest
             os: ubuntu-latest
-            PYTHON_VERSION: "3.10"  # Oldest
+            PYTHON_VERSION: "3.14"  # Latest
             EXTRA_CONDA_PACKAGES: numpy distributed
           - name: distributed
             os: ubuntu-latest
             PYTHON_VERSION: "3.10"  # Oldest
-            EXTRA_CONDA_PACKAGES: numpy=1.21.2 distributed=2022.8.1
+            EXTRA_CONDA_PACKAGES: numpy=1.21.3 distributed=2022.8.1
           - name: cython
             os: ubuntu-latest
             PYTHON_VERSION: "3.10"  # Oldest
-            EXTRA_CONDA_PACKAGES: numpy=1.21.2
+            EXTRA_CONDA_PACKAGES: numpy=1.21.3
             CYTHON: true
           - name: no-multiprocessing
             os: ubuntu-latest
             PYTHON_VERSION: "3.10"  # Oldest
-            EXTRA_CONDA_PACKAGES: numpy=1.21.2
+            EXTRA_CONDA_PACKAGES: numpy=1.21.3
             JOBLIB_MULTIPROCESSING: "0"
             NO_LZMA: true
           - name: no-numpy
