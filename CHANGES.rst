@@ -4,6 +4,9 @@ Latest changes
 In development
 --------------
 
+- Python 3.9 is no more supported. The oldest supported Python version
+  is now Python 3.10.
+
 Release 1.5.3 - 2025/12/15
 --------------------------
 
