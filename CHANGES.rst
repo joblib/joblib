@@ -4,6 +4,9 @@ Latest changes
 In development
 --------------
 
+- Unvendor cloudpickle to more quickly benefit from maintenance releases
+  of cloudpickle
+
 Release 1.5.3 - 2025/12/15
 --------------------------
 
