@@ -52,8 +52,8 @@ jobs:
         include:
           # When a package version is specified
           # Use the oldest version supporting the used python version
-          # For distributed a changed, some behavior changed starting
-          # from 2022.8. We decided to not support older versions
+          # For distributed a some behavior changed starting from 2022.8.
+          # We decided to not support older versions
           - name: test-sklearn
             os: ubuntu-latest
             PYTHON_VERSION: "3.14" # Latest
