@@ -51,11 +51,11 @@ jobs:
         PYTHON_VERSION: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
         include:
           - name: cloudpickle-latest
-            os: ubuntu-latest
+            # os: ubuntu-latest
             PYHON_VERSION: "3.14" # Latest
             EXTRA_CONDA_PACKAGES: numpy cloudpickle
           - name: cloudpickle
-            os: ubuntu-latest
+            # os: ubuntu-latest
             PYHON_VERSION: "3.10" # Oldest
             EXTRA_CONDA_PACKAGES: numpy=1.21.3 cloudpickle=3.0.0
           - name: test-sklearn
