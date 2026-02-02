@@ -17,3 +17,12 @@ html[data-theme="dark"] {
 .bd-article li.toctree-l1 {
 	padding-bottom: 1em;
 }
+
+img {
+	background: transparent !important;
+}
+
+.center-rubric {
+	text-align: center;
+	font-size: 110%;
+}
