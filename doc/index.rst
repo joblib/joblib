@@ -28,12 +28,12 @@ It is **BSD-licensed**.
   .. grid-item-card:: Disk-based caching
     :link: user_guide/memory.html
 
-    Using the :class:`~joblib.Memory` for disk-based caching
+    Using :class:`~joblib.Memory` for disk-based caching
 
   .. grid-item-card:: Embarrassingly parallel
     :link: user_guide/parallel.html
 
-    Using :class:`~joblib.Parallel` for parallel loops using multiprocessing
+    Using :class:`~joblib.Parallel` for multiprocessing parallel loops
 
   .. grid-item-card:: Parallel backend
     :link: user_guide/custom_parallel_backend.html
