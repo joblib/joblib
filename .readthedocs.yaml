@@ -2,7 +2,7 @@ version: 2
 
 # Set the version of Python and OS
 build:
-  os: ubuntu-latest
+  os: ubuntu-lts-latest
   tools:
     python: "3.13"
 
