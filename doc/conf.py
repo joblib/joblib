@@ -84,13 +84,12 @@ html_theme_options = {
     },
     "switcher": {
         "json_url": "https://joblib--1774.org.readthedocs.build/en/1774/_static/versions.json",
-        "version_match": release
-	},
-    
+        "version_match": release,
+    },
     "navbar_start": [
         "navbar-logo",
         "version-switcher",
-	],
+    ],
     "navbar_end": [
         "theme-switcher",
         "navbar-icon-links",
