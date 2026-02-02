@@ -82,9 +82,17 @@ html_theme_options = {
         "image_light": "joblib_logo.svg",
         "image_dark": "joblib_logo_dark.svg",
     },
+    "switcher": {
+        "json_url": "https://joblib--1774.org.readthedocs.build/en/1774/_static/versions.json",
+        "version_match": release
+	},
+    
+    "navbar_start": [
+        "navbar-logo",
+        "version-switcher",
+	],
     "navbar_end": [
         "theme-switcher",
-        "version-switcher",
         "navbar-icon-links",
     ],
     "footer_start": [],
