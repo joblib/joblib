@@ -27,6 +27,31 @@ classifiers = [
 requires-python = ">=3.9"
 dynamic = ["version"]
 
+[project.optional-dependencies]
+
+test = [
+    "distributed",
+    "lz4",
+    "numpy",
+    "pytest",
+    "pytest-asyncio",
+]
+
+docs = [
+    "distributed",
+    "lz4",
+    "numpy",
+    "numpydoc",
+    "matplotlib",
+    "pandas",
+    "psutil",
+    "sphinx",
+    "pydata-sphinx-theme",
+    "sphinx-gallery",
+    "sphinx-copybutton",
+    "sphinx-design",
+]
+
 [project.readme]
 file = "README.rst"
 content-type = "text/x-rst"

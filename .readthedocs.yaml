@@ -10,9 +10,10 @@ python:
   # make sure joblib is installed in the virtualenv (it is imported in
   # conf.py)
   install:
-    - requirements: .readthedocs-requirements.txt
     - method: pip
       path: .
+      extra_requirements:
+        - docs
 
 sphinx:
   fail_on_warning: true

@@ -97,7 +97,7 @@ Building the docs
 To build the docs you need to have sphinx (>=1.4) and some dependencies
 installed::
 
-    pip install -U -r .readthedocs-requirements.txt
+    pip install .[docs]
 
 The docs can then be built with the following command::
 
