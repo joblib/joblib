@@ -22,6 +22,8 @@ extensions = [
     "sphinx.ext.coverage",
     "sphinx.ext.intersphinx",
     "sphinx_gallery.gen_gallery",
+    "sphinx_copybutton",
+    "sphinx_design",
 ]
 
 autosummary_generate = True

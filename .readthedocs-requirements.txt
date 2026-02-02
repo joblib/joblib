@@ -3,6 +3,8 @@ pydata-sphinx-theme
 numpy
 matplotlib
 sphinx-gallery
+sphinx-copybutton
+sphinx-design
 numpydoc
 pandas
 lz4
