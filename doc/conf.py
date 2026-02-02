@@ -84,7 +84,7 @@ html_theme_options = {
     },
     "navbar_end": [
         "theme-switcher",
-        # "version-switcher",
+        "version-switcher",
         "navbar-icon-links",
     ],
     "footer_start": [],

@@ -1,8 +1,10 @@
 User Guide
 ==========
 
+This guide is an overview and explains the important features; details are found in :doc:`/references`.
+
  .. toctree::
-    :maxdepth: 2
+    :maxdepth: 1
 
     why.rst
     installing.rst
