@@ -2,12 +2,12 @@
 
    .. image:: _static/joblib_logo.svg
       :class: only-light
-      :width: 40%
+      :width: 30%
       :align: center
 
    .. image:: _static/joblib_logo_dark.svg
       :class: only-dark
-      :width: 40%
+      :width: 30%
       :align: center
 
    .. rubric:: Version |release|
@@ -23,6 +23,7 @@ Joblib leaves your code and your flow control as unmodified as possible.
 It is **BSD-licensed**.
 
 .. grid:: 3
+  :gutter: 3
 
   .. grid-item-card:: Disk-based caching
     :link: user_guide/memory.html
@@ -34,10 +35,19 @@ It is **BSD-licensed**.
 
     Using :class:`~joblib.Parallel` for parallel loops using multiprocessing
 
-  .. grid-item-card:: Persistence
-    :link: user_guide/persistence.html
+  .. grid-item-card:: Parallel backend
+    :link: user_guide/custom_parallel_backend.html
 
-    A pickle replacement for large data using :func:`joblib.dump` and :func:`joblib.load`
+    Using its own parallel processing backend
+
+  .. grid-item-card:: API
+    :link: references.html
+
+  .. grid-item-card:: Examples
+    :link: auto_examples/index.html
+
+  .. grid-item-card:: Release Notes
+    :link: CHANGES.html
 
 Get Joblib
 ----------

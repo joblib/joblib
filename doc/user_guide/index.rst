@@ -10,8 +10,8 @@ This guide is an overview and explains the important features; details are found
     installing.rst
     memory.rst
     parallel.rst
-    persistence.rst
     custom_parallel_backend.rst
+    persistence.rst
 
  .. toctree::
     :maxdepth: 1

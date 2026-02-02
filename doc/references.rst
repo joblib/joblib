@@ -1,5 +1,5 @@
-Module Reference
-================
+API Reference
+=============
 
 .. currentmodule:: joblib
 
