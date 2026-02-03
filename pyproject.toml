@@ -35,6 +35,7 @@ test = [
     "numpy",
     "pytest",
     "pytest-asyncio",
+    "pytest-tiemout",
 ]
 
 docs = [
