@@ -51,18 +51,6 @@ jobs:
         PYTHON_VERSION: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
         include:
         # CLOUDPICKLE TESTS
-          - name: cloudpickle-latest
-            os: ubuntu-latest
-            PYTHON_VERSION: "3.14" # Latest
-            EXTRA_CONDA_PACKAGES: numpy cloudpickle
-          - name: cloudpickle-latest
-            os: macos-latest
-            PYTHON_VERSION: "3.14" # Latest
-            EXTRA_CONDA_PACKAGES: numpy cloudpickle
-          - name: cloudpickle-latest
-            os: windows-latest
-            PYTHON_VERSION: "3.14" # Latest
-            EXTRA_CONDA_PACKAGES: numpy cloudpickle
           - name: cloudpickle
             os: ubuntu-latest
             PYTHON_VERSION: "3.10" # Oldest
