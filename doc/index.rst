@@ -38,7 +38,7 @@ It is **BSD-licensed**.
   .. grid-item-card:: Parallel backend
     :link: user_guide/custom_parallel_backend.html
 
-    Using its own parallel processing backend
+    Using your own parallel processing backend
 
   .. grid-item-card:: API
     :link: references.html
