@@ -52,7 +52,7 @@ conda activate testenv
 
 # When using python-freethreading, lz4 should be installed with pip
 if [[ $NO_LZ4 != "true" && $FREE_THREADED == "true" ]]; then
-    to_install="$to_install lz4"
+    pip install lz4
 fi
 
 if [[ "$NO_LZMA" == "true" ]]; then
