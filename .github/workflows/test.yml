@@ -29,14 +29,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-      - name: Setup conda
-        uses: conda-incubator/setup-miniconda@v3
-        with:
-          auto-activate-base: true
-          auto-update-conda: true
-          miniforge-version: latest
+      - uses: actions/checkout@v6
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -53,7 +46,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v6
+      - name: Checkout code
+        uses: actions/checkout@v6
+      - name: Setup conda
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-activate-base: true
+          auto-update-conda: true
+          miniforge-version: latest
       - name: Install environments
         run: bash -el continuous_integration/install_old.sh
       - name: Generate pickle files
