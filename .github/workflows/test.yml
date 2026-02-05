@@ -57,9 +57,8 @@ jobs:
       - name: Install environments
         run: bash -el continuous_integration/install_old.sh
       - name: Generate pickle files
-        run: mkdir pickle_data
-          && cd pickle_data
-          && bash -el ../joblib/test/data/generate_data.sh
+        run: cd joblib/test/data
+          && bash -el generate_data.sh
           && ls
 
   testing:
