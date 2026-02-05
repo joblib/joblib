@@ -200,7 +200,11 @@ class NumpyArrayWrapper(object):
                 )
                 del data
 
-            array = array.reshape(self.shape, order=self.order)
+            if self.order == "F":
+                array = array.reshape(self.shape[::-1])
+                array = array.transpose()
+            else:
+                array = array.reshape(self.shape)
 
         if ensure_native_byte_order:
             # Detect byte order mismatch and swap as needed.
