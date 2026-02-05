@@ -33,6 +33,5 @@ else
     NEW_TEST_DIR=$(mktemp -d)
     cd $NEW_TEST_DIR
 
-    pytest -vl --maxfail=5 -p no:doctest \
-        --pyargs sklearn
+    pytest -vl --maxfail=5 -p no:doctest --pyargs sklearn
 fi

@@ -62,11 +62,6 @@ if [[ $NO_LZ4 != "true" && $FREE_THREADED == "true" ]]; then
     pip install lz4
 fi
 
-# Install the nightly build of scikit-learn
-if [[ $SKLEARN_TESTS == "true" ]]; then
-    pip install --pre --extra-index https://pypi.anaconda.org/scientific-python-nightly-wheels/simple scikit-learn
-fi
-
 # Delete the LZMA module from the standard lib to make sure joblib has no
 # hard dependency on it:
 if [[ "$NO_LZMA" == "true" ]]; then
@@ -81,4 +76,10 @@ if [[ $CYTHON == "true" && $SKLEARN_TESTS != "true" ]]; then
     cd ../../..
 fi
 
+# Install joblib
 pip install -v .
+
+# Install the nightly build of scikit-learn after joblib
+if [[ $SKLEARN_TESTS == "true" ]]; then
+    pip install --pre --extra-index https://pypi.anaconda.org/scientific-python-nightly-wheels/simple scikit-learn
+fi
