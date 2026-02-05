@@ -25,7 +25,7 @@ if [ "$NO_NUMPY" != "true" ]; then
     # memory_profiler.
     to_install="$to_install numpy memory_profiler"
 
-    # We want to test threadpool limitations only when numpy is intalled
+    # We want to test threadpool limitations only when numpy is installed
     # and multiprocessing is used.
     if [ "$JOBLIB_MULTIPROCESSING" != "0" ]; then
         to_install="$to_install threadpoolctl"
