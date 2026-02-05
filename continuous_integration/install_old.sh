@@ -9,18 +9,18 @@ set -xe
 
 conda config --set solver libmamba
 
-conda create -n py27-np16 --yes -c conda-forge python=2.7 pip numpy=1.6 lz4
+conda create -n py27-np16 --yes -c conda-forge python=2.7 pip lz4
 conda activate py27-np16
-pip install joblib==0.8.4
-conda create -n py27-np18 --yes -c conda-forge python=2.7 pip numpy=1.8 lz4
+pip install numpy==1.6 joblib==0.8.4
+conda create -n py27-np18 --yes -c conda-forge python=2.7 pip lz4
 conda activate py27-np18
-pip install joblib==0.9.2
-conda create -n py34-np110 --yes -c conda-forge python=3.4 pip numpy=1.10 lz4
+pip install numpy==1.8 joblib==0.9.2
+conda create -n py34-np110 --yes -c conda-forge python=3.4 pip lz4
 conda activate py34-np110
-pip install joblib==0.10.0
-conda create -n py35-np112 --yes -c conda-forge python=3.5 pip numpy=1.12 lz4
+pip install numpy==1.10 joblib==0.10.0
+conda create -n py35-np112 --yes -c conda-forge python=3.5 pip lz4
 conda activate py35-np112
-pip install joblib==0.11.0
-conda create -n py36-np114 --yes -c conda-forge python=3.6 pip numpy=1.14 lz4
+pip install numpy==1.12 joblib==0.11.0
+conda create -n py36-np114 --yes -c conda-forge python=3.6 pip lz4
 conda activate py36-np114
-pip install joblib==0.12.2
+pip install numpy==1.14 joblib==0.12.2
