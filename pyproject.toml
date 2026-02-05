@@ -26,6 +26,7 @@ classifiers = [
 ]
 requires-python = ">=3.9"
 dynamic = ["version"]
+license-files = ["LICENSE.txt"]
 
 [project.readme]
 file = "README.rst"
@@ -47,7 +48,6 @@ packages = [
 ]
 platforms = ["any"]
 include-package-data = false
-license-files = ["LICENSE.txt"]
 
 [tool.setuptools.package-data]
 "joblib.test" = [
