@@ -40,8 +40,12 @@ def write_test_pickle(to_pickle, args):
 
     # The game here is to generate the right filename according to the options.
     if compress:
-        extension += "." + method
-        kwargs["compress"] = True if method == "zlib" else (method, 3)
+        if method == "zlib":
+            extension += ".gz"
+            kwargs["compress"] = True
+        else:
+            extension += "." + method
+            kwargs["compress"] = (method, 3)
         if args.cache_size:
             kwargs["cache_size"] = 0
             extension += "_cache_size" + extension

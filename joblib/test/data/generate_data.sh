@@ -17,7 +17,12 @@ do
     python create_numpy_pickle.py --compress --method zlib
     EXPECTED=$((EXPECTED+1))
 
-    if [[ $env == "py27-np19" ]]; then continue; fi
+    if [[ $env == "py27-np19" ]]; then
+        # For this version, some .npy files are generated.
+        # These files should be removed
+        rm *.pkl*.npy
+        continue;
+    fi
 
     # Generate compressed pickles for each compression methods supported
     for method in $COMPRESS_METHODS
@@ -33,7 +38,9 @@ do
     EXPECTED=$((EXPECTED+1))
 done
 
-ls
+echo "======= GENERATED FILES ======="
+ls *.pkl*
+echo "==============================="
 
 GENERATED=$(ls *.pkl* | wc -l)
 if [[ $GENERATED != $EXPECTED ]]; then
