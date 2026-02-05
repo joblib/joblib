@@ -27,7 +27,7 @@ if [[ "$SKLEARN_TESTS" != "true" ]]; then
 else
     # Install the nightly build of scikit-learn and test against the installed
     # development version of joblib.
-    conda install -y -c conda-forge cython numpy scipy
+    conda install -y -c conda-forge cython pip scipy
     pip install --pre --extra-index https://pypi.anaconda.org/scientific-python-nightly-wheels/simple scikit-learn
     python -c "import sklearn; print('Testing scikit-learn', sklearn.__version__)"
 
