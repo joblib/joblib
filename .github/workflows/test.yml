@@ -57,9 +57,12 @@ jobs:
       - name: Install environments
         run: bash -el continuous_integration/install_old.sh
       - name: Generate pickle files
-        run: cd joblib/test/data
-          && bash -el generate_data.sh
-          && ls
+        run: cd joblib/test/data && bash -el generate_data.sh
+      - name: Upload files
+        uses: actions/upload-artifact@v6
+        with:
+          name: test-data
+          path: joblib/test/data/*.pkl*
 
   testing:
     name: Testing
@@ -144,6 +147,15 @@ jobs:
       - name: Install dependencies
         run: |
           bash -el continuous_integration/install.sh
+
+      - name: Download test files
+        uses: actions/download-artifact@v6
+        with:
+          name: test-data
+          path: joblib/test/data
+
+      - name: Show downloaded test files
+        run: ls joblib/test/data/*.pkl*
 
       - name: Run tests
         run: |

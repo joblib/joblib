@@ -36,24 +36,18 @@ def write_test_pickle(to_pickle, args):
     joblib_version = get_joblib_version()
     py_version = "{0[0]}{0[1]}".format(sys.version_info)
     numpy_version = "".join(np.__version__.split(".")[:2])
+    extension = ".pkl"
 
     # The game here is to generate the right filename according to the options.
-    body = "_compressed" if (compress and method == "zlib") else ""
     if compress:
-        if method == "zlib":
-            kwargs["compress"] = True
-            extension = ".gz"
-        else:
-            kwargs["compress"] = (method, 3)
-            extension = ".pkl.{}".format(method)
+        extension += "." + method
+        kwargs["compress"] = True if method == "zlib" else (method, 3)
         if args.cache_size:
             kwargs["cache_size"] = 0
-            body += "_cache_size"
-    else:
-        extension = ".pkl"
+            extension += "_cache_size" + extension
 
-    pickle_filename = "joblib_{}{}_pickle_py{}_np{}{}".format(
-        joblib_version, body, py_version, numpy_version, extension
+    pickle_filename = "joblib_{}_pickle_py{}_np{}{}".format(
+        joblib_version, py_version, numpy_version, extension
     )
 
     try:
