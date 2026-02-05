@@ -18,9 +18,8 @@ do
     EXPECTED=$((EXPECTED+1))
 
     if [[ $env == "py27-np19" ]]; then
-        # For this version, some .npy files are generated.
-        # These files should be removed
-        rm *.pkl*.npy
+        # For this version, 4 .npy files are generated.
+        EXPECTED=$((EXPECTED+4))
         continue;
     fi
 
