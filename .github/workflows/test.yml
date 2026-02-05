@@ -7,7 +7,6 @@ on:
   push:
     branches:
       - main
-      - MNT-pickle-test-accross-versions
   pull_request:
     branches:
       - main
@@ -161,10 +160,10 @@ jobs:
         run: |
           bash -el continuous_integration/run_tests.sh
 
-      # - name: Upload to Codecov
-      #   # always upload coverage even if tests fail
-      #   if: ${{ matrix.SKLEARN_TESTS != 'true' && (success() || failure()) }}
-      #   uses: codecov/codecov-action@v5
-      #   with:
-      #     files: coverage.xml
-      #     token: ${{ secrets.CODECOV_TOKEN }}
+      - name: Upload to Codecov
+        # always upload coverage even if tests fail
+        if: ${{ matrix.SKLEARN_TESTS != 'true' && (success() || failure()) }}
+        uses: codecov/codecov-action@v5
+        with:
+          files: coverage.xml
+          token: ${{ secrets.CODECOV_TOKEN }}
