@@ -1,9 +1,4 @@
 #!/bin/bash
-# The behavior of the script is controlled by environment variabled defined
-# in the .github/workflows/test.yml file defining the github action to run
-# for the project.
-#
-# License: 3-clause BSD
 
 set -xe
 
