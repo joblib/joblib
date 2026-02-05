@@ -3,38 +3,42 @@
 # in the .github/workflows/test.yml file defining the github action to run
 # for the project.
 #
-# This script is adapted from a similar script from the scikit-learn repository.
-#
 # License: 3-clause BSD
 
 set -xe
 
-create_new_conda_env() {
-    conda config --set solver libmamba
-    if [[ "$PYTHON_VERSION" == free-threaded* ]]; then
-        PYTHON_VERSION=${PYTHON_VERSION/free-threaded-/}
-        EXTRA_CONDA_PACKAGES="python-freethreading $EXTRA_CONDA_PACKAGES"
-    fi
-    to_install="python=$PYTHON_VERSION pip \
-        pytest pytest-timeout pytest-asyncio threadpoolctl \
-        $EXTRA_CONDA_PACKAGES"
-    conda create -n testenv --yes -c conda-forge $to_install
-    conda activate testenv
-}
+conda config --set solver libmamba
 
-create_new_conda_env
+if [[ "$PYTHON_VERSION" == free-threaded* ]]; then
+    PYTHON_VERSION=${PYTHON_VERSION/free-threaded-/}
+    EXTRA_CONDA_PACKAGES="python-freethreading $EXTRA_CONDA_PACKAGES"
+fi
+
+to_install="python=$PYTHON_VERSION pip \
+    pytest pytest-timeout pytest-asyncio \
+    $EXTRA_CONDA_PACKAGES"
 
 if [ "$NO_NUMPY" != "true" ]; then
+    to_install="$to_install numpy"
+
     # We want to ensure no memory copies are performed only when numpy is
     # installed. This also ensures that we don't keep a strong dependency on
     # memory_profiler.
-    pip install memory_profiler numpy
-    # We also want to ensure that joblib can be used with and
-    # without lz4 compressor package installed.
-    if [ "$NO_LZ4" != "true" ]; then
-        pip install lz4
-    fi
+    to_install="$to_install memory_profiler"
+
+    # We want to test threadpool limitations only when numpy is intalled.
+    to_install="$to_install threadpoolctl"
 fi
+
+# We also want to ensure that joblib can be used with and
+# without lz4 compressor package installed.
+if [ "$NO_LZ4" != "true" ]; then
+    pip install lz4
+fi
+
+conda create -n testenv --yes -c conda-forge $to_install
+
+conda activate testenv
 
 if [[ "$COVERAGE" == "true" ]]; then
      pip install coverage pytest-cov
