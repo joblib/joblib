@@ -26,6 +26,9 @@ classifiers = [
 ]
 requires-python = ">=3.9"
 dynamic = ["version"]
+dependencies = [
+    "cloudpickle>=3.0",
+]
 
 [project.optional-dependencies]
 
@@ -67,7 +70,6 @@ packages = [
     "joblib.test",
     "joblib.test.data",
     "joblib.externals",
-    "joblib.externals.cloudpickle",
     "joblib.externals.loky",
     "joblib.externals.loky.backend",
 ]
