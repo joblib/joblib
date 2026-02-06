@@ -1,6 +1,6 @@
 import inspect
 from functools import partial
-from joblib.externals.cloudpickle import dumps, loads
+from cloudpickle import dumps, loads
 
 
 WRAP_CACHE = {}

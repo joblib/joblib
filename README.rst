@@ -45,8 +45,8 @@ or install it in editable mode from the source directory::
 Dependencies
 ============
 
-- Joblib has no mandatory dependencies besides Python (supported versions are
-  3.9+).
+- Joblib supports Python >= 3.9.
+- The only dependency is `cloudpickle <https://github.com/cloudpipe/cloudpickle>`_ >= 3.
 - Joblib has an optional dependency on Numpy (at least version 1.6.1) for array
   manipulation.
 - Joblib includes its own vendored copy of
