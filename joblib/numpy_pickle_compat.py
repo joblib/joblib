@@ -201,6 +201,17 @@ class ZipNumpyUnpickler(Unpickler):
     dispatch[pickle.BUILD[0]] = load_build
 
 
+# More user-friendly error message
+def readPython2Error(exc):
+    new_exc = ValueError(
+        "You may be trying to read with "
+        "python 3 a joblib pickle generated with python 2. "
+        "This feature is not supported by joblib."
+    )
+    new_exc.__cause__ = exc
+    return new_exc
+
+
 def load_compatibility(filename):
     """Reconstruct a Python object from a file persisted with joblib.dump.
 
@@ -236,14 +247,7 @@ def load_compatibility(filename):
         try:
             obj = unpickler.load()
         except UnicodeDecodeError as exc:
-            # More user-friendly error message
-            new_exc = ValueError(
-                "You may be trying to read with "
-                "python 3 a joblib pickle generated with python 2. "
-                "This feature is not supported by joblib."
-            )
-            new_exc.__cause__ = exc
-            raise new_exc
+            raise readPython2Error(exc)
         finally:
             if hasattr(unpickler, "file_handle"):
                 unpickler.file_handle.close()

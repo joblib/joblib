@@ -162,7 +162,7 @@ jobs:
           bash -el continuous_integration/install.sh
 
       - name: Download test files
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: test-data
           path: joblib/test/data
