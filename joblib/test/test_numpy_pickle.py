@@ -412,9 +412,7 @@ def _check_pickle(filename, expected_list, mmap_mode=None):
                 )
                 result_list = numpy_pickle.load(filename, mmap_mode=mmap_mode)
             filename_base = os.path.basename(filename)
-            expected_nb_deprecation_warnings = (
-                1 if ("_0.9" in filename_base or "_0.8.4" in filename_base) else 0
-            )
+            expected_nb_deprecation_warnings = 1 if "_0.8.4" in filename_base else 0
 
             expected_nb_user_warnings = (
                 3

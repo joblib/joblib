@@ -31,6 +31,7 @@ from .numpy_pickle_compat import (
     NDArrayWrapper,
     ZNDArrayWrapper,  # noqa: F401
     load_compatibility,
+    readPython2Error,
 )
 from .numpy_pickle_utils import (
     BUFFER_SIZE,
@@ -455,11 +456,18 @@ class NumpyUnpickler(Unpickler):
             # If any NDArrayWrapper is found, we switch to compatibility mode,
             # this will be used to raise a DeprecationWarning to the user at
             # the end of the unpickling.
-            if isinstance(array_wrapper, NDArrayWrapper):
-                self.compat_mode = True
-                _array_payload = array_wrapper.read(self)
-            else:
-                _array_payload = array_wrapper.read(self, self.ensure_native_byte_order)
+            try:
+                if isinstance(array_wrapper, NDArrayWrapper):
+                    self.compat_mode = True
+                    _array_payload = array_wrapper.read(self)
+                else:
+                    _array_payload = array_wrapper.read(
+                        self, self.ensure_native_byte_order
+                    )
+            except ValueError as exc:
+                if str(exc) == "Array can't be memory-mapped: Python objects in dtype.":
+                    raise readPython2Error(exc)
+                raise
 
             self.stack.append(_array_payload)
 
@@ -633,14 +641,7 @@ def _unpickle(fobj, ensure_native_byte_order, filename="", mmap_mode=None):
                 stacklevel=3,
             )
     except UnicodeDecodeError as exc:
-        # More user-friendly error message
-        new_exc = ValueError(
-            "You may be trying to read with "
-            "python 3 a joblib pickle generated with python 2. "
-            "This feature is not supported by joblib."
-        )
-        new_exc.__cause__ = exc
-        raise new_exc
+        raise readPython2Error(exc)
     return obj
 
 
