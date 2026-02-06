@@ -22,6 +22,15 @@ concurrency:
 
 env:
   COVERAGE: 'true'
+  PYTHON_OLD_VERSION: '3.10'
+  PYTHON_LATE_VERSION: '3.14'
+  # We use the oldest package version
+  # supporting the oldest supported python version
+  NUMPY_OLD_VERSION: '1.21.3'
+  CLOUDPICKLE_OLD_VERSION: '3.0.0'
+  # For distributed, some behavior changed starting from 2022.8.
+  # We decided to not support older versions
+  DISTRIBUTED_OLD_VERSION: '2022.8.1'
 
 jobs:
   linting:
@@ -48,64 +57,44 @@ jobs:
       matrix:
         name: [default]
         os: [ubuntu-latest, macos-latest, windows-latest]
-        PYTHON_VERSION: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        PYTHON_VERSION: ["OLD", "3.11", "3.12", "3.13", "3.14"]
         include:
-        # When a package version is specified
-        # Use the oldest version supporting the used python version
-        # For distributed, some behavior changed starting from 2022.8.
-        # We decided to not support older versions
-        # CLOUDPICKLE TESTS
-          - name: cloudpickle
-            os: ubuntu-latest
-            PYTHON_VERSION: "3.10" # Oldest
-            EXTRA_CONDA_PACKAGES: numpy=1.21.3 cloudpickle=3.0.0
-          - name: cloudpickle
-            os: macos-latest
-            PYTHON_VERSION: "3.10" # Oldest
-            EXTRA_CONDA_PACKAGES: numpy=1.21.3 cloudpickle=3.0.0
-          - name: cloudpickle
-            os: windows-latest
-            PYTHON_VERSION: "3.10" # Oldest
-            EXTRA_CONDA_PACKAGES: numpy=1.21.3 cloudpickle=3.0.0
-        # END OF CLOUDPICKLE TESTS
           - name: test-sklearn
             os: ubuntu-latest
-            PYTHON_VERSION: "3.14" # Latest
+            PYTHON_VERSION: "LATE"
             SKLEARN_TESTS: "true"
           - name: distributed-latest
             os: ubuntu-latest
-            PYTHON_VERSION: "3.14"  # Latest
-            EXTRA_CONDA_PACKAGES: numpy distributed
+            PYTHON_VERSION: "LATE"
+            USE_DISTRIBUTED: "true"
           - name: distributed
             os: ubuntu-latest
-            PYTHON_VERSION: "3.10"  # Oldest
-            EXTRA_CONDA_PACKAGES: numpy=1.21.3 distributed=2022.8.1
+            PYTHON_VERSION: "OLD"
+            USE_DISTRIBUTED: "true"
           - name: cython
             os: ubuntu-latest
-            PYTHON_VERSION: "3.10"  # Oldest
-            EXTRA_CONDA_PACKAGES: numpy=1.21.3
+            PYTHON_VERSION: "OLD"
             CYTHON: true
           - name: no-multiprocessing
             os: ubuntu-latest
-            PYTHON_VERSION: "3.10"  # Oldest
-            EXTRA_CONDA_PACKAGES: numpy=1.21.3
+            PYTHON_VERSION: "OLD"
             JOBLIB_MULTIPROCESSING: "0"
             NO_LZMA: true
           - name: no-numpy
             os: ubuntu-latest
-            PYTHON_VERSION: "3.10"  # Oldest
+            PYTHON_VERSION: "OLD"
             NO_NUMPY: true
           - name: no-lz4
             os: ubuntu-latest
-            PYTHON_VERSION: "3.10"  # Oldest
+            PYTHON_VERSION: "OLD"
             NO_LZ4: true
           - name: one-cpu
             os: ubuntu-latest
-            PYTHON_VERSION: "3.14"  # Latest
+            PYTHON_VERSION: "LATE"
             LOKY_MAX_CPU_COUNT: 1
           - name: default-backend-threading
             os: ubuntu-latest
-            PYTHON_VERSION: "3.10"  # Oldest
+            PYTHON_VERSION: "OLD"
             JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND: "threading"
           - name: python3.13-free-threaded
             os: 'ubuntu-latest'
