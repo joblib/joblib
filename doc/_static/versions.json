@@ -1,0 +1,13 @@
+[
+	{
+		"name": "1.6.dev0 (dev)",
+		"version": "1.6.dev0",
+		"url": "https://joblib.readthedocs.io/en/latest/"
+	},
+	{
+		"name": "1.5.3 (stable)",
+		"version": "1.5.3",
+		"url": "https://joblib.readthedocs.io/en/stable/",
+		"preferred": true
+	}
+]

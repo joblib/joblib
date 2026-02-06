@@ -30,6 +30,34 @@ dependencies = [
     "cloudpickle>=3.0",
 ]
 
+[project.optional-dependencies]
+
+test = [
+    "distributed",
+    "lz4",
+    "numpy",
+    "memory_profiler",
+    "pytest",
+    "pytest-asyncio",
+    "pytest-tiemout",
+    "threadpoolctl",
+]
+
+docs = [
+    "distributed",
+    "lz4",
+    "numpy",
+    "numpydoc",
+    "matplotlib",
+    "pandas",
+    "psutil",
+    "sphinx",
+    "pydata-sphinx-theme",
+    "sphinx-gallery",
+    "sphinx-copybutton",
+    "sphinx-design",
+]
+
 [project.readme]
 file = "README.rst"
 content-type = "text/x-rst"
@@ -65,15 +93,6 @@ license-files = ["LICENSE.txt"]
 
 [tool.setuptools.dynamic]
 version = {attr = "joblib.__version__"}
-
-
-[aliases]
-release = "egg_info -RDb ''"
-# Make sure the docs are uploaded when we do an upload
-upload = "upload upload_docs --upload-dir doc/_build/html"
-
-[bdist_rpm]
-doc_files = "doc"
 
 
 [tool.pytest.ini_options]

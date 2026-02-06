@@ -6,9 +6,9 @@
 
 .. _memory:
 
-===========================================
-On demand recomputing: the `Memory` class
-===========================================
+==================
+Disk-based caching
+==================
 
 .. currentmodule:: joblib.memory
 

@@ -1,81 +1,65 @@
-.. raw:: html
+.. container::
 
-  <style type="text/css">
-    div.body li.toctree-l1 {
-        padding: 0.5em 0 1em 0 ;
-        list-style-type: none;
-        font-size: 150% ;
-        }
+   .. image:: _static/joblib_logo.svg
+      :class: only-light
+      :width: 30%
+      :align: center
 
-    div.body li.toctree-l2 {
-        font-size: 70% ;
-        list-style-type: square;
-        }
+   .. image:: _static/joblib_logo_dark.svg
+      :class: only-dark
+      :width: 30%
+      :align: center
 
-    div.body li.toctree-l3 {
-        font-size: 85% ;
-        list-style-type: circle;
-        }
+   .. rubric:: Version |release|
+      :class: center-rubric
 
-    div.bodywrapper blockquote {
-	margin: 0 ;
-    }
+Joblib documentation
+====================
 
-  </style>
+Joblib is a package for **parallel computing** and **disk-based caching** in Python.
+It is optimized to be **fast** and **robust** on large data in particular
+and has specific optimizations for `numpy` arrays.
+Joblib leaves your code and your flow control as unmodified as possible.
+It is **BSD-licensed**.
 
+.. grid:: 3
+  :gutter: 3
 
-Joblib: running Python functions as pipeline jobs
-=================================================
+  .. grid-item-card:: Disk-based caching
+    :link: user_guide/memory.html
 
-Introduction
-------------
+    Using :class:`~joblib.Memory` for disk-based caching
 
+  .. grid-item-card:: Embarrassingly parallel
+    :link: user_guide/parallel.html
 
-.. automodule:: joblib
+    Using :class:`~joblib.Parallel` for multiprocessing parallel loops
 
- .. toctree::
-    :maxdepth: 2
-    :caption: User manual
+  .. grid-item-card:: Parallel backend
+    :link: user_guide/custom_parallel_backend.html
 
-    why.rst
-    installing.rst
-    memory.rst
-    parallel.rst
-    persistence.rst
-    custom_parallel_backend.rst
-    auto_examples/index
-    developing.rst
+    Using your own parallel processing backend
 
-.. currentmodule:: joblib
+  .. grid-item-card:: API
+    :link: references.html
 
-Module reference
-----------------
+  .. grid-item-card:: Examples
+    :link: auto_examples/index.html
 
-.. autosummary::
-   :toctree: generated/
-   :template: class.rst
-   :caption: Module reference
+  .. grid-item-card:: Release Notes
+    :link: CHANGES.html
 
-   Memory
-   Parallel
-   parallel_config
+Get Joblib
+----------
 
-.. autosummary::
-   :toctree: generated/
-   :template: function.rst
+.. code-block:: bash
 
-   cpu_count
-   dump
-   load
-   hash
-   register_compressor
+  pip install joblib
 
-Deprecated functionalities
---------------------------
+.. toctree::
+  :hidden:
 
-.. autosummary::
-   :toctree: generated/
-   :template: class.rst
-   :caption: Deprecated functionalities
-
-   parallel_backend
+  user_guide/index
+  references
+  ../auto_examples/index
+  developing
