@@ -36,9 +36,11 @@ test = [
     "distributed",
     "lz4",
     "numpy",
+    "memory_profiler",
     "pytest",
     "pytest-asyncio",
     "pytest-tiemout",
+    "threadpoolctl",
 ]
 
 docs = [
