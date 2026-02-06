@@ -4,6 +4,10 @@ Latest changes
 In development
 --------------
 
+- Unvendor cloudpickle to more quickly benefit from maintenance releases
+  of cloudpickle
+  https://github.com/joblib/joblib/pull/1775
+
 Release 1.5.3 - 2025/12/15
 --------------------------
 
