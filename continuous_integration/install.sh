@@ -20,9 +20,9 @@ create_new_conda_env() {
         EXTRA_CONDA_PACKAGES="python-freethreading $EXTRA_CONDA_PACKAGES"
     elif [[ $PYTHON_VERSION == "OLD" ]]; then
         PYTHON_VERSION=$PYTHON_OLD_VERSION
-        CLOUDPICKLE="cloudpickle=$CLOUDPICKLE_OLD_VERSION"
-        NUMPY="numpy=$NUMPY_OLD_VERSION"
-        DISTRIBUTED="distributed=$DISTRIBUTED_OLD_VERSION"
+        CLOUDPICKLE="cloudpickle==$CLOUDPICKLE_OLD_VERSION"
+        NUMPY="numpy==$NUMPY_OLD_VERSION"
+        DISTRIBUTED="distributed==$DISTRIBUTED_OLD_VERSION"
     elif [[ $PYTHON_VERSION == "LATE" ]]; then
         PYTHON_VERSION=$PYTHON_LATE_VERSION
     fi
