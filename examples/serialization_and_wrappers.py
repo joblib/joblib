@@ -11,9 +11,11 @@ process.
 # Code source: Thomas Moreau
 # License: BSD 3 clause
 
+import os
 import sys
 import time
 import traceback
+from io import StringIO
 
 from joblib import Parallel, delayed, parallel_config, wrap_non_picklable_objects
 from joblib.externals.loky import set_loky_pickler
@@ -121,7 +123,13 @@ def func_async(i, *args):
 try:
     Parallel(n_jobs=2)(delayed(func_async)(21, large_list) for _ in range(1))
 except Exception:
-    traceback.print_exc(file=sys.stdout)
+    tb_io = StringIO()
+    traceback.print_exc(file=tb_io)
+    tb_without_root_path = tb_io.getvalue().replace(
+        os.getcwd().split("/examples")[0], "…"
+    )
+    print(tb_without_root_path, file=sys.stderr)
+    tb_io.close()
 
 
 ###############################################################################
