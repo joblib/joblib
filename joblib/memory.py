@@ -641,6 +641,11 @@ class MemorizedFunc(Logger):
         call_id = (self.func_id, self._get_args_id(*args, **kwargs))
         return self._is_in_cache_and_valid(call_id)
 
+    def invalidate_cache(self, *args, **kwargs):
+        """Removes this call from the cache"""
+        identifier = self._get_output_identifiers(*args, **kwargs)
+        return self.store_backend.clear_item(identifier)
+
     # ------------------------------------------------------------------------
     # Private interface
     # ------------------------------------------------------------------------
