@@ -11,6 +11,7 @@ is called with the same input arguments.
 import asyncio
 import datetime
 import functools
+import hashlib
 import inspect
 import logging
 import os
@@ -23,6 +24,7 @@ import tokenize
 import traceback
 import warnings
 import weakref
+from typing import Union
 
 from . import hashing
 from ._store_backends import (
@@ -37,6 +39,7 @@ from .func_inspect import (
     get_func_code,
     get_func_name,
 )
+from .hashing import _HashObject
 from .logger import Logger, format_time, pformat
 
 FIRST_LINE_TEXT = "# first line:"
@@ -387,6 +390,12 @@ class MemorizedFunc(Logger):
         of compression. Note that compressed arrays cannot be
         read by memmapping.
 
+    hash_factory: string or callable
+        Either a string which will be passed to `hashlib.new` to obtain
+        a hash object, or a callable that will return an object compatible
+        with PEP 452.
+        Defaults to 'md5'.
+
     verbose: int, optional
         The verbosity flag, controls messages that are issued as
         the function is evaluated.
@@ -411,6 +420,7 @@ class MemorizedFunc(Logger):
         ignore=None,
         mmap_mode=None,
         compress=False,
+        hash_factory: Union[str, hashing.HasherFactory] = "md5",
         verbose=1,
         timestamp=None,
         cache_validation_callback=None,
@@ -418,6 +428,14 @@ class MemorizedFunc(Logger):
         Logger.__init__(self)
         self.mmap_mode = mmap_mode
         self.compress = compress
+        if isinstance(hash_factory, str):
+            valid_hash_names = hashlib.algorithms_available
+            if hash_factory not in valid_hash_names:
+                raise ValueError(
+                    f"Valid string options for 'hash_factory' are {valid_hash_names}. "
+                    "Got hash_factory={hash_factory!r} instead."
+                )
+        self.hash_factory = hash_factory
         self.func = func
         self.cache_validation_callback = cache_validation_callback
         self.func_id = _build_func_identifier(func)
@@ -993,6 +1011,12 @@ class Memory(Logger):
         of compression. Note that compressed arrays cannot be
         read by memmapping.
 
+    hash_factory: string or callable, optional
+        Either a string which will be passed to `hashlib.new` to obtain
+        a hash object, or a callable that will return an object compatible
+        with PEP 452.
+        Defaults to 'md5'.
+
     verbose: int, optional
         Verbosity flag, controls the debug messages that are issued
         as functions are evaluated.
@@ -1012,6 +1036,7 @@ class Memory(Logger):
         backend="local",
         mmap_mode=None,
         compress=False,
+        hash_factory: Union[str, hashing.HasherFactory] = "md5",
         verbose=1,
         backend_options=None,
     ):
@@ -1021,6 +1046,14 @@ class Memory(Logger):
         self.timestamp = time.time()
         self.backend = backend
         self.compress = compress
+        if isinstance(hash_factory, str):
+            valid_hash_names = hashlib.algorithms_available
+            if hash_factory not in valid_hash_names:
+                raise ValueError(
+                    f"Valid string options for 'hash_factory' are {valid_hash_names}. "
+                    "Got hash_factory={hash_factory!r} instead."
+                )
+        self.hash_factory = hash_factory
         if backend_options is None:
             backend_options = {}
         self.backend_options = backend_options
@@ -1119,6 +1152,7 @@ class Memory(Logger):
             ignore=ignore,
             mmap_mode=mmap_mode,
             compress=self.compress,
+            hash_factory=self.hash_factory,
             verbose=verbose,
             timestamp=self.timestamp,
             cache_validation_callback=cache_validation_callback,
