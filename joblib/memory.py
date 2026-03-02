@@ -159,7 +159,6 @@ def _build_func_identifier(func):
 
 def _old_get_args_id(self, *args, **kwargs):
     """Old _get_args_id"""
-    print(self, *args, **kwargs)
     return (
         hashing.hash(
             filter_args(self.func, self.ignore, args, kwargs),
