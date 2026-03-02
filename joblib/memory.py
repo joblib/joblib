@@ -21,6 +21,7 @@ import textwrap
 import time
 import tokenize
 import traceback
+import types
 import warnings
 import weakref
 
@@ -154,6 +155,17 @@ def _build_func_identifier(func):
     modules, funcname = get_func_name(func)
     # We reuse historical fs-like way of building a function identifier
     return os.path.join(*modules, funcname)
+
+
+def _old_get_args_id(self, *args, **kwargs):
+    """Old _get_args_id"""
+    print(self, *args, **kwargs)
+    return (
+        hashing.hash(
+            filter_args(self.func, self.ignore, args, kwargs),
+            coerce_mmap=self.mmap_mode is not None,
+        ),
+    )
 
 
 # An in-memory store to avoid looking at the disk-based function
@@ -433,7 +445,8 @@ class MemorizedFunc(Logger):
         )
         if self.store_backend is not None:
             # Create func directory on demand.
-            self.store_backend.store_cached_func_code([self.func_id])
+            if not self.store_backend.store_cached_func_code([self.func_id]):
+                self._get_args_id = types.MethodType(_old_get_args_id, self)
 
         self.timestamp = timestamp if timestamp is not None else time.time()
         try:
@@ -638,8 +651,7 @@ class MemorizedFunc(Logger):
         is_call_in_cache: bool
             Whether or not the function call is in cache and can be used.
         """
-        args_id = self._get_args_id(*args, **kwargs)
-        call_id = (self.func_id, *args_id)
+        call_id = (self.func_id, *self._get_args_id(*args, **kwargs))
         return self._is_in_cache_and_valid(call_id)
 
     # ------------------------------------------------------------------------

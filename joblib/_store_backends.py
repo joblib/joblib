@@ -149,6 +149,22 @@ class StoreBackendBase(metaclass=ABCMeta):
         """
 
 
+def _check_folder_name(dirpath):
+    """Check if dirpath corresponds to a function call"""
+    head, tail = os.path.split(dirpath)
+    if not re.match("[a-f0-9]{29}", tail):
+        return False
+    head = os.path.basename(head)
+    if not re.match("[a-f0-9]{3}", head):
+        return False
+    return True
+
+
+def _old_check_folder_name(dirpath):
+    """Old version of _check_folder_name"""
+    return re.match("[a-f0-9]{32}", os.path.basename(dirpath))
+
+
 class StoreBackendMixin(object):
     """Class providing all logic for managing the store in a generic way.
 
@@ -288,7 +304,22 @@ class StoreBackendMixin(object):
         if not self._item_exists(func_path):
             self.create_location(func_path)
 
-        if func_code is not None:
+        if func_code is None:
+            # Check if this folder uses the old cache tree
+            for file in os.scandir(func_path):
+                if not file.is_dir():
+                    continue
+                if _old_check_folder_name(file.name):
+                    fun_name = os.path.basename(func_path)
+                    warnings.warn(
+                        f"The cache folder of the function `{fun_name}`"
+                        " uses an old cache tree version.\n"
+                        f'Please run `xxxxx("{func_path}")` to update the cache tree.'
+                    )
+                    self.check_folder_name = _old_check_folder_name
+                    return False
+                return True
+        else:
             filename = os.path.join(func_path, "func_code.py")
             with self._open_item(filename, "wb") as f:
                 f.write(func_code.encode("utf-8"))
@@ -423,11 +454,7 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
         items = []
 
         for dirpath, _, filenames in os.walk(self.location):
-            head, tail = os.path.split(dirpath)
-            if not re.match("[a-f0-9]{29}", tail):
-                continue
-            head = os.path.basename(head)
-            if not re.match("[a-f0-9]{3}", head):
+            if not self.check_folder_name(dirpath):
                 continue
 
             output_filename = os.path.join(dirpath, "output.pkl")
@@ -502,3 +529,4 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
 
         self.mmap_mode = mmap_mode
         self.verbose = verbose
+        self.check_folder_name = _check_folder_name
