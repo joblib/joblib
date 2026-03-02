@@ -313,8 +313,9 @@ class StoreBackendMixin(object):
                     fun_name = os.path.basename(func_path)
                     warnings.warn(
                         f"The cache folder of the function `{fun_name}`"
-                        " uses an old cache tree version.\n"
-                        f'Please run `xxxxx("{func_path}")` to update the cache tree.'
+                        " uses an old cache tree version.\nPlease run "
+                        f'`joblib._store_backends.update_cache_tree("{func_path}")`'
+                        "to update the cache tree."
                     )
                     self.check_folder_name = _old_check_folder_name
                     return False
@@ -530,3 +531,17 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
         self.mmap_mode = mmap_mode
         self.verbose = verbose
         self.check_folder_name = _check_folder_name
+
+
+def update_cache_tree(dirpath):
+    old_folders = []
+    for file in os.scandir(dirpath):
+        if not file.is_dir():
+            continue
+        if _old_check_folder_name(file.name):
+            old_folders.append(file.name)
+    for f in old_folders:
+        old_path = os.path.join(dirpath, f)
+        new_path_1 = os.path.join(dirpath, f[:3])
+        new_path_2 = os.path.join(new_path_1, f[3:])
+        shutil.move(old_path, new_path_2)
