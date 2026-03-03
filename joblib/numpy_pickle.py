@@ -739,7 +739,7 @@ def load(filename, mmap_mode=None, ensure_native_byte_order="auto"):
             ):
                 if isinstance(fobj, str):
                     # if the returned file object is a string, this means we
-                    # try to load a pickle file generated with an version of
+                    # try to load a pickle file generated with an old version of
                     # Joblib so we load it with joblib compatibility function.
                     return load_compatibility(fobj)
 

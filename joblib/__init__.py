@@ -128,6 +128,7 @@ from .parallel import (
     parallel_config,
     register_parallel_backend,
 )
+from .shelf import Shelf, clear_shelf, shelve
 
 __all__ = [
     # On-disk result caching
@@ -155,6 +156,10 @@ __all__ = [
     "hash",
     "dump",
     "load",
+    # Shelving
+    "Shelf",
+    "shelve",
+    "clear_shelf",
 ]
 
 
