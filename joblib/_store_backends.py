@@ -319,7 +319,10 @@ class StoreBackendMixin(object):
                     )
                     self.check_folder_name = _old_check_folder_name
                     return False
-                return True
+                if re.match("[a-f0-9]{3}", file.name):
+                    # We assume that if one folder name is ok
+                    break
+            return True
         else:
             filename = os.path.join(func_path, "func_code.py")
             with self._open_item(filename, "wb") as f:
