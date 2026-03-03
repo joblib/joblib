@@ -582,7 +582,7 @@ def test_func_dir(tmpdir):
 
     # Test the robustness to failure of loading previous results.
     args_id = g._get_args_id(1)
-    output_dir = os.path.join(g.store_backend.location, g.func_id, args_id)
+    output_dir = os.path.join(g.store_backend.location, g.func_id, *args_id)
     a = g(1)
     assert os.path.exists(output_dir)
     os.remove(os.path.join(output_dir, "output.pkl"))
@@ -598,9 +598,10 @@ def test_persistence(tmpdir):
     h = pickle.loads(pickle.dumps(g))
 
     args_id = h._get_args_id(1)
-    output_dir = os.path.join(h.store_backend.location, h.func_id, args_id)
+    full_id = (h.func_id, *args_id)
+    output_dir = os.path.join(h.store_backend.location, *full_id)
     assert os.path.exists(output_dir)
-    assert output == h.store_backend.load_item([h.func_id, args_id])
+    assert output == h.store_backend.load_item(full_id)
     memory2 = pickle.loads(pickle.dumps(memory))
     assert memory.store_backend.location == memory2.store_backend.location
 
@@ -677,7 +678,7 @@ def test_call_and_shelve_lazily_load_stored_result(tmpdir):
     func = memory.cache(f)
     args_id = func._get_args_id(2)
     result_path = os.path.join(
-        memory.store_backend.location, func.func_id, args_id, "output.pkl"
+        memory.store_backend.location, func.func_id, *args_id, "output.pkl"
     )
     assert func(2) == 5
     first_access_time = os.stat(result_path).st_atime
@@ -885,7 +886,7 @@ def _setup_toy_cache(tmpdir, num_inputs=10):
     hash_dirnames = [get_1000_bytes._get_args_id(arg) for arg in inputs]
 
     full_hashdirs = [
-        os.path.join(get_1000_bytes.store_backend.location, func_id, dirname)
+        os.path.join(get_1000_bytes.store_backend.location, func_id, *dirname)
         for dirname in hash_dirnames
     ]
     return memory, full_hashdirs, get_1000_bytes

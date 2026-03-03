@@ -149,6 +149,22 @@ class StoreBackendBase(metaclass=ABCMeta):
         """
 
 
+def _check_folder_name(dirpath):
+    """Check if dirpath corresponds to a function call"""
+    head, tail = os.path.split(dirpath)
+    if not re.match("[a-f0-9]{29}", tail):
+        return False
+    head = os.path.basename(head)
+    if not re.match("[a-f0-9]{3}", head):
+        return False
+    return True
+
+
+def _old_check_folder_name(dirpath):
+    """Old version of _check_folder_name"""
+    return re.match("[a-f0-9]{32}", os.path.basename(dirpath))
+
+
 class StoreBackendMixin(object):
     """Class providing all logic for managing the store in a generic way.
 
@@ -288,7 +304,27 @@ class StoreBackendMixin(object):
         if not self._item_exists(func_path):
             self.create_location(func_path)
 
-        if func_code is not None:
+        if func_code is None:
+            # Check if this folder uses the old cache tree
+            for file in os.scandir(func_path):
+                if not file.is_dir():
+                    continue
+                if _old_check_folder_name(file.name):
+                    fun_name = os.path.basename(func_path)
+                    warnings.warn(
+                        f"The cache folder of the function `{fun_name}`"
+                        " uses an old cache tree version.\nPlease run "
+                        f'`joblib._store_backends.update_cache_tree("{func_path}")`'
+                        "to update the cache tree."
+                    )
+                    self.check_folder_name = _old_check_folder_name
+                    return False
+                if re.match("[a-f0-9]{3}", file.name):
+                    # We assume that if one folder name matches the new style then
+                    # all other folders match the new style
+                    break
+            return True
+        else:
             filename = os.path.join(func_path, "func_code.py")
             with self._open_item(filename, "wb") as f:
                 f.write(func_code.encode("utf-8"))
@@ -423,30 +459,30 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
         items = []
 
         for dirpath, _, filenames in os.walk(self.location):
-            is_cache_hash_dir = re.match("[a-f0-9]{32}", os.path.basename(dirpath))
+            if not self.check_folder_name(dirpath):
+                continue
 
-            if is_cache_hash_dir:
-                output_filename = os.path.join(dirpath, "output.pkl")
+            output_filename = os.path.join(dirpath, "output.pkl")
+            try:
+                last_access = os.path.getatime(output_filename)
+            except OSError:
                 try:
-                    last_access = os.path.getatime(output_filename)
+                    last_access = os.path.getatime(dirpath)
                 except OSError:
-                    try:
-                        last_access = os.path.getatime(dirpath)
-                    except OSError:
-                        # The directory has already been deleted
-                        continue
-
-                last_access = datetime.datetime.fromtimestamp(last_access)
-                try:
-                    full_filenames = [os.path.join(dirpath, fn) for fn in filenames]
-                    dirsize = sum(os.path.getsize(fn) for fn in full_filenames)
-                except OSError:
-                    # Either output_filename or one of the files in
-                    # dirpath does not exist any more. We assume this
-                    # directory is being cleaned by another process already
+                    # The directory has already been deleted
                     continue
 
-                items.append(CacheItemInfo(dirpath, dirsize, last_access))
+            last_access = datetime.datetime.fromtimestamp(last_access)
+            try:
+                full_filenames = [os.path.join(dirpath, fn) for fn in filenames]
+                dirsize = sum(os.path.getsize(fn) for fn in full_filenames)
+            except OSError:
+                # Either output_filename or one of the files in
+                # dirpath does not exist any more. We assume this
+                # directory is being cleaned by another process already
+                continue
+
+            items.append(CacheItemInfo(dirpath, dirsize, last_access))
 
         return items
 
@@ -498,3 +534,18 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
 
         self.mmap_mode = mmap_mode
         self.verbose = verbose
+        self.check_folder_name = _check_folder_name
+
+
+def update_cache_tree(dirpath):
+    old_folders = []
+    for file in os.scandir(dirpath):
+        if not file.is_dir():
+            continue
+        if _old_check_folder_name(file.name):
+            old_folders.append(file.name)
+    for f in old_folders:
+        old_path = os.path.join(dirpath, f)
+        new_path_1 = os.path.join(dirpath, f[:3])
+        new_path_2 = os.path.join(new_path_1, f[3:])
+        shutil.move(old_path, new_path_2)
