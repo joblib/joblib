@@ -517,7 +517,7 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin, ParallelBacken
     """
 
     supports_retrieve_callback = True
-    supports_return_generator = False
+    supports_return_generator = True
 
     def effective_n_jobs(self, n_jobs):
         """Determine the number of jobs which are going to run in parallel.
@@ -570,6 +570,11 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin, ParallelBacken
             return 1
 
         return super(MultiprocessingBackend, self).effective_n_jobs(n_jobs)
+
+    def retrieve_result_callback(self, future):
+        if isinstance(future, BaseException):
+            raise future
+        return future
 
     def configure(
         self,
