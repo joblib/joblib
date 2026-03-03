@@ -71,3 +71,7 @@ div.body p.caption {
     font-family: Georgia, serif;
     font-weight: normal;
 }
+
+.admonition.note {
+    border-left: 4px solid #3b82f6;
+}
