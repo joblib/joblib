@@ -320,7 +320,8 @@ class StoreBackendMixin(object):
                     self.check_folder_name = _old_check_folder_name
                     return False
                 if re.match("[a-f0-9]{3}", file.name):
-                    # We assume that if one folder name is ok
+                    # We assume that if one folder name matches the new style then
+                    # all other folders match the new style
                     break
             return True
         else:
