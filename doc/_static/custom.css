@@ -26,3 +26,7 @@ img {
 	text-align: center;
 	font-size: 110%;
 }
+
+.admonition.note {
+    border-left: 4px solid #3b82f6;
+}
