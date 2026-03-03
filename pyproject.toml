@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "joblib"
 authors = [{name = "Gael Varoquaux", email = "gael.varoquaux@normalesup.org"}]
 license = "BSD-3-Clause"
+license-files = ["LICENSE.txt"]
 description = "Lightweight pipelining with Python functions"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -49,19 +50,6 @@ packages = [
 ]
 platforms = ["any"]
 include-package-data = false
-license-files = ["LICENSE.txt"]
-
-[tool.setuptools.package-data]
-"joblib.test" = [
-    "data/*.gz",
-    "data/*.gzip",
-    "data/*.bz2",
-    "data/*.xz",
-    "data/*.lzma",
-    "data/*.pkl",
-    "data/*.npy",
-    "data/*.npy.z",
-]
 
 [tool.setuptools.dynamic]
 version = {attr = "joblib.__version__"}

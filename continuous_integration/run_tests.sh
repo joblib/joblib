@@ -17,7 +17,7 @@ python -VV
 python -c "import multiprocessing as mp; print('multiprocessing.cpu_count():', mp.cpu_count())"
 python -c "import joblib; print('joblib.cpu_count():', joblib.cpu_count())"
 
-if [[ "$SKLEARN_TESTS" != "true" ]]; then
+if [[ $SKLEARN_TESTS != "true" ]]; then
     pytest joblib -vl --timeout=120 --cov=joblib --cov-report xml
 
     # doctests are not compatile with default_backend=threading
@@ -25,10 +25,6 @@ if [[ "$SKLEARN_TESTS" != "true" ]]; then
         make test-doc
     fi
 else
-    # Install the nightly build of scikit-learn and test against the installed
-    # development version of joblib.
-    conda install -y -c conda-forge cython numpy scipy
-    pip install --pre --extra-index https://pypi.anaconda.org/scientific-python-nightly-wheels/simple scikit-learn
     python -c "import sklearn; print('Testing scikit-learn', sklearn.__version__)"
 
     # Move to a dedicated folder to avoid being polluted by joblib specific conftest.py
@@ -37,6 +33,5 @@ else
     NEW_TEST_DIR=$(mktemp -d)
     cd $NEW_TEST_DIR
 
-    pytest -vl --maxfail=5 -p no:doctest \
-        --pyargs sklearn
+    pytest -vl --maxfail=5 -p no:doctest --pyargs sklearn
 fi
