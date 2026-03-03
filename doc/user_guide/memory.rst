@@ -6,9 +6,9 @@
 
 .. _memory:
 
-===========================================
-On demand recomputing: the `Memory` class
-===========================================
+==================
+Disk-based caching
+==================
 
 .. currentmodule:: joblib.memory
 
@@ -26,39 +26,39 @@ such as numpy arrays.
 A simple example:
 ~~~~~~~~~~~~~~~~~
 
-  First, define the cache directory::
+First, define the cache directory::
 
-    >>> location = 'your_cache_location_directory'
+  >>> location = 'your_cache_location_directory'
 
-  Then, instantiate a memory context that uses this cache directory::
+Then, instantiate a memory context that uses this cache directory::
 
-    >>> from joblib import Memory
-    >>> memory = Memory(location, verbose=0)
+  >>> from joblib import Memory
+  >>> memory = Memory(location, verbose=0)
 
-  After these initial steps, just decorate a function to cache its output in
-  this context::
+After these initial steps, just decorate a function to cache its output in
+this context::
 
-    >>> @memory.cache
-    ... def f(x):
-    ...     print('Running f(%s)' % x)
-    ...     return x
+  >>> @memory.cache
+  ... def f(x):
+  ...     print('Running f(%s)' % x)
+  ...     return x
 
-  Calling this function twice with the same argument does not execute it the
-  second time, the output is just reloaded from a pickle file in the cache
-  directory::
+Calling this function twice with the same argument does not execute it the
+second time, the output is just reloaded from a pickle file in the cache
+directory::
 
-    >>> print(f(1))
-    Running f(1)
-    1
-    >>> print(f(1))
-    1
+  >>> print(f(1))
+  Running f(1)
+  1
+  >>> print(f(1))
+  1
 
-  However, calling the function with a different parameter executes it and
-  recomputes the output::
+However, calling the function with a different parameter executes it and
+recomputes the output::
 
-    >>> print(f(2))
-    Running f(2)
-    2
+  >>> print(f(2))
+  Running f(2)
+  2
 
 .. warning::
 
@@ -98,40 +98,40 @@ hashing of the input arguments to check if they have been computed.
 An example
 ~~~~~~~~~~
 
-  Define two functions: the first with a number as an argument,
-  outputting an array, used by the second one. Both functions are decorated
-  with :meth:`Memory.cache <joblib.Memory.cache>`::
+Define two functions: the first with a number as an argument,
+outputting an array, used by the second one. Both functions are decorated
+with :meth:`Memory.cache <joblib.Memory.cache>`::
 
-    >>> import numpy as np
+  >>> import numpy as np
 
-    >>> @memory.cache
-    ... def g(x):
-    ...     print('A long-running calculation, with parameter %s' % x)
-    ...     return np.hamming(x)
+  >>> @memory.cache
+  ... def g(x):
+  ...     print('A long-running calculation, with parameter %s' % x)
+  ...     return np.hamming(x)
 
-    >>> @memory.cache
-    ... def h(x):
-    ...     print('A second long-running calculation, using g(x)')
-    ...     return np.vander(x)
+  >>> @memory.cache
+  ... def h(x):
+  ...     print('A second long-running calculation, using g(x)')
+  ...     return np.vander(x)
 
-  If the function `h` is called with the array created by the same call to `g`,
-  `h` is not re-run::
+If the function `h` is called with the array created by the same call to `g`,
+`h` is not re-run::
 
-    >>> a = g(3)
-    A long-running calculation, with parameter 3
-    >>> a
-    array([0.08, 1.  , 0.08])
-    >>> g(3)
-    array([0.08, 1.  , 0.08])
-    >>> b = h(a)
-    A second long-running calculation, using g(x)
-    >>> b2 = h(a)
-    >>> b2
-    array([[0.0064, 0.08  , 1.    ],
-           [1.    , 1.    , 1.    ],
-           [0.0064, 0.08  , 1.    ]])
-    >>> np.allclose(b, b2)
-    True
+  >>> a = g(3)
+  A long-running calculation, with parameter 3
+  >>> a
+  array([0.08, 1.  , 0.08])
+  >>> g(3)
+  array([0.08, 1.  , 0.08])
+  >>> b = h(a)
+  A second long-running calculation, using g(x)
+  >>> b2 = h(a)
+  >>> b2
+  array([[0.0064, 0.08  , 1.    ],
+          [1.    , 1.    , 1.    ],
+          [0.0064, 0.08  , 1.    ]])
+  >>> np.allclose(b, b2)
+  True
 
 
 Using memmapping

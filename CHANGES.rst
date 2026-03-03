@@ -1,5 +1,5 @@
-Latest changes
-==============
+Release Notes
+=============
 
 In development
 --------------
