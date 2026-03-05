@@ -454,7 +454,7 @@ class MemorizedFunc(Logger):
         self._func_code_info = None
         self._func_code_id = None
 
-    def _is_in_cache_and_valid(self, call_id):
+    def _is_in_cache_and_valid(self, call_id, *, why=False):
         """Check if the function call is cached and valid for given arguments.
 
         - Compare the function code with the one from the cached function,
@@ -464,14 +464,16 @@ class MemorizedFunc(Logger):
 
         Returns True if the function call is in cache and can be used, and
         returns False otherwise.
+
+        If ``why``, return a string reason it's not in the cache.
         """
         # Check if the code of the function has changed
         if not self._check_previous_func_code(stacklevel=4):
-            return False
+            return "function code has changed" if why else False
 
         # Check if this specific call is in the cache
         if not self.store_backend.contains_item(call_id):
-            return False
+            return "call not in cache" if why else False
 
         # Call the user defined cache validation callback
         metadata = self.store_backend.get_metadata(call_id)
@@ -480,9 +482,9 @@ class MemorizedFunc(Logger):
             and not self.cache_validation_callback(metadata)
         ):
             self.store_backend.clear_item(call_id)
-            return False
+            return "user cache validation callback failed" if why else False
 
-        return True
+        return True if not why else ""
 
     def _cached_call(self, args, kwargs, shelving):
         """Call wrapped function and cache result, or read cache if available.
@@ -621,6 +623,20 @@ class MemorizedFunc(Logger):
         state["_func_code_id"] = None
 
         return state
+
+    def check_why_call_not_in_cache(self, *args, **kwargs):
+        """Check why the function call is not cached.
+
+        Same as check_call_in_cache but returns the reason why.
+
+        Returns
+        -------
+        reason : str
+            Contains the reason why the call is not in cache.
+            If the call is in the cache, an empty string is returned.
+        """
+        call_id = (self.func_id, self._get_args_id(*args, **kwargs))
+        return self._is_in_cache_and_valid(call_id, why=True)
 
     def check_call_in_cache(self, *args, **kwargs):
         """Check if the function call is cached and valid for given arguments.
