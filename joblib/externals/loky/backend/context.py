@@ -247,6 +247,8 @@ def _count_physical_cores():
             cpu_count_physical = _count_physical_cores_win32()
         elif sys.platform == "darwin":
             cpu_count_physical = _count_physical_cores_darwin()
+        elif sys.platform == "aix":
+            cpu_count_physical = _count_physical_cores_aix()
         else:
             raise NotImplementedError(f"unsupported platform: {sys.platform}")
 
@@ -316,6 +318,27 @@ def _count_physical_cores_darwin():
     )
     cpu_info = cpu_info.stdout
     return int(cpu_info)
+
+
+def _count_physical_cores_aix():
+    """Count physical cores on AIX systems using prtconf.
+    
+    The prtconf command provides detailed system configuration including
+    the number of physical processors. Example output line:
+    "Number Of Processors: 4"
+    """
+    cpu_info = subprocess.run(
+        ["prtconf"],
+        capture_output=True,
+        text=True,
+    )
+    for line in cpu_info.stdout.splitlines():
+        if "Number Of Processors" in line:
+            # Line format: "Number Of Processors: N"
+            return int(line.split(":")[-1].strip())
+    
+    # If we couldn't find the line, raise an error
+    raise RuntimeError("Could not find 'Number Of Processors' in prtconf output")
 
 
 class LokyContext(BaseContext):
