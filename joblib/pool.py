@@ -46,8 +46,6 @@ except ImportError:
 class CustomizablePickler(Pickler):
     """Pickler that accepts custom reducers.
 
-    TODO python2_drop : can this be simplified ?
-
     HIGHEST_PROTOCOL is selected by default as this pickler is used
     to pickle ephemeral datastructures for interprocess communication
     hence no backward compatibility is required.
@@ -61,39 +59,22 @@ class CustomizablePickler(Pickler):
 
     """
 
-    # We override the pure Python pickler as its the only way to be able to
-    # customize the dispatch table without side effects in Python 2.7
-    # to 3.2. For Python 3.3+ leverage the new dispatch_table
-    # feature from https://bugs.python.org/issue14166 that makes it possible
+    # Leverage the dispatch_table feature from
+    # https://bugs.python.org/issue14166 that makes it possible
     # to use the C implementation of the Pickler which is faster.
 
     def __init__(self, writer, reducers=None, protocol=HIGHEST_PROTOCOL):
         Pickler.__init__(self, writer, protocol=protocol)
         if reducers is None:
             reducers = {}
-        if hasattr(Pickler, "dispatch"):
-            # Make the dispatch registry an instance level attribute instead of
-            # a reference to the class dictionary under Python 2
-            self.dispatch = Pickler.dispatch.copy()
-        else:
-            # Under Python 3 initialize the dispatch table with a copy of the
-            # default registry
-            self.dispatch_table = copyreg.dispatch_table.copy()
+        # Initialize the dispatch table with a copy of the default registry
+        self.dispatch_table = copyreg.dispatch_table.copy()
         for type, reduce_func in reducers.items():
             self.register(type, reduce_func)
 
     def register(self, type, reduce_func):
         """Attach a reducer function to a given type in the dispatch table."""
-        if hasattr(Pickler, "dispatch"):
-            # Python 2 pickler dispatching is not explicitly customizable.
-            # Let us use a closure to workaround this limitation.
-            def dispatcher(self, obj):
-                reduced = reduce_func(obj)
-                self.save_reduce(obj=obj, *reduced)
-
-            self.dispatch[type] = dispatcher
-        else:
-            self.dispatch_table[type] = reduce_func
+        self.dispatch_table[type] = reduce_func
 
 
 class CustomizablePicklingQueue(object):
