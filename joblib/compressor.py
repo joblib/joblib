@@ -232,7 +232,6 @@ _BUFFER_SIZE = 8192
 class BinaryZlibFile(io.BufferedIOBase):
     """A file object providing transparent zlib (de)compression.
 
-    TODO python2_drop: is it still needed since we dropped Python 2 support A
     BinaryZlibFile can act as a wrapper for an existing file object, or refer
     directly to a named file on disk.
 
