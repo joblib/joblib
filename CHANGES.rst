@@ -8,6 +8,10 @@ In development
   of cloudpickle
   https://github.com/joblib/joblib/pull/1775
 
+- Fix ``Memory.cache`` for functions with a keyword-only argument that has a
+  default declared before a keyword-only argument without a default.
+  https://github.com/joblib/joblib/issues/1731
+
 Release 1.5.3 - 2025/12/15
 --------------------------
 
