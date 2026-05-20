@@ -273,8 +273,19 @@ class StoreBackendMixin(object):
 
         if func_code is not None:
             filename = os.path.join(func_path, "func_code.py")
-            with self._open_item(filename, 'wb') as f:
-                f.write(func_code.encode('utf-8'))
+            # Retry to handle the race where a concurrent worker's clear()
+            # rmtrees func_path between create_location and open. All racing
+            # workers want the same final state, so retrying converges.
+            last_exc = None
+            for _ in range(5):
+                try:
+                    with self._open_item(filename, 'wb') as f:
+                        f.write(func_code.encode('utf-8'))
+                    return
+                except FileNotFoundError as e:
+                    last_exc = e
+                    self.create_location(func_path)
+            raise last_exc
 
     def get_cached_func_code(self, path):
         """Store the code of the cached function."""
