@@ -1372,7 +1372,6 @@ class Parallel(Logger):
             self._lock = threading.RLock()
             self._jobs = collections.deque()
             self._jobs_set = set()
-            self._jobs_set_lock = threading.Lock()
             self._pending_outputs = list()
             self._ready_batches = queue.Queue()
             self._reducer_callback = None
@@ -1464,8 +1463,7 @@ class Parallel(Logger):
         if self.return_ordered:
             self._jobs.append(batch_tracker)
         else:
-            with self._jobs_set_lock:
-                self._jobs_set.add(batch_tracker)
+            self._jobs_set.add(batch_tracker)
 
     def dispatch_next(self):
         """Dispatch more data for parallel processing
@@ -1835,8 +1833,11 @@ class Parallel(Logger):
                 # timeouts before any other dispatched job has completed and
                 # been added to `self._jobs` to be retrieved.
                 if timeout_control_job is None:
-                    with self._jobs_set_lock:
-                        timeout_control_job = next(iter(self._jobs_set), None)
+                    try:
+                        timeout_control_job = self._jobs_set.pop()
+                        self._jobs_set.add(timeout_control_job)
+                    except KeyError:
+                        timeout_control_job = None
 
                 # NB: it can be None if no job has been dispatched yet.
                 if timeout_control_job is not None:
