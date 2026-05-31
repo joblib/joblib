@@ -172,7 +172,18 @@ class NumpyArrayWrapper(object):
         # Now read the actual data.
         if self.dtype.hasobject:
             # The array contained Python objects. We need to unpickle the data.
-            array = pickle.load(unpickler.file_handle)
+            # Use the same Unpickler subclass as the caller so that any
+            # find_class restrictions (e.g. from a security-hardened subclass)
+            # are preserved for the inner stream.  Using the bare stdlib
+            # pickle.load() here would silently bypass any find_class override
+            # on the outer NumpyUnpickler (CVE / CWE-693).
+            inner_unpickler = type(unpickler)(
+                unpickler.filename,
+                unpickler.file_handle,
+                unpickler.ensure_native_byte_order,
+                mmap_mode=unpickler.mmap_mode,
+            )
+            array = inner_unpickler.load()
         else:
             numpy_array_alignment_bytes = self.safe_get_numpy_array_alignment_bytes()
             if numpy_array_alignment_bytes is not None:
