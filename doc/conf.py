@@ -85,7 +85,7 @@ html_theme_options = {
         "image_dark": "joblib_logo_dark.svg",
     },
     "switcher": {
-        "json_url": "https://joblib--1774.org.readthedocs.build/en/1774/_static/versions.json",
+        "json_url": "https://joblib.readthedocs.io/en/latest/_static/versions.json",
         "version_match": release,
     },
     "navbar_start": [
