@@ -8,6 +8,9 @@ In development
   of cloudpickle
   https://github.com/joblib/joblib/pull/1775
 
+- Fix a concurrency error that could happen with unordered generator.
+  https://github.com/joblib/joblib/pull/1789
+
 Release 1.5.3 - 2025/12/15
 --------------------------
 
