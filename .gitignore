@@ -32,6 +32,8 @@ doc/documentation.zip
 doc/generated
 doc/CHANGES.rst
 doc/README.rst
+doc/sg_execution_times.rst
+doc/_static/versions.json
 # Coverage report
 .coverage
 

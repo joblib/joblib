@@ -1,5 +1,5 @@
-Latest changes
-==============
+Release Notes
+=============
 
 In development
 --------------
@@ -7,6 +7,10 @@ In development
 - Unvendor cloudpickle to more quickly benefit from maintenance releases
   of cloudpickle
   https://github.com/joblib/joblib/pull/1775
+
+- The documentation now uses pydata sphinx theme. Furthermore, optional dependencies ``test``
+  and ``docs`` have been added to ``pyproject.toml``.
+  https://github.com/joblib/joblib/pull/1774
 
 Release 1.5.3 - 2025/12/15
 --------------------------
