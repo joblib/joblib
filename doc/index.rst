@@ -54,6 +54,8 @@ It is **BSD-licensed**.
 Get Joblib
 ----------
 
+Joblib can be installed with ``pip``, as it only relies on python files.
+
 .. code-block:: bash
 
   pip install joblib
