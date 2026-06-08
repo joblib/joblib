@@ -10,7 +10,7 @@ In development
 
 - Fix a concurrency error that could happen with unordered generator.
   https://github.com/joblib/joblib/pull/1789
-  
+
 - The documentation now uses pydata sphinx theme. Furthermore, optional dependencies ``test``
   and ``docs`` have been added to ``pyproject.toml``.
   https://github.com/joblib/joblib/pull/1774
