@@ -11,6 +11,11 @@ In development
 - Fix a concurrency error that could happen with unordered generator.
   https://github.com/joblib/joblib/pull/1789
 
+- Fix the ``dask`` backend downgrading subclasses of builtin collections (such
+  as a ``dict`` subclass) to their base type when an argument is implicitly
+  scattered, by serializing such objects with pickle instead of structurally.
+  https://github.com/joblib/joblib/pull/1798
+
 - The documentation now uses pydata sphinx theme. Furthermore, optional dependencies ``test``
   and ``docs`` have been added to ``pyproject.toml``.
   https://github.com/joblib/joblib/pull/1774
