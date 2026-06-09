@@ -18,6 +18,8 @@
 Joblib documentation
 ====================
 
+.. py:module:: joblib
+
 Joblib is a package for **parallel computing** and **disk-based caching** in Python.
 It is optimized to be **fast** and **robust** on large data in particular
 and has specific optimizations for `numpy` arrays.
