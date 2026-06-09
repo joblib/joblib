@@ -9,7 +9,7 @@ from uuid import uuid4
 import pytest
 
 from .. import Parallel, delayed, parallel_backend, parallel_config
-from .._dask import DaskDistributedBackend
+from .._dask import DaskDistributedBackend, is_weakrefable
 from ..parallel import AutoBatchingMixin, ThreadingBackend
 from .common import np, with_numpy
 from .test_parallel import (
@@ -121,6 +121,46 @@ def test_parallel_unordered_generator_returns_fastest_first_with_dask(n_jobs, co
 def test_deadlock_with_generator_and_dask(context, return_as, n_jobs):
     with distributed.Client(n_workers=2, threads_per_worker=2), context("dask"):
         _test_deadlock_with_generator(None, return_as, n_jobs)
+
+
+class _Bunch(dict):
+    """A dict subclass that also exposes its items as attributes.
+
+    Mirrors the minimal behavior of scikit-learn's ``Bunch`` used to surface
+    the scatter type-downgrade regression.
+    """
+
+    def __getattr__(self, key):
+        try:
+            return self[key]
+        except KeyError:
+            raise AttributeError(key)
+
+    def __setattr__(self, key, value):
+        self[key] = value
+
+
+def _check_dict_subclass_preserved(obj):
+    # Access an item via attribute, which only works if the dict subclass
+    # survived serialization (a plain dict would raise AttributeError).
+    return type(obj).__name__, obj.payload
+
+
+@pytest.mark.parametrize("context", [parallel_config, parallel_backend])
+def test_dict_subclass_preserved_when_scattered_with_dask(context):
+    # Non-regression test for https://github.com/scikit-learn/scikit-learn/issues/34005
+    # Arguments larger than 1kB are implicitly scattered by the dask backend.
+    # distributed serializes builtin collections structurally, which used to
+    # downgrade dict subclasses (e.g. sklearn's Bunch) to a plain dict on the
+    # worker, breaking attribute access.
+    with distributed.Client(n_workers=2, threads_per_worker=1):
+        big = _Bunch(payload=list(range(5000)))
+        assert is_weakrefable(big)
+        with context("dask"):
+            results = Parallel(n_jobs=2)(
+                delayed(_check_dict_subclass_preserved)(big) for _ in range(4)
+            )
+        assert results == [("_Bunch", list(range(5000)))] * 4
 
 
 @with_numpy

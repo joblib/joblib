@@ -48,6 +48,41 @@ def is_weakrefable(obj):
         return False
 
 
+# Builtin collection types that distributed serializes structurally (via
+# msgpack) rather than by pickling. Going through that path rebuilds the
+# object as the exact builtin type and silently drops any subclass identity
+# (e.g. a ``dict`` subclass such as scikit-learn's ``Bunch`` comes back as a
+# plain ``dict``, losing attribute access). See
+# https://github.com/scikit-learn/scikit-learn/issues/34005
+_COLLECTION_BUILTINS = (dict, list, set, frozenset, tuple)
+
+
+def _needs_pickle_scatter(obj):
+    """Whether scattering ``obj`` would lose its (sub)class via msgpack."""
+    return (
+        isinstance(obj, _COLLECTION_BUILTINS) and type(obj) not in _COLLECTION_BUILTINS
+    )
+
+
+class _ScatterWrapper:
+    """Opaque holder used to force pickle serialization when scattering.
+
+    Wrapping a collection subclass in a plain object prevents distributed from
+    serializing it structurally (which would collapse it to its builtin base
+    type), so the exact type is preserved across the scatter round-trip. The
+    wrapper is unwrapped on the worker by ``Batch.__call__``.
+    """
+
+    __slots__ = ("obj",)
+
+    def __init__(self, obj):
+        self.obj = obj
+
+
+def _unwrap_scatter(obj):
+    return obj.obj if type(obj) is _ScatterWrapper else obj
+
+
 class _WeakKeyDictionary:
     """A variant of weakref.WeakKeyDictionary for unhashable objects.
 
@@ -125,6 +160,11 @@ class Batch:
         results = []
         with parallel_config(backend="dask"):
             for func, args, kwargs in tasks:
+                # Unwrap any arguments that were wrapped on the client side to
+                # survive scattering with their exact type (see
+                # _ScatterWrapper / _needs_pickle_scatter).
+                args = [_unwrap_scatter(a) for a in args]
+                kwargs = {k: _unwrap_scatter(v) for k, v in kwargs.items()}
                 results.append(func(*args, **kwargs))
             return results
 
@@ -301,8 +341,18 @@ class DaskDistributedBackend(AutoBatchingMixin, ParallelBackendBase):
                             # calling client.scatter inside a dask worker)
                             # using hash=True often raise CancelledError,
                             # see dask/distributed#3703
+                            # Subclasses of builtin collections would be
+                            # downgraded to their base type by distributed's
+                            # structural (msgpack) serialization. Wrap them so
+                            # they are pickled instead, preserving their type;
+                            # they are unwrapped on the worker in Batch.
+                            payload = (
+                                _ScatterWrapper(arg)
+                                if _needs_pickle_scatter(arg)
+                                else arg
+                            )
                             _coro = self.client.scatter(
-                                arg, asynchronous=True, hash=False
+                                payload, asynchronous=True, hash=False
                             )
                             # Centralize the scattering of identical arguments
                             # between concurrent apply_async callbacks by
