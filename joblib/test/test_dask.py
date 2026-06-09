@@ -9,7 +9,14 @@ from uuid import uuid4
 import pytest
 
 from .. import Parallel, delayed, parallel_backend, parallel_config
-from .._dask import DaskDistributedBackend, is_weakrefable
+from .._dask import (
+    Batch,
+    DaskDistributedBackend,
+    _needs_pickle_scatter,
+    _ScatterWrapper,
+    _unwrap_scatter,
+    is_weakrefable,
+)
 from ..parallel import AutoBatchingMixin, ThreadingBackend
 from .common import np, with_numpy
 from .test_parallel import (
@@ -161,6 +168,43 @@ def test_dict_subclass_preserved_when_scattered_with_dask(context):
                 delayed(_check_dict_subclass_preserved)(big) for _ in range(4)
             )
         assert results == [("_Bunch", list(range(5000)))] * 4
+
+
+def test_scatter_wrapper_helpers():
+    # In-process coverage of the scatter (un)wrapping helpers. These also run
+    # on dask workers in the integration test above, but worker subprocesses
+    # are not measured by coverage, so exercise them directly here.
+    bunch = _Bunch(payload=[1, 2, 3])
+    bunch.extra = 7  # exercises __setattr__
+    assert bunch["extra"] == 7  # exercises item access via __setattr__
+    assert bunch.payload == [1, 2, 3]  # exercises __getattr__
+    with pytest.raises(AttributeError):
+        bunch.missing
+
+    # Only subclasses of builtin collections need pickle scattering; plain
+    # builtins and non-collections are left untouched.
+    assert _needs_pickle_scatter(bunch)
+    assert not _needs_pickle_scatter({"a": 1})
+    assert not _needs_pickle_scatter([1, 2, 3])
+    assert not _needs_pickle_scatter("not a collection")
+
+    # A wrapped value round-trips back to the exact same object; anything that
+    # is not a wrapper passes through unchanged.
+    wrapped = _ScatterWrapper(bunch)
+    assert _unwrap_scatter(wrapped) is bunch
+    assert _unwrap_scatter(bunch) is bunch
+
+    assert _check_dict_subclass_preserved(bunch) == ("_Bunch", [1, 2, 3])
+
+
+def test_batch_unwraps_scattered_arguments():
+    # Batch.__call__ runs on dask workers (uncovered by coverage there), so
+    # check in-process that it unwraps _ScatterWrapper arguments before calling
+    # the task function.
+    with distributed.Client(n_workers=1, threads_per_worker=1):
+        bunch = _Bunch(payload=[1, 2, 3])
+        task = (_check_dict_subclass_preserved, (_ScatterWrapper(bunch),), {})
+        assert Batch([task])([task]) == [("_Bunch", [1, 2, 3])]
 
 
 @with_numpy
