@@ -4,6 +4,11 @@ Release Notes
 In development
 --------------
 
+- ``MemorizedResult`` now forwards ``mmap_mode`` to its store backend, so a
+  cached array reconstructed from a location is memory-mapped as requested
+  instead of being loaded fully into memory.
+  https://github.com/joblib/joblib/pull/1799
+
 - Unvendor cloudpickle to more quickly benefit from maintenance releases
   of cloudpickle
   https://github.com/joblib/joblib/pull/1775

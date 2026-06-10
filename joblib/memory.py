@@ -207,7 +207,12 @@ class MemorizedResult(Logger):
     ):
         Logger.__init__(self)
         self._call_id = call_id
-        self.store_backend = _store_backend_factory(backend, location, verbose=verbose)
+        self.store_backend = _store_backend_factory(
+            backend,
+            location,
+            verbose=verbose,
+            backend_options=dict(mmap_mode=mmap_mode),
+        )
         self.mmap_mode = mmap_mode
 
         if metadata is not None:
