@@ -171,18 +171,18 @@ class NumpyArrayWrapper(object):
             count = unpickler.np.multiply.reduce(shape_int64)
         # Now read the actual data.
         if self.dtype.hasobject:
-            # The array contained Python objects. We need to unpickle the data.
-            # Use the same Unpickler subclass as the caller so that any
-            # find_class restrictions (e.g. from a security-hardened subclass)
-            # are preserved for the inner stream.  Using the bare stdlib
-            # pickle.load() here would silently bypass any find_class override
-            # on the outer NumpyUnpickler (CVE / CWE-693).
-            inner_unpickler = type(unpickler)(
-                unpickler.filename,
-                unpickler.file_handle,
-                unpickler.ensure_native_byte_order,
-                mmap_mode=unpickler.mmap_mode,
-            )
+            # The array contained Python objects, serialized as a nested
+            # pickle stream. We read it with a fresh Unpickler (so the nested
+            # stream gets its own opcode stack) but route ``find_class``
+            # through the *outer* unpickler instance. This way any behavior
+            # the caller customized on its Unpickler (e.g. a security-hardened
+            # ``find_class``) is applied consistently to the nested stream too,
+            # regardless of how that customization is stored (positional args,
+            # keyword args, or instance attributes). A bare ``pickle.load()``
+            # here would instead use a default Unpickler and silently skip the
+            # caller's customization.
+            inner_unpickler = Unpickler(unpickler.file_handle)
+            inner_unpickler.find_class = unpickler.find_class
             array = inner_unpickler.load()
         else:
             numpy_array_alignment_bytes = self.safe_get_numpy_array_alignment_bytes()
