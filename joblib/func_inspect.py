@@ -269,7 +269,8 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
 
     _, name = get_func_name(func, resolv_alias=False)
 
-    # Check positional or keyword arguments
+    # Check for positional argument of the function, that can be
+    # passed either as positional or keyword arguments in the call
     for arg_position, arg_name in enumerate(arg_names):
         if arg_position < len(args):
             # given as positional
@@ -298,7 +299,8 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
                 )
             )
 
-    # If more positional arguments are given, store them in vargs
+    # If more positional arguments are given, they correspond
+    # to *args, store them in vargs
     if len(args) > len(arg_names):
         if arg_varargs is None:
             raise ValueError(
@@ -318,7 +320,8 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
         if arg_name in kwargs:
             arg_dict[arg_name] = kwargs[arg_name]
         elif arg_name not in arg_dict:
-            # Missing argument
+            # required keyword only argument that is missing,
+            # raise an error
             raise ValueError(
                 "Wrong number of arguments for %s:\n"
                 "     %s was called."

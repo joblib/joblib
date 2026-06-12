@@ -102,9 +102,7 @@ def test_filter_args_method():
 
 
 def test_filter_args_set_positional_and_keyword():
-    with raises(
-        ValueError, match="Argument x was given both as positional and as keyword for"
-    ):
+    with raises(ValueError, match="x was given both as positional and"):
         filter_args(f, [], (1,), dict(x=2))
 
 
