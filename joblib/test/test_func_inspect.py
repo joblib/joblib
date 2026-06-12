@@ -101,7 +101,11 @@ def test_filter_args_method():
     assert filter_args(obj.f, [], (1,)) == {"x": 1, "self": obj}
 
 
-# TODO: Test f(1, x=2)
+def test_filter_args_set_positional_and_keyword():
+    with raises(
+        ValueError, match="Argument x was given both as positional and as keyword for"
+    ):
+        filter_args(f, [], (1,), dict(x=2))
 
 
 @parametrize(
