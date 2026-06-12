@@ -317,14 +317,14 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
 
     # If more keyword arguments are given, store them in varkwargs
     varkwargs = {k: v for k, v in kwargs.items() if k not in arg_dict}
-    if arg_varkw is None:
-        if varkwargs:
-            raise ValueError(
-                f"Too many keyword arguments for {_signature_str(name, arg_sig)}:\n"
-                f"    {_function_called_str(name, args, kwargs)} was called."
-            )
-    else:
+    if arg_varkw is not None:
         arg_dict["**"] = varkwargs
+
+    elif varkwargs:
+        raise ValueError(
+            f"Too many keyword arguments for {_signature_str(name, arg_sig)}:\n"
+            f"    {_function_called_str(name, args, kwargs)} was called."
+        )
 
     # Now remove the arguments to be ignored
     for item in ignore_lst:
