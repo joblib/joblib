@@ -227,9 +227,8 @@ def test_filter_args_edge_cases():
 
     # filter_args doesn't care about keyword-only arguments so you
     # can pass 'kw1' into *args without any problem
-    with raises(ValueError) as excinfo:
+    with raises(ValueError, match="Too many arguments for"):
         filter_args(func_with_kwonly_args, [], (1, 2, 3), {"kw2": 2})
-    excinfo.match("Too many arguments for")
 
     assert filter_args(
         func_with_kwonly_args, ["b", "kw2"], (1, 2), {"kw1": 3, "kw2": 4}
