@@ -237,7 +237,7 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
         return {"*": args, "**": kwargs}
     arg_sig = inspect.signature(func)
     arg_names = []
-    arg_defaults = []
+    arg_defaults = {}
     arg_kwonlyargs = []
     arg_varargs = None
     arg_varkw = None
@@ -252,7 +252,7 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
         elif param.kind is param.VAR_KEYWORD:
             arg_varkw = param.name
         if param.default is not param.empty:
-            arg_defaults.append(param.default)
+            arg_defaults[param.name] = param.default
     if inspect.ismethod(func):
         # First argument is 'self', it has been removed by Python
         # we need to add it back:
@@ -289,13 +289,12 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
                 )
 
         else:
-            position = arg_position - len(arg_names)
             if arg_name in kwargs:
                 arg_dict[arg_name] = kwargs[arg_name]
             else:
                 try:
-                    arg_dict[arg_name] = arg_defaults[position]
-                except (IndexError, KeyError) as e:
+                    arg_dict[arg_name] = arg_defaults[arg_name]
+                except KeyError as e:
                     # Missing argument
                     raise ValueError(
                         "Wrong number of arguments for %s:\n"
