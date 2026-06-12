@@ -8,6 +8,10 @@ In development
   of cloudpickle
   https://github.com/joblib/joblib/pull/1775
 
+- Fix ``Memory.cache`` for functions with a keyword-only argument that has a
+  default declared before a keyword-only argument without a default.
+  https://github.com/joblib/joblib/issues/1731
+
 - Fix a concurrency error that could happen with unordered generator.
   https://github.com/joblib/joblib/pull/1789
 

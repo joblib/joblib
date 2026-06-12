@@ -202,6 +202,19 @@ def func_with_signature(a: int, b: int) -> None:
     pass
 
 
+def func_with_kwonly_default_before_required(*, kw1="kw1", kw2):
+    pass
+
+
+def test_filter_args_kwonly_default_before_required():
+    assert filter_args(
+        func_with_kwonly_default_before_required, [], (), {"kw2": 2}
+    ) == {"kw1": "kw1", "kw2": 2}
+    assert filter_args(
+        func_with_kwonly_default_before_required, [], (), {"kw1": 1, "kw2": 2}
+    ) == {"kw1": 1, "kw2": 2}
+
+
 def test_filter_args_edge_cases():
     assert filter_args(func_with_kwonly_args, [], (1, 2), {"kw1": 3, "kw2": 4}) == {
         "a": 1,
