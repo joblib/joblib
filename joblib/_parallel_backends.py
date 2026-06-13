@@ -88,11 +88,7 @@ class ParallelBackendBase(metaclass=ABCMeta):
 
     def apply_async(self, func, callback=None):
         """Deprecated: implement `submit` instead."""
-        warnings.warn(
-            "`apply_async` is deprecated, implement and use `submit` instead.",
-            DeprecationWarning,
-        )
-        return self.submit(func, callback)
+        raise NotImplementedError("Implement `submit` instead.")
 
     def submit(self, func, callback=None):
         """Schedule a function to be run and return a future-like object.
@@ -123,7 +119,11 @@ class ParallelBackendBase(metaclass=ABCMeta):
         future: future-like
             A future-like object to track the execution of the submitted function.
         """
-        raise NotImplementedError()
+        warnings.warn(
+            "`apply_async` is deprecated, implement and use `submit` instead.",
+            DeprecationWarning,
+        )
+        return self.apply_async(func, callback)
 
     def retrieve_result_callback(self, out):
         """Called within the callback function passed to `submit`.
