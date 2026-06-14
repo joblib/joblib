@@ -12,6 +12,9 @@ In development
   default declared before a keyword-only argument without a default.
   https://github.com/joblib/joblib/issues/1731
 
+- Fix behavior of ``filter_args`` on some precise cases.
+  https://github.com/joblib/joblib/pull/1800
+
 - Fix a concurrency error that could happen with unordered generator.
   https://github.com/joblib/joblib/pull/1789
 
