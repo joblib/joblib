@@ -845,17 +845,15 @@ def test_memory_func_with_kwonly_args(tmpdir):
 
     # Making sure that providing a keyword-only argument by
     # position raises an exception
-    with raises(ValueError) as excinfo:
+    with raises(ValueError, match="Too many arguments for"):
         func_cached(1, 2, 3, kw2=4)
-    excinfo.match("Keyword-only parameter 'kw1' was passed as positional parameter")
 
     # Keyword-only parameter passed by position with cached call
     # should still raise ValueError
     func_cached(1, 2, kw1=3, kw2=4)
 
-    with raises(ValueError) as excinfo:
+    with raises(ValueError, match="Too many arguments for"):
         func_cached(1, 2, 3, kw2=4)
-    excinfo.match("Keyword-only parameter 'kw1' was passed as positional parameter")
 
     # Test 'ignore' parameter
     func_cached = memory.cache(func_with_kwonly_args, ignore=["kw2"])

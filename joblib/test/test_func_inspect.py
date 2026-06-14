@@ -17,7 +17,7 @@ from joblib.func_inspect import (
 )
 from joblib.memory import Memory
 from joblib.test.common import with_numpy
-from joblib.testing import fixture, parametrize, raises
+from joblib.testing import fixture, parametrize, raises, warns
 
 
 ###############################################################################
@@ -30,7 +30,7 @@ def g(x):
     pass
 
 
-def h(x, y=0, *args, **kwargs):
+def h(x, y=0, *args, z=1, **kwargs):
     pass
 
 
@@ -101,13 +101,18 @@ def test_filter_args_method():
     assert filter_args(obj.f, [], (1,)) == {"x": 1, "self": obj}
 
 
+def test_filter_args_set_positional_and_keyword():
+    with raises(ValueError, match="x was given both as positional and"):
+        filter_args(f, [], (1,), dict(x=2))
+
+
 @parametrize(
     "func,args,filtered_args",
     [
-        (h, [[], (1,)], {"x": 1, "y": 0, "*": [], "**": {}}),
-        (h, [[], (1, 2, 3, 4)], {"x": 1, "y": 2, "*": [3, 4], "**": {}}),
-        (h, [[], (1, 25), {"ee": 2}], {"x": 1, "y": 25, "*": [], "**": {"ee": 2}}),
-        (h, [["*"], (1, 2, 25), {"ee": 2}], {"x": 1, "y": 2, "**": {"ee": 2}}),
+        (h, [[], (1,)], {"x": 1, "y": 0, "z": 1, "*": [], "**": {}}),
+        (h, [[], (1, 2, 3, 4)], {"x": 1, "y": 2, "z": 1, "*": [3, 4], "**": {}}),
+        (h, [[], (1,), {"ee": 2}], {"x": 1, "y": 0, "z": 1, "*": [], "**": {"ee": 2}}),
+        (h, [["*"], (1, 2, 25), {"ee": 2}], {"x": 1, "y": 2, "z": 1, "**": {"ee": 2}}),
     ],
 )
 def test_filter_varargs(func, args, filtered_args):
@@ -137,8 +142,9 @@ def test_filter_args_2():
 
     ff = functools.partial(f, 1)
     # filter_args has to special-case partial
-    assert filter_args(ff, [], (1,)) == {"*": [1], "**": {}}
-    assert filter_args(ff, ["y"], (1,)) == {"*": [1], "**": {}}
+    with warns(UserWarning, match="Cannot inspect object"):
+        assert filter_args(ff, [], (1,)) == {"*": [1], "**": {}}
+        assert filter_args(ff, ["y"], (1,)) == {"*": [1], "**": {}}
 
 
 @parametrize("func,funcname", [(f, "f"), (g, "g"), (cached_func, "cached_func")])
@@ -221,9 +227,8 @@ def test_filter_args_edge_cases():
 
     # filter_args doesn't care about keyword-only arguments so you
     # can pass 'kw1' into *args without any problem
-    with raises(ValueError) as excinfo:
+    with raises(ValueError, match="Too many arguments for"):
         filter_args(func_with_kwonly_args, [], (1, 2, 3), {"kw2": 2})
-    excinfo.match("Keyword-only parameter 'kw1' was passed as positional parameter")
 
     assert filter_args(
         func_with_kwonly_args, ["b", "kw2"], (1, 2), {"kw1": 3, "kw2": 4}
