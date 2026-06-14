@@ -39,6 +39,7 @@ test = [
     "memory_profiler",
     "pytest",
     "pytest-asyncio",
+    "pytest-cov",
     "pytest-timeout",
     "threadpoolctl",
 ]
