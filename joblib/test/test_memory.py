@@ -456,6 +456,28 @@ def test_memory_numpy_check_mmap_mode(tmpdir, monkeypatch):
     assert d.mode == "r"
 
 
+@with_numpy
+def test_memorized_result_forwards_mmap_mode(tmpdir):
+    """MemorizedResult must forward mmap_mode to its store backend.
+
+    Reconstructing a MemorizedResult from a location (as when loading a cached
+    result in a fresh process) previously dropped mmap_mode, so the array was
+    loaded into memory instead of being memory-mapped.
+    """
+    memory = Memory(location=tmpdir.strpath, verbose=0)
+
+    @memory.cache
+    def f():
+        return np.ones(3)
+
+    cached = f.call_and_shelve()
+    direct = MemorizedResult(
+        cached.store_backend.location, cached._call_id, mmap_mode="r"
+    )
+    assert direct.store_backend.mmap_mode == "r"
+    assert isinstance(direct.get(), np.memmap)
+
+
 def test_memory_exception(tmpdir):
     """Smoketest the exception handling of Memory."""
     memory = Memory(location=tmpdir.strpath, verbose=0)
