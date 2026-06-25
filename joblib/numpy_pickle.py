@@ -171,8 +171,15 @@ class NumpyArrayWrapper(object):
             count = unpickler.np.multiply.reduce(shape_int64)
         # Now read the actual data.
         if self.dtype.hasobject:
-            # The array contained Python objects. We need to unpickle the data.
-            array = pickle.load(unpickler.file_handle)
+            # The array contained Python objects, serialized as a nested
+            # pickle stream. We read it with a fresh Unpickler (so the nested
+            # stream gets its own opcode stack) but route ``find_class``
+            # through the *outer* unpickler instance to propagate security
+            # harden behavior.
+            # (see https://docs.python.org/3/library/pickle.html#pickle-restrict).
+            inner_unpickler = Unpickler(unpickler.file_handle)
+            inner_unpickler.find_class = unpickler.find_class
+            array = inner_unpickler.load()
         else:
             numpy_array_alignment_bytes = self.safe_get_numpy_array_alignment_bytes()
             if numpy_array_alignment_bytes is not None:
