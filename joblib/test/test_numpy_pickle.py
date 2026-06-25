@@ -265,9 +265,8 @@ def test_memmap_persistence_mixed_dtypes(tmpdir):
 @with_numpy
 def test_object_array_inner_stream_uses_caller_find_class(tmpdir):
     # An object-dtype array is serialized as a nested pickle stream inside the
-    # joblib file. When the caller customizes ``find_class`` on its Unpickler
-    # subclass (e.g. to restrict which globals may be loaded), that restriction
-    # must also apply to the nested stream. See GHSA-m62q-453p-gv66.
+    # joblib file. Check that security harden Unpickler propagates its
+    # constraints.
     filename = tmpdir.join("test.pkl").strpath
 
     class _Boom:

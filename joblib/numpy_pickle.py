@@ -174,13 +174,9 @@ class NumpyArrayWrapper(object):
             # The array contained Python objects, serialized as a nested
             # pickle stream. We read it with a fresh Unpickler (so the nested
             # stream gets its own opcode stack) but route ``find_class``
-            # through the *outer* unpickler instance. This way any behavior
-            # the caller customized on its Unpickler (e.g. a security-hardened
-            # ``find_class``) is applied consistently to the nested stream too,
-            # regardless of how that customization is stored (positional args,
-            # keyword args, or instance attributes). A bare ``pickle.load()``
-            # here would instead use a default Unpickler and silently skip the
-            # caller's customization.
+            # through the *outer* unpickler instance to propagate security
+            # harden behavior.
+            # (see https://docs.python.org/3/library/pickle.html#pickle-restrict).
             inner_unpickler = Unpickler(unpickler.file_handle)
             inner_unpickler.find_class = unpickler.find_class
             array = inner_unpickler.load()
