@@ -39,9 +39,33 @@ jobs:
       - name: Run pre-commit
         run: pre-commit run --all-files
 
+  gen-pickle:
+    name: Generate pickle files
+    needs: linting
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+      - name: Setup conda
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-activate-base: true
+          auto-update-conda: true
+          miniforge-version: latest
+      - name: Install environments
+        run: bash -el continuous_integration/install_old.sh
+      - name: Generate pickle files
+        run: cd joblib/test/data && bash -el generate_data.sh
+      - name: Upload files
+        uses: actions/upload-artifact@v6
+        with:
+          name: test-data
+          path: joblib/test/data/*.pkl*
+
   testing:
     name: Testing
-    needs: linting
+    needs: gen-pickle
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -136,6 +160,15 @@ jobs:
       - name: Install dependencies
         run: |
           bash -el continuous_integration/install.sh
+
+      - name: Download test files
+        uses: actions/download-artifact@v7
+        with:
+          name: test-data
+          path: joblib/test/data
+
+      - name: Show downloaded test files
+        run: ls joblib/test/data/*.pkl*
 
       - name: Run tests
         run: |
