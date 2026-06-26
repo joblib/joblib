@@ -82,3 +82,41 @@ with_dev_shm = skipif(
 with_lz4 = skipif(lz4 is None, reason="Needs lz4 compression to run")
 
 without_lz4 = skipif(lz4 is not None, reason="Needs lz4 not being installed to run")
+
+
+# Decorators to run tests only when a GPU array framework is available together
+# with a CUDA-capable device, used to test the GPU array sharing feature.
+try:
+    import torch
+
+    try:
+        _torch_cuda_available = (
+            torch.cuda.is_available() and torch.cuda.device_count() > 0
+        )
+    except Exception:
+        _torch_cuda_available = False
+except ImportError:
+    torch = None
+    _torch_cuda_available = False
+
+try:
+    import cupy
+
+    try:
+        _cupy_cuda_available = cupy.cuda.runtime.getDeviceCount() > 0
+    except Exception:
+        _cupy_cuda_available = False
+except ImportError:
+    cupy = None
+    _cupy_cuda_available = False
+
+
+with_torch_cuda = skipif(
+    not _torch_cuda_available,
+    reason="Test requires PyTorch with a CUDA-capable GPU.",
+)
+
+with_cupy = skipif(
+    not _cupy_cuda_available,
+    reason="Test requires CuPy with a CUDA-capable GPU.",
+)

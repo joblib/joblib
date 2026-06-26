@@ -44,6 +44,16 @@ test = [
     "threadpoolctl",
 ]
 
+# Optional dependencies to exercise the GPU array sharing tests. These require a
+# CUDA-capable GPU and are skipped when the libraries are not installed. The
+# CuPy wheel must match your local CUDA toolkit (e.g. ``cupy-cuda12x``).
+# XXX Is there a better way to document this? You can't just
+# XXX `pip install .[gpu_test]` because of the -cuda12 suffix
+gpu_test = [
+    "torch",
+    "cupy",
+]
+
 docs = [
     "distributed",
     "lz4",

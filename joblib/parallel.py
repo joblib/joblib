@@ -23,6 +23,7 @@ from multiprocessing import TimeoutError
 from numbers import Integral
 from uuid import uuid4
 
+from ._gpu_array_reducer import VALID_SHARE_GPU_ARRAYS
 from ._multiprocessing_helpers import mp
 
 # Make sure that those two classes are part of the public joblib.parallel API
@@ -99,6 +100,7 @@ default_parallel_config = {
     "temp_folder": _Sentinel(default_value=None),
     "max_nbytes": _Sentinel(default_value="1M"),
     "mmap_mode": _Sentinel(default_value="r"),
+    "share_gpu_arrays": _Sentinel(default_value="auto"),
     "prefer": _Sentinel(default_value=None),
     "require": _Sentinel(default_value=None),
 }
@@ -312,6 +314,26 @@ class parallel_config:
         https://numpy.org/doc/stable/reference/generated/numpy.memmap.html
         Also, see 'max_nbytes' parameter documentation for more details.
 
+    share_gpu_arrays: {'auto', 'on', 'off'}, default='auto'
+        Experimental. Control the sharing of GPU arrays (PyTorch tensors and
+        CuPy arrays) with worker processes through CUDA inter-process
+        communication (IPC), avoiding a copy through host memory. This is
+        the GPU counterpart of the numpy memmapping controlled by
+        ``max_nbytes`` / ``mmap_mode`` and is forward-only (parent to worker),
+        same-machine and same-GPU.
+
+        - 'auto': share device arrays larger than ``max_nbytes`` when a
+          spawn-based process backend is used; silently fall back to regular
+          (host round-trip) pickling otherwise.
+        - 'on': share every device array regardless of ``max_nbytes`` and
+          raise an error if sharing is requested but not feasible (e.g. the
+          ``fork`` start method, which is incompatible with CUDA).
+        - 'off': never share; all arrays use regular pickling.
+
+        Shared arrays must be treated as read-only inputs. Unlike numpy's
+        ``mmap_mode='r'``, this read-only contract is not enforced by the
+        framework.
+
     prefer: str in {'processes', 'threads'} or None, default=None
         Soft hint to choose the default backend.
         The default process-based backend is 'loky' and the default
@@ -369,6 +391,7 @@ class parallel_config:
         temp_folder=default_parallel_config["temp_folder"],
         max_nbytes=default_parallel_config["max_nbytes"],
         mmap_mode=default_parallel_config["mmap_mode"],
+        share_gpu_arrays=default_parallel_config["share_gpu_arrays"],
         prefer=default_parallel_config["prefer"],
         require=default_parallel_config["require"],
         inner_max_num_threads=None,
@@ -385,6 +408,7 @@ class parallel_config:
             "temp_folder": temp_folder,
             "max_nbytes": max_nbytes,
             "mmap_mode": mmap_mode,
+            "share_gpu_arrays": share_gpu_arrays,
             "prefer": prefer,
             "require": require,
             "backend": backend,
@@ -1105,6 +1129,25 @@ class Parallel(Logger):
         disable memmapping, other modes defined in the numpy.memmap doc:
         https://numpy.org/doc/stable/reference/generated/numpy.memmap.html
         Also, see 'max_nbytes' parameter documentation for more details.
+    share_gpu_arrays: {'auto', 'on', 'off'}, default='auto'
+        Experimental. Control the sharing of GPU arrays (PyTorch tensors and
+        CuPy arrays) with worker processes through CUDA inter-process
+        communication (IPC), avoiding a copy through host memory. This is the
+        GPU counterpart of the numpy memmapping controlled by ``max_nbytes`` /
+        ``mmap_mode`` and is forward-only (parent to worker), same-machine and
+        same-GPU.
+
+        - 'auto': share device arrays larger than ``max_nbytes`` when a
+          spawn-based process backend is used; silently fall back to regular
+          (host round-trip) pickling otherwise.
+        - 'on': share every device array regardless of ``max_nbytes`` and raise
+          an error if sharing is requested but not feasible (e.g. the ``fork``
+          start method, which is incompatible with CUDA).
+        - 'off': never share; all arrays use regular pickling.
+
+        Shared arrays must be treated as read-only inputs; unlike numpy's
+        ``mmap_mode='r'`` this read-only contract is not enforced. Only active
+        when ``backend="loky"`` or ``"multiprocessing"``.
     backend_kwargs: dict, optional
         Additional parameters to pass to the backend `configure` method.
 
@@ -1243,6 +1286,7 @@ class Parallel(Logger):
         temp_folder=default_parallel_config["temp_folder"],
         max_nbytes=default_parallel_config["max_nbytes"],
         mmap_mode=default_parallel_config["mmap_mode"],
+        share_gpu_arrays=default_parallel_config["share_gpu_arrays"],
         prefer=default_parallel_config["prefer"],
         require=default_parallel_config["require"],
         **backend_kwargs,
@@ -1285,12 +1329,19 @@ class Parallel(Logger):
                     (max_nbytes, "max_nbytes"),
                     (temp_folder, "temp_folder"),
                     (mmap_mode, "mmap_mode"),
+                    (share_gpu_arrays, "share_gpu_arrays"),
                     (prefer, "prefer"),
                     (require, "require"),
                     (verbose, "verbose"),
                 ]
             },
         }
+
+        if self._backend_kwargs["share_gpu_arrays"] not in VALID_SHARE_GPU_ARRAYS:
+            raise ValueError(
+                f"share_gpu_arrays={self._backend_kwargs['share_gpu_arrays']} is "
+                f"not valid, expected one of {VALID_SHARE_GPU_ARRAYS}"
+            )
 
         if isinstance(self._backend_kwargs["max_nbytes"], str):
             self._backend_kwargs["max_nbytes"] = memstr_to_bytes(
@@ -2039,9 +2090,12 @@ class Parallel(Logger):
                 # and the end of the BatchedCalls pickling. The reason is that
                 # pickling (the only place where set_current_context is used)
                 # is done from a single thread (the queue_feeder_thread).
-                self._backend._workers._temp_folder_manager.set_current_context(  # noqa
-                    self._id
-                )
+                workers = self._backend._workers
+                workers._temp_folder_manager.set_current_context(self._id)
+                # Mirror the context for GPU array sharing so that allocations
+                # shared by this Parallel call are anchored under its own id and
+                # released when this call terminates.
+                workers._gpu_resources_manager.set_current_context(self._id)
 
             self._reducer_callback = _batched_calls_reducer_callback
 
