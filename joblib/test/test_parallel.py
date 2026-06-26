@@ -763,6 +763,43 @@ def test_invalid_backend():
             pass
 
 
+def test_gpu_arrays_flag_default():
+    # By default, GPU array sharing is in "auto" mode and threaded through
+    # to the backend kwargs alongside max_nbytes / mmap_mode / temp_folder.
+    p = Parallel()
+    assert p._backend_kwargs["share_gpu_arrays"] == "auto"
+
+
+@parametrize("value", ["auto", "on", "off"])
+def test_gpu_arrays_flag_explicit(value):
+    p = Parallel(share_gpu_arrays=value)
+    assert p._backend_kwargs["share_gpu_arrays"] == value
+
+
+@parametrize("value", ["auto", "on", "off"])
+def test_gpu_arrays_flag_via_parallel_config(value):
+    with parallel_config(share_gpu_arrays=value):
+        p = Parallel()
+        assert p._backend_kwargs["share_gpu_arrays"] == value
+
+
+def test_gpu_arrays_flag_explicit_overrides_context():
+    with parallel_config(share_gpu_arrays="off"):
+        p = Parallel(share_gpu_arrays="on")
+        assert p._backend_kwargs["share_gpu_arrays"] == "on"
+
+
+def test_invalid_gpu_arrays_flag():
+    with raises(ValueError, match="share_gpu_arrays"):
+        Parallel(share_gpu_arrays="bogus")
+
+    # Like prefer/require, an invalid value set through the context manager is
+    # validated when a Parallel object is built under it, not at context entry.
+    with parallel_config(share_gpu_arrays="bogus"):
+        with raises(ValueError, match="share_gpu_arrays"):
+            Parallel()
+
+
 @parametrize("backend", ALL_VALID_BACKENDS)
 def test_invalid_njobs(backend):
     with raises(ValueError) as excinfo:

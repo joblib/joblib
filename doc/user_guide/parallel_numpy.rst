@@ -159,6 +159,67 @@ Here is an example script on parallel processing with preallocated
 .. _CFFI: https://cffi.readthedocs.org
 
 
+Sharing GPU arrays between processes
+------------------------------------
+
+.. versionadded:: 1.6
+
+In addition to numpy memmapping, :class:`joblib.Parallel` can share GPU arrays
+(PyTorch tensors and CuPy arrays) with worker processes without copying their
+content through host memory, using CUDA inter-process communication (IPC). This
+is the GPU counterpart of the numpy memmapping described above and is controlled
+by the ``share_gpu_arrays`` parameter:
+
+.. code-block:: python
+
+    import torch
+    from joblib import Parallel, delayed
+
+    def run(weights):
+        # ``weights`` is a CUDA tensor backed by the same device memory as in
+        # the parent process: no host round-trip and no extra device copy.
+        return float(weights.sum())
+
+    weights = torch.ones(10_000, 10_000, device="cuda:0")
+    Parallel(n_jobs=4, backend="loky", share_gpu_arrays="on")(
+        delayed(run)(weights) for _ in range(4)
+    )
+
+``share_gpu_arrays`` accepts three values:
+
+- ``"auto"`` (the default): share device arrays larger than ``max_nbytes`` when
+  a spawn-based process backend is used, and silently fall back to regular
+  (host round-trip) pickling otherwise. This keeps existing code working
+  unchanged.
+- ``"on"``: share every device array regardless of ``max_nbytes`` and raise an
+  error if sharing is requested but not feasible (for instance with the
+  ``fork`` start method, which is incompatible with CUDA).
+- ``"off"``: never share; all arrays use their framework's regular pickling.
+
+This feature is experimental and comes with several constraints:
+
+- It only applies to the ``"loky"`` backend and to ``"multiprocessing"`` when
+  using a ``spawn`` (or ``forkserver``) start method. CUDA state cannot survive
+  a ``fork``.
+- Sharing is forward-only (from the parent to the workers). Arrays *returned*
+  by the workers go through the regular (host round-trip) pickling of their
+  framework.
+- The shared array stays on a single physical GPU: all workers access the same
+  device memory. This is data sharing, not multi-GPU replication.
+
+.. warning::
+
+  Shared GPU arrays must be treated as read-only inputs. Unlike numpy's
+  ``mmap_mode='r'``, this read-only contract is **not** enforced by PyTorch or
+  CuPy: writing to a shared array (or mutating it in the parent after dispatch)
+  results in undefined behavior and possible data races between workers.
+
+For PyTorch, sharing reuses ``torch.multiprocessing`` reductions, which handle
+the producer-side keep-alive and the stream synchronization. For CuPy, joblib
+keeps the source allocation alive for the duration of the ``Parallel`` call and
+synchronizes the producer stream before sharing.
+
+
 A final note: don't forget to clean up any temporary folder when you are done
 with the computation::
 

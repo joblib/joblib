@@ -9,6 +9,7 @@ import threading
 import warnings
 from abc import ABCMeta, abstractmethod
 
+from ._gpu_array_reducer import _resolve_share_gpu_arrays
 from ._multiprocessing_helpers import mp
 from ._utils import (
     _retrieve_traceback_capturing_wrapped_call,
@@ -589,6 +590,20 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin, ParallelBacken
             **memmapping_pool_kwargs,
         }
 
+        # Resolve the GPU array sharing mode here, before the pool (and its
+        # workers) are created. This ensures that an unsupported configuration
+        # (e.g. share_gpu_arrays='on' with the 'fork' start method) raises
+        # before any half-initialized pool is built.
+        context = memmapping_pool_kwargs.get("context", None)
+        if context is not None:
+            start_method = context.get_start_method()
+        else:
+            start_method = mp.get_start_method()
+        memmapping_pool_kwargs["share_gpu_arrays"] = _resolve_share_gpu_arrays(
+            memmapping_pool_kwargs.get("share_gpu_arrays", "auto"),
+            start_method,
+        )
+
         # Make sure to free as much memory as possible before forking
         gc.collect()
         self._pool = MemmappingPool(n_jobs, **memmapping_pool_kwargs)
@@ -716,6 +731,9 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
             self._workers._temp_folder_manager._clean_temporary_resources(
                 context_id=self.parallel._id, force=False
             )
+            # Release the GPU allocations that were kept alive on the producer
+            # side to share them with the workers during this Parallel call.
+            self._workers._gpu_resources_manager.clean(context_id=self.parallel._id)
             self._workers = None
 
         self.reset_batch_stats()
