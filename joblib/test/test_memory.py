@@ -17,11 +17,17 @@ import shutil
 import sys
 import textwrap
 import time
+import types
+import warnings
 from pathlib import Path
 
 import pytest
 
-from joblib._store_backends import FileSystemStoreBackend, StoreBackendBase
+from joblib._store_backends import (
+    FileSystemStoreBackend,
+    StoreBackendBase,
+    update_cache_tree,
+)
 from joblib.hashing import hash
 from joblib.memory import (
     _FUNCTION_HASHES,
@@ -33,6 +39,7 @@ from joblib.memory import (
     NotMemorizedFunc,
     NotMemorizedResult,
     _build_func_identifier,
+    _old_get_args_id,
     _store_backend_factory,
     expires_after,
     register_store_backend,
@@ -1452,6 +1459,45 @@ def test_info_log(tmpdir, caplog):
     _ = f(x)
     assert "Querying" not in caplog.text
     caplog.clear()
+
+
+def test_memory_cache_tree_versions(tmpdir):
+    memory = Memory(location=tmpdir.strpath)
+
+    @memory.cache
+    def add(x):
+        return x + 1
+
+    @memory.cache
+    def sub(x):
+        return x - 1
+
+    xs = [0, 1]
+
+    # Makes add use the old cache tree for add
+    add._get_args_id = types.MethodType(_old_get_args_id, add)
+
+    # Cache some results
+    for f in [add, sub]:
+        for x in xs:
+            f(x)
+
+    # Assert store_backend finds items from old and new cache tree
+    assert len(memory.store_backend.get_items()) == 2 * len(xs)
+
+    # Assert a warning is raised when caching a function with an old cache tree
+    with warns(UserWarning, match="uses an old cache tree version"):
+        memory.cache(add)
+
+    # Assert update_cache_tree correcly updates the cache tree
+    update_cache_tree(os.path.join(memory.store_backend.location, add.func_id))
+    assert len(memory.store_backend.get_items()) == 2 * len(xs)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", category=UserWarning)
+        new_add = memory.cache(add)
+    for x in xs:
+        assert not add.check_call_in_cache(x)
+        assert new_add.check_call_in_cache(x)
 
 
 class TestCacheValidationCallback:
