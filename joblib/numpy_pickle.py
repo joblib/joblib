@@ -8,7 +8,6 @@ import io
 import os
 import pickle
 import warnings
-from pathlib import Path
 
 from .backports import make_memmap
 from .compressor import (
@@ -524,8 +523,8 @@ def dump(value, filename, compress=0, protocol=None):
 
     """
 
-    if Path is not None and isinstance(filename, Path):
-        filename = str(filename)
+    if isinstance(filename, os.PathLike):
+        filename = os.fspath(filename)
 
     is_filename = isinstance(filename, str)
     is_fileobj = hasattr(filename, "write")
@@ -730,8 +729,8 @@ def load(filename, mmap_mode=None, ensure_native_byte_order="auto"):
             f"is set to None, but got 'mmap_mode={mmap_mode}' instead."
         )
 
-    if Path is not None and isinstance(filename, Path):
-        filename = str(filename)
+    if isinstance(filename, os.PathLike):
+        filename = os.fspath(filename)
 
     if hasattr(filename, "read"):
         fobj = filename
