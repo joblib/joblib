@@ -149,8 +149,8 @@ class StoreBackendBase(metaclass=ABCMeta):
         """
 
 
-def _check_folder_name(dirpath):
-    """Check if dirpath corresponds to a function call"""
+def _check_cache_dir_name(dirpath):
+    """Check if dirpath corresponds to a cache directory"""
     head, tail = os.path.split(dirpath)
     if not re.match("[a-f0-9]{29}", tail):
         return False
@@ -160,8 +160,8 @@ def _check_folder_name(dirpath):
     return True
 
 
-def _old_check_folder_name(dirpath):
-    """Old version of _check_folder_name"""
+def _old_check_cache_dir_name(dirpath):
+    """Old version of _check_cache_dir_name"""
     return re.match("[a-f0-9]{32}", os.path.basename(dirpath))
 
 
@@ -299,7 +299,8 @@ class StoreBackendMixin(object):
             self.clear_location(func_path)
 
     def store_cached_func_code(self, call_id, func_code=None):
-        """Store the code of the cached function."""
+        """Store the code of the cached function.
+        If func_code is None, return True iff the cache dir uses the new tree."""
         func_path = os.path.join(self.location, *call_id)
         if not self._item_exists(func_path):
             self.create_location(func_path)
@@ -309,7 +310,7 @@ class StoreBackendMixin(object):
             for file in os.scandir(func_path):
                 if not file.is_dir():
                     continue
-                if _old_check_folder_name(file.name):
+                if _old_check_cache_dir_name(file.name):
                     fun_name = os.path.basename(func_path)
                     warnings.warn(
                         f"The cache folder of the function `{fun_name}`"
@@ -317,7 +318,6 @@ class StoreBackendMixin(object):
                         f'`joblib._store_backends.update_cache_tree("{func_path}")`'
                         "to update the cache tree."
                     )
-                    self.check_folder_name = _old_check_folder_name
                     return False
                 if re.match("[a-f0-9]{3}", file.name):
                     # We assume that if one folder name matches the new style then
@@ -459,7 +459,9 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
         items = []
 
         for dirpath, _, filenames in os.walk(self.location):
-            if not self.check_folder_name(dirpath):
+            if not (
+                _old_check_cache_dir_name(dirpath) or _check_cache_dir_name(dirpath)
+            ):
                 continue
 
             output_filename = os.path.join(dirpath, "output.pkl")
@@ -534,7 +536,6 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
 
         self.mmap_mode = mmap_mode
         self.verbose = verbose
-        self.check_folder_name = _check_folder_name
 
 
 def update_cache_tree(dirpath):
@@ -542,7 +543,7 @@ def update_cache_tree(dirpath):
     for file in os.scandir(dirpath):
         if not file.is_dir():
             continue
-        if _old_check_folder_name(file.name):
+        if _old_check_cache_dir_name(file.name):
             old_folders.append(file.name)
     for f in old_folders:
         old_path = os.path.join(dirpath, f)
