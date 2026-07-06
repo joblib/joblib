@@ -1489,7 +1489,7 @@ def test_memory_cache_tree_versions(tmpdir):
     with warns(UserWarning, match="uses an old cache tree version"):
         memory.cache(add)
 
-    # Assert update_cache_tree correcly updates the cache tree
+    # Assert update_cache_tree correctly updates the cache tree
     update_cache_tree(os.path.join(memory.store_backend.location, add.func_id))
     assert len(memory.store_backend.get_items()) == 2 * len(xs)
     with warnings.catch_warnings():
