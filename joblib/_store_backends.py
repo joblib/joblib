@@ -51,56 +51,6 @@ class StoreBackendBase(metaclass=ABCMeta):
     location = None
 
     @abstractmethod
-    def _open_item(self, f, mode):
-        """Opens an item on the store and return a file-like object.
-
-        This method is private and only used by the StoreBackendMixin object.
-
-        Parameters
-        ----------
-        f: a file-like object
-            The file-like object where an item is stored and retrieved
-        mode: string, optional
-            the mode in which the file-like object is opened allowed valued are
-            'rb', 'wb'
-
-        Returns
-        -------
-        a file-like object
-        """
-
-    @abstractmethod
-    def _item_exists(self, location):
-        """Checks if an item location exists in the store.
-
-        This method is private and only used by the StoreBackendMixin object.
-
-        Parameters
-        ----------
-        location: string
-            The location of an item. On a filesystem, this corresponds to the
-            absolute path, including the filename, of a file.
-
-        Returns
-        -------
-        True if the item exists, False otherwise
-        """
-
-    @abstractmethod
-    def _move_item(self, src, dst):
-        """Moves an item from src to dst in the store.
-
-        This method is private and only used by the StoreBackendMixin object.
-
-        Parameters
-        ----------
-        src: string
-            The source location of an item
-        dst: string
-            The destination location of an item
-        """
-
-    @abstractmethod
     def create_location(self, location):
         """Creates a location on the store.
 
@@ -158,6 +108,56 @@ class StoreBackendMixin(object):
     method has to have the same signature as the builtin open and return a
     file-like object.
     """
+
+    @abstractmethod
+    def _open_item(self, f, mode):
+        """Opens an item on the store and return a file-like object.
+
+        This method is private and only used by the StoreBackendMixin object.
+
+        Parameters
+        ----------
+        f: a file-like object
+            The file-like object where an item is stored and retrieved
+        mode: string, optional
+            the mode in which the file-like object is opened allowed valued are
+            'rb', 'wb'
+
+        Returns
+        -------
+        a file-like object
+        """
+
+    @abstractmethod
+    def _item_exists(self, location):
+        """Checks if an item location exists in the store.
+
+        This method is private and only used by the StoreBackendMixin object.
+
+        Parameters
+        ----------
+        location: string
+            The location of an item. On a filesystem, this corresponds to the
+            absolute path, including the filename, of a file.
+
+        Returns
+        -------
+        True if the item exists, False otherwise
+        """
+
+    @abstractmethod
+    def _move_item(self, src, dst):
+        """Moves an item from src to dst in the store.
+
+        This method is private and only used by the StoreBackendMixin object.
+
+        Parameters
+        ----------
+        src: string
+            The source location of an item
+        dst: string
+            The destination location of an item
+        """
 
     def load_item(self, call_id, verbose=1, timestamp=None, metadata=None):
         """Load an item from the store given its id as a list of str."""

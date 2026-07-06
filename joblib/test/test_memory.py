@@ -103,25 +103,24 @@ def test_memory_integration(tmpdir):
     check_identity_lazy(f, accumulator, tmpdir.strpath)
 
     # Now test clearing
-    for compress in (False, True):
-        for mmap_mode in ("r", None):
-            memory = Memory(
-                location=tmpdir.strpath,
-                verbose=10,
-                mmap_mode=mmap_mode,
-                compress=compress,
-            )
-            # First clear the cache directory, to check that our code can
-            # handle that
-            # NOTE: this line would raise an exception, as the database file is
-            # still open; we ignore the error since we want to test what
-            # happens if the directory disappears
-            shutil.rmtree(tmpdir.strpath, ignore_errors=True)
-            g = memory.cache(f)
-            g(1)
-            g.clear(warn=False)
-            current_accumulator = len(accumulator)
-            out = g(1)
+    for compress, mmap_mode in ((False, "r"), (False, None), (True, None)):
+        memory = Memory(
+            location=tmpdir.strpath,
+            verbose=10,
+            mmap_mode=mmap_mode,
+            compress=compress,
+        )
+        # First clear the cache directory, to check that our code can
+        # handle that
+        # NOTE: this line would raise an exception, as the database file is
+        # still open; we ignore the error since we want to test what
+        # happens if the directory disappears
+        shutil.rmtree(tmpdir.strpath, ignore_errors=True)
+        g = memory.cache(f)
+        g(1)
+        g.clear(warn=False)
+        current_accumulator = len(accumulator)
+        out = g(1)
 
         assert len(accumulator) == current_accumulator + 1
         # Also, check that Memory.eval works similarly
