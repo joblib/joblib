@@ -1,12 +1,31 @@
-Latest changes
-==============
+Release Notes
+=============
 
 In development
 --------------
 
+- ``MemorizedResult`` now forwards ``mmap_mode`` to its store backend, so a
+  cached array reconstructed from a location is memory-mapped as requested
+  instead of being loaded fully into memory.
+  https://github.com/joblib/joblib/pull/1799
+
 - Unvendor cloudpickle to more quickly benefit from maintenance releases
   of cloudpickle
   https://github.com/joblib/joblib/pull/1775
+
+- Fix ``Memory.cache`` for functions with a keyword-only argument that has a
+  default declared before a keyword-only argument without a default.
+  https://github.com/joblib/joblib/issues/1731
+
+- Fix behavior of ``filter_args`` on some precise cases.
+  https://github.com/joblib/joblib/pull/1800
+
+- Fix a concurrency error that could happen with unordered generator.
+  https://github.com/joblib/joblib/pull/1789
+
+- The documentation now uses pydata sphinx theme. Furthermore, optional dependencies ``test``
+  and ``docs`` have been added to ``pyproject.toml``.
+  https://github.com/joblib/joblib/pull/1774
 
 Release 1.5.3 - 2025/12/15
 --------------------------
