@@ -666,7 +666,7 @@ class MemorizedFunc(Logger):
         """Update the cache tree adding intermediate folders, and replacing call cache
         directories of the form
         \"0123456789abcdef0123456789abcdef\" by \"012/3456789abcdef0123456789abcdef\".
-        This second form is preffered for efficiency reasons.
+        This second form is prefered for efficiency reasons.
         """
         if not isinstance(self.store_backend, FileSystemStoreBackend):
             warnings.warn(
