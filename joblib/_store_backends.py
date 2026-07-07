@@ -51,39 +51,7 @@ class StoreBackendBase(metaclass=ABCMeta):
     location = None
 
     @abstractmethod
-    def create_location(self, location):
-        """Creates a location on the store.
-
-        Parameters
-        ----------
-        location: string
-            The location in the store. On a filesystem, this corresponds to a
-            directory.
-        """
-
-    @abstractmethod
-    def clear_location(self, location):
-        """Clears a location on the store.
-
-        Parameters
-        ----------
-        location: string
-            The location in the store. On a filesystem, this corresponds to a
-            directory or a filename absolute path
-        """
-
-    @abstractmethod
-    def get_items(self):
-        """Returns the whole list of items available in the store.
-
-        Returns
-        -------
-        The list of items identified by their ids (e.g filename in a
-        filesystem).
-        """
-
-    @abstractmethod
-    def configure(self, location, verbose=0, backend_options=dict()):
+    def configure(self, location, verbose, backend_options):
         """Configures the store.
 
         Parameters
@@ -96,6 +64,125 @@ class StoreBackendBase(metaclass=ABCMeta):
         backend_options: dict
             Contains a dictionary of named parameters used to configure the
             store backend.
+        """
+
+    @abstractmethod
+    def load_item(self, call_id, verbose, timestamp, metadata):
+        """Load an item from the store.
+
+        Parameters
+        ----------
+        call_id: list of str
+            id of the call
+        verbose: int
+            The level of verbosity
+        timestamp: float
+            Time of the creation of the Memory in seconds (used for verbose logs)
+        metadata: dict
+            Metadata associated to the call.
+            If it contains input args, they will be used by the verbose logs.
+
+        Returns
+        -------
+        The item associated to call_id
+        """
+
+    @abstractmethod
+    def dump_item(self, call_id, item, verbose):
+        """Dump an item in the store.
+
+        Parameters
+        ----------
+        call_id: list of str
+            id of the call
+        item: any
+            Item to be stored
+        verbose: int
+            The level of verbosity
+        """
+
+    @abstractmethod
+    def clear_item(self, call_id):
+        """Clear an item from the store.
+
+        Parameters
+        ----------
+        call_id: list of str
+            id to be cleared
+        """
+
+    @abstractmethod
+    def contains_item(self, call_id):
+        """Check if the store contains an item for a given id.
+
+        Parameters
+        ----------
+        call_id: list of str
+            id of the item to be checked
+        """
+
+    @abstractmethod
+    def get_metadata(self, call_id):
+        """Return actual metadata of an item.
+
+        Parameters
+        ----------
+        call_id: list of str
+            id of the call
+
+        Returns
+        -------
+        metadata: dict
+            Metadata associated to the call
+        """
+
+    @abstractmethod
+    def store_metadata(self, call_id, metadata):
+        """Store metadata of a computation.
+
+        Parameters
+        ----------
+        call_id: list of str
+            id of the call
+        metadata: dict
+            Metadata associated to the call
+        """
+
+    @abstractmethod
+    def get_cached_func_code(self, func_id):
+        """Get the code of the cached function.
+
+        Parameters
+        ----------
+        func_id: list of str
+            id of the cached function
+
+        Returns
+        -------
+        func_code: str
+            The code of the cached function
+        """
+
+    @abstractmethod
+    def store_cached_func_code(self, func_id, func_code):
+        """Store the code of the cached function.
+
+        Parameters
+        ----------
+        func_id: list of str
+            id of the cached function
+        func_code: str
+            The code of the cached function
+        """
+
+    @abstractmethod
+    def clear_path(self, path_id):
+        """Clear all items with a common path in the store.
+
+        Parameters
+        ----------
+        path_id: list of str
+            Prefix id of item to be cleared
         """
 
 
@@ -276,15 +363,15 @@ class StoreBackendMixin(object):
         func_path = os.path.join(self.location, *call_id)
         return self.object_exists(func_path)
 
-    def clear_path(self, call_id):
+    def clear_path(self, path_id):
         """Clear all items with a common path in the store."""
-        func_path = os.path.join(self.location, *call_id)
+        func_path = os.path.join(self.location, *path_id)
         if self._item_exists(func_path):
             self.clear_location(func_path)
 
-    def store_cached_func_code(self, call_id, func_code=None):
+    def store_cached_func_code(self, func_id, func_code=None):
         """Store the code of the cached function."""
-        func_path = os.path.join(self.location, *call_id)
+        func_path = os.path.join(self.location, *func_id)
         if not self._item_exists(func_path):
             self.create_location(func_path)
 
@@ -293,9 +380,9 @@ class StoreBackendMixin(object):
             with self._open_item(filename, "wb") as f:
                 f.write(func_code.encode("utf-8"))
 
-    def get_cached_func_code(self, call_id):
-        """Store the code of the cached function."""
-        filename = os.path.join(self.location, *call_id, "func_code.py")
+    def get_cached_func_code(self, func_id):
+        """Get the code of the cached function."""
+        filename = os.path.join(self.location, *func_id, "func_code.py")
         try:
             with self._open_item(filename, "rb") as f:
                 return f.read().decode("utf-8")
