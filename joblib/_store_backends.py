@@ -306,6 +306,7 @@ class StoreBackendMixin(object):
             self.create_location(func_path)
 
         if func_code is None:
+            # XXX: This should be cleaned up in joblib 1.8
             # Check if this folder uses the old cache tree
             for file in os.scandir(func_path):
                 if not file.is_dir():
@@ -314,9 +315,11 @@ class StoreBackendMixin(object):
                     fun_name = os.path.basename(func_path)
                     warnings.warn(
                         f"The cache folder of the function `{fun_name}`"
-                        " uses an old cache tree version.\nPlease run "
-                        f'`joblib._store_backends.update_cache_tree("{func_path}")`'
-                        "to update the cache tree."
+                        " uses an old cache tree version.\n"
+                        "The joblib cache tree has recently been updated"
+                        " for efficiency reasons.\n"
+                        f"Please run `{fun_name}.update_cache_tree()`"
+                        " to update your cache tree."
                     )
                     return False
                 if re.match("[a-f0-9]{3}", file.name):
@@ -538,7 +541,7 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
         self.verbose = verbose
 
 
-def update_cache_tree(dirpath):
+def _update_cache_tree(dirpath):
     old_folders = []
     for file in os.scandir(dirpath):
         if not file.is_dir():

@@ -26,7 +26,6 @@ import pytest
 from joblib._store_backends import (
     FileSystemStoreBackend,
     StoreBackendBase,
-    update_cache_tree,
 )
 from joblib.hashing import hash
 from joblib.memory import (
@@ -1490,7 +1489,7 @@ def test_memory_cache_tree_versions(tmpdir):
         memory.cache(add)
 
     # Assert update_cache_tree correctly updates the cache tree
-    update_cache_tree(os.path.join(memory.store_backend.location, add.func_id))
+    add.update_cache_tree()
     assert len(memory.store_backend.get_items()) == 2 * len(xs)
     with warnings.catch_warnings():
         warnings.simplefilter("error", category=UserWarning)
