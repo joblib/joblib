@@ -63,7 +63,7 @@ def short_format_time(t):
     Returns
     -------
     str
-        Formatted string: ``' 42.0s'`` for short durations or
+        Formatted string: ``'  42.0s'`` for short durations or
         ``' 1.2min'`` for longer ones.
     """
     t = _squeeze_time(t)
