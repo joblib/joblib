@@ -7,7 +7,27 @@ Test the logger module.
 # License: BSD Style, 3 clauses.
 import re
 
-from joblib.logger import PrintTime
+from joblib.logger import PrintTime, _squeeze_time, format_time, short_format_time
+
+
+def test_format_time():
+    # format_time always reports both seconds and minutes.
+    t = _squeeze_time(90.0)
+    assert format_time(90.0) == "%.1fs, %.1fmin" % (t, t / 60.0)
+
+
+def test_short_format_time_seconds():
+    # Below a minute, short_format_time reports seconds.
+    t = _squeeze_time(42.0)
+    assert short_format_time(42.0) == " %5.1fs" % t
+    assert short_format_time(42.0).endswith("s")
+
+
+def test_short_format_time_minutes():
+    # Above a minute, it switches to minutes.
+    t = _squeeze_time(90.0)
+    assert short_format_time(90.0) == "%4.1fmin" % (t / 60.0)
+    assert short_format_time(90.0).endswith("min")
 
 
 def test_print_time(tmpdir, capsys):
