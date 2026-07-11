@@ -486,7 +486,7 @@ def dump(value, filename, compress=0, protocol=None):
     ----------
     value: any Python object
         The object to store to disk.
-    filename: str, pathlib.Path, or file object.
+    filename: str, os.PathLike, or file object.
         The file object or path of the file in which it is to be stored.
         The compression method corresponding to one of the supported filename
         extensions ('.z', '.gz', '.bz2', '.xz' or '.lzma') will be used
@@ -688,7 +688,7 @@ def load(filename, mmap_mode=None, ensure_native_byte_order="auto"):
 
     Parameters
     ----------
-    filename: str, pathlib.Path, or file object.
+    filename: str, os.PathLike, or file object.
         The file object or path of the file from which to load the object
     mmap_mode: {None, 'r+', 'r', 'w+', 'c'}, optional
         If not None, the arrays are memory-mapped from the disk. This
