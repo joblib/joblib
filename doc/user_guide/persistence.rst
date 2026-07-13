@@ -1,28 +1,36 @@
 .. _persistence:
 
-===========
-Persistence
-===========
+==========================================
+Serialization and memory-mapped loading
+==========================================
 
 .. currentmodule:: joblib.numpy_pickle
 
 Use case
 ========
 
-:func:`joblib.dump` and :func:`joblib.load` provide a replacement for
-pickle to work efficiently on arbitrary Python objects containing large data,
-in particular large numpy arrays.
+:func:`joblib.dump` and :func:`joblib.load` provide numpy-aware serialization
+optimized for **memory-efficient loading in multiprocess environments**.
+Large numpy arrays are stored as raw binary buffers that can be
+**memory-mapped** on load, so multiple worker processes share a single copy of
+the data instead of each holding a full in-memory duplicate.
+
+The canonical use case is serving a scikit-learn model under a multiprocess
+server (e.g. gunicorn): dump the fitted model once, then each worker
+memory-maps the large coefficient arrays rather than pickling them across a
+pipe. This avoids duplicating potentially gigabytes of data per worker.
 
 .. _persistence_security:
 
 Security considerations
 =======================
 
-**Joblib's persistence layer is designed for trusted environments.**
-It is intended for use cases such as caching intermediate results, sharing
-objects between worker processes, or checkpointing long computations — all
-situations where the file was written by your own code or by collaborators
-you control.
+**Because** :func:`joblib.load` **is designed for controlled, internal
+pipelines — not for distributing models to end users — it only makes safety
+guarantees for files you produced yourself.**
+It is intended for use cases such as caching intermediate results or sharing
+objects between worker processes, where the file was written by your own code
+or by collaborators you control.
 
 .. warning::
 
