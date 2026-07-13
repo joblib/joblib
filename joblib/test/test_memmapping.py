@@ -293,6 +293,7 @@ def test__strided_from_memmap(tmpdir):
     assert _get_backing_memmap(memmap_backed_obj).offset == offset
 
 
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 @with_numpy
 @with_multiprocessing
 @parametrize(
@@ -481,6 +482,7 @@ def test_permission_error_windows_memmap_sent_to_parent(backend):
         assert b"resource_tracker" not in err
 
 
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 @with_numpy
 @with_multiprocessing
 @parametrize("backend", ["multiprocessing", "loky"])
@@ -665,6 +667,7 @@ def test_many_parallel_calls_on_same_object(backend):
     assert b"resource_tracker" not in err
 
 
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 @with_numpy
 @with_multiprocessing
 @parametrize("backend", ["multiprocessing", "loky"])
@@ -733,6 +736,7 @@ def test_resource_tracker_silent_when_reference_cycles(backend):
     assert "resource_tracker" not in err, err
 
 
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 @with_numpy
 @with_multiprocessing
 @parametrize(
@@ -913,6 +917,7 @@ def test_memmapping_pool_for_large_arrays_disabled(factory, tmpdir):
         del p
 
 
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 @with_numpy
 @with_multiprocessing
 @with_dev_shm
@@ -1134,6 +1139,7 @@ def test_pool_get_temp_dir_no_statvfs(tmpdir, monkeypatch):
     assert pool_folder.endswith(pool_folder_name)
 
 
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 @with_numpy
 @skipif(
     sys.platform == "win32", reason="This test fails with a PermissionError on Windows"
