@@ -30,6 +30,10 @@ from distributed.metrics import time  # noqa: E402
 from distributed.utils_test import cleanup, cluster, inc  # noqa: E402, F401
 
 
+# https://github.com/joblib/joblib/issues/1818
+pytestmark = pytest.mark.thread_unsafe
+
+
 @pytest.fixture(scope="function", autouse=True)
 def avoid_dask_env_leaks(tmp_path):
     # when starting a dask nanny, the environment variable might change.
