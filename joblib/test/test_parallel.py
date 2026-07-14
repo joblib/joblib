@@ -20,6 +20,7 @@ from multiprocessing import TimeoutError
 from pickle import PicklingError
 from time import sleep
 from traceback import format_exception
+from uuid import uuid4
 
 import pytest
 
@@ -181,6 +182,7 @@ def test_effective_n_jobs_None(context, backend_n_jobs, expected_n_jobs):
 # Test parallel
 
 
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 @parametrize("backend", ALL_VALID_BACKENDS)
 @parametrize("n_jobs", [1, 2, -1, -2])
 @parametrize("verbose", [2, 11, 100])
@@ -190,6 +192,7 @@ def test_simple_parallel(backend, n_jobs, verbose):
     )(delayed(square)(x) for x in range(5))
 
 
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 @parametrize("backend", ALL_VALID_BACKENDS)
 @parametrize("n_jobs", [1, 2])
 def test_parallel_pretty_print(backend, n_jobs):
@@ -349,6 +352,7 @@ def raise_exception(backend):
     raise ValueError
 
 
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1743
 @with_multiprocessing
 def test_nested_loop_with_exception_with_loky():
     with raises(ValueError):
@@ -363,6 +367,7 @@ def test_mutate_input_with_threads():
     assert q.full()
 
 
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 @parametrize("n_jobs", [1, 2, 3])
 def test_parallel_kwargs(n_jobs):
     """Check the keyword argument processing of pmap."""
@@ -418,6 +423,7 @@ def test_parallel_pickling():
         )
 
 
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 @with_numpy
 @with_multiprocessing
 @parametrize("byteorder", ["<", ">", "="])
@@ -463,6 +469,7 @@ def test_parallel_timeout_fail(backend):
         )
 
 
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1743
 @with_multiprocessing
 @parametrize("backend", set(RETURN_GENERATOR_BACKENDS) - {"sequential"})
 @parametrize("return_as", ["generator", "generator_unordered"])
@@ -484,6 +491,7 @@ def test_parallel_timeout_fail_with_generator(backend, return_as):
     )
 
 
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1743
 @with_multiprocessing
 @parametrize("backend", PROCESS_BACKENDS)
 def test_error_capture(backend):
@@ -556,6 +564,7 @@ def test_error_capture(backend):
         )
 
 
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1743
 @with_multiprocessing
 @parametrize("backend", BACKENDS)
 def test_error_in_task_iterator(backend):
@@ -695,6 +704,7 @@ def test_batching_auto_subprocesses(backend):
         assert p._backend.compute_batch_size() > 0
 
 
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1743
 def test_exception_dispatch():
     """Make sure that exception raised during dispatch are indeed captured"""
     with raises(ValueError):
@@ -794,14 +804,16 @@ def test_njobs_converted_to_int(backend, n_jobs):
 
 
 def test_register_parallel_backend():
+    test_backend = "test_backend-" + str(uuid4())
     try:
-        register_parallel_backend("test_backend", FakeParallelBackend)
-        assert "test_backend" in BACKENDS
-        assert BACKENDS["test_backend"] == FakeParallelBackend
+        register_parallel_backend(test_backend, FakeParallelBackend)
+        assert test_backend in BACKENDS
+        assert BACKENDS[test_backend] == FakeParallelBackend
     finally:
-        del BACKENDS["test_backend"]
+        del BACKENDS[test_backend]
 
 
+@pytest.mark.thread_unsafe
 def test_overwrite_default_backend():
     default_backend_orig = parallel.DEFAULT_BACKEND
     assert _active_backend_type() == get_default_backend_instance()
@@ -1058,6 +1070,7 @@ def test_invalid_batch_size(batch_size):
         Parallel(batch_size=batch_size)
 
 
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 @parametrize(
     "n_tasks, n_jobs, pre_dispatch, batch_size",
     [
@@ -1329,6 +1342,7 @@ def check_memmap(a):
     return a.copy()  # return a regular array instead of a memmap
 
 
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 @with_numpy
 @with_multiprocessing
 @parametrize("backend", PROCESS_BACKENDS)
@@ -1377,6 +1391,7 @@ def test_memmap_with_big_offset(tmpdir):
     np.testing.assert_array_equal(obj, result)
 
 
+@pytest.mark.thread_unsafe
 def test_warning_about_timeout_not_supported_by_backend():
     with warnings.catch_warnings(record=True) as warninfo:
         Parallel(n_jobs=1, timeout=1)(delayed(square)(i) for i in range(50))
@@ -1438,6 +1453,7 @@ def _test_parallel_unordered_generator_returns_fastest_first(backend, n_jobs):
     del result
 
 
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 @pytest.mark.parametrize("n_jobs", [2, 4])
 # NB: for this test to work, the backend must be allowed to process tasks
 # concurrently, so at least two jobs with a non-sequential backend are
@@ -1448,6 +1464,7 @@ def test_parallel_unordered_generator_returns_fastest_first(backend, n_jobs):
     _test_parallel_unordered_generator_returns_fastest_first(backend, n_jobs)
 
 
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1743
 @parametrize("backend", ALL_VALID_BACKENDS)
 @parametrize("n_jobs", [1, 2, -2, -1])
 def test_abort_backend(n_jobs, backend):
@@ -1479,6 +1496,7 @@ def _test_deadlock_with_generator(backend, return_as, n_jobs):
         del result
 
 
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1743
 @with_numpy
 @parametrize("backend", RETURN_GENERATOR_BACKENDS)
 @parametrize("return_as", ["generator", "generator_unordered"])
@@ -1487,6 +1505,7 @@ def test_deadlock_with_generator(backend, return_as, n_jobs):
     _test_deadlock_with_generator(backend, return_as, n_jobs)
 
 
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 @parametrize("backend", RETURN_GENERATOR_BACKENDS)
 @parametrize("return_as", ["generator", "generator_unordered"])
 @parametrize("n_jobs", [1, 2, -2, -1])
@@ -1509,6 +1528,7 @@ def test_multiple_generator_call(backend, return_as, n_jobs):
     del g
 
 
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1743
 @parametrize("backend", RETURN_GENERATOR_BACKENDS)
 @parametrize("return_as", ["generator", "generator_unordered"])
 @parametrize("n_jobs", [1, 2, -2, -1])
@@ -1531,6 +1551,7 @@ def test_multiple_generator_call_managed(backend, return_as, n_jobs):
     del g
 
 
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 @parametrize("backend", RETURN_GENERATOR_BACKENDS)
 @parametrize("return_as_1", ["generator", "generator_unordered"])
 @parametrize("return_as_2", ["generator", "generator_unordered"])
@@ -1554,6 +1575,7 @@ def test_multiple_generator_call_separated(backend, return_as_1, return_as_2, n_
     assert all(res == i for res, i in zip(g2, range(10, 20)))
 
 
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1743
 @parametrize(
     "backend, error",
     [
@@ -1608,6 +1630,7 @@ def test_multiple_generator_call_separated_gc(backend, return_as_1, return_as_2,
         assert parallel._aborting
 
 
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1794
 @with_numpy
 @with_multiprocessing
 @parametrize("backend", PROCESS_BACKENDS)
@@ -1645,6 +1668,7 @@ def test_memmapping_leaks(backend, tmpdir):
         raise AssertionError("temporary directory of Parallel was not removed")
 
 
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 @parametrize(
     "backend", ([None, "threading"] if mp is None else [None, "loky", "threading"])
 )
@@ -2073,6 +2097,7 @@ def test_threadpool_limitation_in_child_context(context, n_jobs, inner_max_num_t
     )
 
 
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 @with_multiprocessing
 @parametrize("n_jobs", [2, -1])
 @parametrize("var_name", ["OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "OMP_NUM_THREADS"])
@@ -2112,6 +2137,7 @@ def test_threadpool_limitation_in_child_override(context, n_jobs, var_name):
             os.environ[var_name] = original_var_value
 
 
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 @with_multiprocessing
 @parametrize("n_jobs", [2, 4, -1])
 def test_loky_reuse_workers(n_jobs):
@@ -2161,6 +2187,7 @@ def _check_status(status, n_jobs, wait_workers=False):
     return pid
 
 
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 @with_multiprocessing
 @parametrize("n_jobs", [2, 4])
 @parametrize("backend", PROCESS_BACKENDS)
@@ -2180,6 +2207,7 @@ def test_initializer_context(n_jobs, backend, context):
         Parallel()(delayed(_check_status)(status, n_jobs) for i in range(100))
 
 
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 @with_multiprocessing
 @parametrize("n_jobs", [2, 4])
 @parametrize("backend", PROCESS_BACKENDS)
@@ -2197,6 +2225,7 @@ def test_initializer_parallel(n_jobs, backend):
     )(delayed(_check_status)(status, n_jobs) for i in range(100))
 
 
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 @with_multiprocessing
 @pytest.mark.parametrize("n_jobs", [2, 4])
 def test_initializer_reused(n_jobs):
@@ -2223,6 +2252,7 @@ def test_initializer_reused(n_jobs):
     )
 
 
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 @with_multiprocessing
 @pytest.mark.parametrize("n_jobs", [2, 4])
 def test_initializer_not_reused(n_jobs):
