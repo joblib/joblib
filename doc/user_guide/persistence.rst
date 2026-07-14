@@ -1,27 +1,77 @@
 .. _persistence:
 
-===========
-Persistence
-===========
+==========================================
+Serialization and memory-mapped loading
+==========================================
 
 .. currentmodule:: joblib.numpy_pickle
 
 Use case
 ========
 
-:func:`joblib.dump` and :func:`joblib.load` provide a replacement for
-pickle to work efficiently on arbitrary Python objects containing large data,
-in particular large numpy arrays.
+:func:`joblib.dump` and :func:`joblib.load` provide numpy-aware serialization
+optimized for **memory-efficient loading in multiprocess environments**.
+Large numpy arrays are stored as raw binary buffers that can be
+**memory-mapped** on load, so multiple worker processes share a single copy of
+the data instead of each holding a full in-memory duplicate.
+
+The canonical use case is serving a scikit-learn model under a multiprocess
+server (e.g. gunicorn): dump the fitted model once, then each worker
+memory-maps the large coefficient arrays rather than pickling them across a
+pipe. This avoids duplicating potentially gigabytes of data per worker.
+
+.. _persistence_security:
+
+Security considerations
+=======================
+
+**Because** :func:`joblib.load` **is designed for controlled, internal
+pipelines — not for distributing models to end users — it only makes safety
+guarantees for files you produced yourself.**
+It is intended for use cases such as caching intermediate results or sharing
+objects between worker processes, where the file was written by your own code
+or by collaborators you control.
 
 .. warning::
 
-  :func:`joblib.dump` and :func:`joblib.load` are based on the Python pickle
-  serialization model, which means that arbitrary Python code can be executed
-  when loading a serialized object with :func:`joblib.load`.
+  :func:`joblib.dump` and :func:`joblib.load` are built on Python's
+  :mod:`pickle` protocol, which can execute **arbitrary Python code** during
+  deserialization. Loading a file from an untrusted source is equivalent to
+  running untrusted code. This is a fundamental property of pickle, not a
+  joblib-specific bug.
 
-  :func:`joblib.load` should therefore never be used to load objects from an
-  untrusted source or otherwise you will introduce a security vulnerability in
-  your program.
+  **Never call** :func:`joblib.load` on a file you did not produce yourself
+  or that came from a source you do not fully trust.
+
+Scope of joblib's security guarantees
+--------------------------------------
+
+Joblib focuses on **parallelism, caching, and distributed computation**.
+It does not aim to be a safe model-exchange format. Consequently:
+
+- Joblib **will not** attempt to sandbox or restrict what pickle can
+  deserialize — such restrictions are fragile by design and cannot be made
+  reliable.
+- Security reports that require an attacker-controlled joblib file as their
+  starting point are **outside joblib's threat model**: if the file is
+  malicious, the user should not have loaded it.
+- We may still fix behaviors that are surprising or unnecessarily dangerous
+  (e.g. inconsistencies in how companion files are resolved), but these fixes
+  aim for correctness, not for making untrusted-file loading safe.
+
+Sharing models securely
+------------------------
+
+If you need to **distribute or receive serialized models** across a trust
+boundary (e.g. from Hugging Face, a third-party vendor, or an end user),
+use a format that was designed for safe loading. We recommend
+`skops.io <https://skops.readthedocs.io/en/stable/modules/classes.html#module-skops.io>`_,
+which provides a pickle-free serialization format for scikit-learn compatible
+models with an explicit audit step before loading.
+
+If you must load a joblib file of uncertain provenance, inspect it first with
+a tool such as `fickling <https://github.com/trailofbits/fickling>`_ or
+`skops.io` before loading, then load it only if it is clean.
 
 .. note::
 
