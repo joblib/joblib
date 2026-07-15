@@ -1018,6 +1018,23 @@ def test_pathlib(tmpdir):
     assert numpy_pickle.load(Path(filename)) == value
 
 
+def test_dump_and_load_accept_os_pathlike(tmpdir):
+    # dump() previously only accepted str and pathlib.Path, rejecting any
+    # other os.PathLike (e.g. BIDSPath from mne-bids). load() already worked
+    # because open() accepts os.PathLike; this test ensures both are consistent.
+    class CustomPath(os.PathLike):
+        def __init__(self, path):
+            self._path = path
+
+        def __fspath__(self):
+            return str(self._path)
+
+    path = CustomPath(tmpdir.join("test_pathlike.pkl").strpath)
+    value = {"key": [1, 2, 3]}
+    numpy_pickle.dump(value, path)
+    assert numpy_pickle.load(path) == value
+
+
 @with_numpy
 def test_non_contiguous_array_pickling(tmpdir):
     filename = tmpdir.join("test.pkl").strpath
