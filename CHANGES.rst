@@ -4,6 +4,11 @@ Release Notes
 In development
 --------------
 
+- Fix ``eval_expr`` (used to evaluate the ``pre_dispatch`` argument of
+  ``Parallel``) to raise a ``ValueError`` as documented instead of leaking a
+  ``ZeroDivisionError`` for expressions that divide or take a modulo by zero.
+  https://github.com/joblib/joblib/pull/1810
+
 - ``MemorizedResult`` now forwards ``mmap_mode`` to its store backend, so a
   cached array reconstructed from a location is memory-mapped as requested
   instead of being loaded fully into memory.
