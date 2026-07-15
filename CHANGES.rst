@@ -23,8 +23,12 @@ In development
 - Fix a concurrency error that could happen with unordered generator.
   https://github.com/joblib/joblib/pull/1789
 
-- The documentation now uses pydata sphinx theme. Furthermore, optional dependencies ``test``
-  and ``docs`` have been added to ``pyproject.toml``.
+- Fix: ``dump()`` now accepts any input ``os.PathLike`` object to be consistent with
+  ``load``.
+  https://github.com/joblib/joblib/pull/1812
+
+- The documentation now uses pydata sphinx theme. Furthermore, optional dependencies
+  ``test`` and ``docs`` have been added to ``pyproject.toml``.
   https://github.com/joblib/joblib/pull/1774
 
 Release 1.5.3 - 2025/12/15
