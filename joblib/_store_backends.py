@@ -45,7 +45,7 @@ def concurrency_safe_write(object_to_write, filename, write_func):
 
 
 class StoreBackendBase(metaclass=ABCMeta):
-    """Helper Abstract Base Class which defines all methods that
+    """Abstract Base Class which defines all methods that
     a StorageBackend must implement."""
 
     location = None
@@ -186,14 +186,20 @@ class StoreBackendBase(metaclass=ABCMeta):
         """
 
 
-class StoreBackendMixin(object):
+class StoreBackendMixin(StoreBackendBase):
     """Class providing all logic for managing the store in a generic way.
 
-    The StoreBackend subclass has to implement 3 methods: create_location,
-    clear_location and configure. The StoreBackend also has to provide
-    a private _open_item, _item_exists and _move_item methods. The _open_item
-    method has to have the same signature as the builtin open and return a
-    file-like object.
+    The StoreBackend subclass has to implement 7 methods.
+    One inherit from StoreBackendBase:
+      * configure
+    Three others are private methods:
+      * _open_item
+      * _item_exists
+      * _move_item
+    The three last ones are new public methods:
+      * create_location,
+      * clear_location
+      * get_items
     """
 
     @abstractmethod
@@ -245,6 +251,30 @@ class StoreBackendMixin(object):
         dst: string
             The destination location of an item
         """
+
+    @abstractmethod
+    def create_location(self, location):
+        """Create object location on store
+
+        Parameters
+        ----------
+        location:
+            The location of the object to be created
+        """
+
+    @abstractmethod
+    def clear_location(self, location):
+        """Delete location on store.
+
+        Parameters
+        ----------
+        location:
+            The location to be cleared
+        """
+
+    @abstractmethod
+    def get_items(self):
+        """Returns the whole list of items available in the store."""
 
     def load_item(self, call_id, verbose=1, timestamp=None, metadata=None):
         """Load an item from the store given its id as a list of str."""
@@ -487,7 +517,7 @@ class StoreBackendMixin(object):
         )
 
 
-class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
+class FileSystemStoreBackend(StoreBackendMixin):
     """A StoreBackend used with local or network file systems."""
 
     _open_item = staticmethod(open)
