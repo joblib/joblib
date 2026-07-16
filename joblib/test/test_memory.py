@@ -21,7 +21,11 @@ from pathlib import Path
 
 import pytest
 
-from joblib._store_backends import FileSystemStoreBackend, StoreBackendBase
+from joblib._store_backends import (
+    FileSystemStoreBackend,
+    StoreBackendBase,
+    StoreBackendMixin,
+)
 from joblib.hashing import hash
 from joblib.memory import (
     _FUNCTION_HASHES,
@@ -1180,7 +1184,7 @@ class IncompleteStoreBackend(StoreBackendBase):
     pass
 
 
-class DummyStoreBackend(StoreBackendBase):
+class DummyStoreBackend(StoreBackendMixin):
     """A dummy store backend that does nothing."""
 
     def _open_item(self, *args, **kwargs):
@@ -1198,10 +1202,6 @@ class DummyStoreBackend(StoreBackendBase):
     def create_location(self, location):
         """Create location on store."""
         "Does nothing"
-
-    def exists(self, obj):
-        """Check if an object exists in the store"""
-        return False
 
     def clear_location(self, obj):
         """Clear object on store"""
