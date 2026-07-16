@@ -80,7 +80,7 @@ class StoreBackendBase(metaclass=ABCMeta):
             Time of the creation of the Memory in seconds (used for verbose logs)
         metadata: dict
             Metadata associated to the call.
-            If it contains input args, they will be used by the verbose logs.
+            If it contains 'input_args', it will be used by the verbose logs.
 
         Returns
         -------
