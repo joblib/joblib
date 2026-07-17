@@ -1,0 +1,23 @@
+# Doctest for func_inspect
+
+`func_inspect` works in doctests too! Here's an example/test:
+
+>>> def my_func(x):
+...   return x + 1
+
+>>> from joblib.func_inspect import get_func_name, get_func_code
+>>> import_path, name = get_func_name(my_func)
+>>> name
+'my_func'
+>>> import_path  # doctest: +ELLIPSIS
+['...<doctest test_func_inspect', 'txt[0]>']
+
+That's not perfect, but it's good enough for us.
+
+>>> code, file, line_no = get_func_code(my_func)
+>>> code
+'def my_func(x):\n  return x + 1\n'
+>>> file
+'<doctest test_func_inspect.txt[0]>'
+>>> line_no
+1
