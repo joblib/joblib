@@ -272,7 +272,7 @@ def _count_physical_cores_linux():
         cpu_info = cpu_info.stdout.splitlines()
         cpu_info = {line for line in cpu_info if not line.startswith("#")}
         return len(cpu_info)
-    except:
+    except Exception:
         pass  # fallback to /proc/cpuinfo
 
     cpu_info = subprocess.run(
@@ -293,7 +293,7 @@ def _count_physical_cores_win32():
         )
         cpu_info = cpu_info.stdout.splitlines()
         return int(cpu_info[0])
-    except:
+    except Exception:
         pass  # fallback to wmic (older Windows versions; deprecated now)
 
     cpu_info = subprocess.run(
