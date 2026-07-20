@@ -1,9 +1,13 @@
 """Store Backend using SQLite"""
 
+import io
+import json
 import os
 import sqlite3
 import time
+from pickle import PicklingError
 
+from . import numpy_pickle
 from ._store_backends import StoreBackendBase
 from .logger import format_time
 
@@ -36,7 +40,15 @@ class SQLStoreBackend(StoreBackendBase):
 
         with self.con:
             self.con.execute(
-                "CREATE TABLE IF NOT EXISTS cache (path TEXT PRIMARY KEY, data BLOB)"
+                "CREATE TABLE IF NOT EXISTS cache ("
+                "path TEXT PRIMARY KEY, "
+                "data BLOB,"
+                "metadata TEXT)"
+            )
+            self.con.execute(
+                "CREATE TABLE IF NOT EXISTS func_code ("
+                "path TEXT PRIMARY KEY, "
+                "code TEXT)"
             )
 
     def load_item(self, call_id, verbose, timestamp, metadata):
@@ -86,16 +98,11 @@ class SQLStoreBackend(StoreBackendBase):
                     "Non-existing item (may have been cleared).\n"
                     f"Path {path} does not exist"
                 )
+            serialized_data = row[0]
 
-        """
-        # file-like object cannot be used when mmap_mode is set
-        if mmap_mode is None:
-            with self._open_item(filename, "rb") as f:
-                item = numpy_pickle.load(f)
-        else:
-            item = numpy_pickle.load(filename, mmap_mode=mmap_mode)
+        file = io.BytesIO(serialized_data)
+        item = numpy_pickle.load(file)
         return item
-        """
 
     def dump_item(self, call_id, item, verbose):
         """Dump an item in the store.
@@ -109,6 +116,27 @@ class SQLStoreBackend(StoreBackendBase):
         verbose: int
             The level of verbosity
         """
+        path = os.path.join(*call_id)
+
+        if verbose > 10:
+            print("Persisting in %s" % path)
+
+        file = io.BytesIO()
+        try:
+            numpy_pickle.dump(item, file, compress=self.compress)
+            serialized_data = file.getvalue()
+        except PicklingError as e:
+            raise RuntimeError(
+                "Unable to cache to disk: failed to pickle output."
+            ) from e
+
+        with self.con:
+            self.con.execute(
+                "INSERT INTO cache (path, data) "
+                "VALUES (?, ?) "
+                "ON CONFLICT(path) DO UPDATE SET data = excluded.data",
+                (path, serialized_data),
+            )
 
     def clear_item(self, call_id):
         """Clear an item from the store.
@@ -118,6 +146,9 @@ class SQLStoreBackend(StoreBackendBase):
         call_id: list of str
             id to be cleared
         """
+        path = os.path.join(*call_id)
+        with self.con:
+            self.con.execute("DELETE FROM cache WHERE path=?", path)
 
     def contains_item(self, call_id):
         """Check if the store contains an item for a given id.
@@ -127,6 +158,12 @@ class SQLStoreBackend(StoreBackendBase):
         call_id: list of str
             id of the item to be checked
         """
+        path = os.path.join(*call_id)
+        with self.con.cursor() as cursor:
+            cursor.execute(
+                "SELECT 1 FROM cache WHERE path=? and data IS NOT NULL", (path,)
+            )
+        return cursor.fetchone() is not None
 
     def get_metadata(self, call_id):
         """Return actual metadata of an item.
@@ -141,6 +178,13 @@ class SQLStoreBackend(StoreBackendBase):
         metadata: dict
             Metadata associated to the call
         """
+        path = os.path.join(*call_id)
+        with self.con.cursor() as cursor:
+            cursor.execute("SELECT metadata FROM cache WHERE path=?", (path,))
+            metadata = cursor.fetchone()
+        if metadata is None:
+            return {}
+        return json.loads(metadata)
 
     def store_metadata(self, call_id, metadata):
         """Store metadata of a computation.
@@ -152,6 +196,15 @@ class SQLStoreBackend(StoreBackendBase):
         metadata: dict
             Metadata associated to the call
         """
+        path = os.path.join(*call_id)
+        metadata_str = json.dumps(metadata)
+        with self.con:
+            self.con.execute(
+                "INSERT INTO cache (path, metadata) "
+                "VALUES (?, ?) "
+                "ON CONFLICT(path) DO UPDATE SET metadata = excluded.metadata",
+                (path, metadata_str),
+            )
 
     def get_cached_func_code(self, func_id):
         """Get the code of the cached function.
@@ -166,8 +219,12 @@ class SQLStoreBackend(StoreBackendBase):
         func_code: str
             The code of the cached function
         """
+        path = os.path.join(*func_id)
+        with self.con.cursor() as cursor:
+            cursor.execute("SELECT code FROM func_code WHERE path=?", (path,))
+            return cursor.fetchone()
 
-    def store_cached_func_code(self, func_id, func_code):
+    def store_cached_func_code(self, func_id, func_code=None):
         """Store the code of the cached function.
 
         Parameters
@@ -177,6 +234,15 @@ class SQLStoreBackend(StoreBackendBase):
         func_code: str
             The code of the cached function
         """
+        if func_code is None:
+            return
+
+        path = os.path.join(*func_id)
+        with self.con:
+            self.con.execute(
+                "INSERT OR REPLACE INTO func_code (path, code) VALUES (?, ?)",
+                (path, func_code),
+            )
 
     def clear_path(self, path_id):
         """Clear all items with a common path in the store.
@@ -186,3 +252,27 @@ class SQLStoreBackend(StoreBackendBase):
         path_id: list of str
             Prefix id of item to be cleared
         """
+        if len(path_id) == 0:
+            with self.con:
+                self.con.execute("DELETE FROM cache")
+                self.con.execute("DELETE FROM func_code")
+                self.con.execute("VACUUM")
+            return
+
+        path = os.path.join(*path_id)
+        with self.con:
+            self.con.execute("DELETE FROM cache WHERE path=?", (path,))
+            self.con.execute("DELETE FROM func_code WHERE path=?", (path,))
+
+        pattern = os.path.join(path, "")
+        pattern = pattern.replace("\\", "\\\\")
+        pattern = pattern.replace("_", "\\_")
+        pattern = pattern.replace("%", "\\%")
+        pattern += "%"
+        with self.con:
+            self.con.execute(
+                "DELETE FROM cache WHERE path LIKE ? ESCAPE '\\'", (pattern,)
+            )
+            self.con.execute(
+                "DELETE FROM func_code WHERE path LIKE ? ESCAPE '\\'", (pattern,)
+            )

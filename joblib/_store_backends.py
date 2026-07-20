@@ -164,7 +164,7 @@ class StoreBackendBase(metaclass=ABCMeta):
         """
 
     @abstractmethod
-    def store_cached_func_code(self, func_id, func_code):
+    def store_cached_func_code(self, func_id, func_code=None):
         """Store the code of the cached function.
 
         Parameters
@@ -330,13 +330,9 @@ class StoreBackendMixin(StoreBackendBase):
                     try:
                         numpy_pickle.dump(to_write, f, compress=self.compress)
                     except PicklingError as e:
-                        # TODO(1.5) turn into error
-                        warnings.warn(
-                            "Unable to cache to disk: failed to pickle "
-                            "output. In version 1.5 this will raise an "
-                            f"exception. Exception: {e}.",
-                            FutureWarning,
-                        )
+                        raise RuntimeError(
+                            "Unable to cache to disk: failed to pickle output."
+                        ) from e
 
             self._concurrency_safe_write(item, filename, write_func)
         except Exception as e:  # noqa: E722
