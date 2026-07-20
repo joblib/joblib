@@ -342,14 +342,11 @@ class StoreBackendMixin(StoreBackendBase):
 
             def write_func(to_write, dest_filename):
                 with self._open_item(dest_filename, "wb") as f:
-                    try:
-                        numpy_pickle.dump(to_write, f, compress=self.compress)
-                    except PicklingError as e:
-                        raise RuntimeError(
-                            "Unable to cache to disk: failed to pickle output."
-                        ) from e
+                    numpy_pickle.dump(to_write, f, compress=self.compress)
 
             self._concurrency_safe_write(item, filename, write_func)
+        except PicklingError:
+            raise
         except Exception as e:  # noqa: E722
             warnings.warn(
                 "Unable to cache to disk. Possibly a race condition in the "

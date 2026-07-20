@@ -90,5 +90,5 @@ def test_warning_on_pickling_error(tmpdir):
     backend.location = tmpdir.join("test_warning_on_pickling_error").strpath
     backend.compress = None
 
-    with pytest.warns(FutureWarning, match="not picklable"):
+    with pytest.raises(PicklingError, match="not picklable"):
         backend.dump_item("testpath", UnpicklableObject())
