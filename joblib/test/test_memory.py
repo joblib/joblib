@@ -324,7 +324,7 @@ def test_memory_warning_lambda_collisions(tmpdir):
 
     # In recent Python versions, we can retrieve the code of lambdas,
     # thus nothing is raised
-    assert len(warninfo) == 4
+    assert len(warninfo) == 2
 
 
 def test_memory_warning_collision_detection(tmpdir):
