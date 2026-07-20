@@ -273,7 +273,7 @@ class StoreBackendMixin(StoreBackendBase):
 
         Parameters
         ----------
-        location:
+        location: string
             The location in the store. On a filesystem, this corresponds to a
             directory.
         """
@@ -284,7 +284,7 @@ class StoreBackendMixin(StoreBackendBase):
 
         Parameters
         ----------
-        location:
+        location: string
             The location in the store. On a filesystem, this corresponds to a
             directory or a filename absolute path.
         """
