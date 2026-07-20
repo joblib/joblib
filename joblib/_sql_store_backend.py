@@ -5,7 +5,6 @@ import json
 import os
 import sqlite3
 import time
-from pickle import PicklingError
 
 from . import numpy_pickle
 from ._store_backends import StoreBackendBase
@@ -122,13 +121,8 @@ class SQLStoreBackend(StoreBackendBase):
             print("Persisting in %s" % path)
 
         file = io.BytesIO()
-        try:
-            numpy_pickle.dump(item, file, compress=self.compress)
-            serialized_data = file.getvalue()
-        except PicklingError as e:
-            raise RuntimeError(
-                "Unable to cache to disk: failed to pickle output."
-            ) from e
+        numpy_pickle.dump(item, file, compress=self.compress)
+        serialized_data = file.getvalue()
 
         with self.con:
             self.con.execute(
