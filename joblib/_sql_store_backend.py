@@ -13,7 +13,7 @@ from .logger import format_time
 
 
 class SQLStoreBackend(StoreBackendBase):
-    """TODO"""
+    """A StoreBackend a sqlite database."""
 
     def configure(self, location, verbose=1, backend_options=None):
         """Configures the store.
@@ -32,7 +32,6 @@ class SQLStoreBackend(StoreBackendBase):
             backend_options = {}
 
         self.location = location
-        # self.verbose = verbose
         self.compress = backend_options.get("compress", False)
 
         os.makedirs(os.path.dirname(self.location), exist_ok=True)

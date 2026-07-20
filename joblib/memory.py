@@ -25,6 +25,7 @@ import warnings
 import weakref
 
 from . import hashing
+from ._sql_store_backend import SQLStoreBackend
 from ._store_backends import (
     CacheWarning,  # noqa
     FileSystemStoreBackend,
@@ -71,7 +72,7 @@ class JobLibCollisionWarning(UserWarning):
     """Warn that there might be a collision between names of functions."""
 
 
-_STORE_BACKENDS = {"local": FileSystemStoreBackend}
+_STORE_BACKENDS = {"local": FileSystemStoreBackend, "sqlite": SQLStoreBackend}
 
 
 def register_store_backend(backend_name, backend):
@@ -986,6 +987,7 @@ class Memory(Logger):
         Type of store backend for reading/writing cache files.
         The 'local' backend is using regular filesystem operations to
         manipulate data (open, mv, etc) in the backend.
+        The 'sqlite' backend is using a sqlite database.
 
     mmap_mode: {None, 'r+', 'r', 'w+', 'c'}, optional
         The memmapping mode used when loading from cache
