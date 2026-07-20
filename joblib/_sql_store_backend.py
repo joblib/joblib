@@ -90,15 +90,16 @@ class SQLStoreBackend(StoreBackendBase):
             else:
                 print(f"{msg} from {self.location}::{path}")
 
-        with self.con.cursor() as cursor:
-            cursor.execute("SELECT data FROM cache WHERE path=?", (path,))
-            row = cursor.fetchone()
-            if row is None:
-                raise KeyError(
-                    "Non-existing item (may have been cleared).\n"
-                    f"Path {path} does not exist"
-                )
-            serialized_data = row[0]
+        cursor = self.con.cursor()
+        cursor.execute("SELECT data FROM cache WHERE path=?", (path,))
+        row = cursor.fetchone()
+        cursor.close()
+        if row is None:
+            raise KeyError(
+                "Non-existing item (may have been cleared).\n"
+                f"Path {path} does not exist"
+            )
+        serialized_data = row[0]
 
         file = io.BytesIO(serialized_data)
         item = numpy_pickle.load(file)
@@ -159,10 +160,8 @@ class SQLStoreBackend(StoreBackendBase):
             id of the item to be checked
         """
         path = os.path.join(*call_id)
-        with self.con.cursor() as cursor:
-            cursor.execute(
-                "SELECT 1 FROM cache WHERE path=? and data IS NOT NULL", (path,)
-            )
+        cursor = self.con.cursor()
+        cursor.execute("SELECT 1 FROM cache WHERE path=? and data IS NOT NULL", (path,))
         return cursor.fetchone() is not None
 
     def get_metadata(self, call_id):
@@ -179,12 +178,13 @@ class SQLStoreBackend(StoreBackendBase):
             Metadata associated to the call
         """
         path = os.path.join(*call_id)
-        with self.con.cursor() as cursor:
-            cursor.execute("SELECT metadata FROM cache WHERE path=?", (path,))
-            metadata = cursor.fetchone()
+        cursor = self.con.cursor()
+        cursor.execute("SELECT metadata FROM cache WHERE path=?", (path,))
+        metadata = cursor.fetchone()
+        cursor.close()
         if metadata is None:
             return {}
-        return json.loads(metadata)
+        return json.loads(metadata[0])
 
     def store_metadata(self, call_id, metadata):
         """Store metadata of a computation.
@@ -220,9 +220,13 @@ class SQLStoreBackend(StoreBackendBase):
             The code of the cached function
         """
         path = os.path.join(*func_id)
-        with self.con.cursor() as cursor:
-            cursor.execute("SELECT code FROM func_code WHERE path=?", (path,))
-            return cursor.fetchone()
+        cursor = self.con.cursor()
+        cursor.execute("SELECT code FROM func_code WHERE path=?", (path,))
+        code = cursor.fetchone()
+        cursor.close()
+        if code is None:
+            raise IOError(f"No function with id: {func_id}, in storage {self.location}")
+        return code[0]
 
     def store_cached_func_code(self, func_id, func_code=None):
         """Store the code of the cached function.
@@ -243,6 +247,22 @@ class SQLStoreBackend(StoreBackendBase):
                 "INSERT OR REPLACE INTO func_code (path, code) VALUES (?, ?)",
                 (path, func_code),
             )
+
+    def get_cached_func_info(self, func_id):
+        """Return information related to the cached function if it exists.
+
+        Parameters
+        ----------
+        func_id: list of str
+            id of the cached function
+
+        Returns
+        -------
+        func_info: dict
+            Information concerning the function
+        """
+        path = os.path.join(*func_id)
+        return {"location": f"{self.location}::{path}"}
 
     def clear_path(self, path_id):
         """Clear all items with a common path in the store.

@@ -176,6 +176,21 @@ class StoreBackendBase(metaclass=ABCMeta):
         """
 
     @abstractmethod
+    def get_cached_func_info(self, func_id):
+        """Return information related to the cached function if it exists.
+
+        Parameters
+        ----------
+        func_id: list of str
+            id of the cached function
+
+        Returns
+        -------
+        func_info: dict
+            Information concerning the function
+        """
+
+    @abstractmethod
     def clear_path(self, path_id):
         """Clear all items with a common path in the store.
 
@@ -415,9 +430,9 @@ class StoreBackendMixin(StoreBackendBase):
         except:  # noqa: E722
             raise
 
-    def get_cached_func_info(self, call_id):
+    def get_cached_func_info(self, func_id):
         """Return information related to the cached function if it exists."""
-        return {"location": os.path.join(self.location, *call_id)}
+        return {"location": os.path.join(self.location, *func_id)}
 
     def clear(self):
         """Clear the whole store content."""
