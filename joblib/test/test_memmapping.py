@@ -888,6 +888,7 @@ def test_child_raises_parent_exits_cleanly(backend):
     assert not os.path.exists(filename)
 
 
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 @with_numpy
 @with_multiprocessing
 @parametrize(
@@ -1226,6 +1227,7 @@ def test_weak_array_key_map_no_pickling():
         pickle.dumps(m)
 
 
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 @with_numpy
 @with_multiprocessing
 def test_direct_mmap(tmpdir):
