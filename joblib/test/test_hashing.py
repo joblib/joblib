@@ -514,7 +514,15 @@ def test_hashing_pickling_error():
 
 
 def test_wrong_hash_name():
-    msg = "Valid options for 'hash_name' are"
+    msg = "Valid string options for 'hash_name' are"
     with raises(ValueError, match=msg):
         data = {"foo": "bar"}
         hash(data, hash_name="invalid")
+
+
+def test_hash_name():
+    def custom_hash_name():
+        return hashlib.new("sha1", usedforsecurity=False)
+
+    data = {"foo": "bar"}
+    assert hash(data, hash_name=custom_hash_name) == hash(data, hash_name="sha1")
