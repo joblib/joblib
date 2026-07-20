@@ -200,6 +200,10 @@ class StoreBackendBase(metaclass=ABCMeta):
             Prefix id of item to be cleared
         """
 
+    @abstractmethod
+    def clear(self):
+        """Clear the whole store content."""
+
 
 class StoreBackendMixin(StoreBackendBase):
     """Class providing all logic for managing the store in a generic way.

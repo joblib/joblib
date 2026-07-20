@@ -266,11 +266,7 @@ class SQLStoreBackend(StoreBackendBase):
             Prefix id of item to be cleared
         """
         if len(path_id) == 0:
-            with self.con:
-                self.con.execute("DELETE FROM cache")
-                self.con.execute("DELETE FROM func_code")
-                self.con.execute("VACUUM")
-            return
+            return self.clear()
 
         path = os.path.join(*path_id)
         with self.con:
@@ -289,3 +285,10 @@ class SQLStoreBackend(StoreBackendBase):
             self.con.execute(
                 "DELETE FROM func_code WHERE path LIKE ? ESCAPE '\\'", (pattern,)
             )
+
+    def clear(self):
+        """Clear the whole store content."""
+        with self.con:
+            self.con.execute("DELETE FROM cache")
+            self.con.execute("DELETE FROM func_code")
+            self.con.execute("VACUUM")
