@@ -269,27 +269,35 @@ class StoreBackendMixin(StoreBackendBase):
 
     @abstractmethod
     def create_location(self, location):
-        """Create object location on store
+        """Creates a location on the store.
 
         Parameters
         ----------
         location:
-            The location of the object to be created
+            The location in the store. On a filesystem, this corresponds to a
+            directory.
         """
 
     @abstractmethod
     def clear_location(self, location):
-        """Delete location on store.
+        """Clears a location on the store.
 
         Parameters
         ----------
         location:
-            The location to be cleared
+            The location in the store. On a filesystem, this corresponds to a
+            directory or a filename absolute path.
         """
 
     @abstractmethod
     def get_items(self):
-        """Returns the whole list of items available in the store."""
+        """Returns the whole list of items available in the store.
+
+        Returns
+        -------
+        The list of items identified by their ids (e.g filename in a
+        filesystem).
+        """
 
     def load_item(self, call_id, verbose=1, timestamp=None, metadata=None):
         """Load an item from the store given its id as a list of str."""
