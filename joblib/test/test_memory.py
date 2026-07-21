@@ -347,6 +347,8 @@ def test_memory_warning_collision_detection(tmpdir):
         a1(0)
 
     L = list(warninfo)
+    if len(L) == 5:
+        x, y, z, t, w = L
     assert len(L) == 2
     assert "cannot detect" in str(warninfo[0].message).lower()
 
