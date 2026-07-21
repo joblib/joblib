@@ -292,3 +292,9 @@ class SQLStoreBackend(StoreBackendBase):
             self.con.execute("DELETE FROM cache")
             self.con.execute("DELETE FROM func_code")
         self.con.execute("VACUUM")
+
+    def __del__(self):
+        if self.con is None:
+            return
+        self.con.close()
+        self.con = None
