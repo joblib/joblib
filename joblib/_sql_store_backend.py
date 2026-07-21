@@ -103,7 +103,7 @@ class SQLStoreBackend(StoreBackendBase):
         item = numpy_pickle.load(file)
         return item
 
-    def dump_item(self, call_id, item, verbose):
+    def dump_item(self, call_id, item, verbose=1):
         """Dump an item in the store.
 
         Parameters
@@ -142,7 +142,7 @@ class SQLStoreBackend(StoreBackendBase):
         """
         path = os.path.join(*call_id)
         with self.con:
-            self.con.execute("DELETE FROM cache WHERE path=?", path)
+            self.con.execute("DELETE FROM cache WHERE path=?", (path,))
 
     def contains_item(self, call_id):
         """Check if the store contains an item for a given id.
@@ -291,4 +291,4 @@ class SQLStoreBackend(StoreBackendBase):
         with self.con:
             self.con.execute("DELETE FROM cache")
             self.con.execute("DELETE FROM func_code")
-            self.con.execute("VACUUM")
+        self.con.execute("VACUUM")

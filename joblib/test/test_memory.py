@@ -671,11 +671,13 @@ def test_call_and_shelve(tmpdir):
     for func, Result in zip(
         (
             MemorizedFunc(f, tmpdir.strpath),
+            MemorizedFunc(f, tmpdir.strpath + ".db", "sqlite"),
             NotMemorizedFunc(f),
-            Memory(location=tmpdir.strpath, verbose=0).cache(f),
-            Memory(location=None).cache(f),
+            Memory(tmpdir.strpath, verbose=0).cache(f),
+            Memory(tmpdir.strpath + ".bis.db", "sqlite", verbose=0).cache(f),
+            Memory(None).cache(f),
         ),
-        (MemorizedResult, NotMemorizedResult, MemorizedResult, NotMemorizedResult),
+        [MemorizedResult, MemorizedResult, NotMemorizedResult] * 2,
     ):
         assert func(2) == 5
         result = func.call_and_shelve(2)
