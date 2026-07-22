@@ -64,6 +64,8 @@ class ParallelBackendBase(metaclass=ABCMeta):
         "VECLIB_MAXIMUM_THREADS",
         "NUMBA_NUM_THREADS",
         "NUMEXPR_NUM_THREADS",
+        # This sets a soft max on loky.cpu_count() in workers:
+        "LOKY_MAX_CPU_COUNT",
     ]
 
     TBB_ENABLE_IPC_VAR = "ENABLE_IPC"
