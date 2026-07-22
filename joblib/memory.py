@@ -21,7 +21,6 @@ import textwrap
 import time
 import tokenize
 import traceback
-import types
 import warnings
 import weakref
 
@@ -30,7 +29,6 @@ from ._store_backends import (
     CacheWarning,  # noqa
     FileSystemStoreBackend,
     StoreBackendBase,
-    _update_cache_tree,
 )
 from .func_inspect import (
     filter_args,
@@ -156,16 +154,6 @@ def _build_func_identifier(func):
     modules, funcname = get_func_name(func)
     # We reuse historical fs-like way of building a function identifier
     return os.path.join(*modules, funcname)
-
-
-def _old_get_args_id(self, *args, **kwargs):
-    """Old _get_args_id"""
-    return (
-        hashing.hash(
-            filter_args(self.func, self.ignore, args, kwargs),
-            coerce_mmap=self.mmap_mode is not None,
-        ),
-    )
 
 
 # An in-memory store to avoid looking at the disk-based function
@@ -450,11 +438,7 @@ class MemorizedFunc(Logger):
         )
         if self.store_backend is not None:
             # Create func directory on demand.
-            if not self.store_backend.store_cached_func_code([self.func_id]):
-                # XXX: This should be cleaned up in joblib 1.8
-                # If the storage uses an old cache tree, we use and old version
-                # of _get_args_id
-                self._get_args_id = types.MethodType(_old_get_args_id, self)
+            self.store_backend.store_cached_func_code([self.func_id])
 
         self.timestamp = timestamp if timestamp is not None else time.time()
         try:
@@ -528,7 +512,7 @@ class MemorizedFunc(Logger):
         metadata: dict containing the metadata associated with the call.
         """
         args_id = self._get_args_id(*args, **kwargs)
-        call_id = (self.func_id, *args_id)
+        call_id = (self.func_id, args_id)
         _, func_name = get_func_name(self.func)
         func_info = self.store_backend.get_cached_func_info([self.func_id])
         location = func_info["location"]
@@ -659,23 +643,8 @@ class MemorizedFunc(Logger):
         is_call_in_cache: bool
             Whether or not the function call is in cache and can be used.
         """
-        call_id = (self.func_id, *self._get_args_id(*args, **kwargs))
+        call_id = (self.func_id, self._get_args_id(*args, **kwargs))
         return self._is_in_cache_and_valid(call_id)
-
-    def update_cache_tree(self):
-        """Update the cache tree adding intermediate folders, and replacing call cache
-        directories of the form
-        \"0123456789abcdef0123456789abcdef\" by \"012/3456789abcdef0123456789abcdef\".
-        This second form is prefered for efficiency reasons.
-        """
-        if not isinstance(self.store_backend, FileSystemStoreBackend):
-            warnings.warn(
-                "Trying to update the function's cache tree using a"
-                " store backend other than FileSystemStoreBackend.\n"
-                "`update_cache_tree` won't have any effect on the storage."
-            )
-            return
-        _update_cache_tree(os.path.join(self.store_backend.location, self.func_id))
 
     # ------------------------------------------------------------------------
     # Private interface
@@ -683,11 +652,10 @@ class MemorizedFunc(Logger):
 
     def _get_args_id(self, *args, **kwargs):
         """Return the input parameter hash of a result."""
-        h = hashing.hash(
+        return hashing.hash(
             filter_args(self.func, self.ignore, args, kwargs),
             coerce_mmap=self.mmap_mode is not None,
         )
-        return (h[:3], h[3:])
 
     def _hash_func(self):
         """Hash a function to key the online cache"""
@@ -857,7 +825,7 @@ class MemorizedFunc(Logger):
         metadata : dict
             The metadata associated with the call.
         """
-        call_id = (self.func_id, *self._get_args_id(*args, **kwargs))
+        call_id = (self.func_id, self._get_args_id(*args, **kwargs))
 
         # Return the output and the metadata
         return self._call(call_id, args, kwargs)

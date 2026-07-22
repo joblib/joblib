@@ -6,10 +6,10 @@ import json
 import operator
 import os
 import os.path
-import re
 import shutil
 import threading
 import time
+import types
 import uuid
 import warnings
 from abc import ABCMeta, abstractmethod
@@ -149,22 +149,6 @@ class StoreBackendBase(metaclass=ABCMeta):
         """
 
 
-def _check_cache_dir_name(dirpath):
-    """Check if dirpath corresponds to a cache directory"""
-    head, tail = os.path.split(dirpath)
-    if not re.match("[a-f0-9]{29}", tail):
-        return False
-    head = os.path.basename(head)
-    if not re.match("[a-f0-9]{3}", head):
-        return False
-    return True
-
-
-def _old_check_cache_dir_name(dirpath):
-    """Old version of _check_cache_dir_name"""
-    return re.match("[a-f0-9]{32}", os.path.basename(dirpath))
-
-
 class StoreBackendMixin(object):
     """Class providing all logic for managing the store in a generic way.
 
@@ -290,7 +274,7 @@ class StoreBackendMixin(object):
     def contains_path(self, call_id):
         """Check cached function is available in store."""
         func_path = os.path.join(self.location, *call_id)
-        return self.object_exists(func_path)
+        return self._item_exists(func_path)
 
     def clear_path(self, call_id):
         """Clear all items with a common path in the store."""
@@ -299,35 +283,12 @@ class StoreBackendMixin(object):
             self.clear_location(func_path)
 
     def store_cached_func_code(self, call_id, func_code=None):
-        """Store the code of the cached function.
-        If func_code is None, return True iff the cache dir uses the new tree."""
+        """Store the code of the cached function."""
         func_path = os.path.join(self.location, *call_id)
         if not self._item_exists(func_path):
             self.create_location(func_path)
 
-        if func_code is None:
-            # XXX: This should be cleaned up in joblib 1.8
-            # Check if this folder uses the old cache tree
-            for file in os.scandir(func_path):
-                if not file.is_dir():
-                    continue
-                if _old_check_cache_dir_name(file.name):
-                    fun_name = os.path.basename(func_path)
-                    warnings.warn(
-                        f"The cache folder of the function `{fun_name}`"
-                        " uses an old cache tree version.\n"
-                        "The joblib cache tree has recently been updated"
-                        " for efficiency reasons.\n"
-                        f"Please run `{fun_name}.update_cache_tree()`"
-                        " to update your cache tree."
-                    )
-                    return False
-                if re.match("[a-f0-9]{3}", file.name):
-                    # We assume that if one folder name matches the new style then
-                    # all other folders match the new style
-                    break
-            return True
-        else:
+        if func_code is not None:
             filename = os.path.join(func_path, "func_code.py")
             with self._open_item(filename, "wb") as f:
                 f.write(func_code.encode("utf-8"))
@@ -439,6 +400,45 @@ class StoreBackendMixin(object):
         )
 
 
+def _check_hex(s, length):
+    if len(s) != length:
+        return False
+    try:
+        if length & 1:
+            s += "0"
+        bytes.fromhex(s)
+        return True
+    except ValueError:
+        return False
+
+
+def _split_id(call_id):
+    if len(call_id) == 0 or not _check_hex(call_id[-1], 32):
+        return call_id
+    return (*call_id[:-1], call_id[-1][:3], call_id[-1][3:])
+
+
+def _old_split_id(self, call_id):
+    info_path = os.path.join(self.location, "store_backend_info.json")
+    try:
+        with open(info_path, "rb") as file:
+            info = json.loads(file.read().decode("utf-8"))
+        if info["cache_version"] == 2:
+            self._split_id = _split_id
+            return _split_id(call_id)
+    except OSError:
+        pass
+    return call_id
+
+
+def _split_decorator(method):
+    def f(self, call_id, *args, **kwargs):
+        call_id = self._split_id(call_id)
+        return method(self, call_id, *args, **kwargs)
+
+    return f
+
+
 class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
     """A StoreBackend used with local or network file systems."""
 
@@ -462,10 +462,12 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
         items = []
 
         for dirpath, _, filenames in os.walk(self.location):
-            if not (
-                _old_check_cache_dir_name(dirpath) or _check_cache_dir_name(dirpath)
-            ):
-                continue
+            parent, basename = os.path.split(dirpath)
+            if not _check_hex(basename, 32):
+                if not _check_hex(basename, 29):
+                    continue
+                if not _check_hex(os.path.basename(parent), 3):
+                    continue
 
             output_filename = os.path.join(dirpath, "output.pkl")
             try:
@@ -501,8 +503,10 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
 
         # setup location directory
         self.location = location
+        info = None
         if not os.path.exists(self.location):
             mkdirp(self.location)
+            info = {"cache_version": 2, "require_update": False}
 
         # Automatically add `.gitignore` file to the cache folder.
         # XXX: the condition is necessary because in `Memory.__init__`, the user
@@ -540,16 +544,107 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
         self.mmap_mode = mmap_mode
         self.verbose = verbose
 
+        # Get info
+        info_path = os.path.join(self.location, "store_backend_info.json")
+        if os.path.exists(info_path):
+            with open(info_path, "rb") as file:
+                info = json.loads(file.read().decode("utf-8"))
+        else:
+            if info is None:
+                # Cache directory without info. It is an old cache directory
+                info = {"cache_version": 1, "require_update": True}
+            with open(info_path, "wb") as file:
+                file.write(json.dumps(info).encode("utf-8"))
 
-def _update_cache_tree(dirpath):
-    old_folders = []
-    for file in os.scandir(dirpath):
-        if not file.is_dir():
-            continue
-        if _old_check_cache_dir_name(file.name):
-            old_folders.append(file.name)
-    for f in old_folders:
-        old_path = os.path.join(dirpath, f)
-        new_path_1 = os.path.join(dirpath, f[:3])
-        new_path_2 = os.path.join(new_path_1, f[3:])
-        shutil.move(old_path, new_path_2)
+        # Warn if an update is required
+        if info["require_update"]:
+            true_location = (
+                f"'{os.path.dirname(location)}'"
+                if os.path.basename(location) == "joblib"
+                else f"pathlib.Path('{location}')"
+            )
+            warnings.warn(
+                f"The FileSystemStoreBackend at '{self.location}' may contains "
+                "items using old cache storage tree.\n"
+                "The joblib cache tree has recently been updated "
+                "for efficiency reasons.\n"
+                "Starting with joblib 1.8, the old cache tree "
+                "will no longer be supported.\n"
+                f"Please run `joblib.Memory({true_location}).store_backend."
+                "update_cache_tree()` to update your cache tree."
+            )
+
+        # Splitting the input hash id in new versions
+        self._split_id = (
+            _split_id
+            if info["cache_version"] == 2
+            else types.MethodType(_old_split_id, self)
+        )
+        for method in [
+            "load_item",
+            "dump_item",
+            "clear_item",
+            "contains_item",
+            "get_item_info",
+            "get_metadata",
+            "store_metadata",
+        ]:
+            setattr(
+                self,
+                method,
+                types.MethodType(
+                    _split_decorator(getattr(StoreBackendMixin, method)), self
+                ),
+            )
+
+    def update_cache_tree(self):
+        # First info update
+        info_path = os.path.join(self.location, "store_backend_info.json")
+        info = {"cache_version": 2, "require_update": True}
+        with open(info_path, "wb") as file:
+            file.write(json.dumps(info).encode("utf-8"))
+
+        # Find old cache directories
+        old_cache = []
+        for dirpath, _, files in os.walk(self.location):
+            if not _check_hex(os.path.basename(dirpath), 32):
+                continue
+            if not (("output.pkl" in files) or ("metadata.json" in files)):
+                continue
+            old_cache.append(dirpath)
+
+        # Replace old cache directories
+        for dirpath in old_cache:
+            parent, basename = os.path.split(dirpath)
+            newdir = os.path.join(parent, basename[:3], basename[3:])
+            if os.path.exists(newdir):
+                # If the new cache directory already exists,
+                # it is replaced depending on the last modification time
+                # of 'output.pkl'
+                old_item = os.path.join(dirpath, "output.pkl")
+                try:
+                    old_mtime = os.path.getmtime(old_item)
+                except OSError:
+                    # "output.pkl" does not exist, so we don't replace
+                    shutil.rmtree(dirpath)
+                    continue
+                new_item = os.path.join(newdir, "output.pkl")
+                try:
+                    new_mtime = os.path.getmtime(new_item)
+                except OSError:
+                    new_mtime = -1
+                if new_mtime < old_mtime:
+                    # replace
+                    shutil.rmtree(newdir)
+                    os.replace(dirpath, newdir)
+                    pass
+                else:
+                    # don't replace
+                    shutil.rmtree(dirpath)
+            else:
+                os.replace(dirpath, newdir)
+
+        # Second info update
+        info["require_update"] = False
+        with open(info_path, "wb") as file:
+            file.write(json.dumps(info).encode("utf-8"))
