@@ -184,9 +184,14 @@ def test_parallel_call_cached_function_defined_in_jupyter(tmpdir, call_before_re
         memory = Memory(location=tmpdir.strpath, verbose=0)
         cached_f = memory.cache(f)
 
-        assert len(os.listdir(tmpdir / "joblib")) == 1
-        f_cache_relative_directory = os.listdir(tmpdir / "joblib")[0]
-        assert "ipython-input" in f_cache_relative_directory
+        # The store backend should contain both the function directory
+        # and 'store_backend_info.json'
+        assert len(os.listdir(tmpdir / "joblib")) == 2
+        tmpdir_entries = os.listdir(tmpdir / "joblib")
+        assert any("ipython-input" in entry for entry in tmpdir_entries)
+        f_cache_relative_directory = tmpdir_entries[
+            0 if "ipython-input" in tmpdir_entries[0] else 1
+        ]
 
         f_cache_directory = tmpdir / "joblib" / f_cache_relative_directory
 
@@ -604,7 +609,9 @@ def test_func_dir(tmpdir):
 
     # Test the robustness to failure of loading previous results.
     args_id = g._get_args_id(1)
-    output_dir = os.path.join(g.store_backend.location, g.func_id, args_id)
+    output_dir = os.path.join(
+        g.store_backend.location, g.func_id, args_id[:3], args_id[3:]
+    )
     a = g(1)
     assert os.path.exists(output_dir)
     os.remove(os.path.join(output_dir, "output.pkl"))
@@ -700,7 +707,11 @@ def test_call_and_shelve_lazily_load_stored_result(tmpdir):
     func = memory.cache(f)
     args_id = func._get_args_id(2)
     result_path = os.path.join(
-        memory.store_backend.location, func.func_id, args_id, "output.pkl"
+        memory.store_backend.location,
+        func.func_id,
+        args_id[:3],
+        args_id[3:],
+        "output.pkl",
     )
     assert func(2) == 5
     first_access_time = os.stat(result_path).st_atime
@@ -1071,7 +1082,7 @@ def test_memory_clear(tmpdir):
     memory, _, g = _setup_toy_cache(tmpdir)
     memory.clear()
 
-    assert os.listdir(memory.store_backend.location) == []
+    assert os.listdir(memory.store_backend.location) == ["store_backend_info.json"]
 
     # Check that the cache for functions hash is also reset.
     assert not g._check_previous_func_code(stacklevel=4)

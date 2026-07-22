@@ -551,8 +551,15 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
                 info = json.loads(file.read().decode("utf-8"))
         else:
             if info is None:
-                # Cache directory without info. It is an old cache directory
-                info = {"cache_version": 1, "require_update": True}
+                # Cache directory without info.
+                # As long as it has no subdirectories,
+                # we consider it uses an old cache tree
+                with os.scandir(self.location) as entries:
+                    for entry in entries:
+                        if entry.is_dir():
+                            info = {"cache_version": 1, "require_update": True}
+                if info is None:
+                    info = {"cache_version": 2, "require_update": False}
             with open(info_path, "wb") as file:
                 file.write(json.dumps(info).encode("utf-8"))
 
