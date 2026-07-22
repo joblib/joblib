@@ -510,6 +510,12 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
         return self._pool
 
 
+def _set_env(env: dict[str, str]) -> None:
+    """Set the given environment variables."""
+    for key, value in env.items():
+        os.environ[key] = value
+
+
 class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin, ParallelBackendBase):
     """A ParallelBackend which will use a multiprocessing.Pool.
 
@@ -593,7 +599,12 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin, ParallelBacken
 
         # Make sure to free as much memory as possible before forking
         gc.collect()
-        self._pool = MemmappingPool(n_jobs, **memmapping_pool_kwargs)
+        self._pool = MemmappingPool(
+            n_jobs,
+            initializer=_set_env,
+            initargs=(self._prepare_worker_env(n_jobs),),
+            **memmapping_pool_kwargs,
+        )
         self.parallel = parallel
         return n_jobs
 
