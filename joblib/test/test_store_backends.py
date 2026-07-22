@@ -1,10 +1,5 @@
-try:
-    # Python 2.7: use the C pickle to speed up
-    # test_concurrency_safe_write which pickles big python objects
-    import cPickle as cpickle
-except ImportError:
-    import pickle as cpickle
 import functools
+import pickle as cpickle
 import time
 from pickle import PicklingError
 
@@ -14,6 +9,7 @@ from joblib import Parallel, delayed
 from joblib._store_backends import (
     CacheWarning,
     FileSystemStoreBackend,
+    _split_id,
     concurrency_safe_write,
 )
 from joblib.backports import concurrency_safe_rename
@@ -74,9 +70,10 @@ def test_warning_on_dump_failure(tmpdir):
     backend = FileSystemStoreBackend()
     backend.location = tmpdir.join("test_warning_on_pickling_error").strpath
     backend.compress = None
+    backend._split_id = _split_id
 
     with pytest.warns(CacheWarning, match="some exception"):
-        backend.dump_item("testpath", UnpicklableObject())
+        backend.dump_item(("func", "input"), UnpicklableObject())
 
 
 def test_warning_on_pickling_error(tmpdir):
@@ -89,6 +86,7 @@ def test_warning_on_pickling_error(tmpdir):
     backend = FileSystemStoreBackend()
     backend.location = tmpdir.join("test_warning_on_pickling_error").strpath
     backend.compress = None
+    backend._split_id = _split_id
 
     with pytest.warns(FutureWarning, match="not picklable"):
-        backend.dump_item("testpath", UnpicklableObject())
+        backend.dump_item(("func", "input"), UnpicklableObject())
