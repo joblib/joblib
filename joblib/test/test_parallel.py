@@ -177,6 +177,25 @@ def test_effective_n_jobs_None(context, backend_n_jobs, expected_n_jobs):
     assert effective_n_jobs(n_jobs=None) == 1
 
 
+def _measure_effective() -> tuple[int, int]:
+    return effective_n_jobs(-1), effective_n_jobs(-2)
+
+
+@parametrize("backend", ALL_VALID_BACKENDS)
+def test_negative_effective_n_jobs_affected_by_parent_pool(backend):
+    n_jobs = max(cpu_count() // 2, 1)
+    results = set(
+        Parallel(n_jobs=n_jobs, backend=backend)(
+            (delayed(_measure_effective)() for _ in range(cpu_count() * 10))
+        )
+    )
+    assert len(results) == 1
+
+    (available_in_worker, available_in_worker_minus_1) = results.pop()
+    assert available_in_worker_minus_1 == max(available_in_worker - 1, 1)
+    assert available_in_worker == max(cpu_count() // n_jobs, 1)
+
+
 ###############################################################################
 # Test parallel
 
