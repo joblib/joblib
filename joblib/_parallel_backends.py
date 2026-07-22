@@ -8,6 +8,8 @@ import os
 import threading
 import warnings
 from abc import ABCMeta, abstractmethod
+from dataclasses import dataclass
+from typing import Any, Callable
 
 from ._multiprocessing_helpers import mp
 from ._utils import (
@@ -538,10 +540,20 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
         return self._pool
 
 
-def _set_env(env: dict[str, str]) -> None:
-    """Set the given environment variables."""
-    for key, value in env.items():
-        os.environ[key] = value
+@dataclass
+class _SetEnvInitializer:
+    """
+    Pickleable initializer for multiprocessing workers.
+    """
+
+    env: dict[str, str]
+    initializer: None | Callable[..., Any]
+
+    def __call__(self, *args, **kwargs) -> Any:
+        for key, value in self.env.items():
+            os.environ[key] = value
+        if self.initializer is not None:
+            return self.initializer(*args, **kwargs)
 
 
 class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin, ParallelBackendBase):
@@ -627,10 +639,13 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin, ParallelBacken
 
         # Make sure to free as much memory as possible before forking
         gc.collect()
+        initializer = _SetEnvInitializer(
+            self._prepare_worker_env(n_jobs),
+            memmapping_pool_kwargs.pop("initializer", None),
+        )
         self._pool = MemmappingPool(
             n_jobs,
-            initializer=_set_env,
-            initargs=(self._prepare_worker_env(n_jobs),),
+            initializer=initializer,
             **memmapping_pool_kwargs,
         )
         self.parallel = parallel
