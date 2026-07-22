@@ -431,12 +431,28 @@ def _old_split_id(self, call_id):
     return call_id
 
 
-def _split_decorator(method):
+def _split_method_decorator(method):
     def split_method(self, call_id, *args, **kwargs):
         call_id = self._split_id(call_id)
         return method(self, call_id, *args, **kwargs)
 
     return split_method
+
+
+def _split_class_decorator(cls):
+    for method in [
+        "load_item",
+        "dump_item",
+        "clear_item",
+        "contains_item",
+        "get_item_info",
+        "get_metadata",
+        "store_metadata",
+    ]:
+        setattr(
+            cls, method, _split_method_decorator(getattr(StoreBackendMixin, method))
+        )
+    return cls
 
 
 def reconstructStoreBackend(cls, location, verbose, compress, mmap_mode):
@@ -445,6 +461,7 @@ def reconstructStoreBackend(cls, location, verbose, compress, mmap_mode):
     return obj
 
 
+@_split_class_decorator
 class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
     """A StoreBackend used with local or network file systems."""
 
@@ -593,22 +610,6 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
             if info["cache_version"] == 2
             else types.MethodType(_old_split_id, self)
         )
-        for method in [
-            "load_item",
-            "dump_item",
-            "clear_item",
-            "contains_item",
-            "get_item_info",
-            "get_metadata",
-            "store_metadata",
-        ]:
-            setattr(
-                self,
-                method,
-                types.MethodType(
-                    _split_decorator(getattr(StoreBackendMixin, method)), self
-                ),
-            )
 
     def update_cache_tree(self):
         # First info update
