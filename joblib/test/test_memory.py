@@ -627,10 +627,11 @@ def test_persistence(tmpdir):
     h = pickle.loads(pickle.dumps(g))
 
     args_id = h._get_args_id(1)
-    full_id = (h.func_id, args_id)
-    output_dir = os.path.join(h.store_backend.location, *full_id)
+    output_dir = os.path.join(
+        h.store_backend.location, h.func_id, args_id[:3], args_id[3:]
+    )
     assert os.path.exists(output_dir)
-    assert output == h.store_backend.load_item(full_id)
+    assert output == h.store_backend.load_item((h.func_id, args_id))
     memory2 = pickle.loads(pickle.dumps(memory))
     assert memory.store_backend.location == memory2.store_backend.location
 

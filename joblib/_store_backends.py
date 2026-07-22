@@ -432,11 +432,17 @@ def _old_split_id(self, call_id):
 
 
 def _split_decorator(method):
-    def f(self, call_id, *args, **kwargs):
+    def split_method(self, call_id, *args, **kwargs):
         call_id = self._split_id(call_id)
         return method(self, call_id, *args, **kwargs)
 
-    return f
+    return split_method
+
+
+def reconstructStoreBackend(cls, location, verbose, compress, mmap_mode):
+    obj = cls.__new__(cls)
+    obj.configure(location, verbose, dict(compress=compress, mmap_mode=mmap_mode))
+    return obj
 
 
 class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
@@ -655,3 +661,15 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
         info["require_update"] = False
         with open(info_path, "wb") as file:
             file.write(json.dumps(info).encode("utf-8"))
+
+    def __reduce__(self):
+        return (
+            reconstructStoreBackend,
+            (
+                self.__class__,
+                self.location,
+                self.verbose,
+                self.compress,
+                self.mmap_mode,
+            ),
+        )
