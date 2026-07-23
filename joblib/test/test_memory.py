@@ -21,7 +21,11 @@ from pathlib import Path
 
 import pytest
 
-from joblib._store_backends import FileSystemStoreBackend, StoreBackendBase
+from joblib._store_backends import (
+    FileSystemStoreBackend,
+    StoreBackendBase,
+    StoreBackendMixin,
+)
 from joblib.hashing import hash
 from joblib.memory import (
     _FUNCTION_HASHES,
@@ -51,14 +55,14 @@ def f(x, y=1):
 
 ###############################################################################
 # Helper function for the tests
-def check_identity_lazy(func, accumulator, location):
+def check_identity_lazy(func, accumulator, location, backend="local"):
     """Given a function and an accumulator (a list that grows every
     time the function is called), check that the function can be
     decorated by memory to be a lazy identity.
     """
     # Call each function with several arguments, and check that it is
     # evaluated only once per argument.
-    memory = Memory(location=location, verbose=0)
+    memory = Memory(location=location, backend=backend, verbose=0)
     func = memory.cache(func)
     for i in range(3):
         for _ in range(2):
@@ -103,25 +107,24 @@ def test_memory_integration(tmpdir):
     check_identity_lazy(f, accumulator, tmpdir.strpath)
 
     # Now test clearing
-    for compress in (False, True):
-        for mmap_mode in ("r", None):
-            memory = Memory(
-                location=tmpdir.strpath,
-                verbose=10,
-                mmap_mode=mmap_mode,
-                compress=compress,
-            )
-            # First clear the cache directory, to check that our code can
-            # handle that
-            # NOTE: this line would raise an exception, as the database file is
-            # still open; we ignore the error since we want to test what
-            # happens if the directory disappears
-            shutil.rmtree(tmpdir.strpath, ignore_errors=True)
-            g = memory.cache(f)
-            g(1)
-            g.clear(warn=False)
-            current_accumulator = len(accumulator)
-            out = g(1)
+    for compress, mmap_mode in ((False, "r"), (False, None), (True, None)):
+        memory = Memory(
+            location=tmpdir.strpath,
+            verbose=10,
+            mmap_mode=mmap_mode,
+            compress=compress,
+        )
+        # First clear the cache directory, to check that our code can
+        # handle that
+        # NOTE: this line would raise an exception, as the database file is
+        # still open; we ignore the error since we want to test what
+        # happens if the directory disappears
+        shutil.rmtree(tmpdir.strpath, ignore_errors=True)
+        g = memory.cache(f)
+        g(1)
+        g.clear(warn=False)
+        current_accumulator = len(accumulator)
+        out = g(1)
 
         assert len(accumulator) == current_accumulator + 1
         # Also, check that Memory.eval works similarly
@@ -257,7 +260,8 @@ def test_no_memory():
         assert len(accumulator) == current_accumulator + 1
 
 
-def test_memory_kwarg(tmpdir):
+@parametrize("backend", ["local", "sqlite"])
+def test_memory_kwarg(tmpdir, backend):
     "Test memory with a function with keyword arguments."
     accumulator = list()
 
@@ -265,9 +269,9 @@ def test_memory_kwarg(tmpdir):
         accumulator.append(1)
         return arg1
 
-    check_identity_lazy(g, accumulator, tmpdir.strpath)
+    check_identity_lazy(g, accumulator, tmpdir.strpath, backend)
 
-    memory = Memory(location=tmpdir.strpath, verbose=0)
+    memory = Memory(location=tmpdir.strpath, backend=backend, verbose=0)
     g = memory.cache(g)
     # Smoke test with an explicit keyword argument:
     assert g(arg1=30, arg2=2) == 30
@@ -285,9 +289,10 @@ def test_memory_lambda(tmpdir):
     check_identity_lazy(lambda x: helper(x), accumulator, tmpdir.strpath)
 
 
-def test_memory_name_collision(tmpdir):
+@parametrize("backend", ["local", "sqlite"])
+def test_memory_name_collision(tmpdir, backend):
     "Check that name collisions with functions will raise warnings"
-    memory = Memory(location=tmpdir.strpath, verbose=0)
+    memory = Memory(location=tmpdir.strpath, backend=backend, verbose=0)
 
     @memory.cache
     def name_collision(x):
@@ -396,8 +401,8 @@ def test_argument_change(tmpdir):
 
 
 @with_numpy
-@parametrize("mmap_mode", [None, "r"])
-def test_memory_numpy(tmpdir, mmap_mode):
+@parametrize("backend, mmap_mode", [("local", None), ("local", "r"), ("sqlite", None)])
+def test_memory_numpy(tmpdir, backend, mmap_mode):
     "Test memory with a function with numpy arrays."
     accumulator = list()
 
@@ -405,7 +410,9 @@ def test_memory_numpy(tmpdir, mmap_mode):
         accumulator.append(1)
         return arg
 
-    memory = Memory(location=tmpdir.strpath, mmap_mode=mmap_mode, verbose=0)
+    memory = Memory(
+        location=tmpdir.strpath, backend=backend, mmap_mode=mmap_mode, verbose=0
+    )
     cached_n = memory.cache(n)
 
     rnd = np.random.RandomState(0)
@@ -478,9 +485,10 @@ def test_memorized_result_forwards_mmap_mode(tmpdir):
     assert isinstance(direct.get(), np.memmap)
 
 
-def test_memory_exception(tmpdir):
+@parametrize("backend", ["local", "sqlite"])
+def test_memory_exception(tmpdir, backend):
     """Smoketest the exception handling of Memory."""
-    memory = Memory(location=tmpdir.strpath, verbose=0)
+    memory = Memory(location=tmpdir.strpath, backend=backend, verbose=0)
 
     class MyException(Exception):
         pass
@@ -663,11 +671,13 @@ def test_call_and_shelve(tmpdir):
     for func, Result in zip(
         (
             MemorizedFunc(f, tmpdir.strpath),
+            MemorizedFunc(f, tmpdir.strpath + ".db", "sqlite"),
             NotMemorizedFunc(f),
-            Memory(location=tmpdir.strpath, verbose=0).cache(f),
-            Memory(location=None).cache(f),
+            Memory(tmpdir.strpath, verbose=0).cache(f),
+            Memory(tmpdir.strpath + ".bis.db", "sqlite", verbose=0).cache(f),
+            Memory(None).cache(f),
         ),
-        (MemorizedResult, NotMemorizedResult, MemorizedResult, NotMemorizedResult),
+        [MemorizedResult, MemorizedResult, NotMemorizedResult] * 2,
     ):
         assert func(2) == 5
         result = func.call_and_shelve(2)
@@ -1181,7 +1191,7 @@ class IncompleteStoreBackend(StoreBackendBase):
     pass
 
 
-class DummyStoreBackend(StoreBackendBase):
+class DummyStoreBackend(StoreBackendMixin):
     """A dummy store backend that does nothing."""
 
     def _open_item(self, *args, **kwargs):
@@ -1199,10 +1209,6 @@ class DummyStoreBackend(StoreBackendBase):
     def create_location(self, location):
         """Create location on store."""
         "Does nothing"
-
-    def exists(self, obj):
-        """Check if an object exists in the store"""
-        return False
 
     def clear_location(self, obj):
         """Clear object on store"""

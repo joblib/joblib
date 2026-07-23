@@ -1,16 +1,12 @@
-try:
-    # Python 2.7: use the C pickle to speed up
-    # test_concurrency_safe_write which pickles big python objects
-    import cPickle as cpickle
-except ImportError:
-    import pickle as cpickle
 import functools
+import pickle
 import time
 from pickle import PicklingError
 
 import pytest
 
 from joblib import Parallel, delayed
+from joblib._sql_store_backend import SQLStoreBackend
 from joblib._store_backends import (
     CacheWarning,
     FileSystemStoreBackend,
@@ -23,14 +19,14 @@ from joblib.testing import parametrize, timeout
 
 def write_func(output, filename):
     with open(filename, "wb") as f:
-        cpickle.dump(output, f)
+        pickle.dump(output, f)
 
 
 def load_func(expected, filename):
     for i in range(10):
         try:
             with open(filename, "rb") as f:
-                reloaded = cpickle.load(f)
+                reloaded = pickle.load(f)
             break
         except (OSError, IOError):
             # On Windows you can have WindowsError ([Error 5] Access
@@ -90,5 +86,31 @@ def test_warning_on_pickling_error(tmpdir):
     backend.location = tmpdir.join("test_warning_on_pickling_error").strpath
     backend.compress = None
 
-    with pytest.warns(FutureWarning, match="not picklable"):
+    with pytest.raises(PicklingError, match="not picklable"):
         backend.dump_item("testpath", UnpicklableObject())
+
+
+@parametrize("klass", [FileSystemStoreBackend, SQLStoreBackend])
+def test_metadata(tmpdir, klass):
+    backend = klass()
+    backend.configure(tmpdir.join("joblib").strpath)
+    call_id = ("fun", "input")
+    metadata = {"a": "b"}
+    new_metadata = {"c": "d"}
+    item = "item"
+
+    assert backend.get_metadata(call_id) == dict()
+    backend.store_metadata(call_id, metadata)
+    assert backend.get_metadata(call_id) == metadata
+    backend.dump_item(call_id, item)
+    assert backend.get_metadata(call_id) == metadata
+    backend.dump_item(call_id, "new_item")
+    assert backend.get_metadata(call_id) == metadata
+    backend.store_metadata(call_id, new_metadata)
+    assert backend.get_metadata(call_id) == new_metadata
+    backend.clear_item(call_id)
+    assert backend.get_metadata(call_id) == dict()
+    backend.store_metadata(call_id, metadata)
+    assert backend.get_metadata(call_id) == metadata
+    backend.clear_path([])
+    assert backend.get_metadata(call_id) == dict()
