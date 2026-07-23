@@ -656,6 +656,7 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
                     # don't replace
                     shutil.rmtree(dirpath)
             else:
+                os.makedirs(newdir)
                 os.replace(dirpath, newdir)
 
         # Second info update
