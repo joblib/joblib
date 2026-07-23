@@ -41,6 +41,10 @@ if [[ "$COVERAGE" == "true" ]]; then
     PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES coverage pytest-cov"
 fi
 
+if [[ "$PYTHON_VERSION" == free-threaded* ]]; then
+    PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES pytest-run-parallel"
+fi
+
 pip install $PIP_INSTALL_PACKAGES
 
 if [[ "$NO_LZMA" == "true" ]]; then
@@ -59,4 +63,4 @@ if [[ "$CYTHON" == "true" ]]; then
     cd ../../..
 fi
 
-pip install -v '.[test]'
+pip install -v .
