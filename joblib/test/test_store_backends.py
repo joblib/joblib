@@ -104,7 +104,7 @@ def test_cache_tree_versions(tmpdir):
     os.remove(os.path.join(old_store.location, "store_backend_info.json"))
 
     # Cache some items
-    funs = ["fun1", "fun2", os.path.join("f" * 29, "fun3")]
+    funs = ["fun1", "fun2", os.path.join("z" * 32, "fun3")]
     args = ["012" + "3" * 29, "012" + "4" * 29, "abcd" * 8]
     items = [0, "xyz", [42, 6.9]]
     for fun in funs:
@@ -125,10 +125,16 @@ def test_cache_tree_versions(tmpdir):
         new_store.configure(tmpdir.strpath)
 
     # Pollute the backend
-    conflict_dir = tmpdir.join(funs[0], args[0][:3], args[0][3:]).strpath
+    # Creates items with new tree. After the creation:
+    # (funs[0], args[0]) old tree version is more recent
+    # (funs[1], args[0]) new tree version is more recent
     conflict_item = "bad"
-    os.makedirs(conflict_dir)
-    numpy_pickle.dump(conflict_item, os.path.join(conflict_dir, "output.pkl"))
+    for fun in funs[:2]:
+        arg = args[0]
+        conflict_dir = tmpdir.join(fun, arg[:3], arg[3:]).strpath
+        os.makedirs(conflict_dir)
+        numpy_pickle.dump(conflict_item, os.path.join(conflict_dir, "output.pkl"))
+    new_store.dump_item((funs[0], args[0]), items[0])
 
     # Assert update_cache_tree correctly updates the cache tree
     new_store.update_cache_tree()
@@ -145,6 +151,7 @@ def test_cache_tree_versions(tmpdir):
         assert len(ws) == 0
 
     # Check that old_store shifted to new cache tree
-    assert old_store.load_item((funs[0], args[0])) == conflict_item
+    assert old_store.load_item((funs[0], args[0])) == items[0]
+    assert old_store.load_item((funs[1], args[0])) == conflict_item
     with raises(KeyError):
         old_store.load_item(("not_a_function", args[0]))
