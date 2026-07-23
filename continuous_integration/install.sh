@@ -59,4 +59,4 @@ if [[ "$CYTHON" == "true" ]]; then
     cd ../../..
 fi
 
-pip install -v .
+pip install -v '.[test]'
