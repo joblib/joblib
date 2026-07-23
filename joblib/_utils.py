@@ -47,7 +47,7 @@ def eval_expr(expr):
         )
     try:
         return eval_(ast.parse(expr, mode="eval").body)
-    except (TypeError, SyntaxError, OverflowError, KeyError) as e:
+    except (TypeError, SyntaxError, OverflowError, KeyError, ZeroDivisionError) as e:
         raise ValueError(
             f"{expr!r} is not a valid or supported arithmetic expression."
         ) from e

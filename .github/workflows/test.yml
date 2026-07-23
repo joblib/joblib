@@ -123,7 +123,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Setup conda
-        uses: conda-incubator/setup-miniconda@v3
+        uses: conda-incubator/setup-miniconda@v4
         with:
           auto-activate-base: true
           auto-update-conda: true
@@ -141,7 +141,7 @@ jobs:
       - name: Upload to Codecov
         # always upload coverage even if tests fail
         if: ${{ matrix.SKLEARN_TESTS != 'true' && (success() || failure()) }}
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           files: coverage.xml
           token: ${{ secrets.CODECOV_TOKEN }}

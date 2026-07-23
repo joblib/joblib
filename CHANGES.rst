@@ -4,6 +4,11 @@ Release Notes
 In development
 --------------
 
+- Fix ``eval_expr`` (used to evaluate the ``pre_dispatch`` argument of
+  ``Parallel``) to raise a ``ValueError`` as documented instead of leaking a
+  ``ZeroDivisionError`` for expressions that divide or take a modulo by zero.
+  https://github.com/joblib/joblib/pull/1810
+
 - ``MemorizedResult`` now forwards ``mmap_mode`` to its store backend, so a
   cached array reconstructed from a location is memory-mapped as requested
   instead of being loaded fully into memory.
@@ -23,8 +28,12 @@ In development
 - Fix a concurrency error that could happen with unordered generator.
   https://github.com/joblib/joblib/pull/1789
 
-- The documentation now uses pydata sphinx theme. Furthermore, optional dependencies ``test``
-  and ``docs`` have been added to ``pyproject.toml``.
+- Fix: ``dump()`` now accepts any input ``os.PathLike`` object to be consistent with
+  ``load``.
+  https://github.com/joblib/joblib/pull/1812
+
+- The documentation now uses pydata sphinx theme. Furthermore, optional dependencies
+  ``test`` and ``docs`` have been added to ``pyproject.toml``.
   https://github.com/joblib/joblib/pull/1774
 
 Release 1.5.3 - 2025/12/15

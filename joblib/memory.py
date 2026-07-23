@@ -386,11 +386,15 @@ class MemorizedFunc(Logger):
         numpy arrays. See numpy.load for the meaning of the different
         values.
 
-    compress: boolean, or integer
+    compress: boolean, integer or 2-tuple, optional
         Whether to zip the stored data on disk. If an integer is
         given, it should be between 1 and 9, and sets the amount
         of compression. Note that compressed arrays cannot be
-        read by memmapping.
+        read by memmapping. If a 2-tuple is given, the first
+        element must be a string corresponding to a compression
+        method (e.g 'zlib', 'gzip', 'bz2', 'lzma' or 'xz') and
+        the second element must be an integer from 0 to 9,
+        corresponding to the compression level.
 
     verbose: int, optional
         The verbosity flag, controls messages that are issued as
@@ -992,11 +996,15 @@ class Memory(Logger):
         numpy arrays. See numpy.load for the meaning of the
         arguments.
 
-    compress: boolean, or integer, optional
+    compress: boolean, integer or 2-tuple, optional
         Whether to zip the stored data on disk. If an integer is
         given, it should be between 1 and 9, and sets the amount
         of compression. Note that compressed arrays cannot be
-        read by memmapping.
+        read by memmapping. If a 2-tuple is given, the first
+        element must be a string corresponding to a compression
+        method (e.g 'zlib', 'gzip', 'bz2', 'lzma' or 'xz') and
+        the second element must be an integer from 0 to 9,
+        corresponding to the compression level.
 
     verbose: int, optional
         Verbosity flag, controls the debug messages that are issued
