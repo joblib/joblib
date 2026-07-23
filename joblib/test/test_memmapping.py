@@ -9,6 +9,7 @@ import subprocess
 import sys
 import threading
 from time import sleep
+from uuid import uuid4
 
 import pytest
 
@@ -361,6 +362,8 @@ def test_pool_with_memmap(factory, tmpdir):
 )
 def test_pool_with_memmap_array_view(factory, tmpdir):
     """Check that subprocess can access and update shared memory array"""
+    tmpdir = tmpdir.mkdir(str(uuid4()))
+
     assert_array_equal = np.testing.assert_array_equal
 
     # Fork the subprocess before allocating the objects to be passed
@@ -549,6 +552,7 @@ def test_memmapping_temp_folder_thread_safety():
     assert temp_dirs_thread_1 != temp_dirs_thread_2
 
 
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1794
 @with_numpy
 @with_multiprocessing
 def test_multithreaded_parallel_termination_resource_tracker_silent():
