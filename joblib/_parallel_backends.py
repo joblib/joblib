@@ -2,12 +2,16 @@
 Backends for embarrassingly parallel code.
 """
 
+from __future__ import annotations
+
 import contextlib
 import gc
 import os
 import threading
 import warnings
 from abc import ABCMeta, abstractmethod
+from dataclasses import dataclass
+from typing import Any, Callable
 
 from ._multiprocessing_helpers import mp
 from ._utils import (
@@ -24,6 +28,26 @@ if mp is not None:
     from .externals.loky import cpu_count, process_executor
     from .externals.loky.process_executor import ShutdownExecutorError
     from .pool import MemmappingPool
+
+
+class _MaxCores(threading.local):
+    """Track the number of cores available to this thread."""
+
+    _thread_limit = None
+
+    def get(self) -> int:
+        """Number of cores available to this thread."""
+        process_limit = cpu_count()
+        if self._thread_limit is None:
+            return process_limit
+        return min(process_limit, self._thread_limit)
+
+    def set_thread_limit(self, cores: int) -> None:
+        """Set the maximum number of cores available to this thread."""
+        self._thread_limit = cores
+
+
+_MAX_CORES = _MaxCores()
 
 
 class ParallelBackendBase(metaclass=ABCMeta):
@@ -64,6 +88,8 @@ class ParallelBackendBase(metaclass=ABCMeta):
         "VECLIB_MAXIMUM_THREADS",
         "NUMBA_NUM_THREADS",
         "NUMEXPR_NUM_THREADS",
+        # This sets a soft max on loky.cpu_count() in workers:
+        "LOKY_MAX_CPU_COUNT",
     ]
 
     TBB_ENABLE_IPC_VAR = "ENABLE_IPC"
@@ -227,7 +253,7 @@ class ParallelBackendBase(metaclass=ABCMeta):
         OpenBLAS libraries in the child processes.
         """
         explicit_n_threads = self.inner_max_num_threads
-        default_n_threads = max(cpu_count() // n_jobs, 1)
+        default_n_threads = max(_MAX_CORES.get() // n_jobs, 1)
 
         # Set the inner environment variables to self.inner_max_num_threads if
         # it is given. Else, default to cpu_count // n_jobs unless the variable
@@ -317,7 +343,7 @@ class PoolManagerMixin(object):
             # to sequential mode
             return 1
         elif n_jobs < 0:
-            n_jobs = max(cpu_count() + 1 + n_jobs, 1)
+            n_jobs = max(_MAX_CORES.get() + 1 + n_jobs, 1)
         return n_jobs
 
     def terminate(self):
@@ -503,9 +529,33 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
         The actual pool of worker threads is only initialized at the first
         call to apply_async.
         """
+        # Import here to prevent circular import:
+        from joblib.parallel import effective_n_jobs
+
         if self._pool is None:
-            self._pool = ThreadPool(self._n_jobs)
+            available_cores = effective_n_jobs(-1)
+            cores_per_thread = max(available_cores // self._n_jobs, 1)
+            self._pool = ThreadPool(
+                self._n_jobs,
+                initializer=lambda: _MAX_CORES.set_thread_limit(cores_per_thread),
+            )
         return self._pool
+
+
+@dataclass
+class _SetEnvInitializer:
+    """
+    Pickleable initializer for multiprocessing workers.
+    """
+
+    env: dict[str, str]
+    initializer: None | Callable[..., Any]
+
+    def __call__(self, *args, **kwargs) -> Any:
+        for key, value in self.env.items():
+            os.environ[key] = value
+        if self.initializer is not None:
+            return self.initializer(*args, **kwargs)
 
 
 class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin, ParallelBackendBase):
@@ -591,7 +641,15 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin, ParallelBacken
 
         # Make sure to free as much memory as possible before forking
         gc.collect()
-        self._pool = MemmappingPool(n_jobs, **memmapping_pool_kwargs)
+        initializer = _SetEnvInitializer(
+            self._prepare_worker_env(n_jobs),
+            memmapping_pool_kwargs.pop("initializer", None),
+        )
+        self._pool = MemmappingPool(
+            n_jobs,
+            initializer=initializer,
+            **memmapping_pool_kwargs,
+        )
         self.parallel = parallel
         return n_jobs
 
@@ -685,7 +743,7 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
                 )
             return 1
         elif n_jobs < 0:
-            n_jobs = max(cpu_count() + 1 + n_jobs, 1)
+            n_jobs = max(_MAX_CORES.get() + 1 + n_jobs, 1)
         return n_jobs
 
     def submit(self, func, callback=None):

@@ -265,11 +265,15 @@ class parallel_config:
         of Python worker processes when ``backend="loky"`` or the size of the
         thread-pool when ``backend="threading"``.
         This argument is converted to an integer, rounded below for float.
-        If -1 is given, `joblib` tries to use all CPUs. The number of CPUs
-        ``n_cpus`` is obtained with :func:`~cpu_count`.
+        If -1 is given, `joblib` tries to use all available CPUs. The number
+        of CPUs ``n_cpus`` is obtained with :func:`~cpu_count`. ``n_cpus``
+        may be further limited if this instance is being started inside a
+        worker for another :class:`~Parallel`, to ensure the number of
+        workers (threads or processes) doesn't exceed the number of cores
+        available to the top-level process.
         For n_jobs below -1, (n_cpus + 1 + n_jobs) are used. For instance,
-        using ``n_jobs=-2`` will result in all CPUs but one being used.
-        This argument can also go above ``n_cpus``, which will cause
+        using ``n_jobs=-2`` will result in all available CPUs but one being
+        used. n_jobs can also go above ``n_cpus``, which will cause
         oversubscription. In some cases, slight oversubscription can be
         beneficial, e.g., for tasks with large I/O operations.
         If 1 is given, no parallel computing code is used at all, and the
@@ -989,11 +993,15 @@ class Parallel(Logger):
         of Python worker processes when ``backend="loky"`` or the size of
         the thread-pool when ``backend="threading"``.
         This argument is converted to an integer, rounded below for float.
-        If -1 is given, `joblib` tries to use all CPUs. The number of CPUs
-        ``n_cpus`` is obtained with :func:`~cpu_count`.
+        If -1 is given, `joblib` tries to use all available CPUs. The number
+        of CPUs ``n_cpus`` is obtained with :func:`~cpu_count`. ``n_cpus``
+        may be further limited if this instance is being started inside a
+        worker for another :class:`~Parallel`, to ensure the number of
+        workers (threads or processes) doesn't exceed the number of cores
+        available to the top-level process.
         For n_jobs below -1, (n_cpus + 1 + n_jobs) are used. For instance,
-        using ``n_jobs=-2`` will result in all CPUs but one being used.
-        This argument can also go above ``n_cpus``, which will cause
+        using ``n_jobs=-2`` will result in all available CPUs but one being
+        used. n_jobs can also go above ``n_cpus``, which will cause
         oversubscription. In some cases, slight oversubscription can be
         beneficial, e.g., for tasks with large I/O operations.
         If 1 is given, no parallel computing code is used at all, and the
