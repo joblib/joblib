@@ -8,6 +8,8 @@ Test the func_inspect module.
 
 import functools
 
+import pytest
+
 from joblib.func_inspect import (
     _clean_win_chars,
     filter_args,
@@ -349,6 +351,7 @@ def _get_code():
     return get_func_code(big5_f)[0]
 
 
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 def test_func_code_consistency():
     from joblib.parallel import Parallel, delayed
 

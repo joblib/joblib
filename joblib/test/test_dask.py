@@ -29,6 +29,10 @@ from distributed.metrics import time  # noqa: E402
 # and their dependencies.
 from distributed.utils_test import cleanup, cluster, inc  # noqa: E402, F401
 
+# https://github.com/joblib/joblib/issues/1818 is the tracking issue for fixing
+# this:
+pytestmark = pytest.mark.thread_unsafe
+
 
 @pytest.fixture(scope="function", autouse=True)
 def avoid_dask_env_leaks(tmp_path):

@@ -40,6 +40,7 @@ test = [
     "pytest",
     "pytest-asyncio",
     "pytest-cov",
+    "pytest-run-parallel",
     "pytest-timeout",
     "threadpoolctl",
 ]

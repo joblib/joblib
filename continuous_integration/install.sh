@@ -9,6 +9,8 @@
 
 set -xe
 
+ORIGINAL_PYTHON_VERSION=$PYTHON_VERSION
+
 create_new_conda_env() {
     conda config --set solver libmamba
     if [[ "$PYTHON_VERSION" == free-threaded* ]]; then
@@ -39,6 +41,10 @@ fi
 
 if [[ "$COVERAGE" == "true" ]]; then
     PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES coverage pytest-cov"
+fi
+
+if [[ "$ORIGINAL_PYTHON_VERSION" == free-threaded* ]]; then
+    PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES pytest-run-parallel"
 fi
 
 pip install $PIP_INSTALL_PACKAGES

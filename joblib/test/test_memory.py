@@ -18,6 +18,7 @@ import sys
 import textwrap
 import time
 from pathlib import Path
+from uuid import uuid4
 
 import pytest
 
@@ -371,21 +372,23 @@ def test_memory_eval(tmpdir):
     assert mm(1) == 1
 
 
-def count_and_append(x=[]):
-    """A function with a side effect in its arguments.
-
-    Return the length of its argument and append one element.
-    """
-    len_x = len(x)
-    x.append(None)
-    return len_x
-
-
 def test_argument_change(tmpdir):
     """Check that if a function has a side effect in its arguments, it
     should use the hash of changing arguments.
     """
-    memory = Memory(location=tmpdir.strpath, verbose=0)
+    path = (tmpdir / str(uuid4())).strpath
+    print(path)
+    memory = Memory(location=path, verbose=0)
+
+    def count_and_append(x=[]):
+        """A function with a side effect in its arguments.
+
+        Return the length of its argument and append one element.
+        """
+        len_x = len(x)
+        x.append(None)
+        return len_x
+
     func = memory.cache(count_and_append)
     # call the function for the first time, is should cache it with
     # argument x=[]
@@ -817,11 +820,6 @@ def test_memory_file_modification(capsys, tmpdir, monkeypatch):
     assert out == "1\n2\nReloading\nx=1\n"
 
 
-def _function_to_cache(a, b):
-    # Just a place holder function to be mutated by tests
-    pass
-
-
 def _sum(a, b):
     return a + b
 
@@ -831,6 +829,10 @@ def _product(a, b):
 
 
 def test_memory_in_memory_function_code_change(tmpdir):
+    def _function_to_cache(a, b):
+        # Just a place holder function to be mutated by tests
+        pass
+
     _function_to_cache.__code__ = _sum.__code__
 
     memory = Memory(location=tmpdir.strpath, verbose=0)
@@ -1428,11 +1430,13 @@ def test_memory_pickle_dump_load(tmpdir, memory_kwargs):
     assert hash(memorized_result) == hash(memorized_result_reloaded)
 
 
+@pytest.mark.thread_unsafe  # caplog is not thread-safe
 def test_info_log(tmpdir, caplog):
     caplog.set_level(logging.INFO)
     x = 3
 
-    memory = Memory(location=tmpdir.strpath, verbose=20)
+    mem_path = (tmpdir / str(uuid4())).strpath
+    memory = Memory(location=mem_path, verbose=20)
 
     @memory.cache
     def f(x):
@@ -1442,7 +1446,7 @@ def test_info_log(tmpdir, caplog):
     assert "Querying" in caplog.text
     caplog.clear()
 
-    memory = Memory(location=tmpdir.strpath, verbose=0)
+    memory = Memory(location=mem_path, verbose=0)
 
     @memory.cache
     def f(x):
@@ -1462,15 +1466,17 @@ class TestCacheValidationCallback:
             time.sleep(delay)
         return x * 2
 
-    def test_invalid_cache_validation_callback(self, memory):
+    def test_invalid_cache_validation_callback(self, tmp_path):
         "Test invalid values for `cache_validation_callback"
+        memory = Memory(location=tmp_path / str(uuid4()), verbose=0)
         match = "cache_validation_callback needs to be callable. Got True."
         with pytest.raises(ValueError, match=match):
             memory.cache(cache_validation_callback=True)
 
     @pytest.mark.parametrize("consider_cache_valid", [True, False])
-    def test_constant_cache_validation_callback(self, memory, consider_cache_valid):
+    def test_constant_cache_validation_callback(self, tmp_path, consider_cache_valid):
         "Test expiry of old results"
+        memory = Memory(location=tmp_path / str(uuid4()), verbose=0)
         f = memory.cache(
             self.foo,
             cache_validation_callback=lambda _: consider_cache_valid,
@@ -1484,7 +1490,7 @@ class TestCacheValidationCallback:
         assert d1["run"]
         assert d2["run"] != consider_cache_valid
 
-    def test_memory_only_cache_long_run(self, memory):
+    def test_memory_only_cache_long_run(self, tmp_path):
         "Test cache validity based on run duration."
 
         def cache_validation_callback(metadata):
@@ -1492,6 +1498,7 @@ class TestCacheValidationCallback:
             if duration > 0.1:
                 return True
 
+        memory = Memory(location=tmp_path / str(uuid4()), verbose=0)
         f = memory.cache(
             self.foo, cache_validation_callback=cache_validation_callback, ignore=["d"]
         )
@@ -1510,9 +1517,9 @@ class TestCacheValidationCallback:
         assert d1["run"]
         assert not d2["run"]
 
-    def test_memory_expires_after(self, memory):
+    def test_memory_expires_after(self, tmp_path):
         "Test expiry of old cached results"
-
+        memory = Memory(location=tmp_path / str(uuid4()), verbose=0)
         f = memory.cache(
             self.foo, cache_validation_callback=expires_after(seconds=0.3), ignore=["d"]
         )
@@ -1536,9 +1543,9 @@ class TestMemorizedFunc:
         counter[x] = counter.get(x, 0) + 1
         return counter[x]
 
-    def test_call_method_memorized(self, memory):
+    def test_call_method_memorized(self, tmp_path):
         "Test calling the function"
-
+        memory = Memory(location=tmp_path / str(uuid4()), verbose=0)
         f = memory.cache(self.f, ignore=["counter"])
 
         counter = {}
@@ -1551,9 +1558,8 @@ class TestMemorizedFunc:
             "Metadata are not returned by MemorizedFunc.call."
         )
 
-    def test_call_method_not_memorized(self, memory):
+    def test_call_method_not_memorized(self):
         "Test calling the function"
-
         f = NotMemorizedFunc(self.f)
 
         counter = {}
