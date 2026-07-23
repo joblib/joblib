@@ -13,7 +13,7 @@ fi
 
 if [[ "$ONE_CPU" == "1" ]]; then
     # Note that ONE_CPU should only be set on Linux:
-    PYTEST_PREFIX="tasket -c 0"
+    PYTEST_PREFIX="taskset -c 0"
 else
     PYTEST_PREFIX=""
 fi
