@@ -2,6 +2,8 @@
 Backends for embarrassingly parallel code.
 """
 
+from __future__ import annotations
+
 import contextlib
 import gc
 import os
