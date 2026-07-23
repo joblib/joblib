@@ -1078,6 +1078,7 @@ def identity(arg):
     return arg
 
 
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 @with_numpy
 @with_multiprocessing
 @parametrize(
