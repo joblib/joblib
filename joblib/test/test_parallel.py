@@ -20,12 +20,14 @@ from multiprocessing import TimeoutError
 from pickle import PicklingError
 from time import sleep
 from traceback import format_exception
+from uuid import uuid4
 
 import pytest
 
 import joblib
 from joblib import dump, load, parallel
 from joblib._multiprocessing_helpers import mp
+from joblib._parallel_backends import _SetEnvInitializer
 from joblib.test.common import (
     IS_GIL_DISABLED,
     np,
@@ -2267,3 +2269,26 @@ def test_initializer_not_reused(n_jobs):
     assert len(pids) == n_repetitions * n_jobs, (
         "The workers should not be reused when the initializer arguments change"
     )
+
+
+def test_set_env_initializer() -> None:
+    """
+    ``_SetEnvInitializer()`` sets environment variables and optionally calls an
+    initializer.
+    """
+    k1 = str(uuid4())
+    k2 = str(uuid4())
+    svi = _SetEnvInitializer({k1: "A", k2: "B"}, None)
+    assert k1 not in os.environ
+    assert k2 not in os.environ
+    svi()
+    assert os.environ[k1] == "A"
+    assert os.environ[k2] == "B"
+
+    mylist = []
+    svi = _SetEnvInitializer({k1: "C", k2: "D"}, mylist.append)
+    assert not mylist
+    svi(123)
+    assert os.environ[k1] == "C"
+    assert os.environ[k2] == "D"
+    assert mylist == [123]
