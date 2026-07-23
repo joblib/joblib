@@ -630,7 +630,8 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
         # Replace old cache directories
         for dirpath in old_cache:
             parent, basename = os.path.split(dirpath)
-            newdir = os.path.join(parent, basename[:3], basename[3:])
+            newdir_parent = os.path.join(parent, basename[:3])
+            newdir = os.path.join(newdir_parent, basename[3:])
             if os.path.exists(newdir):
                 # If the new cache directory already exists,
                 # it is replaced depending on the last modification time
@@ -656,7 +657,7 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
                     # don't replace
                     shutil.rmtree(dirpath)
             else:
-                os.makedirs(newdir)
+                os.makedirs(newdir_parent, exist_ok=True)
                 os.replace(dirpath, newdir)
 
         # Second info update
