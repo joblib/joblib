@@ -123,17 +123,8 @@ Python standard library.
 Making a release and uploading it to PyPI
 =========================================
 
-This command is only run by project manager, to make a release, and
-upload in to PyPI::
-
-    pip install build
-    python -m build --sdist --wheel
-    twine upload dist/*
-
-
-Note that the documentation should automatically get updated at each git
-push. If that is not the case, try building th doc locally and resolve
-any doc build error (in particular when running the examples).
+To generate a release, create a new Release in GitHub; the release will be
+automatically published to PyPI.
 
 Updating the changelog
 ======================
