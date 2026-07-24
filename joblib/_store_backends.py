@@ -6,10 +6,10 @@ import json
 import operator
 import os
 import os.path
-import re
 import shutil
 import threading
 import time
+import types
 import uuid
 import warnings
 from abc import ABCMeta, abstractmethod
@@ -274,7 +274,7 @@ class StoreBackendMixin(object):
     def contains_path(self, call_id):
         """Check cached function is available in store."""
         func_path = os.path.join(self.location, *call_id)
-        return self.object_exists(func_path)
+        return self._item_exists(func_path)
 
     def clear_path(self, call_id):
         """Clear all items with a common path in the store."""
@@ -400,6 +400,68 @@ class StoreBackendMixin(object):
         )
 
 
+def _check_hex(s, length):
+    if len(s) != length:
+        return False
+    try:
+        if length & 1:
+            s += "0"
+        bytes.fromhex(s)
+        return True
+    except ValueError:
+        return False
+
+
+def _split_id(call_id):
+    if len(call_id) == 0 or not _check_hex(call_id[-1], 32):
+        return call_id
+    return (*call_id[:-1], call_id[-1][:3], call_id[-1][3:])
+
+
+def _old_split_id(self, call_id):
+    info_path = os.path.join(self.location, "store_backend_info.json")
+    try:
+        with open(info_path, "rb") as file:
+            info = json.loads(file.read().decode("utf-8"))
+        if info["cache_version"] == 2:
+            self._split_id = _split_id
+            return _split_id(call_id)
+    except OSError:
+        pass
+    return call_id
+
+
+def _split_method_decorator(method):
+    def split_method(self, call_id, *args, **kwargs):
+        call_id = self._split_id(call_id)
+        return method(self, call_id, *args, **kwargs)
+
+    return split_method
+
+
+def _split_class_decorator(cls):
+    for method in [
+        "load_item",
+        "dump_item",
+        "clear_item",
+        "contains_item",
+        "get_item_info",
+        "get_metadata",
+        "store_metadata",
+    ]:
+        setattr(
+            cls, method, _split_method_decorator(getattr(StoreBackendMixin, method))
+        )
+    return cls
+
+
+def reconstructStoreBackend(cls, location, verbose, compress, mmap_mode):
+    obj = cls.__new__(cls)
+    obj.configure(location, verbose, dict(compress=compress, mmap_mode=mmap_mode))
+    return obj
+
+
+@_split_class_decorator
 class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
     """A StoreBackend used with local or network file systems."""
 
@@ -423,30 +485,34 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
         items = []
 
         for dirpath, _, filenames in os.walk(self.location):
-            is_cache_hash_dir = re.match("[a-f0-9]{32}", os.path.basename(dirpath))
-
-            if is_cache_hash_dir:
-                output_filename = os.path.join(dirpath, "output.pkl")
-                try:
-                    last_access = os.path.getatime(output_filename)
-                except OSError:
-                    try:
-                        last_access = os.path.getatime(dirpath)
-                    except OSError:
-                        # The directory has already been deleted
-                        continue
-
-                last_access = datetime.datetime.fromtimestamp(last_access)
-                try:
-                    full_filenames = [os.path.join(dirpath, fn) for fn in filenames]
-                    dirsize = sum(os.path.getsize(fn) for fn in full_filenames)
-                except OSError:
-                    # Either output_filename or one of the files in
-                    # dirpath does not exist any more. We assume this
-                    # directory is being cleaned by another process already
+            parent, basename = os.path.split(dirpath)
+            if not _check_hex(basename, 32):
+                if not _check_hex(basename, 29):
+                    continue
+                if not _check_hex(os.path.basename(parent), 3):
                     continue
 
-                items.append(CacheItemInfo(dirpath, dirsize, last_access))
+            output_filename = os.path.join(dirpath, "output.pkl")
+            try:
+                last_access = os.path.getatime(output_filename)
+            except OSError:
+                try:
+                    last_access = os.path.getatime(dirpath)
+                except OSError:
+                    # The directory has already been deleted
+                    continue
+
+            last_access = datetime.datetime.fromtimestamp(last_access)
+            try:
+                full_filenames = [os.path.join(dirpath, fn) for fn in filenames]
+                dirsize = sum(os.path.getsize(fn) for fn in full_filenames)
+            except OSError:
+                # Either output_filename or one of the files in
+                # dirpath does not exist any more. We assume this
+                # directory is being cleaned by another process already
+                continue
+
+            items.append(CacheItemInfo(dirpath, dirsize, last_access))
 
         return items
 
@@ -460,8 +526,10 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
 
         # setup location directory
         self.location = location
+        info = None
         if not os.path.exists(self.location):
             mkdirp(self.location)
+            info = {"cache_version": 2, "require_update": False}
 
         # Automatically add `.gitignore` file to the cache folder.
         # XXX: the condition is necessary because in `Memory.__init__`, the user
@@ -498,3 +566,113 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
 
         self.mmap_mode = mmap_mode
         self.verbose = verbose
+
+        # Get info
+        info_path = os.path.join(self.location, "store_backend_info.json")
+        if os.path.exists(info_path):
+            with open(info_path, "rb") as file:
+                info = json.loads(file.read().decode("utf-8"))
+        else:
+            if info is None:
+                # Cache directory without info.
+                # As long as it has no subdirectories,
+                # we consider it uses an old cache tree
+                with os.scandir(self.location) as entries:
+                    for entry in entries:
+                        if entry.is_dir():
+                            info = {"cache_version": 1, "require_update": True}
+                if info is None:
+                    info = {"cache_version": 2, "require_update": False}
+            with open(info_path, "wb") as file:
+                file.write(json.dumps(info).encode("utf-8"))
+
+        # Warn if an update is required
+        if info["require_update"]:
+            true_location = (
+                f"'{os.path.dirname(location)}'"
+                if os.path.basename(location) == "joblib"
+                else f"pathlib.Path('{location}')"
+            )
+            warnings.warn(
+                f"The FileSystemStoreBackend at '{self.location}' may contains "
+                "items using old cache storage tree.\n"
+                "The joblib cache tree has recently been updated "
+                "for efficiency reasons.\n"
+                "Starting with joblib 1.8, the old cache tree "
+                "will no longer be supported.\n"
+                f"Please run `joblib.Memory({true_location}).store_backend."
+                "update_cache_tree()` to update your cache tree."
+            )
+
+        # Splitting the input hash id in new versions
+        self._split_id = (
+            _split_id
+            if info["cache_version"] == 2
+            else types.MethodType(_old_split_id, self)
+        )
+
+    def update_cache_tree(self):
+        # First info update
+        info_path = os.path.join(self.location, "store_backend_info.json")
+        info = {"cache_version": 2, "require_update": True}
+        with open(info_path, "wb") as file:
+            file.write(json.dumps(info).encode("utf-8"))
+
+        # Find old cache directories
+        old_cache = []
+        for dirpath, _, files in os.walk(self.location):
+            if not _check_hex(os.path.basename(dirpath), 32):
+                continue
+            if not (("output.pkl" in files) or ("metadata.json" in files)):
+                continue
+            old_cache.append(dirpath)
+
+        # Replace old cache directories
+        for dirpath in old_cache:
+            parent, basename = os.path.split(dirpath)
+            newdir_parent = os.path.join(parent, basename[:3])
+            newdir = os.path.join(newdir_parent, basename[3:])
+            if os.path.exists(newdir):
+                # If the new cache directory already exists,
+                # it is replaced depending on the last modification time
+                # of 'output.pkl'
+                old_item = os.path.join(dirpath, "output.pkl")
+                try:
+                    old_mtime = os.path.getmtime(old_item)
+                except OSError:
+                    # "output.pkl" does not exist, so we don't replace
+                    shutil.rmtree(dirpath)
+                    continue
+                new_item = os.path.join(newdir, "output.pkl")
+                try:
+                    new_mtime = os.path.getmtime(new_item)
+                except OSError:
+                    new_mtime = -1
+                if new_mtime < old_mtime:
+                    # replace
+                    shutil.rmtree(newdir)
+                    os.replace(dirpath, newdir)
+                    pass
+                else:
+                    # don't replace
+                    shutil.rmtree(dirpath)
+            else:
+                os.makedirs(newdir_parent, exist_ok=True)
+                os.replace(dirpath, newdir)
+
+        # Second info update
+        info["require_update"] = False
+        with open(info_path, "wb") as file:
+            file.write(json.dumps(info).encode("utf-8"))
+
+    def __reduce__(self):
+        return (
+            reconstructStoreBackend,
+            (
+                self.__class__,
+                self.location,
+                self.verbose,
+                self.compress,
+                self.mmap_mode,
+            ),
+        )
