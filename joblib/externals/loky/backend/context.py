@@ -285,7 +285,7 @@ def _count_physical_cores_linux():
 
 def _count_physical_cores_win32():
     try:
-        cmd = "-Command (Get-CimInstance -ClassName Win32_Processor).NumberOfCores"
+        cmd = "-NoProfile -Command (Get-CimInstance -ClassName Win32_Processor).NumberOfCores"
         cpu_info = subprocess.run(
             f"powershell.exe {cmd}".split(),
             capture_output=True,

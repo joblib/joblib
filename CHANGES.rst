@@ -4,6 +4,11 @@ Release Notes
 In development
 --------------
 
+- Add ``-NoProfile`` flag to the PowerShell call in ``_count_physical_cores_win32``
+  to avoid slowdowns and security prompts on systems with network-mapped
+  PowerShell profile paths.
+  https://github.com/joblib/joblib/issues/1821
+
 - Fix ``eval_expr`` (used to evaluate the ``pre_dispatch`` argument of
   ``Parallel``) to raise a ``ValueError`` as documented instead of leaking a
   ``ZeroDivisionError`` for expressions that divide or take a modulo by zero.
