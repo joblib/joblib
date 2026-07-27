@@ -4,6 +4,10 @@ Release Notes
 In development
 --------------
 
+- Fix ``Memory`` to use the same ``joblib`` cache subdirectory whether
+  ``location`` is passed as a ``str`` or a ``pathlib.Path``.
+  https://github.com/joblib/joblib/issues/1684
+
 - Fix ``eval_expr`` (used to evaluate the ``pre_dispatch`` argument of
   ``Parallel``) to raise a ``ValueError`` as documented instead of leaking a
   ``ZeroDivisionError`` for expressions that divide or take a modulo by zero.

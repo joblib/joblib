@@ -1042,7 +1042,7 @@ class Memory(Logger):
             warnings.warn("Compressed results cannot be memmapped", stacklevel=2)
 
         self.location = location
-        if isinstance(location, str):
+        if isinstance(location, (str, pathlib.Path)):
             location = os.path.join(location, "joblib")
 
         self.store_backend = _store_backend_factory(
