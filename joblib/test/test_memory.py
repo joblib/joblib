@@ -241,6 +241,29 @@ def test_parallel_call_cached_function_defined_in_jupyter(tmpdir, call_before_re
             assert len(os.listdir(f_cache_directory / "f")) == 4
 
 
+def test_memory_pathlib_location_consistent(tmp_path):
+    """Memory with str and pathlib.Path locations should use the same cache subdir."""
+    import math
+
+    mem_str = Memory(str(tmp_path), verbose=0)
+    mem_path = Memory(tmp_path, verbose=0)
+
+    cached_str = mem_str.cache(math.sqrt)
+    cached_path = mem_path.cache(math.sqrt)
+
+    cached_str(4)
+    cached_path(4)
+
+    str_pkls = list(tmp_path.glob("joblib/**/*.pkl"))
+    path_pkls = list(tmp_path.glob("joblib/**/*.pkl"))
+
+    assert str_pkls, "str location should cache under joblib/ subdir"
+    assert path_pkls, "Path location should cache under joblib/ subdir"
+    assert {p.relative_to(tmp_path) for p in str_pkls} == {
+        p.relative_to(tmp_path) for p in path_pkls
+    }
+
+
 def test_no_memory():
     """Test memory with location=None: no memoize"""
     accumulator = list()
