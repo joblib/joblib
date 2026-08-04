@@ -263,6 +263,57 @@ def test_memmap_persistence_mixed_dtypes(tmpdir):
 
 
 @with_numpy
+def test_object_array_inner_stream_uses_caller_find_class(tmpdir):
+    # An object-dtype array is serialized as a nested pickle stream inside the
+    # joblib file. Check that security harden Unpickler propagates its
+    # constraints.
+    filename = tmpdir.join("test.pkl").strpath
+
+    class _Boom:
+        # A global that a hardened ``find_class`` is expected to reject.
+        def __reduce__(self):
+            return (os.getcwd, ())
+
+    obj_array = np.array([_Boom()], dtype=object)
+    numpy_pickle.dump(obj_array, filename)
+
+    rejected = []
+
+    class RestrictedUnpickler(numpy_pickle.NumpyUnpickler):
+        # Stores its policy as a keyword-only argument to make sure the
+        # restriction is preserved even though the inner unpickler is not
+        # reconstructed from this constructor.
+        def __init__(self, *args, blocked_modules=(), **kwargs):
+            super().__init__(*args, **kwargs)
+            self.blocked_modules = set(blocked_modules)
+
+        def find_class(self, module, name):
+            if module.split(".")[0] in self.blocked_modules:
+                rejected.append((module, name))
+                raise pickle.UnpicklingError(f"blocked {module}.{name}")
+            return super().find_class(module, name)
+
+    with open(filename, "rb") as f:
+        unpickler = RestrictedUnpickler(
+            filename,
+            f,
+            ensure_native_byte_order=True,
+            blocked_modules={"os", "posix", "nt"},
+        )
+        with pytest.raises(pickle.UnpicklingError, match="blocked"):
+            unpickler.load()
+
+    # The rejection must come from the *nested* object-array stream, proving
+    # the caller's find_class was applied there and not bypassed.
+    assert any(module in ("os", "posix", "nt") for module, _ in rejected)
+
+    # A permissive subclass still round-trips the object array correctly.
+    loaded = numpy_pickle.load(filename)
+    assert isinstance(loaded, np.ndarray)
+    assert loaded.dtype == object
+
+
+@with_numpy
 def test_masked_array_persistence(tmpdir):
     # The special-case picker fails, because saving masked_array
     # not implemented, but it just delegates to the standard pickler.
@@ -965,6 +1016,23 @@ def test_pathlib(tmpdir):
     assert numpy_pickle.load(filename) == value
     numpy_pickle.dump(value, filename)
     assert numpy_pickle.load(Path(filename)) == value
+
+
+def test_dump_and_load_accept_os_pathlike(tmpdir):
+    # dump() previously only accepted str and pathlib.Path, rejecting any
+    # other os.PathLike (e.g. BIDSPath from mne-bids). load() already worked
+    # because open() accepts os.PathLike; this test ensures both are consistent.
+    class CustomPath(os.PathLike):
+        def __init__(self, path):
+            self._path = path
+
+        def __fspath__(self):
+            return str(self._path)
+
+    path = CustomPath(tmpdir.join("test_pathlike.pkl").strpath)
+    value = {"key": [1, 2, 3]}
+    numpy_pickle.dump(value, path)
+    assert numpy_pickle.load(path) == value
 
 
 @with_numpy

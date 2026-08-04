@@ -1,5 +1,5 @@
-Latest changes
-==============
+Release Notes
+=============
 
 In development
 --------------
@@ -7,9 +7,38 @@ In development
 - Drop python 3.9 support. The oldest supported Python version
   is now Python 3.10.
   https://github.com/joblib/joblib/pull/1773
+
+- Fix ``eval_expr`` (used to evaluate the ``pre_dispatch`` argument of
+  ``Parallel``) to raise a ``ValueError`` as documented instead of leaking a
+  ``ZeroDivisionError`` for expressions that divide or take a modulo by zero.
+  https://github.com/joblib/joblib/pull/1810
+
+- ``MemorizedResult`` now forwards ``mmap_mode`` to its store backend, so a
+  cached array reconstructed from a location is memory-mapped as requested
+  instead of being loaded fully into memory.
+  https://github.com/joblib/joblib/pull/1799
+
 - Unvendor cloudpickle to more quickly benefit from maintenance releases
   of cloudpickle
   https://github.com/joblib/joblib/pull/1775
+
+- Fix ``Memory.cache`` for functions with a keyword-only argument that has a
+  default declared before a keyword-only argument without a default.
+  https://github.com/joblib/joblib/issues/1731
+
+- Fix behavior of ``filter_args`` on some precise cases.
+  https://github.com/joblib/joblib/pull/1800
+
+- Fix a concurrency error that could happen with unordered generator.
+  https://github.com/joblib/joblib/pull/1789
+
+- Fix: ``dump()`` now accepts any input ``os.PathLike`` object to be consistent with
+  ``load``.
+  https://github.com/joblib/joblib/pull/1812
+
+- The documentation now uses pydata sphinx theme. Furthermore, optional dependencies
+  ``test`` and ``docs`` have been added to ``pyproject.toml``.
+  https://github.com/joblib/joblib/pull/1774
 
 Release 1.5.3 - 2025/12/15
 --------------------------

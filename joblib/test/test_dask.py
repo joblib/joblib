@@ -59,13 +59,14 @@ def slow_raise_value_error(condition, duration=0.05):
 
 
 def count_events(event_name, client):
-    worker_events = client.run(lambda dask_worker: dask_worker.log)
-    event_counts = {}
-    for w, events in worker_events.items():
-        event_counts[w] = len(
-            [event for event in list(events) if event[1] == event_name]
-        )
-    return event_counts
+    def work(dask_worker):
+        count = 0
+        for task_state in dask_worker.state.tasks.values():
+            task_story = dask_worker.state.story(task_state)
+            count += len([event for event in task_story if event[1] == event_name])
+        return count
+
+    return client.run(work)
 
 
 def test_simple(loop):

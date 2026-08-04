@@ -1833,7 +1833,11 @@ class Parallel(Logger):
                 # timeouts before any other dispatched job has completed and
                 # been added to `self._jobs` to be retrieved.
                 if timeout_control_job is None:
-                    timeout_control_job = next(iter(self._jobs_set), None)
+                    try:
+                        timeout_control_job = self._jobs_set.pop()
+                        self._jobs_set.add(timeout_control_job)
+                    except KeyError:
+                        timeout_control_job = None
 
                 # NB: it can be None if no job has been dispatched yet.
                 if timeout_control_job is not None:

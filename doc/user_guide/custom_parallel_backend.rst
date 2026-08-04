@@ -1,8 +1,8 @@
 .. _custom_parallel_backend:
 
-==================================
-Parallel backend customization API
-==================================
+===========================
+Custom parallel backend API
+===========================
 
 User can provide their own implementation of a parallel processing backend in
 addition to the ``'loky'``, ``'threading'``, ``'multiprocessing'`` backends

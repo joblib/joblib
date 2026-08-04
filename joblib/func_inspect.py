@@ -225,34 +225,33 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
         # Catch a common mistake
         raise ValueError(
             "ignore_lst must be a list of parameters to ignore "
-            "%s (type %s) was given" % (ignore_lst, type(ignore_lst))
+            f"{ignore_lst} (type {type(ignore_lst)}) was given"
         )
     # Special case for functools.partial objects
     if not inspect.ismethod(func) and not inspect.isfunction(func):
         if ignore_lst:
             warnings.warn(
-                "Cannot inspect object %s, ignore list will not work." % func,
+                f"Cannot inspect object {func}, ignore list will not work.",
                 stacklevel=2,
             )
         return {"*": args, "**": kwargs}
     arg_sig = inspect.signature(func)
     arg_names = []
-    arg_defaults = []
     arg_kwonlyargs = []
     arg_varargs = None
     arg_varkw = None
+    arg_dict = dict()
     for param in arg_sig.parameters.values():
         if param.kind is param.POSITIONAL_OR_KEYWORD:
             arg_names.append(param.name)
         elif param.kind is param.KEYWORD_ONLY:
-            arg_names.append(param.name)
             arg_kwonlyargs.append(param.name)
         elif param.kind is param.VAR_POSITIONAL:
             arg_varargs = param.name
         elif param.kind is param.VAR_KEYWORD:
             arg_varkw = param.name
         if param.default is not param.empty:
-            arg_defaults.append(param.default)
+            arg_dict[param.name] = param.default
     if inspect.ismethod(func):
         # First argument is 'self', it has been removed by Python
         # we need to add it back:
@@ -269,60 +268,63 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
     # as on ndarrays.
 
     _, name = get_func_name(func, resolv_alias=False)
-    arg_dict = dict()
-    arg_position = -1
+
+    # Check for positional argument of the function, that can be
+    # passed either as positional or keyword arguments in the call
     for arg_position, arg_name in enumerate(arg_names):
         if arg_position < len(args):
-            # Positional argument or keyword argument given as positional
-            if arg_name not in arg_kwonlyargs:
-                arg_dict[arg_name] = args[arg_position]
-            else:
-                raise ValueError(
-                    "Keyword-only parameter '%s' was passed as "
-                    "positional parameter for %s:\n"
-                    "     %s was called."
-                    % (
-                        arg_name,
-                        _signature_str(name, arg_sig),
-                        _function_called_str(name, args, kwargs),
-                    )
-                )
-
-        else:
-            position = arg_position - len(arg_names)
+            # given as positional
+            arg_dict[arg_name] = args[arg_position]
             if arg_name in kwargs:
-                arg_dict[arg_name] = kwargs[arg_name]
-            else:
-                try:
-                    arg_dict[arg_name] = arg_defaults[position]
-                except (IndexError, KeyError) as e:
-                    # Missing argument
-                    raise ValueError(
-                        "Wrong number of arguments for %s:\n"
-                        "     %s was called."
-                        % (
-                            _signature_str(name, arg_sig),
-                            _function_called_str(name, args, kwargs),
-                        )
-                    ) from e
-
-    varkwargs = dict()
-    for arg_name, arg_value in sorted(kwargs.items()):
-        if arg_name in arg_dict:
-            arg_dict[arg_name] = arg_value
-        elif arg_varkw is not None:
-            varkwargs[arg_name] = arg_value
-        else:
-            raise TypeError(
-                "Ignore list for %s() contains an unexpected "
-                "keyword argument '%s'" % (name, arg_name)
+                raise ValueError(
+                    f"Argument {arg_name} was given both as positional and as keyword"
+                    f" for {_signature_str(name, arg_sig)}:\n"
+                    f"    {_function_called_str(name, args, kwargs)} was called."
+                )
+        elif arg_name in kwargs:
+            # given as keyword
+            arg_dict[arg_name] = kwargs[arg_name]
+        elif arg_name not in arg_dict:
+            # Missing argument
+            raise ValueError(
+                f"Wrong number of arguments for {_signature_str(name, arg_sig)}:\n"
+                f"    {_function_called_str(name, args, kwargs)} was called."
             )
 
+    # If more positional arguments are given, they correspond
+    # to *args, store them in vargs
+    if len(args) > len(arg_names):
+        if arg_varargs is None:
+            raise ValueError(
+                f"Too many arguments for {_signature_str(name, arg_sig)}:\n"
+                f"    {_function_called_str(name, args, kwargs)} was called."
+            )
+        arg_dict["*"] = args[len(arg_names) :]
+    elif arg_varargs is not None:
+        arg_dict["*"] = []
+
+    # Check keyword only arguments
+    for arg_name in arg_kwonlyargs:
+        if arg_name in kwargs:
+            arg_dict[arg_name] = kwargs[arg_name]
+        elif arg_name not in arg_dict:
+            # required keyword only argument that is missing,
+            # raise an error
+            raise ValueError(
+                f"Wrong number of arguments for {_signature_str(name, arg_sig)}:\n"
+                f"    {_function_called_str(name, args, kwargs)} was called."
+            )
+
+    # If more keyword arguments are given, store them in varkwargs
+    varkwargs = {k: v for k, v in kwargs.items() if k not in arg_dict}
     if arg_varkw is not None:
         arg_dict["**"] = varkwargs
-    if arg_varargs is not None:
-        varargs = args[arg_position + 1 :]
-        arg_dict["*"] = varargs
+
+    elif varkwargs:
+        raise ValueError(
+            f"Too many keyword arguments for {_signature_str(name, arg_sig)}:\n"
+            f"    {_function_called_str(name, args, kwargs)} was called."
+        )
 
     # Now remove the arguments to be ignored
     for item in ignore_lst:
@@ -330,8 +332,8 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
             arg_dict.pop(item)
         else:
             raise ValueError(
-                "Ignore list: argument '%s' is not defined for "
-                "function %s" % (item, _signature_str(name, arg_sig))
+                f"Ignore list: argument '{item}' is not defined for "
+                f"function {_signature_str(name, arg_sig)}"
             )
     # XXX: Return a sorted list of pairs?
     return arg_dict

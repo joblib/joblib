@@ -8,7 +8,6 @@ import io
 import os
 import pickle
 import warnings
-from pathlib import Path
 
 from .backports import make_memmap
 from .compressor import (
@@ -171,8 +170,15 @@ class NumpyArrayWrapper(object):
             count = unpickler.np.multiply.reduce(shape_int64)
         # Now read the actual data.
         if self.dtype.hasobject:
-            # The array contained Python objects. We need to unpickle the data.
-            array = pickle.load(unpickler.file_handle)
+            # The array contained Python objects, serialized as a nested
+            # pickle stream. We read it with a fresh Unpickler (so the nested
+            # stream gets its own opcode stack) but route ``find_class``
+            # through the *outer* unpickler instance to propagate security
+            # harden behavior.
+            # (see https://docs.python.org/3/library/pickle.html#pickle-restrict).
+            inner_unpickler = Unpickler(unpickler.file_handle)
+            inner_unpickler.find_class = unpickler.find_class
+            array = inner_unpickler.load()
         else:
             numpy_array_alignment_bytes = self.safe_get_numpy_array_alignment_bytes()
             if numpy_array_alignment_bytes is not None:
@@ -480,7 +486,7 @@ def dump(value, filename, compress=0, protocol=None):
     ----------
     value: any Python object
         The object to store to disk.
-    filename: str, pathlib.Path, or file object.
+    filename: str, os.PathLike, or file object.
         The file object or path of the file in which it is to be stored.
         The compression method corresponding to one of the supported filename
         extensions ('.z', '.gz', '.bz2', '.xz' or '.lzma') will be used
@@ -517,8 +523,8 @@ def dump(value, filename, compress=0, protocol=None):
 
     """
 
-    if Path is not None and isinstance(filename, Path):
-        filename = str(filename)
+    if isinstance(filename, os.PathLike):
+        filename = os.fspath(filename)
 
     is_filename = isinstance(filename, str)
     is_fileobj = hasattr(filename, "write")
@@ -682,7 +688,7 @@ def load(filename, mmap_mode=None, ensure_native_byte_order="auto"):
 
     Parameters
     ----------
-    filename: str, pathlib.Path, or file object.
+    filename: str, os.PathLike, or file object.
         The file object or path of the file from which to load the object
     mmap_mode: {None, 'r+', 'r', 'w+', 'c'}, optional
         If not None, the arrays are memory-mapped from the disk. This
@@ -723,8 +729,8 @@ def load(filename, mmap_mode=None, ensure_native_byte_order="auto"):
             f"is set to None, but got 'mmap_mode={mmap_mode}' instead."
         )
 
-    if Path is not None and isinstance(filename, Path):
-        filename = str(filename)
+    if isinstance(filename, os.PathLike):
+        filename = os.fspath(filename)
 
     if hasattr(filename, "read"):
         fobj = filename

@@ -13,6 +13,9 @@ from joblib._utils import eval_expr
         "1^1",
         "' ' * 10**10",
         "9. ** 10000.",
+        "1/0",
+        "1//0",
+        "1%0",
     ],
 )
 def test_eval_expr_invalid(expr):
