@@ -392,6 +392,11 @@ def test_numpy_dtype_pickling():
     )
 
 
+def _generate_seeded_random_values():
+    rng = random.Random(42)
+    return [rng.random() for _ in range(5)]
+
+
 @parametrize(
     "to_hash,expected",
     [
@@ -399,8 +404,8 @@ def test_numpy_dtype_pickling():
         ("C'est l\xe9t\xe9", "2d8d189e9b2b0b2e384d93c868c0e576"),
         ((123456, 54321, -98765), "e205227dd82250871fa25aa0ec690aa3"),
         (
-            [random.Random(42).random() for _ in range(5)],
-            "a11ffad81f9682a7d901e6edc3d16c84",
+            _generate_seeded_random_values(),
+            "9e4e9bf9b91890c9734a6111a35e6633",
         ),
         ({"abcde": 123, "sadfas": [-9999, 2, 3]}, "aeda150553d4bb5c69f0e69d51b0e2ef"),
     ],
