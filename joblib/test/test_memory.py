@@ -723,6 +723,42 @@ def test_check_call_in_cache(tmpdir, consider_cache_valid):
     assert not func.check_call_in_cache(2)
 
 
+@pytest.mark.parametrize("consider_cache_valid", [True, False])
+def test_check_why_call_not_in_cache(tmpdir, consider_cache_valid):
+    for func in (
+        MemorizedFunc(
+            f, tmpdir.strpath, cache_validation_callback=lambda _: consider_cache_valid
+        ),
+        Memory(location=tmpdir.strpath, verbose=0).cache(
+            f, cache_validation_callback=lambda _: consider_cache_valid
+        ),
+    ):
+        assert func.check_why_call_not_in_cache(2) == "call not in cache"
+        assert func(2) == 5
+        reason = func.check_why_call_not_in_cache(2)
+        if consider_cache_valid:
+            assert reason == ""
+        else:
+            assert reason == "user cache validation callback failed"
+        func.clear()
+
+    func = NotMemorizedFunc(f)
+    assert func.check_why_call_not_in_cache(2) == "caching is disabled"
+
+
+def test_check_why_call_not_in_cache_func_code_change(tmpdir):
+    memory = Memory(location=tmpdir.strpath, verbose=0)
+    func = memory.cache(f)
+    assert func(2) == 5
+    assert func.check_why_call_not_in_cache(2) == ""
+
+    # Overwrite the stored source so that the cached code no longer matches.
+    # The in-memory store short-circuits the comparison, so clear it too.
+    _FUNCTION_HASHES.clear()
+    func.store_backend.store_cached_func_code([func.func_id], "def f(x):\n    pass\n")
+    assert func.check_why_call_not_in_cache(2) == "function code has changed"
+
+
 def test_call_and_shelve(tmpdir):
     # Test MemorizedFunc outputting a reference to cache.
 

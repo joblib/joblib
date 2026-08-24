@@ -4,6 +4,11 @@ Release Notes
 In development
 --------------
 
+- Add ``MemorizedFunc.check_why_call_not_in_cache``, a counterpart to
+  ``check_call_in_cache`` that returns the reason a call is not in the cache
+  instead of just whether it is.
+  https://github.com/joblib/joblib/pull/1763
+
 - Fix caching of functions whose source cannot be retrieved, such as functions
   defined in a notebook cell. Their identity fell back to
   ``str(hash(func.__code__))``, which is salted by ``PYTHONHASHSEED`` and so

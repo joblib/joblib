@@ -521,8 +521,18 @@ without actually needing to call the function itself::
     >>> func.check_call_in_cache(2)  # cache miss
     False
 
+When a call unexpectedly misses the cache,
+:meth:`func.check_why_call_not_in_cache
+<MemorizedFunc.check_why_call_not_in_cache>` reports the reason instead of just
+signalling the miss::
+
+    >>> func.check_why_call_not_in_cache(1)  # cache hit
+    ''
+    >>> func.check_why_call_not_in_cache(2)  # cache miss
+    'call not in cache'
+
 .. autoclass:: MemorizedFunc
-    :members: __init__, call, clear, check_call_in_cache
+    :members: __init__, call, clear, check_call_in_cache, check_why_call_not_in_cache
 
 
 ..
