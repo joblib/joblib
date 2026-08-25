@@ -1596,6 +1596,26 @@ class TestCacheValidationCallback:
         assert not d2["run"]
         assert d3["run"]
 
+    def test_memory_expires_after_missing_metadata(self, tmp_path):
+        "Test that missing cache metadata invalidates the cached result"
+        memory = Memory(location=tmp_path, verbose=0)
+        f = memory.cache(
+            self.foo, cache_validation_callback=expires_after(hours=1), ignore=["d"]
+        )
+
+        d1, d2 = {"run": False}, {"run": False}
+        assert f(2, d1) == 4
+
+        args_id = f._get_args_id(2, d1)
+        metadata_path = Path(
+            f.store_backend.location, f.func_id, args_id, "metadata.json"
+        )
+        metadata_path.unlink()
+        assert f(2, d2) == 4
+
+        assert d1["run"]
+        assert d2["run"]
+
 
 class TestMemorizedFunc:
     "Tests for the MemorizedFunc and NotMemorizedFunc classes"

@@ -14,6 +14,10 @@ In Development
   integer to string conversion rather than saying the value was too large.
   https://github.com/joblib/joblib/pull/1841
 
+- Fix ``expires_after`` to invalidate cached results whose metadata is missing
+  instead of raising a ``KeyError``.
+  https://github.com/joblib/joblib/issues/1727
+
 Release 1.6.0 - 2026/08/31
 --------------------------
 

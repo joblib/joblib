@@ -1249,6 +1249,8 @@ def expires_after(
     )
 
     def cache_validation_callback(metadata):
+        if "time" not in metadata:
+            return False
         computation_age = time.time() - metadata["time"]
         return computation_age < delta.total_seconds()
 
