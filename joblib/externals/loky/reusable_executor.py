@@ -3,10 +3,14 @@
 #
 # author: Thomas Moreau and Olivier Grisel
 #
+
+from __future__ import annotations
+
 import time
 import warnings
 import threading
 import multiprocessing as mp
+from typing import Any
 
 from .process_executor import ProcessPoolExecutor, EXTRA_QUEUED_CALLS
 from .backend.context import cpu_count
@@ -14,11 +18,20 @@ from .backend import get_context
 
 __all__ = ["get_reusable_executor"]
 
-# Singleton executor and id management
+
+class _ExecutorStorage(threading.local):
+    """Cache a thread-local executor"""
+
+    executor: _ReusablePoolExecutor | None = None
+    executor_kwargs: dict[str, Any] | None = None
+
+
+# Lock for id management:
 _executor_lock = threading.RLock()
 _next_executor_id = 0
-_executor = None
-_executor_kwargs = None
+
+# Thread-local executor storage:
+_executor_storage = _ExecutorStorage()
 
 
 def _get_next_executor_id():
@@ -104,7 +117,6 @@ def get_reusable_executor(
 class _ReusablePoolExecutor(ProcessPoolExecutor):
     def __init__(
         self,
-        submit_resize_lock,
         max_workers=None,
         context=None,
         timeout=None,
@@ -126,7 +138,6 @@ class _ReusablePoolExecutor(ProcessPoolExecutor):
             env=env,
         )
         self.executor_id = executor_id
-        self._submit_resize_lock = submit_resize_lock
 
     @classmethod
     def get_reusable_executor(
@@ -142,127 +153,116 @@ class _ReusablePoolExecutor(ProcessPoolExecutor):
         initargs=(),
         env=None,
     ):
-        with _executor_lock:
-            global _executor, _executor_kwargs
-            executor = _executor
+        executor = _executor_storage.executor
 
-            if max_workers is None:
-                if reuse is True and executor is not None:
-                    max_workers = executor._max_workers
-                else:
-                    max_workers = cpu_count()
-            elif max_workers <= 0:
-                raise ValueError(
-                    f"max_workers must be greater than 0, got {max_workers}."
-                )
-
-            if isinstance(context, str):
-                context = get_context(context)
-            if context is not None and context.get_start_method() == "fork":
-                raise ValueError(
-                    "Cannot use reusable executor with the 'fork' context"
-                )
-
-            kwargs = dict(
-                context=context,
-                timeout=timeout,
-                job_reducers=job_reducers,
-                result_reducers=result_reducers,
-                initializer=initializer,
-                initargs=initargs,
-                env=env,
+        if max_workers is None:
+            if reuse is True and executor is not None:
+                max_workers = executor._max_workers
+            else:
+                max_workers = cpu_count()
+        elif max_workers <= 0:
+            raise ValueError(
+                f"max_workers must be greater than 0, got {max_workers}."
             )
-            if executor is None:
-                is_reused = False
+
+        if isinstance(context, str):
+            context = get_context(context)
+        if context is not None and context.get_start_method() == "fork":
+            raise ValueError(
+                "Cannot use reusable executor with the 'fork' context"
+            )
+
+        kwargs = dict(
+            context=context,
+            timeout=timeout,
+            job_reducers=job_reducers,
+            result_reducers=result_reducers,
+            initializer=initializer,
+            initargs=initargs,
+            env=env,
+        )
+        if executor is None:
+            is_reused = False
+            mp.util.debug(f"Create a executor with max_workers={max_workers}.")
+            executor_id = _get_next_executor_id()
+            _executor_storage.executor_kwargs = kwargs
+            _executor_storage.executor = executor = cls(
+                max_workers=max_workers,
+                executor_id=executor_id,
+                **kwargs,
+            )
+        else:
+            if reuse == "auto":
+                reuse = kwargs == _executor_storage.executor_kwargs
+            if (
+                executor._flags.broken
+                or executor._flags.shutdown
+                or not reuse
+                or executor.queue_size < max_workers
+            ):
+                if executor._flags.broken:
+                    reason = "broken"
+                elif executor._flags.shutdown:
+                    reason = "shutdown"
+                elif executor.queue_size < max_workers:
+                    # Do not reuse the executor if the queue size is too
+                    # small as this would lead to limited parallelism.
+                    reason = "queue size is too small"
+                else:
+                    reason = "arguments have changed"
                 mp.util.debug(
-                    f"Create a executor with max_workers={max_workers}."
+                    "Creating a new executor with max_workers="
+                    f"{max_workers} as the previous instance cannot be "
+                    f"reused ({reason})."
                 )
-                executor_id = _get_next_executor_id()
-                _executor_kwargs = kwargs
-                _executor = executor = cls(
-                    _executor_lock,
-                    max_workers=max_workers,
-                    executor_id=executor_id,
-                    **kwargs,
+                executor.shutdown(wait=True, kill_workers=kill_workers)
+                _executor_storage.executor = executor = (
+                    _executor_storage.executor_kwargs
+                ) = None
+                return cls.get_reusable_executor(
+                    max_workers=max_workers, **kwargs
                 )
             else:
-                if reuse == "auto":
-                    reuse = kwargs == _executor_kwargs
-                if (
-                    executor._flags.broken
-                    or executor._flags.shutdown
-                    or not reuse
-                    or executor.queue_size < max_workers
-                ):
-                    if executor._flags.broken:
-                        reason = "broken"
-                    elif executor._flags.shutdown:
-                        reason = "shutdown"
-                    elif executor.queue_size < max_workers:
-                        # Do not reuse the executor if the queue size is too
-                        # small as this would lead to limited parallelism.
-                        reason = "queue size is too small"
-                    else:
-                        reason = "arguments have changed"
-                    mp.util.debug(
-                        "Creating a new executor with max_workers="
-                        f"{max_workers} as the previous instance cannot be "
-                        f"reused ({reason})."
-                    )
-                    executor.shutdown(wait=True, kill_workers=kill_workers)
-                    _executor = executor = _executor_kwargs = None
-                    # Recursive call to build a new instance
-                    return cls.get_reusable_executor(
-                        max_workers=max_workers, **kwargs
-                    )
-                else:
-                    mp.util.debug(
-                        "Reusing existing executor with "
-                        f"max_workers={executor._max_workers}."
-                    )
-                    is_reused = True
-                    executor._resize(max_workers)
+                mp.util.debug(
+                    "Reusing existing executor with "
+                    f"max_workers={executor._max_workers}."
+                )
+                is_reused = True
+                executor._resize(max_workers)
 
         return executor, is_reused
 
-    def submit(self, fn, *args, **kwargs):
-        with self._submit_resize_lock:
-            return super().submit(fn, *args, **kwargs)
-
     def _resize(self, max_workers):
-        with self._submit_resize_lock:
-            if max_workers is None:
-                raise ValueError("Trying to resize with max_workers=None")
-            elif max_workers == self._max_workers:
-                return
+        if max_workers is None:
+            raise ValueError("Trying to resize with max_workers=None")
+        elif max_workers == self._max_workers:
+            return
 
-            if self._executor_manager_thread is None:
-                # If the executor_manager_thread has not been started
-                # then no processes have been spawned and we can just
-                # update _max_workers and return
-                self._max_workers = max_workers
-                return
+        if self._executor_manager_thread is None:
+            # If the executor_manager_thread has not been started
+            # then no processes have been spawned and we can just
+            # update _max_workers and return
+            self._max_workers = max_workers
+            return
 
-            self._wait_job_completion()
+        self._wait_job_completion()
 
-            # Some process might have returned due to timeout so check how many
-            # children are still alive. Use the _process_management_lock to
-            # ensure that no process are spawned or timeout during the resize.
-            with self._processes_management_lock:
-                processes = list(self._processes.values())
-                nb_children_alive = sum(p.is_alive() for p in processes)
-                self._max_workers = max_workers
-                for _ in range(max_workers, nb_children_alive):
-                    self._call_queue.put(None)
-            while (
-                len(self._processes) > max_workers and not self._flags.broken
-            ):
-                time.sleep(1e-3)
-
-            self._adjust_process_count()
+        # Some process might have returned due to timeout so check how many
+        # children are still alive. Use the _process_management_lock to
+        # ensure that no process are spawned or timeout during the resize.
+        with self._processes_management_lock:
             processes = list(self._processes.values())
-            while not all(p.is_alive() for p in processes):
-                time.sleep(1e-3)
+            nb_children_alive = sum(p.is_alive() for p in processes)
+            self._max_workers = max_workers
+            for _ in range(max_workers, nb_children_alive):
+                self._call_queue.put(None)
+        while len(self._processes) > max_workers and not self._flags.broken:
+            time.sleep(1e-3)
+
+        self._adjust_process_count()
+        processes = list(self._processes.values())
+        while not all(p.is_alive() for p in processes):
+            time.sleep(1e-3)
 
     def _wait_job_completion(self):
         """Wait for the cache to be empty before resizing the pool."""

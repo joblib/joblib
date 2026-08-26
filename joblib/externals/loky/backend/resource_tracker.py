@@ -241,7 +241,12 @@ class ResourceTracker(_ResourceTracker):
         if not hasattr(_ResourceTracker, "__del__"):
             return
         try:
-            super().__del__()
+            if sys.version_info[:2] == (3, 13):
+                # __del__ calls this with a timeout, which doesn't work on
+                # Windows:
+                super()._stop(use_blocking_lock=False)
+            else:
+                super().__del__()
         except ChildProcessError:
             pass
 

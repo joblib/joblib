@@ -79,7 +79,9 @@ def _windows_taskkill_process_tree(pid):
     # process pid and its children.
     try:
         subprocess.check_output(
-            ["taskkill", "/F", "/T", "/PID", str(pid)], stderr=None
+            ["taskkill", "/F", "/T", "/PID", str(pid)],
+            stderr=None,
+            creationflags=subprocess.CREATE_NO_WINDOW,
         )
     except subprocess.CalledProcessError as e:
         # In Windows, taskkill returns 128, 255 for no process found.

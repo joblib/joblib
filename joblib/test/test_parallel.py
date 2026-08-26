@@ -75,17 +75,17 @@ from joblib.parallel import (
     register_parallel_backend,
 )
 
-# A huge number of tests are not thread safe due to #1816 and #1743. Once those
-# are fixed, remove this and fix anything that's left.
-pytestmark = pytest.mark.thread_unsafe
-
-
 RETURN_GENERATOR_BACKENDS = BACKENDS.copy()
 RETURN_GENERATOR_BACKENDS.pop("multiprocessing", None)
 
 ALL_VALID_BACKENDS = [None] + sorted(BACKENDS.keys())
-# Add instances of backend classes deriving from ParallelBackendBase
-ALL_VALID_BACKENDS += [BACKENDS[backend_str]() for backend_str in BACKENDS]
+# Add instances of backend classes deriving from ParallelBackendBase. These
+# cannot be used with pytest-run-parallel, since instances are shared across
+# parallel run.
+ALL_VALID_BACKENDS += [
+    pytest.param(BACKENDS[backend_str](), marks=pytest.mark.thread_unsafe)
+    for backend_str in BACKENDS
+]
 if mp is None:
     PROCESS_BACKENDS = []
 else:
@@ -1618,7 +1618,6 @@ def test_multiple_generator_call_separated_gc(backend, return_as_1, return_as_2,
         assert parallel._aborting
 
 
-@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1794
 @with_numpy
 @with_multiprocessing
 @parametrize("backend", PROCESS_BACKENDS)
@@ -1955,6 +1954,7 @@ def test_zero_worker_backend(context):
             Parallel(n_jobs=2)(delayed(id)(i) for i in range(2))
 
 
+@pytest.mark.thread_unsafe  # Uses globals!
 def test_globals_update_at_each_parallel_call():
     # This is a non-regression test related to joblib issues #836 and #833.
     # Cloudpickle versions between 0.5.4 and 0.7 introduced a bug where global
@@ -2084,6 +2084,7 @@ def test_threadpool_limitation_in_child_context(context, n_jobs, inner_max_num_t
     )
 
 
+@pytest.mark.thread_unsafe  # involves global mutable state
 @with_multiprocessing
 @parametrize("n_jobs", [2, -1])
 @parametrize("var_name", ["OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "OMP_NUM_THREADS"])
