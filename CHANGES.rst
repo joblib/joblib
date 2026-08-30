@@ -4,6 +4,16 @@ Release Notes
 In Development
 --------------
 
+- Fix ``eval_expr`` (used to evaluate the ``pre_dispatch`` argument of
+  ``Parallel``) to reject an oversized power before evaluating it. Both
+  operands of ``999999**999999`` are within the allowed magnitude, so the
+  result was computed in full, costing seconds of CPU and a number with
+  millions of digits, before the size check rejected it. A result of more than
+  ``sys.get_int_max_str_digits()`` digits could also not be rendered into the
+  error message, so ``pre_dispatch="10**5000"`` reported a CPython limit on
+  integer to string conversion rather than saying the value was too large.
+  https://github.com/joblib/joblib/pull/1841
+
 Release 1.6.0 - 2026/08/31
 --------------------------
 
