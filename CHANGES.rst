@@ -50,6 +50,9 @@ In development
   ``test`` and ``docs`` have been added to ``pyproject.toml``.
   https://github.com/joblib/joblib/pull/1774
 
+- Vendor ``loky 3.6.0``
+  https://github.com/joblib/joblib/pull/1843
+
 Release 1.5.3 - 2025/12/15
 --------------------------
 
