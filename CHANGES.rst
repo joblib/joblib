@@ -23,6 +23,10 @@ In development
   ``ZeroDivisionError`` for expressions that divide or take a modulo by zero.
   https://github.com/joblib/joblib/pull/1810
 
+- Relax the NumPy hashing performance threshold on RISC-V, where the OpenSSL
+  MD5 implementation can make the benchmark less stable.
+  https://github.com/joblib/joblib/issues/1801
+
 - ``MemorizedResult`` now forwards ``mmap_mode`` to its store backend, so a
   cached array reconstructed from a location is memory-mapped as requested
   instead of being loaded fully into memory.
