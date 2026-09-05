@@ -346,6 +346,21 @@ def test_set_decimal_hash():
     )
 
 
+def test_dict_decimal_nan_hash():
+    # Non-regression for https://github.com/joblib/joblib/issues/1847
+    # Decimal('NaN') comparisons raise decimal.InvalidOperation; dict hashing
+    # must fall back like set hashing already does.
+    d1 = {Decimal("NaN"): 1, Decimal(0): 2}
+    d2 = {Decimal(0): 2, Decimal("NaN"): 1}
+    assert hash(d1) == hash(d2)
+    # Two NaN keys can coexist in a dict because Decimal('NaN') != itself.
+    d_two_nans = {}
+    d_two_nans[Decimal("NaN")] = 1
+    d_two_nans[Decimal("NaN")] = 2
+    assert len(d_two_nans) == 2
+    assert isinstance(hash(d_two_nans), str)
+
+
 def test_string():
     # Test that we obtain the same hash for object owning several strings,
     # whatever the past of these strings (which are immutable in Python)

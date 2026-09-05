@@ -140,8 +140,10 @@ class Hasher(Pickler):
             # consistent and orderable.
             # This fails on python 3 when keys are unorderable
             # but we keep it in a try as it's faster.
+            # decimal.InvalidOperation is raised when sorting Decimal('NaN')
+            # with other Decimals (same case as _ConsistentSet for sets).
             Pickler._batch_setitems(self, iter(sorted(items)), *args)
-        except TypeError:
+        except (TypeError, decimal.InvalidOperation):
             # If keys are unorderable, sorting them using their hash. This is
             # slower but works in any case.
             Pickler._batch_setitems(

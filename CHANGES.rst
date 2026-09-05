@@ -4,6 +4,12 @@ Release Notes
 In Development
 --------------
 
+- Fix ``joblib.hash`` (and ``Memory.cache``) crashing with
+  ``decimal.InvalidOperation`` when hashing dicts whose keys include
+  ``Decimal("NaN")``. ``_batch_setitems`` now catches that exception the same
+  way ``_ConsistentSet`` already did for sets.
+  https://github.com/joblib/joblib/issues/1847
+
 - Fix ``eval_expr`` to reject an oversized power before evaluating it.
   https://github.com/joblib/joblib/pull/1841
 
