@@ -466,10 +466,10 @@ class BinaryZlibFile(io.BufferedIOBase):
             return io.BufferedIOBase.readinto(self, b)
 
     def write(self, data):
-        """Write a byte string to the file.
+        """Write a bytes-like object to the file.
 
-        Returns the number of uncompressed bytes written, which is
-        always len(data). Note that due to buffering, the file on disk
+        Returns the number of uncompressed bytes written.
+        Note that due to buffering, the file on disk
         may not reflect the data written until close() is called.
         """
         with self._lock:
@@ -478,10 +478,11 @@ class BinaryZlibFile(io.BufferedIOBase):
             if isinstance(data, memoryview):
                 data = data.tobytes()
 
+            nbytes = memoryview(data).nbytes
             compressed = self._compressor.compress(data)
             self._fp.write(compressed)
-            self._pos += len(data)
-            return len(data)
+            self._pos += nbytes
+            return nbytes
 
     # Rewind the file to the beginning of the data stream.
     def _rewind(self):
