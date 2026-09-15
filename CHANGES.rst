@@ -4,6 +4,10 @@ Release Notes
 In Development
 --------------
 
+- Fix ``delete_folder`` that could raise ``FileNotFoundError`` during a
+  concurrent deletion.
+  https://github.com/joblib/joblib/pull/1852
+
 - Fix ``concurrency_safe_rename`` on Windows reporting ``RuntimeError: No
   active exception to reraise`` when the retry window expired, instead of the
   access denied error that kept the rename from succeeding.
