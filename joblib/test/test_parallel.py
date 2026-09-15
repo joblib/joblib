@@ -20,12 +20,13 @@ from multiprocessing import TimeoutError
 from pickle import PicklingError
 from time import sleep
 from traceback import format_exception
+from unittest import mock
 from uuid import uuid4
 
 import pytest
 
 import joblib
-from joblib import dump, load, parallel
+from joblib import _parallel_backends, dump, load, parallel
 from joblib._multiprocessing_helpers import mp
 from joblib.test.common import (
     IS_GIL_DISABLED,
@@ -767,6 +768,22 @@ def test_invalid_backend():
     with raises(ValueError, match="Invalid backend:"):
         with parallel_config(backend="unit-testing"):
             pass
+
+
+@with_multiprocessing
+@parametrize("backend", sorted(BACKENDS.keys()))
+def test_invalid_njobs_in_daemon_process(backend):
+    # n_jobs=0 has no meaning for any backend, including inside a daemonic
+    # process (a Celery worker, say) where some backends short-circuit to 1.
+    # Going through the public effective_n_jobs rather than Parallel, because
+    # Parallel recovers from a backend returning 1 by falling back to
+    # SequentialBackend, which raises for its own reasons and hides this.
+    with mock.patch.object(_parallel_backends.mp, "current_process") as cp:
+        cp.return_value.daemon = True
+        with parallel_config(backend=backend):
+            with raises(ValueError) as excinfo:
+                joblib.effective_n_jobs(0)
+            assert "n_jobs == 0 in Parallel has no meaning" in str(excinfo.value)
 
 
 @parametrize("backend", ALL_VALID_BACKENDS)
