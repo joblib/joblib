@@ -1085,6 +1085,16 @@ def test_invalid_batch_size(batch_size):
         Parallel(batch_size=batch_size)
 
 
+@with_multiprocessing
+@parametrize("pre_dispatch", [0, -1, "0", "0*n_jobs"])
+def test_invalid_pre_dispatch(pre_dispatch):
+    """A pre_dispatch below one dispatched nothing and returned no results."""
+    with raises(ValueError, match="pre_dispatch must be"):
+        Parallel(n_jobs=2, pre_dispatch=pre_dispatch)(
+            delayed(square)(i) for i in range(4)
+        )
+
+
 @parametrize(
     "n_tasks, n_jobs, pre_dispatch, batch_size",
     [
