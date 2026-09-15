@@ -4,6 +4,10 @@ Release Notes
 In Development
 --------------
 
+- A non-positive value for ``pre_dispatch`` in ``Parallel`` now raises a
+  ValueError.
+  https://github.com/joblib/joblib/pull/1839
+
 - Fix ``delete_folder`` that could raise ``FileNotFoundError`` during a
   concurrent deletion.
   https://github.com/joblib/joblib/pull/1852
