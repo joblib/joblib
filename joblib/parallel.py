@@ -2075,7 +2075,7 @@ class Parallel(Logger):
             if pre_dispatch < 1:
                 raise ValueError(
                     "pre_dispatch must be 'all' or a positive number of "
-                    "batches, got: %r" % self.pre_dispatch
+                    f"batches, got: {self.pre_dispatch!r}"
                 )
 
             # The main thread will consume the first pre_dispatch items and

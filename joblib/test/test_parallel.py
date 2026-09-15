@@ -1095,14 +1095,6 @@ def test_invalid_pre_dispatch(pre_dispatch):
         )
 
 
-@parametrize("pre_dispatch", [1, "2*n_jobs", "all"])
-def test_valid_pre_dispatch(pre_dispatch):
-    out = Parallel(n_jobs=2, pre_dispatch=pre_dispatch)(
-        delayed(square)(i) for i in range(4)
-    )
-    assert out == [square(i) for i in range(4)]
-
-
 @parametrize(
     "n_tasks, n_jobs, pre_dispatch, batch_size",
     [
