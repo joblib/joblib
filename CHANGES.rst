@@ -4,6 +4,11 @@ Release Notes
 In Development
 --------------
 
+- Fix ``concurrency_safe_rename`` on Windows reporting ``RuntimeError: No
+  active exception to reraise`` when the retry window expired, instead of the
+  access denied error that kept the rename from succeeding.
+  https://github.com/joblib/joblib/pull/1855
+
 - Fix ``eval_expr`` to reject an oversized power before evaluating it.
   https://github.com/joblib/joblib/pull/1841
 
