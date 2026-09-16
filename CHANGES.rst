@@ -4,6 +4,10 @@ Release Notes
 In Development
 --------------
 
+- Fix ``BinaryZlibFile.write`` and ``BinaryGzipFile.write`` returning the
+  element count instead of the byte count for non-bytes buffer objects.
+  https://github.com/joblib/joblib/pull/1854
+
 - Fix ``eval_expr`` to reject an oversized power before evaluating it.
   https://github.com/joblib/joblib/pull/1841
 
