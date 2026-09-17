@@ -4,13 +4,13 @@ set -xe
 
 conda config --set solver libmamba
 
-conda create -n py27-np19 --yes -c conda-forge python=2.7 pip
-conda activate py27-np19
-pip install numpy==1.9 joblib==0.8.4
-conda create -n py35-np111 --yes -c conda-forge python=3.5 pip
-conda activate py35-np111
-pip install numpy==1.11 joblib==0.10.0
-# Since joblib 0.12, lz4 is available
-conda create -n py36-np113 --yes -c conda-forge python=3.6 pip
-conda activate py36-np113
-pip install numpy==1.13 joblib==0.12.2 lz4
+for PRE in "BEFORE_" "" "AFTER_"; do
+    CONDA_ENV="${PRE}oldest"
+    delcare -n PYTHON_VERSION="${PRE}OLDEST_PYTHON_VERSION"
+    delcare -n NUMPY_VERSION="${PRE}OLDEST_NUMPY_VERSION"
+    delcare -n JOBLIB_VERSION="${PRE}OLDEST_JOBLIB_VERSION"
+
+    conda create -n $CONDA_ENV --yes -c conda-forge python=$PYTHON_VERSION pip
+    conda activate $CONDA_ENV
+    pip install numpy==$NUMPY_VERSION joblib==$JOBLIB_VERSION lz4
+done

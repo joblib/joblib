@@ -33,6 +33,19 @@ env:
   # We decided to not support older versions
   OLDEST_DISTRIBUTED_VERSION: '2022.8.1'
 
+  ###############################################################
+  ## For gen-pickle we set-up some other versions.             ##
+  ## We use one version before and after OLDEST_PYTHON_VERSION ##
+  ###############################################################
+  BEFORE_OLDEST_PYTHON_VERSION: '3.9'
+  AFTER_OLDEST_PYTHON_VERSION: '3.11'
+  # We use the oldest package version supporting each python version
+  BEFORE_OLDEST_NUMPY_VERSION: '1.19.5'
+  AFTER_OLDEST_NUMPY_VERSION: '1.23.5'
+  BEFORE_OLDEST_JOBLIB_VERSION: '1.0.0'
+  OLDEST_JOBLIB_VERSION: '1.2.0'
+  AFTER_OLDEST_JOBLIB_VERSION: '1.3.0'
+
 jobs:
   linting:
     runs-on: ubuntu-latest
