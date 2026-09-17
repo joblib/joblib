@@ -17,6 +17,8 @@ from contextlib import closing
 from pathlib import Path
 from uuid import uuid4
 
+from packaging import version
+
 try:
     import lzma
 except ImportError:
@@ -464,16 +466,18 @@ def _check_pickle(filename, expected_list, mmap_mode=None):
                 )
                 result_list = numpy_pickle.load(filename, mmap_mode=mmap_mode)
             filename_base = os.path.basename(filename)
-            expected_nb_deprecation_warnings = 1 if "_0.8.4" in filename_base else 0
 
-            expected_nb_user_warnings = (
-                3
-                if (re.search("_0.1.+.pkl$", filename_base) and mmap_mode is not None)
-                else 0
-            )
-            expected_nb_warnings = (
-                expected_nb_deprecation_warnings + expected_nb_user_warnings
-            )
+            expected_nb_warnings = 0
+
+            # When using mmap, there is an alignment warning for joblib version
+            # older than 1.2.0
+            if mmap_mode is not None:
+                joblib_version = re.match(r"joblib_([^_]+)_", filename_base)
+                assert joblib_version
+                joblib_version = joblib_version.group(1)
+                if version.parse(joblib_version) < version.parse("1.2.0"):
+                    expected_nb_warnings += 3
+
             assert len(warninfo) == expected_nb_warnings, (
                 "Did not get the expected number of warnings. Expected "
                 f"{expected_nb_warnings} but got warnings: "
