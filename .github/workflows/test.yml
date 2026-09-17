@@ -183,10 +183,6 @@ jobs:
       PYTHON_VERSION: "latest_supported"
       SKLEARN_TESTS: "true"
 
-    defaults:
-      run:
-        shell: bash -el {0}
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
