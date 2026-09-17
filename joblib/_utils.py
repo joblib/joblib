@@ -23,6 +23,24 @@ operators = {
     ast.USub: op.neg,
 }
 
+# Largest magnitude any sub-expression is allowed to reach.
+MAX_VALUE = 10**6
+
+
+def _pow_is_too_large(base, exponent):
+    """Return True if ``base ** exponent`` cannot fit under `MAX_VALUE`.
+
+    Only integers are considered. A float power overflows cheaply, whereas a
+    large integer power is built out in full before `limit` ever sees the
+    result: ``999999**999999`` costs seconds of CPU and allocates a number with
+    millions of digits.
+    """
+    if not (isinstance(base, int) and isinstance(exponent, int)):
+        return False
+    # For any |base| >= 2, base ** exponent >= 2 ** exponent, so an exponent
+    # above the bit length of the limit cannot produce a value that fits.
+    return abs(base) >= 2 and exponent > MAX_VALUE.bit_length()
+
 
 def eval_expr(expr):
     """Somewhat safely evaluate an arithmetic expression.
@@ -76,12 +94,18 @@ def limit(max_=None):
     return decorator
 
 
-@limit(max_=10**6)
+@limit(max_=MAX_VALUE)
 def eval_(node):
     if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
         return node.value
     elif isinstance(node, ast.BinOp):  # <left> <operator> <right>
-        return operators[type(node.op)](eval_(node.left), eval_(node.right))
+        left = eval_(node.left)
+        right = eval_(node.right)
+        if isinstance(node.op, ast.Pow) and _pow_is_too_large(left, right):
+            raise ValueError(
+                f"Numeric literal {left}**{right} is too large, max is {MAX_VALUE}."
+            )
+        return operators[type(node.op)](left, right)
     elif isinstance(node, ast.UnaryOp):  # <operator> <operand> e.g., -1
         return operators[type(node.op)](eval_(node.operand))
     else:

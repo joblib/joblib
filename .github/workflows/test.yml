@@ -38,9 +38,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.x"
 
@@ -119,7 +119,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup conda
         uses: conda-incubator/setup-miniconda@v4
@@ -140,7 +140,7 @@ jobs:
       - name: Upload to Codecov
         # always upload coverage even if tests fail
         if: ${{ matrix.SKLEARN_TESTS != 'true' && (success() || failure()) }}
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           files: coverage.xml
           token: ${{ secrets.CODECOV_TOKEN }}
