@@ -7,9 +7,11 @@ My own variation on function-specific inspect-like features.
 # License: BSD Style, 3 clauses.
 
 import collections
+import hashlib
 import inspect
 import os
 import re
+import types
 import warnings
 from itertools import islice
 from tokenize import open as open_py_source
@@ -20,6 +22,54 @@ full_argspec_fields = (
     "args varargs varkw defaults kwonlyargs kwonlydefaults annotations"
 )
 full_argspec_type = collections.namedtuple("FullArgSpec", full_argspec_fields)
+
+
+def _code_fingerprint(code):
+    """Digest the contents of a code object.
+
+    ``hash(code)`` would be simpler, but it hashes the strings it is built from
+    and those are salted by PYTHONHASHSEED. This value is written to
+    func_code.py and compared by *other* processes, which then conclude the
+    function changed and wipe its cache directory (#1694).
+
+    The fields below mirror CPython's own ``code_hash()``:
+    https://github.com/python/cpython/blob/5918085bb6f4a3a48193cacb9bb99b044d4e0452/Objects/codeobject.c#L2608-L2624
+    co_localsplusnames is spelled out as varnames/cellvars/freevars. Only the
+    position information, co_firstlineno and co_linetable, is deliberately left
+    out: joblib compares source *text* and tracks the line number separately,
+    so moving a function without editing it must not invalidate its cache. For
+    the same reason co_filename is not included, unlike ``marshal.dumps``,
+    which would key a notebook function to the cell number it last ran in.
+    """
+    parts = [
+        code.co_name,
+        # co_code de-specializes adaptive bytecode, like _Py_GetBaseCodeUnit
+        code.co_code.hex(),
+        # 3.11+ moved the try/except ranges out of the bytecode and in here
+        getattr(code, "co_exceptiontable", b"").hex(),
+        *code.co_names,
+        *code.co_varnames,
+        *code.co_cellvars,
+        *code.co_freevars,
+        *map(
+            repr,
+            (
+                code.co_argcount,
+                code.co_posonlyargcount,
+                code.co_kwonlyargcount,
+                code.co_flags,
+            ),
+        ),
+    ]
+    for const in code.co_consts:
+        # repr() of a nested code object embeds its address
+        if isinstance(const, types.CodeType):
+            parts.append(_code_fingerprint(const))
+        else:
+            parts.append(repr(const))
+    digest = hashlib.new("md5", usedforsecurity=False)
+    digest.update("\n".join(parts).encode("utf-8", errors="replace"))
+    return digest.hexdigest()
 
 
 def get_func_code(func):
@@ -70,7 +120,7 @@ def get_func_code(func):
         # might change from one session to another.
         if hasattr(func, "__code__"):
             # Python 3.X
-            return str(func.__code__.__hash__()), source_file, -1
+            return _code_fingerprint(func.__code__), source_file, -1
         else:
             # Weird objects like numpy ufunc don't have __code__
             # This is fragile, as quite often the id of the object is

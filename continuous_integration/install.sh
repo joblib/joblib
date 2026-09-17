@@ -13,33 +13,44 @@ CLOUDPICKLE="cloudpickle"
 NUMPY="numpy"
 DISTRIBUTED="distributed"
 
+# Install pytest-timeout to fasten failure in deadlocking tests
+PIP_INSTALL_PACKAGES="pytest-timeout pytest-asyncio threadpoolctl"
+
 create_new_conda_env() {
-    conda config --set solver libmamba
     # Check python version
     if [[ $PYTHON_VERSION == free-threaded* ]]; then
+
         PYTHON_VERSION=${PYTHON_VERSION/free-threaded-/}
         EXTRA_CONDA_PACKAGES="$EXTRA_CONDA_PACKAGES python-freethreading"
+        # pytest-run-parallel is used to run the same test in parallel on free-threaded
+        # test runs, to catch thread-safety issues:
+        PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES pytest-run-parallel"
+
     elif [[ $PYTHON_VERSION == "oldest_supported" ]]; then
+
         PYTHON_VERSION=$OLDEST_PYTHON_VERSION
         CLOUDPICKLE="cloudpickle==$OLDEST_CLOUDPICKLE_VERSION"
         NUMPY="numpy==$OLDEST_NUMPY_VERSION"
         DISTRIBUTED="distributed==$OLDEST_DISTRIBUTED_VERSION"
+
     elif [[ $PYTHON_VERSION == "latest_supported" ]]; then
+
         PYTHON_VERSION=$LATEST_PYTHON_VERSION
+
     fi
+
     # sklearn_tests requires scipy
     if [[ $SKLEARN_TESTS == "true" ]]; then
         EXTRA_CONDA_PACKAGES="$EXTRA_CONDA_PACKAGES scipy"
     fi
+
     to_install="python=$PYTHON_VERSION pip pytest $EXTRA_CONDA_PACKAGES"
+    conda config --set solver libmamba
     conda create -n testenv --yes -c conda-forge $to_install
     conda activate testenv
 }
 
 create_new_conda_env
-
-# Install pytest timeout to fasten failure in deadlocking tests
-PIP_INSTALL_PACKAGES="pytest-timeout pytest-asyncio threadpoolctl"
 
 # Install cloudpickle with the correct version
 PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES $CLOUDPICKLE"
@@ -87,7 +98,8 @@ if [[ $CYTHON == "true" && $SKLEARN_TESTS != "true" ]]; then
     cd ../../..
 fi
 
-# Install joblib
+# Can't just install '.[test]' because, for example, we want some runs to omit
+# NumPy:
 pip install -v .
 
 # Install the nightly build of scikit-learn after joblib

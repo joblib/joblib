@@ -14,6 +14,7 @@ import os
 import os.path
 import pickle
 import shutil
+import subprocess
 import sys
 import textwrap
 import time
@@ -135,6 +136,7 @@ def test_memory_integration(tmpdir):
     memory.cache(f)(1)
 
 
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1794
 @parametrize("call_before_reducing", [True, False])
 def test_parallel_call_cached_function_defined_in_jupyter(tmpdir, call_before_reducing):
     # Calling an interactively defined memory.cache()'d function inside a
@@ -239,6 +241,70 @@ def test_parallel_call_cached_function_defined_in_jupyter(tmpdir, call_before_re
             # The previous cache should not be invalidated after calling the
             # function in a new session
             assert len(os.listdir(f_cache_directory / "f")) == 4
+
+
+# Emulates a notebook cell: the source is not retrievable, so the identity of
+# the function falls back to a digest of its code object.
+_JUPYTER_SESSION = """if 1:
+    import sys
+    import textwrap
+
+    from joblib import Memory
+
+    LOCATION, WITNESS = sys.argv[1], sys.argv[2]
+
+    ns = {}
+    exec(
+        compile(
+            textwrap.dedent('''
+                def f(x):
+                    with open(WITNESS, "a") as fh:
+                        fh.write("ran\\\\n")
+                    return x * 2
+            '''),
+            filename="<ipython-input-0-000000000000>",
+            mode="exec",
+        ),
+        None,
+        ns,
+    )
+    f = ns["f"]
+    f.__module__ = "__main__"
+
+    assert Memory(location=LOCATION, verbose=0).cache(f)(21) == 42
+"""
+
+
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
+def test_cached_jupyter_function_persists_across_sessions(tmpdir):
+    # Non-regression test for gh-1498: a function defined in a notebook cell
+    # must keep the same identity in a new interpreter, so that its cache
+    # survives a kernel restart. That identity used to be hash(func.__code__),
+    # which is salted per process, so each new session decided the function
+    # had changed and wiped its cache (gh-1694).
+    location = tmpdir.join("cache").strpath
+    witness = tmpdir.join("witness").strpath
+
+    joblib_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    env = os.environ.copy()
+    env["PYTHONPATH"] = os.pathsep.join(
+        [os.path.dirname(joblib_root), env.get("PYTHONPATH", "")]
+    )
+
+    # Two seeds stand in for two independently started interpreters, which is
+    # what makes this deterministic rather than one-in-N flaky.
+    for seed in ("1", "2"):
+        env["PYTHONHASHSEED"] = seed
+        p = subprocess.run(
+            [sys.executable, "-c", _JUPYTER_SESSION, location, witness],
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        assert p.returncode == 0, p.stderr
+
+    with open(witness) as fh:
+        assert fh.read().count("ran") == 1, "the second session lost the cache"
 
 
 def test_no_memory():
@@ -371,21 +437,21 @@ def test_memory_eval(tmpdir):
     assert mm(1) == 1
 
 
-def count_and_append(x=[]):
-    """A function with a side effect in its arguments.
-
-    Return the length of its argument and append one element.
-    """
-    len_x = len(x)
-    x.append(None)
-    return len_x
-
-
 def test_argument_change(tmpdir):
     """Check that if a function has a side effect in its arguments, it
     should use the hash of changing arguments.
     """
     memory = Memory(location=tmpdir.strpath, verbose=0)
+
+    def count_and_append(x=[]):
+        """A function with a side effect in its arguments.
+
+        Return the length of its argument and append one element.
+        """
+        len_x = len(x)
+        x.append(None)
+        return len_x
+
     func = memory.cache(count_and_append)
     # call the function for the first time, is should cache it with
     # argument x=[]
@@ -817,11 +883,6 @@ def test_memory_file_modification(capsys, tmpdir, monkeypatch):
     assert out == "1\n2\nReloading\nx=1\n"
 
 
-def _function_to_cache(a, b):
-    # Just a place holder function to be mutated by tests
-    pass
-
-
 def _sum(a, b):
     return a + b
 
@@ -831,6 +892,10 @@ def _product(a, b):
 
 
 def test_memory_in_memory_function_code_change(tmpdir):
+    def _function_to_cache(a, b):
+        # Just a place holder function to be mutated by tests
+        pass
+
     _function_to_cache.__code__ = _sum.__code__
 
     memory = Memory(location=tmpdir.strpath, verbose=0)
@@ -1428,6 +1493,7 @@ def test_memory_pickle_dump_load(tmpdir, memory_kwargs):
     assert hash(memorized_result) == hash(memorized_result_reloaded)
 
 
+@pytest.mark.thread_unsafe  # caplog is not thread-safe
 def test_info_log(tmpdir, caplog):
     caplog.set_level(logging.INFO)
     x = 3
@@ -1462,15 +1528,17 @@ class TestCacheValidationCallback:
             time.sleep(delay)
         return x * 2
 
-    def test_invalid_cache_validation_callback(self, memory):
+    def test_invalid_cache_validation_callback(self, tmp_path):
         "Test invalid values for `cache_validation_callback"
+        memory = Memory(location=tmp_path, verbose=0)
         match = "cache_validation_callback needs to be callable. Got True."
         with pytest.raises(ValueError, match=match):
             memory.cache(cache_validation_callback=True)
 
     @pytest.mark.parametrize("consider_cache_valid", [True, False])
-    def test_constant_cache_validation_callback(self, memory, consider_cache_valid):
+    def test_constant_cache_validation_callback(self, tmp_path, consider_cache_valid):
         "Test expiry of old results"
+        memory = Memory(location=tmp_path, verbose=0)
         f = memory.cache(
             self.foo,
             cache_validation_callback=lambda _: consider_cache_valid,
@@ -1484,7 +1552,7 @@ class TestCacheValidationCallback:
         assert d1["run"]
         assert d2["run"] != consider_cache_valid
 
-    def test_memory_only_cache_long_run(self, memory):
+    def test_memory_only_cache_long_run(self, tmp_path):
         "Test cache validity based on run duration."
 
         def cache_validation_callback(metadata):
@@ -1492,6 +1560,7 @@ class TestCacheValidationCallback:
             if duration > 0.1:
                 return True
 
+        memory = Memory(location=tmp_path, verbose=0)
         f = memory.cache(
             self.foo, cache_validation_callback=cache_validation_callback, ignore=["d"]
         )
@@ -1510,9 +1579,9 @@ class TestCacheValidationCallback:
         assert d1["run"]
         assert not d2["run"]
 
-    def test_memory_expires_after(self, memory):
+    def test_memory_expires_after(self, tmp_path):
         "Test expiry of old cached results"
-
+        memory = Memory(location=tmp_path, verbose=0)
         f = memory.cache(
             self.foo, cache_validation_callback=expires_after(seconds=0.3), ignore=["d"]
         )
@@ -1536,9 +1605,9 @@ class TestMemorizedFunc:
         counter[x] = counter.get(x, 0) + 1
         return counter[x]
 
-    def test_call_method_memorized(self, memory):
+    def test_call_method_memorized(self, tmp_path):
         "Test calling the function"
-
+        memory = Memory(location=tmp_path, verbose=0)
         f = memory.cache(self.f, ignore=["counter"])
 
         counter = {}
@@ -1551,9 +1620,8 @@ class TestMemorizedFunc:
             "Metadata are not returned by MemorizedFunc.call."
         )
 
-    def test_call_method_not_memorized(self, memory):
+    def test_call_method_not_memorized(self):
         "Test calling the function"
-
         f = NotMemorizedFunc(self.f)
 
         counter = {}
