@@ -51,7 +51,6 @@ jobs:
 
   gen-pickle:
     name: Generate pickle files
-    needs: linting
     runs-on: ubuntu-latest
 
     steps:
@@ -75,7 +74,7 @@ jobs:
 
   testing:
     name: Testing
-    needs: gen-pickle
+    needs: [linting, gen-pickle]
     timeout-minutes: 30
     strategy:
       fail-fast: false
