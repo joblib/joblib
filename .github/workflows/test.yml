@@ -55,7 +55,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Setup conda
         uses: conda-incubator/setup-miniconda@v4
         with:
@@ -91,10 +91,6 @@ jobs:
             os: 'ubuntu-latest'
             PYTHON_VERSION: "free-threaded-3.14"
           ######################################################
-          - name: test-sklearn
-            os: ubuntu-latest
-            PYTHON_VERSION: "latest_supported"
-            SKLEARN_TESTS: "true"
           - name: distributed-latest
             os: ubuntu-latest
             PYTHON_VERSION: "latest_supported"
@@ -176,3 +172,36 @@ jobs:
         with:
           files: coverage.xml
           token: ${{ secrets.CODECOV_TOKEN }}
+
+  test-sklearn:
+    name: Testing scikit-learn
+    needs: linting
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      PYTHON_VERSION: "latest_supported"
+      SKLEARN_TESTS: "true"
+
+    defaults:
+      run:
+        shell: bash -el {0}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup conda
+        uses: conda-incubator/setup-miniconda@v4
+        with:
+          auto-activate-base: true
+          auto-update-conda: true
+          miniforge-version: latest
+
+      - name: Install dependencies
+        run: |
+          bash -el continuous_integration/install.sh
+
+      - name: Run tests
+        run: |
+          bash -el continuous_integration/run_tests.sh
