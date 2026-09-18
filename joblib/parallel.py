@@ -1344,16 +1344,25 @@ class Parallel(Logger):
             # No specific context override and no specific value request:
             # default to the default of the backend.
             n_jobs = backend.default_n_jobs
+        # bool subclasses int; n_jobs=True would silently become 1
+        if isinstance(n_jobs, bool):
+            raise TypeError(
+                f"n_jobs must be an int or None, not bool (got {n_jobs!r})"
+            )
         try:
             n_jobs = int(n_jobs)
-        except ValueError:
+        except (ValueError, TypeError):
             raise ValueError("n_jobs could not be converted to int")
         self.n_jobs = n_jobs
 
         if require == "sharedmem" and not getattr(backend, "supports_sharedmem", False):
             raise ValueError("Backend %s does not support shared memory" % backend)
 
-        if batch_size == "auto" or isinstance(batch_size, Integral) and batch_size > 0:
+        if batch_size == "auto" or (
+            isinstance(batch_size, Integral)
+            and not isinstance(batch_size, bool)
+            and batch_size > 0
+        ):
             self.batch_size = batch_size
         else:
             raise ValueError(

@@ -787,6 +787,26 @@ def test_invalid_njobs_in_daemon_process(backend):
 
 
 @parametrize("backend", ALL_VALID_BACKENDS)
+def test_njobs_rejects_bool(backend):
+    # bool subclasses int; n_jobs=True must not silently become 1
+    with raises(TypeError) as excinfo:
+        Parallel(n_jobs=True, backend=backend)
+    assert "n_jobs" in str(excinfo.value)
+    with raises(TypeError) as excinfo:
+        Parallel(n_jobs=False, backend=backend)
+    assert "n_jobs" in str(excinfo.value)
+
+
+def test_batch_size_rejects_bool():
+    with raises(ValueError) as excinfo:
+        Parallel(n_jobs=1, batch_size=True)
+    assert "batch_size" in str(excinfo.value)
+    with raises(ValueError) as excinfo:
+        Parallel(n_jobs=1, batch_size=False)
+    assert "batch_size" in str(excinfo.value)
+
+
+@parametrize("backend", ALL_VALID_BACKENDS)
 def test_invalid_njobs(backend):
     with raises(ValueError) as excinfo:
         Parallel(n_jobs=0, backend=backend)._initialize_backend()
