@@ -11,6 +11,12 @@ from ._store_backends import StoreBackendBase
 from .logger import format_time
 
 
+def _reconstructSQLStoreBackend(cls, location, compress):
+    obj = cls.__new__(cls)
+    obj.configure(location, backend_options=dict(compress=compress))
+    return obj
+
+
 class SQLStoreBackend(StoreBackendBase):
     """A StoreBackend a sqlite database."""
 
@@ -37,6 +43,7 @@ class SQLStoreBackend(StoreBackendBase):
         self.con = sqlite3.connect(self.location)
 
         with self.con:
+            self.con.execute("PRAGMA journal_mode=WAL;")
             self.con.execute(
                 "CREATE TABLE IF NOT EXISTS cache ("
                 "path TEXT PRIMARY KEY, "
@@ -89,7 +96,9 @@ class SQLStoreBackend(StoreBackendBase):
                 print(f"{msg} from {self.location}::{path}")
 
         cursor = self.con.cursor()
-        cursor.execute("SELECT data FROM cache WHERE path=?", (path,))
+        cursor.execute(
+            "SELECT data FROM cache WHERE path=? AND data IS NOT NULL", (path,)
+        )
         row = cursor.fetchone()
         cursor.close()
         if row is None:
@@ -172,7 +181,9 @@ class SQLStoreBackend(StoreBackendBase):
         """
         path = os.path.join(*call_id)
         cursor = self.con.cursor()
-        cursor.execute("SELECT metadata FROM cache WHERE path=?", (path,))
+        cursor.execute(
+            "SELECT metadata FROM cache WHERE path=? AND metadata IS NOT NULL", (path,)
+        )
         metadata = cursor.fetchone()
         cursor.close()
         if metadata is None:
@@ -298,3 +309,13 @@ class SQLStoreBackend(StoreBackendBase):
             return
         self.con.close()
         self.con = None
+
+    def __reduce__(self):
+        return (
+            _reconstructSQLStoreBackend,
+            (
+                self.__class__,
+                self.location,
+                self.compress,
+            ),
+        )
