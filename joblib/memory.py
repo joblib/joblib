@@ -1125,9 +1125,16 @@ class Memory(Logger):
         if isinstance(func, MemorizedFunc):
             func = func.func
         cls = AsyncMemorizedFunc if inspect.iscoroutinefunction(func) else MemorizedFunc
+
+        reuse_store_backend = (verbose, mmap_mode, {}) == (
+            self._verbose,
+            self.mmap_mode,
+            self.backend_options,
+        )
+
         return cls(
             func,
-            location=self.store_backend,
+            location=self.store_backend if reuse_store_backend else self.location,
             backend=self.backend,
             ignore=ignore,
             mmap_mode=mmap_mode,
