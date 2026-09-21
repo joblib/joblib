@@ -44,6 +44,7 @@ class SQLStoreBackend(StoreBackendBase):
 
         with self.con:
             self.con.execute("PRAGMA journal_mode=WAL;")
+            self.con.execute("PRAGMA synchronous=NORMAL;")
             self.con.execute(
                 "CREATE TABLE IF NOT EXISTS cache ("
                 "path TEXT PRIMARY KEY, "
