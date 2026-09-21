@@ -9,11 +9,23 @@
 
 set -xe
 
+ORIGINAL_PYTHON_VERSION=$PYTHON_VERSION
+CLOUDPICKLE="cloudpickle"
+NUMPY="numpy"
+DISTRIBUTED="distributed"
+
 create_new_conda_env() {
     conda config --set solver libmamba
-    if [[ "$PYTHON_VERSION" == free-threaded* ]]; then
+    if [[ $PYTHON_VERSION == free-threaded* ]]; then
         PYTHON_VERSION=${PYTHON_VERSION/free-threaded-/}
         EXTRA_CONDA_PACKAGES="python-freethreading $EXTRA_CONDA_PACKAGES"
+    elif [[ $PYTHON_VERSION == "oldest_supported" ]]; then
+        PYTHON_VERSION=$OLDEST_PYTHON_VERSION
+        CLOUDPICKLE="cloudpickle==$OLDEST_CLOUDPICKLE_VERSION"
+        NUMPY="numpy==$OLDEST_NUMPY_VERSION"
+        DISTRIBUTED="distributed==$OLDEST_DISTRIBUTED_VERSION"
+    elif [[ $PYTHON_VERSION == "latest_supported" ]]; then
+        PYTHON_VERSION=$LATEST_PYTHON_VERSION
     fi
     to_install="python=$PYTHON_VERSION pip pytest $EXTRA_CONDA_PACKAGES"
     conda create -n testenv --yes -c conda-forge $to_install
@@ -25,11 +37,14 @@ create_new_conda_env
 # Install pytest timeout to fasten failure in deadlocking tests
 PIP_INSTALL_PACKAGES="pytest-timeout pytest-asyncio==0.21.1 threadpoolctl"
 
+# Install cloudpickle with the correct version
+PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES $CLOUDPICKLE"
+
 if [ "$NO_NUMPY" != "true" ]; then
     # We want to ensure no memory copies are performed only when numpy is
     # installed. This also ensures that we don't keep a strong dependency on
     # memory_profiler.
-    PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES memory_profiler numpy"
+    PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES memory_profiler $NUMPY"
     # We also want to ensure that joblib can be used with and
     # without lz4 compressor package installed.
     if [ "$NO_LZ4" != "true" ]; then
@@ -37,8 +52,18 @@ if [ "$NO_NUMPY" != "true" ]; then
     fi
 fi
 
+if [[ $USE_DISTRIBUTED == "true" ]]; then
+    PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES $DISTRIBUTED"
+fi
+
 if [[ "$COVERAGE" == "true" ]]; then
     PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES coverage pytest-cov"
+fi
+
+# pytest-run-parallel is used to run the same test in parallel on free-threaded
+# test runs, to catch thread-safety issues:
+if [[ "$ORIGINAL_PYTHON_VERSION" == free-threaded* ]]; then
+    PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES pytest-run-parallel"
 fi
 
 pip install $PIP_INSTALL_PACKAGES
@@ -53,10 +78,12 @@ fi
 
 
 if [[ "$CYTHON" == "true" ]]; then
-    pip install cython
+    pip install cython setuptools
     cd joblib/test/_openmp_test_helper
     python setup.py build_ext -i
     cd ../../..
 fi
 
+# Can't just install '.[test]' because, for example, we want some runs to omit
+# NumPy:
 pip install -v .

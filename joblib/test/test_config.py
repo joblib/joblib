@@ -1,4 +1,7 @@
 import os
+from uuid import uuid4
+
+import pytest
 
 from joblib._parallel_backends import (
     LokyBackend,
@@ -33,17 +36,22 @@ def test_global_parallel_backend(context):
 
 @parametrize("context", [parallel_config, parallel_backend])
 def test_external_backends(context):
-    def register_foo():
-        BACKENDS["foo"] = ThreadingBackend
+    backend_name = str(uuid4())
 
-    EXTERNAL_BACKENDS["foo"] = register_foo
+    def register_foo():
+        BACKENDS[backend_name] = ThreadingBackend
+
+    EXTERNAL_BACKENDS[backend_name] = register_foo
     try:
-        with context("foo"):
+        with context(backend_name):
             assert isinstance(Parallel()._backend, ThreadingBackend)
     finally:
-        del EXTERNAL_BACKENDS["foo"]
+        del EXTERNAL_BACKENDS[backend_name]
 
 
+# Thread-unsafe due to https://github.com/joblib/joblib/issues/1794 maybe? If
+# fixing that doesn't fix this, file a new issue.
+@pytest.mark.thread_unsafe
 @with_numpy
 @with_multiprocessing
 def test_parallel_config_no_backend(tmpdir):
@@ -59,6 +67,7 @@ def test_parallel_config_no_backend(tmpdir):
             assert len(os.listdir(tmpdir)) > 0
 
 
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1743
 @with_numpy
 @with_multiprocessing
 def test_parallel_config_params_explicit_set(tmpdir):
