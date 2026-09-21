@@ -215,10 +215,7 @@ def test_split_up_cores():
     """
     for max_cores in range(1, 100):
         for n_jobs in range(1, max_cores + 1):
-            split = _split_up_cores(max_cores, n_jobs)
-            lower = max(max_cores // n_jobs, 1)
-            assert split in (lower, lower + 1)
-            assert split * n_jobs <= 1.25 * max_cores
+            assert _split_up_cores(max_cores, n_jobs) == max(max_cores // n_jobs, 1)
 
 
 ###############################################################################

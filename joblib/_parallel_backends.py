@@ -11,7 +11,6 @@ import threading
 import warnings
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
-from math import ceil
 from typing import Any, Callable
 
 from ._multiprocessing_helpers import mp
@@ -56,21 +55,10 @@ def _split_up_cores(total_cores: int, n_jobs: int) -> int:
     Given the total number of cores and a number of workers, come up with a
     reasonable number of cores per worker.
 
-    The algorithm tries to compromise between two extremes:
-
-    With ``total_cores // n_jobs``, you can end up not using all cores.  So e.g
-    with 16 cores and 9 workers, you end up only using 9 cores instead of 16.
-
-    With ``int(ceil(total_cores / n_jobs))``, you can end up with significant
-    over-saturation.  So e.g with 16 cores and 15 workers, you end up with 30
-    assigned cores for only 16 available ones.
+    At the moment this just does ``total_cores // n_jobs`` but a better
+    heuristic might someday be used instead.
     """
-    upper = max(int(ceil(total_cores / n_jobs)), 1)
-    lower = max(total_cores // n_jobs, 1)
-    if upper * n_jobs <= total_cores * 1.25:
-        return upper
-    else:
-        return lower
+    return max(total_cores // n_jobs, 1)
 
 
 class ParallelBackendBase(metaclass=ABCMeta):
