@@ -528,6 +528,48 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
             mkdirp(self.location)
             info = {"cache_version": 2, "require_update": False}
 
+        # Get info
+        info_path = os.path.join(self.location, "store_backend_info.json")
+        if os.path.exists(info_path):
+            with open(info_path, "rb") as file:
+                info = json.loads(file.read().decode("utf-8"))
+        else:
+            if info is None:
+                # Cache directory without info.
+                # As long as it has subdirectories,
+                # we consider it uses an old cache tree
+                with os.scandir(self.location) as entries:
+                    for entry in entries:
+                        if entry.is_dir():
+                            info = {"cache_version": 1, "require_update": True}
+                            break
+                if info is None:
+                    info = {"cache_version": 2, "require_update": False}
+            with open(info_path, "wb") as file:
+                file.write(json.dumps(info).encode("utf-8"))
+
+        # Warn if an update is required
+        if info["require_update"]:
+            true_location = (
+                f"'{os.path.dirname(location)}'"
+                if os.path.basename(location) == "joblib"
+                else f"pathlib.Path('{location}')"
+            )
+            warnings.warn(
+                f"The FileSystemStoreBackend at '{self.location}' may contains "
+                "items using old cache storage tree.\n"
+                "The joblib cache tree has recently been updated "
+                "for efficiency reasons.\n"
+                "Starting with joblib 1.8, the old cache tree "
+                "will no longer be supported.\n"
+                f"Please run `joblib.Memory({true_location}).store_backend."
+                "update_cache_tree()` to update your cache tree."
+            )
+
+        # Using old split method for older cache version
+        if info["cache_version"] == 1:
+            self._split_id = types.MethodType(_old_split_id, self)
+
         # Automatically add `.gitignore` file to the cache folder.
         # XXX: the condition is necessary because in `Memory.__init__`, the user
         # passed `location` param is modified to be either `{location}` or
@@ -564,52 +606,12 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
         self.mmap_mode = mmap_mode
         self.verbose = verbose
 
-        # Get info
-        info_path = os.path.join(self.location, "store_backend_info.json")
-        if os.path.exists(info_path):
-            with open(info_path, "rb") as file:
-                info = json.loads(file.read().decode("utf-8"))
-        else:
-            if info is None:
-                # Cache directory without info.
-                # As long as it has no subdirectories,
-                # we consider it uses an old cache tree
-                with os.scandir(self.location) as entries:
-                    for entry in entries:
-                        if entry.is_dir():
-                            info = {"cache_version": 1, "require_update": True}
-                if info is None:
-                    info = {"cache_version": 2, "require_update": False}
-            with open(info_path, "wb") as file:
-                file.write(json.dumps(info).encode("utf-8"))
-
-        # Warn if an update is required
-        if info["require_update"]:
-            true_location = (
-                f"'{os.path.dirname(location)}'"
-                if os.path.basename(location) == "joblib"
-                else f"pathlib.Path('{location}')"
-            )
-            warnings.warn(
-                f"The FileSystemStoreBackend at '{self.location}' may contains "
-                "items using old cache storage tree.\n"
-                "The joblib cache tree has recently been updated "
-                "for efficiency reasons.\n"
-                "Starting with joblib 1.8, the old cache tree "
-                "will no longer be supported.\n"
-                f"Please run `joblib.Memory({true_location}).store_backend."
-                "update_cache_tree()` to update your cache tree."
-            )
-
-        # Using old split method for older cache version
-        if info["cache_version"] == 1:
-            self._split_id = types.MethodType(_old_split_id, self)
-
     def _split_id(self, call_id):
         if len(call_id) == 0 or not _check_hex(call_id[-1], 32):
             return call_id
         return (*call_id[:-1], call_id[-1][:3], call_id[-1][3:])
 
+    # XXX: To remove in joblib 1.8
     def update_cache_tree(self):
         # First info update
         info_path = os.path.join(self.location, "store_backend_info.json")
