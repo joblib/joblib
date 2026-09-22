@@ -1128,19 +1128,18 @@ class Memory(Logger):
 
         # To reuse backend_options which is not an argument of MemorizedFunc
         # we recreate the store_backend here
-        recreate_store_backend = (verbose, mmap_mode) != (self._verbose, self.mmap_mode)
-        store_backend = (
-            _store_backend_factory(
+        store_backend = self.store_backend
+        if (verbose, mmap_mode) != (self._verbose, self.mmap_mode)
+            store_backend = _store_backend_factory(
                 self.backend,
                 self.location,
                 verbose=verbose,
                 backend_options=dict(
-                    compress=self.compress, mmap_mode=mmap_mode, **self.backend_options
+                   **self.backend_options
+                    compress=self.compress,
+                    mmap_mode=mmap_mode, 
                 ),
             )
-            if recreate_store_backend
-            else self.store_backend
-        )
 
         return cls(
             func,
