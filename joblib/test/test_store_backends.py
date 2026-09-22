@@ -158,6 +158,11 @@ def test_cache_tree_versions(tmpdir):
         numpy_pickle.dump(conflict_item, os.path.join(conflict_dir, "output.pkl"))
     new_store.dump_item((funs[0], args[0]), items[0])
 
+    # Assert (funs[0], args[0]) old tree version is more recent
+    assert os.path.getmtime(
+        tmpdir.join(funs[0], arg[:3], arg[3:], "output.pkl").strpath
+    ) <= os.path.getmtime(tmpdir.join(funs[0], arg, "output.pkl").strpath)
+
     # Assert update_cache_tree correctly updates the cache tree
     new_store.update_cache_tree()
     new_items = new_store.get_items()
@@ -166,7 +171,7 @@ def test_cache_tree_versions(tmpdir):
         tmpdir.join(fun, arg[:3], arg[3:]).strpath for fun in funs for arg in args
     )
 
-    # Assert no warning is raised when caching a function with an new cache tree
+    # Assert no warning is raised when caching a function with a new cache tree
     with warnings.catch_warnings(record=True) as ws:
         warnings.simplefilter("always")
         FileSystemStoreBackend().configure(tmpdir.strpath)
