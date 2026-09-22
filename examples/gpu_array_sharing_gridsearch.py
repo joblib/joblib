@@ -34,7 +34,6 @@ import os
 os.environ.setdefault("SCIPY_ARRAY_API", "1")
 
 import torch  # noqa: E402
-
 from sklearn import set_config  # noqa: E402
 from sklearn.datasets import make_regression  # noqa: E402
 from sklearn.linear_model import Ridge  # noqa: E402

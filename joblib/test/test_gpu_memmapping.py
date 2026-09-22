@@ -209,9 +209,9 @@ def test_torch_cuda_auto_threshold():
 
     # Small array (<= max_nbytes) is not shared in auto mode.
     small = torch.zeros(8, device="cuda:0")
-    Parallel(
-        n_jobs=2, backend="loky", share_gpu_arrays="auto", max_nbytes=10_000_000
-    )(delayed(_torch_probe_and_add)(small, 1.0) for _ in range(1))
+    Parallel(n_jobs=2, backend="loky", share_gpu_arrays="auto", max_nbytes=10_000_000)(
+        delayed(_torch_probe_and_add)(small, 1.0) for _ in range(1)
+    )
     torch.cuda.synchronize()
     assert float(small.sum().item()) == 0.0
 
@@ -287,9 +287,9 @@ def test_cupy_auto_threshold():
 
     with cupy.cuda.Device(0):
         small = cupy.zeros((8,), dtype=cupy.float32)
-    Parallel(
-        n_jobs=2, backend="loky", share_gpu_arrays="auto", max_nbytes=10_000_000
-    )(delayed(_cupy_probe_and_add)(small, 1.0) for _ in range(1))
+    Parallel(n_jobs=2, backend="loky", share_gpu_arrays="auto", max_nbytes=10_000_000)(
+        delayed(_cupy_probe_and_add)(small, 1.0) for _ in range(1)
+    )
     cupy.cuda.Device(0).synchronize()
     assert float(small.sum().get()) == 0.0
 
