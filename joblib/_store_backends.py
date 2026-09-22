@@ -431,15 +431,14 @@ def _old_split_id(self, call_id):
     return call_id
 
 
-def _split_method_decorator(method):
-    def split_method(self, call_id, *args, **kwargs):
-        call_id = self._split_id(call_id)
-        return method(self, call_id, *args, **kwargs)
+def _split_decorator(cls):
+    def split_method_decorator(method):
+        def split_method(self, call_id, *args, **kwargs):
+            call_id = self._split_id(call_id)
+            return method(self, call_id, *args, **kwargs)
 
-    return split_method
+        return split_method
 
-
-def _split_class_decorator(cls):
     for method in [
         "load_item",
         "dump_item",
@@ -449,9 +448,7 @@ def _split_class_decorator(cls):
         "get_metadata",
         "store_metadata",
     ]:
-        setattr(
-            cls, method, _split_method_decorator(getattr(StoreBackendMixin, method))
-        )
+        setattr(cls, method, split_method_decorator(getattr(StoreBackendMixin, method)))
     return cls
 
 
@@ -461,7 +458,7 @@ def reconstructStoreBackend(cls, location, verbose, compress, mmap_mode):
     return obj
 
 
-@_split_class_decorator
+@_split_decorator
 class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
     """A StoreBackend used with local or network file systems."""
 
