@@ -156,12 +156,13 @@ def test_cache_tree_versions(tmpdir):
         conflict_dir = tmpdir.join(fun, arg[:3], arg[3:]).strpath
         os.makedirs(conflict_dir)
         numpy_pickle.dump(conflict_item, os.path.join(conflict_dir, "output.pkl"))
+    time.sleep(1.5)
     new_store.dump_item((funs[0], args[0]), items[0])
 
     # Assert (funs[0], args[0]) old tree version is more recent
     assert os.path.getmtime(
         tmpdir.join(funs[0], arg[:3], arg[3:], "output.pkl").strpath
-    ) <= os.path.getmtime(tmpdir.join(funs[0], arg, "output.pkl").strpath)
+    ) < os.path.getmtime(tmpdir.join(funs[0], arg, "output.pkl").strpath)
 
     # Assert update_cache_tree correctly updates the cache tree
     new_store.update_cache_tree()
