@@ -526,6 +526,9 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin, ParallelBacken
         This also checks if we are attempting to create a nested parallel
         loop.
         """
+        if n_jobs == 0:
+            raise ValueError("n_jobs == 0 in Parallel has no meaning")
+
         if mp is None:
             return 1
 
