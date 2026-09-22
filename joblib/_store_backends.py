@@ -418,20 +418,14 @@ def _check_hex(s, length):
         return False
 
 
-def _split_id(call_id):
-    if len(call_id) == 0 or not _check_hex(call_id[-1], 32):
-        return call_id
-    return (*call_id[:-1], call_id[-1][:3], call_id[-1][3:])
-
-
 def _old_split_id(self, call_id):
     info_path = os.path.join(self.location, "store_backend_info.json")
     try:
         with open(info_path, "rb") as file:
             info = json.loads(file.read().decode("utf-8"))
         if info["cache_version"] == 2:
-            self._split_id = _split_id
-            return _split_id(call_id)
+            self._split_id = types.MethodType(FileSystemStoreBackend._split_id, self)
+            return self._split_id(call_id)
     except OSError:
         pass
     return call_id
@@ -610,12 +604,14 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
                 "update_cache_tree()` to update your cache tree."
             )
 
-        # Splitting the input hash id in new versions
-        self._split_id = (
-            _split_id
-            if info["cache_version"] == 2
-            else types.MethodType(_old_split_id, self)
-        )
+        # Using old split method for older cache version
+        if info["cache_version"] == 1:
+            self._split_id = types.MethodType(_old_split_id, self)
+
+    def _split_id(self, call_id):
+        if len(call_id) == 0 or not _check_hex(call_id[-1], 32):
+            return call_id
+        return (*call_id[:-1], call_id[-1][:3], call_id[-1][3:])
 
     def update_cache_tree(self):
         # First info update

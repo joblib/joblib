@@ -13,7 +13,6 @@ from joblib._store_backends import (
     CacheWarning,
     FileSystemStoreBackend,
     _old_split_id,
-    _split_id,
     concurrency_safe_write,
 )
 from joblib.backports import concurrency_safe_rename
@@ -99,7 +98,6 @@ def test_warning_on_dump_failure(tmpdir):
     backend = FileSystemStoreBackend()
     backend.location = tmpdir.join("test_warning_on_pickling_error").strpath
     backend.compress = None
-    backend._split_id = _split_id
 
     with pytest.warns(CacheWarning, match="some exception"):
         backend.dump_item(("func", "input"), UnpicklableObject())
@@ -115,7 +113,6 @@ def test_warning_on_pickling_error(tmpdir):
     backend = FileSystemStoreBackend()
     backend.location = tmpdir.join("test_warning_on_pickling_error").strpath
     backend.compress = None
-    backend._split_id = _split_id
 
     with pytest.warns(FutureWarning, match="not picklable"):
         backend.dump_item(("func", "input"), UnpicklableObject())
