@@ -15,6 +15,7 @@ import warnings
 import zlib
 from contextlib import closing
 from pathlib import Path
+from uuid import uuid4
 
 try:
     import lzma
@@ -1072,10 +1073,10 @@ def test_pickle_highest_protocol(tmpdir):
 def test_pickle_in_socket():
     # test that joblib can pickle in sockets
     test_array = np.arange(10)
-    _ADDR = ("localhost", 12345)
     listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    listener.bind(_ADDR)
+    listener.bind(("localhost", 0))
     listener.listen(1)
+    _ADDR = listener.getsockname()
 
     with socket.create_connection(_ADDR) as client:
         server, client_addr = listener.accept()
@@ -1118,7 +1119,7 @@ def test_load_memmap_with_big_offset(tmpdir):
 
 def test_register_compressor(tmpdir):
     # Check that registering compressor file works.
-    compressor_name = "test-name"
+    compressor_name = "test-name" + str(uuid4())
     compressor_prefix = "test-prefix"
 
     class BinaryCompressorTestFile(io.BufferedIOBase):
@@ -1179,7 +1180,7 @@ class StandardLibGzipCompressorWrapper(CompressorWrapper):
 
 def test_register_compressor_already_registered():
     # Test registration of existing compressor files.
-    compressor_name = "test-name"
+    compressor_name = "test-name" + str(uuid4())
 
     # register a test compressor
     register_compressor(compressor_name, AnotherZlibCompressorWrapper())

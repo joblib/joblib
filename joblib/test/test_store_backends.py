@@ -47,6 +47,7 @@ def concurrency_safe_write_rename(to_write, filename, write_func):
     concurrency_safe_rename(temporary_filename, filename)
 
 
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 @timeout(0)  # No timeout as this test can be long
 @with_multiprocessing
 @parametrize("backend", ["multiprocessing", "loky", "threading"])
@@ -62,6 +63,30 @@ def test_concurrency_safe_write(tmpdir, backend):
         for i in range(12)
     ]
     Parallel(n_jobs=2, backend=backend)(delayed(func)(obj, filename) for func in funcs)
+
+
+def test_store_cached_func_code_is_not_written_in_place(tmpdir):
+    # Non-regression test for #1694: func_code.py used to be truncated and
+    # rewritten in place, so a concurrent reader could catch it half-written,
+    # read that as a changed function and wipe the whole cache directory.
+    backend = FileSystemStoreBackend()
+    backend.configure(tmpdir.join("store").strpath)
+
+    call_id = ("mod", "func")
+    backend.store_cached_func_code(call_id, "# first line: 1\ndef f(): pass\n")
+    original = backend.get_cached_func_code(call_id)
+
+    def exploding_open(name, mode):
+        open(name, mode).close()  # truncates whatever it is pointed at
+        raise RuntimeError("boom")
+
+    old_open = backend._open_item
+    backend._open_item = exploding_open
+    with pytest.raises(RuntimeError, match="boom"):
+        backend.store_cached_func_code(call_id, "# first line: 1\ndef g(): pass\n")
+
+    backend._open_item = old_open
+    assert backend.get_cached_func_code(call_id) == original
 
 
 def test_warning_on_dump_failure(tmpdir):
