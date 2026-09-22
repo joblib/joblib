@@ -1126,16 +1126,25 @@ class Memory(Logger):
             func = func.func
         cls = AsyncMemorizedFunc if inspect.iscoroutinefunction(func) else MemorizedFunc
 
-        reuse_store_backend = (verbose, mmap_mode, {}) == (
-            self._verbose,
-            self.mmap_mode,
-            self.backend_options,
+        # In order to use backend_options which is not an argument of MemorizedFunc
+        # we are forced to recreate the store_backend here
+        recreate_store_backend = (verbose, mmap_mode) != (self._verbose, self.mmap_mode)
+        store_backend = (
+            _store_backend_factory(
+                self.backend,
+                self.location,
+                verbose=verbose,
+                backend_options=dict(
+                    compress=self.compress, mmap_mode=mmap_mode, **self.backend_options
+                ),
+            )
+            if recreate_store_backend
+            else self.store_backend
         )
 
         return cls(
             func,
-            location=self.store_backend if reuse_store_backend else self.location,
-            backend=self.backend,
+            location=store_backend,
             ignore=ignore,
             mmap_mode=mmap_mode,
             compress=self.compress,
