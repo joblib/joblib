@@ -973,6 +973,11 @@ def effective_n_jobs(n_jobs=-1):
     backend, backend_n_jobs = get_active_backend()
     if n_jobs is None:
         n_jobs = backend_n_jobs
+    if n_jobs is not None:
+        try:
+            n_jobs = int(n_jobs)
+        except (TypeError, ValueError):
+            raise ValueError("n_jobs could not be converted to int")
     return backend.effective_n_jobs(n_jobs=n_jobs)
 
 
