@@ -431,6 +431,32 @@ def _old_split_id(self, call_id):
     return call_id
 
 
+def _replace_cache_dir(old_dir, new_dir):
+    """
+    Move an old cache directory to a newer one depending on
+    the last modification time of output.pkl
+    """
+    old_item = os.path.join(old_dir, "output.pkl")
+    try:
+        old_mtime = os.path.getmtime(old_item)
+    except OSError:
+        # "output.pkl" does not exist, so we don't replace
+        shutil.rmtree(old_dir)
+        return
+    new_item = os.path.join(new_dir, "output.pkl")
+    try:
+        new_mtime = os.path.getmtime(new_item)
+    except OSError:
+        new_mtime = -1
+    if new_mtime < old_mtime:
+        # replace
+        shutil.rmtree(new_dir)
+        os.replace(old_dir, new_dir)
+    else:
+        # don't replace
+        shutil.rmtree(old_dir)
+
+
 def _split_decorator(cls):
     def split_method_decorator(method):
         def split_method(self, call_id, *args, **kwargs):
@@ -637,26 +663,7 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
                 # If the new cache directory already exists,
                 # it is replaced depending on the last modification time
                 # of 'output.pkl'
-                old_item = os.path.join(dirpath, "output.pkl")
-                try:
-                    old_mtime = os.path.getmtime(old_item)
-                except OSError:
-                    # "output.pkl" does not exist, so we don't replace
-                    shutil.rmtree(dirpath)
-                    continue
-                new_item = os.path.join(newdir, "output.pkl")
-                try:
-                    new_mtime = os.path.getmtime(new_item)
-                except OSError:
-                    new_mtime = -1
-                if new_mtime < old_mtime:
-                    # replace
-                    shutil.rmtree(newdir)
-                    os.replace(dirpath, newdir)
-                    pass
-                else:
-                    # don't replace
-                    shutil.rmtree(dirpath)
+                _replace_cache_dir(dirpath, newdir)
             else:
                 os.makedirs(newdir_parent, exist_ok=True)
                 os.replace(dirpath, newdir)
