@@ -675,9 +675,8 @@ def test_func_dir(tmpdir):
 
     # Test the robustness to failure of loading previous results.
     args_id = g._get_args_id(1)
-    output_dir = os.path.join(
-        g.store_backend.location, g.func_id, args_id[:3], args_id[3:]
-    )
+    call_id = g.store_backend._split_id((g.func_id, args_id))
+    output_dir = os.path.join(g.store_backend.location, *call_id)
     a = g(1)
     assert os.path.exists(output_dir)
     os.remove(os.path.join(output_dir, "output.pkl"))
@@ -693,9 +692,8 @@ def test_persistence(tmpdir):
     h = pickle.loads(pickle.dumps(g))
 
     args_id = h._get_args_id(1)
-    output_dir = os.path.join(
-        h.store_backend.location, h.func_id, args_id[:3], args_id[3:]
-    )
+    call_id = h.store_backend._split_id((h.func_id, args_id))
+    output_dir = os.path.join(h.store_backend.location, *call_id)
     assert os.path.exists(output_dir)
     assert output == h.store_backend.load_item((h.func_id, args_id))
     memory2 = pickle.loads(pickle.dumps(memory))
@@ -773,11 +771,10 @@ def test_call_and_shelve_lazily_load_stored_result(tmpdir):
     memory = Memory(location=tmpdir.strpath, verbose=0)
     func = memory.cache(f)
     args_id = func._get_args_id(2)
+    call_id = func.store_backend._split_id((func.func_id, args_id))
     result_path = os.path.join(
-        memory.store_backend.location,
-        func.func_id,
-        args_id[:3],
-        args_id[3:],
+        func.store_backend.location,
+        *call_id,
         "output.pkl",
     )
     assert func(2) == 5
@@ -982,8 +979,9 @@ def _setup_toy_cache(tmpdir, num_inputs=10):
     func_id = _build_func_identifier(get_1000_bytes)
     hashes = [get_1000_bytes._get_args_id(arg) for arg in inputs]
 
+    store_backend = get_1000_bytes.store_backend
     full_hashdirs = [
-        os.path.join(get_1000_bytes.store_backend.location, func_id, h[:3], h[3:])
+        os.path.join(store_backend.location, *store_backend._split_id((func_id, h)))
         for h in hashes
     ]
     return memory, full_hashdirs, get_1000_bytes
