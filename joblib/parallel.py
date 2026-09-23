@@ -323,8 +323,10 @@ class parallel_config:
         same-machine and same-GPU.
 
         - 'auto': share device arrays larger than ``max_nbytes`` when a
-          spawn-based process backend is used; silently fall back to regular
-          (host round-trip) pickling otherwise.
+          spawn-based process backend is used; fall back to regular (host
+          round-trip) pickling otherwise. The fallback is silent, except that
+          a start method incompatible with CUDA (``fork``) is reported when a
+          GPU framework is in use.
         - 'on': share every device array regardless of ``max_nbytes`` and
           raise an error if sharing is requested but not feasible (e.g. the
           ``fork`` start method, which is incompatible with CUDA).
@@ -1138,8 +1140,10 @@ class Parallel(Logger):
         same-GPU.
 
         - 'auto': share device arrays larger than ``max_nbytes`` when a
-          spawn-based process backend is used; silently fall back to regular
-          (host round-trip) pickling otherwise.
+          spawn-based process backend is used; fall back to regular (host
+          round-trip) pickling otherwise. The fallback is silent, except that
+          a start method incompatible with CUDA (``fork``) is reported when a
+          GPU framework is in use.
         - 'on': share every device array regardless of ``max_nbytes`` and raise
           an error if sharing is requested but not feasible (e.g. the ``fork``
           start method, which is incompatible with CUDA).

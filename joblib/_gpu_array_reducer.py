@@ -38,12 +38,20 @@ from pickle import HIGHEST_PROTOCOL, dumps, loads
 # Valid values for the ``share_gpu_arrays`` parameter.
 #
 # - "auto": best effort. Share device arrays above ``max_nbytes`` when a CUDA
-#   IPC-capable backend is used; silently fall back to regular pickling
-#   otherwise (e.g. no GPU framework, fork start method, sharing failure).
+#   IPC-capable backend is used; fall back to regular pickling otherwise (e.g.
+#   no GPU framework, fork start method, sharing failure). The fallback is
+#   silent, except that an incompatible start method is reported when a GPU
+#   framework is actually in use.
 # - "on": force sharing. Share every device array regardless of ``max_nbytes``
 #   and raise a clear error if sharing is requested but not feasible.
 # - "off": never share. All arrays use the regular pickling of their framework.
 VALID_SHARE_GPU_ARRAYS = ("auto", "on", "off")
+
+# Internal marker for "sharing was requested in 'auto' mode but the backend uses
+# the 'fork' start method". It behaves like "off" but lets get_gpu_reducers()
+# warn the users that a GPU framework is in use. It is deliberately not part of
+# VALID_SHARE_GPU_ARRAYS: users must not be able to pass it.
+_FORK_FALLBACK = "_fork_fallback"
 
 
 def check_share_gpu_arrays(value):
@@ -60,12 +68,20 @@ def _resolve_share_gpu_arrays(share_gpu_arrays, start_method=None):
     """Resolve the effective sharing mode given the backend start method.
 
     CUDA state cannot survive a ``fork``, so GPU array sharing is not supported
-    with the ``fork`` start method. In ``"auto"`` mode we silently fall back to
-    regular pickling (emitting a warning), while in ``"on"`` mode we raise.
+    with the ``fork`` start method. In ``"on"`` mode we raise, while in
+    ``"auto"`` mode we return the internal ``_FORK_FALLBACK`` marker: sharing is
+    disabled, but :func:`get_gpu_reducers` still needs to know that it was asked
+    for so that it can warn the users that are actually affected (see there).
 
     The loky backend (and ``spawn`` / ``forkserver`` multiprocessing contexts)
     pass ``start_method`` values that are considered safe.
     """
+    if share_gpu_arrays == _FORK_FALLBACK:
+        # Already resolved: the multiprocessing backend resolves the mode once
+        # before building the pool (to raise early in "on" mode) and the pool
+        # resolves it again when registering the reducers.
+        return _FORK_FALLBACK
+
     mode = check_share_gpu_arrays(share_gpu_arrays)
     if mode == "off":
         return "off"
@@ -78,18 +94,44 @@ def _resolve_share_gpu_arrays(share_gpu_arrays, start_method=None):
                 "backend or a multiprocessing context using the 'spawn' or "
                 "'forkserver' start method."
             )
-        # "auto": fall back to regular pickling.
-        warnings.warn(
-            "GPU array sharing is disabled because the 'fork' start method is "
-            "not compatible with CUDA. Falling back to regular pickling. Use "
-            "the loky backend or a 'spawn' multiprocessing context to enable "
-            "zero-copy GPU array sharing.",
-            UserWarning,
-            stacklevel=3,
-        )
-        return "off"
+        return _FORK_FALLBACK
 
     return mode
+
+
+def _gpu_framework_in_use():
+    """Whether a GPU array framework is actually in use in this process.
+
+    Used to decide whether a user is affected by a limitation of the GPU sharing
+    machinery, and therefore worth warning. Frameworks are looked up in
+    ``sys.modules`` and never imported here: a GPU array cannot exist unless its
+    framework is already imported.
+    """
+    # Being imported is not enough: both frameworks are routinely imported
+    # without any device memory ever being allocated, by any library that merely
+    # supports them (including joblib's own test helpers). Look for an actually
+    # live CUDA context instead. Every check is best effort: "auto" is a
+    # best-effort mode, so staying quiet is the safe failure direction.
+    torch = sys.modules.get("torch")
+    if torch is not None:
+        try:
+            # Creating any CUDA tensor triggers torch's lazy CUDA init.
+            if torch.cuda.is_initialized():
+                return True
+        except Exception:
+            pass
+
+    cupy = sys.modules.get("cupy")
+    if cupy is not None:
+        try:
+            # CuPy arrays are allocated through the default memory pool, so a
+            # non-zero usage means device arrays are alive right now.
+            if cupy.get_default_memory_pool().used_bytes() > 0:
+                return True
+        except Exception:
+            pass
+
+    return False
 
 
 def _regular_pickle_reduction(obj):
@@ -335,10 +377,29 @@ def get_gpu_reducers(
     # A GPU array can only exist if its framework is already imported, so we
     # never import torch / cupy here to keep this code path lightweight.
     torch = sys.modules.get("torch")
+    cupy = sys.modules.get("cupy")
+
+    if mode == _FORK_FALLBACK:
+        # Sharing was requested in "auto" mode but the start method is 'fork'.
+        # Only tell the users that can actually be affected: with no GPU
+        # framework in use there is no GPU array to share, so the fallback is
+        # the documented silent no-op of the "auto" mode. Warning
+        # unconditionally here would fire on every multiprocessing Parallel call
+        # on the platforms whose default start method is 'fork'.
+        if _gpu_framework_in_use():
+            warnings.warn(
+                "GPU array sharing is disabled because the 'fork' start method "
+                "is not compatible with CUDA. Falling back to regular pickling. "
+                "Use the loky backend or a 'spawn' multiprocessing context to "
+                "enable zero-copy GPU array sharing.",
+                UserWarning,
+                stacklevel=2,
+            )
+        return forward_reducers
+
     if torch is not None:
         forward_reducers[torch.Tensor] = TorchIpcForwardReducer(mode, max_nbytes)
 
-    cupy = sys.modules.get("cupy")
     if cupy is not None:
         forward_reducers[cupy.ndarray] = CupyIpcForwardReducer(
             mode, max_nbytes, resources_manager

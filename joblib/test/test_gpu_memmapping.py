@@ -11,6 +11,8 @@ The tests in this file are split in two groups:
 """
 
 import gc
+import sys
+import types
 import warnings
 import weakref
 
@@ -18,6 +20,7 @@ import pytest
 
 from joblib import Parallel, delayed
 from joblib._gpu_array_reducer import (
+    _FORK_FALLBACK,
     CupyIpcForwardReducer,
     GpuResourcesManager,
     _rebuild_cupy_ipc_array,
@@ -44,6 +47,25 @@ try:
     import cupy
 except ImportError:
     cupy = None
+
+
+def _hide_gpu_frameworks(monkeypatch):
+    """Make the process look like it has no GPU array framework imported."""
+    for name in ("torch", "cupy"):
+        monkeypatch.delitem(sys.modules, name, raising=False)
+
+
+def _fake_gpu_framework(monkeypatch, name="torch", in_use=True):
+    """Make the process look like ``name`` is in use, without importing it."""
+    _hide_gpu_frameworks(monkeypatch)
+    if name == "torch":
+        module = types.SimpleNamespace(
+            cuda=types.SimpleNamespace(is_initialized=lambda: in_use)
+        )
+    else:
+        pool = types.SimpleNamespace(used_bytes=lambda: 4096 if in_use else 0)
+        module = types.SimpleNamespace(get_default_memory_pool=lambda: pool)
+    monkeypatch.setitem(sys.modules, name, module)
 
 
 ###############################################################################
@@ -74,9 +96,23 @@ def test_resolve_off_with_fork_is_silent():
         assert _resolve_share_gpu_arrays("off", start_method="fork") == "off"
 
 
-def test_resolve_auto_with_fork_falls_back_with_warning():
-    with warns(UserWarning, match="fork"):
-        assert _resolve_share_gpu_arrays("auto", start_method="fork") == "off"
+def test_resolve_auto_with_fork_is_silent():
+    # Resolving is silent: whether the fork fallback is worth reporting depends
+    # on whether a GPU framework is in use, which only get_gpu_reducers knows.
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        assert _resolve_share_gpu_arrays("auto", start_method="fork") == _FORK_FALLBACK
+
+
+def test_resolve_fork_fallback_is_idempotent():
+    # The multiprocessing backend resolves the mode before building the pool,
+    # which resolves it again when registering the reducers.
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        assert (
+            _resolve_share_gpu_arrays(_FORK_FALLBACK, start_method="fork")
+            == _FORK_FALLBACK
+        )
 
 
 def test_resolve_on_with_fork_raises():
@@ -94,8 +130,35 @@ def test_get_gpu_reducers_fork_on_raises():
         get_gpu_reducers("on", start_method="fork")
 
 
-def test_get_gpu_reducers_fork_auto_registers_nothing():
+def test_get_gpu_reducers_fork_auto_silent_without_gpu_framework(monkeypatch):
+    # Without torch / cupy imported no GPU array can exist, so the fork
+    # fallback is a silent no-op. Warning here would fire on every
+    # multiprocessing Parallel call on the platforms defaulting to 'fork'.
+    _hide_gpu_frameworks(monkeypatch)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        reducers = get_gpu_reducers("auto", start_method="fork")
+    assert reducers == {}
+
+
+@parametrize("framework", ["torch", "cupy"])
+def test_get_gpu_reducers_fork_auto_warns_with_gpu_framework(monkeypatch, framework):
+    # A GPU framework is in use, so the user may actually be affected.
+    _fake_gpu_framework(monkeypatch, framework)
     with warns(UserWarning, match="fork"):
+        reducers = get_gpu_reducers("auto", start_method="fork")
+    assert reducers == {}
+
+
+@parametrize("framework", ["torch", "cupy"])
+def test_get_gpu_reducers_fork_auto_silent_for_unused_framework(monkeypatch, framework):
+    # The framework is imported but no device memory is live, so no GPU array
+    # can be about to be shared and there is nothing to warn about. Plenty of
+    # libraries import torch / cupy without ever touching a GPU -- including
+    # joblib.test.common, which imports both to define its skip markers.
+    _fake_gpu_framework(monkeypatch, framework, in_use=False)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
         reducers = get_gpu_reducers("auto", start_method="fork")
     assert reducers == {}
 
@@ -392,7 +455,30 @@ def test_multiprocessing_fork_on_raises():
     "fork" not in _START_METHODS,
     reason="requires the fork start method",
 )
-def test_multiprocessing_fork_auto_falls_back_with_warning():
+def test_multiprocessing_fork_auto_silent_without_gpu_framework(monkeypatch):
+    # Regression test: the default share_gpu_arrays="auto" must not make every
+    # multiprocessing Parallel call warn on the platforms that default to the
+    # 'fork' start method.
+    _hide_gpu_frameworks(monkeypatch)
+    fork_ctx = mp.get_context("fork")
+    with warnings.catch_warnings(record=True) as warninfo:
+        warnings.simplefilter("always")
+        out = Parallel(n_jobs=2, backend=fork_ctx, share_gpu_arrays="auto")(
+            delayed(abs)(i) for i in range(-3, 0)
+        )
+    assert out == [3, 2, 1]
+    # Note: matching on the message rather than on "fork", because forking a
+    # multi-threaded process emits an unrelated DeprecationWarning mentioning it.
+    assert [w for w in warninfo if "GPU array sharing" in str(w.message)] == []
+
+
+@with_multiprocessing
+@pytest.mark.skipif(
+    "fork" not in _START_METHODS,
+    reason="requires the fork start method",
+)
+def test_multiprocessing_fork_auto_warns_with_gpu_framework(monkeypatch):
+    _fake_gpu_framework(monkeypatch, "torch")
     fork_ctx = mp.get_context("fork")
     with warns(UserWarning, match="fork"):
         out = Parallel(n_jobs=2, backend=fork_ctx, share_gpu_arrays="auto")(
