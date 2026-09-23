@@ -17,4 +17,5 @@ for PRE in "BEFORE_" "" "AFTER_"; do
     conda create -n $CONDA_ENV --yes -c conda-forge python=${!PYTHON_VERSION} pip
     conda activate $CONDA_ENV
     pip install numpy==$NUMPY_VERSION joblib==$JOBLIB_VERSION lz4
+    conda deactivate
 done
