@@ -828,6 +828,30 @@ def test_file_handle_persistence(tmpdir):
 
 
 @with_numpy
+@pytest.mark.parametrize(
+    "data, key",
+    [
+        (b"\x00\x01\x02not-a-pickle", "\x00"),
+        (b"\x99garbage", "\x99"),
+        (b"zzz", "z"),
+    ],
+    ids=["null-byte", "high-byte", "printable"],
+)
+def test_load_corrupted_input_raises_unpickling_error(data, key):
+    # NumpyUnpickler extends the pure Python Unpickler, whose opcode dispatch
+    # raises KeyError. pickle.Unpickler reports the same input as an
+    # UnpicklingError, and numpy_pickle.load must not be harder to handle than
+    # the module it wraps.
+    with pytest.raises(pickle.UnpicklingError, match="invalid load key"):
+        numpy_pickle.load(io.BytesIO(data))
+
+    with pytest.raises(pickle.UnpicklingError) as joblib_exc:
+        numpy_pickle.load(io.BytesIO(data))
+    with pytest.raises(pickle.UnpicklingError) as pickle_exc:
+        pickle.load(io.BytesIO(data))
+    assert str(joblib_exc.value) == str(pickle_exc.value)
+
+
 def test_in_memory_persistence():
     objs = [np.random.random((10, 10)), "some data"]
     for obj in objs:

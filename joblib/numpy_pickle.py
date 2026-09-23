@@ -647,6 +647,15 @@ def _unpickle(fobj, ensure_native_byte_order, filename="", mmap_mode=None):
         )
         new_exc.__cause__ = exc
         raise new_exc
+    except KeyError as exc:
+        # The pure Python Unpickler raises KeyError for an unknown opcode
+        # where pickle.Unpickler raises UnpicklingError.
+        key = exc.args[0]
+        if isinstance(key, int):
+            key = bytes([key]).decode("latin-1")
+        new_exc = pickle.UnpicklingError(f"invalid load key, {key!r}.")
+        new_exc.__cause__ = exc
+        raise new_exc
     return obj
 
 
