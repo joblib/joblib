@@ -2,9 +2,8 @@
 
 set -xe
 
-
 get_version() {
-    python -c "from versions import get_oldest_pypy_package_version; print(get_oldest_pypy_package_version('$1', '$2'))"
+    python -c "from continuous_integration.versions import get_oldest_pypy_package_version; print(get_oldest_pypy_package_version('$1', '$2'))"
 }
 
 conda config --set solver libmamba
