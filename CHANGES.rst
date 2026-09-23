@@ -13,6 +13,10 @@ In Development
   same-machine and same-GPU, and requires a spawn-based process backend (loky
   or a ``spawn``/``forkserver`` multiprocessing context).
 
+- Fix ``Memory.cache(..., mmap_mode=..., verbose=...)`` to now uses its parameters
+  mmap_mode and verbose instead of using the values used at Memory creation time.
+  https://github.com/joblib/joblib/pull/1857
+
 - A non-positive value for ``pre_dispatch`` in ``Parallel`` now raises a
   ValueError.
   https://github.com/joblib/joblib/pull/1839

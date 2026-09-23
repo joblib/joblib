@@ -1357,6 +1357,16 @@ def test_instanciate_store_backend_with_pathlib_path():
         shutil.rmtree("some_folder", ignore_errors=True)
 
 
+@with_numpy
+def test_memory_mmap_mode(tmpdir):
+    a = np.arange(3)
+
+    for memory_mode, func_mode in [("r", False), (None, "r")]:
+        memory = Memory(tmpdir.strpath, mmap_mode=memory_mode, verbose=0)
+        cached_f = memory.cache(f, mmap_mode=func_mode)
+        assert isinstance(cached_f(a), np.memmap)
+
+
 def test_filesystem_store_backend_repr(tmpdir):
     # Verify string representation of a filesystem store backend.
 
