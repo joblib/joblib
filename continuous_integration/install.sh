@@ -39,11 +39,6 @@ create_new_conda_env() {
 
     fi
 
-    # sklearn_tests requires scipy
-    if [[ $SKLEARN_TESTS == "true" ]]; then
-        EXTRA_CONDA_PACKAGES="$EXTRA_CONDA_PACKAGES scipy"
-    fi
-
     to_install="python=$PYTHON_VERSION pip pytest $EXTRA_CONDA_PACKAGES"
     conda config --set solver libmamba
     conda create -n testenv --yes -c conda-forge $to_install
@@ -71,14 +66,8 @@ if [[ $USE_DISTRIBUTED == "true" ]]; then
     PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES $DISTRIBUTED"
 fi
 
-# We do not use coverage for sklearn_tests
-if [[ "$COVERAGE" == "true" && $SKLEARN_TESTS != "true" ]]; then
+if [[ "$COVERAGE" == "true" ]]; then
     PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES coverage pytest-cov"
-fi
-
-# sklearn_tests requires cython
-if [[ $CYTHON == "true" || $SKLEARN_TESTS == "true" ]]; then
-    PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES cython"
 fi
 
 pip install $PIP_INSTALL_PACKAGES
@@ -91,8 +80,8 @@ if [[ "$NO_LZMA" == "true" ]]; then
     rm $LZMA_PATH
 fi
 
-if [[ $CYTHON == "true" && $SKLEARN_TESTS != "true" ]]; then
-    pip install setuptools
+if [[ $CYTHON == "true" ]]; then
+    pip install cython setuptools
     cd joblib/test/_openmp_test_helper
     python setup.py build_ext -i
     cd ../../..
@@ -101,8 +90,3 @@ fi
 # Can't just install '.[test]' because, for example, we want some runs to omit
 # NumPy:
 pip install -v .
-
-# Install the nightly build of scikit-learn after joblib
-if [[ $SKLEARN_TESTS == "true" ]]; then
-    pip install --pre --extra-index https://pypi.anaconda.org/scientific-python-nightly-wheels/simple scikit-learn
-fi

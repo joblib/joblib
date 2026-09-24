@@ -69,13 +69,10 @@ def get_oldest_pypy_package_version(package_name, target_python_version):
         if ind + add < len(valid_versions):
             version = valid_versions[ind + add]
             py_versions = get_supported_python_versions(package_name, str(version))
-            ok = False
             for v in py_versions:
                 if Version(v) >= target_ver:
-                    ok = True
+                    ind += add
                     break
-            if ok:
-                ind += add
         add >>= 1
 
     return str(valid_versions[ind])
