@@ -3,7 +3,7 @@
 COMPRESS_METHODS="zlib gzip bz2 xz lzma lz4"
 EXPECTED=0
 
-for PRE in "BEFORE_" "" "AFTER_"; do
+for PRE in "PREV_" "" "NEXT_"; do
     env="${PRE}oldest"
     conda activate $env
 

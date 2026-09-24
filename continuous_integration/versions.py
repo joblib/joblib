@@ -7,12 +7,15 @@ from packaging.specifiers import SpecifierSet
 from packaging.version import Version
 
 
+def get_data(url):
+    req = urllib.request.Request(url)
+    with urllib.request.urlopen(req) as response:
+        return json.loads(response.read().decode())
+
+
 def get_supported_python_versions(package_name, version):
     url = f"https://pypi.org/pypi/{package_name}/{version}/json"
-    req = urllib.request.Request(url)
-
-    with urllib.request.urlopen(req) as response:
-        data = json.loads(response.read().decode())
+    data = get_data(url)
 
     prefix = "Programming Language :: Python :: "
     pattern = prefix + "[0-9]+\\.[0-9]+"
@@ -30,13 +33,7 @@ def get_supported_python_versions(package_name, version):
 def get_oldest_pypy_package_version(package_name, target_python_version):
     # Download versions list
     url = f"https://pypi.org/pypi/{package_name}/json"
-    try:
-        req = urllib.request.Request(url)
-        with urllib.request.urlopen(req) as response:
-            data = json.loads(response.read().decode())
-    except urllib.error.HTTPError:
-        print(f"Package '{package_name}' not found on PyPI.")
-        return None
+    data = get_data(url)
 
     # Get valid versions
     valid_versions = []
@@ -82,3 +79,20 @@ def get_oldest_pypy_package_version(package_name, target_python_version):
         add >>= 1
 
     return str(valid_versions[ind])
+
+
+def get_adjacent_python_versions(target_python_version):
+    url = "https://endoflife.date/api/python.json"
+    data = get_data(url)
+
+    target_ver = Version(target_python_version)
+    prev, next = None, None
+    for v in data:
+        v = Version(v["cycle"])
+        if v < target_ver:
+            if prev is None or prev < v:
+                prev = v
+        elif v > target_ver:
+            if next is None or next > v:
+                next = v
+    return str(prev), str(next)
