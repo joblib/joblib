@@ -14,6 +14,7 @@ import os
 import os.path
 import pickle
 import shutil
+import subprocess
 import sys
 import textwrap
 import time
@@ -240,6 +241,70 @@ def test_parallel_call_cached_function_defined_in_jupyter(tmpdir, call_before_re
             # The previous cache should not be invalidated after calling the
             # function in a new session
             assert len(os.listdir(f_cache_directory / "f")) == 4
+
+
+# Emulates a notebook cell: the source is not retrievable, so the identity of
+# the function falls back to a digest of its code object.
+_JUPYTER_SESSION = """if 1:
+    import sys
+    import textwrap
+
+    from joblib import Memory
+
+    LOCATION, WITNESS = sys.argv[1], sys.argv[2]
+
+    ns = {}
+    exec(
+        compile(
+            textwrap.dedent('''
+                def f(x):
+                    with open(WITNESS, "a") as fh:
+                        fh.write("ran\\\\n")
+                    return x * 2
+            '''),
+            filename="<ipython-input-0-000000000000>",
+            mode="exec",
+        ),
+        None,
+        ns,
+    )
+    f = ns["f"]
+    f.__module__ = "__main__"
+
+    assert Memory(location=LOCATION, verbose=0).cache(f)(21) == 42
+"""
+
+
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
+def test_cached_jupyter_function_persists_across_sessions(tmpdir):
+    # Non-regression test for gh-1498: a function defined in a notebook cell
+    # must keep the same identity in a new interpreter, so that its cache
+    # survives a kernel restart. That identity used to be hash(func.__code__),
+    # which is salted per process, so each new session decided the function
+    # had changed and wiped its cache (gh-1694).
+    location = tmpdir.join("cache").strpath
+    witness = tmpdir.join("witness").strpath
+
+    joblib_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    env = os.environ.copy()
+    env["PYTHONPATH"] = os.pathsep.join(
+        [os.path.dirname(joblib_root), env.get("PYTHONPATH", "")]
+    )
+
+    # Two seeds stand in for two independently started interpreters, which is
+    # what makes this deterministic rather than one-in-N flaky.
+    for seed in ("1", "2"):
+        env["PYTHONHASHSEED"] = seed
+        p = subprocess.run(
+            [sys.executable, "-c", _JUPYTER_SESSION, location, witness],
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        assert p.returncode == 0, p.stderr
+
+    with open(witness) as fh:
+        assert fh.read().count("ran") == 1, "the second session lost the cache"
 
 
 def test_no_memory():
@@ -1290,6 +1355,16 @@ def test_instanciate_store_backend_with_pathlib_path():
         assert backend_obj.location == "some_folder"
     finally:  # remove cache folder after test
         shutil.rmtree("some_folder", ignore_errors=True)
+
+
+@with_numpy
+def test_memory_mmap_mode(tmpdir):
+    a = np.arange(3)
+
+    for memory_mode, func_mode in [("r", False), (None, "r")]:
+        memory = Memory(tmpdir.strpath, mmap_mode=memory_mode, verbose=0)
+        cached_f = memory.cache(f, mmap_mode=func_mode)
+        assert isinstance(cached_f(a), np.memmap)
 
 
 def test_filesystem_store_backend_repr(tmpdir):

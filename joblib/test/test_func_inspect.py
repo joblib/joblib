@@ -357,3 +357,30 @@ def test_func_code_consistency():
 
     codes = Parallel(n_jobs=2)(delayed(_get_code)() for _ in range(5))
     assert len(set(codes)) == 1
+
+
+def _get_code_no_source():
+    # Emulate a function defined in a notebook cell: the source cannot be
+    # retrieved, so get_func_code falls back to digesting the code object.
+    ns = {}
+    exec(
+        compile(
+            "def f(x):\n    return x\n",
+            filename="<ipython-input-0-000000000000>",
+            mode="exec",
+        ),
+        None,
+        ns,
+    )
+    return get_func_code(ns["f"])[0]
+
+
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
+def test_func_code_consistency_without_source():
+    # Non-regression test for #1694: the fallback used to be
+    # str(hash(func.__code__)), which is salted per process, so workers
+    # disagreed and wiped each other's cache entries.
+    from joblib.parallel import Parallel, delayed
+
+    codes = Parallel(n_jobs=2)(delayed(_get_code_no_source)() for _ in range(5))
+    assert set(codes) == {_get_code_no_source()}
