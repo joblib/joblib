@@ -97,7 +97,12 @@ _CURRENT_DEPTH = 0
 _MEMORY_LEAK_CHECK_DELAY = 1.0
 
 # Number of bytes of memory usage allowed over the reference process size.
-_MAX_MEMORY_LEAK_SIZE = int(3e8)
+# Workloads whose tasks differ a lot in size can legitimately exceed the default
+# without leaking, so it is configurable; it is read in the worker processes,
+# which inherit the environment of the process that created the executor.
+_MAX_MEMORY_LEAK_SIZE = int(
+    float(os.environ.get("LOKY_MAX_MEMORY_LEAK_SIZE", 3e8))
+)
 
 
 try:
@@ -115,6 +120,15 @@ try:
 
 except ImportError:
     _USE_PSUTIL = False
+
+
+class _RecycledWorkerPid(int):
+    """PID of a worker that the executor itself decided to shut down.
+
+    Behaves like the plain PID the workers usually send back, but lets the
+    manager thread tell a recycling it triggered on purpose from a worker that
+    stopped on its own.
+    """
 
 
 class _ThreadWakeup:
@@ -307,16 +321,25 @@ class _SafeQueue(Queue):
         running_work_items=None,
         thread_wakeup=None,
         shutdown_lock=None,
+        executor_flags=None,
         reducers=None,
     ):
         self.thread_wakeup = thread_wakeup
         self.shutdown_lock = shutdown_lock
+        self.executor_flags = executor_flags
         self.pending_work_items = pending_work_items
         self.running_work_items = running_work_items
         super().__init__(max_size, reducers=reducers, ctx=ctx)
 
     def _on_queue_feeder_error(self, e, obj):
-        if isinstance(obj, _CallItem):
+        if not isinstance(obj, _CallItem):
+            super()._on_queue_feeder_error(e, obj)
+            return
+        # work_item can be None if another process terminated. In this
+        # case, the executor_manager_thread fails all work_items with
+        # BrokenProcessPool
+        work_item = self.pending_work_items.pop(obj.work_id, None)
+        try:
             # format traceback only works on python3
             if isinstance(e, struct.error):
                 raised_error = RuntimeError(
@@ -331,18 +354,27 @@ class _SafeQueue(Queue):
                 type(e), e, getattr(e, "__traceback__", None)
             )
             raised_error.__cause__ = _RemoteTraceback("".join(tb))
-            work_item = self.pending_work_items.pop(obj.work_id, None)
             self.running_work_items.remove(obj.work_id)
-            # work_item can be None if another process terminated. In this
-            # case, the executor_manager_thread fails all work_items with
-            # BrokenProcessPool
-            if work_item is not None:
-                work_item.future.set_exception(raised_error)
-                del work_item
-            with self.shutdown_lock:
-                self.thread_wakeup.wakeup()
-        else:
-            super()._on_queue_feeder_error(e, obj)
+        except BaseException as hook_exc:
+            # An error here would kill the feeder thread silently and leave
+            # every later task unsent: flag the executor as broken instead
+            raised_error = BrokenProcessPool(
+                "The call queue feeder thread crashed: the executor is "
+                "broken and the pending tasks have been cancelled."
+            )
+            tb = traceback.format_exception(
+                type(hook_exc), hook_exc, hook_exc.__traceback__
+            )
+            raised_error.__cause__ = _RemoteTraceback("".join(tb))
+            LOGGER.critical(
+                "Exception in call queue feeder error hook:", exc_info=True
+            )
+            self.executor_flags.flag_as_broken(raised_error)
+        if work_item is not None:
+            work_item.future.set_exception(raised_error)
+            del work_item
+        with self.shutdown_lock:
+            self.thread_wakeup.wakeup()
 
 
 def _get_chunks(chunksize, *iterables):
@@ -524,7 +556,7 @@ def _process_worker(
                 # The process is leaking memory: let the master process
                 # know that we need to start a new worker.
                 mp.util.info("Memory leak detected: shutting down worker")
-                result_queue.put(pid)
+                result_queue.put(_RecycledWorkerPid(pid))
                 with worker_exit_lock:
                     mp.util.debug("Exit due to memory leak")
                     return
@@ -610,18 +642,50 @@ class _ExecutorManagerThread(threading.Thread):
         # of new processes or shut down
         self.processes_management_lock = executor._processes_management_lock
 
+        # Long-running executors can recycle workers many times over their
+        # lifetime; the user only needs to hear about it once.
+        self.recycling_warned = False
+
         super().__init__(name="ExecutorManagerThread")
         if sys.version_info < (3, 9):
             self.daemon = True
 
     def run(self):
         # Main loop for the executor manager thread.
+        try:
+            self._run_loop()
+        except BaseException as exc:
+            # Nothing in the loop is expected to raise, so this is a bug, a
+            # warning filter turning one of the warnings below into an error,
+            # or a failure of the runtime itself, such as a queue that cannot
+            # start its feeder thread while the interpreter is shutting down
+            # (python/cpython#109047). Letting the exception kill this thread
+            # would leave every pending future unresolved and the executor
+            # looking healthy, so a caller waiting on a result would hang
+            # forever.
+            # Flag the executor as broken instead, with the error as cause.
+            bpe = BrokenProcessPool(
+                "The executor manager thread crashed: the executor is broken "
+                "and the pending tasks have been cancelled."
+            )
+            tb = traceback.format_exception(type(exc), exc, exc.__traceback__)
+            bpe.__cause__ = _RemoteTraceback("".join(tb))
+            # Also log it: with no pending future, nothing else reports it
+            LOGGER.critical(
+                "Exception in executor manager thread:", exc_info=True
+            )
+            self.terminate_broken(bpe)
 
+    def _run_loop(self):
         while True:
             self.add_call_item_to_queue()
 
             result_item, is_broken, bpe = self.wait_result_broken_or_wakeup()
 
+            # The call queue feeder thread flags the executor broken and
+            # wakes us up when it cannot report a task failure itself
+            if not is_broken and self.executor_flags.broken is not None:
+                is_broken, bpe = True, self.executor_flags.broken
             if is_broken:
                 self.terminate_broken(bpe)
                 return
@@ -784,15 +848,32 @@ class _ExecutorManagerThread(threading.Thread):
                     executor is not None
                     and len(self.processes) < executor._max_workers
                 ):
-                    warnings.warn(
-                        "A worker stopped while some jobs were given to the "
-                        "executor. This can be caused by a too short worker "
-                        "timeout or by a memory leak.",
-                        UserWarning,
-                    )
                     with executor._processes_management_lock:
                         executor._adjust_process_count()
                     executor = None
+                    # Warn only once the pool is back to full strength, so
+                    # that a filter turning this into an error costs no worker
+                    if not isinstance(result_item, _RecycledWorkerPid):
+                        warnings.warn(
+                            "A worker stopped while some jobs were given to "
+                            "the executor. This can be caused by a too short "
+                            "worker timeout or by a memory leak.",
+                            UserWarning,
+                        )
+                    elif not self.recycling_warned:
+                        # Recycling is a deliberate decision of the executor and
+                        # it is transparent to the caller, so repeating it for
+                        # every worker of a long-running executor is just noise.
+                        self.recycling_warned = True
+                        warnings.warn(
+                            "A worker was restarted while some jobs were given "
+                            "to the executor because it was using more than "
+                            f"{_MAX_MEMORY_LEAK_SIZE / 1e6:.0f} MB more memory "
+                            "than when it started, which usually indicates a "
+                            "memory leak. Further restarts of this executor "
+                            "will not be reported.",
+                            UserWarning,
+                        )
         else:
             # Received a _ResultItem so mark the future as completed.
             work_item = self.pending_work_items.pop(result_item.work_id, None)
@@ -854,6 +935,13 @@ class _ExecutorManagerThread(threading.Thread):
 
         # Cancel pending work items if requested.
         if self.executor_flags.kill_workers:
+            # Drain the queued ids first: add_call_item_to_queue runs again
+            # right after this and looks each of them up in pending_work_items
+            while True:
+                try:
+                    self.work_ids_queue.get(block=False)
+                except queue.Empty:
+                    break
             while self.pending_work_items:
                 _, work_item = self.pending_work_items.popitem()
                 work_item.future.set_exception(
@@ -1183,6 +1271,7 @@ class ProcessPoolExecutor(Executor):
             running_work_items=self._running_work_items,
             thread_wakeup=self._executor_manager_thread_wakeup,
             shutdown_lock=self._shutdown_lock,
+            executor_flags=self._flags,
             reducers=job_reducers,
             ctx=self._context,
         )

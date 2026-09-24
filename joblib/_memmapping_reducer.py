@@ -677,7 +677,14 @@ class TemporaryResourcesManager(object):
                 )
         else:
             temp_folder = self._cached_temp_folders.get(context_id)
-            if temp_folder and os.path.exists(temp_folder):
+            if not temp_folder:
+                return
+            if not os.path.exists(temp_folder):
+                # The folder is only created on the first memmap dump but it is
+                # registered with the resource_tracker upfront, so a context
+                # that dumped nothing still has to be forgotten here.
+                self._forget_temp_folder(context_id, temp_folder)
+            else:
                 for filename in os.listdir(temp_folder):
                     if force:
                         # Some workers have failed and the ref counted might
@@ -700,16 +707,20 @@ class TemporaryResourcesManager(object):
                 try:
                     delete_folder(temp_folder, allow_non_empty=allow_non_empty)
                     # Forget the folder once it has been deleted
-                    self._cached_temp_folders.pop(context_id, None)
-                    resource_tracker.unregister(temp_folder, "folder")
-
-                    # Also cancel the finalizers  that gets triggered at gc.
-                    finalizer = self._finalizers.pop(context_id, None)
-                    if finalizer is not None:
-                        atexit.unregister(finalizer)
+                    self._forget_temp_folder(context_id, temp_folder)
 
                 except OSError:
                     # Temporary folder cannot be deleted right now.
                     # This folder will be cleaned up by an atexit
                     # finalizer registered by the memmapping_reducer.
                     pass
+
+    def _forget_temp_folder(self, context_id, temp_folder):
+        """Drop a context's folder from the manager and the resource_tracker"""
+        self._cached_temp_folders.pop(context_id, None)
+        resource_tracker.unregister(temp_folder, "folder")
+
+        # Also cancel the finalizers  that gets triggered at gc.
+        finalizer = self._finalizers.pop(context_id, None)
+        if finalizer is not None:
+            atexit.unregister(finalizer)

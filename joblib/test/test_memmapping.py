@@ -668,6 +668,59 @@ def test_many_parallel_calls_on_same_object(backend):
     assert b"resource_tracker" not in err
 
 
+def test_clean_temporary_resources_folder_never_created(tmpdir):
+    # A context folder is registered with the resource_tracker upfront but only
+    # created on the first memmap dump, so cleaning up a context that never
+    # dumped anything must still unregister it and drop its atexit finalizer.
+    manager = jmr.TemporaryResourcesManager(str(tmpdir))
+    manager.set_current_context("context_id")
+    assert not os.path.exists(manager.resolve_temp_folder_name())
+
+    manager._clean_temporary_resources()
+    assert manager._cached_temp_folders == {}
+    assert manager._finalizers == {}
+
+    # Cleaning up a context that has already been forgotten is a no-op
+    manager._clean_temporary_resources("context_id")
+    assert manager._cached_temp_folders == {}
+
+
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
+@with_numpy
+@with_multiprocessing
+def test_no_leaked_folder_registration_per_parallel_call(monkeypatch):
+    # Non-regression test: every Parallel call used to leave a temporary folder
+    # registered with the resource_tracker, which then reported all of them as
+    # leaked whenever the process did not get to run its atexit finalizers.
+    registered, unregistered = [], []
+    register = jmr.resource_tracker.register
+    unregister = jmr.resource_tracker.unregister
+
+    def _register(name, rtype):
+        if rtype == "folder":
+            registered.append(name)
+        return register(name, rtype)
+
+    def _unregister(name, rtype):
+        if rtype == "folder":
+            unregistered.append(name)
+        return unregister(name, rtype)
+
+    monkeypatch.setattr(jmr.resource_tracker, "register", _register)
+    monkeypatch.setattr(jmr.resource_tracker, "unregister", _unregister)
+
+    # The backend is pinned: the default one is overridable from the
+    # JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND environment variable and only the
+    # process-based backends register temporary folders at all.
+    for _ in range(3):
+        Parallel(n_jobs=2, backend="loky", max_nbytes=None)(
+            delayed(id)(i) for i in range(4)
+        )
+
+    assert registered, "no temporary folder was registered at all"
+    assert set(registered) <= set(unregistered)
+
+
 @pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 @with_numpy
 @with_multiprocessing

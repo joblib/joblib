@@ -24,6 +24,26 @@ In Development
 - Fix ``eval_expr`` to reject an oversized power before evaluating it.
   https://github.com/joblib/joblib/pull/1841
 
+- Stop leaking one temporary folder registration, and the ``atexit`` finalizer
+  behind it, per ``Parallel`` call. Those folders are registered with the
+  ``resource_tracker`` upfront but only created on the first memmap dump, so
+  nothing unregistered them when no array was dumped. A process that exited
+  without running its ``atexit`` finalizers, for instance one killed by a test
+  timeout, then reported every one of them as a leaked folder and failed to
+  delete folders that had never been created.
+  https://github.com/joblib/joblib/pull/1829
+
+- Vendor the loky fixes from https://github.com/joblib/loky/pull/641: a worker
+  recycled for a suspected memory leak is now reported once per executor with
+  a message naming the cause instead of the generic "A worker stopped while
+  some jobs were given to the executor" warning on every restart, the
+  threshold is configurable with the ``LOKY_MAX_MEMORY_LEAK_SIZE`` environment
+  variable, and an unexpected error in the executor's manager or feeder thread
+  (for instance a warning filter turning that warning into an error) now
+  breaks the executor instead of hanging ``Parallel`` forever.
+  https://github.com/joblib/joblib/issues/883
+  https://github.com/joblib/joblib/pull/1829
+
 Release 1.6.0 - 2026/08/31
 --------------------------
 
