@@ -60,7 +60,7 @@ def cpu_count(only_physical_cores=False, process_wide=False) -> int:
     """
     Return the number of CPU cores the current thread can use.
 
-    Per-thread limits can be constrained by ``joblib.Paralell``'s threaded
+    Per-thread limits can be constrained by ``joblib.Parallel``'s threaded
     backend: cores will be split up across the worker threads.  Additionally,
     process-wide limits can be constrained by CPU affinity, and on Linux
     cgroups (i.e. Docker/Kubernetes/other container systems).
