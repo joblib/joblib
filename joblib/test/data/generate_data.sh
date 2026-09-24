@@ -1,19 +1,29 @@
 #!/bin/bash
 
-# Change the list according to your local conda/virtualenv env.
-CONDA_ENVS="py27-np16 py27-np18 py34-np110 py35-np112 py36-np114"
 COMPRESS_METHODS="zlib gzip bz2 xz lzma lz4"
+EXPECTED=0
 
-for i in $CONDA_ENVS
-do
-    . activate $i
+for PRE in "PREV_" "" "NEXT_"; do
+    env="${PRE}oldest"
+    conda activate $env
+
     # Generate non compressed pickles.
     python create_numpy_pickle.py
+    EXPECTED=$((EXPECTED+1))
 
     # Generate compressed pickles for each compression methods supported
-    for method in $COMPRESS_METHODS
-    do
+    for method in $COMPRESS_METHODS; do
         python create_numpy_pickle.py --compress --method $method
+        EXPECTED=$((EXPECTED+1))
     done
 done
-. deactivate
+
+echo "======= GENERATED FILES ======="
+ls *.pkl*
+echo "==============================="
+
+GENERATED=$(ls *.pkl* | wc -l)
+if [[ $GENERATED != $EXPECTED ]]; then
+    echo "Error: $GENERATED files generetad, while $EXPECTED expected files..."
+    exit 1;
+fi
