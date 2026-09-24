@@ -35,6 +35,7 @@ from ._parallel_backends import (
     ParallelBackendBase,  # noqa
     SequentialBackend,
     ThreadingBackend,
+    cpu_count,  # noqa
 )
 from ._utils import _Sentinel, eval_expr
 from .disk import memstr_to_bytes
@@ -58,7 +59,6 @@ MAYBE_AVAILABLE_BACKENDS = {"multiprocessing", "loky"}
 # backend
 if mp is not None:
     BACKENDS["multiprocessing"] = MultiprocessingBackend
-    from .externals import loky
 
     BACKENDS["loky"] = LokyBackend
     DEFAULT_BACKEND = "loky"
@@ -265,11 +265,15 @@ class parallel_config:
         of Python worker processes when ``backend="loky"`` or the size of the
         thread-pool when ``backend="threading"``.
         This argument is converted to an integer, rounded below for float.
-        If -1 is given, `joblib` tries to use all CPUs. The number of CPUs
-        ``n_cpus`` is obtained with :func:`~cpu_count`.
+        If -1 is given, `joblib` tries to use all available CPUs. The number
+        of CPUs ``n_cpus`` is obtained with :func:`~cpu_count`. ``n_cpus``
+        may be further limited if this instance is being started inside a
+        worker for another :class:`~Parallel`, to ensure the number of
+        workers (threads or processes) doesn't exceed the number of cores
+        available to the top-level process.
         For n_jobs below -1, (n_cpus + 1 + n_jobs) are used. For instance,
-        using ``n_jobs=-2`` will result in all CPUs but one being used.
-        This argument can also go above ``n_cpus``, which will cause
+        using ``n_jobs=-2`` will result in all available CPUs but one being
+        used. n_jobs can also go above ``n_cpus``, which will cause
         oversubscription. In some cases, slight oversubscription can be
         beneficial, e.g., for tasks with large I/O operations.
         If 1 is given, no parallel computing code is used at all, and the
@@ -626,29 +630,6 @@ TASK_PENDING = "Pending"
 
 
 ###############################################################################
-# CPU count that works also when multiprocessing has been disabled via
-# the JOBLIB_MULTIPROCESSING environment variable
-def cpu_count(only_physical_cores=False):
-    """Return the number of CPUs.
-
-    This delegates to loky.cpu_count that takes into account additional
-    constraints such as Linux CFS scheduler quotas (typically set by container
-    runtimes such as docker) and CPU affinity (for instance using the taskset
-    command on Linux).
-
-    Parameters
-    ----------
-    only_physical_cores : boolean, default=False
-        If True, does not take hyperthreading / SMT logical cores into account.
-
-    """
-    if mp is None:
-        return 1
-
-    return loky.cpu_count(only_physical_cores=only_physical_cores)
-
-
-###############################################################################
 # For verbosity
 
 
@@ -989,11 +970,15 @@ class Parallel(Logger):
         of Python worker processes when ``backend="loky"`` or the size of
         the thread-pool when ``backend="threading"``.
         This argument is converted to an integer, rounded below for float.
-        If -1 is given, `joblib` tries to use all CPUs. The number of CPUs
-        ``n_cpus`` is obtained with :func:`~cpu_count`.
+        If -1 is given, `joblib` tries to use all available CPUs. The number
+        of CPUs ``n_cpus`` is obtained with :func:`~cpu_count`. ``n_cpus``
+        may be further limited if this instance is being started inside a
+        worker for another :class:`~Parallel`, to ensure the number of
+        workers (threads or processes) doesn't exceed the number of cores
+        available to the top-level process.
         For n_jobs below -1, (n_cpus + 1 + n_jobs) are used. For instance,
-        using ``n_jobs=-2`` will result in all CPUs but one being used.
-        This argument can also go above ``n_cpus``, which will cause
+        using ``n_jobs=-2`` will result in all available CPUs but one being
+        used. n_jobs can also go above ``n_cpus``, which will cause
         oversubscription. In some cases, slight oversubscription can be
         beneficial, e.g., for tasks with large I/O operations.
         If 1 is given, no parallel computing code is used at all, and the

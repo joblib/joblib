@@ -70,7 +70,9 @@ extension that releases the Python Global Interpreter Lock (GIL) during
 most of its computation then it is more efficient to use threads instead
 of Python processes as concurrent workers. For instance this is the case
 if you write the CPU intensive part of your code inside a `with nogil`_
-block of a Cython function.
+block of a Cython function. However, starting with Python 3.14, there is
+a free-threaded version of Python that doesn't have a GIL, and it can benefit
+from the ``'threaded'`` backend.
 
 .. _`with nogil`: https://docs.cython.org/src/userguide/external_C_code.html#acquiring-and-releasing-the-gil
 
@@ -253,6 +255,24 @@ further hinder the performance of the computation. It is generally better to
 avoid using significantly more processes or threads than the number of CPUs on
 a machine.
 
+Nested :class:`joblib.Parallel`
+-------------------------------
+
+A nested :class:`joblib.Parallel` loop is one where the :class:`joblib.delayed`
+tasks in the top level loop create their own :class:`joblib.Parallel`. It can suffer from over-subscription if the product of the size of two worker pools is bigger than the number of available cores.
+
+Starting with version 1.6, in order to avoid over-subscription, the inner loop
+can use ``n_jobs=-1``. Each inner :class:`joblib.Parallel` will be limited to
+the number of cores divided by the outer by ``n_jobs`` in the outer
+:class:`joblib.Parallel`.
+
+For example, if you have 10 cores in your CPU, and the outer
+:class:`joblib.Parallel` has ``n_jobs=5``, a nested :class:`joblib.Parallel`
+should be set to ``n_jobs=-1``, and it will then only start 2 workers. The
+result will be 5×2=10 workers.
+
+Third-party libraries
+---------------------
 Some third-party libraries -- *e.g.* the BLAS runtime used by ``numpy`` --
 internally manage a thread-pool to perform their computations. The default
 behavior is generally to use a number of threads equals to the number of CPUs

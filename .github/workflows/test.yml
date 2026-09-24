@@ -119,7 +119,7 @@ jobs:
           - name: one-cpu
             os: ubuntu-latest
             PYTHON_VERSION: "latest_supported"
-            LOKY_MAX_CPU_COUNT: 1
+            ONE_CPU: "1"
           - name: default-backend-threading
             os: ubuntu-latest
             PYTHON_VERSION: "oldest_supported"

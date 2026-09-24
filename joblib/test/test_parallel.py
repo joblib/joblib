@@ -28,6 +28,7 @@ import pytest
 import joblib
 from joblib import _parallel_backends, dump, load, parallel
 from joblib._multiprocessing_helpers import mp
+from joblib._parallel_backends import _SetEnvInitializer, _split_up_cores
 from joblib.test.common import (
     IS_GIL_DISABLED,
     np,
@@ -158,8 +159,38 @@ def parallel_func(inner_n_jobs, backend):
 
 
 ###############################################################################
-def test_cpu_count():
+def test_cpu_count_minimal():
     assert cpu_count() > 0
+
+
+@with_multiprocessing
+def test_cpu_count_variations():
+    from joblib.externals.loky import cpu_count as loky_cpu_count
+
+    assert cpu_count(process_wide=True) == loky_cpu_count()
+    assert cpu_count(process_wide=True, only_physical_cores=True) == loky_cpu_count(
+        only_physical_cores=True
+    )
+
+    # We're going to run this with n_jobs, so it should have half of the cores
+    # allocated. We do it twice to make sure there really are 2 workers, in
+    # case pool sizing gets smarter after this test is written.
+    def in_thread():
+        expected_local_count = max(loky_cpu_count() // 2, 1)
+        assert cpu_count() == expected_local_count
+        # This is a soft contract, and it may change to something smarter; see
+        # docstring for cpu_count().
+        assert cpu_count(only_physical_cores=True) == min(
+            expected_local_count, loky_cpu_count(only_physical_cores=True)
+        )
+        return True
+
+    results = list(
+        Parallel(backend="threading", n_jobs=2)(
+            [delayed(in_thread)() for _ in range(2)]
+        )
+    )
+    assert results == [True, True]
 
 
 def test_effective_n_jobs():
@@ -182,6 +213,42 @@ def test_effective_n_jobs_None(context, backend_n_jobs, expected_n_jobs):
         assert effective_n_jobs(n_jobs=None) == expected_n_jobs
     # without any backend, None will default to a single job
     assert effective_n_jobs(n_jobs=None) == 1
+
+
+def _measure_effective() -> tuple[int, int]:
+    return effective_n_jobs(-1), effective_n_jobs(-2), cpu_count()
+
+
+@with_multiprocessing
+@parametrize("backend", PARALLEL_BACKENDS)
+def test_negative_effective_n_jobs_affected_by_parent_pool(backend):
+    """
+    Nested pools get fewer workers, approximately cpu_count() divided by
+    parent's number of workers.
+    """
+    n_jobs = max(cpu_count() // 2, 1)
+    results = set(
+        Parallel(n_jobs=n_jobs, backend=backend)(
+            (delayed(_measure_effective)() for _ in range(cpu_count() * 10))
+        )
+    )
+    assert len(results) == 1
+
+    (available_in_worker, available_in_worker_minus_1, cpu_count_result) = results.pop()
+    assert cpu_count_result == available_in_worker
+    assert available_in_worker_minus_1 == max(available_in_worker - 1, 1)
+    # See _split_up_cores() for details:
+    expected = _split_up_cores(cpu_count(), n_jobs)
+    assert available_in_worker == expected
+
+
+def test_split_up_cores():
+    """
+    Test heuristic for determining number of workers in nested pool.
+    """
+    for max_cores in range(1, 100):
+        for n_jobs in range(1, max_cores + 1):
+            assert _split_up_cores(max_cores, n_jobs) == max(max_cores // n_jobs, 1)
 
 
 ###############################################################################
@@ -2286,3 +2353,26 @@ def test_initializer_not_reused(n_jobs):
     assert len(pids) == n_repetitions * n_jobs, (
         "The workers should not be reused when the initializer arguments change"
     )
+
+
+def test_set_env_initializer() -> None:
+    """
+    ``_SetEnvInitializer()`` sets environment variables and optionally calls an
+    initializer.
+    """
+    k1 = str(uuid4())
+    k2 = str(uuid4())
+    svi = _SetEnvInitializer({k1: "A", k2: "B"}, None)
+    assert k1 not in os.environ
+    assert k2 not in os.environ
+    svi()
+    assert os.environ[k1] == "A"
+    assert os.environ[k2] == "B"
+
+    mylist = []
+    svi = _SetEnvInitializer({k1: "C", k2: "D"}, mylist.append)
+    assert not mylist
+    svi(123)
+    assert os.environ[k1] == "C"
+    assert os.environ[k2] == "D"
+    assert mylist == [123]

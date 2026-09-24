@@ -2,12 +2,16 @@
 Backends for embarrassingly parallel code.
 """
 
+from __future__ import annotations
+
 import contextlib
 import gc
 import os
 import threading
 import warnings
 from abc import ABCMeta, abstractmethod
+from dataclasses import dataclass
+from typing import Any, Callable
 
 from ._multiprocessing_helpers import mp
 from ._utils import (
@@ -15,15 +19,73 @@ from ._utils import (
     _TracebackCapturingWrapper,
 )
 
-if mp is not None:
+if mp is None:
+    from os import cpu_count as _os_cpu_count
+
+    def system_cpu_count(only_physical_cores: bool = False) -> int:
+        return _os_cpu_count() or 1
+else:
     from multiprocessing.pool import ThreadPool
 
     from .executor import get_memmapping_executor
 
     # Import loky only if multiprocessing is present
-    from .externals.loky import cpu_count, process_executor
+    from .externals.loky import cpu_count as system_cpu_count
+    from .externals.loky import process_executor
     from .externals.loky.process_executor import ShutdownExecutorError
     from .pool import MemmappingPool
+
+
+class _MaxCores(threading.local):
+    """Track the number of cores available to this thread."""
+
+    _thread_limit = None
+
+    def get(self, only_physical_cores=False) -> int:
+        """Number of cores available to this thread."""
+        process_limit = system_cpu_count(only_physical_cores)
+        if self._thread_limit is None:
+            return process_limit
+        return min(process_limit, self._thread_limit)
+
+    def set_thread_limit(self, cores: int) -> None:
+        """Set the maximum number of cores available to this thread."""
+        self._thread_limit = cores
+
+
+_MAX_CORES = _MaxCores()
+
+
+def cpu_count(only_physical_cores=False, process_wide=False) -> int:
+    """
+    Return the number of CPU cores the current thread can use.
+
+    Per-thread limits can be constrained by ``joblib.Parallel``'s threaded
+    backend: cores will be split up across the worker threads.  Additionally,
+    process-wide limits can be constrained by CPU affinity, and on Linux
+    cgroups (i.e. Docker/Kubernetes/other container systems).
+
+    If ``process_wide`` is True, ignore the per-thread limits.
+
+    If both ``process_wide`` and ``only_physical_cores`` are True, return the
+    number of physical cores instead of the number of logical cores
+    (hyperthreading / SMT).  If ``only_physical_cores`` is True and
+    ``process_wide`` is False (its default) the minimum of the two (per-thread
+    and physical limit) will be chosen, but future versions may have a smarter
+    algorithm.
+    """
+    return _MAX_CORES.get(only_physical_cores)
+
+
+def _split_up_cores(total_cores: int, n_jobs: int) -> int:
+    """
+    Given the total number of cores and a number of workers, come up with a
+    reasonable number of cores per worker.
+
+    At the moment this just does ``total_cores // n_jobs`` but a better
+    heuristic might someday be used instead.
+    """
+    return max(total_cores // n_jobs, 1)
 
 
 class ParallelBackendBase(metaclass=ABCMeta):
@@ -64,6 +126,8 @@ class ParallelBackendBase(metaclass=ABCMeta):
         "VECLIB_MAXIMUM_THREADS",
         "NUMBA_NUM_THREADS",
         "NUMEXPR_NUM_THREADS",
+        # This sets a soft max on loky.cpu_count() in workers:
+        "LOKY_MAX_CPU_COUNT",
     ]
 
     TBB_ENABLE_IPC_VAR = "ENABLE_IPC"
@@ -227,7 +291,7 @@ class ParallelBackendBase(metaclass=ABCMeta):
         OpenBLAS libraries in the child processes.
         """
         explicit_n_threads = self.inner_max_num_threads
-        default_n_threads = max(cpu_count() // n_jobs, 1)
+        default_n_threads = _split_up_cores(cpu_count(), n_jobs)
 
         # Set the inner environment variables to self.inner_max_num_threads if
         # it is given. Else, default to cpu_count // n_jobs unless the variable
@@ -503,9 +567,33 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
         The actual pool of worker threads is only initialized at the first
         call to apply_async.
         """
+        # Import here to prevent circular import:
+        from joblib.parallel import effective_n_jobs
+
         if self._pool is None:
-            self._pool = ThreadPool(self._n_jobs)
+            available_cores = effective_n_jobs(-1)
+            cores_per_thread = _split_up_cores(available_cores, self._n_jobs)
+            self._pool = ThreadPool(
+                self._n_jobs,
+                initializer=lambda: _MAX_CORES.set_thread_limit(cores_per_thread),
+            )
         return self._pool
+
+
+@dataclass
+class _SetEnvInitializer:
+    """
+    Pickleable initializer for multiprocessing workers.
+    """
+
+    env: dict[str, str]
+    initializer: None | Callable[..., Any]
+
+    def __call__(self, *args, **kwargs) -> Any:
+        for key, value in self.env.items():
+            os.environ[key] = value
+        if self.initializer is not None:
+            return self.initializer(*args, **kwargs)
 
 
 class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin, ParallelBackendBase):
@@ -594,7 +682,15 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin, ParallelBacken
 
         # Make sure to free as much memory as possible before forking
         gc.collect()
-        self._pool = MemmappingPool(n_jobs, **memmapping_pool_kwargs)
+        initializer = _SetEnvInitializer(
+            self._prepare_worker_env(n_jobs),
+            memmapping_pool_kwargs.pop("initializer", None),
+        )
+        self._pool = MemmappingPool(
+            n_jobs,
+            initializer=initializer,
+            **memmapping_pool_kwargs,
+        )
         self.parallel = parallel
         return n_jobs
 
