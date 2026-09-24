@@ -219,6 +219,7 @@ def _measure_effective() -> tuple[int, int]:
     return effective_n_jobs(-1), effective_n_jobs(-2), cpu_count()
 
 
+@with_multiprocessing
 @parametrize("backend", PARALLEL_BACKENDS)
 def test_negative_effective_n_jobs_affected_by_parent_pool(backend):
     """
