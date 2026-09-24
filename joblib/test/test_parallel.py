@@ -233,7 +233,8 @@ def test_negative_effective_n_jobs_affected_by_parent_pool(backend):
     )
     assert len(results) == 1
 
-    (available_in_worker, available_in_worker_minus_1) = results.pop()
+    (available_in_worker, available_in_worker_minus_1, cpu_count_result) = results.pop()
+    assert cpu_count_result == available_in_worker
     assert available_in_worker_minus_1 == max(available_in_worker - 1, 1)
     # See _split_up_cores() for details:
     expected = _split_up_cores(cpu_count(), n_jobs)
