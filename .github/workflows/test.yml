@@ -192,8 +192,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          bash -el continuous_integration/install_scikit.sh
+          bash -el continuous_integration/install_sklearn.sh
 
       - name: Run tests
         run: |
-          bash -el continuous_integration/run_tests_scikit.sh
+          bash -el continuous_integration/run_tests_sklearn.sh

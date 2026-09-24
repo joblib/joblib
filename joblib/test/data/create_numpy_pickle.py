@@ -50,8 +50,8 @@ def write_test_pickle(to_pickle, args):
             kwargs["cache_size"] = 0
             extension += "_cache_size" + extension
 
-    pickle_filename = "joblib_{}_pickle_py{}_np{}{}".format(
-        joblib_version, py_version, numpy_version, extension
+    pickle_filename = (
+        f"joblib_{joblib_version}_pickle_py{py_version}_np{numpy_version}{extension}"
     )
 
     try:
