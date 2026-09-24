@@ -4,6 +4,10 @@ Release Notes
 In Development
 --------------
 
+- Limit the number of workers created for negative ``n_jobs`` values to the
+  number of tasks when the input size is known.
+  https://github.com/joblib/joblib/issues/1858
+
 - Fix ``Memory.cache(..., mmap_mode=..., verbose=...)`` to now uses its parameters
   mmap_mode and verbose instead of using the values used at Memory creation time.
   https://github.com/joblib/joblib/pull/1857

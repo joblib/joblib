@@ -579,6 +579,8 @@ def test_wait_for_workers_timeout():
             msg = "DaskDistributedBackend has no active worker"
             with pytest.raises(RuntimeError, match=msg):
                 Parallel()(delayed(inc)(i) for i in range(10))
+            with pytest.raises(RuntimeError, match=msg):
+                Parallel(n_jobs=-1)([delayed(inc)(0)])
     finally:
         client.close()
         cluster.close()
