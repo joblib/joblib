@@ -35,6 +35,7 @@ from ._parallel_backends import (
     ParallelBackendBase,  # noqa
     SequentialBackend,
     ThreadingBackend,
+    cpu_count,  # noqa
 )
 from ._utils import _Sentinel, eval_expr
 from .disk import memstr_to_bytes
@@ -58,7 +59,6 @@ MAYBE_AVAILABLE_BACKENDS = {"multiprocessing", "loky"}
 # backend
 if mp is not None:
     BACKENDS["multiprocessing"] = MultiprocessingBackend
-    from .externals import loky
 
     BACKENDS["loky"] = LokyBackend
     DEFAULT_BACKEND = "loky"
@@ -627,29 +627,6 @@ class BatchedCalls(object):
 TASK_DONE = "Done"
 TASK_ERROR = "Error"
 TASK_PENDING = "Pending"
-
-
-###############################################################################
-# CPU count that works also when multiprocessing has been disabled via
-# the JOBLIB_MULTIPROCESSING environment variable
-def cpu_count(only_physical_cores=False):
-    """Return the number of CPUs.
-
-    This delegates to loky.cpu_count that takes into account additional
-    constraints such as Linux CFS scheduler quotas (typically set by container
-    runtimes such as docker) and CPU affinity (for instance using the taskset
-    command on Linux).
-
-    Parameters
-    ----------
-    only_physical_cores : boolean, default=False
-        If True, does not take hyperthreading / SMT logical cores into account.
-
-    """
-    if mp is None:
-        return 1
-
-    return loky.cpu_count(only_physical_cores=only_physical_cores)
 
 
 ###############################################################################

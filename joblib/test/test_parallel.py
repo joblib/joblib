@@ -158,8 +158,38 @@ def parallel_func(inner_n_jobs, backend):
 
 
 ###############################################################################
-def test_cpu_count():
+def test_cpu_count_minimal():
     assert cpu_count() > 0
+
+
+@with_multiprocessing
+def test_cpu_count_variations():
+    from joblib.externals.loky import cpu_count as loky_cpu_count
+
+    assert cpu_count(process_wide=True) == loky_cpu_count()
+    assert cpu_count(process_wide=True, only_physical_cores=True) == loky_cpu_count(
+        only_physical_cores=True
+    )
+
+    # We're going to run this with n_jobs, so it should have half of the cores
+    # allocated. We do it twice to make sure there really are 2 workers, in
+    # case pool sizing gets smarter after this test is written.
+    def in_thread():
+        expected_local_count = max(loky_cpu_count() // 2, 1)
+        assert cpu_count() == expected_local_count
+        # This is a soft contract, and it may change to something smarter; see
+        # docstring for cpu_count().
+        assert cpu_count(only_physical_cores=True) == min(
+            expected_local_count, loky_cpu_count(only_physical_cores=True)
+        )
+        return True
+
+    results = list(
+        Parallel(backend="threading", n_jobs=2)(
+            [delayed(in_thread)() for _ in range(2)]
+        )
+    )
+    assert results == [True, True]
 
 
 def test_effective_n_jobs():
@@ -185,7 +215,7 @@ def test_effective_n_jobs_None(context, backend_n_jobs, expected_n_jobs):
 
 
 def _measure_effective() -> tuple[int, int]:
-    return effective_n_jobs(-1), effective_n_jobs(-2)
+    return effective_n_jobs(-1), effective_n_jobs(-2), cpu_count()
 
 
 @parametrize("backend", PARALLEL_BACKENDS)
