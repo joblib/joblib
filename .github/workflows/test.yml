@@ -27,6 +27,8 @@ env:
   LATEST_PYTHON_VERSION: '3.14'
   # We use the oldest package version
   # supporting the oldest supported python version
+  OLDEST_NUMPY_VERSION: '1.21.3'
+  OLDEST_CLOUDPICKLE_VERSION: '3.0.0'
   # For distributed, some behavior changed starting from 2022.8.
   # We decided to not support older versions
   OLDEST_DISTRIBUTED_VERSION: '2022.8.1'

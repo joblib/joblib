@@ -16,10 +16,6 @@ DISTRIBUTED="distributed"
 # Install pytest-timeout to fasten failure in deadlocking tests
 PIP_INSTALL_PACKAGES="pytest-timeout pytest-asyncio threadpoolctl"
 
-get_version() {
-    python -c "from continuous_integration.versions import get_oldest_pypy_package_version; print(get_oldest_pypy_package_version('$1', '$2'))"
-}
-
 create_new_conda_env() {
     # Check python version
     if [[ $PYTHON_VERSION == free-threaded* ]]; then
@@ -33,8 +29,6 @@ create_new_conda_env() {
     elif [[ $PYTHON_VERSION == "oldest_supported" ]]; then
 
         PYTHON_VERSION=$OLDEST_PYTHON_VERSION
-        OLDEST_CLOUDPICKLE_VERSION=$(get_version cloudpickle $PYTHON_VERSION)
-        OLDEST_NUMPY_VERSION=$(get_version numpy $PYTHON_VERSION)
         CLOUDPICKLE="cloudpickle==$OLDEST_CLOUDPICKLE_VERSION"
         NUMPY="numpy==$OLDEST_NUMPY_VERSION"
         DISTRIBUTED="distributed==$OLDEST_DISTRIBUTED_VERSION"
