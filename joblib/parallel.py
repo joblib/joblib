@@ -267,6 +267,8 @@ class parallel_config:
         This argument is converted to an integer, rounded below for float.
         If -1 is given, `joblib` tries to use all CPUs. The number of CPUs
         ``n_cpus`` is obtained with :func:`~cpu_count`.
+        When the input size is known, fewer workers may be used when there are
+        not enough tasks to keep all the workers busy.
         For n_jobs below -1, (n_cpus + 1 + n_jobs) are used. For instance,
         using ``n_jobs=-2`` will result in all CPUs but one being used.
         This argument can also go above ``n_cpus``, which will cause
@@ -991,6 +993,8 @@ class Parallel(Logger):
         This argument is converted to an integer, rounded below for float.
         If -1 is given, `joblib` tries to use all CPUs. The number of CPUs
         ``n_cpus`` is obtained with :func:`~cpu_count`.
+        When the input size is known, fewer workers may be used when there are
+        not enough tasks to keep all the workers busy.
         For n_jobs below -1, (n_cpus + 1 + n_jobs) are used. For instance,
         using ``n_jobs=-2`` will result in all CPUs but one being used.
         This argument can also go above ``n_cpus``, which will cause
@@ -1397,9 +1401,18 @@ class Parallel(Logger):
 
     def _initialize_backend(self):
         """Build a process or thread pool and return the number of workers"""
+        n_jobs = self.n_jobs
+        n_tasks = getattr(self, "n_tasks", None)
+        preserve_backend = False
+        if not self._managed_backend and n_jobs < 0 and n_tasks is not None:
+            effective_n_jobs = self._backend.effective_n_jobs(n_jobs)
+            if effective_n_jobs > 0:
+                n_jobs = max(min(effective_n_jobs, n_tasks), 1)
+                preserve_backend = effective_n_jobs > 1 and n_jobs == 1
+
         try:
             n_jobs = self._backend.configure(
-                n_jobs=self.n_jobs, parallel=self, **self._backend_kwargs
+                n_jobs=n_jobs, parallel=self, **self._backend_kwargs
             )
             if self.timeout is not None and not self._backend.supports_timeout:
                 warnings.warn(
@@ -1412,8 +1425,13 @@ class Parallel(Logger):
 
         except FallbackToBackend as e:
             # Recursively initialize the backend in case of requested fallback.
+            original_backend = self._backend
             self._backend = e.backend
-            n_jobs = self._initialize_backend()
+            try:
+                n_jobs = self._initialize_backend()
+            finally:
+                if preserve_backend:
+                    self._backend = original_backend
 
         return n_jobs
 

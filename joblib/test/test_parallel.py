@@ -166,6 +166,51 @@ def test_effective_n_jobs():
     assert effective_n_jobs() > 0
 
 
+@parametrize(
+    "n_jobs, n_tasks, expected_n_jobs",
+    [(-1, 0, 1), (-1, 1, 1), (-1, 2, 2), (-1, 5, 4), (-2, 2, 2), (-2, 5, 3)],
+)
+def test_negative_n_jobs_limited_by_number_of_tasks(
+    monkeypatch, n_jobs, n_tasks, expected_n_jobs
+):
+    monkeypatch.setattr("joblib._parallel_backends.cpu_count", lambda: 4)
+    parallel = Parallel(n_jobs=n_jobs, backend="threading")
+    tasks = [delayed(square)(i) for i in range(n_tasks)]
+
+    assert parallel(tasks) == [square(i) for i in range(n_tasks)]
+    assert parallel.n_jobs == n_jobs
+    if expected_n_jobs == 1:
+        assert isinstance(parallel._backend, ThreadingBackend)
+        assert not hasattr(parallel._backend, "_n_jobs")
+    else:
+        assert parallel._cached_effective_n_jobs == expected_n_jobs
+
+
+def test_negative_n_jobs_reuses_backend_after_single_task(monkeypatch):
+    monkeypatch.setattr("joblib._parallel_backends.cpu_count", lambda: 4)
+    parallel = Parallel(n_jobs=-1, backend="threading")
+
+    assert parallel([delayed(square)(1)]) == [1]
+    assert parallel([delayed(square)(i) for i in range(2)]) == [0, 1]
+    assert parallel._cached_effective_n_jobs == 2
+
+
+def test_negative_n_jobs_not_limited_for_unsized_input(monkeypatch):
+    monkeypatch.setattr("joblib._parallel_backends.cpu_count", lambda: 4)
+    parallel = Parallel(n_jobs=-1, backend="threading")
+
+    assert parallel(delayed(square)(i) for i in range(2)) == [0, 1]
+    assert parallel._cached_effective_n_jobs == 4
+
+
+def test_negative_n_jobs_not_limited_for_managed_backend(monkeypatch):
+    monkeypatch.setattr("joblib._parallel_backends.cpu_count", lambda: 4)
+
+    with Parallel(n_jobs=-1, backend="threading") as parallel:
+        assert parallel([delayed(square)(i) for i in range(2)]) == [0, 1]
+        assert parallel._cached_effective_n_jobs == 4
+
+
 @parametrize("context", [parallel_config, parallel_backend])
 @pytest.mark.parametrize(
     "backend_n_jobs, expected_n_jobs",
@@ -1425,6 +1470,12 @@ def test_warning_about_timeout_not_supported_by_backend():
         "You have set 'timeout=1' in Parallel but the 'timeout' parameter "
         "will not be used."
     )
+
+
+def test_warning_about_timeout_after_task_count_limit():
+    msg = "The backend class 'SequentialBackend' does not support timeout"
+    with pytest.warns(UserWarning, match=msg):
+        Parallel(n_jobs=-1, backend="threading", timeout=1)([delayed(square)(1)])
 
 
 def set_list_value(input_list, index, value):
