@@ -4,6 +4,15 @@ Release Notes
 In Development
 --------------
 
+- Add experimental support for sharing GPU arrays (PyTorch tensors and CuPy
+  arrays) between worker processes without copying them through host memory,
+  using CUDA inter-process communication (IPC). This mirrors the numpy
+  memmapping mechanism and is controlled by the new ``share_gpu_arrays``
+  parameter of ``Parallel`` and ``parallel_config`` (``"auto"`` by default,
+  with ``"on"`` and ``"off"``). Sharing is forward-only (parent to worker),
+  same-machine and same-GPU, and requires a spawn-based process backend (loky
+  or a ``spawn``/``forkserver`` multiprocessing context).
+
 - Fix ``Memory.cache(..., mmap_mode=..., verbose=...)`` to now uses its parameters
   mmap_mode and verbose instead of using the values used at Memory creation time.
   https://github.com/joblib/joblib/pull/1857

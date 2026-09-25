@@ -30,6 +30,7 @@ from io import BytesIO
 from multiprocessing.pool import Pool
 from pickle import HIGHEST_PROTOCOL, Pickler
 
+from ._gpu_array_reducer import GpuResourcesManager, get_gpu_reducers
 from ._memmapping_reducer import TemporaryResourcesManager, get_memmapping_reducers
 from ._multiprocessing_helpers import assert_spawning, mp
 
@@ -294,6 +295,7 @@ class MemmappingPool(PicklingPool):
         temp_folder=None,
         max_nbytes=1e6,
         mmap_mode="r",
+        share_gpu_arrays="auto",
         forward_reducers=None,
         backward_reducers=None,
         verbose=0,
@@ -302,6 +304,7 @@ class MemmappingPool(PicklingPool):
     ):
         manager = TemporaryResourcesManager(temp_folder)
         self._temp_folder_manager = manager
+        self._gpu_resources_manager = GpuResourcesManager(context_id=manager._id)
 
         # The usage of a temp_folder_resolver over a simple temp_folder is
         # superfluous for multiprocessing pools, as they don't get reused, see
@@ -316,6 +319,22 @@ class MemmappingPool(PicklingPool):
             verbose=verbose,
             unlink_on_gc_collect=False,
             prewarm=prewarm,
+        )
+
+        # Register the GPU array reducers (torch / cupy) on the forward queue.
+        # GPU sharing via CUDA IPC requires a non-fork start method, so detect
+        # the start method of the multiprocessing context being used.
+        context = kwargs.get("context", None)
+        if context is not None:
+            start_method = context.get_start_method()
+        else:
+            start_method = mp.get_start_method()
+        get_gpu_reducers(
+            share_gpu_arrays,
+            max_nbytes=max_nbytes,
+            start_method=start_method,
+            forward_reducers=forward_reducers,
+            resources_manager=self._gpu_resources_manager,
         )
 
         poolargs = dict(
@@ -345,6 +364,8 @@ class MemmappingPool(PicklingPool):
 
         # Clean up the temporary resources as the workers should now be off.
         self._temp_folder_manager._clean_temporary_resources()
+        # Release any GPU allocations shared with the (now terminated) workers.
+        self._gpu_resources_manager.clean()
 
     @property
     def _temp_folder(self):

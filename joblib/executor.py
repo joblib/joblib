@@ -8,6 +8,7 @@ copy between the parent and child processes.
 # Copyright: 2017, Thomas Moreau
 # License: BSD 3 clause
 
+from ._gpu_array_reducer import GpuResourcesManager, get_gpu_reducers
 from ._memmapping_reducer import TemporaryResourcesManager, get_memmapping_reducers
 from .externals.loky.reusable_executor import _ReusablePoolExecutor
 
@@ -37,6 +38,9 @@ class MemmappingExecutor(_ReusablePoolExecutor):
         global _executor_args
         # Check if we can reuse the executor here instead of deferring the test
         # to loky as the reducers are objects that changes at each call.
+        # ``share_gpu_arrays`` is part of the executor args so that a change of
+        # the GPU sharing mode forces the creation of a new executor (the GPU
+        # reducers, like the memmapping ones, persist across reused calls).
         executor_args = backend_args.copy()
         executor_args.update(env if env else {})
         executor_args.update(
@@ -45,7 +49,10 @@ class MemmappingExecutor(_ReusablePoolExecutor):
         reuse = _executor_args is None or _executor_args == executor_args
         _executor_args = executor_args
 
+        share_gpu_arrays = backend_args.pop("share_gpu_arrays", "auto")
+
         manager = TemporaryResourcesManager(temp_folder)
+        gpu_manager = GpuResourcesManager()
 
         # reducers access the temporary folder in which to store temporary
         # pickles through a call to manager.resolve_temp_folder_name. resolving
@@ -55,6 +62,17 @@ class MemmappingExecutor(_ReusablePoolExecutor):
             unlink_on_gc_collect=True,
             temp_folder_resolver=manager.resolve_temp_folder_name,
             **backend_args,
+        )
+
+        # Register the GPU array reducers (torch / cupy) on the forward queue,
+        # alongside the numpy memmapping reducers. The loky executor is always
+        # spawn-based, hence a safe (non-fork) start method for CUDA IPC.
+        get_gpu_reducers(
+            share_gpu_arrays,
+            max_nbytes=backend_args.get("max_nbytes", 1e6),
+            start_method=None,
+            forward_reducers=job_reducers,
+            resources_manager=gpu_manager,
         )
         _executor, executor_is_reused = super().get_reusable_executor(
             n_jobs,
@@ -73,6 +91,10 @@ class MemmappingExecutor(_ReusablePoolExecutor):
             # be re-assigned like that because it is referenced in various
             # places in the reducing machinery of the executor.
             _executor._temp_folder_manager = manager
+            # Likewise, the GPU resources manager is referenced by the GPU
+            # reducers installed on the (new) executor and must persist across
+            # reused calls.
+            _executor._gpu_resources_manager = gpu_manager
 
         if context_id is not None:
             # Only register the specified context once we know which manager

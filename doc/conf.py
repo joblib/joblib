@@ -41,7 +41,10 @@ sphinx_gallery_conf = {
     "default_thumb_file": "_static/joblib_logo_examples.png",
     "doc_module": "joblib",
     "filename_pattern": "",
-    "ignore_pattern": "utils.py",
+    # GPU examples require a CUDA device and optional deps (torch, scikit-learn)
+    # that are not available in the docs build, so they are excluded from the
+    # executed gallery.
+    "ignore_pattern": "utils.py|gpu",
     "backreferences_dir": os.path.join("generated"),
     "reference_url": {"joblib": None},
 }
