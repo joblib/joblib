@@ -87,6 +87,6 @@ if [[ $CYTHON == "true" ]]; then
     cd ../../..
 fi
 
-# Can't just install '.[test]' because, for example, we want some runs to omit
+# Can't just install '--group test' because, for example, we want some runs to omit
 # NumPy:
 pip install -v .
