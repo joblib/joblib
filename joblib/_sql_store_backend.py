@@ -165,7 +165,9 @@ class SQLStoreBackend(StoreBackendBase):
         path = os.path.join(*call_id)
         cursor = self.con.cursor()
         cursor.execute("SELECT 1 FROM cache WHERE path=? and data IS NOT NULL", (path,))
-        return cursor.fetchone() is not None
+        has_item = cursor.fetchone() is not None
+        cursor.close()
+        return has_item
 
     def get_metadata(self, call_id):
         """Return actual metadata of an item.
@@ -303,7 +305,10 @@ class SQLStoreBackend(StoreBackendBase):
         with self.con:
             self.con.execute("DELETE FROM cache")
             self.con.execute("DELETE FROM func_code")
-        self.con.execute("VACUUM")
+        with self.con:
+            self.con.execute("PRAGMA wal_checkpoint(TRUNCATE);")
+            self.con.execute("VACUUM")
+            self.con.execute("PRAGMA wal_checkpoint(TRUNCATE);")
 
     def __del__(self):
         if self.con is None:
