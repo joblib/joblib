@@ -211,7 +211,9 @@ class _ReusablePoolExecutor(ProcessPoolExecutor):
                     )
                     executor.shutdown(wait=True, kill_workers=kill_workers)
                     _executor = executor = _executor_kwargs = None
-                    # Recursive call to build a new instance
+                    # Build and return the replacement while still holding
+                    # the singleton lock so this branch never returns the
+                    # stale executor that was just shut down.
                     return cls.get_reusable_executor(
                         max_workers=max_workers, **kwargs
                     )
@@ -227,6 +229,20 @@ class _ReusablePoolExecutor(ProcessPoolExecutor):
 
     def submit(self, fn, *args, **kwargs):
         with self._submit_resize_lock:
+            if self._flags.broken is None and self._flags.shutdown:
+                executor = _executor
+                executor_kwargs = _executor_kwargs
+                if (
+                    executor is not None
+                    and executor is not self
+                    and executor_kwargs is not None
+                ):
+                    # A concurrent call to get_reusable_executor rotated the
+                    # singleton after this executor was resolved but before
+                    # submit was called. Retry exactly once on the replacement.
+                    return super(_ReusablePoolExecutor, executor).submit(
+                        fn, *args, **kwargs
+                    )
             return super().submit(fn, *args, **kwargs)
 
     def _resize(self, max_workers):

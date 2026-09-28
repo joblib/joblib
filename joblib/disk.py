@@ -109,8 +109,8 @@ def delete_folder(folder_path, onerror=None, allow_non_empty=True):
             # if the error is raised again, fail
             err_count = 0
             while True:
-                files = os.listdir(folder_path)
                 try:
+                    files = os.listdir(folder_path)
                     if len(files) == 0 or allow_non_empty:
                         shutil.rmtree(folder_path, ignore_errors=False, onerror=None)
                         util.debug("Successfully deleted {}".format(folder_path))
@@ -121,7 +121,11 @@ def delete_folder(folder_path, onerror=None, allow_non_empty=True):
                                 folder_path, len(files)
                             )
                         )
-                except (OSError, WindowsError):
+                except (OSError, WindowsError) as exc:
+                    if isinstance(exc, FileNotFoundError) and not os.path.exists(
+                        folder_path
+                    ):
+                        break
                     err_count += 1
                     if err_count > RM_SUBDIRS_N_RETRY:
                         # the folder cannot be deleted right now. It maybe

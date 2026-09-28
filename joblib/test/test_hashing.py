@@ -12,6 +12,7 @@ import hashlib
 import io
 import itertools
 import pickle
+import platform
 import random
 import sys
 import time
@@ -227,15 +228,19 @@ def test_hash_numpy_performance():
     def md5_hash(x):
         return hashlib.md5(memoryview(x)).hexdigest()
 
+    # RISC-V machines can use a slower OpenSSL MD5 implementation, making
+    # this performance comparison less stable on that architecture.
+    max_relative_diff = 0.4 if platform.machine() == "riscv64" else 0.3
+
     relative_diff = relative_time(md5_hash, hash, a)
-    assert relative_diff < 0.3
+    assert relative_diff < max_relative_diff
 
     # Check that hashing an tuple of 3 arrays takes approximately
     # 3 times as much as hashing one array
     time_hashlib = 3 * time_func(md5_hash, a)
     time_hash = time_func(hash, (a, a, a))
     relative_diff = 0.5 * (abs(time_hash - time_hashlib) / (time_hash + time_hashlib))
-    assert relative_diff < 0.3
+    assert relative_diff < max_relative_diff
 
 
 def test_bound_methods_hash():

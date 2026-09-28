@@ -36,7 +36,30 @@
 # implements list of shared resources, and not a proper refcounting scheme.
 # Also, CPython's resource tracker will only attempt to cleanup those shared
 # resources once all processes connected to the resource tracker have exited.
-
+#
+# Source code organization and maintenance:
+#
+# This file is derived from the matching file in the standard library with
+# modifications to add the new features described above.
+#
+# It defines a subclass of a vendored copy of the ResourceTracker from the
+# standard library to make loky less likely to break when internals of
+# change in a new version of CPython.
+#
+# The new features are implemented in the overriden method of the ResourceTracker
+# class as well as in the custom `main` function.
+#
+# The vendored copy is minimally patched and should not be edited by hand.
+# Instead, it should be revendored from time to time using the script
+# in the `tools/` folder at the root of this repo.
+#
+# When vendoring a new copy of the resource_tracker module of the standard
+# library, it is important to check of the `main` function has evolved
+# upstream. If so, doing a diff of that particular function in the upstream
+# file and in the current file might be helpful.
+#
+# Make sure to update the inline comments to help future maintainers understand
+# what loky-specific changes were made.
 
 import os
 import shutil
@@ -44,8 +67,13 @@ import sys
 import signal
 import warnings
 from multiprocessing import util
-from multiprocessing.resource_tracker import (
-    ResourceTracker as _ResourceTracker,
+import base64
+import json
+import threading
+
+from .stdlib_py314_resource_tracker import (
+    ResourceTracker as StdLibResourceTracker,
+    _decode_message,
 )
 
 from . import spawn
@@ -55,24 +83,26 @@ if sys.platform == "win32":
     import msvcrt
     from multiprocessing.reduction import duplicate
 
+# To minimize diff vs stdlib
+# fmt:off
+__all__ = ['ensure_running', 'register', 'unregister']
 
-__all__ = ["ensure_running", "register", "unregister"]
-
-_HAVE_SIGMASK = hasattr(signal, "pthread_sigmask")
+_HAVE_SIGMASK = hasattr(signal, 'pthread_sigmask')
 _IGNORED_SIGNALS = (signal.SIGINT, signal.SIGTERM)
 
-
 def cleanup_noop(name):
-    raise RuntimeError("noop should never be registered or cleaned up")
+    raise RuntimeError('noop should never be registered or cleaned up')
 
 
 _CLEANUP_FUNCS = {
-    "noop": cleanup_noop,
-    "folder": shutil.rmtree,
-    "file": os.unlink,
+    'noop': cleanup_noop,
+    'dummy': lambda name: None,  # Dummy resource used in tests
+    # loky: add 'folder' and 'file' resources
+    'folder': shutil.rmtree,
+    'file': os.unlink,
 }
 
-if os.name == "posix":
+if os.name == 'posix':
     import _multiprocessing
 
     # Use sem_unlink() to clean up named semaphores.
@@ -80,18 +110,30 @@ if os.name == "posix":
     # sem_unlink() may be missing if the Python build process detected the
     # absence of POSIX named semaphores. In that case, no named semaphores were
     # ever opened, so no cleanup would be necessary.
-    if hasattr(_multiprocessing, "sem_unlink"):
+    if hasattr(_multiprocessing, 'sem_unlink'):
         _CLEANUP_FUNCS.update(
             {
-                "semlock": _multiprocessing.sem_unlink,
+                'semlock': _multiprocessing.sem_unlink,
             }
         )
+# fmt: on
 
-
+# loky: logging
 VERBOSE = False
 
 
-class ResourceTracker(_ResourceTracker):
+# loky: compatibility for CPython versions that don't have _RLock._recursion_count
+# This was done in CPython 3.13 in
+# 'Fix reentrancy issue in multiprocessing resource_tracker'
+# https://github.com/python/cpython/pull/109629
+# This was back-ported in 3.11.6 and 3.12.1
+# TODO Remove work-around when Python 3.13 is our minimum supported version
+class LokyRLock(type(threading.RLock())):
+    def _recursion_count(self):
+        return 1
+
+
+class ResourceTracker(StdLibResourceTracker):
     """Resource tracker with refcounting scheme.
 
     This class is an extension of the multiprocessing ResourceTracker class
@@ -106,146 +148,159 @@ class ResourceTracker(_ResourceTracker):
     function, which is run in a dedicated process.
     """
 
+    def __init__(self):
+        super().__init__()
+        # Windows process handle returned by CreateProcess.  A pid cannot be
+        # passed to os.waitpid on Windows because the underlying _cwait expects
+        # a process handle.
+        self._proc_handle = None
+        # TODO Remove block when Python 3.13 is our minimum supported version
+        # see above comment about _recursion_count
+        if not hasattr(self._lock, "_recursion_count"):
+            self._lock = LokyRLock()
+
     def maybe_unlink(self, name, rtype):
         """Decrement the refcount of a resource, and delete it if it hits 0"""
         self._send("MAYBE_UNLINK", name, rtype)
 
-    def ensure_running(self):
-        """Make sure that resource tracker process is running.
-
-        This can be run from any process.  Usually a child process will use
-        the resource created by its parent.
-
-        This function is necessary for backward compatibility with python
-        versions before 3.13.7.
-        """
-        return self._ensure_running_and_write()
-
     def _teardown_dead_process(self):
-        # Override this function for compatibility with windows and
-        # for python version before 3.13.7
-
-        # At this point, the resource_tracker process has been killed
-        # or crashed.
-        os.close(self._fd)
-
-        # Let's remove the process entry from the process table on POSIX system
-        # to avoid zombie processes.
         if os.name == "posix":
-            try:
-                # _pid can be None if this process is a child from another
-                # python process, which has started the resource_tracker.
-                if self._pid is not None:
-                    os.waitpid(self._pid, 0)
-            except OSError:
-                # The resource_tracker has already been terminated.
-                pass
-        self._fd = None
-        self._pid = None
+            super()._teardown_dead_process()
+        elif sys.platform == "win32":
+            os.close(self._fd)
+            if (proc_handle := self._proc_handle) is not None:
+                _winapi.CloseHandle(proc_handle)
+            # All 3 lines copied from stdlib _teardown_dead_processes
+            self._fd = None
+            self._pid = None
+            self._exitcode = None
+            self._proc_handle = None
 
-        warnings.warn(
-            "resource_tracker: process died unexpectedly, relaunching. "
-            "Some folders/semaphores might leak."
-        )
+            warnings.warn(
+                "resource_tracker: process died unexpectedly, "
+                "relaunching.  Some resources might leak."
+            )
 
+    # To minimize the diff with stdlib ResourceTracker._launch
+    # fmt: off
     def _launch(self):
-        # This is the overridden part of the resource tracker, which launches
-        # loky's version, which is compatible with windows and allow to track
-        # folders with external ref counting.
-
+        # This is copied from Python 3.14.7 with loky additions/modifications
+        # mostly for Windows support and logging.
+        # Added or changed lines have a comment that starts with "# loky:"
         fds_to_pass = []
         try:
             fds_to_pass.append(sys.stderr.fileno())
         except Exception:
             pass
-
-        # Create a pipe for posix and windows
         r, w = os.pipe()
+        # loky: Windows support
         if sys.platform == "win32":
             _r = duplicate(msvcrt.get_osfhandle(r), inheritable=True)
             os.close(r)
             r = _r
 
-        cmd = f"from {main.__module__} import main; main({r}, {VERBOSE})"
         try:
             fds_to_pass.append(r)
             # process will out live us, so no need to wait on pid
             exe = spawn.get_executable()
-            args = [exe, *util._args_from_interpreter_flags(), "-c", cmd]
+            args = [
+                exe,
+                *util._args_from_interpreter_flags(),
+                '-c',
+                # loky: use loky main function rather than stdlib one
+                f'from {main.__module__} import main; main({r}, {VERBOSE})'
+            ]
+            # loky: logging
             util.debug(f"launching resource tracker: {args}")
-            # bpo-33613: Register a signal mask that will block the
-            # signals.  This signal mask will be inherited by the child
-            # that is going to be spawned and will protect the child from a
-            # race condition that can make the child die before it
-            # registers signal handlers for SIGINT and SIGTERM. The mask is
-            # unregistered after spawning the child.
+            # bpo-33613: Register a signal mask that will block the signals.
+            # This signal mask will be inherited by the child that is going
+            # to be spawned and will protect the child from a race condition
+            # that can make the child die before it registers signal handlers
+            # for SIGINT and SIGTERM. The mask is unregistered after spawning
+            # the child.
+            prev_sigmask = None
             try:
                 if _HAVE_SIGMASK:
-                    signal.pthread_sigmask(signal.SIG_BLOCK, _IGNORED_SIGNALS)
-                pid = spawnv_passfds(exe, args, fds_to_pass)
+                    prev_sigmask = signal.pthread_sigmask(signal.SIG_BLOCK, _IGNORED_SIGNALS)
+                # loky: call loky spawnv_passfds which supports Windows
+                pid, proc_handle = spawnv_passfds(exe, args, fds_to_pass)
             finally:
-                if _HAVE_SIGMASK:
-                    signal.pthread_sigmask(
-                        signal.SIG_UNBLOCK, _IGNORED_SIGNALS
-                    )
-        except BaseException:
+                if prev_sigmask is not None:
+                    signal.pthread_sigmask(signal.SIG_SETMASK, prev_sigmask)
+        except:
             os.close(w)
             raise
         else:
             self._fd = w
             self._pid = pid
+            self._proc_handle = proc_handle
         finally:
+            # loky: Windows support
             if sys.platform == "win32":
                 _winapi.CloseHandle(r)
             else:
                 os.close(r)
+    # fmt: on
 
-    def _ensure_running_and_write(self, msg=None):
-        """Make sure that resource tracker process is running.
+    if sys.platform == "win32":
+        # stdlib ResourceTracker._stop_locked is POSIX-specific, so we override
+        # to be able to use Windows-specific primitives.
+        # This is loosely inspired from stdlib ResourceTracker._stop_locked but
+        # there are a number of changes. TODO: could the structure be closer?
+        def _stop_locked(
+            self,
+            close=os.close,
+            wait_timeout=None,
+            wait_for_single_object=_winapi.WaitForSingleObject,
+            get_exit_code_process=_winapi.GetExitCodeProcess,
+            close_handle=_winapi.CloseHandle,
+            winapi_infinite=_winapi.INFINITE,
+            wait_timeout_code=_winapi.WAIT_TIMEOUT,
+        ):
+            # This shouldn't happen (it might when called by a finalizer)
+            # so we check for it anyway.
+            if self._lock._recursion_count() > 1:
+                raise self._reentrant_call_error()
+            if self._fd is None:
+                # not running
+                return
+            if self._pid is None:
+                return
 
-        This can be run from any process.  Usually a child process will use
-        the resource created by its parent.
+            # Closing the "alive" file descriptor asks the tracker to stop.
+            close(self._fd)
+            self._fd = None
 
+            proc_handle = self._proc_handle
+            try:
+                if proc_handle is not None:
+                    timeout_ms = (
+                        winapi_infinite
+                        if wait_timeout is None
+                        else round(wait_timeout * 1000)
+                    )
+                    wait_result = wait_for_single_object(
+                        proc_handle, timeout_ms
+                    )
+                    if wait_result == wait_timeout_code:
+                        self._pid = None
+                        self._exitcode = None
+                        self._waitpid_timed_out = True
+                        return
 
-        This function is added for compatibility with python version before 3.13.7.
-        """
-        with self._lock:
-            if (
-                self._fd is not None
-            ):  # resource tracker was launched before, is it still running?
-                if msg is None:
-                    to_send = b"PROBE:0:noop\n"
+                    self._pid = None
+                    self._exitcode = get_exit_code_process(proc_handle)
                 else:
-                    to_send = msg
-                try:
-                    self._write(to_send)
-                except OSError:
-                    self._teardown_dead_process()
-                    self._launch()
-
-                msg = None  # message was sent in probe
-            else:
-                self._launch()
-
-        if msg is not None:
-            self._write(msg)
-
-    def _write(self, msg):
-        nbytes = os.write(self._fd, msg)
-        assert nbytes == len(msg), f"{nbytes=} != {len(msg)=}"
-
-    def __del__(self):
-        # ignore error due to trying to clean up child process which has already been
-        # shutdown on windows. See https://github.com/joblib/loky/pull/450
-        # This is only required if __del__ is defined
-        if not hasattr(_ResourceTracker, "__del__"):
-            return
-        try:
-            super().__del__()
-        except ChildProcessError:
-            pass
+                    self._pid = None
+                    self._exitcode = None
+            finally:
+                if proc_handle is not None:
+                    close_handle(proc_handle)
+                self._proc_handle = None
 
 
+# Copied from Python 3.14.7
+# fmt: off
 _resource_tracker = ResourceTracker()
 ensure_running = _resource_tracker.ensure_running
 register = _resource_tracker.register
@@ -253,9 +308,20 @@ maybe_unlink = _resource_tracker.maybe_unlink
 unregister = _resource_tracker.unregister
 getfd = _resource_tracker.getfd
 
+# gh-146313: See _after_fork_in_child docstring.
+if hasattr(os, 'register_at_fork'):
+    os.register_at_fork(after_in_child=_resource_tracker._after_fork_in_child)
+# fmt: on
 
+# fmt: off
+# The main function has been copied from Python 3.14.7 and modified, mostly for
+# Windows support, logging and refcount functionality.
+# Added or changed lines have a comment that starts with "# loky:"
+# loky: add verbose argument for logging
 def main(fd, verbose=0):
-    """Run resource tracker."""
+    '''Run resource tracker.'''
+
+    # loky: logging
     if verbose:
         util.log_to_stderr(level=util.DEBUG)
 
@@ -272,71 +338,76 @@ def main(fd, verbose=0):
         except Exception:
             pass
 
+    # loky: logging
     if verbose:
         util.debug("Main resource tracker is running")
 
-    registry = {rtype: {} for rtype in _CLEANUP_FUNCS.keys()}
+    # loky: change for refcount functionality we want a dict[str, dict] rather
+    # than a dict[str, set] so that cache[folder]['resource'] is the refcount
+    # associated with it
+    cache = {rtype: dict() for rtype in _CLEANUP_FUNCS.keys()}
+    exit_code = 0
 
     try:
+        # loky: Windows support
         if sys.platform == "win32":
             fd = msvcrt.open_osfhandle(fd, os.O_RDONLY)
         # keep track of registered/unregistered resources
-        with open(fd, "rb") as f:
+        with open(fd, 'rb') as f:
             for line in f:
                 try:
-                    splitted = line.strip().decode("ascii").split(":")
-                    # name can potentially contain separator symbols (for
-                    # instance folders on Windows)
-                    cmd, name, rtype = (
-                        splitted[0],
-                        ":".join(splitted[1:-1]),
-                        splitted[-1],
-                    )
-
-                    if rtype not in _CLEANUP_FUNCS:
+                    cmd, rtype, name = _decode_message(line)
+                    cleanup_func = _CLEANUP_FUNCS.get(rtype, None)
+                    if cleanup_func is None:
                         raise ValueError(
-                            f"Cannot register {name} for automatic cleanup: "
-                            f"unknown resource type ({rtype}). Resource type "
-                            "should be one of the following: "
-                            f"{list(_CLEANUP_FUNCS.keys())}"
+                            f'Cannot register {name} for automatic cleanup: '
+                            f'unknown resource type ({rtype})'
+                            # loky: additional info for possible keys
+                            '. Resource type should be one of the following: '
+                            f'{list(_CLEANUP_FUNCS.keys())}'
                         )
 
-                    if cmd == "PROBE":
-                        pass
-                    elif cmd == "REGISTER":
-                        if name not in registry[rtype]:
-                            registry[rtype][name] = 1
+                    if cmd == 'REGISTER':
+                        # loky: refcount functionality
+                        if name not in cache[rtype]:
+                            cache[rtype][name] = 1
                         else:
-                            registry[rtype][name] += 1
+                            cache[rtype][name] += 1
 
+                        # loky: logging
                         if verbose:
                             util.debug(
-                                "[ResourceTracker] incremented refcount of "
-                                f"{rtype} {name} "
-                                f"(current {registry[rtype][name]})"
+                                '[ResourceTracker] incremented refcount of '
+                                f'{rtype} {name} '
+                                f'(current {cache[rtype][name]})'
                             )
-                    elif cmd == "UNREGISTER":
-                        del registry[rtype][name]
+                    elif cmd == 'UNREGISTER':
+                        # loky: refcount functionality
+                        del cache[rtype][name]
+                        # loky: logging
                         if verbose:
                             util.debug(
-                                f"[ResourceTracker] unregister {name} {rtype}: "
-                                f"registry({len(registry)})"
+                                f'[ResourceTracker] unregister {name} {rtype}: '
+                                f'cache({len(cache)})'
                             )
-                    elif cmd == "MAYBE_UNLINK":
-                        registry[rtype][name] -= 1
+                    elif cmd == 'PROBE':
+                        pass
+                    # loky: refcount functionality with logging
+                    elif cmd == 'MAYBE_UNLINK':
+                        cache[rtype][name] -= 1
                         if verbose:
                             util.debug(
-                                "[ResourceTracker] decremented refcount of "
-                                f"{rtype} {name} "
-                                f"(current {registry[rtype][name]})"
+                                '[ResourceTracker] decremented refcount of '
+                                f'{rtype} {name} '
+                                f'(current {cache[rtype][name]})'
                             )
 
-                        if registry[rtype][name] == 0:
-                            del registry[rtype][name]
+                        if cache[rtype][name] == 0:
+                            del cache[rtype][name]
                             try:
                                 if verbose:
                                     util.debug(
-                                        f"[ResourceTracker] unlink {name}"
+                                        f'[ResourceTracker] unlink {name}'
                                     )
                                 _CLEANUP_FUNCS[rtype](name)
                             except Exception as e:
@@ -345,67 +416,106 @@ def main(fd, verbose=0):
                                 )
 
                     else:
-                        raise RuntimeError(f"unrecognized command {cmd!r}")
-                except BaseException:
+                        raise RuntimeError('unrecognized command %r' % cmd)
+                except Exception:
+                    exit_code = 3
                     try:
                         sys.excepthook(*sys.exc_info())
-                    except BaseException:
+                    except:
                         pass
     finally:
         # all processes have terminated; cleanup any remaining resources
-        def _unlink_resources(rtype_registry, rtype):
-            if rtype_registry:
+
+        # loky: loky wants to clean ressources first and folder last because
+        # there can be tracked resources inside tracked folders.
+        # _unlink_resources is the stdlib code with some additional logging, it
+        # is called for all resources except folders and then at the end for
+        # all folders
+        def _unlink_resources(rtype_cache, rtype):
+            nonlocal exit_code
+            if rtype_cache:
                 try:
-                    warnings.warn(
-                        "resource_tracker: There appear to be "
-                        f"{len(rtype_registry)} leaked {rtype} objects to "
-                        "clean up at shutdown"
-                    )
+                    exit_code = 1
+                    if rtype == 'dummy':
+                        # The test 'dummy' resource is expected to leak.
+                        # We skip the warning (and *only* the warning) for it.
+                        pass
+                    else:
+                        warnings.warn(
+                            f'resource_tracker: There appear to be '
+                            f'{len(rtype_cache)} leaked {rtype} objects to '
+                            f'clean up at shutdown: {rtype_cache}'
+                        )
                 except Exception:
                     pass
-            for name in rtype_registry:
+            for name in rtype_cache:
                 # For some reason the process which created and registered this
                 # resource has failed to unregister it. Presumably it has
-                # died.  We therefore clean it up.
+                # died.  We therefore unlink it.
                 try:
-                    _CLEANUP_FUNCS[rtype](name)
-                    if verbose:
-                        util.debug(f"[ResourceTracker] unlink {name}")
-                except Exception as e:
-                    warnings.warn(f"resource_tracker: {name}: {e!r}")
+                    try:
+                        _CLEANUP_FUNCS[rtype](name)
+                        # loky: logging
+                        if verbose:
+                            util.debug(f'[ResourceTracker] unlink {name}')
+                    except Exception as e:
+                        exit_code = 2
+                        # loky: tweaked formatting (%r instead of %s for
+                        # exception and %s instead of %s for name) I guess you
+                        # get the exact exception type with %r. %s instead of
+                        # %r for name, may be because on Windows %r doubles the
+                        # backslashes for path-like ressources
+                        warnings.warn('resource_tracker: %s: %r' % (name, e))
+                finally:
+                    pass
 
-        for rtype, rtype_registry in registry.items():
-            if rtype == "folder":
-                continue
-            else:
-                _unlink_resources(rtype_registry, rtype)
-
+        # loky: 2 stage cleaning process
         # The default cleanup routine for folders deletes everything inside
         # those folders recursively, which can include other resources tracked
         # by the resource tracker). To limit the risk of the resource tracker
         # attempting to delete twice a resource (once as part of a tracked
         # folder, and once as a resource), we delete the folders after all
         # other resource types.
-        if "folder" in registry:
-            _unlink_resources(registry["folder"], "folder")
+        for rtype, rtype_cache in cache.items():
+            if rtype == 'folder':
+                continue
+            _unlink_resources(rtype_cache, rtype)
 
+        if 'folder' in cache:
+            _unlink_resources(cache['folder'], 'folder')
+
+    # loky: logging
     if verbose:
         util.debug("resource tracker shut down")
 
+    # TODO not sure about exit_code management with 2-stage clean-up
+    # (first non-folder resources then folder resources) but seems good enough
+    # for now. We did not have any exit code management until
+    # https://github.com/joblib/loky/pull/472
+    sys.exit(exit_code)
+# fmt: on
+
 
 def spawnv_passfds(path, args, passfds):
+    """Loky version multiprocessing.util.spawnv_passfds with added Windows support.
+
+    Returns (pid, process_handle) because os.waitpid needs handle on Windows.
+    On Linux process_handle is None.
+    """
     if sys.platform != "win32":
-        args = [arg.encode("utf-8") for arg in args]
+        # loky: additional encoding needed here
+        # TODO We should fix loky.backend.spawn.get_executable to return bytes
+        # on POSIX so that this can be removed
         path = path.encode("utf-8")
-        return util.spawnv_passfds(path, args, passfds)
+        return util.spawnv_passfds(path, args, passfds), None
     else:
+        # loky: Windows support
         passfds = sorted(passfds)
         cmd = " ".join(f'"{x}"' for x in args)
-        try:
-            _, ht, pid, _ = _winapi.CreateProcess(
-                path, cmd, None, None, True, 0, None, None, None
-            )
-            _winapi.CloseHandle(ht)
-        except BaseException:
-            pass
-        return pid
+        hp, ht, pid, _ = _winapi.CreateProcess(
+            path, cmd, None, None, True, 0, None, None, None
+        )
+        _winapi.CloseHandle(ht)
+        # Keep the process handle for a safe wait during teardown.  Pids and
+        # handles are different namespaces on Windows.
+        return pid, hp
