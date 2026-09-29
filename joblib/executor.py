@@ -13,7 +13,7 @@ import threading
 from ._memmapping_reducer import TemporaryResourcesManager, get_memmapping_reducers
 from .externals.loky.reusable_executor import _ReusablePoolExecutor
 
-_thread_executor_args = threading.local()
+_local_executor_args = threading.local()
 
 
 def get_memmapping_executor(n_jobs, **kwargs):
@@ -43,9 +43,9 @@ class MemmappingExecutor(_ReusablePoolExecutor):
         executor_args.update(
             dict(timeout=timeout, initializer=initializer, initargs=initargs)
         )
-        current_args = getattr(_thread_executor_args, "args", None)
+        current_args = getattr(_local_executor_args, "args", None)
         reuse = current_args is None or current_args == executor_args
-        _thread_executor_args.args = executor_args
+        _local_executor_args.args = executor_args
 
         manager = TemporaryResourcesManager(temp_folder)
 

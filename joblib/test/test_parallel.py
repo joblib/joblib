@@ -2111,7 +2111,7 @@ def test_threadpool_limitation_in_child_context(context, n_jobs, inner_max_num_t
     )
 
 
-@pytest.mark.thread_unsafe  # involves global mutable state
+@pytest.mark.thread_unsafe  # involves global mutable state in os.environ
 @with_multiprocessing
 @parametrize("n_jobs", [2, -1])
 @parametrize("var_name", ["OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "OMP_NUM_THREADS"])
