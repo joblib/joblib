@@ -78,3 +78,42 @@ def test_rm_subdirs(tmpdir):
     rm_subdirs(sub_path)
     assert os.path.exists(sub_path)
     assert not os.path.exists(full_path)
+
+
+@parametrize("operation", ["listdir", "rmtree"])
+def test_delete_folder_already_removed(tmp_path, monkeypatch, operation):
+    from joblib import disk
+
+    folder = tmp_path / "temporary"
+    folder.mkdir()
+    (folder / "data").write_text("cached data")
+    original_rmtree = disk.shutil.rmtree
+    owner = disk.os if operation == "listdir" else disk.shutil
+    original = getattr(owner, operation)
+
+    def remove_before_operation(path, *args, **kwargs):
+        original_rmtree(path)
+        return original(path, *args, **kwargs)
+
+    monkeypatch.setattr(owner, operation, remove_before_operation)
+    disk.delete_folder(folder)
+    assert not folder.exists()
+
+
+def test_delete_folder_keeps_retrying_permission_errors(tmp_path, monkeypatch):
+    from joblib import disk
+
+    folder = tmp_path / "temporary"
+    folder.mkdir()
+    attempts = []
+
+    def denied(*args, **kwargs):
+        attempts.append(None)
+        raise PermissionError("directory is locked")
+
+    monkeypatch.setattr(disk.shutil, "rmtree", denied)
+    monkeypatch.setattr(disk, "RM_SUBDIRS_RETRY_TIME", 0)
+    with raises(PermissionError, match="directory is locked"):
+        disk.delete_folder(folder)
+    assert len(attempts) == disk.RM_SUBDIRS_N_RETRY + 1
+    assert folder.exists()

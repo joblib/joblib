@@ -290,8 +290,14 @@ class StoreBackendMixin(object):
 
         if func_code is not None:
             filename = os.path.join(func_path, "func_code.py")
-            with self._open_item(filename, "wb") as f:
-                f.write(func_code.encode("utf-8"))
+
+            def write_func(to_write, dest_filename):
+                with self._open_item(dest_filename, "wb") as f:
+                    f.write(to_write.encode("utf-8"))
+
+            # Written in place, another process could read it half-written and
+            # take that for a changed function, wiping the cache (#1694)
+            self._concurrency_safe_write(func_code, filename, write_func)
 
     def get_cached_func_code(self, call_id):
         """Store the code of the cached function."""
