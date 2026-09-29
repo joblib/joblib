@@ -4,7 +4,7 @@ Release Notes
 In Development
 --------------
 
-- ``FileSystemStoreBackend`` now store its items using the format
+- ``FileSystemStoreBackend`` now stores its items using the format
   "abc/defghijklmnopqrstuvwxyzabcdef/output.pkl" instead of
   "abcdefghijklmnopqrstuvwxyzabcdef/output.pkl" in order to limit the number
   of inodes inside the root cache directory.
