@@ -59,7 +59,7 @@ def get_reusable_executor(
     initargs=(),
     env=None,
 ):
-    """Return the current ReusableExectutor instance.
+    """Return the current ReusableExecutor instance for the current thread.
 
     Start a new instance if it has not been started already or if the previous
     instance was left in a broken state.
@@ -68,8 +68,8 @@ def get_reusable_executor(
     executor is dynamically resized to adjust the number of workers prior to
     returning.
 
-    Reusing a singleton instance spares the overhead of starting new worker
-    processes and importing common python packages each time.
+    Reusing an instance (per thread) spares the overhead of starting new
+    worker processes and importing common python packages each time.
 
     ``max_workers`` controls the maximum number of tasks that can be running in
     parallel in worker processes. By default this is set to the number of
