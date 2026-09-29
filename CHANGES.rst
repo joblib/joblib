@@ -1,8 +1,41 @@
 Release Notes
 =============
 
-In development
+In Development
 --------------
+
+- Fix ``Memory.cache(..., mmap_mode=..., verbose=...)`` to now uses its parameters
+  mmap_mode and verbose instead of using the values used at Memory creation time.
+  https://github.com/joblib/joblib/pull/1857
+
+- A non-positive value for ``pre_dispatch`` in ``Parallel`` now raises a
+  ValueError.
+  https://github.com/joblib/joblib/pull/1839
+
+- Fix ``delete_folder`` that could raise ``FileNotFoundError`` during a
+  concurrent deletion.
+  https://github.com/joblib/joblib/pull/1852
+
+- Fix ``concurrency_safe_rename`` on Windows reporting ``RuntimeError: No
+  active exception to reraise`` when the retry window expired, instead of the
+  access denied error that kept the rename from succeeding.
+  https://github.com/joblib/joblib/pull/1855
+
+- Fix ``eval_expr`` to reject an oversized power before evaluating it.
+  https://github.com/joblib/joblib/pull/1841
+
+Release 1.6.0 - 2026/08/31
+--------------------------
+
+- Fix caching of functions whose source cannot be retrieved, such as functions
+  defined in a notebook cell. Their identity fell back to
+  ``str(hash(func.__code__))``, which is salted by ``PYTHONHASHSEED`` and so
+  differed between processes. A worker reading the ``func_code.py`` written by
+  another one concluded that the function had changed and wiped the whole
+  cache directory for it, discarding results computed by its peers.
+  ``func_code.py`` is also no longer rewritten in place, so a reader can no
+  longer catch it half-written and draw the same conclusion.
+  https://github.com/joblib/joblib/issues/1694
 
 - Drop python 3.9 support. The oldest supported Python version
   is now Python 3.10.
@@ -39,6 +72,9 @@ In development
 - The documentation now uses pydata sphinx theme. Furthermore, optional dependencies
   ``test`` and ``docs`` have been added to ``pyproject.toml``.
   https://github.com/joblib/joblib/pull/1774
+
+- Vendor ``loky 3.6.0``
+  https://github.com/joblib/joblib/pull/1843
 
 Release 1.5.3 - 2025/12/15
 --------------------------

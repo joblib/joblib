@@ -9,13 +9,16 @@
 #    used with multiprocessing.set_start_method
 #  * Implement a CFS-aware amd physical-core aware cpu_count function.
 #
-import os
-import sys
+import ctypes
 import math
+import multiprocessing as mp
+import os
 import subprocess
+import sys
 import traceback
 import warnings
-import multiprocessing as mp
+
+from ctypes import wintypes
 from multiprocessing import get_context as mp_get_context
 from multiprocessing.context import BaseContext
 from concurrent.futures.process import _MAX_WINDOWS_WORKERS
@@ -299,15 +302,11 @@ def _count_physical_cores_linux():
 
 def _count_physical_cores_win32():
     try:
-        cmd = "-NoProfile -Command (Get-CimInstance -ClassName Win32_Processor).NumberOfCores"
-        cpu_info = subprocess.run(
-            f"powershell.exe {cmd}".split(),
-            capture_output=True,
-            text=True,
-            creationflags=subprocess.CREATE_NO_WINDOW,
-        )
-        cpu_info = cpu_info.stdout.splitlines()
-        return int(cpu_info[0])
+        return _count_physical_cores_win32_ctypes()
+    except Exception:
+        pass  # fallback to powershell
+    try:
+        return _count_physical_cores_win32_powershell()
     except Exception:
         pass  # fallback to wmic (older Windows versions; deprecated now)
 
@@ -322,6 +321,93 @@ def _count_physical_cores_win32():
         l.split(",")[1] for l in cpu_info if (l and l != "Node,NumberOfCores")
     ]
     return sum(map(int, cpu_info))
+
+
+def _count_physical_cores_win32_powershell():
+    cmd = "-NoProfile -Command (Get-CimInstance -ClassName Win32_Processor).NumberOfCores"
+    cpu_info = subprocess.run(
+        f"powershell.exe {cmd}".split(),
+        capture_output=True,
+        text=True,
+        creationflags=subprocess.CREATE_NO_WINDOW,
+    )
+    cpu_info = cpu_info.stdout.splitlines()
+    return sum(map(int, cpu_info))
+
+
+def _count_physical_cores_win32_ctypes():
+    ERROR_INSUFFICIENT_BUFFER = 122
+    RelationProcessorCore = 0
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    get_logical_processor_information = (
+        kernel32.GetLogicalProcessorInformationEx
+    )
+    get_logical_processor_information.argtypes = [
+        wintypes.DWORD,
+        ctypes.c_void_p,
+        ctypes.POINTER(wintypes.DWORD),
+    ]
+    get_logical_processor_information.restype = wintypes.BOOL
+
+    # Mirror the header of SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX. The full
+    # structure is variable-sized, and only Relationship and Size are needed.
+    # https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-system_logical_processor_information_ex
+    class SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX(ctypes.Structure):
+        _fields_ = [
+            ("Relationship", wintypes.DWORD),
+            ("Size", wintypes.DWORD),
+        ]
+
+    # First obtain the required buffer size. This call is expected to fail with
+    # ERROR_INSUFFICIENT_BUFFER and set returned_length.
+    # https://learn.microsoft.com/en-us/windows/win32/api/sysinfoapi/nf-sysinfoapi-getlogicalprocessorinformationex
+    returned_length = wintypes.DWORD()
+    returned_length_ref = ctypes.byref(returned_length)
+    if get_logical_processor_information(
+        RelationProcessorCore, None, returned_length_ref
+    ):
+        raise RuntimeError("unexpected successful buffer sizing call")
+
+    error = ctypes.get_last_error()
+    if error != ERROR_INSUFFICIENT_BUFFER:
+        raise ctypes.WinError(error)
+
+    buf = ctypes.create_string_buffer(returned_length.value)
+    if not get_logical_processor_information(
+        RelationProcessorCore, buf, returned_length_ref
+    ):
+        raise ctypes.WinError(ctypes.get_last_error())
+
+    offset = 0
+    physical_core_count = 0
+    header_size = ctypes.sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX)
+
+    while offset < returned_length.value:
+        remaining = returned_length.value - offset
+        if remaining < header_size:
+            raise RuntimeError("truncated processor information record")
+
+        processor_core_info = (
+            SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX.from_buffer(buf, offset)
+        )
+        record_size = processor_core_info.Size
+        if record_size < header_size or record_size > remaining:
+            raise RuntimeError("invalid processor information record size")
+        if processor_core_info.Relationship != RelationProcessorCore:
+            raise RuntimeError("unexpected logical processor relationship")
+
+        physical_core_count += 1
+        offset += record_size
+
+    if physical_core_count == 0:
+        raise RuntimeError("Windows reported no active physical cores")
+
+    if physical_core_count < 1:
+        raise RuntimeError(
+            "GetLogicalProcessorInformationEx returned no physical cores"
+        )
+    return physical_core_count
 
 
 def _count_physical_cores_darwin():
