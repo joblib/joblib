@@ -485,12 +485,6 @@ def _split_decorator(cls):
     return cls
 
 
-def reconstructStoreBackend(cls, location, verbose, compress, mmap_mode):
-    obj = cls.__new__(cls)
-    obj.configure(location, verbose, dict(compress=compress, mmap_mode=mmap_mode))
-    return obj
-
-
 @_split_decorator
 class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
     """A StoreBackend used with local or network file systems."""
@@ -679,15 +673,3 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
         info["require_update"] = False
         with open(info_path, "wb") as file:
             file.write(json.dumps(info).encode("utf-8"))
-
-    def __reduce__(self):
-        return (
-            reconstructStoreBackend,
-            (
-                self.__class__,
-                self.location,
-                self.verbose,
-                self.compress,
-                self.mmap_mode,
-            ),
-        )
