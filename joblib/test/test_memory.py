@@ -274,7 +274,6 @@ _JUPYTER_SESSION = """if 1:
 """
 
 
-@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 def test_cached_jupyter_function_persists_across_sessions(tmpdir):
     # Non-regression test for gh-1498: a function defined in a notebook cell
     # must keep the same identity in a new interpreter, so that its cache

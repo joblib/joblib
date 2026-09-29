@@ -8,8 +8,6 @@ Test the func_inspect module.
 
 import functools
 
-import pytest
-
 from joblib.func_inspect import (
     _clean_win_chars,
     filter_args,
@@ -374,7 +372,6 @@ def _get_code_no_source():
     return get_func_code(ns["f"])[0]
 
 
-@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 def test_func_code_consistency_without_source():
     # Non-regression test for #1694: the fallback used to be
     # str(hash(func.__code__)), which is salted per process, so workers
