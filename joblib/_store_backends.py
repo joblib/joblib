@@ -464,6 +464,7 @@ def _split_decorator(cls):
     Use a decorator as all methods are not implemented directly
     in this class.
     """
+
     def split_method_decorator(method):
         def split_method(self, call_id, *args, **kwargs):
             call_id = self._split_id(call_id)
