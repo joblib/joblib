@@ -59,7 +59,7 @@ def get_reusable_executor(
     initargs=(),
     env=None,
 ):
-    """Return the current ReusableExectutor instance.
+    """Return the current ReusableExecutor instance for the current thread.
 
     Start a new instance if it has not been started already or if the previous
     instance was left in a broken state.
@@ -68,8 +68,8 @@ def get_reusable_executor(
     executor is dynamically resized to adjust the number of workers prior to
     returning.
 
-    Reusing a singleton instance spares the overhead of starting new worker
-    processes and importing common python packages each time.
+    Reusing an instance (per thread) spares the overhead of starting new
+    worker processes and importing common python packages each time.
 
     ``max_workers`` controls the maximum number of tasks that can be running in
     parallel in worker processes. By default this is set to the number of
@@ -223,64 +223,14 @@ class _ReusablePoolExecutor(ProcessPoolExecutor):
                     max_workers=max_workers, **kwargs
                 )
             else:
-                if reuse == "auto":
-                    reuse = kwargs == _executor_kwargs
-                if (
-                    executor._flags.broken
-                    or executor._flags.shutdown
-                    or not reuse
-                    or executor.queue_size < max_workers
-                ):
-                    if executor._flags.broken:
-                        reason = "broken"
-                    elif executor._flags.shutdown:
-                        reason = "shutdown"
-                    elif executor.queue_size < max_workers:
-                        # Do not reuse the executor if the queue size is too
-                        # small as this would lead to limited parallelism.
-                        reason = "queue size is too small"
-                    else:
-                        reason = "arguments have changed"
-                    mp.util.debug(
-                        "Creating a new executor with max_workers="
-                        f"{max_workers} as the previous instance cannot be "
-                        f"reused ({reason})."
-                    )
-                    executor.shutdown(wait=True, kill_workers=kill_workers)
-                    _executor = executor = _executor_kwargs = None
-                    # Build and return the replacement while still holding
-                    # the singleton lock so this branch never returns the
-                    # stale executor that was just shut down.
-                    return cls.get_reusable_executor(
-                        max_workers=max_workers, **kwargs
-                    )
-                else:
-                    mp.util.debug(
-                        "Reusing existing executor with "
-                        f"max_workers={executor._max_workers}."
-                    )
-                    is_reused = True
-                    executor._resize(max_workers)
+                mp.util.debug(
+                    "Reusing existing executor with "
+                    f"max_workers={executor._max_workers}."
+                )
+                is_reused = True
+                executor._resize(max_workers)
 
         return executor, is_reused
-
-    def submit(self, fn, *args, **kwargs):
-        with self._submit_resize_lock:
-            if self._flags.broken is None and self._flags.shutdown:
-                executor = _executor
-                executor_kwargs = _executor_kwargs
-                if (
-                    executor is not None
-                    and executor is not self
-                    and executor_kwargs is not None
-                ):
-                    # A concurrent call to get_reusable_executor rotated the
-                    # singleton after this executor was resolved but before
-                    # submit was called. Retry exactly once on the replacement.
-                    return super(_ReusablePoolExecutor, executor).submit(
-                        fn, *args, **kwargs
-                    )
-            return super().submit(fn, *args, **kwargs)
 
     def _resize(self, max_workers):
         if max_workers is None:
