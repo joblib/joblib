@@ -648,6 +648,7 @@ def test_dispatch_one_job(backend, batch_size, expected_queue):
     assert len(queue) == 12
 
 
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1865
 @with_multiprocessing
 @parametrize("backend", PARALLEL_BACKENDS)
 def test_dispatch_multiprocessing(backend):
@@ -690,6 +691,7 @@ def test_batching_auto_threading():
         assert p._backend.compute_batch_size() == 1
 
 
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1865
 @with_multiprocessing
 @parametrize("backend", PROCESS_BACKENDS)
 def test_batching_auto_subprocesses(backend):
