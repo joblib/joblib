@@ -2355,13 +2355,21 @@ def test_initializer_not_reused(n_jobs):
     )
 
 
-def test_set_env_initializer() -> None:
+@pytest.mark.thread_unsafe  # mutates os.environ, which is global
+def test_set_env_initializer(request) -> None:
     """
     ``_SetEnvInitializer()`` sets environment variables and optionally calls an
     initializer.
     """
     k1 = str(uuid4())
     k2 = str(uuid4())
+
+    def cleanup():
+        os.environ.pop(k1, None)
+        os.environ.pop(k2, None)
+
+    request.addfinalizer(cleanup)
+
     svi = _SetEnvInitializer({k1: "A", k2: "B"}, None)
     assert k1 not in os.environ
     assert k2 not in os.environ
