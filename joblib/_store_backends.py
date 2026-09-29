@@ -410,7 +410,8 @@ def _check_hex(s, length):
     if len(s) != length:
         return False
     try:
-        if length & 1:
+        if length % 2 == 1:
+            # bytes.fromhex waits for pair sequences
             s += "0"
         bytes.fromhex(s)
         return True
@@ -458,6 +459,11 @@ def _replace_cache_dir(old_dir, new_dir):
 
 
 def _split_decorator(cls):
+    """Helper to split call_id in all relevant class methods.
+
+    Use a decorator as all methods are not implemented directly
+    in this class.
+    """
     def split_method_decorator(method):
         def split_method(self, call_id, *args, **kwargs):
             call_id = self._split_id(call_id)
