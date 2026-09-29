@@ -432,6 +432,12 @@ def _old_split_id(self, call_id):
     return call_id
 
 
+def _reconstructStoreBackend(cls, location, verbose, compress, mmap_mode):
+    obj = cls.__new__(cls)
+    obj.configure(location, verbose, dict(compress=compress, mmap_mode=mmap_mode))
+    return obj
+
+
 def _replace_cache_dir(old_dir, new_dir):
     """
     Move an old cache directory to a newer one depending on
@@ -673,3 +679,15 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
         info["require_update"] = False
         with open(info_path, "wb") as file:
             file.write(json.dumps(info).encode("utf-8"))
+
+    def __reduce__(self):
+        return (
+            _reconstructStoreBackend,
+            (
+                self.__class__,
+                self.location,
+                self.verbose,
+                self.compress,
+                self.mmap_mode,
+            ),
+        )
