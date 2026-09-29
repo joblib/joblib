@@ -103,10 +103,9 @@ class MemmappingExecutor(_ReusablePoolExecutor):
         # memmaps are closed. Otherwise, just try to delete as much as possible
         # with allow_non_empty=True but if we can't, it will be clean up later
         # on by the resource_tracker.
-        with self._submit_resize_lock:
-            self._temp_folder_manager._clean_temporary_resources(
-                force=kill_workers, allow_non_empty=True
-            )
+        self._temp_folder_manager._clean_temporary_resources(
+            force=kill_workers, allow_non_empty=True
+        )
 
     @property
     def _temp_folder(self):

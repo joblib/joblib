@@ -16,7 +16,7 @@ In Development
   delete folders that had never been created.
   https://github.com/joblib/joblib/pull/1829
 
-- Vendor the loky fixes from https://github.com/joblib/loky/pull/641: a worker
+- Vendor ``loky 3.7.0``, which includes https://github.com/joblib/loky/pull/641: a worker
   recycled for a suspected memory leak is now reported once per executor with
   a message naming the cause instead of the generic "A worker stopped while
   some jobs were given to the executor" warning on every restart, the

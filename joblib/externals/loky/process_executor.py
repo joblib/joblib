@@ -857,7 +857,8 @@ class _ExecutorManagerThread(threading.Thread):
                         warnings.warn(
                             "A worker stopped while some jobs were given to "
                             "the executor. This can be caused by a too short "
-                            "worker timeout or by a memory leak.",
+                            "worker timeout or by a memory leak triggered by the "
+                            "OS-level out-of-memory (OOM) process killer.",
                             UserWarning,
                         )
                     elif not self.recycling_warned:
