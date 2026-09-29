@@ -1,4 +1,7 @@
 import mmap
+import os
+
+import pytest
 
 from joblib import Parallel, delayed
 from joblib.backports import concurrency_safe_rename, make_memmap
@@ -33,3 +36,24 @@ def test_concurrency_safe_rename(tmpdir, dst_content, backend):
     assert dst_path.read() == "src content"
     for src_path in src_paths:
         assert not src_path.exists()
+
+
+@pytest.mark.skipif(os.name != "nt", reason="the retry loop only exists on Windows")
+def test_concurrency_safe_rename_surfaces_the_last_error(monkeypatch):
+    """The retry window expiring must report why the rename kept failing."""
+    from joblib import backports
+
+    denied = PermissionError("Access is denied")
+    denied.winerror = 5
+
+    def always_denied(src, dst):
+        raise denied
+
+    monkeypatch.setattr(backports, "replace", always_denied)
+
+    with pytest.raises(PermissionError) as excinfo:
+        backports.concurrency_safe_rename("src", "dst")
+
+    # Previously this was a bare `raise` outside the except block, which gave
+    # "RuntimeError: No active exception to reraise" instead.
+    assert excinfo.value is denied

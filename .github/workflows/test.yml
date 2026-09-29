@@ -49,9 +49,32 @@ jobs:
       - name: Run pre-commit
         run: pre-commit run --all-files
 
+  gen-pickle:
+    name: Generate pickle files
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+      - name: Setup conda
+        uses: conda-incubator/setup-miniconda@v4
+        with:
+          auto-activate-base: true
+          auto-update-conda: true
+          miniforge-version: latest
+      - name: Install environments
+        run: bash -el continuous_integration/install_old.sh
+      - name: Generate pickle files
+        run: cd joblib/test/data && bash -el generate_data.sh
+      - name: Upload files
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-data
+          path: joblib/test/data/*.pkl*
+
   testing:
     name: Testing
-    needs: linting
+    needs: [linting, gen-pickle]
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -68,10 +91,6 @@ jobs:
             os: 'ubuntu-latest'
             PYTHON_VERSION: "free-threaded-3.14"
           ######################################################
-          - name: test-sklearn
-            os: ubuntu-latest
-            PYTHON_VERSION: "latest_supported"
-            SKLEARN_TESTS: "true"
           - name: distributed-latest
             os: ubuntu-latest
             PYTHON_VERSION: "latest_supported"
@@ -133,6 +152,15 @@ jobs:
         run: |
           bash -el continuous_integration/install.sh
 
+      - name: Download test files
+        uses: actions/download-artifact@v8
+        with:
+          name: test-data
+          path: joblib/test/data
+
+      - name: Show downloaded test files
+        run: ls joblib/test/data/*.pkl*
+
       - name: Run tests
         run: |
           bash -el continuous_integration/run_tests.sh
@@ -144,3 +172,28 @@ jobs:
         with:
           files: coverage.xml
           token: ${{ secrets.CODECOV_TOKEN }}
+
+  test-sklearn:
+    name: Testing scikit-learn
+    needs: linting
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup conda
+        uses: conda-incubator/setup-miniconda@v4
+        with:
+          auto-activate-base: true
+          auto-update-conda: true
+          miniforge-version: latest
+
+      - name: Install dependencies
+        run: |
+          bash -el continuous_integration/install_sklearn.sh
+
+      - name: Run tests
+        run: |
+          bash -el continuous_integration/run_tests_sklearn.sh
