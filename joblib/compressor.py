@@ -382,8 +382,12 @@ class BinaryZlibFile(io.BufferedIOBase):
         # Depending on the input data, our call to the decompressor may not
         # return any data. In this case, try again after reading another block.
         while self._buffer_offset == len(self._buffer):
+            if self._decompressor.eof:
+                self._mode = _MODE_READ_EOF
+                self._size = self._pos
+                return False
             try:
-                rawblock = self._decompressor.unused_data or self._fp.read(_BUFFER_SIZE)
+                rawblock = self._fp.read(_BUFFER_SIZE)
                 if not rawblock:
                     raise EOFError
             except EOFError:
@@ -393,6 +397,12 @@ class BinaryZlibFile(io.BufferedIOBase):
                 return False
             else:
                 self._buffer = self._decompressor.decompress(rawblock)
+                # Bytes read past the end of the compressed stream, for
+                # instance a second dump written to the same file object, are
+                # not ours: hand them back to the underlying file.
+                unused_data = self._decompressor.unused_data
+                if unused_data and self._fp.seekable():
+                    self._fp.seek(-len(unused_data), io.SEEK_CUR)
             self._buffer_offset = 0
         return True
 
