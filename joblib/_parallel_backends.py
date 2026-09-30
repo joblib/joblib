@@ -73,6 +73,8 @@ def cpu_count(only_physical_cores=False, process_wide=False) -> int:
     and physical limit) will be chosen, but future versions may have a smarter
     algorithm.
     """
+    if process_wide:
+        return system_cpu_count(only_physical_cores=only_physical_cores)
     return _MAX_CORES.get(only_physical_cores)
 
 

@@ -309,7 +309,8 @@ def test_nested_pools_automatic_size(backend, nesting, third_level):
 def test_set_thread_local_cpu_limit():
     """``set_thread_local_cpu_limit()`` is reflected in ``cpu_count()``.
 
-    But only on the thread it's run in.
+    But only on the thread it's run in, and only if ``process_wide=True`` is
+    not passed to ``cpu_count()``.
     """
     initial_cpu_count = cpu_count()
     if initial_cpu_count < 2:
@@ -320,12 +321,12 @@ def test_set_thread_local_cpu_limit():
 
     def test():
         set_thread_local_cpu_limit(requested)
-        result.append(cpu_count())
+        result.append((cpu_count(), cpu_count(process_wide=True)))
 
     thread = threading.Thread(target=test)
     thread.start()
     thread.join()
-    assert result == [requested]
+    assert result == [(requested, initial_cpu_count)]
     # Current thread unaffected:
     assert cpu_count() == initial_cpu_count
 
