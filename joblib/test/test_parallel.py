@@ -279,6 +279,7 @@ def _nested_second_level(n_jobs, third_level):
     )
 
 
+@with_multiprocessing
 @pytest.mark.parametrize("backend", ALL_VALID_BACKENDS)
 @pytest.mark.parametrize("nesting", [[2, -1], [2, 2], [-1, -1]])
 @pytest.mark.parametrize("third_level", [False, True])
@@ -307,6 +308,7 @@ def test_nested_pools_automatic_size(backend, nesting, third_level):
         assert max(joblib.cpu_count() // 2, 1) <= num_threads <= joblib.cpu_count()
 
 
+@with_multiprocessing
 def test_set_thread_local_cpu_limit():
     """``set_thread_local_cpu_limit()`` is reflected in ``cpu_count()``.
 
