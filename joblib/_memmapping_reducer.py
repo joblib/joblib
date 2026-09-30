@@ -680,9 +680,7 @@ class TemporaryResourcesManager(object):
             if not temp_folder:
                 return
             if not os.path.exists(temp_folder):
-                # The folder is only created on the first memmap dump but it is
-                # registered with the resource_tracker upfront, so a context
-                # that dumped nothing still has to be forgotten here.
+                # Registered upfront but only created on the first dump
                 self._forget_temp_folder(context_id, temp_folder)
             else:
                 for filename in os.listdir(temp_folder):
