@@ -229,7 +229,7 @@ def _measure_effective() -> tuple[int, int]:
 def test_negative_effective_n_jobs_affected_by_parent_pool(backend):
     """Nested pools get fewer workers.
 
-    Aproximately cpu_count() divided by parent's number of workers.
+    Approximately cpu_count() divided by parent's number of workers.
     """
     n_jobs = max(cpu_count() // 2, 1)
     results = set(
