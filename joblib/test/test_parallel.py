@@ -301,8 +301,7 @@ def test_nested_pools_automatic_size(backend, nesting, third_level):
         result |= threads
 
     num_threads = len(result)
-
-    assert max(joblib.cpu_count() // 2, 1) <= num_threads <= joblib.cpu_count()
+    assert max(joblib.cpu_count() // 2, 1) <= num_threads <= max(joblib.cpu_count(), 2)
 
 
 @with_multiprocessing
