@@ -33,7 +33,7 @@ In Development
   delete folders that had never been created.
   https://github.com/joblib/joblib/pull/1829
 
-- Vendor ``loky 3.7.0``, which includes https://github.com/joblib/loky/pull/641: a worker
+- With https://github.com/joblib/loky/pull/641 from ``loky`` 3.7.0, a worker
   recycled for a suspected memory leak is now reported once per executor with
   a message naming the cause instead of the generic "A worker stopped while
   some jobs were given to the executor" warning on every restart, the
@@ -43,6 +43,15 @@ In Development
   breaks the executor instead of hanging ``Parallel`` forever.
   https://github.com/joblib/joblib/issues/883
   https://github.com/joblib/joblib/pull/1829
+
+- Update to latest ``loky``, v3.7.0. See
+  https://github.com/joblib/loky/blob/master/CHANGES.md#370---2026-09-29 for
+  details.
+  https://github.com/joblib/joblib/pull/1834
+
+- Fix a number of thread-safety issues when using reusable process executors
+  from multiple threads.
+  https://github.com/joblib/joblib/pull/1834
 
 Release 1.6.0 - 2026/08/31
 --------------------------

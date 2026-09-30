@@ -8,10 +8,12 @@ copy between the parent and child processes.
 # Copyright: 2017, Thomas Moreau
 # License: BSD 3 clause
 
+import threading
+
 from ._memmapping_reducer import TemporaryResourcesManager, get_memmapping_reducers
 from .externals.loky.reusable_executor import _ReusablePoolExecutor
 
-_executor_args = None
+_local_executor_args = threading.local()
 
 
 def get_memmapping_executor(n_jobs, **kwargs):
@@ -34,7 +36,6 @@ class MemmappingExecutor(_ReusablePoolExecutor):
         """Factory for ReusableExecutor with automatic memmapping for large
         numpy arrays.
         """
-        global _executor_args
         # Check if we can reuse the executor here instead of deferring the test
         # to loky as the reducers are objects that changes at each call.
         executor_args = backend_args.copy()
@@ -42,8 +43,9 @@ class MemmappingExecutor(_ReusablePoolExecutor):
         executor_args.update(
             dict(timeout=timeout, initializer=initializer, initargs=initargs)
         )
-        reuse = _executor_args is None or _executor_args == executor_args
-        _executor_args = executor_args
+        current_args = getattr(_local_executor_args, "args", None)
+        reuse = current_args is None or current_args == executor_args
+        _local_executor_args.args = executor_args
 
         # Passing context_id here avoids registering an extra default context
         # whose folder nothing ever resolves to and that only gets cleaned up
