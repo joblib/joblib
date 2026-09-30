@@ -24,6 +24,16 @@ In Development
 - Fix ``eval_expr`` to reject an oversized power before evaluating it.
   https://github.com/joblib/joblib/pull/1841
 
+- Update to latest ``loky``, v3.7.0. See
+  https://github.com/joblib/loky/blob/master/CHANGES.md#370---2026-09-29 for
+  details.
+  https://github.com/joblib/joblib/pull/1834
+
+- Fix a number of thread-safety issues when using reusable process executors
+  from multiple threads.
+  https://github.com/joblib/joblib/pull/1834
+
+
 Release 1.6.0 - 2026/08/31
 --------------------------
 

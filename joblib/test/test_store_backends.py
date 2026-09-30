@@ -47,7 +47,6 @@ def concurrency_safe_write_rename(to_write, filename, write_func):
     concurrency_safe_rename(temporary_filename, filename)
 
 
-@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 @timeout(0)  # No timeout as this test can be long
 @with_multiprocessing
 @parametrize("backend", ["multiprocessing", "loky", "threading"])
