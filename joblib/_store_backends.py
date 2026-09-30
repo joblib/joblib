@@ -595,8 +595,8 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
                 "for efficiency reasons.\n"
                 "Starting with joblib 1.8, the old cache tree "
                 "will no longer be supported.\n"
-                f"Please run `joblib.Memory({true_location}).store_backend."
-                "update_cache_tree()` to update your cache tree."
+                f"Please run `joblib.Memory({true_location}).update_cache_tree()` "
+                "to update your cache tree."
             )
 
         # Using old split method for older cache version
