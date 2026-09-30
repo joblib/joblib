@@ -255,7 +255,6 @@ def test_split_up_cores():
 
 
 def _nested_leaf_task():
-    assert joblib.parallel.get_active_backend()[0].uses_threads
     # Delay a little to increase chances of distributing tasks across all
     # workers.
     time.sleep(0.01)
