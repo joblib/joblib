@@ -257,7 +257,7 @@ def test_split_up_cores():
 def _nested_leaf_task():
     # Delay a little to increase chances of distributing tasks across all
     # workers.
-    time.sleep(0.01)
+    time.sleep(0.1)
     return threading.get_native_id()
 
 
