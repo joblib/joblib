@@ -1218,7 +1218,9 @@ class Memory(Logger):
         return self.cache(func)(*args, **kwargs)
 
     def update_cache_tree(self):
-        """Update the cache tree when using backend 'local'"""
+        """Update the cache tree to a more efficient system
+        when using backend 'local'.
+        """
         if isinstance(self.store_backend, FileSystemStoreBackend):
             self.store_backend.update_cache_tree()
         else:

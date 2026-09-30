@@ -4,10 +4,11 @@ Release Notes
 In Development
 --------------
 
-- ``FileSystemStoreBackend`` now stores its items using the format
+- ``FileSystemStoreBackend`` (and hence ``Memory``) now stores its items using the format
   "abc/defghijklmnopqrstuvwxyzabcdef/output.pkl" instead of
   "abcdefghijklmnopqrstuvwxyzabcdef/output.pkl" in order to limit the number
-  of inodes inside the root cache directory.
+  of inodes inside the root cache directory. Migrating existing cache to this more
+  efficient behavior with ``Memory(...).update_cache_tree()``
   https://github.com/joblib/joblib/pull/1781
 
 - Fix ``Memory.cache(..., mmap_mode=..., verbose=...)`` to now uses its parameters
