@@ -136,7 +136,6 @@ def test_memory_integration(tmpdir):
     memory.cache(f)(1)
 
 
-@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1794
 @parametrize("call_before_reducing", [True, False])
 def test_parallel_call_cached_function_defined_in_jupyter(tmpdir, call_before_reducing):
     # Calling an interactively defined memory.cache()'d function inside a
@@ -275,7 +274,6 @@ _JUPYTER_SESSION = """if 1:
 """
 
 
-@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 def test_cached_jupyter_function_persists_across_sessions(tmpdir):
     # Non-regression test for gh-1498: a function defined in a notebook cell
     # must keep the same identity in a new interpreter, so that its cache
