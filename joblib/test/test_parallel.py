@@ -29,7 +29,11 @@ import pytest
 import joblib
 from joblib import _parallel_backends, dump, load, parallel
 from joblib._multiprocessing_helpers import mp
-from joblib._parallel_backends import _SetEnvInitializer, _split_up_cores
+from joblib._parallel_backends import (
+    _SetEnvInitializer,
+    _split_up_cores,
+    set_thread_local_cpu_limit,
+)
 from joblib.test.common import (
     IS_GIL_DISABLED,
     np,
@@ -301,6 +305,30 @@ def test_nested_pools_automatic_size(backend, nesting, third_level):
             assert num_threads <= max(4, joblib.cpu_count())
     else:
         assert max(joblib.cpu_count() // 2, 1) <= num_threads <= joblib.cpu_count()
+
+
+def test_set_thread_local_cpu_limit():
+    """``set_thread_local_cpu_limit()`` is reflected in ``cpu_count()``.
+
+    But only on the thread it's run in.
+    """
+    initial_cpu_count = cpu_count()
+    if initial_cpu_count < 2:
+        pytest.skip("Need more than one core")
+
+    requested = initial_cpu_count - 1
+    result = []
+
+    def test():
+        set_thread_local_cpu_limit(requested)
+        result.append(cpu_count())
+
+    thread = threading.Thread(target=test)
+    thread.start()
+    thread.join()
+    assert result == [requested]
+    # Current thread unaffected:
+    assert cpu_count() == initial_cpu_count
 
 
 ###############################################################################

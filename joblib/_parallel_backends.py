@@ -57,8 +57,7 @@ _MAX_CORES = _MaxCores()
 
 
 def cpu_count(only_physical_cores=False, process_wide=False) -> int:
-    """
-    Return the number of CPU cores the current thread can use.
+    """Return the number of CPU cores the current thread can use.
 
     Per-thread limits can be constrained by ``joblib.Parallel``'s threaded
     backend: cores will be split up across the worker threads.  Additionally,
@@ -77,8 +76,20 @@ def cpu_count(only_physical_cores=False, process_wide=False) -> int:
     return _MAX_CORES.get(only_physical_cores)
 
 
-def _split_up_cores(total_cores: int, n_jobs: int) -> int:
+def set_thread_local_cpu_limit(num_cores: int) -> None:
+    """Set the thread-local limit for result of ``cpu_count()``.
+
+    Outside of internal use, this is useful for external thread pool
+    implementations that want to rely on ``joblib``'s ``cpu_count()``.  They
+    will want to call this in each worker's initializer function, dividing up
+    the cores available in the parent threads.
     """
+    _MAX_CORES.set_thread_limit(num_cores)
+
+
+def _split_up_cores(total_cores: int, n_jobs: int) -> int:
+    """Divide up cores between workers.
+
     Given the total number of cores and a number of workers, come up with a
     reasonable number of cores per worker.
 

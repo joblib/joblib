@@ -36,6 +36,7 @@ from ._parallel_backends import (
     SequentialBackend,
     ThreadingBackend,
     cpu_count,  # noqa
+    set_thread_local_cpu_limit,  # noqa
 )
 from ._utils import _Sentinel, eval_expr
 from .disk import memstr_to_bytes
