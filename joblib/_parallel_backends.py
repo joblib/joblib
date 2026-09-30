@@ -586,7 +586,7 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
             cores_per_thread = _split_up_cores(available_cores, self._n_jobs)
             self._pool = ThreadPool(
                 self._n_jobs,
-                initializer=lambda: _MAX_CORES.set_thread_limit(cores_per_thread),
+                initializer=lambda: set_thread_local_cpu_limit(cores_per_thread),
             )
         return self._pool
 
