@@ -665,21 +665,20 @@ def test_many_parallel_calls_on_same_object(backend):
     assert b"resource_tracker" not in err
 
 
-@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 @with_numpy
 @with_multiprocessing
 def test_no_leaked_folder_registration(monkeypatch):
     # max_nbytes=None means the registered folders are never created
     calls = {"register": [], "unregister": []}
-    for func, names in calls.items():
-        orig = getattr(jmr.resource_tracker, func)
+    for func_name, resource_names in calls.items():
+        orig = getattr(jmr.resource_tracker, func_name)
 
-        def wrapper(name, rtype, orig=orig, names=names):
+        def wrapper(name, rtype, orig=orig, names=resource_names):
             if rtype == "folder":
                 names.append(name)
             return orig(name, rtype)
 
-        monkeypatch.setattr(jmr.resource_tracker, func, wrapper)
+        monkeypatch.setattr(jmr.resource_tracker, func_name, wrapper)
 
     for _ in range(3):
         Parallel(n_jobs=2, backend="loky", max_nbytes=None)(
