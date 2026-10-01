@@ -1910,6 +1910,7 @@ class Parallel(Logger):
         """
         limiter = None
         try:
+            # This makes relevant libraries respect cgroups, for example:
             limiter = threadpool_limits(
                 limits=self._backend._n_threads_for_worker_external_libs(1)
             )

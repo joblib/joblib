@@ -608,7 +608,7 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
         call to apply_async.
         """
         if self._pool is None:
-            cores_per_thread = _split_up_cores(cpu_count(), self._n_jobs)
+            cores_per_thread = self._n_threads_for_worker_external_libs(self._n_jobs)
 
             def init():
                 set_thread_local_cpu_limit(cores_per_thread)
