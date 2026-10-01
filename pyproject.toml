@@ -38,6 +38,7 @@ test = [
     "lz4",
     "numpy",
     "memory_profiler",
+    "polars",
     "pytest",
     "pytest-asyncio",
     "pytest-cov",

@@ -66,6 +66,10 @@ if [[ $USE_DISTRIBUTED == "true" ]]; then
     PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES $DISTRIBUTED"
 fi
 
+if [[ $USE_POLARS == "true" ]]; then
+    PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES polars"
+fi
+
 if [[ "$COVERAGE" == "true" ]]; then
     PIP_INSTALL_PACKAGES="$PIP_INSTALL_PACKAGES coverage pytest-cov"
 fi

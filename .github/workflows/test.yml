@@ -83,6 +83,10 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
         PYTHON_VERSION: ["oldest_supported", "3.10", "3.11", "3.12", "3.13", "3.14"]
         include:
+          - name: default
+            os: ubuntu-latest
+            PYTHON_VERSION: "3.12"
+            USE_POLARS: true
           ######################################################
           #### Use the stable versions of free-threaded.    ####
           #### They will run with pytest-run-parallel       ####
