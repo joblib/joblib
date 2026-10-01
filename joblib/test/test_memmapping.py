@@ -667,6 +667,29 @@ def test_many_parallel_calls_on_same_object(backend):
 
 @with_numpy
 @with_multiprocessing
+def test_no_leaked_folder_registration(monkeypatch):
+    # max_nbytes=None means the registered folders are never created
+    calls = {"register": [], "unregister": []}
+    for func_name, resource_names in calls.items():
+        orig = getattr(jmr.resource_tracker, func_name)
+
+        def wrapper(name, rtype, orig=orig, names=resource_names):
+            if rtype == "folder":
+                names.append(name)
+            return orig(name, rtype)
+
+        monkeypatch.setattr(jmr.resource_tracker, func_name, wrapper)
+
+    for _ in range(3):
+        Parallel(n_jobs=2, backend="loky", max_nbytes=None)(
+            delayed(id)(i) for i in range(4)
+        )
+    assert calls["register"]
+    assert set(calls["register"]) <= set(calls["unregister"])
+
+
+@with_numpy
+@with_multiprocessing
 @parametrize("backend", ["multiprocessing", "loky"])
 def test_memmap_returned_as_regular_array(backend):
     data = np.ones(int(1e3))
