@@ -638,22 +638,6 @@ class _SetEnvInitializer:
             return self.initializer(*args, **kwargs)
 
 
-@dataclass
-class _SetEnvInitializer:
-    """
-    Pickleable initializer for multiprocessing workers.
-    """
-
-    env: dict[str, str]
-    initializer: None | Callable[..., Any]
-
-    def __call__(self, *args, **kwargs) -> Any:
-        for key, value in self.env.items():
-            os.environ[key] = value
-        if self.initializer is not None:
-            return self.initializer(*args, **kwargs)
-
-
 class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin, ParallelBackendBase):
     """A ParallelBackend which will use a multiprocessing.Pool.
 
