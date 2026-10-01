@@ -64,6 +64,7 @@ class ParallelBackendBase(metaclass=ABCMeta):
         "VECLIB_MAXIMUM_THREADS",
         "NUMBA_NUM_THREADS",
         "NUMEXPR_NUM_THREADS",
+        "POLARS_MAX_THREADS",
     ]
 
     TBB_ENABLE_IPC_VAR = "ENABLE_IPC"

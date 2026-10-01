@@ -274,7 +274,8 @@ libraries:
     - OpenBLAS with the ``'OPENBLAS_NUM_THREADS'``,
     - MKL with the environment variable ``'MKL_NUM_THREADS'``,
     - Accelerated with the environment variable ``'VECLIB_MAXIMUM_THREADS'``,
-    - Numexpr with the environment variable ``'NUMEXPR_NUM_THREADS'``.
+    - Numexpr with the environment variable ``'NUMEXPR_NUM_THREADS'``,
+    - Polars with the environment variable ``'POLARS_MAX_THREADS'``.
 
 Since joblib 0.14, it is also possible to programmatically override the default
 number of threads using the ``inner_max_num_threads`` argument of the

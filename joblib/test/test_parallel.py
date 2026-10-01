@@ -1933,6 +1933,7 @@ def _run_parallel_sum():
         "VECLIB_MAXIMUM_THREADS",
         "NUMEXPR_NUM_THREADS",
         "NUMBA_NUM_THREADS",
+        "POLARS_MAX_THREADS",
         "ENABLE_IPC",
     ]:
         env_vars[var] = os.environ.get(var)
@@ -2116,7 +2117,15 @@ def test_threadpool_limitation_in_child_context(context, n_jobs, inner_max_num_t
 @pytest.mark.thread_unsafe  # involves global mutable state in os.environ
 @with_multiprocessing
 @parametrize("n_jobs", [2, -1])
-@parametrize("var_name", ["OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "OMP_NUM_THREADS"])
+@parametrize(
+    "var_name",
+    [
+        "OPENBLAS_NUM_THREADS",
+        "MKL_NUM_THREADS",
+        "OMP_NUM_THREADS",
+        "POLARS_MAX_THREADS",
+    ],
+)
 @parametrize("context", [parallel_config, parallel_backend])
 def test_threadpool_limitation_in_child_override(context, n_jobs, var_name):
     # Check that environment variables set by the user on the main process
@@ -2151,6 +2160,39 @@ def test_threadpool_limitation_in_child_override(context, n_jobs, var_name):
             del os.environ[var_name]
         else:
             os.environ[var_name] = original_var_value
+
+
+@pytest.mark.thread_unsafe  # involves os.environ and the reusable executor
+@with_multiprocessing
+@parametrize("inner_max_num_threads", [None, 1, 2])
+@parametrize("parent_max_num_threads", [None, 4])
+def test_polars_threadpool_limitation(
+    monkeypatch, inner_max_num_threads, parent_max_num_threads
+):
+    pytest.importorskip("polars")
+    monkeypatch.delenv("POLARS_MAX_THREADS", raising=False)
+    if parent_max_num_threads is not None:
+        monkeypatch.setenv("POLARS_MAX_THREADS", str(parent_max_num_threads))
+
+    # Polars initializes its thread pool once per process.
+    get_reusable_executor(reuse=True).shutdown()
+
+    def get_polars_thread_count():
+        import polars
+
+        return polars.thread_pool_size()
+
+    try:
+        with parallel_config("loky", inner_max_num_threads=inner_max_num_threads):
+            results = Parallel(n_jobs=2)(
+                delayed(get_polars_thread_count)() for _ in range(2)
+            )
+        expected = inner_max_num_threads or parent_max_num_threads
+        if expected is None:
+            expected = max(cpu_count() // 2, 1)
+        assert results == [expected, expected]
+    finally:
+        get_reusable_executor(reuse=True).shutdown()
 
 
 @with_multiprocessing

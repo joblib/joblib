@@ -4,6 +4,9 @@ Release Notes
 In Development
 --------------
 
+- Limit Polars thread pools in ``loky`` workers to avoid oversubscription.
+  https://github.com/joblib/joblib/issues/1548
+
 - Fix ``Memory.cache(..., mmap_mode=..., verbose=...)`` to now uses its parameters
   mmap_mode and verbose instead of using the values used at Memory creation time.
   https://github.com/joblib/joblib/pull/1857
