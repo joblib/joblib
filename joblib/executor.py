@@ -47,7 +47,8 @@ class MemmappingExecutor(_ReusablePoolExecutor):
         reuse = current_args is None or current_args == executor_args
         _local_executor_args.args = executor_args
 
-        # Avoid registering an unused default context folder
+        # Propagate context_id to avoid registering an unused default context
+        # folder.
         manager = TemporaryResourcesManager(temp_folder, context_id=context_id)
 
         # reducers access the temporary folder in which to store temporary
