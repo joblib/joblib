@@ -27,6 +27,17 @@ In Development
 - Fix ``eval_expr`` to reject an oversized power before evaluating it.
   https://github.com/joblib/joblib/pull/1841
 
+- Fix a leaked temporary folder registration per ``Parallel`` call, which the
+  ``resource_tracker`` reported as leaked when ``atexit`` finalizers did not run.
+  https://github.com/joblib/joblib/pull/1829
+
+- A worker recycled for a suspected memory leak is now reported once per
+  executor with an accurate message (threshold configurable via
+  ``LOKY_MAX_MEMORY_LEAK_SIZE``), and turning that warning into an error no
+  longer hangs ``Parallel``.
+  https://github.com/joblib/joblib/issues/883
+  https://github.com/joblib/joblib/pull/1829
+
 - Update to latest ``loky``, v3.7.0. See
   https://github.com/joblib/loky/blob/master/CHANGES.md#370---2026-09-29 for
   details.
