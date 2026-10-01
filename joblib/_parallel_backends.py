@@ -312,7 +312,13 @@ class ParallelBackendBase(metaclass=ABCMeta):
         env = {}
         for var in self.MAX_NUM_THREADS_VARS:
             if explicit_n_threads is None:
-                var_value = os.environ.get(var, default_n_threads)
+                if var == "LOKY_MAX_CPU_COUNT":
+                    # We don't want to pass it through, it was intended for
+                    # this process, and we've potentially split it up due to
+                    # worker threads.
+                    var_value = default_n_threads
+                else:
+                    var_value = os.environ.get(var, default_n_threads)
             else:
                 var_value = explicit_n_threads
 
