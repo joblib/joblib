@@ -335,6 +335,7 @@ def _get_loky_env_var_and_effective_jobs():
     return os.environ["LOKY_MAX_CPU_COUNT"], joblib.effective_n_jobs(-1)
 
 
+@with_multiprocessing
 @pytest.mark.thread_unsafe  # adjusts global os.environ
 @pytest.mark.parametrize("set_env", [True, False])
 def test_loky_cores_split_up_in_subprocess(set_env, request):
