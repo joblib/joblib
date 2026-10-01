@@ -29,7 +29,7 @@ requires-python = ">=3.10"
 dynamic = ["version"]
 dependencies = [
     "cloudpickle>=3.0",
-    "threadpoolctl",  # TODO need version 3.7, as yet unreleased, for deadlock fix
+    "threadpoolctl>=3.7",  # 3.7 includes deadlock fixes
 ]
 
 [project.optional-dependencies]
