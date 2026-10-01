@@ -247,6 +247,8 @@ By default, it uses ``backend='local'``, which stores cached data on the local f
 When calling a cached function::
 
     >>> memory = Memory(location, backend='local', verbose=0)
+    >>> func = lambda x: x
+    >>> x = 1
     >>> memory.cache(func)(x)
 
 Joblib computes a 16-byte (32-character) hexadecimal hash of the inputs (here ``x``).
