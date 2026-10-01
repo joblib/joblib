@@ -331,7 +331,6 @@ def test_set_thread_local_cpu_limit():
 
 
 def _get_loky_env_var_and_effective_jobs():
-    print(os.getpid())
     return os.environ["LOKY_MAX_CPU_COUNT"], joblib.effective_n_jobs(-1)
 
 
