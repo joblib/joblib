@@ -599,9 +599,6 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
             raise FallbackToBackend(SequentialBackend(nesting_level=self.nesting_level))
         self.parallel = parallel
         self._n_jobs = n_jobs
-        self._external_libs_inner_thread_limit = (
-            self._n_threads_for_worker_external_libs(n_jobs)
-        )
         return n_jobs
 
     def _get_pool(self):
@@ -610,18 +607,12 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
         The actual pool of worker threads is only initialized at the first
         call to apply_async.
         """
-        # Import here to prevent circular import:
-        from joblib.parallel import effective_n_jobs
-
         if self._pool is None:
-            available_cores = effective_n_jobs(-1)
-            cores_per_thread = _split_up_cores(available_cores, self._n_jobs)
+            cores_per_thread = _split_up_cores(cpu_count(), self._n_jobs)
 
             def init():
                 set_thread_local_cpu_limit(cores_per_thread)
-                self._threadpool_controller.limit(
-                    limits=self._external_libs_inner_thread_limit
-                )
+                self._threadpool_controller.limit(limits=cores_per_thread)
 
             self._pool = ThreadPool(self._n_jobs, initializer=init)
         return self._pool
