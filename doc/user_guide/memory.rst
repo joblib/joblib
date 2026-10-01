@@ -250,6 +250,7 @@ When calling a cached function::
     >>> func = lambda x: x
     >>> x = 1
     >>> memory.cache(func)(x)
+    1
 
 Joblib computes a 16-byte (32-character) hexadecimal hash of the inputs (here ``x``).
 The output of the function call is then pickled and saved to a path formatted as:
