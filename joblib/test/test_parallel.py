@@ -2169,7 +2169,7 @@ def test_threadpool_limitation_in_child_override(context, n_jobs, var_name):
 def test_polars_threadpool_limitation(
     monkeypatch, inner_max_num_threads, parent_max_num_threads
 ):
-    pytest.importorskip("polars")
+    polars = pytest.importorskip("polars")
     monkeypatch.delenv("POLARS_MAX_THREADS", raising=False)
     if parent_max_num_threads is not None:
         monkeypatch.setenv("POLARS_MAX_THREADS", str(parent_max_num_threads))
@@ -2177,15 +2177,10 @@ def test_polars_threadpool_limitation(
     # Polars initializes its thread pool once per process.
     get_reusable_executor(reuse=True).shutdown()
 
-    def get_polars_thread_count():
-        import polars
-
-        return polars.thread_pool_size()
-
     try:
         with parallel_config("loky", inner_max_num_threads=inner_max_num_threads):
             results = Parallel(n_jobs=2)(
-                delayed(get_polars_thread_count)() for _ in range(2)
+                delayed(polars.thread_pool_size)() for _ in range(2)
             )
         expected = inner_max_num_threads or parent_max_num_threads
         if expected is None:
