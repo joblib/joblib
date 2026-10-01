@@ -259,7 +259,9 @@ Nested :class:`joblib.Parallel`
 -------------------------------
 
 A nested :class:`joblib.Parallel` loop is one where the :class:`joblib.delayed`
-tasks in the top level loop create their own :class:`joblib.Parallel`. It can suffer from over-subscription if the product of the size of two worker pools is bigger than the number of available cores.
+tasks in the top level loop create their own :class:`joblib.Parallel`. It can
+suffer from over-subscription if the product of the size of two worker pools is
+bigger than the number of available cores.
 
 Starting with version 1.6, in order to avoid over-subscription, the inner loop
 can use ``n_jobs=-1``. Each inner :class:`joblib.Parallel` will be limited to

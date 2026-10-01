@@ -288,19 +288,19 @@ def _nested_second_level(n_jobs, third_level):
 def test_nested_pools_automatic_size(backend, nesting, third_level):
     """Nested thread pools limit their number of cores."""
     if backend == "sequential" or isinstance(backend, SequentialBackend):
-        n_tasks = 1
+        n_outer_tasks = 1
     else:
-        n_tasks = joblib.effective_n_jobs(nesting[0])
-    result = set()
-    for threads in itertools.chain.from_iterable(
+        n_outer_tasks = joblib.effective_n_jobs(nesting[0])
+    unique_thread_ids = set()
+    for observed_thread_ids in itertools.chain.from_iterable(
         Parallel(n_jobs=nesting[0], backend=backend)(
             delayed(_nested_second_level)(nesting[1], third_level)
-            for _ in range(n_tasks)
+            for _ in range(n_outer_tasks)
         )
     ):
-        result |= threads
+        unique_thread_ids |= observed_thread_ids
 
-    num_threads = len(result)
+    num_threads = len(unique_thread_ids)
     assert max(joblib.cpu_count() // 2, 1) <= num_threads <= max(joblib.cpu_count(), 2)
 
 
