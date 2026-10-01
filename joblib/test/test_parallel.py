@@ -330,6 +330,49 @@ def test_set_thread_local_cpu_limit():
     assert cpu_count() == initial_cpu_count
 
 
+def _get_loky_env_var_and_effective_jobs():
+    print(os.getpid())
+    return os.environ["LOKY_MAX_CPU_COUNT"], joblib.effective_n_jobs(-1)
+
+
+@pytest.mark.thread_unsafe  # adjusts global os.environ
+@pytest.mark.parametrize("set_env", [True, False])
+def test_loky_cores_split_up_in_subprocess(set_env, request):
+    """``set_thread_local_cpu_limit()`` restricts Loky workers' cores.
+
+    This is true even if ``LOKY_MAX_CPU_COUNT`` is set.
+    """
+    if set_env:
+        old_value = os.environ.get("LOKY_MAX_CPU_COUNT", None)
+        os.environ["LOKY_MAX_CPU_COUNT"] = "4"
+
+        def restore():
+            if old_value is not None:
+                os.environ["LOKY_MAX_CPU_COUNT"] = old_value
+            else:
+                os.environ.pop("LOKY_MAX_CPU_COUNT")
+
+        request.addfinalizer(restore)
+
+    results = []
+
+    def run_loky_in_thread():
+        set_thread_local_cpu_limit(2)
+        results.extend(
+            joblib.Parallel(n_jobs=2, backend="loky")(
+                [delayed(_get_loky_env_var_and_effective_jobs)() for _ in range(2)]
+            )
+        )
+
+    # Avoid nesting logic which might turn requested loky backend into
+    # non-loky, by using a thread:
+    thread = threading.Thread(target=run_loky_in_thread)
+    thread.start()
+    thread.join()
+
+    assert results == [("1", 1), ("1", 1)]
+
+
 ###############################################################################
 # Test parallel
 
