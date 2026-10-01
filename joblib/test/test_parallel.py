@@ -6,6 +6,7 @@ Test the parallel module.
 # Copyright (c) 2010-2011 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
+import itertools
 import mmap
 import os
 import re
@@ -28,7 +29,11 @@ import pytest
 import joblib
 from joblib import _parallel_backends, dump, load, parallel
 from joblib._multiprocessing_helpers import mp
-from joblib._parallel_backends import _SetEnvInitializer, _split_up_cores
+from joblib._parallel_backends import (
+    _SetEnvInitializer,
+    _split_up_cores,
+    set_thread_local_cpu_limit,
+)
 from joblib.test.common import (
     IS_GIL_DISABLED,
     np,
@@ -77,17 +82,17 @@ from joblib.parallel import (
     register_parallel_backend,
 )
 
-# A huge number of tests are not thread safe due to #1816 and #1743. Once those
-# are fixed, remove this and fix anything that's left.
-pytestmark = pytest.mark.thread_unsafe
-
-
 RETURN_GENERATOR_BACKENDS = BACKENDS.copy()
 RETURN_GENERATOR_BACKENDS.pop("multiprocessing", None)
 
 ALL_VALID_BACKENDS = [None] + sorted(BACKENDS.keys())
-# Add instances of backend classes deriving from ParallelBackendBase
-ALL_VALID_BACKENDS += [BACKENDS[backend_str]() for backend_str in BACKENDS]
+# Add instances of backend classes deriving from ParallelBackendBase. These
+# cannot be used with pytest-run-parallel, since instances are shared across
+# parallel run.
+ALL_VALID_BACKENDS += [
+    pytest.param(BACKENDS[backend_str](), marks=pytest.mark.thread_unsafe)
+    for backend_str in BACKENDS
+]
 if mp is None:
     PROCESS_BACKENDS = []
 else:
@@ -222,9 +227,9 @@ def _measure_effective() -> tuple[int, int]:
 @with_multiprocessing
 @parametrize("backend", PARALLEL_BACKENDS)
 def test_negative_effective_n_jobs_affected_by_parent_pool(backend):
-    """
-    Nested pools get fewer workers, approximately cpu_count() divided by
-    parent's number of workers.
+    """Nested pools get fewer workers.
+
+    Approximately cpu_count() divided by parent's number of workers.
     """
     n_jobs = max(cpu_count() // 2, 1)
     results = set(
@@ -243,12 +248,129 @@ def test_negative_effective_n_jobs_affected_by_parent_pool(backend):
 
 
 def test_split_up_cores():
-    """
-    Test heuristic for determining number of workers in nested pool.
-    """
+    """Test the heuristic for determining nested pool size."""
     for max_cores in range(1, 100):
         for n_jobs in range(1, max_cores + 1):
             assert _split_up_cores(max_cores, n_jobs) == max(max_cores // n_jobs, 1)
+
+
+def _nested_leaf_task():
+    # Delay a little to increase chances of distributing tasks across all
+    # workers.
+    time.sleep(0.1)
+    return threading.get_native_id()
+
+
+def _nested_second_level(n_jobs, third_level):
+    if third_level:
+
+        def task():
+            return set(
+                Parallel(n_jobs=-1, backend="threading")(
+                    delayed(_nested_leaf_task)()
+                    for _ in range(joblib.effective_n_jobs(-1))
+                )
+            )
+    else:
+
+        def task():
+            return {_nested_leaf_task()}
+
+    return Parallel(n_jobs=n_jobs, backend="threading")(
+        delayed(task)() for _ in range(joblib.effective_n_jobs(n_jobs))
+    )
+
+
+@with_multiprocessing
+@pytest.mark.parametrize("backend", ALL_VALID_BACKENDS)
+@pytest.mark.parametrize("nesting", [[2, -1], [-1, -1]])
+@pytest.mark.parametrize("third_level", [False, True])
+def test_nested_pools_automatic_size(backend, nesting, third_level):
+    """Nested thread pools limit their number of cores."""
+    if backend == "sequential" or isinstance(backend, SequentialBackend):
+        n_outer_tasks = 1
+    else:
+        n_outer_tasks = joblib.effective_n_jobs(nesting[0])
+    unique_thread_ids = set()
+    for observed_thread_ids in itertools.chain.from_iterable(
+        Parallel(n_jobs=nesting[0], backend=backend)(
+            delayed(_nested_second_level)(nesting[1], third_level)
+            for _ in range(n_outer_tasks)
+        )
+    ):
+        unique_thread_ids |= observed_thread_ids
+
+    num_threads = len(unique_thread_ids)
+    assert max(joblib.cpu_count() // 2, 1) <= num_threads <= max(joblib.cpu_count(), 2)
+
+
+@with_multiprocessing
+def test_set_thread_local_cpu_limit():
+    """``set_thread_local_cpu_limit()`` is reflected in ``cpu_count()``.
+
+    But only on the thread it's run in, and only if ``process_wide=True`` is
+    not passed to ``cpu_count()``.
+    """
+    initial_cpu_count = cpu_count()
+    if initial_cpu_count < 2:
+        pytest.skip("Need more than one core")
+
+    requested = initial_cpu_count - 1
+    result = []
+
+    def test():
+        set_thread_local_cpu_limit(requested)
+        result.append((cpu_count(), cpu_count(process_wide=True)))
+
+    thread = threading.Thread(target=test)
+    thread.start()
+    thread.join()
+    assert result == [(requested, initial_cpu_count)]
+    # Current thread unaffected:
+    assert cpu_count() == initial_cpu_count
+
+
+def _get_loky_env_var_and_effective_jobs():
+    return os.environ["LOKY_MAX_CPU_COUNT"], joblib.effective_n_jobs(-1)
+
+
+@with_multiprocessing
+@pytest.mark.thread_unsafe  # adjusts global os.environ
+@pytest.mark.parametrize("set_env", [True, False])
+def test_loky_cores_split_up_in_subprocess(set_env, request):
+    """``set_thread_local_cpu_limit()`` restricts Loky workers' cores.
+
+    This is true even if ``LOKY_MAX_CPU_COUNT`` is set.
+    """
+    if set_env:
+        old_value = os.environ.get("LOKY_MAX_CPU_COUNT", None)
+        os.environ["LOKY_MAX_CPU_COUNT"] = "4"
+
+        def restore():
+            if old_value is not None:
+                os.environ["LOKY_MAX_CPU_COUNT"] = old_value
+            else:
+                os.environ.pop("LOKY_MAX_CPU_COUNT")
+
+        request.addfinalizer(restore)
+
+    results = []
+
+    def run_loky_in_thread():
+        set_thread_local_cpu_limit(2)
+        results.extend(
+            joblib.Parallel(n_jobs=2, backend="loky")(
+                [delayed(_get_loky_env_var_and_effective_jobs)() for _ in range(2)]
+            )
+        )
+
+    # Avoid nesting logic which might turn requested loky backend into
+    # non-loky, by using a thread:
+    thread = threading.Thread(target=run_loky_in_thread)
+    thread.start()
+    thread.join()
+
+    assert results == [("1", 1), ("1", 1)]
 
 
 ###############################################################################
@@ -715,6 +837,7 @@ def test_dispatch_one_job(backend, batch_size, expected_queue):
     assert len(queue) == 12
 
 
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1865
 @with_multiprocessing
 @parametrize("backend", PARALLEL_BACKENDS)
 def test_dispatch_multiprocessing(backend):
@@ -757,6 +880,7 @@ def test_batching_auto_threading():
         assert p._backend.compute_batch_size() == 1
 
 
+@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1865
 @with_multiprocessing
 @parametrize("backend", PROCESS_BACKENDS)
 def test_batching_auto_subprocesses(backend):
@@ -1713,7 +1837,6 @@ def test_multiple_generator_call_separated_gc(backend, return_as_1, return_as_2,
         assert parallel._aborting
 
 
-@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1794
 @with_numpy
 @with_multiprocessing
 @parametrize("backend", PROCESS_BACKENDS)
@@ -2056,6 +2179,7 @@ def test_zero_worker_backend(context):
             Parallel(n_jobs=2)(delayed(id)(i) for i in range(2))
 
 
+@pytest.mark.thread_unsafe  # Uses globals!
 def test_globals_update_at_each_parallel_call():
     # This is a non-regression test related to joblib issues #836 and #833.
     # Cloudpickle versions between 0.5.4 and 0.7 introduced a bug where global
@@ -2194,6 +2318,7 @@ def test_threadpool_limitation_in_child_context(
         assert old["num_threads"] == new["num_threads"]
 
 
+@pytest.mark.thread_unsafe  # involves global mutable state in os.environ
 @with_multiprocessing
 @parametrize("n_jobs", [2, -1])
 @parametrize("var_name", ["OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "OMP_NUM_THREADS"])
@@ -2371,13 +2496,21 @@ def test_initializer_not_reused(n_jobs):
     )
 
 
-def test_set_env_initializer() -> None:
+@pytest.mark.thread_unsafe  # mutates os.environ, which is global
+def test_set_env_initializer(request) -> None:
     """
     ``_SetEnvInitializer()`` sets environment variables and optionally calls an
     initializer.
     """
     k1 = str(uuid4())
     k2 = str(uuid4())
+
+    def cleanup():
+        os.environ.pop(k1, None)
+        os.environ.pop(k2, None)
+
+    request.addfinalizer(cleanup)
+
     svi = _SetEnvInitializer({k1: "A", k2: "B"}, None)
     assert k1 not in os.environ
     assert k2 not in os.environ

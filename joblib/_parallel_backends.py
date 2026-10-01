@@ -59,8 +59,7 @@ _MAX_CORES = _MaxCores()
 
 
 def cpu_count(only_physical_cores=False, process_wide=False) -> int:
-    """
-    Return the number of CPU cores the current thread can use.
+    """Return the number of CPU cores the current thread can use.
 
     Per-thread limits can be constrained by ``joblib.Parallel``'s threaded
     backend: cores will be split up across the worker threads.  Additionally,
@@ -76,11 +75,25 @@ def cpu_count(only_physical_cores=False, process_wide=False) -> int:
     and physical limit) will be chosen, but future versions may have a smarter
     algorithm.
     """
+    if process_wide:
+        return system_cpu_count(only_physical_cores=only_physical_cores)
     return _MAX_CORES.get(only_physical_cores)
 
 
-def _split_up_cores(total_cores: int, n_jobs: int) -> int:
+def set_thread_local_cpu_limit(num_cores: int) -> None:
+    """Set the thread-local limit for result of ``cpu_count()``.
+
+    Outside of internal use, this is useful for external thread pool
+    implementations that want to rely on ``joblib``'s ``cpu_count()``.  They
+    will want to call this in each worker's initializer function, dividing up
+    the cores available in the parent threads.
     """
+    _MAX_CORES.set_thread_limit(num_cores)
+
+
+def _split_up_cores(total_cores: int, n_jobs: int) -> int:
+    """Divide up cores between workers.
+
     Given the total number of cores and a number of workers, come up with a
     reasonable number of cores per worker.
 
@@ -294,7 +307,7 @@ class ParallelBackendBase(metaclass=ABCMeta):
         """
         explicit_n_threads = self.inner_max_num_threads
         if explicit_n_threads is None:
-            return max(_MAX_CORES.get() // n_jobs, 1)
+            return _split_up_cores(cpu_count(), n_jobs)
         else:
             return explicit_n_threads
 
@@ -315,7 +328,13 @@ class ParallelBackendBase(metaclass=ABCMeta):
         env = {}
         for var in self.MAX_NUM_THREADS_VARS:
             if explicit_n_threads is None:
-                var_value = os.environ.get(var, default_n_threads)
+                if var == "LOKY_MAX_CPU_COUNT":
+                    # We don't want to pass it through, it was intended for
+                    # this process, and we've potentially split it up due to
+                    # worker threads.
+                    var_value = default_n_threads
+                else:
+                    var_value = os.environ.get(var, default_n_threads)
             else:
                 var_value = explicit_n_threads
 
@@ -599,7 +618,7 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
             cores_per_thread = _split_up_cores(available_cores, self._n_jobs)
 
             def init():
-                _MAX_CORES.set_thread_limit(cores_per_thread)
+                set_thread_local_cpu_limit(cores_per_thread)
                 self._threadpool_controller.limit(
                     limits=self._external_libs_inner_thread_limit
                 )
@@ -610,6 +629,22 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
     def terminate(self):
         self._thread_limiter.restore_original_limits()
         super().terminate()
+
+
+@dataclass
+class _SetEnvInitializer:
+    """
+    Pickleable initializer for multiprocessing workers.
+    """
+
+    env: dict[str, str]
+    initializer: None | Callable[..., Any]
+
+    def __call__(self, *args, **kwargs) -> Any:
+        for key, value in self.env.items():
+            os.environ[key] = value
+        if self.initializer is not None:
+            return self.initializer(*args, **kwargs)
 
 
 @dataclass
