@@ -66,6 +66,18 @@ class KlassWithCachedMethod(object):
         return x
 
 
+if np is not None:
+
+    class MaskedArrayWithMetadata(np.ma.MaskedArray):
+        def __reduce__(self):
+            constructor, args, state = super().__reduce__()
+            return constructor, args, (state, self.metadata)
+
+        def __setstate__(self, state):
+            super().__setstate__(state[0])
+            self.metadata = state[1]
+
+
 ###############################################################################
 # Tests
 
@@ -157,6 +169,97 @@ def test_hash_numpy_dict_of_arrays(three_np_arrays):
 
     assert hash(d1) == hash(d2)
     assert hash(d1) != hash(d3)
+
+
+@with_numpy
+@parametrize("dtype", ["uint8", "uint16", "int64", "float64", "complex128", "object"])
+def test_hash_masked_array(dtype):
+    first = np.ma.array([1, 2, 3], dtype=dtype, mask=[False, False, True], fill_value=0)
+    second = np.ma.array(
+        [1, 2, 3], dtype=dtype, mask=[False, True, False], fill_value=0
+    )
+    assert hash(first) != hash(second)
+    assert hash(first) == hash(first.copy())
+    assert hash({"array": [first]}) != hash({"array": [second]})
+    assert hash(first) != hash(first.data)
+
+
+@with_numpy
+def test_hash_masked_array_state():
+    array = np.ma.array([1, 2, 3], dtype="uint8", mask=[False, False, True])
+    initial_hash = hash(array)
+    array.data[0] = 4
+    assert hash(array) != initial_hash
+
+    initial_hash = hash(array)
+    array.fill_value = 5
+    assert hash(array) != initial_hash
+    initial_hash = hash(array)
+    array.fill_value = 6
+    assert hash(array) != initial_hash
+
+    initial_hash = hash(array)
+    array.harden_mask()
+    assert hash(array) != initial_hash
+
+
+@with_numpy
+def test_hash_masked_array_nomask():
+    array = np.ma.array([1, 2, 3], dtype="uint8")
+    unmasked = np.ma.array([1, 2, 3], dtype="uint8", mask=False)
+    assert np.isscalar(array.mask)
+    assert not np.isscalar(unmasked.mask)
+    assert hash(array) != hash(unmasked)
+
+
+@with_numpy
+@parametrize("dtype", ["uint8", "float64", "object"])
+@parametrize("layout", ["C", "F", "strided", "scalar", "empty"])
+def test_hash_masked_array_layout(dtype, layout):
+    array = np.ma.array(
+        np.arange(12).reshape(3, 4), dtype=dtype, mask=False, fill_value=0
+    )
+    array.mask[0, 0] = True
+    if layout == "F":
+        array = array.T
+    elif layout == "strided":
+        array = array[:, ::2]
+    elif layout == "scalar":
+        array = np.ma.array(1, dtype=dtype, mask=True, fill_value=0)
+    elif layout == "empty":
+        array = array[:0]
+    assert hash(array) == hash(array)
+    if layout != "strided":
+        restored = pickle.loads(pickle.dumps(array))
+        assert hash(array) == hash(restored)
+    else:
+        assert hash(array) != hash(array.copy())
+
+
+@with_numpy
+def test_hash_masked_constant():
+    assert hash(np.ma.masked) == hash(pickle.loads(pickle.dumps(np.ma.masked)))
+    assert hash(np.ma.masked) != hash(np.ma.array(0.0, mask=False))
+
+
+@with_numpy
+def test_hash_masked_array_recursive_object():
+    array = np.ma.array(np.empty(1, dtype=object), mask=False)
+    array.data[0] = array
+    assert hash(array) == hash(array)
+
+
+@with_numpy
+@parametrize("dtype", ["uint8", "object"])
+def test_hash_masked_array_subclass(dtype):
+    first = np.ma.array([1, 2], dtype=dtype, mask=False, fill_value=0).view(
+        MaskedArrayWithMetadata
+    )
+    second = first.copy()
+    first.metadata = "first"
+    second.metadata = "second"
+    assert hash(first) != hash(second)
+    assert hash(first) == hash(pickle.loads(pickle.dumps(first)))
 
 
 @with_numpy
