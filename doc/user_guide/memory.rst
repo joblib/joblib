@@ -238,6 +238,35 @@ python interpreter.
     point to). All the above remains valid though, except for the
     copy-pasting feature.
 
+Backends
+--------
+
+`Memory` supports several storage backends via the ``backend`` parameter.
+By default, it uses ``backend='local'``, which stores cached data on the local filesystem.
+
+When calling a cached function::
+
+    >>> memory = Memory(location, backend='local', verbose=0)
+    >>> memory.cache(func)(x)
+
+Joblib computes a 16-byte (32-character) hexadecimal hash of the inputs (here ``x``).
+The output of the function call is then pickled and saved to a path formatted as:
+``<location>/<path/to/func>/012/3456789abcdef0123456789abcdef/output.pkl``.
+
+.. XXX: To remove in joblib 1.9
+.. warning::
+    Prior to joblib 1.7, cached outputs were stored directly under
+    ``<location>/<path/to/func>/0123456789abcdef0123456789abcdef/output.pkl``.
+    When caching a large number of results, the ``func`` directory could contain
+    too many inodes, degrading filesystem performance.
+
+    Starting in joblib 1.7, the cache hierarchy includes a three-character subfolder
+    (e.g., ``012``) to reduce the number of entries per directory. Older cache directories
+    can be updated using :meth:`~joblib.Memory.update_cache_tree`::
+
+        >>> Memory(location).update_cache_tree()
+
+Additional backends will be added in future joblib releases, including a planned SQL backend.
 
 Gotchas
 -------

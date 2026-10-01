@@ -593,7 +593,7 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
                 "items using old cache storage tree.\n"
                 "The joblib cache tree has recently been updated "
                 "for efficiency reasons.\n"
-                "Starting with joblib 1.8, the old cache tree "
+                "Starting with joblib 1.9, the old cache tree "
                 "will no longer be supported.\n"
                 f"Please run `joblib.Memory({true_location}).update_cache_tree()` "
                 "to update your cache tree."
@@ -644,7 +644,7 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
             return call_id
         return (*call_id[:-1], call_id[-1][:3], call_id[-1][3:])
 
-    # XXX: To remove in joblib 1.8
+    # XXX: To remove in joblib 1.9
     def update_cache_tree(self):
         # First info update
         info_path = os.path.join(self.location, "store_backend_info.json")
