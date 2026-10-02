@@ -13,7 +13,10 @@ from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from threadpoolctl import ThreadpoolController
+try:
+    from threadpoolctl import get_cached_controller as _get_threadpool_controller
+except ImportError:
+    from threadpoolctl import ThreadpoolController as _get_threadpool_controller
 
 from ._multiprocessing_helpers import mp
 from ._utils import (
@@ -590,7 +593,7 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
 
     def configure(self, n_jobs=1, parallel=None, **backend_kwargs):
         """Build a process or thread pool and return the number of workers"""
-        self._threadpool_controller = ThreadpoolController()
+        self._threadpool_controller = _get_threadpool_controller()
         # Used to restore limits when when done:
         self._thread_limiter = self._threadpool_controller.limit()
         n_jobs = self.effective_n_jobs(n_jobs)

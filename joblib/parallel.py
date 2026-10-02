@@ -23,8 +23,6 @@ from multiprocessing import TimeoutError
 from numbers import Integral
 from uuid import uuid4
 
-from threadpoolctl import threadpool_limits
-
 from ._multiprocessing_helpers import mp
 
 # Make sure that those two classes are part of the public joblib.parallel API
@@ -37,6 +35,7 @@ from ._parallel_backends import (
     ParallelBackendBase,  # noqa
     SequentialBackend,
     ThreadingBackend,
+    _get_threadpool_controller,
     cpu_count,  # noqa
     set_thread_local_cpu_limit,  # noqa
 )
@@ -1911,7 +1910,7 @@ class Parallel(Logger):
         limiter = None
         try:
             # This makes relevant libraries respect cgroups, for example:
-            limiter = threadpool_limits(
+            limiter = _get_threadpool_controller().limit(
                 limits=self._backend._n_threads_for_worker_external_libs(1)
             )
             self._iterating = True
