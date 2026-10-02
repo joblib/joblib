@@ -333,8 +333,9 @@ class parallel_config:
         usable in some third-party library threadpools like OpenBLAS,
         MKL or OpenMP. This is only used with the ``loky``, ``sequential``
         and ``threading`` backends. The ``threading`` and ``sequential``
-        backends are limited to OpenMP and BLAS, whereas the ``loky`` backend
-        restricts additional third-party libraries.
+        backends are limited to constraining libraries supported by
+        ``threadpoolctl`` (at minimum OpenMP and BLAS), whereas the ``loky``
+        backend restricts additional third-party libraries.
 
     backend_params: dict
         Additional parameters to pass to the backend constructor when

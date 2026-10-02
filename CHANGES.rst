@@ -44,8 +44,10 @@ In Development
   from multiple threads.
   https://github.com/joblib/joblib/pull/1834
 
-- Threaded and sequential backend now also restrict the number of OpenMP and
-  BLAS threads, by using the `threadpoolctl` library.
+- Threaded and sequential backend now also restrict the number threads, by using
+  the `threadpoolctl`` library. At minimum BLAS and OpenMP are affected, but
+  other libraries that integrate with ``threadpoolctl`` now or in the future may
+  also be restricted.
   https://github.com/joblib/joblib/pull/1871
 
 - Process workers now have cores divided up based on pool sizes, even if
