@@ -322,26 +322,15 @@ class ParallelBackendBase(metaclass=ABCMeta):
         number of threads to `n_threads` for OpenMP, MKL, Accelerated and
         OpenBLAS libraries in the child processes.
         """
-        explicit_n_threads = self.inner_max_num_threads
-        default_n_threads = _split_up_cores(cpu_count(), n_jobs)
-
         # Set the inner environment variables to self.inner_max_num_threads if
-        # it is given. Else, default to cpu_count // n_jobs unless the variable
-        # is already present in the parent process environment.
+        # it is given. Else, default to cpu_count // n_jobs.
+        inner_num_threads = self.inner_max_num_threads
+        if inner_num_threads is None:
+            inner_num_threads = _split_up_cores(cpu_count(), n_jobs)
+
         env = {}
         for var in self.MAX_NUM_THREADS_VARS:
-            if explicit_n_threads is None:
-                if var == "LOKY_MAX_CPU_COUNT":
-                    # We don't want to pass it through, it was intended for
-                    # this process, and we've potentially split it up due to
-                    # worker threads.
-                    var_value = default_n_threads
-                else:
-                    var_value = os.environ.get(var, default_n_threads)
-            else:
-                var_value = explicit_n_threads
-
-            env[var] = str(var_value)
+            env[var] = str(inner_num_threads)
 
         if self.TBB_ENABLE_IPC_VAR not in os.environ:
             # To avoid over-subscription when using TBB, let the TBB schedulers

@@ -343,6 +343,10 @@ def test_loky_cores_split_up_in_subprocess(set_env, request):
     This is true even if ``LOKY_MAX_CPU_COUNT`` is set.
     """
     if set_env:
+        # Clean up the existing executor because we change the environment of
+        # the parent at runtime and it is not detected in loky intentionally.
+        get_reusable_executor(reuse=True).shutdown()
+
         old_value = os.environ.get("LOKY_MAX_CPU_COUNT", None)
         os.environ["LOKY_MAX_CPU_COUNT"] = "4"
 
@@ -2320,15 +2324,14 @@ def test_threadpool_limitation_in_child_context(
 
 @pytest.mark.thread_unsafe  # involves global mutable state in os.environ
 @with_multiprocessing
-@parametrize("n_jobs", [2, -1])
 @parametrize("var_name", ["OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "OMP_NUM_THREADS"])
 @parametrize("context", [parallel_config, parallel_backend])
-def test_threadpool_limitation_in_child_override(context, n_jobs, var_name):
+def test_threadpool_limitation_in_child_override(context, var_name):
     # Check that environment variables set by the user on the main process
-    # always have the priority.
+    # do not have the priority.
 
     # Skip this test if the process is run sequetially
-    if effective_n_jobs(n_jobs) == 1:
+    if effective_n_jobs(2) == 1:
         pytest.skip("Skip test when n_jobs == 1")
 
     # Clean up the existing executor because we change the environment of the
@@ -2340,15 +2343,17 @@ def test_threadpool_limitation_in_child_override(context, n_jobs, var_name):
 
     original_var_value = os.environ.get(var_name)
     try:
-        os.environ[var_name] = "4"
+        os.environ[var_name] = "16"
         # Skip this test if numpy is not linked to a BLAS library
-        results = Parallel(n_jobs=n_jobs)(delayed(_get_env)(var_name) for i in range(2))
-        assert results == ["4", "4"]
+        results = Parallel(n_jobs=2, backend="loky")(
+            delayed(_get_env)(var_name) for i in range(2)
+        )
+        expected = str(_split_up_cores(cpu_count(), 2))
+        assert results == [expected, expected]
 
+        # inner max num threads overrides the default, though:
         with context("loky", inner_max_num_threads=1):
-            results = Parallel(n_jobs=n_jobs)(
-                delayed(_get_env)(var_name) for i in range(2)
-            )
+            results = Parallel(n_jobs=2)(delayed(_get_env)(var_name) for i in range(2))
         assert results == ["1", "1"]
 
     finally:
