@@ -13,8 +13,8 @@ CLOUDPICKLE="cloudpickle"
 NUMPY="numpy"
 DISTRIBUTED="distributed"
 
-if [[ "$THREADPOOLCTL" == "" ]]; then
-    THREADPOOLCTL = "threadpoolctl"
+if [[ -z "${THREADPOOLCTL}" ]]; then
+    THREADPOOLCTL="threadpoolctl"
 fi
 
 # Install pytest-timeout to fasten failure in deadlocking tests
