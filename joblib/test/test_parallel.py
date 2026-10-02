@@ -2229,7 +2229,7 @@ def _check_numpy_threadpool_limits():
     a = np.random.randn(100, 100)
     np.dot(a, a)
     threadpoolctl = pytest.importorskip("threadpoolctl")
-    return threadpoolctl.threadpool_info()
+    return sorted(threadpoolctl.threadpool_info())
 
 
 def _parent_max_num_threads_for(child_module, parent_info):
