@@ -26,7 +26,6 @@ except NameError:
 
 try:
     import numpy as np
-    from numpy.lib.stride_tricks import as_strided
 except ImportError:
     np = None
 
@@ -248,6 +247,7 @@ def _strided_from_memmap(
     strides,
     total_buffer_len,
     unlink_on_gc_collect,
+    view_offset=0,
 ):
     """Reconstruct an array view on a memory mapped file."""
     if mode == "w+":
@@ -266,18 +266,29 @@ def _strided_from_memmap(
             unlink_on_gc_collect=unlink_on_gc_collect,
         )
     else:
-        # For non-contiguous data, memmap the total enclosing buffer and then
-        # extract the non-contiguous view with the stride-tricks API
+        # The first-element offset accounts for negative strides. Add the
+        # farthest positive-stride displacement and the final element's size
+        # to obtain the exact byte span, even for packed structured fields.
+        buffer_nbytes = (
+            view_offset
+            + np.dtype(dtype).itemsize
+            + sum((size - 1) * max(stride, 0) for size, stride in zip(shape, strides))
+        )
+        # Preserve longer buffers explicitly requested by existing callers,
+        # whose total_buffer_len is a count of dtype elements, not bytes.
+        buffer_nbytes = max(buffer_nbytes, total_buffer_len * np.dtype(dtype).itemsize)
         base = make_memmap(
             filename,
-            dtype=dtype,
-            shape=total_buffer_len,
+            dtype=np.uint8,
+            shape=buffer_nbytes,
             offset=offset,
             mode=mode,
             order=order,
             unlink_on_gc_collect=unlink_on_gc_collect,
         )
-        return as_strided(base, shape=shape, strides=strides)
+        return np.ndarray(
+            shape=shape, dtype=dtype, buffer=base, offset=view_offset, strides=strides
+        )
 
 
 def _reduce_memmap_backed(a, m):
@@ -299,6 +310,8 @@ def _reduce_memmap_backed(a, m):
         # Backward-compat for numpy < 2.0
         from numpy import byte_bounds
     a_start, a_end = byte_bounds(a)
+    # A negative stride puts the first logical element above the lower bound.
+    view_offset = a.__array_interface__["data"][0] - a_start
     m_start = byte_bounds(m)[0]
     offset = a_start - m_start
 
@@ -336,6 +349,7 @@ def _reduce_memmap_backed(a, m):
             strides,
             total_buffer_len,
             False,
+            view_offset,
         ),
     )
 
