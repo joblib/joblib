@@ -829,6 +829,66 @@ def test_file_handle_persistence(tmpdir):
                 assert obj_reloaded_2 == obj
 
 
+def _dumped_size(obj):
+    buf = io.BytesIO()
+    numpy_pickle.dump(obj, buf)
+    return len(buf.getvalue())
+
+
+class _OneByteReadsFile(io.BytesIO):
+    # Returns one byte per read, so that the trailer of a compressed stream
+    # always arrives in a later read than its last byte of data.
+    def read(self, size=-1):
+        return super().read(1 if size is None or size < 0 else min(size, 1))
+
+    def peek(self, size=1):
+        pos = self.tell()
+        return self.getvalue()[pos : pos + max(size, 1)]
+
+
+@pytest.mark.parametrize("compress", ["zlib", "gzip"])
+@pytest.mark.parametrize("first_size", ["small", "read_buffer_size"])
+@pytest.mark.parametrize("reads", ["regular", "one_byte"])
+def test_file_handle_persistence_consecutive_dumps(tmpdir, compress, first_size, reads):
+    # Compressed dumps written one after the other to the same file handle
+    # can be loaded back one after the other, as with pickle.
+    first = {"a": 1}
+    if first_size == "read_buffer_size":
+        # The first stream then ends exactly on a read boundary of the
+        # buffered reader wrapping the decompressor.
+        n = 2 * _IO_BUFFER_SIZE - _dumped_size(b"x" * _IO_BUFFER_SIZE)
+        first = b"x" * n
+        assert _dumped_size(first) == _IO_BUFFER_SIZE
+    objs = [first, ["some", "data"]]
+
+    if reads == "one_byte":
+        f = _OneByteReadsFile()
+        for obj in objs:
+            numpy_pickle.dump(obj, f, compress=(compress, 3))
+        f.seek(0)
+    else:
+        filename = tmpdir.join("test.pkl").strpath
+        with open(filename, "wb") as fw:
+            for obj in objs:
+                numpy_pickle.dump(obj, fw, compress=(compress, 3))
+        f = open(filename, "rb")
+
+    with f:
+        for obj in objs:
+            assert numpy_pickle.load(f) == obj
+        assert f.read() == b""
+
+
+@pytest.mark.parametrize("compress", ["zlib", "gzip"])
+def test_compressed_file_with_trailing_bytes(tmpdir, compress):
+    filename = tmpdir.join("test.pkl").strpath
+    numpy_pickle.dump("some data", filename, compress=(compress, 3))
+    with open(filename, "ab") as f:
+        f.write(b"\x00" * 16)
+
+    assert numpy_pickle.load(filename) == "some data"
+
+
 @with_numpy
 def test_in_memory_persistence():
     objs = [np.random.random((10, 10)), "some data"]

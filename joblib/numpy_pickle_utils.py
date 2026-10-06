@@ -10,7 +10,7 @@ import pickle
 import sys
 import warnings
 
-from .compressor import _COMPRESSORS, _ZFILE_PREFIX
+from .compressor import _COMPRESSORS, _ZFILE_PREFIX, BinaryZlibFile
 
 try:
     import numpy as np
@@ -156,6 +156,7 @@ def _validate_fileobject_and_memmap(fileobj, filename, mmap_mode=None):
     # Detect if the fileobj contains compressed data.
     compressor = _detect_compressor(fileobj)
     validated_mmap_mode = mmap_mode
+    inst = None
 
     if compressor == "compat":
         # Compatibility with old pickle mode: simply return the input
@@ -206,6 +207,12 @@ def _validate_fileobject_and_memmap(fileobj, filename, mmap_mode=None):
                 validated_mmap_mode = mmap_mode
 
         yield fileobj, validated_mmap_mode
+
+        if isinstance(inst, BinaryZlibFile):
+            # The pickle can end before the stream's trailer has been read.
+            # Read up to the end of the stream, so that the underlying file is
+            # left right after it, for instance at the start of a next dump.
+            inst.read()
 
 
 def _write_fileobject(filename, compress=("zlib", 3)):

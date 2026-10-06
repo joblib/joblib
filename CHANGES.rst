@@ -4,6 +4,11 @@ Release Notes
 In Development
 --------------
 
+- Fix ``load`` hanging while its memory grows without bound on a zlib or gzip
+  stream followed by more data, for instance a second compressed dump written
+  to the same file handle.
+  https://github.com/joblib/joblib/issues/1161
+
 - Fix ``Memory.cache(..., mmap_mode=..., verbose=...)`` to now uses its parameters
   mmap_mode and verbose instead of using the values used at Memory creation time.
   https://github.com/joblib/joblib/pull/1857
