@@ -184,6 +184,15 @@ class NumpyHasher(Hasher):
         than pickling them. Off course, this is a total abuse of
         the Pickler class.
         """
+        if isinstance(obj, self.np.ma.MaskedArray):
+            # Pickle preserves the data, mask and fill value, but not the
+            # distinction between nomask and an all-false mask, hardmask or
+            # non-contiguous strides. Hash those separately before falling
+            # back to the object's reducer (also for recursive object arrays).
+            self._hash.update(b"_HASHED_MASKED_ARRAY")
+            self.save((obj.mask, obj.hardmask, obj.strides))
+            Hasher.save(self, obj)
+            return
         if isinstance(obj, self.np.ndarray) and not obj.dtype.hasobject:
             # Compute a hash of the object
             # The update function of the hash requires a c_contiguous buffer.

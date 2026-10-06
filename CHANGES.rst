@@ -4,6 +4,10 @@ Release Notes
 In Development
 --------------
 
+- Fix hashing and caching of NumPy masked arrays to account for their masks,
+  fill values and hard masks, and avoid errors for multi-byte dtypes.
+  https://github.com/joblib/joblib/issues/573
+
 - Fix ``Memory.cache(..., mmap_mode=..., verbose=...)`` to now uses its parameters
   mmap_mode and verbose instead of using the values used at Memory creation time.
   https://github.com/joblib/joblib/pull/1857
