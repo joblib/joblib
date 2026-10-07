@@ -29,6 +29,7 @@ which python
 $PYTHON_PREFIX python -VV
 $PYTHON_PREFIX python -c "import multiprocessing as mp; print('multiprocessing.cpu_count():', mp.cpu_count())"
 $PYTHON_PREFIX python -c "import joblib; print('joblib.cpu_count():', joblib.cpu_count())"
+$PYTHON_PREFIX python -c "import threadpoolctl; print(threadpoolctl.__version__)"
 
 $PYTHON_PREFIX pytest joblib -vl --timeout=120 --cov=joblib --cov-report xml $PARALLEL_PYTEST_ARGS
 

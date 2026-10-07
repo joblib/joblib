@@ -124,6 +124,10 @@ jobs:
             os: ubuntu-latest
             PYTHON_VERSION: "oldest_supported"
             JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND: "threading"
+          - name: minimal-threadpoolctl
+            os: ubuntu-latest
+            PYTHON_VERSION: "oldest_supported"
+            THREADPOOLCTL: "threadpoolctl==3.7.0"
 
     env: ${{ matrix }}
 
