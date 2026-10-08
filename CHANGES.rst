@@ -4,6 +4,9 @@ Release Notes
 In Development
 --------------
 
+- Keep the cache fingerprint of functions without retrievable source stable
+  across processes when their code contains a constant set membership test.
+
 - Fix ``Memory.cache(..., mmap_mode=..., verbose=...)`` to now uses its parameters
   mmap_mode and verbose instead of using the values used at Memory creation time.
   https://github.com/joblib/joblib/pull/1857

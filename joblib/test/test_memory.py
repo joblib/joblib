@@ -274,7 +274,16 @@ _JUPYTER_SESSION = """if 1:
 """
 
 
-def test_cached_jupyter_function_persists_across_sessions(tmpdir):
+@parametrize(
+    "expression",
+    [
+        "x * 2",
+        "x * 2 if x in {21, 'apple', 'banana', 'cherry'} else 0",
+        "x * 2 if (x, 'apple') in {(21, 'apple'), (42, 'banana')} else 0",
+        "(lambda y: y * 2 if y in {21, 'apple', 'banana', 'cherry'} else 0)(x)",
+    ],
+)
+def test_cached_jupyter_function_persists_across_sessions(tmpdir, expression):
     # Non-regression test for gh-1498: a function defined in a notebook cell
     # must keep the same identity in a new interpreter, so that its cache
     # survives a kernel restart. That identity used to be hash(func.__code__),
@@ -291,10 +300,11 @@ def test_cached_jupyter_function_persists_across_sessions(tmpdir):
 
     # Two seeds stand in for two independently started interpreters, which is
     # what makes this deterministic rather than one-in-N flaky.
+    session = _JUPYTER_SESSION.replace("return x * 2", f"return {expression}")
     for seed in ("1", "2"):
         env["PYTHONHASHSEED"] = seed
         p = subprocess.run(
-            [sys.executable, "-c", _JUPYTER_SESSION, location, witness],
+            [sys.executable, "-c", session, location, witness],
             capture_output=True,
             text=True,
             env=env,
