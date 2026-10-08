@@ -65,6 +65,11 @@ def _code_fingerprint(code):
         # repr() of a nested code object embeds its address
         if isinstance(const, types.CodeType):
             parts.append(_code_fingerprint(const))
+        elif isinstance(const, frozenset):
+            # Literal set membership tests are compiled to frozensets whose
+            # repr order depends on PYTHONHASHSEED. Sort their representations
+            # rather than their values, which can have incomparable types.
+            parts.append("frozenset:" + repr(sorted(map(repr, const))))
         else:
             parts.append(repr(const))
     digest = hashlib.new("md5", usedforsecurity=False)

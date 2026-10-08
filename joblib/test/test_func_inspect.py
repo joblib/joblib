@@ -380,3 +380,16 @@ def test_func_code_consistency_without_source():
 
     codes = Parallel(n_jobs=2)(delayed(_get_code_no_source)() for _ in range(5))
     assert set(codes) == {_get_code_no_source()}
+
+
+def test_func_code_frozenset_contents():
+    def fingerprint(expression):
+        ns = {}
+        exec(f"def f(x): return x in {expression}", ns)
+        return get_func_code(ns["f"])[0]
+
+    original = fingerprint("{21, 'apple', 'banana'}")
+    assert original == fingerprint("{'banana', 'apple', 21}")
+    assert original != fingerprint("{21, 'apple', 'cherry'}")
+    assert original != fingerprint("{21, 'apple'}")
+    assert original != fingerprint("(21, 'apple', 'banana')")
