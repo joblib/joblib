@@ -167,16 +167,17 @@ def test_effective_n_jobs():
 
 
 @pytest.mark.parametrize(
-    "n_jobs, expected",
-    [(2.0, 2), (2.7, 2), (-1.5, effective_n_jobs(n_jobs=-1)), ("3", 3)],
+    "n_jobs, as_int",
+    [(2.0, 2), (2.7, 2), (-1.5, -1), ("3", 3)],
     ids=["whole-float", "fractional-float", "negative-float", "string"],
 )
-def test_effective_n_jobs_converted_to_int(n_jobs, expected):
+def test_effective_n_jobs_converted_to_int(n_jobs, as_int):
     # effective_n_jobs documents the same conversion as Parallel: "converted to
     # an integer, rounded below for float". Without it a float was passed
     # through and a string raised a TypeError from the comparison in the
-    # backend.
-    assert effective_n_jobs(n_jobs=n_jobs) == expected
+    # backend. Compare with the int value, as without multiprocessing every
+    # backend reports 1.
+    assert effective_n_jobs(n_jobs=n_jobs) == effective_n_jobs(n_jobs=as_int)
     assert isinstance(effective_n_jobs(n_jobs=n_jobs), int)
 
 
