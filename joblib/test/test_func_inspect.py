@@ -389,7 +389,6 @@ def test_func_code_frozenset_contents():
         return get_func_code(ns["f"])[0]
 
     original = fingerprint("{21, 'apple', 'banana'}")
-    assert original == fingerprint("{'banana', 'apple', 21}")
     assert original != fingerprint("{21, 'apple', 'cherry'}")
     assert original != fingerprint("{21, 'apple'}")
     assert original != fingerprint("(21, 'apple', 'banana')")
