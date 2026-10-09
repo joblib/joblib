@@ -164,6 +164,118 @@ def test_memmap_based_array_reducing(tmpdir):
 
 @with_numpy
 @with_multiprocessing
+@parametrize("order", ["C", "F"])
+@parametrize("mode", ["r", "r+", "w+", "c"])
+@parametrize(
+    "slices",
+    [
+        (5, slice(6, 2, -1)),
+        (slice(5, 7), slice(5, 2, -1)),
+        (slice(6, 4, -1), slice(3, 6)),
+        (slice(6, 4, -1), slice(5, 2, -1)),
+        (slice(5, 7), slice(3, 6, 2)),
+    ],
+)
+def test_memmap_based_array_reducing_negative_strides(tmpdir, order, mode, slices):
+    filename = tmpdir.join("test.mmap").strpath
+    # Leave a prefix and use an interior view so the file and view offsets
+    # both need to be preserved, independently of the backing array order.
+    original = np.memmap(
+        filename, dtype=np.int64, shape=(10, 10), mode="w+", order=order, offset=16
+    )
+    original[:] = np.arange(100).reshape(10, 10)
+    original.flush()
+    if mode != "w+":
+        del original
+        original = np.memmap(
+            filename, dtype=np.int64, shape=(10, 10), mode=mode, order=order, offset=16
+        )
+    view = original[slices]
+    expected = view.copy()
+    reducer = ArrayMemmapForwardReducer(None, tmpdir.strpath, "c", True)
+    constructor, args = reducer(view)
+    reconstructed = constructor(*args)
+
+    np.testing.assert_array_equal(reconstructed, expected)
+    assert reconstructed.strides == view.strides
+    assert has_shareable_memory(reconstructed)
+    assert reconstructed.flags.writeable == (mode != "r")
+    if mode != "r":
+        reconstructed.flat[0] = -1
+        # Copy-on-write mappings must not update the underlying file/view.
+        assert view.flat[0] == (expected.flat[0] if mode == "c" else -1)
+
+
+@with_numpy
+@with_multiprocessing
+@parametrize("order", ["C", "F"])
+@parametrize("mode", ["r", "r+"])
+def test_parallel_memmap_negative_strides(tmpdir, order, mode):
+    filename = tmpdir.join("test.mmap").strpath
+    original = np.memmap(
+        filename, dtype=np.int64, shape=(10, 10), mode="w+", order=order
+    )
+    original[:] = np.arange(100).reshape(10, 10)
+    original.flush()
+    del original
+    original = np.memmap(
+        filename, dtype=np.int64, shape=(10, 10), mode=mode, order=order
+    )
+    views = [original[5, 6:2:-1], original[6:4:-1, 5:2:-1]]
+    with Parallel(n_jobs=2, backend="loky") as parallel:
+        parallel(delayed(check_array)((view, Ellipsis, view.copy())) for view in views)
+        results = parallel(delayed(check_memmap_and_send_back)(view) for view in views)
+        for result, view in zip(results, views):
+            np.testing.assert_array_equal(result, view)
+            assert has_shareable_memory(result)
+        if mode == "r+":
+            view = views[1]
+            expected = view[0, 0]
+            parallel([delayed(inplace_double)((view, (0, 0), expected))])
+            assert original[6, 5] == 2 * expected
+
+
+@with_numpy
+@with_multiprocessing
+@parametrize("mode", ["r", "r+", "c"])
+@parametrize("reverse", [False, True])
+def test_memmap_based_array_reducing_packed_field(tmpdir, mode, reverse):
+    filename = tmpdir.join("packed.mmap").strpath
+    dtype = np.dtype([("a", "i4"), ("b", "i8")])
+    original = np.memmap(filename, dtype=dtype, shape=4, mode="w+", offset=64)
+    original["b"] = [101, 102, 103, 104]
+    original.flush()
+    del original
+    original = np.memmap(filename, dtype=dtype, shape=4, mode=mode, offset=64)
+    view = original["b"]
+    if reverse:
+        view = view[::-1]
+    expected = view.copy()
+    file_size = os.path.getsize(filename)
+    assert file_size == 64 + 4 * dtype.itemsize
+    # The last field ends at EOF. Its 44-byte span is not a multiple of the
+    # 8-byte field dtype, so neither rounding down nor rounding up is valid.
+    reducer = ArrayMemmapForwardReducer(None, tmpdir.strpath, "c", True)
+    constructor, args = reducer(view)
+    try:
+        reconstructed = constructor(*args)
+        np.testing.assert_array_equal(reconstructed, expected)
+        assert reconstructed.strides == view.strides
+        assert has_shareable_memory(reconstructed)
+        assert reconstructed.flags.writeable == (mode != "r")
+        if not reverse:
+            # Existing private callers use nine arguments and item counts.
+            legacy = constructor(*args[:9])
+            np.testing.assert_array_equal(legacy, expected)
+        if mode != "r":
+            reconstructed[0] = -1
+            assert view[0] == (expected[0] if mode == "c" else -1)
+    finally:
+        assert os.path.getsize(filename) == file_size
+
+
+@with_numpy
+@with_multiprocessing
 @skipif(
     sys.platform != "win32", reason="PermissionError only easily triggerable on Windows"
 )
