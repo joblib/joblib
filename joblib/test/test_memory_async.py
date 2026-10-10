@@ -183,3 +183,23 @@ async def test_memorized_func_call_async(tmp_path):
     x, meta = await gg.call(2, counter)
     assert x == 2, "f has not been called properly"
     assert isinstance(meta, dict), "Metadata are not returned by MemorizedFunc.call."
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("wrapper", ["direct", "memory"])
+async def test_not_memorized_func_call_async(wrapper):
+    calls = []
+
+    async def f(x, *, y):
+        await asyncio.sleep(0)
+        calls.append((x, y))
+        return x**2 + y, len(calls)
+
+    if wrapper == "direct":
+        func = AsyncNotMemorizedFunc(f)
+    else:
+        func = Memory(location=None, verbose=0).cache(f)
+
+    assert await func.call(2, y=3) == ((7, 1), {})
+    assert await func.call(2, y=3) == ((7, 2), {})
+    assert calls == [(2, 3), (2, 3)]
