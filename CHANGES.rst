@@ -4,6 +4,11 @@ Release Notes
 In Development
 --------------
 
+- Add ``MemorizedFunc.check_why_call_not_in_cache``, a counterpart to
+  ``check_call_in_cache`` that returns the reason a call is not in the cache
+  instead of just whether it is.
+  https://github.com/joblib/joblib/pull/1763
+
 - Fix ``Memory.cache(..., mmap_mode=..., verbose=...)`` to now uses its parameters
   mmap_mode and verbose instead of using the values used at Memory creation time.
   https://github.com/joblib/joblib/pull/1857

@@ -346,6 +346,9 @@ class NotMemorizedFunc(object):
     def check_call_in_cache(self, *args, **kwargs):
         return False
 
+    def check_why_call_not_in_cache(self, *args, **kwargs):
+        return "caching is disabled"
+
 
 ###############################################################################
 # class `AsyncNotMemorizedFunc`
@@ -463,24 +466,26 @@ class MemorizedFunc(Logger):
         self._func_code_info = None
         self._func_code_id = None
 
-    def _is_in_cache_and_valid(self, call_id):
-        """Check if the function call is cached and valid for given arguments.
+    def _why_not_in_cache(self, call_id):
+        """Report why the function call is not cached and valid.
 
         - Compare the function code with the one from the cached function,
         asserting if it has changed.
         - Check if the function call is present in the cache.
         - Call `cache_validation_callback` for user define cache validation.
 
-        Returns True if the function call is in cache and can be used, and
-        returns False otherwise.
+        Returns the reason the call cannot be used, or an empty string if it
+        is in cache and valid. Callers that only need a boolean negate it.
+
+        The ``stacklevel`` below assumes callers invoke this method directly.
         """
         # Check if the code of the function has changed
         if not self._check_previous_func_code(stacklevel=4):
-            return False
+            return "function code has changed"
 
         # Check if this specific call is in the cache
         if not self.store_backend.contains_item(call_id):
-            return False
+            return "call not in cache"
 
         # Call the user defined cache validation callback
         metadata = self.store_backend.get_metadata(call_id)
@@ -489,9 +494,9 @@ class MemorizedFunc(Logger):
             and not self.cache_validation_callback(metadata)
         ):
             self.store_backend.clear_item(call_id)
-            return False
+            return "user cache validation callback failed"
 
-        return True
+        return ""
 
     def _cached_call(self, args, kwargs, shelving):
         """Call wrapped function and cache result, or read cache if available.
@@ -540,7 +545,7 @@ class MemorizedFunc(Logger):
         # Compare the function code with the previous to see if the
         # function code has changed and check if the results are present in
         # the cache.
-        if self._is_in_cache_and_valid(call_id):
+        if not self._why_not_in_cache(call_id):
             if shelving:
                 return self._get_memorized_result(call_id), {}
 
@@ -646,9 +651,32 @@ class MemorizedFunc(Logger):
         -------
         is_call_in_cache: bool
             Whether or not the function call is in cache and can be used.
+
+        See Also
+        --------
+        check_why_call_not_in_cache
         """
         call_id = (self.func_id, self._get_args_id(*args, **kwargs))
-        return self._is_in_cache_and_valid(call_id)
+        return not self._why_not_in_cache(call_id)
+
+    def check_why_call_not_in_cache(self, *args, **kwargs):
+        """Check why the function call is not cached and valid.
+
+        Same as :meth:`check_call_in_cache`, but reports the reason for a
+        cache miss rather than just whether one will occur.
+
+        Returns
+        -------
+        reason: str
+            The reason why the call is not in cache, or an empty string if
+            the call is in cache and can be used.
+
+        See Also
+        --------
+        check_call_in_cache
+        """
+        call_id = (self.func_id, self._get_args_id(*args, **kwargs))
+        return self._why_not_in_cache(call_id)
 
     # ------------------------------------------------------------------------
     # Private interface
