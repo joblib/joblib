@@ -398,9 +398,15 @@ Gotchas
   pickle representation, or objects whose representation depends on the way they
   are constructed, the cache will not work. In particular, ``pytorch.Tensor``
   are known to have non-deterministic pickle representation (see this
-  `issue <https://github.com/pytorch/pytorch/issues/32165>`_). A good way
-  to debug this is to check that two calls to the following script with ``args``
-  and ``kwargs`` being the cached function's inputs give the same output::
+  `issue <https://github.com/pytorch/pytorch/issues/32165>`_).
+  For example, two ``pandas.DataFrame`` objects with the same data, columns,
+  and index may still have different internal representations depending on how
+  they were constructed, and therefore different :func:`joblib.hash` values.
+  In that case, :class:`Memory` conservatively recomputes the result rather
+  than risk reusing a result for inputs whose serialized representations
+  differ. A good way to debug this is to check that two calls to the following
+  script with ``args`` and ``kwargs`` being the cached function's inputs give
+  the same output::
 
     from joblib import hash
 
