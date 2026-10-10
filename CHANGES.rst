@@ -4,6 +4,11 @@ Release Notes
 In Development
 --------------
 
+- Fix ``await cached_func.call(...)`` for async functions when caching is
+  disabled with ``Memory(location=None)``. The call now awaits the function
+  and returns its output with empty metadata.
+  https://github.com/joblib/joblib/issues/1876
+
 - Fix ``Memory.cache(..., mmap_mode=..., verbose=...)`` to now uses its parameters
   mmap_mode and verbose instead of using the values used at Memory creation time.
   https://github.com/joblib/joblib/pull/1857

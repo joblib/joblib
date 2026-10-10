@@ -351,6 +351,9 @@ class NotMemorizedFunc(object):
 # class `AsyncNotMemorizedFunc`
 ###############################################################################
 class AsyncNotMemorizedFunc(NotMemorizedFunc):
+    async def call(self, *args, **kwargs):
+        return await self.func(*args, **kwargs), {}
+
     async def call_and_shelve(self, *args, **kwargs):
         return NotMemorizedResult(await self.func(*args, **kwargs))
 
