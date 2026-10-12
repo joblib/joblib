@@ -79,6 +79,8 @@ def _ensure_native_byte_order(array):
     Does nothing if array already uses the system byte order.
     """
     if _is_numpy_array_byte_order_mismatch(array):
+        if array.itemsize == 0:
+            return array.view(array.dtype.newbyteorder("="))
         array = array.byteswap().view(array.dtype.newbyteorder("="))
     return array
 

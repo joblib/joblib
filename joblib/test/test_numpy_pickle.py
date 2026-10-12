@@ -155,6 +155,7 @@ def test_zero_itemsize_numpy_persistence_mmap(tmp_path, mmap_mode):
         np.zeros((2, 3), dtype=[("empty", "V0")]),
         np.arange(6).reshape(2, 3),
         np.array([{"value": 1}], dtype=object),
+        np.ndarray((2, 3), dtype=[("o", object, (0,))]),
     ]
     filename = tmp_path / "zero-itemsize.pkl"
     numpy_pickle.dump(arrays, filename)
@@ -162,10 +163,97 @@ def test_zero_itemsize_numpy_persistence_mmap(tmp_path, mmap_mode):
     for expected, actual in zip(arrays, loaded):
         assert actual.dtype == expected.dtype
         assert actual.shape == expected.shape
-        np.testing.assert_array_equal(actual, expected)
+        if expected.dtype.itemsize:
+            np.testing.assert_array_equal(actual, expected)
     assert not isinstance(loaded[0], np.memmap)
     assert isinstance(loaded[1], np.memmap)
     assert not isinstance(loaded[2], np.memmap)
+    assert not isinstance(loaded[3], np.memmap)
+
+
+@with_numpy
+@parametrize("shape", [(), (3,), (0, 2)])
+@parametrize("compress", [0, 3])
+@parametrize("mixed", [False, True])
+def test_zero_itemsize_numpy_persistence_object_slots(tmp_path, shape, compress, mixed):
+    array = np.ndarray(shape, dtype=[("o", object, (0,))])
+    assert array.itemsize == 0 and array.dtype.hasobject
+    values = [array, np.arange(3)] if mixed else array
+    filename = tmp_path / "zero-itemsize.pkl"
+    numpy_pickle.dump(values, filename, compress=compress)
+    loaded = numpy_pickle.load(filename)
+    loaded_array = loaded[0] if mixed else loaded
+    assert loaded_array.dtype == array.dtype
+    assert loaded_array.shape == array.shape
+    assert loaded_array["o"].shape == shape + (0,)
+    if mixed:
+        np.testing.assert_array_equal(loaded[1], np.arange(3))
+
+
+@with_numpy
+@parametrize("dtype", ["U0", "S0", ">U0" if sys.byteorder == "little" else "<U0"])
+@parametrize("shape", [(), (3,), (0, 2)])
+@parametrize("compress", [0, 3])
+def test_zero_itemsize_numpy_persistence_flexible_dtype(
+    tmp_path, dtype, shape, compress
+):
+    # zeros/empty promote top-level U0/S0 to U1/S1, whereas ndarray preserves 0.
+    array = np.ndarray(shape, dtype=dtype)
+    assert array.itemsize == 0
+    filename = tmp_path / "zero-itemsize.pkl"
+    numpy_pickle.dump(array, filename, compress=compress)
+    loaded = numpy_pickle.load(filename)
+    assert loaded.dtype == array.dtype.newbyteorder("=")
+    assert loaded.shape == array.shape
+    np.testing.assert_array_equal(loaded, array)
+
+
+@with_numpy
+@parametrize("shape", [(), (3,), (0, 2)])
+@parametrize("ensure_native_byte_order", ["auto", True, False])
+@parametrize("compress", [0, 3])
+def test_zero_itemsize_numpy_persistence_byte_order(
+    tmp_path, shape, ensure_native_byte_order, compress
+):
+    nonnative_order = ">" if sys.byteorder == "little" else "<"
+    array = np.zeros(shape, dtype=[("u", nonnative_order + "U0")])
+    filename = tmp_path / "zero-itemsize.pkl"
+    numpy_pickle.dump(array, filename, compress=compress)
+    loaded = numpy_pickle.load(
+        filename, ensure_native_byte_order=ensure_native_byte_order
+    )
+    expected_dtype = (
+        array.dtype
+        if ensure_native_byte_order is False
+        else array.dtype.newbyteorder("=")
+    )
+    assert loaded.dtype == expected_dtype
+    assert loaded.shape == array.shape
+    np.testing.assert_array_equal(loaded, array)
+
+
+@with_numpy
+@parametrize("dtype", ["V0", [], [("u", "U0")], [("s", "S0")]])
+@parametrize("compress", [0, 3])
+def test_zero_itemsize_numpy_persistence_portable(
+    tmp_path, monkeypatch, dtype, compress
+):
+    original_find_class = numpy_pickle.NumpyUnpickler.find_class
+
+    def find_class(self, module, name):
+        # NumPy 1.24 cannot import NumPy 2's private core module.
+        if module.startswith("numpy._core"):
+            raise ModuleNotFoundError(module)
+        return original_find_class(self, module, name)
+
+    monkeypatch.setattr(numpy_pickle.NumpyUnpickler, "find_class", find_class)
+    array = np.zeros(3, dtype=dtype)
+    filename = tmp_path / "zero-itemsize.pkl"
+    numpy_pickle.dump(array, filename, compress=compress)
+    loaded = numpy_pickle.load(filename)
+    assert loaded.dtype == array.dtype
+    assert loaded.shape == array.shape
+    np.testing.assert_array_equal(loaded, array)
 
 
 @parametrize("wrong_compress", [-1, 10, dict()])
