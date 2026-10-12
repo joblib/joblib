@@ -374,10 +374,12 @@ class NumpyPickler(Pickler):
         after in the file. Warning: the file produced does not follow the
         pickle format. As such it can not be read with `pickle.load`.
         """
-        if self.np is not None and type(obj) in (
-            self.np.ndarray,
-            self.np.matrix,
-            self.np.memmap,
+        # Zero-itemsize arrays have no data buffer to persist or memory-map.
+        # Let the standard pickler preserve their shape and dtype instead.
+        if (
+            self.np is not None
+            and type(obj) in (self.np.ndarray, self.np.matrix, self.np.memmap)
+            and obj.dtype.itemsize != 0
         ):
             if type(obj) is self.np.memmap:
                 # Pickling doesn't work with memmapped arrays

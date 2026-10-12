@@ -131,6 +131,43 @@ def test_value_error():
         numpy_pickle.dump("foo", dict())
 
 
+@with_numpy
+@parametrize("dtype", ["V0", [], [("empty", "V0")]])
+@parametrize("shape", [(), (3,), (0, 2)])
+@parametrize("compress", [0, 3])
+@parametrize("in_memory", [False, True])
+def test_zero_itemsize_numpy_persistence(tmp_path, dtype, shape, compress, in_memory):
+    array = np.zeros(shape, dtype=dtype)
+    destination = io.BytesIO() if in_memory else tmp_path / "zero-itemsize.pkl"
+    numpy_pickle.dump(array, destination, compress=compress)
+    if in_memory:
+        destination.seek(0)
+    loaded = numpy_pickle.load(destination)
+    assert loaded.shape == array.shape
+    assert loaded.dtype == array.dtype
+    np.testing.assert_array_equal(loaded, array)
+
+
+@with_numpy
+@parametrize("mmap_mode", ["r", "r+", "w+", "c"])
+def test_zero_itemsize_numpy_persistence_mmap(tmp_path, mmap_mode):
+    arrays = [
+        np.zeros((2, 3), dtype=[("empty", "V0")]),
+        np.arange(6).reshape(2, 3),
+        np.array([{"value": 1}], dtype=object),
+    ]
+    filename = tmp_path / "zero-itemsize.pkl"
+    numpy_pickle.dump(arrays, filename)
+    loaded = numpy_pickle.load(filename, mmap_mode=mmap_mode)
+    for expected, actual in zip(arrays, loaded):
+        assert actual.dtype == expected.dtype
+        assert actual.shape == expected.shape
+        np.testing.assert_array_equal(actual, expected)
+    assert not isinstance(loaded[0], np.memmap)
+    assert isinstance(loaded[1], np.memmap)
+    assert not isinstance(loaded[2], np.memmap)
+
+
 @parametrize("wrong_compress", [-1, 10, dict()])
 def test_compress_level_error(wrong_compress):
     # Verify that passing an invalid compress argument raises an error.
