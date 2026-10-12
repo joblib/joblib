@@ -511,6 +511,149 @@ def test_managed_backend_reuse_temp_folder(backend):
 
 @with_numpy
 @with_multiprocessing
+@pytest.mark.thread_unsafe
+@parametrize("temp_folder_kind", ["string", "pathlike", "default"])
+def test_parallel_reused_executor_temp_folder(tmp_path, monkeypatch, temp_folder_kind):
+    # A reused executor must honor each Parallel object's requested root,
+    # including None, which should resolve the current environment default.
+    array = np.arange(100)
+    first_root = tmp_path / "first"
+    second_root = tmp_path / "second"
+    first_root.mkdir()
+    second_root.mkdir()
+
+    with Parallel(
+        n_jobs=2, backend="loky", max_nbytes=10, temp_folder=str(first_root)
+    ) as first:
+        executor = first._backend._workers
+        [first_filename] = first([delayed(getattr)(array, "filename")])
+        assert os.path.dirname(os.path.dirname(first_filename)) == str(first_root)
+    assert list(first_root.iterdir()) == []
+
+    if temp_folder_kind == "default":
+        monkeypatch.setenv("JOBLIB_TEMP_FOLDER", str(second_root))
+        temp_folder = None
+    elif temp_folder_kind == "pathlike":
+        temp_folder = second_root
+    else:
+        temp_folder = str(second_root)
+
+    with Parallel(
+        n_jobs=2, backend="loky", max_nbytes=10, temp_folder=temp_folder
+    ) as second:
+        assert second._backend._workers is executor
+        [second_filename] = second([delayed(getattr)(array, "filename")])
+        assert os.path.dirname(os.path.dirname(second_filename)) == str(second_root)
+    assert list(first_root.iterdir()) == []
+    assert list(second_root.iterdir()) == []
+
+
+@with_multiprocessing
+@pytest.mark.thread_unsafe
+def test_temporary_resources_manager_context_roots(tmp_path, monkeypatch):
+    first_root = tmp_path / "first"
+    second_root = tmp_path / "second"
+    monkeypatch.setenv("JOBLIB_TEMP_FOLDER", str(second_root))
+    manager = jmr.TemporaryResourcesManager(first_root, context_id="initial")
+    try:
+        # Omitting the root keeps the original lower-level manager behavior.
+        manager.set_current_context("omitted")
+        assert os.path.dirname(manager.resolve_temp_folder_name()) == str(first_root)
+
+        manager.register_new_context("default", temp_folder_root=None)
+        manager.set_current_context("default")
+        default_folder = manager.resolve_temp_folder_name()
+        assert os.path.dirname(default_folder) == str(second_root)
+
+        # Registering an existing context must not change its cached path.
+        manager.register_new_context("default", temp_folder_root=first_root)
+        assert manager.resolve_temp_folder_name() == default_folder
+    finally:
+        manager._clean_temporary_resources()
+
+
+@with_numpy
+@with_multiprocessing
+def test_parallel_overlapping_temp_folder_roots(tmp_path):
+    # A second context must not move or clean the first one's live memmaps.
+    # Switching back to a managed Parallel instance should reuse its file.
+    array = np.arange(100)
+    first_root = tmp_path / "first"
+    second_root = tmp_path / "second"
+    first_root.mkdir()
+    second_root.mkdir()
+    kwargs = dict(n_jobs=2, backend="loky", max_nbytes=10)
+
+    with Parallel(temp_folder=first_root, **kwargs) as first:
+        [first_filename] = first([delayed(getattr)(array, "filename")])
+        with Parallel(temp_folder=second_root, **kwargs) as second:
+            assert second._backend._workers is first._backend._workers
+            [second_filename] = second([delayed(getattr)(array, "filename")])
+            assert os.path.dirname(os.path.dirname(first_filename)) == str(first_root)
+            assert os.path.dirname(os.path.dirname(second_filename)) == str(second_root)
+            assert first([delayed(getattr)(array, "filename")]) == [first_filename]
+            assert second([delayed(getattr)(array, "filename")]) == [second_filename]
+        assert list(second_root.iterdir()) == []
+        assert os.path.exists(first_filename)
+        assert first([delayed(getattr)(array, "filename")]) == [first_filename]
+    assert list(first_root.iterdir()) == []
+
+
+@with_numpy
+@with_multiprocessing
+@parametrize("return_as", ["generator", "generator_unordered"])
+def test_parallel_streaming_temp_folder_roots(tmp_path, return_as):
+    array = np.arange(100)
+    first_root = tmp_path / "first"
+    second_root = tmp_path / "second"
+    release_file = tmp_path / "release"
+    first_root.mkdir()
+    second_root.mkdir()
+
+    def filename_after_release(array, wait=False):
+        if wait:
+            for _ in range(3000):
+                if release_file.exists():
+                    break
+                sleep(0.01)
+            else:
+                raise RuntimeError("Timed out waiting for the second Parallel call")
+        return array.filename, array.sum()
+
+    first = Parallel(
+        n_jobs=2,
+        backend="loky",
+        max_nbytes=10,
+        temp_folder=first_root,
+        return_as=return_as,
+        pre_dispatch=1,
+        batch_size=1,
+    )
+    output = first(delayed(filename_after_release)(array, i == 1) for i in range(3))
+    try:
+        first_result = next(output)
+        executor = first._backend._workers
+        with Parallel(
+            n_jobs=2, backend="loky", max_nbytes=10, temp_folder=second_root
+        ) as second:
+            assert second._backend._workers is executor
+            [second_result] = second([delayed(filename_after_release)(array)])
+            assert os.path.dirname(os.path.dirname(second_result[0])) == str(
+                second_root
+            )
+        assert list(second_root.iterdir()) == []
+        assert os.path.exists(first_result[0])
+    finally:
+        release_file.touch()
+        remaining = list(output)
+    assert remaining == [first_result, first_result]
+    assert first_result[1] == second_result[1] == array.sum()
+    assert os.path.dirname(os.path.dirname(first_result[0])) == str(first_root)
+    assert list(first_root.iterdir()) == []
+
+
+@with_numpy
+@with_multiprocessing
 def test_memmapping_temp_folder_thread_safety():
     # Concurrent calls to Parallel with the loky backend will use the same
     # executor, and thus the same reducers. Make sure that those reducers use

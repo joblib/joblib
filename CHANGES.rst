@@ -4,6 +4,9 @@ Release Notes
 In Development
 --------------
 
+- Honor each ``Parallel`` object's ``temp_folder`` when reusing a loky
+  executor, without changing other active calls' temporary folders.
+
 - Fix ``Memory.cache(..., mmap_mode=..., verbose=...)`` to now uses its parameters
   mmap_mode and verbose instead of using the values used at Memory creation time.
   https://github.com/joblib/joblib/pull/1857
