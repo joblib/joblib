@@ -69,6 +69,7 @@ content-type = "text/x-rst"
 [project.urls]
 Homepage = "https://joblib.readthedocs.io"
 Source = "https://github.com/joblib/joblib"
+Changelog = "https://github.com/joblib/joblib/blob/main/CHANGES.rst"
 
 [tool.setuptools]
 packages = [
