@@ -203,23 +203,36 @@ def test_zero_itemsize_numpy_persistence_flexible_dtype(
     filename = tmp_path / "zero-itemsize.pkl"
     numpy_pickle.dump(array, filename, compress=compress)
     loaded = numpy_pickle.load(filename)
-    assert loaded.dtype == array.dtype.newbyteorder("=")
+    assert loaded.dtype.str == array.dtype.newbyteorder("=").str
     assert loaded.shape == array.shape
     np.testing.assert_array_equal(loaded, array)
 
 
 @with_numpy
+@parametrize(
+    "dtype",
+    [
+        [("u", "U0")],
+        [("u", "U0"), ("pad", "V0")],
+        [("nested", [("u", "U0"), ("pad", "V0")])],
+        [("values", "i4", (0,))],
+        [("nested", [("values", "i4", (0,)), ("u", "U0")])],
+        [("o", object, (0,)), ("u", "U0")],
+        [("nested", [("o", object, (0,)), ("u", "U0")])],
+    ],
+)
 @parametrize("shape", [(), (3,), (0, 2)])
 @parametrize("ensure_native_byte_order", ["auto", True, False])
 @parametrize("compress", [0, 3])
 def test_zero_itemsize_numpy_persistence_byte_order(
-    tmp_path, shape, ensure_native_byte_order, compress
+    tmp_path, dtype, shape, ensure_native_byte_order, compress
 ):
     nonnative_order = ">" if sys.byteorder == "little" else "<"
-    array = np.zeros(shape, dtype=[("u", nonnative_order + "U0")])
+    array = np.ndarray(shape, dtype=np.dtype(dtype).newbyteorder(nonnative_order))
     filename = tmp_path / "zero-itemsize.pkl"
-    numpy_pickle.dump(array, filename, compress=compress)
-    loaded = numpy_pickle.load(
+    values = [array, np.arange(3), {"tail": "done"}]
+    numpy_pickle.dump(values, filename, compress=compress)
+    loaded, numbers, tail = numpy_pickle.load(
         filename, ensure_native_byte_order=ensure_native_byte_order
     )
     expected_dtype = (
@@ -227,9 +240,12 @@ def test_zero_itemsize_numpy_persistence_byte_order(
         if ensure_native_byte_order is False
         else array.dtype.newbyteorder("=")
     )
-    assert loaded.dtype == expected_dtype
+    assert loaded.dtype.descr == expected_dtype.descr
     assert loaded.shape == array.shape
+    assert loaded.itemsize == 0
     np.testing.assert_array_equal(loaded, array)
+    np.testing.assert_array_equal(numbers, values[1])
+    assert tail == values[2]
 
 
 @with_numpy
