@@ -11,9 +11,11 @@ import gc
 import hashlib
 import io
 import itertools
+import os
 import pickle
 import platform
 import random
+import subprocess
 import sys
 import time
 from concurrent.futures import ProcessPoolExecutor
@@ -528,3 +530,56 @@ def test_wrong_hash_name():
     with raises(ValueError, match=msg):
         data = {"foo": "bar"}
         hash(data, hash_name="invalid")
+
+
+@parametrize("hash_name", ["md5", "sha1"])
+@parametrize(
+    "values",
+    [
+        ["alpha", "beta", "gamma"],
+        ["alpha", 1, ("beta", 2)],
+        [frozenset(["alpha", "beta"]), frozenset(["gamma", "delta"])],
+    ],
+)
+def test_frozenset_hash_across_processes(hash_name, values):
+    script = "from joblib import hash; print(hash(frozenset(%r), hash_name=%r))" % (
+        values,
+        hash_name,
+    )
+    digests = {
+        subprocess.check_output(
+            [sys.executable, "-c", script],
+            env=dict(os.environ, PYTHONHASHSEED=seed),
+            text=True,
+        ).strip()
+        for seed in ("1", "2", "3")
+    }
+    assert len(digests) == 1
+
+
+def test_frozenset_hash_keeps_type_and_contents():
+    values = ["alpha", "beta"]
+    assert hash(frozenset(values)) != hash(set(values))
+    assert hash(frozenset(values)) != hash(frozenset(["alpha", "gamma"]))
+
+
+def test_memory_reuses_frozenset_arguments_across_processes(tmp_path):
+    script = r"""
+import sys
+from joblib import Memory
+
+@Memory(sys.argv[1], verbose=0).cache
+def calculate(values):
+    with open(sys.argv[2], "a") as calls:
+        calls.write("called\n")
+    return len(values)
+
+assert calculate(frozenset(["alpha", "beta", "gamma"])) == 3
+"""
+    calls = tmp_path / "calls.txt"
+    for seed in ("1", "2", "3"):
+        subprocess.check_call(
+            [sys.executable, "-c", script, str(tmp_path / "cache"), str(calls)],
+            env=dict(os.environ, PYTHONHASHSEED=seed),
+        )
+    assert calls.read_text().splitlines() == ["called"]

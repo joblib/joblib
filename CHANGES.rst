@@ -4,6 +4,9 @@ Release Notes
 In Development
 --------------
 
+- Fix hashing of ``frozenset`` arguments to be consistent across processes
+  with different ``PYTHONHASHSEED`` values.
+
 - ``FileSystemStoreBackend`` (and hence ``Memory``) now stores its items using the format
   "abc/defghijklmnopqrstuvwxyzabcdef/output.pkl" instead of
   "abcdefghijklmnopqrstuvwxyzabcdef/output.pkl" in order to limit the number

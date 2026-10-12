@@ -154,6 +154,13 @@ class Hasher(Pickler):
 
     dispatch[type(set())] = save_set
 
+    def save_frozenset(self, set_items):
+        # Keep the immutable type while using the same order-independent
+        # serialization as sets, including for nested unorderable members.
+        Pickler.save(self, (frozenset, _ConsistentSet(set_items)))
+
+    dispatch[frozenset] = save_frozenset
+
 
 class NumpyHasher(Hasher):
     """Special case the hasher for when numpy is loaded."""
