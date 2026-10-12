@@ -4,6 +4,10 @@ Release Notes
 In Development
 --------------
 
+- Fix a ``KeyError`` in ``expires_after`` when cache metadata has no timestamp.
+  The cached result is now recomputed.
+  https://github.com/joblib/joblib/issues/1727
+
 - Fix ``Memory.cache(..., mmap_mode=..., verbose=...)`` to now uses its parameters
   mmap_mode and verbose instead of using the values used at Memory creation time.
   https://github.com/joblib/joblib/pull/1857

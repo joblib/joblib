@@ -1604,6 +1604,36 @@ class TestCacheValidationCallback:
         assert not d2["run"]
         assert d3["run"]
 
+    @pytest.mark.parametrize(
+        "metadata_content",
+        [None, "", '{"duration": 0.1}'],
+        ids=["missing", "invalid", "missing-time"],
+    )
+    def test_memory_expires_after_missing_metadata(self, tmp_path, metadata_content):
+        memory = Memory(location=tmp_path, verbose=0)
+        f = memory.cache(
+            self.foo, cache_validation_callback=expires_after(hours=1), ignore=["d"]
+        )
+
+        d1, d2, d3, d4 = ({"run": False} for _ in range(4))
+        assert f(2, d1) == 4
+        assert f(2, d2) == 4
+        assert d1["run"]
+        assert not d2["run"]
+
+        (cache_item,) = memory.store_backend.get_items()
+        metadata_file = Path(cache_item.path) / "metadata.json"
+        if metadata_content is None:
+            metadata_file.unlink()
+        else:
+            metadata_file.write_text(metadata_content)
+        assert (Path(cache_item.path) / "output.pkl").exists()
+
+        assert f(2, d3) == 4
+        assert d3["run"]
+        assert f(2, d4) == 4
+        assert not d4["run"]
+
 
 class TestMemorizedFunc:
     "Tests for the MemorizedFunc and NotMemorizedFunc classes"
