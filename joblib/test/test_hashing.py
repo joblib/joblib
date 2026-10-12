@@ -593,3 +593,10 @@ def test_frozenset_hash_with_reference_to_owner():
     owner = Klass()
     owner.members = frozenset([owner])
     assert hash(owner) == hash(owner)
+
+
+@parametrize("count", [1, 2])
+def test_frozenset_hash_nested_reference_to_owner(count):
+    owner = Klass()
+    owner.members = frozenset((owner, frozenset([str(i)])) for i in range(count))
+    assert hash(owner) == hash(owner)

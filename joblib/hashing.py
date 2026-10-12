@@ -23,9 +23,9 @@ class _ConsistentSet(object):
     whatever the order of its items.
     """
 
-    def __init__(self, set_sequence, *, hash_members=False):
+    def __init__(self, set_sequence, *, hash_members=False, memo=None):
         if hash_members:
-            self._sequence = sorted(hash(e) for e in set_sequence)
+            self._sequence = sorted(_hash_with_memo(e, memo) for e in set_sequence)
             return
         # Forces order of elements in set to ensure consistent hash.
         try:
@@ -38,6 +38,15 @@ class _ConsistentSet(object):
             # If elements are unorderable, sorting them using their hash.
             # This is slower but works in any case.
             self._sequence = sorted((hash(e) for e in set_sequence))
+
+
+def _hash_with_memo(item, memo):
+    hasher = NumpyHasher() if "numpy" in sys.modules else Hasher()
+    # These bytes are only hashed, not unpickled. Preserve enclosing back
+    # references so cyclic owners are not re-entered in a fresh hashing graph.
+    if memo is not None:
+        hasher.memo = memo.copy()
+    return hasher.hash(item)
 
 
 def _contains_frozenset(item):
@@ -170,7 +179,11 @@ class Hasher(Pickler):
         # a total order. Use member hashes to order those comparisons.
         hash_members = any(_contains_frozenset(item) for item in set_items)
         Pickler.save(
-            self, (frozenset, _ConsistentSet(set_items, hash_members=hash_members))
+            self,
+            (
+                frozenset,
+                _ConsistentSet(set_items, hash_members=hash_members, memo=self.memo),
+            ),
         )
 
     dispatch[frozenset] = save_frozenset
