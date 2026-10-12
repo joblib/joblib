@@ -23,7 +23,10 @@ class _ConsistentSet(object):
     whatever the order of its items.
     """
 
-    def __init__(self, set_sequence):
+    def __init__(self, set_sequence, *, hash_members=False):
+        if hash_members:
+            self._sequence = sorted(hash(e) for e in set_sequence)
+            return
         # Forces order of elements in set to ensure consistent hash.
         try:
             # Trying first to order the set assuming the type of elements is
@@ -35,6 +38,12 @@ class _ConsistentSet(object):
             # If elements are unorderable, sorting them using their hash.
             # This is slower but works in any case.
             self._sequence = sorted((hash(e) for e in set_sequence))
+
+
+def _contains_frozenset(item):
+    return isinstance(item, frozenset) or (
+        isinstance(item, tuple) and any(_contains_frozenset(value) for value in item)
+    )
 
 
 class _MyHash(object):
@@ -157,7 +166,12 @@ class Hasher(Pickler):
     def save_frozenset(self, set_items):
         # Keep the immutable type while using the same order-independent
         # serialization as sets, including for nested unorderable members.
-        Pickler.save(self, (frozenset, _ConsistentSet(set_items)))
+        # Nested frozensets, including inside tuples, compare by subset, not
+        # a total order. Use member hashes to order those comparisons.
+        hash_members = any(_contains_frozenset(item) for item in set_items)
+        Pickler.save(
+            self, (frozenset, _ConsistentSet(set_items, hash_members=hash_members))
+        )
 
     dispatch[frozenset] = save_frozenset
 

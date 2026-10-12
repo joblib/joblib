@@ -539,6 +539,10 @@ def test_wrong_hash_name():
         ["alpha", "beta", "gamma"],
         ["alpha", 1, ("beta", 2)],
         [frozenset(["alpha", "beta"]), frozenset(["gamma", "delta"])],
+        [
+            ("same", frozenset(["alpha", "beta"])),
+            ("same", frozenset(["gamma", "delta"])),
+        ],
     ],
 )
 def test_frozenset_hash_across_processes(hash_name, values):
@@ -583,3 +587,9 @@ assert calculate(frozenset(["alpha", "beta", "gamma"])) == 3
             env=dict(os.environ, PYTHONHASHSEED=seed),
         )
     assert calls.read_text().splitlines() == ["called"]
+
+
+def test_frozenset_hash_with_reference_to_owner():
+    owner = Klass()
+    owner.members = frozenset([owner])
+    assert hash(owner) == hash(owner)
