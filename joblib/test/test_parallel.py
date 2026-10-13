@@ -2283,6 +2283,7 @@ def test_threadpool_limitation_in_child_loky(n_jobs):
     )
 
 
+@pytest.mark.thread_unsafe  # modifies shared BLAS thread pool size
 @with_numpy
 @with_multiprocessing
 @parametrize("inner_max_num_threads", [1, 2, 4, None])
