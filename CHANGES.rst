@@ -51,6 +51,11 @@ In Development
   from multiple threads.
   https://github.com/joblib/joblib/pull/1834
 
+- Dropped support for Python 3.10, which is now end-of-life. NumPy and
+  Distributed minimum supported versions were also increased to the oldest
+  versions that support 3.11.
+  https://github.com/joblib/joblib/pull/1888
+
 
 Release 1.6.0 - 2026/08/31
 --------------------------
