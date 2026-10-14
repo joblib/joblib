@@ -1687,3 +1687,63 @@ class TestAutoGitignore:
 
         assert gitignore_file.exists()
         assert gitignore_file.read_text() == existing_content
+
+
+def test_check_previous_func_code_concurrent_keyerror(tmp_path, monkeypatch):
+    """Test that _check_previous_func_code handles KeyError gracefully (#1885)."""
+    memory = Memory(location=tmp_path, verbose=0)
+
+    def dummy(x):
+        return x + 1
+
+    cached_dummy = memory.cache(dummy)
+    assert cached_dummy(1) == 2
+
+    # Simulate a race condition where WeakKeyDictionary raises KeyError
+    class FlakyDict(dict):
+        def get(self, key, default=None):
+            raise KeyError("Simulated concurrent removal")
+
+    monkeypatch.setattr("joblib.memory._FUNCTION_HASHES", FlakyDict())
+    # Should not raise KeyError
+    assert cached_dummy(1) == 2
+
+
+class _DummyThreadSafeClass:
+    def compute(self, x):
+        return x * 2
+
+
+def test_memory_thread_safety_function_hashes(tmp_path):
+    """Test thread-safety of _check_previous_func_code during concurrent clears (#1885)."""
+    import threading
+
+    memory = Memory(location=tmp_path, verbose=0)
+    dummy = _DummyThreadSafeClass()
+    cached_compute = memory.cache(dummy.compute)
+
+    exceptions = []
+
+    def worker():
+        try:
+            for _ in range(50):
+                cached_compute(2)
+        except Exception as e:
+            exceptions.append(e)
+
+    def clearer():
+        try:
+            for _ in range(50):
+                _FUNCTION_HASHES.clear()
+        except Exception as e:
+            exceptions.append(e)
+
+    threads = [threading.Thread(target=worker) for _ in range(4)]
+    threads += [threading.Thread(target=clearer) for _ in range(2)]
+
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert not exceptions
