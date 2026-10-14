@@ -701,6 +701,9 @@ class MemorizedFunc(Logger):
         # in-memory version of the code does not vary
         try:
             func_hash = _FUNCTION_HASHES.get(self.func)
+            # We use as an identifier the id of the function and its
+            # hash. This is more likely to falsely change than have hash
+            # collisions, thus we are on the safe side.
             if func_hash is not None and func_hash == self._hash_func():
                 return True
         except TypeError:
