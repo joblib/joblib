@@ -168,7 +168,11 @@ def test_parallel_call_cached_function_defined_in_jupyter(tmpdir, call_before_re
                 filename=ipython_cell_id,
                 mode="exec",
             ),
-            locals=my_locals,
+            # TODO when Python 3.13 is the minimum supported version, use
+            # locals=my_locals instead of passing globals and locals in the
+            # next two lines as positional arguments
+            None,
+            my_locals,
         )
         f = my_locals["f"]
         f.__module__ = "__main__"
