@@ -700,13 +700,12 @@ class MemorizedFunc(Logger):
         # also renders us robust to variations of the files when the
         # in-memory version of the code does not vary
         try:
-            if self.func in _FUNCTION_HASHES:
-                # We use as an identifier the id of the function and its
-                # hash. This is more likely to falsely change than have hash
-                # collisions, thus we are on the safe side.
-                func_hash = self._hash_func()
-                if func_hash == _FUNCTION_HASHES[self.func]:
-                    return True
+            func_hash = _FUNCTION_HASHES.get(self.func)
+            # We use as an identifier the id of the function and its
+            # hash. This is more likely to falsely change than have hash
+            # collisions, thus we are on the safe side.
+            if func_hash is not None and func_hash == self._hash_func():
+                return True
         except TypeError:
             # Some callables are not hashable
             pass
@@ -1216,6 +1215,18 @@ class Memory(Logger):
         if self.store_backend is None:
             return func(*args, **kwargs)
         return self.cache(func)(*args, **kwargs)
+
+    def update_cache_tree(self):
+        """Update the cache tree to a more efficient system
+        when using backend 'local'.
+        """
+        if isinstance(self.store_backend, FileSystemStoreBackend):
+            self.store_backend.update_cache_tree()
+        else:
+            warnings.warn(
+                "Memory.update_cache_tree() does nothing when using a backend "
+                "other than FileSystemStoreBackend"
+            )
 
     # ------------------------------------------------------------------------
     # Private `object` interface

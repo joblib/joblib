@@ -23,15 +23,14 @@ concurrency:
 env:
   COVERAGE: 'true'
   # Oldest/latest supported python versions
-  OLDEST_PYTHON_VERSION: '3.10'
-  LATEST_PYTHON_VERSION: '3.14'
+  OLDEST_PYTHON_VERSION: '3.11'
+  LATEST_PYTHON_VERSION: '3.15'
   # We use the oldest package version
   # supporting the oldest supported python version
-  OLDEST_NUMPY_VERSION: '1.21.3'
+  OLDEST_NUMPY_VERSION: '1.23.2'
   OLDEST_CLOUDPICKLE_VERSION: '3.0.0'
-  # For distributed, some behavior changed starting from 2022.8.
-  # We decided to not support older versions
-  OLDEST_DISTRIBUTED_VERSION: '2022.8.1'
+  # Oldest verison that supports the oldest supported Python version
+  OLDEST_DISTRIBUTED_VERSION: '2022.12.1'
 
 jobs:
   linting:
@@ -81,7 +80,7 @@ jobs:
       matrix:
         name: [default]
         os: [ubuntu-latest, macos-latest, windows-latest]
-        PYTHON_VERSION: ["oldest_supported", "3.10", "3.11", "3.12", "3.13", "3.14"]
+        PYTHON_VERSION: ["oldest_supported", "3.11", "3.12", "3.13", "3.14", "3.15"]
         include:
           ######################################################
           #### Use the stable versions of free-threaded.    ####

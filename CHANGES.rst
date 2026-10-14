@@ -4,6 +4,13 @@ Release Notes
 In Development
 --------------
 
+- ``FileSystemStoreBackend`` (and hence ``Memory``) now stores its items using the format
+  "abc/defghijklmnopqrstuvwxyzabcdef/output.pkl" instead of
+  "abcdefghijklmnopqrstuvwxyzabcdef/output.pkl" in order to limit the number
+  of inodes inside the root cache directory. Migrating existing cache to this more
+  efficient behavior with ``Memory(...).update_cache_tree()``
+  https://github.com/joblib/joblib/pull/1781
+
 - Fix ``Memory.cache(..., mmap_mode=..., verbose=...)`` to now uses its parameters
   mmap_mode and verbose instead of using the values used at Memory creation time.
   https://github.com/joblib/joblib/pull/1857
@@ -40,6 +47,9 @@ In Development
   details.
   https://github.com/joblib/joblib/pull/1834
 
+- Fix a thread-safety issue in ``joblib.memory.Memory``.
+  https://github.com/joblib/joblib/pull/1892
+
 - Fix a number of thread-safety issues when using reusable process executors
   from multiple threads.
   https://github.com/joblib/joblib/pull/1834
@@ -54,6 +64,11 @@ In Development
   explicit environment variables (``LOKY_MAX_CPU_COUNT``, ``OMP_NUM_THREADS``,
   and the like) are set.
   https://github.com/joblib/joblib/pull/1871
+
+- Dropped support for Python 3.10, which is now end-of-life. NumPy and
+  Distributed minimum supported versions were also increased to the oldest
+  versions that support 3.11.
+  https://github.com/joblib/joblib/pull/1888
 
 
 Release 1.6.0 - 2026/08/31
