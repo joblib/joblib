@@ -47,6 +47,9 @@ In Development
   details.
   https://github.com/joblib/joblib/pull/1834
 
+- Fix a thread-safety issue in ``joblib.memory.Memory``.
+  https://github.com/joblib/joblib/pull/1892
+
 - Fix a number of thread-safety issues when using reusable process executors
   from multiple threads.
   https://github.com/joblib/joblib/pull/1834
