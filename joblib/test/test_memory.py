@@ -19,6 +19,7 @@ import sys
 import textwrap
 import time
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import pytest
 
@@ -1374,6 +1375,99 @@ def test_memory_mmap_mode(tmpdir):
         memory = Memory(tmpdir.strpath, mmap_mode=memory_mode, verbose=0)
         cached_f = memory.cache(f, mmap_mode=func_mode)
         assert isinstance(cached_f(a), np.memmap)
+
+
+@parametrize("location_type", [str, Path])
+@parametrize(
+    "memory_mmap_mode, cache_options",
+    [
+        (None, {}),
+        (None, {"verbose": 1}),
+        (None, {"mmap_mode": "r"}),
+        ("r", {"mmap_mode": None}),
+    ],
+)
+@parametrize("cleanup", ["clear", "reduce_size"])
+def test_memory_cache_preserves_location(
+    location_type, memory_mmap_mode, cache_options, cleanup
+):
+    def identity(value):
+        return value
+
+    # A user function must not inherit the test module's "joblib" path prefix.
+    identity.__module__ = "user_module"
+    with TemporaryDirectory() as root:
+        memory = Memory(location_type(root), mmap_mode=memory_mmap_mode, verbose=0)
+        expected_location = (
+            os.path.join(root, "joblib") if location_type is str else root
+        )
+        assert memory.store_backend.location == expected_location
+        cached = memory.cache(identity, **cache_options)
+        assert cached.store_backend.mmap_mode == cache_options.get(
+            "mmap_mode", memory_mmap_mode
+        )
+        assert cached.store_backend.verbose == cache_options.get("verbose", 0)
+        result = cached.call_and_shelve(2)
+        assert result.get() == 2
+        if cleanup == "clear":
+            memory.clear(warn=False)
+        else:
+            memory.reduce_size(items_limit=0)
+        with raises(KeyError):
+            result.get()
+        assert cached.store_backend.location == expected_location
+
+
+@parametrize("location_type", [str, Path])
+def test_memory_cache_verbose_preserves_cache_hits(location_type):
+    with TemporaryDirectory() as root:
+        memory = Memory(location_type(root), verbose=0)
+        assert memory.cache(f)(2) == 5
+        assert memory.cache(f, verbose=1).check_call_in_cache(2)
+
+
+@parametrize("location_type", [str, Path])
+def test_memory_cache_custom_backend_location(location_type, monkeypatch):
+    class CustomStoreBackend(FileSystemStoreBackend):
+        def configure(self, location, verbose=1, backend_options=None):
+            self.test_option = backend_options["test_option"]
+            super().configure(
+                os.path.join(location, "custom"), verbose, backend_options
+            )
+
+    monkeypatch.setitem(_STORE_BACKENDS, "custom_location", CustomStoreBackend)
+    with TemporaryDirectory() as root:
+        memory = Memory(
+            location_type(root),
+            backend="custom_location",
+            backend_options={"test_option": "preserved"},
+            verbose=0,
+        )
+        cached = memory.cache(f, verbose=1)
+        assert isinstance(cached.store_backend, CustomStoreBackend)
+        assert cached.store_backend.location == memory.store_backend.location
+        assert cached.store_backend.test_option == "preserved"
+        assert cached.store_backend.verbose == 1
+        assert cached(2) == 5
+
+
+def test_memory_cache_backend_instance_location():
+    with TemporaryDirectory() as root:
+        backend = FileSystemStoreBackend()
+        backend.configure(root, verbose=0)
+        memory = Memory(backend, verbose=0)
+        cached = memory.cache(f, verbose=1)
+        assert cached.store_backend is backend
+        assert cached(2) == 5
+
+
+def test_memory_cache_none_location_with_overrides():
+    memory = Memory(None, verbose=0)
+    cached = memory.cache(f, verbose=1, mmap_mode="r")
+    assert isinstance(cached, NotMemorizedFunc)
+    assert cached(2) == 5
+    assert not cached.check_call_in_cache(2)
+    assert memory.store_backend is None
 
 
 def test_filesystem_store_backend_repr(tmpdir):
