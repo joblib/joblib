@@ -281,6 +281,9 @@ def _nested_second_level(n_jobs, third_level):
     )
 
 
+# Technically thread-safe, but the extra CPU load makes the test less reliable
+# I think given it relies on tasks being distributed evenly across threads:
+@pytest.mark.thread_unsafe
 @with_multiprocessing
 @pytest.mark.parametrize("backend", ALL_VALID_BACKENDS)
 @pytest.mark.parametrize("nesting", [[2, -1], [-1, -1]])
