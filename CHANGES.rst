@@ -52,6 +52,8 @@ In Development
   https://github.com/joblib/joblib/pull/1834
 
 - Dropped support for Python 3.10, which is now end-of-life.
+  https://github.com/joblib/joblib/pull/1888
+
 
 Release 1.6.0 - 2026/08/31
 --------------------------
