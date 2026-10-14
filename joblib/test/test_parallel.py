@@ -2294,8 +2294,11 @@ def test_threadpool_limitation_in_child_loky(n_jobs):
 def test_threadpool_limitation_in_child_context(
     return_as, backend, context, n_jobs, inner_max_num_threads
 ):
-    # Check that the protection against oversubscription in workers is working
-    # using threadpoolctl functionalities.
+    """Validate protection against OpenMP/BLAS oversubscription."""
+    if inner_max_num_threads is not None:
+        # Some libraries may cap number of threads at the number of cores, e.g.
+        # some versions of OpenBLAS+pthreads on macOS.
+        inner_max_num_threads = min(cpu_count(), inner_max_num_threads)
 
     # Skip this test if numpy is not linked to a BLAS library
     parent_info = _check_numpy_threadpool_limits()
