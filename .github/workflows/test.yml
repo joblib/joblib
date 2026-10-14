@@ -80,7 +80,7 @@ jobs:
       matrix:
         name: [default]
         os: [ubuntu-latest, macos-latest, windows-latest]
-        PYTHON_VERSION: ["oldest_supported", "3.11", "3.12", "3.13", "3.15"]
+        PYTHON_VERSION: ["oldest_supported", "3.11", "3.12", "3.13", "3.14", "3.15"]
         include:
           ######################################################
           #### Use the stable versions of free-threaded.    ####
