@@ -827,6 +827,10 @@ class MemorizedFunc(Logger):
         """
         call_id = (self.func_id, self._get_args_id(*args, **kwargs))
 
+        # Register the function code and invalidate old results before saving
+        # the new result, even when this is the first call.
+        self._check_previous_func_code(stacklevel=3)
+
         # Return the output and the metadata
         return self._call(call_id, args, kwargs)
 
