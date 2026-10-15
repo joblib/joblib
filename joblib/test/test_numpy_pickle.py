@@ -40,7 +40,6 @@ from joblib.numpy_pickle_utils import (
     _IO_BUFFER_SIZE,
     _detect_compressor,
     _ensure_native_byte_order,
-    _is_numpy_array_byte_order_mismatch,
 )
 from joblib.test import data
 from joblib.test.common import (
@@ -600,46 +599,41 @@ def test_joblib_pickle_across_python_versions_with_mmap():
 
 
 @with_numpy
-def test_numpy_array_byte_order_mismatch_detection():
-    # List of numpy arrays with big endian byteorder.
-    be_arrays = [
-        np.array([(1, 2.0), (3, 4.0)], dtype=[("", ">i8"), ("", ">f8")]),
-        np.arange(3, dtype=np.dtype(">i8")),
-        np.arange(3, dtype=np.dtype(">f8")),
-    ]
+@parametrize("byteorder", ["<", ">"])
+@parametrize("kind", ["integer", "float", "structured"])
+def test_ensure_native_byte_order(byteorder, kind):
+    if kind == "structured":
+        array = np.array(
+            [(1, 2.0), (3, 4.0)],
+            dtype=[("integer", byteorder + "i8"), ("float", byteorder + "f8")],
+        )
+    else:
+        array = np.arange(3, dtype=byteorder + ("i8" if kind == "integer" else "f8"))
 
-    # Verify the byteorder mismatch is correctly detected.
-    for array in be_arrays:
-        if sys.byteorder == "big":
-            assert not _is_numpy_array_byte_order_mismatch(array)
-        else:
-            assert _is_numpy_array_byte_order_mismatch(array)
-        converted = _ensure_native_byte_order(array)
-        if converted.dtype.fields:
-            for f in converted.dtype.fields.values():
-                f[0].byteorder == "="
-        else:
-            assert converted.dtype.byteorder == "="
+    converted = _ensure_native_byte_order(array)
 
-    # List of numpy arrays with little endian byteorder.
-    le_arrays = [
-        np.array([(1, 2.0), (3, 4.0)], dtype=[("", "<i8"), ("", "<f8")]),
-        np.arange(3, dtype=np.dtype("<i8")),
-        np.arange(3, dtype=np.dtype("<f8")),
-    ]
+    assert converted.dtype == array.dtype.newbyteorder("=")
+    np.testing.assert_array_equal(converted, array)
+    if array.dtype.isnative:
+        assert converted is array
 
-    # Verify the byteorder mismatch is correctly detected.
-    for array in le_arrays:
-        if sys.byteorder == "little":
-            assert not _is_numpy_array_byte_order_mismatch(array)
-        else:
-            assert _is_numpy_array_byte_order_mismatch(array)
-        converted = _ensure_native_byte_order(array)
-        if converted.dtype.fields:
-            for f in converted.dtype.fields.values():
-                f[0].byteorder == "="
-        else:
-            assert converted.dtype.byteorder == "="
+
+@with_numpy
+@parametrize("kind", ["object", "structured", "nested", "subarray"])
+def test_ensure_native_byte_order_preserves_object_arrays(kind):
+    foreign = ">" if sys.byteorder == "little" else "<"
+    fields = [("number", foreign + "i4"), ("object", "O")]
+    if kind == "object":
+        dtype = np.dtype("O")
+    elif kind == "structured":
+        dtype = np.dtype(fields)
+    elif kind == "nested":
+        dtype = np.dtype([("nested", fields)])
+    else:
+        dtype = np.dtype([("nested", fields, (2,))])
+    array = np.zeros(3, dtype=dtype)
+
+    assert _ensure_native_byte_order(array) is array
 
 
 @with_numpy
