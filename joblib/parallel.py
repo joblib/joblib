@@ -17,6 +17,7 @@ import threading
 import time
 import warnings
 import weakref
+from concurrent.futures import CancelledError
 from contextlib import nullcontext
 from math import floor, log10, sqrt
 from multiprocessing import TimeoutError
@@ -1998,13 +1999,16 @@ class Parallel(Logger):
             pool = self._backend._get_pool()
 
             # Book keeping, for compatibility with normal code paths:
-            for res in pool.map(apply, iterable, chunksize=self._get_batch_size()):
-                self.n_dispatched_batches += 1
-                self.n_dispatched_tasks += 1
-                self.n_completed_tasks += 1
-                self.print_progress()
-                yield res
-                self._nb_consumed += 1
+            try:
+                for res in pool.map(apply, iterable, chunksize=self._get_batch_size()):
+                    self.n_dispatched_batches += 1
+                    self.n_dispatched_tasks += 1
+                    self.n_completed_tasks += 1
+                    self.print_progress()
+                    yield res
+                    self._nb_consumed += 1
+            except CancelledError:
+                return
         except BaseException:
             self._exception = True
             self._aborting = True

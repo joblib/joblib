@@ -622,7 +622,7 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
     def terminate(self):
         """Shutdown the process or thread pool"""
         if self._pool is not None:
-            self._pool.shutdown()
+            self._pool.shutdown(wait=False, cancel_futures=True)
             self._pool = None
 
 
