@@ -1978,9 +1978,44 @@ class Parallel(Logger):
         # Set to True after abortion is complete
         self._aborted = False
 
+    def _get_threaded_output(self, iterable):
+        """Fast path for dispatching threaded parallel tasks."""
+        pool = self._backend._get_pool()
+
+        def apply(params):
+            f, args, kwargs = params
+            return f(*args, **kwargs)
+
+        try:
+            self._iterating = True
+            self._original_iterator = iterable
+
+            results = pool.map(apply, iterable, chunksize=self._get_batch_size())
+            # first yield returns None, for internal use only. This ensures
+            # that we enter the try/except block and setup the generator.
+            yield None
+
+            # Book keeping:
+            for res in results:
+                self.n_dispatched_batches += 1
+                self.n_dispatched_tasks += 1
+                self.n_completed_tasks += 1
+                self.print_progress()
+                yield res
+                self._nb_consumed += 1
+        except BaseException:
+            self._exception = True
+            self._aborting = True
+            self._aborted = True
+            raise
+        finally:
+            self._running = False
+            self._iterating = False
+            self._original_iterator = None
+            self.print_progress()
+
     def __call__(self, iterable):
         """Main function to dispatch parallel tasks."""
-
         self._reset_run_tracking()
         self.n_tasks = len(iterable) if hasattr(iterable, "__len__") else None
         self._start_time = time.time()
@@ -1994,6 +2029,16 @@ class Parallel(Logger):
             # If n_jobs==1, run the computation sequentially and return
             # immediately to avoid overheads.
             output = self._get_sequential_output(iterable)
+            next(output)
+            return output if self.return_generator else list(output)
+
+        if (
+            isinstance(self._backend, ThreadingBackend)
+            and self.timeout is None
+            and not self._managed_backend
+            and self._get_sequential_output
+        ):
+            output = self._get_threaded_output(iterable)
             next(output)
             return output if self.return_generator else list(output)
 
