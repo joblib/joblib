@@ -122,6 +122,10 @@ class NumpyArrayWrapper(object):
         This function is an adaptation of the numpy write_array function
         available in version 1.10.1 in numpy/lib/format.py.
         """
+        if array.itemsize == 0:
+            # The wrapper already carries the shape and dtype; there is no
+            # payload or alignment padding to write.
+            return
         # Set buffer size to 16 MiB to hide the Python loop overhead.
         buffersize = max(16 * 1024**2 // array.itemsize, 1)
         if array.dtype.hasobject:
@@ -170,7 +174,9 @@ class NumpyArrayWrapper(object):
             shape_int64 = [unpickler.np.int64(x) for x in self.shape]
             count = unpickler.np.multiply.reduce(shape_int64)
         # Now read the actual data.
-        if self.dtype.hasobject:
+        if self.dtype.itemsize == 0:
+            array = unpickler.np.ndarray(self.shape, dtype=self.dtype, order=self.order)
+        elif self.dtype.hasobject:
             # The array contained Python objects, serialized as a nested
             # pickle stream. We read it with a fresh Unpickler (so the nested
             # stream gets its own opcode stack) but route ``find_class``
@@ -345,7 +351,11 @@ class NumpyPickler(Pickler):
         order = (
             "F" if (array.flags.f_contiguous and not array.flags.c_contiguous) else "C"
         )
-        allow_mmap = not self.buffered and not array.dtype.hasobject
+        allow_mmap = (
+            not self.buffered
+            and not array.dtype.hasobject
+            and array.dtype.itemsize != 0
+        )
 
         kwargs = {}
         try:
