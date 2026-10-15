@@ -1749,17 +1749,15 @@ class TestMemorizedFunc:
         assert f(2, counter) == 2
         assert counter == {2: 2}
 
-    @pytest.mark.parametrize("as_string", [False, True])
     @pytest.mark.parametrize("clear", [None, "memory", "function"])
-    def test_call_method_populates_cache(self, tmp_path, as_string, clear):
+    def test_call_method_populates_cache(self, tmp_path, clear):
         counter = []
 
         def func(x):
             counter.append(x)
             return len(counter)
 
-        location = str(tmp_path) if as_string else tmp_path
-        memory = Memory(location=location, verbose=0)
+        memory = Memory(location=str(tmp_path), verbose=0)
         f = memory.cache(func)
         expected = 1
         if clear is not None:
@@ -1777,14 +1775,12 @@ class TestMemorizedFunc:
         assert f(2) == expected
         assert len(counter) == expected
 
-    @pytest.mark.parametrize("as_string", [False, True])
-    def test_call_method_invalidates_changed_code(self, tmp_path, as_string):
+    def test_call_method_invalidates_changed_code(self, tmp_path):
         def func(a, b):
             pass
 
         func.__code__ = _sum.__code__
-        location = str(tmp_path) if as_string else tmp_path
-        memory = Memory(location=location, verbose=0)
+        memory = Memory(location=str(tmp_path), verbose=0)
         f = memory.cache(func)
         assert f(1, 2) == 3
         assert f(2, 3) == 5

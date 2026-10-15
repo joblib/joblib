@@ -4,6 +4,10 @@ Release Notes
 In Development
 --------------
 
+- Fix ``MemorizedFunc.call`` to register the function code so subsequent regular
+  calls can reuse its cached result.
+  https://github.com/joblib/joblib/pull/1897
+
 - ``FileSystemStoreBackend`` (and hence ``Memory``) now stores its items using the format
   "abc/defghijklmnopqrstuvwxyzabcdef/output.pkl" instead of
   "abcdefghijklmnopqrstuvwxyzabcdef/output.pkl" in order to limit the number

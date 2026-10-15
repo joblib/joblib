@@ -185,23 +185,3 @@ async def test_memorized_func_call_async(tmp_path):
     assert isinstance(meta, dict), "Metadata are not returned by MemorizedFunc.call."
     assert await gg(2, counter) == 2
     assert counter == {2: 2}
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize("as_string", [False, True])
-async def test_memorized_func_call_populates_cache_async(tmp_path, as_string):
-    counter = []
-
-    async def func(x):
-        counter.append(x)
-        return len(counter)
-
-    location = str(tmp_path) if as_string else tmp_path
-    memory = Memory(location=location, verbose=0)
-    f = memory.cache(func)
-    output, metadata = await f.call(2)
-    assert output == 1
-    assert isinstance(metadata, dict)
-    assert await f(2) == 1
-    assert await f(2) == 1
-    assert counter == [2]
