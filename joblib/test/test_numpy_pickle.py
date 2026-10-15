@@ -642,6 +642,63 @@ def test_numpy_array_byte_order_mismatch_detection():
             assert converted.dtype.byteorder == "="
 
 
+@with_numpy
+@parametrize("kind", ["mixed", "nested", "subarray", "byte", "aligned", "offsets"])
+@parametrize("order", ["C", "F"])
+@parametrize("compress", [0, ("zlib", 3)])
+@parametrize("ensure_native_byte_order", [True, False, "auto"])
+def test_load_structured_array_native_byte_order(
+    kind, order, compress, ensure_native_byte_order
+):
+    foreign = ">" if sys.byteorder == "little" else "<"
+    if kind == "mixed":
+        dtype = np.dtype([("a", foreign + "i4"), ("b", "=i4")])
+    elif kind == "nested":
+        dtype = np.dtype([("a", [("x", foreign + "i4"), ("y", "=f8")]), ("b", "u1")])
+    elif kind == "subarray":
+        dtype = np.dtype([("a", foreign + "i4", (2,)), ("b", "=i4")])
+    elif kind in ("byte", "aligned"):
+        dtype = np.dtype([("a", foreign + "i4"), ("b", "u1")], align=kind == "aligned")
+    else:
+        dtype = np.dtype(
+            {
+                "names": ["a", "b"],
+                "formats": [foreign + "i4", "=f8"],
+                "offsets": [0, 16],
+                "itemsize": 32,
+                "titles": ["left", None],
+            }
+        )
+    array = np.zeros((2, 3), dtype=dtype, order=order)
+
+    def fill_fields(values):
+        if values.dtype.names:
+            for name in values.dtype.names:
+                fill_fields(values[name])
+        else:
+            values[...] = np.arange(values.size).reshape(values.shape)
+
+    fill_fields(array)
+    stream = io.BytesIO()
+    numpy_pickle.dump(array, stream, compress=compress)
+    stream.seek(0)
+    result = numpy_pickle.load(
+        stream, ensure_native_byte_order=ensure_native_byte_order
+    )
+
+    expected_dtype = (
+        dtype if ensure_native_byte_order is False else dtype.newbyteorder("=")
+    )
+    assert result.dtype == expected_dtype
+    assert result.dtype.itemsize == dtype.itemsize
+    assert result.dtype.isalignedstruct == dtype.isalignedstruct
+    assert result.shape == array.shape
+    assert result.strides == array.strides
+    assert result.flags.c_contiguous == array.flags.c_contiguous
+    assert result.flags.f_contiguous == array.flags.f_contiguous
+    np.testing.assert_array_equal(result, array)
+
+
 @parametrize("compress_tuple", [("zlib", 3), ("gzip", 3)])
 def test_compress_tuple_argument(tmpdir, compress_tuple):
     # Verify the tuple is correctly taken into account.

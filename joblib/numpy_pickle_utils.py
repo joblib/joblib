@@ -80,6 +80,12 @@ def _ensure_native_byte_order(array):
     """
     if _is_numpy_array_byte_order_mismatch(array):
         array = array.byteswap().view(array.dtype.newbyteorder("="))
+    elif array.dtype.fields and not array.dtype.hasobject:
+        # Mixed-endian, nested and subarray fields need individual conversion:
+        # swapping every field would also swap fields that are already native.
+        native_dtype = array.dtype.newbyteorder("=")
+        if array.dtype != native_dtype:
+            array = array.astype(native_dtype)
     return array
 
 
