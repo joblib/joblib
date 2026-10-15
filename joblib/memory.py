@@ -172,13 +172,10 @@ class MemorizedResult(Logger):
     location: str
         The location of joblib cache. Depends on the store backend used.
 
-    func: function or str
-        function whose output is cached. The string case is intended only for
-        instantiation based on the output of repr() on another instance.
+    call_id: tuple of str
+        Function identifier and hash of the function arguments identifying the
+        cached value. Instances can be reconstructed from their representation
         (namely eval(repr(memorized_instance)) works).
-
-    argument_hash: str
-        hash of the function arguments.
 
     backend: str
         Type of store backend for reading/writing cache files.
@@ -259,8 +256,8 @@ class MemorizedResult(Logger):
         self.store_backend.clear_item(self._call_id)
 
     def __repr__(self):
-        return '{}(location="{}", func="{}", args_id="{}")'.format(
-            self.__class__.__name__, self.store_backend.location, *self._call_id
+        return "{}(location={!r}, call_id={!r})".format(
+            self.__class__.__name__, self.store_backend.location, self._call_id
         )
 
     def __getstate__(self):
