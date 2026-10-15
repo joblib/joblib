@@ -1126,9 +1126,12 @@ class Memory(Logger):
         # we recreate the store_backend here
         store_backend = self.store_backend
         if (verbose, mmap_mode) != (self._verbose, self.mmap_mode):
+            location = self.location
+            if isinstance(location, str):
+                location = os.path.join(location, "joblib")
             store_backend = _store_backend_factory(
                 self.backend,
-                self.location,
+                location,
                 verbose=verbose,
                 backend_options=dict(
                     **self.backend_options,
