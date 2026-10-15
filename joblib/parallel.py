@@ -1980,16 +1980,18 @@ class Parallel(Logger):
 
     def _get_threaded_output(self, iterable):
         """Fast path for dispatching threaded parallel tasks."""
-        pool = self._backend._get_pool()
+        nested_backend, nested_n_jobs = self._backend.get_nested_backend()
 
         def apply(params):
             f, args, kwargs = params
-            return f(*args, **kwargs)
+            with parallel_config(backend=nested_backend, n_jobs=nested_n_jobs):
+                return f(*args, **kwargs)
 
         try:
             self._iterating = True
             self._original_iterator = iterable
 
+            pool = self._backend._get_pool()
             results = pool.map(apply, iterable, chunksize=self._get_batch_size())
             # first yield returns None, for internal use only. This ensures
             # that we enter the try/except block and setup the generator.
