@@ -1414,18 +1414,32 @@ def test_memory_objects_repr(tmpdir):
     memorized_result = memorized_func.call_and_shelve(42, 42)
 
     memorized_result_repr = (
-        'MemorizedResult(location="{location}", func="{func}", args_id="{args_id}")'
+        "MemorizedResult(location={location!r}, call_id={call_id!r})"
     )
 
     assert str(memorized_result) == memorized_result_repr.format(
         location=memory.store_backend.location,
-        func=memorized_result.func_id,
-        args_id=memorized_result.args_id,
+        call_id=(memorized_result.func_id, memorized_result.args_id),
     )
 
     assert str(memory) == "Memory(location={location})".format(
         location=memory.store_backend.location
     )
+
+
+@pytest.mark.parametrize("cache_name", ["cache", "cache's", r"cache\new"])
+def test_memorized_result_repr_roundtrip(tmp_path, cache_name):
+    memory = Memory(location=tmp_path / cache_name, verbose=0)
+    result = memory.cache(f).call_and_shelve(2)
+
+    # Only evaluate the representation of a result created by this test.
+    restored = eval(repr(result), {"MemorizedResult": MemorizedResult})
+
+    assert restored.get() == result.get() == 5
+    assert restored.store_backend.location == result.store_backend.location
+    assert restored.func_id == result.func_id
+    assert restored.args_id == result.args_id
+    assert repr(restored) == repr(result)
 
 
 def test_memorized_result_pickle(tmpdir):
