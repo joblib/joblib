@@ -2014,6 +2014,7 @@ class Parallel(Logger):
             self._running = False
             self._iterating = False
             self._original_iterator = None
+            self._backend.terminate()
             self.print_progress()
 
     def __call__(self, iterable):
@@ -2038,7 +2039,8 @@ class Parallel(Logger):
             isinstance(self._backend, ThreadingBackend)
             and self.timeout is None
             and not self._managed_backend
-            and self._get_sequential_output
+            and self.return_ordered
+            and self.pre_dispatch == "2 * n_jobs"  # the default
         ):
             output = self._get_threaded_output(iterable)
             next(output)
