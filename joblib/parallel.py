@@ -1991,14 +1991,14 @@ class Parallel(Logger):
             self._iterating = True
             self._original_iterator = iterable
 
-            pool = self._backend._get_pool()
-            results = pool.map(apply, iterable, chunksize=self._get_batch_size())
             # first yield returns None, for internal use only. This ensures
             # that we enter the try/except block and setup the generator.
             yield None
 
-            # Book keeping:
-            for res in results:
+            pool = self._backend._get_pool()
+
+            # Book keeping, for compatibility with normal code paths:
+            for res in pool.map(apply, iterable, chunksize=self._get_batch_size()):
                 self.n_dispatched_batches += 1
                 self.n_dispatched_tasks += 1
                 self.n_completed_tasks += 1
@@ -2038,7 +2038,6 @@ class Parallel(Logger):
         if (
             isinstance(self._backend, ThreadingBackend)
             and self.timeout is None
-            and not self._managed_backend
             and self.return_ordered
             and self.pre_dispatch == "2 * n_jobs"  # the default
         ):

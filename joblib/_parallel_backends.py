@@ -25,7 +25,7 @@ if mp is None:
     def system_cpu_count(only_physical_cores: bool = False) -> int:
         return _os_cpu_count() or 1
 else:
-    from multiprocessing.pool import ThreadPool
+    from concurrent.futures import ThreadPoolExecutor
 
     from .executor import get_memmapping_executor
 
@@ -592,11 +592,38 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
         if self._pool is None:
             available_cores = effective_n_jobs(-1)
             cores_per_thread = _split_up_cores(available_cores, self._n_jobs)
-            self._pool = ThreadPool(
+            self._pool = ThreadPoolExecutor(
                 self._n_jobs,
                 initializer=lambda: set_thread_local_cpu_limit(cores_per_thread),
             )
         return self._pool
+
+    def submit(self, func, callback=None):
+        """Schedule a func to be run"""
+
+        def both_callback(future):
+            try:
+                result = future.result()
+            except BaseException as exc:
+                result = exc
+            callback(result)
+
+        # Here, we need a wrapper to avoid crashes on KeyboardInterruptErrors.
+        # We also call the callback on error, to make sure the pool does not
+        # wait on crashed jobs.
+
+        future = self._get_pool().submit(
+            _TracebackCapturingWrapper(func),
+        )
+        if callback is not None:
+            future.add_done_callback(both_callback)
+        return future
+
+    def terminate(self):
+        """Shutdown the process or thread pool"""
+        if self._pool is not None:
+            self._pool.shutdown()
+            self._pool = None
 
 
 @dataclass
