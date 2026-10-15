@@ -52,8 +52,6 @@ def _ensure_native_byte_order(array):
 
     Does nothing if array already uses the system byte order.
     """
-    if array.dtype.hasobject:
-        return array
     native_dtype = array.dtype.newbyteorder("=")
     if array.dtype != native_dtype:
         array = array.astype(native_dtype)

@@ -618,9 +618,7 @@ def test_ensure_native_byte_order(byteorder, kind):
         assert converted is array
 
 
-@with_numpy
-@parametrize("kind", ["object", "structured", "nested", "subarray"])
-def test_ensure_native_byte_order_preserves_object_arrays(kind):
+def _make_object_array(kind, order="C"):
     foreign = ">" if sys.byteorder == "little" else "<"
     fields = [("number", foreign + "i4"), ("object", "O")]
     if kind == "object":
@@ -631,9 +629,70 @@ def test_ensure_native_byte_order_preserves_object_arrays(kind):
         dtype = np.dtype([("nested", fields)])
     else:
         dtype = np.dtype([("nested", fields, (2,))])
-    array = np.zeros(3, dtype=dtype)
+    array = np.zeros((2, 3), dtype=dtype, order=order)
+    values = array["nested"] if kind in ("nested", "subarray") else array
+    objects = values if kind == "object" else values["object"]
+    shared = {"items": [1, 2]}
+    for index in np.ndindex(objects.shape):
+        objects[index] = shared
+    if kind != "object":
+        values["number"] = np.arange(values["number"].size).reshape(
+            values["number"].shape
+        )
+    return array, shared
 
-    assert _ensure_native_byte_order(array) is array
+
+def _object_values(array, kind):
+    values = array["nested"] if kind in ("nested", "subarray") else array
+    return values if kind == "object" else values["object"]
+
+
+@with_numpy
+@parametrize("kind", ["object", "structured", "nested", "subarray"])
+@parametrize("native", [False, True])
+def test_ensure_native_byte_order_object_arrays(kind, native):
+    array, shared = _make_object_array(kind)
+    if native:
+        array = array.astype(array.dtype.newbyteorder("="))
+
+    converted = _ensure_native_byte_order(array)
+
+    assert converted.dtype == array.dtype.newbyteorder("=")
+    np.testing.assert_array_equal(converted, array)
+    assert all(value is shared for value in _object_values(converted, kind).flat)
+    if array.dtype == array.dtype.newbyteorder("="):
+        assert converted is array
+
+
+@with_numpy
+@parametrize("kind", ["object", "structured", "nested", "subarray"])
+@parametrize("order", ["C", "F"])
+@parametrize("compress", [0, ("zlib", 3)])
+@parametrize("ensure_native_byte_order", [True, False, "auto"])
+def test_load_object_array_native_byte_order(
+    kind, order, compress, ensure_native_byte_order
+):
+    array, shared = _make_object_array(kind, order)
+    stream = io.BytesIO()
+    numpy_pickle.dump(array, stream, compress=compress)
+    stream.seek(0)
+
+    result = numpy_pickle.load(
+        stream, ensure_native_byte_order=ensure_native_byte_order
+    )
+
+    expected_dtype = (
+        array.dtype
+        if ensure_native_byte_order is False
+        else array.dtype.newbyteorder("=")
+    )
+    assert result.dtype == expected_dtype
+    np.testing.assert_array_equal(result, array)
+    assert result.shape == array.shape
+    assert result.strides == array.strides
+    objects = _object_values(result, kind)
+    assert all(value is objects.flat[0] for value in objects.flat)
+    assert objects.flat[0] == shared
 
 
 @with_numpy
