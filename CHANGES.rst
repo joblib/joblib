@@ -4,6 +4,9 @@ Release Notes
 In Development
 --------------
 
+- Fix native byte-order conversion for structured NumPy arrays.
+  https://github.com/joblib/joblib/pull/1895
+
 - ``FileSystemStoreBackend`` (and hence ``Memory``) now stores its items using the format
   "abc/defghijklmnopqrstuvwxyzabcdef/output.pkl" instead of
   "abcdefghijklmnopqrstuvwxyzabcdef/output.pkl" in order to limit the number
