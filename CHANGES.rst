@@ -4,6 +4,9 @@ Release Notes
 In Development
 --------------
 
+- Honor each ``Parallel`` object's ``temp_folder`` when reusing a loky
+  executor, without changing other active calls' temporary folders.
+
 - ``FileSystemStoreBackend`` (and hence ``Memory``) now stores its items using the format
   "abc/defghijklmnopqrstuvwxyzabcdef/output.pkl" instead of
   "abcdefghijklmnopqrstuvwxyzabcdef/output.pkl" in order to limit the number

@@ -85,7 +85,9 @@ class MemmappingExecutor(_ReusablePoolExecutor):
             # Only register the specified context once we know which manager
             # the current executor is using, in order to not register an atexit
             # finalizer twice for the same folder.
-            _executor._temp_folder_manager.register_new_context(context_id)
+            _executor._temp_folder_manager.register_new_context(
+                context_id, temp_folder_root=temp_folder
+            )
 
         return _executor
 
