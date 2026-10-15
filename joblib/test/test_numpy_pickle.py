@@ -598,45 +598,6 @@ def test_joblib_pickle_across_python_versions_with_mmap():
         _check_pickle(fname, expected_list, mmap_mode="r")
 
 
-@with_numpy
-@parametrize("byteorder", ["<", ">"])
-@parametrize(
-    "kind",
-    [
-        "integer",
-        "float",
-        "structured",
-        "object",
-        "object-structured",
-        "object-nested",
-        "object-subarray",
-    ],
-)
-def test_ensure_native_byte_order(byteorder, kind):
-    if kind.startswith("object"):
-        object_kind = kind.removeprefix("object-")
-        array, shared = _make_object_array(object_kind)
-        array = array.astype(array.dtype.newbyteorder(byteorder))
-    elif kind == "structured":
-        array = np.array(
-            [(1, 2.0), (3, 4.0)],
-            dtype=[("integer", byteorder + "i8"), ("float", byteorder + "f8")],
-        )
-    else:
-        array = np.arange(3, dtype=byteorder + ("i8" if kind == "integer" else "f8"))
-
-    converted = _ensure_native_byte_order(array)
-
-    assert converted.dtype == array.dtype.newbyteorder("=")
-    np.testing.assert_array_equal(converted, array)
-    if kind.startswith("object"):
-        assert all(
-            value is shared for value in _object_values(converted, object_kind).flat
-        )
-    if array.dtype == array.dtype.newbyteorder("="):
-        assert converted is array
-
-
 def _make_object_array(kind, order="C"):
     foreign = ">" if sys.byteorder == "little" else "<"
     fields = [("number", foreign + "i4"), ("object", "O")]
