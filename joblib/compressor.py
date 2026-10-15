@@ -169,6 +169,7 @@ class LZMACompressorWrapper(CompressorWrapper):
 
     def compressor_file(self, fileobj, compresslevel=None):
         """Returns an instance of a compressor file object."""
+        self._check_versions()
         if compresslevel is None:
             return self.fileobj_factory(fileobj, "wb", format=self._lzma_format)
         else:
@@ -178,6 +179,7 @@ class LZMACompressorWrapper(CompressorWrapper):
 
     def decompressor_file(self, fileobj):
         """Returns an instance of a decompressor file object."""
+        self._check_versions()
         return lzma.LZMAFile(fileobj, "rb")
 
 

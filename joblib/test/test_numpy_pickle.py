@@ -1307,6 +1307,35 @@ def test_lz4_compression_without_lz4(tmpdir):
     excinfo.match(msg)
 
 
+@pytest.mark.skipif(lzma is not None, reason="Needs lzma not being installed to run")
+@parametrize("compress", ["lzma", "xz"])
+def test_lzma_compression_without_lzma(tmpdir, compress):
+    # Check that lzma and xz cannot be used when the module is not compiled in
+    # the standard library. LZMACompressorWrapper defines the guard for this,
+    # but used to never call it, so that a missing lzma leaked an
+    # AttributeError about `_lzma_format` instead of the expected ValueError.
+    fname = tmpdir.join("test.pkl").strpath
+    data = "test data"
+    msg = "lzma module is not compiled on your python standard library."
+    extension = _COMPRESSORS[compress].extension
+
+    with raises(ValueError) as excinfo:
+        numpy_pickle.dump(data, fname, compress=compress)
+    excinfo.match(msg)
+
+    with raises(ValueError) as excinfo:
+        numpy_pickle.dump(data, fname + extension)
+    excinfo.match(msg)
+
+    # The decompression side relies on the same guard.
+    with open(fname + extension, "wb") as f:
+        f.write(_COMPRESSORS[compress].prefix + b"irrelevant")
+
+    with raises(ValueError) as excinfo:
+        numpy_pickle.load(fname + extension)
+    excinfo.match(msg)
+
+
 protocols = [pickle.DEFAULT_PROTOCOL]
 if pickle.HIGHEST_PROTOCOL != pickle.DEFAULT_PROTOCOL:
     protocols.append(pickle.HIGHEST_PROTOCOL)
