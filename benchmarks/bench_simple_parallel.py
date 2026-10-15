@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 from time import time_ns
 
 from joblib import Parallel, delayed
@@ -14,9 +15,15 @@ def joblib_single_delayed(n_jobs, n_tasks):
     assert len(list(result)) == n_tasks
 
 
-def go(n_jobs, num_tasks):
+def cfexecutor(n_jobs, n_tasks):
+    with ThreadPoolExecutor(n_jobs) as executor:
+        result = executor.map(lambda _x: noop(), range(n_tasks))
+    assert len(list(result)) == n_tasks
+
+
+def go(n_jobs, num_tasks, run):
     start = time_ns()
-    joblib_single_delayed(n_jobs, num_tasks)
+    run(n_jobs, num_tasks)
     elapsed = time_ns() - start
     print(f"{n_jobs} workers, {num_tasks:5} tasks, {elapsed // 1000:8} µs")
 
@@ -25,5 +32,11 @@ if __name__ == "__main__":
     print("== Threaded/sequential backend ==")
     for n_jobs in [4, 1]:
         for num_tasks in [10, 100, 1000, 10_000]:
-            go(n_jobs, num_tasks)
-            go(n_jobs, num_tasks)
+            go(n_jobs, num_tasks, joblib_single_delayed)
+            go(n_jobs, num_tasks, joblib_single_delayed)
+
+    print()
+    print("== ThreadPoolExecutor ==")
+    for num_tasks in [10, 100, 1000, 10_000]:
+        go(4, num_tasks, cfexecutor)
+        go(4, num_tasks, cfexecutor)
