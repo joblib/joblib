@@ -4,6 +4,10 @@ Release Notes
 In Development
 --------------
 
+- Fix the ``ensure_native_byte_order`` parameter of ``numpy_pickle.load``
+  to apply correctly to structured NumPy arrays.
+  https://github.com/joblib/joblib/pull/1895
+
 - Fix ``MemorizedFunc.call`` to register the function code so subsequent regular
   calls can reuse its cached result.
   https://github.com/joblib/joblib/pull/1897
