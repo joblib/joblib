@@ -172,13 +172,10 @@ class MemorizedResult(Logger):
     location: str
         The location of joblib cache. Depends on the store backend used.
 
-    func: function or str
-        function whose output is cached. The string case is intended only for
-        instantiation based on the output of repr() on another instance.
+    call_id: tuple of str
+        Function identifier and hash of the function arguments identifying the
+        cached value. Instances can be reconstructed from their representation
         (namely eval(repr(memorized_instance)) works).
-
-    argument_hash: str
-        hash of the function arguments.
 
     backend: str
         Type of store backend for reading/writing cache files.
@@ -259,8 +256,8 @@ class MemorizedResult(Logger):
         self.store_backend.clear_item(self._call_id)
 
     def __repr__(self):
-        return '{}(location="{}", func="{}", args_id="{}")'.format(
-            self.__class__.__name__, self.store_backend.location, *self._call_id
+        return "{}(location={!r}, call_id={!r})".format(
+            self.__class__.__name__, self.store_backend.location, self._call_id
         )
 
     def __getstate__(self):
@@ -830,6 +827,10 @@ class MemorizedFunc(Logger):
         """
         call_id = (self.func_id, self._get_args_id(*args, **kwargs))
 
+        # Register the function code and invalidate old results before saving
+        # the new result, even when this is the first call.
+        self._check_previous_func_code(stacklevel=3)
+
         # Return the output and the metadata
         return self._call(call_id, args, kwargs)
 
@@ -1129,9 +1130,12 @@ class Memory(Logger):
         # we recreate the store_backend here
         store_backend = self.store_backend
         if (verbose, mmap_mode) != (self._verbose, self.mmap_mode):
+            location = self.location
+            if isinstance(location, str):
+                location = os.path.join(location, "joblib")
             store_backend = _store_backend_factory(
                 self.backend,
-                self.location,
+                location,
                 verbose=verbose,
                 backend_options=dict(
                     **self.backend_options,
