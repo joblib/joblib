@@ -2084,10 +2084,6 @@ class Parallel(Logger):
 
             self._reducer_callback = _batched_calls_reducer_callback
 
-        # self._effective_n_jobs should be called in the Parallel.__call__
-        # thread only -- store its value in an attribute for further queries.
-        self._cached_effective_n_jobs = n_jobs
-
         backend_name = self._backend.__class__.__name__
         if n_jobs == 0:
             raise RuntimeError("%s has no active worker." % backend_name)
