@@ -1978,9 +1978,53 @@ class Parallel(Logger):
         # Set to True after abortion is complete
         self._aborted = False
 
+    def _get_threaded_output(self, iterable):
+        """Fast path for dispatching threaded parallel tasks."""
+        nested_backend, nested_n_jobs = self._backend.get_nested_backend()
+
+        def apply(params):
+            f, args, kwargs = params
+            with parallel_config(backend=nested_backend, n_jobs=nested_n_jobs):
+                return f(*args, **kwargs)
+
+        try:
+            self._iterating = True
+            self._original_iterator = iterable
+
+            # first yield returns None, for internal use only. This ensures
+            # that we enter the try/except block and setup the generator.
+            yield None
+
+            pool = self._backend._get_pool()
+
+            # Book keeping, for compatibility with normal code paths:
+            if self.return_ordered:
+                mapper = pool.imap
+            else:
+                mapper = pool.imap_unordered
+            for res in mapper(apply, iterable, chunksize=self._get_batch_size()):
+                self.n_dispatched_batches += 1
+                self.n_dispatched_tasks += 1
+                self.n_completed_tasks += 1
+                self.print_progress()
+                yield res
+                self._nb_consumed += 1
+        except BaseException:
+            self._exception = True
+            self._aborting = True
+            self._aborted = True
+            self._backend.terminate()
+            raise
+        finally:
+            self._running = False
+            self._iterating = False
+            self._original_iterator = None
+            if not self._managed_backend:
+                self._backend.terminate()
+            self.print_progress()
+
     def __call__(self, iterable):
         """Main function to dispatch parallel tasks."""
-
         self._reset_run_tracking()
         self.n_tasks = len(iterable) if hasattr(iterable, "__len__") else None
         self._start_time = time.time()
@@ -1994,6 +2038,19 @@ class Parallel(Logger):
             # If n_jobs==1, run the computation sequentially and return
             # immediately to avoid overheads.
             output = self._get_sequential_output(iterable)
+            next(output)
+            return output if self.return_generator else list(output)
+
+        backend_name = self._backend.__class__.__name__
+        if n_jobs == 0:
+            raise RuntimeError(f"{backend_name} has no active worker.")
+
+        if (
+            isinstance(self._backend, ThreadingBackend)
+            and self.timeout is None
+            and self.pre_dispatch == "2 * n_jobs"  # the default
+        ):
+            output = self._get_threaded_output(iterable)
             next(output)
             return output if self.return_generator else list(output)
 
@@ -2030,14 +2087,6 @@ class Parallel(Logger):
                 )
 
             self._reducer_callback = _batched_calls_reducer_callback
-
-        # self._effective_n_jobs should be called in the Parallel.__call__
-        # thread only -- store its value in an attribute for further queries.
-        self._cached_effective_n_jobs = n_jobs
-
-        backend_name = self._backend.__class__.__name__
-        if n_jobs == 0:
-            raise RuntimeError("%s has no active worker." % backend_name)
 
         self._print(f"Using backend {backend_name} with {n_jobs} concurrent workers.")
         if hasattr(self._backend, "start_call"):
