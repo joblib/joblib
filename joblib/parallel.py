@@ -2015,6 +2015,8 @@ class Parallel(Logger):
             self._running = False
             self._iterating = False
             self._original_iterator = None
+            if not self._managed_backend:
+                self._backend.terminate()
             self.print_progress()
 
     def __call__(self, iterable):
