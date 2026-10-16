@@ -1998,7 +1998,11 @@ class Parallel(Logger):
             pool = self._backend._get_pool()
 
             # Book keeping, for compatibility with normal code paths:
-            for res in pool.imap(apply, iterable, chunksize=self._get_batch_size()):
+            if self.return_ordered:
+                mapper = pool.imap
+            else:
+                mapper = pool.imap_unordered
+            for res in mapper(apply, iterable, chunksize=self._get_batch_size()):
                 self.n_dispatched_batches += 1
                 self.n_dispatched_tasks += 1
                 self.n_completed_tasks += 1
@@ -2040,7 +2044,6 @@ class Parallel(Logger):
         if (
             isinstance(self._backend, ThreadingBackend)
             and self.timeout is None
-            and self.return_ordered
             and self.pre_dispatch == "2 * n_jobs"  # the default
         ):
             output = self._get_threaded_output(iterable)
