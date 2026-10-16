@@ -4,7 +4,8 @@ Release Notes
 In Development
 --------------
 
-- Fix native byte-order conversion for structured NumPy arrays.
+- Fix the ``ensure_native_byte_order`` parameter of ``numpy_pickle.load``
+  to apply correctly to structured NumPy arrays.
   https://github.com/joblib/joblib/pull/1895
 
 - ``FileSystemStoreBackend`` (and hence ``Memory``) now stores its items using the format
