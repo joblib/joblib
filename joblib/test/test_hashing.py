@@ -346,6 +346,17 @@ def test_set_decimal_hash():
     )
 
 
+def test_dict_decimal_nan_hash():
+    # Regression test for #1847: dicts whose keys include Decimal('NaN')
+    # alongside another key used to raise decimal.InvalidOperation because
+    # _batch_setitems only caught TypeError, not InvalidOperation.
+    d = {Decimal("NaN"): 1, Decimal(0): 2}
+    result = hash(d)
+    assert isinstance(result, str) and len(result) > 0
+    # Insertion-order variants must produce the same digest (key order normalised).
+    assert hash({Decimal(0): 2, Decimal("NaN"): 1}) == result
+
+
 def test_string():
     # Test that we obtain the same hash for object owning several strings,
     # whatever the past of these strings (which are immutable in Python)

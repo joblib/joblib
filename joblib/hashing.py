@@ -141,9 +141,10 @@ class Hasher(Pickler):
             # This fails on python 3 when keys are unorderable
             # but we keep it in a try as it's faster.
             Pickler._batch_setitems(self, iter(sorted(items)), *args)
-        except TypeError:
-            # If keys are unorderable, sorting them using their hash. This is
-            # slower but works in any case.
+        except (TypeError, decimal.InvalidOperation):
+            # If keys are unorderable or contain Decimal('NaN') (which raises
+            # InvalidOperation on comparison, cf. #392 / #1847), fall back to
+            # sorting by hash value. This is slower but works in any case.
             Pickler._batch_setitems(
                 self, iter(sorted((hash(k), v) for k, v in items)), *args
             )
