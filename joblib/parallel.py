@@ -2041,6 +2041,10 @@ class Parallel(Logger):
             next(output)
             return output if self.return_generator else list(output)
 
+        backend_name = self._backend.__class__.__name__
+        if n_jobs == 0:
+            raise RuntimeError(f"{backend_name} has no active worker.")
+
         if (
             isinstance(self._backend, ThreadingBackend)
             and self.timeout is None
@@ -2083,10 +2087,6 @@ class Parallel(Logger):
                 )
 
             self._reducer_callback = _batched_calls_reducer_callback
-
-        backend_name = self._backend.__class__.__name__
-        if n_jobs == 0:
-            raise RuntimeError("%s has no active worker." % backend_name)
 
         self._print(f"Using backend {backend_name} with {n_jobs} concurrent workers.")
         if hasattr(self._backend, "start_call"):
