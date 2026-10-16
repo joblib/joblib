@@ -4,6 +4,11 @@ Release Notes
 In Development
 --------------
 
+- Fix ``joblib.dump`` and ``joblib.load`` raising an ``AttributeError`` instead
+  of the documented ``ValueError`` when the ``lzma`` or ``xz`` compressor is
+  used on a Python whose standard library has no ``lzma`` module.
+  https://github.com/joblib/joblib/pull/1898
+
 - Fix the ``ensure_native_byte_order`` parameter of ``numpy_pickle.load``
   to apply correctly to structured NumPy arrays.
   https://github.com/joblib/joblib/pull/1895
