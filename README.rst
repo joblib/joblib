@@ -42,6 +42,10 @@ or install it in editable mode from the source directory::
 
     pip install -e .
 
+dependencies needed for development can be installed with::
+
+    pip install --group dev
+
 Dependencies
 ============
 
@@ -88,7 +92,6 @@ Running the test suite
 To run the test suite, you need the pytest (version >= 3) and coverage modules.
 Run the test suite using::
 
-    pip install joblib[test]
     pytest joblib
 
 from the root of the project.
@@ -99,7 +102,7 @@ Building the docs
 To build the docs you need to have sphinx (>=1.4) and some dependencies
 installed::
 
-    pip install .[docs]
+    pip install --group docs
 
 The docs can then be built with the following command::
 
