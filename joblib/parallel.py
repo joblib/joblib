@@ -1247,6 +1247,11 @@ class Parallel(Logger):
         nesting_level = active_backend.nesting_level
 
         self.verbose = _get_config_param(verbose, context_config, "verbose")
+        # Negative verbose is not meaningful; treat it as silent (0).
+        # Otherwise print_progress can hit ZeroDivisionError when
+        # frequency = (total_tasks // verbose) + 1 evaluates to 0.
+        if self.verbose < 0:
+            self.verbose = 0
         self.timeout = timeout
         self.pre_dispatch = pre_dispatch
 

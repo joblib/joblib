@@ -2509,3 +2509,17 @@ def test_set_env_initializer(request) -> None:
     assert os.environ[k1] == "C"
     assert os.environ[k2] == "D"
     assert mylist == [123]
+
+
+def test_negative_verbose_does_not_raise():
+    # Regression for https://github.com/joblib/joblib/issues/873
+    # Negative verbose used to make print_progress hit ZeroDivisionError
+    # when frequency became 0 under the threading backend.
+    from math import sqrt
+
+    for verbose in (-1, -10, -50):
+        result = Parallel(n_jobs=2, backend="threading", verbose=verbose)(
+            delayed(sqrt)(i ** 2) for i in range(10)
+        )
+        assert result == [float(i) for i in range(10)]
+
