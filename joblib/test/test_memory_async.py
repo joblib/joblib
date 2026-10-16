@@ -183,3 +183,5 @@ async def test_memorized_func_call_async(tmp_path):
     x, meta = await gg.call(2, counter)
     assert x == 2, "f has not been called properly"
     assert isinstance(meta, dict), "Metadata are not returned by MemorizedFunc.call."
+    assert await gg(2, counter) == 2
+    assert counter == {2: 2}

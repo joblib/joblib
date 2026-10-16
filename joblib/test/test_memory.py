@@ -1746,6 +1746,67 @@ class TestMemorizedFunc:
         assert isinstance(meta, dict), (
             "Metadata are not returned by MemorizedFunc.call."
         )
+        assert f(2, counter) == 2
+        assert counter == {2: 2}
+
+    @pytest.mark.parametrize("clear", [None, "memory", "function"])
+    def test_call_method_populates_cache(self, tmp_path, clear):
+        counter = []
+
+        def func(x):
+            counter.append(x)
+            return len(counter)
+
+        memory = Memory(location=str(tmp_path), verbose=0)
+        f = memory.cache(func)
+        expected = 1
+        if clear is not None:
+            assert f(2) == 1
+            if clear == "memory":
+                memory.clear(warn=False)
+            else:
+                f.clear(warn=False)
+            expected = 2
+
+        output, metadata = f.call(2)
+        assert output == expected
+        assert isinstance(metadata, dict)
+        assert f(2) == expected
+        assert f(2) == expected
+        assert len(counter) == expected
+
+    def test_call_method_invalidates_changed_code(self, tmp_path):
+        def func(a, b):
+            pass
+
+        func.__code__ = _sum.__code__
+        memory = Memory(location=str(tmp_path), verbose=0)
+        f = memory.cache(func)
+        assert f(1, 2) == 3
+        assert f(2, 3) == 5
+
+        func.__code__ = _product.__code__
+        with warns(JobLibCollisionWarning):
+            output, _ = f.call(1, 2)
+        assert output == 2
+        assert f.check_call_in_cache(1, 2)
+        assert not f.check_call_in_cache(2, 3)
+        assert f(1, 2) == 2
+        assert f(2, 3) == 6
+
+    def test_call_method_skips_validation_callback(self, tmp_path):
+        def fail_if_called(metadata):
+            raise AssertionError("Forced calls should not validate cached results")
+
+        memory = Memory(location=tmp_path, verbose=0)
+        f = memory.cache(
+            self.f, ignore=["counter"], cache_validation_callback=fail_if_called
+        )
+        counter = {}
+        assert f(2, counter) == 1
+        output, _ = f.call(2, counter)
+        assert output == 2
+        assert counter == {2: 2}
 
     def test_call_method_not_memorized(self):
         "Test calling the function"
