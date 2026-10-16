@@ -383,11 +383,12 @@ class BinaryZlibFile(io.BufferedIOBase):
         # return any data. In this case, try again after reading another block.
         while self._buffer_offset == len(self._buffer):
             try:
-                rawblock = self._decompressor.unused_data or self._fp.read(_BUFFER_SIZE)
+                if self._decompressor.eof:
+                    raise EOFError
+                rawblock = self._fp.read(_BUFFER_SIZE)
                 if not rawblock:
                     raise EOFError
             except EOFError:
-                # End-of-stream marker and end of file. We're good.
                 self._mode = _MODE_READ_EOF
                 self._size = self._pos
                 return False

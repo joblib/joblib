@@ -12,6 +12,10 @@ In Development
   calls can reuse its cached result.
   https://github.com/joblib/joblib/pull/1897
 
+- Fix ``load`` hanging and growing its memory without bound when a zlib or
+  gzip stream is followed by more data.
+  https://github.com/joblib/joblib/issues/1161
+
 - ``FileSystemStoreBackend`` (and hence ``Memory``) now stores its items using the format
   "abc/defghijklmnopqrstuvwxyzabcdef/output.pkl" instead of
   "abcdefghijklmnopqrstuvwxyzabcdef/output.pkl" in order to limit the number
