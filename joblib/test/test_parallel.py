@@ -2519,7 +2519,6 @@ def test_negative_verbose_does_not_raise():
 
     for verbose in (-1, -10, -50):
         result = Parallel(n_jobs=2, backend="threading", verbose=verbose)(
-            delayed(sqrt)(i ** 2) for i in range(10)
+            delayed(sqrt)(i**2) for i in range(10)
         )
         assert result == [float(i) for i in range(10)]
-
