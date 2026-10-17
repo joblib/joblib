@@ -514,7 +514,10 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
         """Returns the whole list of items available in the store."""
         items = []
 
-        for dirpath, _, filenames in os.walk(self.location):
+        for dirpath, subdirectories, filenames in os.walk(self.location):
+            # Function and module names can also look like argument hashes.
+            if subdirectories:
+                continue
             parent, basename = os.path.split(dirpath)
             if not _check_hex(basename, 32):
                 if not _check_hex(basename, 29):
