@@ -4,6 +4,9 @@ Release Notes
 In Development
 --------------
 
+- Fix cache eviction counting function and module directories with
+  hexadecimal names as cached results.
+
 - Fix the ``ensure_native_byte_order`` parameter of ``numpy_pickle.load``
   to apply correctly to structured NumPy arrays.
   https://github.com/joblib/joblib/pull/1895

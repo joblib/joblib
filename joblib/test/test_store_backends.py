@@ -117,6 +117,37 @@ def test_warning_on_pickling_error(tmpdir):
         backend.dump_item(("func", "input"), UnpicklableObject())
 
 
+@parametrize("cache_version", [1, 2])
+@parametrize(
+    "func_id",
+    ["a" * 32, os.path.join("a" * 32, "func"), os.path.join("abc", "d" * 29, "func")],
+)
+def test_store_limits_preserve_hash_shaped_namespaces(tmpdir, cache_version, func_id):
+    backend = FileSystemStoreBackend()
+    backend.configure(tmpdir.strpath, verbose=0)
+    if cache_version == 1:
+        backend._split_id = types.MethodType(_old_split_id, backend)
+        os.remove(tmpdir.join("store_backend_info.json").strpath)
+
+    backend.store_cached_func_code((func_id,), "def func(x): return x")
+    call_ids = [(func_id, "1" * 32), (func_id, "2" * 32)]
+    expected_paths = []
+    for timestamp, call_id in zip([100, 200], call_ids):
+        backend.dump_item(call_id, timestamp)
+        item_path = os.path.join(backend.location, *backend._split_id(call_id))
+        expected_paths.append(item_path)
+        os.utime(os.path.join(item_path, "output.pkl"), (timestamp, timestamp))
+
+    namespace = os.path.join(backend.location, func_id)
+    os.utime(namespace, (1, 1))
+    assert {item.path for item in backend.get_items()} == set(expected_paths)
+
+    backend.enforce_store_limits(bytes_limit=None, items_limit=1)
+    assert not backend.contains_item(call_ids[0])
+    assert backend.load_item(call_ids[1]) == 200
+    assert backend.get_cached_func_code((func_id,)) == "def func(x): return x"
+
+
 def test_cache_tree_versions(tmpdir):
     # Makes a backend using old cache tree
     old_store = FileSystemStoreBackend()
