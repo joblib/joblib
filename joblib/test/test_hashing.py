@@ -18,9 +18,10 @@ import sys
 import time
 from concurrent.futures import ProcessPoolExecutor
 from decimal import Decimal
+from typing import Optional
 
 from joblib.func_inspect import filter_args
-from joblib.hashing import hash
+from joblib.hashing import Hasher, hash
 from joblib.memory import Memory
 from joblib.test.common import np, with_numpy
 from joblib.testing import fixture, parametrize, raises, skipif
@@ -252,15 +253,27 @@ def test_bound_methods_hash():
     assert hash(filter_args(a.f, [], (1,))) == hash(filter_args(b.f, [], (1,)))
 
 
-def test_bound_cached_methods_hash(tmpdir):
+@parametrize("annotation", [int, Optional[int]])
+def test_bound_cached_methods_hash(tmpdir, monkeypatch, annotation):
     """Make sure that calling the same _cached_ method on two different
     instances of the same class does resolve to the same hashes.
     """
+    monkeypatch.setattr(KlassWithCachedMethod.f, "__annotations__", {"x": annotation})
     a = KlassWithCachedMethod(tmpdir.strpath)
     b = KlassWithCachedMethod(tmpdir.strpath)
     assert hash(filter_args(a.f.func, [], (1,))) == hash(
         filter_args(b.f.func, [], (1,))
     )
+    assert a.f(1) == 1
+    assert a.f.check_call_in_cache(1)
+
+
+@parametrize("value", [None, Ellipsis, NotImplemented])
+def test_hash_singleton_types(value):
+    type_hash = hash(type(value))
+    assert type_hash == Hasher().hash(type(value))
+    assert type_hash == hash(pickle.loads(pickle.dumps(type(value))))
+    assert type_hash != hash(value)
 
 
 @with_numpy
