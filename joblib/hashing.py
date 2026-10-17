@@ -124,10 +124,6 @@ class Hasher(Pickler):
     dispatch = Pickler.dispatch.copy()
     # builtin
     dispatch[type(len)] = save_global
-    # type
-    dispatch[type(object)] = save_global
-    # classobj
-    dispatch[type(Pickler)] = save_global
     # function
     dispatch[type(pickle.dump)] = save_global
 

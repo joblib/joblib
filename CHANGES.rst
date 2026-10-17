@@ -4,6 +4,9 @@ Release Notes
 In Development
 --------------
 
+- Fix hashing of singleton types such as ``type(None)``, including cached
+  bound methods with ``Optional`` annotations.
+
 - Fix the ``ensure_native_byte_order`` parameter of ``numpy_pickle.load``
   to apply correctly to structured NumPy arrays.
   https://github.com/joblib/joblib/pull/1895
