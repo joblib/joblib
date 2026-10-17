@@ -109,17 +109,21 @@ class Hasher(Pickler):
         try:
             Pickler.save_global(self, obj, **kwargs)
         except pickle.PicklingError:
-            Pickler.save_global(self, obj, **kwargs)
             module = getattr(obj, "__module__", None)
             if module == "__main__":
                 my_name = name
                 if my_name is None:
                     my_name = obj.__name__
+                if getattr(obj, "__qualname__", my_name) != my_name:
+                    raise
                 mod = sys.modules[module]
                 if not hasattr(mod, my_name):
                     # IPython doesn't inject the variables define
                     # interactively in __main__
                     setattr(mod, my_name, obj)
+            else:
+                raise
+            Pickler.save_global(self, obj, **kwargs)
 
     dispatch = Pickler.dispatch.copy()
     # builtin
@@ -129,7 +133,7 @@ class Hasher(Pickler):
     # classobj
     dispatch[type(Pickler)] = save_global
     # function
-    dispatch[type(pickle.dump)] = save_global
+    dispatch[types.FunctionType] = save_global
 
     # We use *args in _batch_setitems signature because _batch_setitems has an
     # additional 'obj' argument in Python 3.14

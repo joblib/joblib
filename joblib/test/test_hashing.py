@@ -16,6 +16,7 @@ import platform
 import random
 import sys
 import time
+import types
 from concurrent.futures import ProcessPoolExecutor
 from decimal import Decimal
 
@@ -241,6 +242,41 @@ def test_hash_numpy_performance():
     time_hash = time_func(hash, (a, a, a))
     relative_diff = 0.5 * (abs(time_hash - time_hashlib) / (time_hash + time_hashlib))
     assert relative_diff < max_relative_diff
+
+
+@parametrize(
+    "definition, name",
+    [("def f(x): return x", "f"), ("class C: pass", "C")],
+)
+@parametrize("conflicting_name", [False, True])
+def test_hash_interactive_objects(monkeypatch, definition, name, conflicting_name):
+    module = types.ModuleType("__main__")
+    monkeypatch.setitem(sys.modules, "__main__", module)
+    namespace = {"__name__": "__main__"}
+    exec(definition, namespace)
+    obj = namespace[name]
+
+    if conflicting_name:
+        existing = object()
+        setattr(module, name, existing)
+        with raises(pickle.PicklingError):
+            hash(obj)
+        assert getattr(module, name) is existing
+    else:
+        digest = hash(obj)
+        assert getattr(module, name) is obj
+        assert hash(obj) == digest
+
+
+def test_hash_local_function_does_not_register_global(monkeypatch):
+    module = types.ModuleType("__main__")
+    monkeypatch.setitem(sys.modules, "__main__", module)
+    namespace = {"__name__": "__main__"}
+    exec("def outer():\n    def f(x): return x\n    return f\nf = outer()", namespace)
+
+    with raises(pickle.PicklingError):
+        hash(namespace["f"])
+    assert not hasattr(module, "f")
 
 
 def test_bound_methods_hash():
