@@ -1276,6 +1276,12 @@ def test_invalid_batch_size(batch_size):
         Parallel(batch_size=batch_size)
 
 
+@parametrize("max_nbytes", ["", "infM", "1e309G"])
+def test_invalid_max_nbytes(max_nbytes):
+    with raises(ValueError, match="Invalid literal for size"):
+        Parallel(max_nbytes=max_nbytes)
+
+
 @with_multiprocessing
 @parametrize("pre_dispatch", [0, -1, "0", "0*n_jobs"])
 def test_invalid_pre_dispatch(pre_dispatch):
