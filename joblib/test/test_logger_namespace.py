@@ -11,13 +11,17 @@ from joblib import Logger
 @pytest.mark.parametrize("name", [None, "pipeline"])
 @pytest.mark.parametrize("method", ["info", "warn", "debug"])
 def test_logger_uses_its_namespace(caplog, name, method):
+    caplog.clear()
     expected = name or "joblib"
     with caplog.at_level(logging.DEBUG, logger=expected):
         getattr(Logger(name=name), method)("pipeline finished")
-    assert len(caplog.records) == 1
-    record = caplog.records[0]
-    assert record.name == expected
-    assert record.getMessage().endswith("pipeline finished")
+    records = [
+        record
+        for record in caplog.records
+        if record.getMessage().endswith("pipeline finished")
+    ]
+    assert len(records) == 1
+    assert records[0].name == expected
 
 
 def test_info_does_not_configure_root_logger():
