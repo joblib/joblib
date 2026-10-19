@@ -1079,6 +1079,20 @@ def test_numpy_subclass(tmpdir):
     np.testing.assert_array_equal(c, a)
 
 
+@with_numpy
+@parametrize("compress,mmap_mode", [(0, None), (3, None), (0, "r")])
+def test_numpy_matrix(tmpdir, compress, mmap_mode):
+    # np.matrix goes through the array wrapper and must come back as a
+    # np.matrix, whose "*" is the matrix product rather than an elementwise one.
+    filename = tmpdir.join("test.pkl").strpath
+    a = np.matrix([[1, 2], [3, 4]])
+    numpy_pickle.dump(a, filename, compress=compress)
+    c = numpy_pickle.load(filename, mmap_mode=mmap_mode)
+    assert type(c) is np.matrix
+    np.testing.assert_array_equal(c, a)
+    np.testing.assert_array_equal(c * c, [[7, 10], [15, 22]])
+
+
 def test_pathlib(tmpdir):
     filename = tmpdir.join("test.pkl").strpath
     value = 123

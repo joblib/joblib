@@ -4,6 +4,10 @@ Release Notes
 In Development
 --------------
 
+- Fix ``joblib.load`` returning a plain ``numpy.ndarray`` instead of a
+  ``numpy.matrix`` with NumPy 2.
+  https://github.com/joblib/joblib/pull/1905
+
 - Fix the ``ensure_native_byte_order`` parameter of ``numpy_pickle.load``
   to apply correctly to structured NumPy arrays.
   https://github.com/joblib/joblib/pull/1895

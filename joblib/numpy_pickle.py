@@ -38,7 +38,6 @@ from .numpy_pickle_utils import (
     Unpickler,
     _ensure_native_byte_order,
     _read_bytes,
-    _reconstruct,
     _validate_fileobject_and_memmap,
     _write_fileobject,
 )
@@ -291,13 +290,12 @@ class NumpyArrayWrapper(object):
             array = self.read_array(unpickler, ensure_native_byte_order)
 
         # Manage array subclass case
-        if hasattr(array, "__array_prepare__") and self.subclass not in (
+        if self.subclass not in (
             unpickler.np.ndarray,
             unpickler.np.memmap,
         ):
             # We need to reconstruct another subclass
-            new_array = _reconstruct(self.subclass, (0,), "b")
-            return new_array.__array_prepare__(array)
+            return array.view(self.subclass)
         else:
             return array
 

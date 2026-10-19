@@ -113,15 +113,13 @@ class NDArrayWrapper(object):
         # Detect byte order mismatch and swap as needed.
         array = _ensure_native_byte_order(array)
 
-        # Reconstruct subclasses. This does not work with old
-        # versions of numpy
-        if hasattr(array, "__array_prepare__") and self.subclass not in (
+        # Reconstruct subclasses.
+        if self.subclass not in (
             unpickler.np.ndarray,
             unpickler.np.memmap,
         ):
             # We need to reconstruct another subclass
-            new_array = _reconstruct(self.subclass, (0,), "b")
-            return new_array.__array_prepare__(array)
+            return array.view(self.subclass)
         else:
             return array
 
