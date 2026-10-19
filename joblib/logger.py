@@ -100,10 +100,11 @@ def pformat(obj, indent=0, depth=3):
         np.set_printoptions(precision=6, threshold=64, edgeitems=1)
     else:
         print_options = None
-    out = pprint.pformat(obj, depth=depth, indent=indent)
-    if print_options:
-        np.set_printoptions(**print_options)
-    return out
+    try:
+        return pprint.pformat(obj, depth=depth, indent=indent)
+    finally:
+        if print_options:
+            np.set_printoptions(**print_options)
 
 
 ###############################################################################

@@ -4,6 +4,9 @@ Release Notes
 In Development
 --------------
 
+- Restore NumPy print options when formatting an object raises an exception.
+  https://github.com/joblib/joblib/issues/1908
+
 - Fix the ``ensure_native_byte_order`` parameter of ``numpy_pickle.load``
   to apply correctly to structured NumPy arrays.
   https://github.com/joblib/joblib/pull/1895
