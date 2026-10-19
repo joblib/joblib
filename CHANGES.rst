@@ -4,6 +4,9 @@ Release Notes
 In Development
 --------------
 
+- Fix PrintTime when the logfile is a filename in the current directory.
+  https://github.com/joblib/joblib/issues/1909
+
 - Fix the ``ensure_native_byte_order`` parameter of ``numpy_pickle.load``
   to apply correctly to structured NumPy arrays.
   https://github.com/joblib/joblib/pull/1895

@@ -155,7 +155,7 @@ class PrintTime(object):
             logfile = os.path.join(logdir, "joblib.log")
         self.logfile = logfile
         if logfile is not None:
-            mkdirp(os.path.dirname(logfile))
+            mkdirp(os.path.dirname(logfile) or os.curdir)
             if os.path.exists(logfile):
                 # Rotate the logs
                 for i in range(1, 9):
