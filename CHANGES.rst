@@ -1,8 +1,131 @@
-Latest changes
-==============
+Release Notes
+=============
 
-In development
+In Development
 --------------
+
+- Fix the ``ensure_native_byte_order`` parameter of ``numpy_pickle.load``
+  to apply correctly to structured NumPy arrays.
+  https://github.com/joblib/joblib/pull/1895
+
+- Fix ``MemorizedFunc.call`` to register the function code so subsequent regular
+  calls can reuse its cached result.
+  https://github.com/joblib/joblib/pull/1897
+
+- ``FileSystemStoreBackend`` (and hence ``Memory``) now stores its items using the format
+  "abc/defghijklmnopqrstuvwxyzabcdef/output.pkl" instead of
+  "abcdefghijklmnopqrstuvwxyzabcdef/output.pkl" in order to limit the number
+  of inodes inside the root cache directory. Migrating existing cache to this more
+  efficient behavior with ``Memory(...).update_cache_tree()``
+  https://github.com/joblib/joblib/pull/1781
+
+- Fix ``Memory.cache(..., mmap_mode=..., verbose=...)`` to now uses its parameters
+  mmap_mode and verbose instead of using the values used at Memory creation time.
+  https://github.com/joblib/joblib/pull/1857
+
+- A non-positive value for ``pre_dispatch`` in ``Parallel`` now raises a
+  ValueError.
+  https://github.com/joblib/joblib/pull/1839
+
+- Fix ``delete_folder`` that could raise ``FileNotFoundError`` during a
+  concurrent deletion.
+  https://github.com/joblib/joblib/pull/1852
+
+- Fix ``concurrency_safe_rename`` on Windows reporting ``RuntimeError: No
+  active exception to reraise`` when the retry window expired, instead of the
+  access denied error that kept the rename from succeeding.
+  https://github.com/joblib/joblib/pull/1855
+
+- Fix ``eval_expr`` to reject an oversized power before evaluating it.
+  https://github.com/joblib/joblib/pull/1841
+
+- Fix a leaked temporary folder registration per ``Parallel`` call, which the
+  ``resource_tracker`` reported as leaked when ``atexit`` finalizers did not run.
+  https://github.com/joblib/joblib/pull/1829
+
+- A worker recycled for a suspected memory leak is now reported once per
+  executor with an accurate message (threshold configurable via
+  ``LOKY_MAX_MEMORY_LEAK_SIZE``), and turning that warning into an error no
+  longer hangs ``Parallel``.
+  https://github.com/joblib/joblib/issues/883
+  https://github.com/joblib/joblib/pull/1829
+
+- Update to latest ``loky``, v3.7.0. See
+  https://github.com/joblib/loky/blob/master/CHANGES.md#370---2026-09-29 for
+  details.
+  https://github.com/joblib/joblib/pull/1834
+
+- Fix a thread-safety issue in ``joblib.memory.Memory``.
+  https://github.com/joblib/joblib/pull/1892
+
+- Fix a number of thread-safety issues when using reusable process executors
+  from multiple threads.
+  https://github.com/joblib/joblib/pull/1834
+
+- Dropped support for Python 3.10, which is now end-of-life. NumPy and
+  Distributed minimum supported versions were also increased to the oldest
+  versions that support 3.11.
+  https://github.com/joblib/joblib/pull/1888
+
+
+Release 1.6.0 - 2026/08/31
+--------------------------
+
+- Fix caching of functions whose source cannot be retrieved, such as functions
+  defined in a notebook cell. Their identity fell back to
+  ``str(hash(func.__code__))``, which is salted by ``PYTHONHASHSEED`` and so
+  differed between processes. A worker reading the ``func_code.py`` written by
+  another one concluded that the function had changed and wiped the whole
+  cache directory for it, discarding results computed by its peers.
+  ``func_code.py`` is also no longer rewritten in place, so a reader can no
+  longer catch it half-written and draw the same conclusion.
+  https://github.com/joblib/joblib/issues/1694
+
+- Drop python 3.9 support. The oldest supported Python version
+  is now Python 3.10.
+  https://github.com/joblib/joblib/pull/1773
+
+- Fix ``eval_expr`` (used to evaluate the ``pre_dispatch`` argument of
+  ``Parallel``) to raise a ``ValueError`` as documented instead of leaking a
+  ``ZeroDivisionError`` for expressions that divide or take a modulo by zero.
+  https://github.com/joblib/joblib/pull/1810
+
+- ``MemorizedResult`` now forwards ``mmap_mode`` to its store backend, so a
+  cached array reconstructed from a location is memory-mapped as requested
+  instead of being loaded fully into memory.
+  https://github.com/joblib/joblib/pull/1799
+
+- Unvendor cloudpickle to more quickly benefit from maintenance releases
+  of cloudpickle
+  https://github.com/joblib/joblib/pull/1775
+
+- Fix ``Memory.cache`` for functions with a keyword-only argument that has a
+  default declared before a keyword-only argument without a default.
+  https://github.com/joblib/joblib/issues/1731
+
+- Fix behavior of ``filter_args`` on some precise cases.
+  https://github.com/joblib/joblib/pull/1800
+
+- Fix a concurrency error that could happen with unordered generator.
+  https://github.com/joblib/joblib/pull/1789
+
+- Fix: ``dump()`` now accepts any input ``os.PathLike`` object to be consistent with
+  ``load``.
+  https://github.com/joblib/joblib/pull/1812
+
+- The documentation now uses pydata sphinx theme. Furthermore, optional dependencies
+  ``test`` and ``docs`` have been added to ``pyproject.toml``.
+  https://github.com/joblib/joblib/pull/1774
+
+- Vendor ``loky 3.6.0``
+  https://github.com/joblib/joblib/pull/1843
+
+Release 1.5.3 - 2025/12/15
+--------------------------
+
+- The ``Memory`` object won't overwrite an already existing ``.gitignore`` file in its
+  cache directory anymore.
+  https://github.com/joblib/joblib/pull/1742
 
 - Harden the safety checks in ``eval_expr(pre_dispatch)`` to prevent excessive
   memory allocation and potential crashes by limiting the allowed length of the

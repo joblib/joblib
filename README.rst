@@ -45,14 +45,15 @@ or install it in editable mode from the source directory::
 Dependencies
 ============
 
-- Joblib has no mandatory dependencies besides Python (supported versions are
-  3.9+).
-- Joblib has an optional dependency on Numpy (at least version 1.6.1) for array
-  manipulation.
+- Joblib supports Python >= 3.11.
+- The only dependency is `cloudpickle <https://github.com/cloudpipe/cloudpickle>`_ >= 3.
 - Joblib includes its own vendored copy of
   `loky <https://github.com/tomMoral/loky>`_ for process management.
 - Joblib can efficiently dump and load numpy arrays but does not require numpy
-  to be installed.
+  to be installed. The oldest numpy version supported is the oldest numpy version
+  supported by Python 3.11 (numpy version 1.23.2).
+- Joblib can use Dask distributed backend but does not require distributed to be
+  installed. The oldest distributed version supported is 2022.12.1.
 - Joblib has an optional dependency on
   `python-lz4 <https://pypi.python.org/pypi/lz4>`_ as a faster alternative to
   zlib and gzip for compressed serialization.
@@ -87,6 +88,7 @@ Running the test suite
 To run the test suite, you need the pytest (version >= 3) and coverage modules.
 Run the test suite using::
 
+    pip install joblib[test]
     pytest joblib
 
 from the root of the project.
@@ -97,7 +99,7 @@ Building the docs
 To build the docs you need to have sphinx (>=1.4) and some dependencies
 installed::
 
-    pip install -U -r .readthedocs-requirements.txt
+    pip install .[docs]
 
 The docs can then be built with the following command::
 
@@ -122,17 +124,8 @@ Python standard library.
 Making a release and uploading it to PyPI
 =========================================
 
-This command is only run by project manager, to make a release, and
-upload in to PyPI::
-
-    pip install build
-    python -m build --sdist --wheel
-    twine upload dist/*
-
-
-Note that the documentation should automatically get updated at each git
-push. If that is not the case, try building th doc locally and resolve
-any doc build error (in particular when running the examples).
+To generate a release, create a new Release in GitHub; the release will be
+automatically published to PyPI.
 
 Updating the changelog
 ======================

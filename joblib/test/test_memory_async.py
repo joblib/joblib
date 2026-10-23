@@ -16,6 +16,10 @@ from joblib.testing import raises
 
 from .test_memory import corrupt_single_cache_item, monkeypatch_cached_func_warn
 
+# asyncio support in pytest isn't thread-safe, so can't run these tests in
+# parallel.
+pytestmark = pytest.mark.thread_unsafe
+
 
 async def check_identity_lazy_async(func, accumulator, location):
     """Similar to check_identity_lazy_async for coroutine functions"""
@@ -163,12 +167,13 @@ async def test_call_and_shelve_async(tmpdir):
 
 
 @pytest.mark.asyncio
-async def test_memorized_func_call_async(memory):
+async def test_memorized_func_call_async(tmp_path):
     async def ff(x, counter):
         await asyncio.sleep(0.1)
         counter[x] = counter.get(x, 0) + 1
         return counter[x]
 
+    memory = Memory(location=tmp_path, verbose=0)
     gg = memory.cache(ff, ignore=["counter"])
 
     counter = {}
@@ -178,3 +183,5 @@ async def test_memorized_func_call_async(memory):
     x, meta = await gg.call(2, counter)
     assert x == 2, "f has not been called properly"
     assert isinstance(meta, dict), "Metadata are not returned by MemorizedFunc.call."
+    assert await gg(2, counter) == 2
+    assert counter == {2: 2}

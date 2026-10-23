@@ -71,7 +71,7 @@ class Hasher(Pickler):
             return self._hash.hexdigest()
 
     def save(self, obj):
-        if isinstance(obj, (types.MethodType, type({}.pop))):
+        if isinstance(obj, (types.MethodType, types.BuiltinMethodType)):
             # the Pickler cannot pickle instance methods; here we decompose
             # them into components that make them uniquely identifiable
             if hasattr(obj, "__func__"):

@@ -106,7 +106,7 @@ Main features
 # Dev branch marker is: 'X.Y.dev' or 'X.Y.devN' where N is an integer.
 # 'X.Y.dev0' is the canonical version of 'X.Y.dev'
 #
-__version__ = "1.6.dev0"
+__version__ = "1.7.dev0"
 
 
 import os
@@ -137,6 +137,7 @@ __all__ = [
     # Parallel code execution
     "Parallel",
     "delayed",
+    # Not the same as loky.cpu_count(), it also has per-thread limits:
     "cpu_count",
     "effective_n_jobs",
     "wrap_non_picklable_objects",

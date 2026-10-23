@@ -35,6 +35,8 @@ from ._parallel_backends import (
     ParallelBackendBase,  # noqa
     SequentialBackend,
     ThreadingBackend,
+    cpu_count,  # noqa
+    set_thread_local_cpu_limit,  # noqa
 )
 from ._utils import _Sentinel, eval_expr
 from .disk import memstr_to_bytes
@@ -58,7 +60,6 @@ MAYBE_AVAILABLE_BACKENDS = {"multiprocessing", "loky"}
 # backend
 if mp is not None:
     BACKENDS["multiprocessing"] = MultiprocessingBackend
-    from .externals import loky
 
     BACKENDS["loky"] = LokyBackend
     DEFAULT_BACKEND = "loky"
@@ -265,11 +266,15 @@ class parallel_config:
         of Python worker processes when ``backend="loky"`` or the size of the
         thread-pool when ``backend="threading"``.
         This argument is converted to an integer, rounded below for float.
-        If -1 is given, `joblib` tries to use all CPUs. The number of CPUs
-        ``n_cpus`` is obtained with :func:`~cpu_count`.
+        If -1 is given, `joblib` tries to use all available CPUs. The number
+        of CPUs ``n_cpus`` is obtained with :func:`~cpu_count`. ``n_cpus``
+        may be further limited if this instance is being started inside a
+        worker for another :class:`~Parallel`, to ensure the number of
+        workers (threads or processes) doesn't exceed the number of cores
+        available to the top-level process.
         For n_jobs below -1, (n_cpus + 1 + n_jobs) are used. For instance,
-        using ``n_jobs=-2`` will result in all CPUs but one being used.
-        This argument can also go above ``n_cpus``, which will cause
+        using ``n_jobs=-2`` will result in all available CPUs but one being
+        used. n_jobs can also go above ``n_cpus``, which will cause
         oversubscription. In some cases, slight oversubscription can be
         beneficial, e.g., for tasks with large I/O operations.
         If 1 is given, no parallel computing code is used at all, and the
@@ -626,29 +631,6 @@ TASK_PENDING = "Pending"
 
 
 ###############################################################################
-# CPU count that works also when multiprocessing has been disabled via
-# the JOBLIB_MULTIPROCESSING environment variable
-def cpu_count(only_physical_cores=False):
-    """Return the number of CPUs.
-
-    This delegates to loky.cpu_count that takes into account additional
-    constraints such as Linux CFS scheduler quotas (typically set by container
-    runtimes such as docker) and CPU affinity (for instance using the taskset
-    command on Linux).
-
-    Parameters
-    ----------
-    only_physical_cores : boolean, default=False
-        If True, does not take hyperthreading / SMT logical cores into account.
-
-    """
-    if mp is None:
-        return 1
-
-    return loky.cpu_count(only_physical_cores=only_physical_cores)
-
-
-###############################################################################
 # For verbosity
 
 
@@ -672,7 +654,29 @@ def _verbosity_filter(index, verbose):
 
 ###############################################################################
 def delayed(function):
-    """Decorator used to capture the arguments of a function."""
+    """Decorator used to capture the arguments of a function.
+
+    Parameters
+    ----------
+    function: callable
+        The function to be decorated.
+
+    Returns
+    -------
+    callable
+        A new function ``F`` such that calling ``F(*args, **kwargs)``
+        returns a tuple ``(function, args, kwargs)``, allowing the later
+        execution of ``function(*args, **kwargs)``.
+
+    Notes
+    -----
+    Be careful about the order in which decorators are applied, especially
+    when using :meth:`Memory.cache<joblib.Memory.cache>`. For instance,
+    ``Memory.cache(delayed(func))`` will cache the outputs of
+    ``delayed(func)``, that is, tuples of the form ``(func, args, kwargs)``.
+    To cache the outputs of ``func`` itself, you must instead use
+    ``delayed(Memory.cache(func))``.
+    """
 
     def delayed_function(*args, **kwargs):
         return function, args, kwargs
@@ -967,11 +971,15 @@ class Parallel(Logger):
         of Python worker processes when ``backend="loky"`` or the size of
         the thread-pool when ``backend="threading"``.
         This argument is converted to an integer, rounded below for float.
-        If -1 is given, `joblib` tries to use all CPUs. The number of CPUs
-        ``n_cpus`` is obtained with :func:`~cpu_count`.
+        If -1 is given, `joblib` tries to use all available CPUs. The number
+        of CPUs ``n_cpus`` is obtained with :func:`~cpu_count`. ``n_cpus``
+        may be further limited if this instance is being started inside a
+        worker for another :class:`~Parallel`, to ensure the number of
+        workers (threads or processes) doesn't exceed the number of cores
+        available to the top-level process.
         For n_jobs below -1, (n_cpus + 1 + n_jobs) are used. For instance,
-        using ``n_jobs=-2`` will result in all CPUs but one being used.
-        This argument can also go above ``n_cpus``, which will cause
+        using ``n_jobs=-2`` will result in all available CPUs but one being
+        used. n_jobs can also go above ``n_cpus``, which will cause
         oversubscription. In some cases, slight oversubscription can be
         beneficial, e.g., for tasks with large I/O operations.
         If 1 is given, no parallel computing code is used at all, and the
@@ -1037,7 +1045,7 @@ class Parallel(Logger):
     timeout: float or None, default=None
         Timeout limit for each task to complete.  If any task takes longer
         a TimeOutError will be raised. Only applied when n_jobs != 1
-    pre_dispatch: {'all', integer, or expression, as in '3*n_jobs'}, default='2*n_jobs'
+    pre_dispatch: {'all', positive integer, or expression, as in '3*n_jobs'}, default='2*n_jobs'
         The number of batches (of tasks) to be pre-dispatched.
         Default is '2*n_jobs'. When batch_size="auto" this is reasonable
         default and the workers should never starve. Note that only basic
@@ -1811,7 +1819,11 @@ class Parallel(Logger):
                 # timeouts before any other dispatched job has completed and
                 # been added to `self._jobs` to be retrieved.
                 if timeout_control_job is None:
-                    timeout_control_job = next(iter(self._jobs_set), None)
+                    try:
+                        timeout_control_job = self._jobs_set.pop()
+                        self._jobs_set.add(timeout_control_job)
+                    except KeyError:
+                        timeout_control_job = None
 
                 # NB: it can be None if no job has been dispatched yet.
                 if timeout_control_job is not None:
@@ -2046,6 +2058,11 @@ class Parallel(Logger):
             if hasattr(pre_dispatch, "endswith"):
                 pre_dispatch = eval_expr(pre_dispatch.replace("n_jobs", str(n_jobs)))
             self._pre_dispatch_amount = pre_dispatch = int(pre_dispatch)
+            if pre_dispatch < 1:
+                raise ValueError(
+                    "pre_dispatch must be 'all' or a positive number of "
+                    f"batches, got: {self.pre_dispatch!r}"
+                )
 
             # The main thread will consume the first pre_dispatch items and
             # the remaining items will later be lazily dispatched by async

@@ -178,18 +178,24 @@ if os.name == "nt":
         max_sleep_time = 1
         total_sleep_time = 0
         sleep_time = 0.001
+        last_exc = None
         while total_sleep_time < max_sleep_time:
             try:
                 replace(src, dst)
                 break
             except Exception as exc:
                 if getattr(exc, "winerror", None) in access_denied_errors:
+                    last_exc = exc
                     time.sleep(sleep_time)
                     total_sleep_time += sleep_time
                     sleep_time *= 2
                 else:
                     raise
         else:
-            raise
+            # Re-raise the error that kept us retrying. A bare `raise` here is
+            # outside the except block, so there is no exception being handled
+            # and Python raises "RuntimeError: No active exception to reraise",
+            # hiding the access denied error that actually stopped the rename.
+            raise last_exc
 else:
     from os import replace as concurrency_safe_rename  # noqa

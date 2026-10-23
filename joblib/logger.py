@@ -32,11 +32,40 @@ def _squeeze_time(t):
 
 
 def format_time(t):
+    """Format a duration in seconds as a human-readable string.
+
+    Returns both seconds and minutes, e.g. ``'12.3s, 0.2min'``.
+
+    Parameters
+    ----------
+    t : float
+        Duration in seconds.
+
+    Returns
+    -------
+    str
+        Formatted string showing the duration in seconds and minutes.
+    """
     t = _squeeze_time(t)
     return "%.1fs, %.1fmin" % (t, t / 60.0)
 
 
 def short_format_time(t):
+    """Format a duration in seconds as a compact human-readable string.
+
+    Returns minutes for durations over 60 seconds, otherwise seconds.
+
+    Parameters
+    ----------
+    t : float
+        Duration in seconds.
+
+    Returns
+    -------
+    str
+        Formatted string: ``'  42.0s'`` for short durations or
+        ``' 1.2min'`` for longer ones.
+    """
     t = _squeeze_time(t)
     if t > 60:
         return "%4.1fmin" % (t / 60.0)
@@ -45,6 +74,25 @@ def short_format_time(t):
 
 
 def pformat(obj, indent=0, depth=3):
+    """Return a pretty-printed string representation of an object.
+
+    Uses :func:`pprint.pformat` with numpy print options temporarily
+    reduced to keep output concise when numpy is available.
+
+    Parameters
+    ----------
+    obj : object
+        The object to format.
+    indent : int, optional
+        Indentation level passed to :func:`pprint.pformat`. Default is 0.
+    depth : int, optional
+        Maximum nesting depth passed to :func:`pprint.pformat`. Default is 3.
+
+    Returns
+    -------
+    str
+        Pretty-printed string representation of ``obj``.
+    """
     if "numpy" in sys.modules:
         import numpy as np
 

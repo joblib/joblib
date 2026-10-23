@@ -22,15 +22,24 @@ concurrency:
 
 env:
   COVERAGE: 'true'
+  # Oldest/latest supported python versions
+  OLDEST_PYTHON_VERSION: '3.11'
+  LATEST_PYTHON_VERSION: '3.15'
+  # We use the oldest package version
+  # supporting the oldest supported python version
+  OLDEST_NUMPY_VERSION: '1.23.2'
+  OLDEST_CLOUDPICKLE_VERSION: '3.0.0'
+  # Oldest verison that supports the oldest supported Python version
+  OLDEST_DISTRIBUTED_VERSION: '2022.12.1'
 
 jobs:
   linting:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.x"
 
@@ -39,62 +48,81 @@ jobs:
       - name: Run pre-commit
         run: pre-commit run --all-files
 
+  gen-pickle:
+    name: Generate pickle files
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+      - name: Setup conda
+        uses: conda-incubator/setup-miniconda@v4
+        with:
+          auto-activate-base: true
+          auto-update-conda: true
+          miniforge-version: latest
+      - name: Install environments
+        run: bash -el continuous_integration/install_old.sh
+      - name: Generate pickle files
+        run: cd joblib/test/data && bash -el generate_data.sh
+      - name: Upload files
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-data
+          path: joblib/test/data/*.pkl*
+
   testing:
     name: Testing
-    needs: linting
+    needs: [linting, gen-pickle]
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         name: [default]
         os: [ubuntu-latest, macos-latest, windows-latest]
-        PYTHON_VERSION: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+        PYTHON_VERSION: ["oldest_supported", "3.11", "3.12", "3.13", "3.14", "3.15"]
         include:
-          - name: test-sklearn
-            os: ubuntu-latest
-            PYTHON_VERSION: "3.10"
-            SKLEARN_TESTS: "true"
+          ######################################################
+          #### Use the stable versions of free-threaded.    ####
+          #### They will run with pytest-run-parallel       ####
+          ######################################################
+          - name: python3.14-free-threaded
+            os: 'ubuntu-latest'
+            PYTHON_VERSION: "free-threaded-3.14"
+          ######################################################
           - name: distributed-latest
             os: ubuntu-latest
-            PYTHON_VERSION: "3.10"
-            EXTRA_CONDA_PACKAGES: numpy distributed
+            PYTHON_VERSION: "latest_supported"
+            USE_DISTRIBUTED: "true"
           - name: distributed
             os: ubuntu-latest
-            PYTHON_VERSION: "3.9"
-            EXTRA_CONDA_PACKAGES: numpy=1.22.2 distributed=2023.1.1
-          - name: numpy-1.24
+            PYTHON_VERSION: "oldest_supported"
+            USE_DISTRIBUTED: "true"
+          - name: cython
             os: ubuntu-latest
-            PYTHON_VERSION: "3.11"
-            EXTRA_CONDA_PACKAGES: numpy=1.24.1
+            PYTHON_VERSION: "latest_supported"
             CYTHON: true
           - name: no-multiprocessing
             os: ubuntu-latest
-            PYTHON_VERSION: "3.9"
-            EXTRA_CONDA_PACKAGES: numpy=1.22.2
+            PYTHON_VERSION: "oldest_supported"
             JOBLIB_MULTIPROCESSING: "0"
             NO_LZMA: true
           - name: no-numpy
             os: ubuntu-latest
-            PYTHON_VERSION: "3.9"
+            PYTHON_VERSION: "oldest_supported"
             NO_NUMPY: true
           - name: no-lz4
             os: ubuntu-latest
-            PYTHON_VERSION: "3.10"
+            PYTHON_VERSION: "oldest_supported"
             NO_LZ4: true
           - name: one-cpu
             os: ubuntu-latest
-            PYTHON_VERSION: "3.12"
-            LOKY_MAX_CPU_COUNT: 1
+            PYTHON_VERSION: "latest_supported"
+            ONE_CPU: "1"
           - name: default-backend-threading
             os: ubuntu-latest
-            PYTHON_VERSION: "3.9"
+            PYTHON_VERSION: "oldest_supported"
             JOBLIB_TESTS_DEFAULT_PARALLEL_BACKEND: "threading"
-          - name: python3.13-free-threaded
-            os: 'ubuntu-latest'
-            PYTHON_VERSION: "free-threaded-3.13"
-          - name: python3.14-free-threaded
-            os: 'ubuntu-latest'
-            PYTHON_VERSION: "free-threaded-3.14"
 
     env: ${{ matrix }}
 
@@ -109,10 +137,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Setup conda
-        uses: conda-incubator/setup-miniconda@v3
+        uses: conda-incubator/setup-miniconda@v4
         with:
           auto-activate-base: true
           auto-update-conda: true
@@ -123,6 +151,15 @@ jobs:
         run: |
           bash -el continuous_integration/install.sh
 
+      - name: Download test files
+        uses: actions/download-artifact@v8
+        with:
+          name: test-data
+          path: joblib/test/data
+
+      - name: Show downloaded test files
+        run: ls joblib/test/data/*.pkl*
+
       - name: Run tests
         run: |
           bash -el continuous_integration/run_tests.sh
@@ -130,7 +167,32 @@ jobs:
       - name: Upload to Codecov
         # always upload coverage even if tests fail
         if: ${{ matrix.SKLEARN_TESTS != 'true' && (success() || failure()) }}
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           files: coverage.xml
           token: ${{ secrets.CODECOV_TOKEN }}
+
+  test-sklearn:
+    name: Testing scikit-learn
+    needs: linting
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup conda
+        uses: conda-incubator/setup-miniconda@v4
+        with:
+          auto-activate-base: true
+          auto-update-conda: true
+          miniforge-version: latest
+
+      - name: Install dependencies
+        run: |
+          bash -el continuous_integration/install_sklearn.sh
+
+      - name: Run tests
+        run: |
+          bash -el continuous_integration/run_tests_sklearn.sh

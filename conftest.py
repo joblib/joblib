@@ -1,12 +1,10 @@
 import faulthandler
 import logging
 import os
-import sys
 
 import pytest
 from _pytest.doctest import DoctestItem
 
-from joblib import Memory
 from joblib.backports import LooseVersion
 from joblib.parallel import ParallelBackendBase, mp
 
@@ -28,13 +26,10 @@ def pytest_collection_modifyitems(config, items):
     # e.g. via the JOBLIB_MULTIPROCESSING env variable
     if mp is not None:
         try:
-            # Only run doctests for numpy >= 2 and Python >= 3.10 to avoid
-            # formatting changes
+            # Only run doctests for numpy >= 2 to avoid formatting changes
             import numpy as np
 
-            if LooseVersion(np.__version__) >= LooseVersion("2") and sys.version_info[
-                :2
-            ] >= (3, 10):
+            if LooseVersion(np.__version__) >= LooseVersion("2"):
                 skip_doctests = False
         except ImportError:
             pass
@@ -92,14 +87,6 @@ def pytest_unconfigure(config):
     # Note that we also use a shorter timeout for the per-test callback
     # configured via the pytest-timeout extension.
     faulthandler.dump_traceback_later(60, exit=True)
-
-
-@pytest.fixture(scope="function")
-def memory(tmp_path):
-    "Fixture to get an independent and self-cleaning Memory"
-    mem = Memory(location=tmp_path, verbose=0)
-    yield mem
-    mem.clear()
 
 
 @pytest.fixture(scope="function", autouse=True)

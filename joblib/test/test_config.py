@@ -1,4 +1,5 @@
 import os
+from uuid import uuid4
 
 from joblib._parallel_backends import (
     LokyBackend,
@@ -33,15 +34,17 @@ def test_global_parallel_backend(context):
 
 @parametrize("context", [parallel_config, parallel_backend])
 def test_external_backends(context):
-    def register_foo():
-        BACKENDS["foo"] = ThreadingBackend
+    backend_name = str(uuid4())
 
-    EXTERNAL_BACKENDS["foo"] = register_foo
+    def register_foo():
+        BACKENDS[backend_name] = ThreadingBackend
+
+    EXTERNAL_BACKENDS[backend_name] = register_foo
     try:
-        with context("foo"):
+        with context(backend_name):
             assert isinstance(Parallel()._backend, ThreadingBackend)
     finally:
-        del EXTERNAL_BACKENDS["foo"]
+        del EXTERNAL_BACKENDS[backend_name]
 
 
 @with_numpy
@@ -49,7 +52,7 @@ def test_external_backends(context):
 def test_parallel_config_no_backend(tmpdir):
     # Check that parallel_config allows to change the config
     # even if no backend is set.
-    with parallel_config(n_jobs=2, max_nbytes=1, temp_folder=tmpdir):
+    with parallel_config(n_jobs=2, max_nbytes=1, temp_folder=tmpdir.strpath):
         with Parallel(prefer="processes") as p:
             assert isinstance(p._backend, LokyBackend)
             assert p.n_jobs == 2

@@ -29,6 +29,10 @@ from distributed.metrics import time  # noqa: E402
 # and their dependencies.
 from distributed.utils_test import cleanup, cluster, inc  # noqa: E402, F401
 
+# https://github.com/joblib/joblib/issues/1818 is the tracking issue for fixing
+# this:
+pytestmark = pytest.mark.thread_unsafe
+
 
 @pytest.fixture(scope="function", autouse=True)
 def avoid_dask_env_leaks(tmp_path):
@@ -59,13 +63,14 @@ def slow_raise_value_error(condition, duration=0.05):
 
 
 def count_events(event_name, client):
-    worker_events = client.run(lambda dask_worker: dask_worker.log)
-    event_counts = {}
-    for w, events in worker_events.items():
-        event_counts[w] = len(
-            [event for event in list(events) if event[1] == event_name]
-        )
-    return event_counts
+    def work(dask_worker):
+        count = 0
+        for task_state in dask_worker.state.tasks.values():
+            task_story = dask_worker.state.story(task_state)
+            count += len([event for event in task_story if event[1] == event_name])
+        return count
+
+    return client.run(work)
 
 
 def test_simple(loop):
@@ -342,10 +347,10 @@ def test_manual_scatter(loop):
 
 
 # When the same IOLoop is used for multiple clients in a row, use
-# loop_in_thread instead of loop to prevent the Client from closing it.  See
-# dask/distributed #4112
+# loop_in_thread instead of loop to prevent the Client from closing it.
+# See dask/distributed #4112
+@with_numpy
 def test_auto_scatter(loop_in_thread):
-    np = pytest.importorskip("numpy")
     data1 = np.ones(int(1e4), dtype=np.uint8)
     data2 = np.ones(int(1e4), dtype=np.uint8)
     data_to_process = ([data1] * 3) + ([data2] * 3)
@@ -355,9 +360,11 @@ def test_auto_scatter(loop_in_thread):
             with parallel_config(backend="dask"):
                 # Passing the same data as arg and kwarg triggers a single
                 # scatter operation whose result is reused.
-                Parallel()(
-                    delayed(noop)(data, data, i, opt=data)
-                    for i, data in enumerate(data_to_process)
+                list(
+                    Parallel()(
+                        delayed(noop)(data, data, i, opt=data)
+                        for i, data in enumerate(data_to_process)
+                    )
                 )
             # By default large array are automatically scattered with
             # broadcast=1 which means that one worker must directly receive
@@ -368,7 +375,7 @@ def test_auto_scatter(loop_in_thread):
     with cluster() as (s, [a, b]):
         with Client(s["address"], loop=loop_in_thread) as client:
             with parallel_config(backend="dask"):
-                Parallel()(delayed(noop)(data1[:3], i) for i in range(5))
+                list(Parallel()(delayed(noop)(data1[:3], i) for i in range(5)))
             # Small arrays are passed within the task definition without going
             # through a scatter operation.
             counts = count_events("receive-from-scatter", client)

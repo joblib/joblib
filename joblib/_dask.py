@@ -327,7 +327,7 @@ class DaskDistributedBackend(AutoBatchingMixin, ParallelBackendBase):
 
         return (Batch(tasks), tasks)
 
-    def apply_async(self, func, callback=None):
+    def submit(self, func, callback=None):
         cf_future = concurrent.futures.Future()
         cf_future.get = cf_future.result  # achieve AsyncResult API
 

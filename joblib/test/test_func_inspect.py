@@ -17,7 +17,7 @@ from joblib.func_inspect import (
 )
 from joblib.memory import Memory
 from joblib.test.common import with_numpy
-from joblib.testing import fixture, parametrize, raises
+from joblib.testing import fixture, parametrize, raises, warns
 
 
 ###############################################################################
@@ -30,7 +30,7 @@ def g(x):
     pass
 
 
-def h(x, y=0, *args, **kwargs):
+def h(x, y=0, *args, z=1, **kwargs):
     pass
 
 
@@ -101,13 +101,18 @@ def test_filter_args_method():
     assert filter_args(obj.f, [], (1,)) == {"x": 1, "self": obj}
 
 
+def test_filter_args_set_positional_and_keyword():
+    with raises(ValueError, match="x was given both as positional and"):
+        filter_args(f, [], (1,), dict(x=2))
+
+
 @parametrize(
     "func,args,filtered_args",
     [
-        (h, [[], (1,)], {"x": 1, "y": 0, "*": [], "**": {}}),
-        (h, [[], (1, 2, 3, 4)], {"x": 1, "y": 2, "*": [3, 4], "**": {}}),
-        (h, [[], (1, 25), {"ee": 2}], {"x": 1, "y": 25, "*": [], "**": {"ee": 2}}),
-        (h, [["*"], (1, 2, 25), {"ee": 2}], {"x": 1, "y": 2, "**": {"ee": 2}}),
+        (h, [[], (1,)], {"x": 1, "y": 0, "z": 1, "*": [], "**": {}}),
+        (h, [[], (1, 2, 3, 4)], {"x": 1, "y": 2, "z": 1, "*": [3, 4], "**": {}}),
+        (h, [[], (1,), {"ee": 2}], {"x": 1, "y": 0, "z": 1, "*": [], "**": {"ee": 2}}),
+        (h, [["*"], (1, 2, 25), {"ee": 2}], {"x": 1, "y": 2, "z": 1, "**": {"ee": 2}}),
     ],
 )
 def test_filter_varargs(func, args, filtered_args):
@@ -137,8 +142,9 @@ def test_filter_args_2():
 
     ff = functools.partial(f, 1)
     # filter_args has to special-case partial
-    assert filter_args(ff, [], (1,)) == {"*": [1], "**": {}}
-    assert filter_args(ff, ["y"], (1,)) == {"*": [1], "**": {}}
+    with warns(UserWarning, match="Cannot inspect object"):
+        assert filter_args(ff, [], (1,)) == {"*": [1], "**": {}}
+        assert filter_args(ff, ["y"], (1,)) == {"*": [1], "**": {}}
 
 
 @parametrize("func,funcname", [(f, "f"), (g, "g"), (cached_func, "cached_func")])
@@ -205,6 +211,19 @@ def func_with_signature(a: int, b: int) -> None:
     pass
 
 
+def func_with_kwonly_default_before_required(*, kw1="kw1", kw2):
+    pass
+
+
+def test_filter_args_kwonly_default_before_required():
+    assert filter_args(
+        func_with_kwonly_default_before_required, [], (), {"kw2": 2}
+    ) == {"kw1": "kw1", "kw2": 2}
+    assert filter_args(
+        func_with_kwonly_default_before_required, [], (), {"kw1": 1, "kw2": 2}
+    ) == {"kw1": 1, "kw2": 2}
+
+
 def test_filter_args_edge_cases():
     assert filter_args(func_with_kwonly_args, [], (1, 2), {"kw1": 3, "kw2": 4}) == {
         "a": 1,
@@ -215,9 +234,8 @@ def test_filter_args_edge_cases():
 
     # filter_args doesn't care about keyword-only arguments so you
     # can pass 'kw1' into *args without any problem
-    with raises(ValueError) as excinfo:
+    with raises(ValueError, match="Too many arguments for"):
         filter_args(func_with_kwonly_args, [], (1, 2, 3), {"kw2": 2})
-    excinfo.match("Keyword-only parameter 'kw1' was passed as positional parameter")
 
     assert filter_args(
         func_with_kwonly_args, ["b", "kw2"], (1, 2), {"kw1": 3, "kw2": 4}
@@ -363,3 +381,29 @@ def test_decorated_functions():
     code = get_func_code(func)
     decorated_code = get_func_code(decorated_func)
     assert code == decorated_code
+
+
+def _get_code_no_source():
+    # Emulate a function defined in a notebook cell: the source cannot be
+    # retrieved, so get_func_code falls back to digesting the code object.
+    ns = {}
+    exec(
+        compile(
+            "def f(x):\n    return x\n",
+            filename="<ipython-input-0-000000000000>",
+            mode="exec",
+        ),
+        None,
+        ns,
+    )
+    return get_func_code(ns["f"])[0]
+
+
+def test_func_code_consistency_without_source():
+    # Non-regression test for #1694: the fallback used to be
+    # str(hash(func.__code__)), which is salted per process, so workers
+    # disagreed and wiped each other's cache entries.
+    from joblib.parallel import Parallel, delayed
+
+    codes = Parallel(n_jobs=2)(delayed(_get_code_no_source)() for _ in range(5))
+    assert set(codes) == {_get_code_no_source()}
