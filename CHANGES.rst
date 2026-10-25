@@ -4,6 +4,10 @@ Release Notes
 In Development
 --------------
 
+- Fix ``joblib.hash`` (and hence ``Memory``) giving the same hash to different
+  dicts or sets with unorderable keys, for instance any ``OrderedDict`` with
+  mixed-type keys and an empty one.
+
 - Fix the ``ensure_native_byte_order`` parameter of ``numpy_pickle.load``
   to apply correctly to structured NumPy arrays.
   https://github.com/joblib/joblib/pull/1895

@@ -346,6 +346,20 @@ def test_set_decimal_hash():
     )
 
 
+def test_unorderable_keys_are_hashed():
+    # Dicts and sets with unorderable keys are sorted by the hash of each key,
+    # but the keys themselves must still be part of the hash: they should not
+    # collide with containers holding those hashes, nor with empty ones.
+    d = {1: "a", "b": 2}
+    assert hash(d) != hash({hash(1): "a", hash("b"): 2})
+    assert hash({1, "b"}) != hash({hash(1), hash("b")})
+
+    for klass in (collections.OrderedDict, lambda d: collections.defaultdict(int, d)):
+        assert hash(klass(d)) != hash(klass({}))
+        assert hash(klass(d)) != hash(klass({2: "a", "c": 2}))
+        assert hash(klass(d)) == hash(klass({"b": 2, 1: "a"}))
+
+
 def test_string():
     # Test that we obtain the same hash for object owning several strings,
     # whatever the past of these strings (which are immutable in Python)

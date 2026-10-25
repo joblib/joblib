@@ -33,8 +33,9 @@ class _ConsistentSet(object):
             self._sequence = sorted(set_sequence)
         except (TypeError, decimal.InvalidOperation):
             # If elements are unorderable, sorting them using their hash.
-            # This is slower but works in any case.
-            self._sequence = sorted((hash(e) for e in set_sequence))
+            # This is slower but works in any case. The elements themselves
+            # are kept so that they are still part of the hashed stream.
+            self._sequence = sorted(set_sequence, key=hash)
 
 
 class _MyHash(object):
@@ -135,6 +136,10 @@ class Hasher(Pickler):
     # additional 'obj' argument in Python 3.14
     def _batch_setitems(self, items, *args):
         # forces order of keys in dict to ensure consistent hash.
+        # items can be a one-shot iterator (e.g. for dict subclasses pickled
+        # through __reduce__), so it is materialized before the first sort
+        # attempt consumes it.
+        items = list(items)
         try:
             # Trying first to compare dict assuming the type of keys is
             # consistent and orderable.
@@ -143,9 +148,10 @@ class Hasher(Pickler):
             Pickler._batch_setitems(self, iter(sorted(items)), *args)
         except TypeError:
             # If keys are unorderable, sorting them using their hash. This is
-            # slower but works in any case.
+            # slower but works in any case. The keys themselves are kept so
+            # that they are still part of the hashed stream.
             Pickler._batch_setitems(
-                self, iter(sorted((hash(k), v) for k, v in items)), *args
+                self, iter(sorted(items, key=lambda item: hash(item[0]))), *args
             )
 
     def save_set(self, set_items):
