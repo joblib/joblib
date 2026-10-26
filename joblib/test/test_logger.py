@@ -5,9 +5,10 @@ Test the logger module.
 # Author: Gael Varoquaux <gael dot varoquaux at normalesup dot org>
 # Copyright (c) 2009 Gael Varoquaux
 # License: BSD Style, 3 clauses.
+import logging
 import re
 
-from joblib.logger import PrintTime
+from joblib.logger import Logger, PrintTime
 
 
 def test_print_time(tmpdir, capsys):
@@ -27,3 +28,14 @@ def test_print_time(tmpdir, capsys):
     match = r"Foo: 0\..s, 0\..min\nFoo: 0\..s, 0..min\nFoo: " + r".\..s, 0..min\n"
     if not re.match(match, err_printed_text):
         raise AssertionError("Excepted %s, got %s" % (match, err_printed_text))
+
+
+def test_logger_info_uses_named_logger(caplog):
+    # Listen for INFO messages on the "my_pipeline" logger only
+    caplog.set_level(logging.INFO, logger="my_pipeline")
+
+    Logger(name="my_pipeline").info("hello")
+
+    # Exactly one message should arrive, from the "my_pipeline" logger
+    assert len(caplog.records) == 1
+    assert caplog.records[0].name == "my_pipeline"

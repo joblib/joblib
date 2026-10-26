@@ -4,6 +4,10 @@ Release Notes
 In Development
 --------------
 
+- Fix ``Logger.info`` to log to its configured namespace instead of the
+  root logger.
+  https://github.com/joblib/joblib/pull/1919
+
 - Fix the ``ensure_native_byte_order`` parameter of ``numpy_pickle.load``
   to apply correctly to structured NumPy arrays.
   https://github.com/joblib/joblib/pull/1895
