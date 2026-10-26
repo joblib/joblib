@@ -8,6 +8,7 @@ copy between the parent and child processes.
 # Copyright: 2017, Thomas Moreau
 # License: BSD 3 clause
 
+import os
 import threading
 
 from ._memmapping_reducer import TemporaryResourcesManager, get_memmapping_reducers
@@ -43,6 +44,7 @@ class MemmappingExecutor(_ReusablePoolExecutor):
         executor_args.update(
             dict(timeout=timeout, initializer=initializer, initargs=initargs)
         )
+        executor_args["cwd"] = os.getcwd()
         current_args = getattr(_local_executor_args, "args", None)
         reuse = current_args is None or current_args == executor_args
         _local_executor_args.args = executor_args

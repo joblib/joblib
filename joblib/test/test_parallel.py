@@ -2364,6 +2364,30 @@ def test_loky_reuse_workers(n_jobs):
         assert executor == first_executor
 
 
+@pytest.mark.thread_unsafe  # changes the process-wide working directory
+@with_multiprocessing
+def test_loky_workers_after_changing_directory(tmp_path, monkeypatch):
+    get_reusable_executor(reuse=True).shutdown()
+    work_dir = tmp_path / "work"
+    work_dir.mkdir()
+    monkeypatch.chdir(work_dir)
+    try:
+        assert (
+            Parallel(n_jobs=2, backend="loky")(delayed(os.getcwd)() for _ in range(2))
+            == [os.getcwd()] * 2
+        )
+
+        monkeypatch.chdir(tmp_path)
+        if sys.platform != "win32":
+            work_dir.rmdir()
+        assert (
+            Parallel(n_jobs=2, backend="loky")(delayed(os.getcwd)() for _ in range(2))
+            == [os.getcwd()] * 2
+        )
+    finally:
+        get_reusable_executor(reuse=True).shutdown()
+
+
 def _set_initialized(status):
     status[os.getpid()] = "initialized"
 

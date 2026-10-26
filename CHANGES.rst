@@ -4,6 +4,10 @@ Release Notes
 In Development
 --------------
 
+- Fix reused ``loky`` workers failing after the working directory changes
+  or is removed between ``Parallel`` calls.
+  https://github.com/joblib/joblib/pull/1921
+
 - Fix the ``ensure_native_byte_order`` parameter of ``numpy_pickle.load``
   to apply correctly to structured NumPy arrays.
   https://github.com/joblib/joblib/pull/1895
