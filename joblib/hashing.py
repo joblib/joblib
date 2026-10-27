@@ -238,9 +238,11 @@ class NumpyHasher(Hasher):
             # the serialization (and thus the pickle memoization) of each dtype
             # using each time a different ``pickle.dumps`` call unrelated to
             # the current Hasher instance.
-            self._hash.update("_HASHED_DTYPE".encode("utf-8"))
-            self._hash.update(pickle.dumps(obj))
-            return
+            # The result goes in the pickle stream rather than straight into
+            # the hash: otherwise it leaves no trace of its position there and
+            # can be swapped with array bytes, e.g. [dtype, arr] and
+            # [arr, dtype] would hash the same.
+            obj = ("_HASHED_DTYPE", pickle.dumps(obj))
         Hasher.save(self, obj)
 
 

@@ -4,6 +4,12 @@ Release Notes
 In Development
 --------------
 
+- Fix ``joblib.hash`` giving the same hash to some containers that differ only
+  in the position of a NumPy dtype, e.g. ``[dtype, array]`` and
+  ``[array, dtype]``, which made ``Memory`` reuse the wrong cached result.
+  Hashes of objects containing NumPy arrays or dtypes change, so existing
+  ``Memory`` cache entries for them are recomputed.
+
 - Fix the ``ensure_native_byte_order`` parameter of ``numpy_pickle.load``
   to apply correctly to structured NumPy arrays.
   https://github.com/joblib/joblib/pull/1895

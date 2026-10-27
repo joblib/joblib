@@ -397,6 +397,15 @@ def test_numpy_dtype_pickling():
     )
 
 
+@with_numpy
+def test_numpy_dtype_position_is_hashed():
+    # An array whose bytes match what a dtype feeds the hash must not make
+    # [dtype, array] and [array, dtype] collide.
+    dt = np.dtype("u1")
+    a = np.frombuffer(b"_HASHED_DTYPE" + pickle.dumps(dt), dtype=np.uint8).copy()
+    assert hash([dt, a]) != hash([a, dt])
+
+
 def _generate_seeded_random_values():
     rng = random.Random(42)
     return [rng.random() for _ in range(5)]
