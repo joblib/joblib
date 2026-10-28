@@ -719,6 +719,16 @@ class MultiprocessingBackend(PoolManagerMixin, AutoBatchingMixin, ParallelBacken
         self.reset_batch_stats()
 
 
+# Keep this callable stable so Loky can reuse an executor for the same config.
+def _initializer_with_sigint_ignored(initializer, initargs):
+    """Ignore console Ctrl+C in a Loky worker before calling user code."""
+    import signal
+
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+    if initializer is not None:
+        initializer(*initargs)
+
+
 class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
     """Managing pool of workers with loky instead of multiprocessing."""
 
@@ -743,6 +753,20 @@ class LokyBackend(AutoBatchingMixin, ParallelBackendBase):
             **self.backend_kwargs,
             **memmapping_executor_kwargs,
         }
+
+        if os.name == "nt":
+            initializer = memmapping_executor_kwargs.get("initializer")
+            # Let Loky synchronously validate non-callable initializers.
+            if initializer is None or callable(initializer):
+                initargs = memmapping_executor_kwargs.get("initargs", ())
+                memmapping_executor_kwargs["initializer"] = (
+                    _initializer_with_sigint_ignored
+                )
+                memmapping_executor_kwargs["initargs"] = (
+                    initializer,
+                    # Loky ignores initargs when initializer is None.
+                    initargs if initializer is not None else (),
+                )
 
         # Prohibit the use of 'timeout' in the LokyBackend, as 'idle_worker_timeout'
         # better describes the backend's behavior.

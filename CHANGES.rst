@@ -4,6 +4,12 @@ Release Notes
 In Development
 --------------
 
+- Handle Ctrl+C in the parent process for default Windows loky workers. This
+  avoids interrupting a running worker call only for the worker to start
+  prefetched work while ``Parallel`` is stopping the pool. User initializers
+  can still override the worker's SIGINT handler.
+  https://github.com/joblib/loky/issues/477
+
 - Fix the ``ensure_native_byte_order`` parameter of ``numpy_pickle.load``
   to apply correctly to structured NumPy arrays.
   https://github.com/joblib/joblib/pull/1895
