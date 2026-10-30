@@ -4,7 +4,7 @@ Release Notes
 In Development
 --------------
 
-- Fix ``hash`` to correcly handle ``type(None)``, ``type(NotImplemented)`` and
+- Fix ``hash`` to correctly handle ``type(None)``, ``type(NotImplemented)`` and
   ``type(...)``.
   https://github.com/joblib/joblib/pull/1928
 
