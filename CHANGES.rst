@@ -4,6 +4,10 @@ Release Notes
 In Development
 --------------
 
+- Fix ``hash`` to correcly handle ``type(None)``, ``type(NotImplemented)`` and
+  ``type(...)``.
+  https://github.com/joblib/joblib/pull/1928
+
 - Fix the ``ensure_native_byte_order`` parameter of ``numpy_pickle.load``
   to apply correctly to structured NumPy arrays.
   https://github.com/joblib/joblib/pull/1895
