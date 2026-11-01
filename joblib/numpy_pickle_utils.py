@@ -145,12 +145,14 @@ def _validate_fileobject_and_memmap(fileobj, filename, mmap_mode=None):
         )
         yield filename, validated_mmap_mode
     else:
+        decompressor_fileobj = None
         if compressor in _COMPRESSORS:
             # based on the compressor detected in the file, we open the
             # correct decompressor file object, wrapped in a buffer.
             compressor_wrapper = _COMPRESSORS[compressor]
             inst = compressor_wrapper.decompressor_file(fileobj)
             fileobj = _buffered_read_file(inst)
+            decompressor_fileobj = fileobj
 
         # Checking if incompatible load parameters with the type of file:
         # mmap_mode cannot be used with compressed file or in memory buffers
@@ -180,7 +182,11 @@ def _validate_fileobject_and_memmap(fileobj, filename, mmap_mode=None):
             else:
                 validated_mmap_mode = mmap_mode
 
-        yield fileobj, validated_mmap_mode
+        try:
+            yield fileobj, validated_mmap_mode
+        finally:
+            if decompressor_fileobj is not None:
+                decompressor_fileobj.close()
 
 
 def _write_fileobject(filename, compress=("zlib", 3)):

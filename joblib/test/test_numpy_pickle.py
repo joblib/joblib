@@ -1292,6 +1292,21 @@ def test_lz4_compression(tmpdir):
     assert numpy_pickle.load(fname) == data
 
 
+@with_lz4
+def test_lz4_decompressor_closed_on_exit(tmpdir):
+    # gh-1929: Ensure decompressor buffered reader is closed before the underlying
+    # file is closed, preventing 'ValueError: I/O operation on closed file' on GC.
+    import gc
+
+    fname = tmpdir.join("test_lz4_gc.lz4").strpath
+    data = {"numbers": list(range(100))}
+    numpy_pickle.dump(data, fname, compress="lz4")
+
+    loaded = numpy_pickle.load(fname)
+    assert loaded == data
+    gc.collect()
+
+
 @without_lz4
 def test_lz4_compression_without_lz4(tmpdir):
     # Check that lz4 cannot be used when dependency is not available.
