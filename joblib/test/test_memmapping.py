@@ -75,6 +75,74 @@ def inplace_double(args):
 
 
 @with_numpy
+@pytest.mark.parametrize("order", ["C", "F"])
+@pytest.mark.parametrize("view", ["original", "transpose", "reshape"])
+@pytest.mark.parametrize("asarray", [False, True])
+def test_contiguous_memmap_view_order(tmp_path, order, view, asarray):
+    shape = (12,) if view == "reshape" else (3, 4)
+    backing = np.memmap(
+        tmp_path / "data.mmap",
+        dtype=np.int64,
+        mode="w+",
+        shape=shape,
+        order=order,
+        offset=16,
+    )
+    backing[:] = np.arange(12).reshape(shape)
+    if view == "transpose":
+        array = backing.T
+    elif view == "reshape":
+        array = backing.reshape((3, 4), order=order)
+    else:
+        array = backing
+    if asarray:
+        array = np.asarray(array)
+
+    reducer = ArrayMemmapForwardReducer(None, tmp_path, "r", True)
+    constructor, args = reducer(array)
+    reconstructed = constructor(*args)
+
+    np.testing.assert_array_equal(reconstructed, array)
+    assert reconstructed.strides == array.strides
+    assert has_shareable_memory(reconstructed)
+    reconstructed[1, 1] = -1
+    assert array[1, 1] == -1
+
+
+@with_numpy
+@with_multiprocessing
+@pytest.mark.parametrize("order", ["C", "F"])
+def test_transposed_memmap_parallel(tmp_path, order):
+    # A contiguous view can have a different order from its backing mapping.
+    # Both the parent-to-worker and worker-to-parent reducers must preserve it.
+    backing = np.memmap(
+        tmp_path / "data.mmap",
+        dtype=np.int64,
+        mode="w+",
+        shape=(2, 5),
+        order=order,
+    )
+    backing[:] = np.arange(10).reshape(backing.shape)
+    array = backing.T
+    expected = np.array(array)
+
+    def modify_and_transpose(array, expected):
+        np.testing.assert_array_equal(array, expected)
+        assert has_shareable_memory(array)
+        array[:, 0] = 1
+        array[:, 1] = 10
+        return array.T
+
+    (returned,) = Parallel(n_jobs=2)([delayed(modify_and_transpose)(array, expected)])
+    expected[:, 0] = 1
+    expected[:, 1] = 10
+    np.testing.assert_array_equal(array, expected)
+    np.testing.assert_array_equal(returned, expected.T)
+    assert returned.strides == backing.strides
+    assert has_shareable_memory(returned)
+
+
+@with_numpy
 @with_multiprocessing
 def test_memmap_based_array_reducing(tmpdir):
     """Check that it is possible to reduce a memmap backed array"""

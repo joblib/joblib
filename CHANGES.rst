@@ -4,6 +4,11 @@ Release Notes
 In Development
 --------------
 
+- Fix the memory order of contiguous memmap views passed to and returned from
+  ``Parallel`` workers, preserving values and shared writes after transposing
+  or reshaping the backing mapping.
+  https://github.com/joblib/joblib/issues/1019
+
 - Fix ``await cached_func.call(...)`` for async functions when caching is
   disabled with ``Memory(location=None)``. The call now awaits the function
   and returns its output with empty metadata.

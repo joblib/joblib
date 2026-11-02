@@ -305,13 +305,11 @@ def _reduce_memmap_backed(a, m):
     # offset from the backing memmap
     offset += m.offset
 
-    # 1D arrays are both F and C contiguous, so only set the flag in
-    # higher dimensions. See https://github.com/joblib/joblib/pull/1704.
-    if m.ndim > 1 and m.flags["F_CONTIGUOUS"]:
+    # Use the view's order, which can differ from the backing mapping after
+    # transposing or reshaping it. 1D arrays are both F and C contiguous.
+    if a.ndim > 1 and a.flags["F_CONTIGUOUS"]:
         order = "F"
     else:
-        # The backing memmap buffer is necessarily contiguous hence C if not
-        # Fortran
         order = "C"
 
     if a.flags["F_CONTIGUOUS"] or a.flags["C_CONTIGUOUS"]:
