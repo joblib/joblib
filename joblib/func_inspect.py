@@ -366,7 +366,8 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
             )
 
     # If more keyword arguments are given, store them in varkwargs
-    varkwargs = {k: v for k, v in kwargs.items() if k not in arg_dict}
+    named_args = {*arg_names, *arg_kwonlyargs}
+    varkwargs = {k: v for k, v in kwargs.items() if k not in named_args}
     if arg_varkw is not None:
         arg_dict["**"] = varkwargs
 

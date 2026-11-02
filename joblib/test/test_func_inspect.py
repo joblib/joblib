@@ -54,6 +54,10 @@ def m2(x, *, y, z=3):
     pass
 
 
+def n(x=0, /, **kwargs):
+    pass
+
+
 @fixture(scope="module")
 def cached_func(tmpdir_factory):
     # Create a Memory object to test decorated functions.
@@ -130,11 +134,26 @@ test_filter_kwargs_extra_params = [
     [
         (k, [[], (1, 2), {"ee": 2}], {"*": [1, 2], "**": {"ee": 2}}),
         (k, [[], (3, 4)], {"*": [3, 4], "**": {}}),
+        # Keywords named like a slot of the filtered args stay in "**"
+        (k, [[], (), {"*": 1}], {"*": [], "**": {"*": 1}}),
+        (n, [[], (), {"x": 1}], {"x": 0, "**": {"x": 1}}),
     ]
     + test_filter_kwargs_extra_params,
 )
 def test_filter_kwargs(func, args, filtered_args):
     assert filter_args(func, *args) == filtered_args
+
+
+def test_filter_kwargs_extra_keyword_in_cache_key(tmpdir):
+    mem = Memory(location=tmpdir.strpath, verbose=0)
+
+    @mem.cache
+    def echo(*args, **kwargs):
+        return kwargs
+
+    assert echo(**{"*": "a"}) == {"*": "a"}
+    assert echo(**{"*": "b"}) == {"*": "b"}
+    assert echo() == {}
 
 
 def test_filter_args_2():

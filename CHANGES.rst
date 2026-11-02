@@ -4,6 +4,10 @@ Release Notes
 In Development
 --------------
 
+- Fix ``filter_args`` dropping keyword arguments named ``*`` or named like a
+  positional-only parameter, which made ``Memory`` reuse the same cached result
+  for calls that differ only in those arguments.
+
 - Fix ``await cached_func.call(...)`` for async functions when caching is
   disabled with ``Memory(location=None)``. The call now awaits the function
   and returns its output with empty metadata.
