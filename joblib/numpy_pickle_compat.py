@@ -1,6 +1,5 @@
 """Numpy pickle compatibility functions."""
 
-import inspect
 import os
 import pickle
 import zlib
@@ -101,14 +100,28 @@ class NDArrayWrapper(object):
         # use getattr instead of self.allow_mmap to ensure backward compat
         # with NDArrayWrapper instances pickled with joblib < 0.9.0
         allow_mmap = getattr(self, "allow_mmap", True)
-        kwargs = {}
-        if allow_mmap:
-            kwargs["mmap_mode"] = unpickler.mmap_mode
-        if "allow_pickle" in inspect.signature(unpickler.np.load).parameters:
-            # Required in numpy 1.16.3 and later to acknowledge the security
-            # risk.
-            kwargs["allow_pickle"] = True
-        array = unpickler.np.load(filename, **kwargs)
+        mmap_mode = unpickler.mmap_mode if allow_mmap else None
+        with open(filename, "rb") as f:
+            npformat = unpickler.np.lib.format
+            if npformat.read_magic(f) == (1, 0):
+                _, _, dtype = npformat.read_array_header_1_0(f)
+            else:
+                _, _, dtype = npformat.read_array_header_2_0(f)
+            if dtype.hasobject and mmap_mode is None:
+                # An object array is a pickle stream following the .npy
+                # header. np.load(allow_pickle=True) would hand it to the
+                # stock pickle.load, bypassing a restricted ``find_class`` on
+                # the caller's unpickler. Route it through the caller instead,
+                # as NumpyArrayWrapper.read_array does for its inner stream.
+                inner_unpickler = Unpickler(f)
+                inner_unpickler.find_class = unpickler.find_class
+                array = inner_unpickler.load()
+            else:
+                # Other arrays never need pickle. numpy raises its usual error
+                # for an object array requested as a memmap.
+                array = unpickler.np.load(
+                    filename, mmap_mode=mmap_mode, allow_pickle=False
+                )
 
         # Detect byte order mismatch and swap as needed.
         array = _ensure_native_byte_order(array)

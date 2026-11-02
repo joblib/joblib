@@ -36,6 +36,7 @@ from joblib.compressor import (
     BinaryZlibFile,
     CompressorWrapper,
 )
+from joblib.numpy_pickle_compat import NDArrayWrapper
 from joblib.numpy_pickle_utils import (
     _IO_BUFFER_SIZE,
     _detect_compressor,
@@ -313,6 +314,53 @@ def test_object_array_inner_stream_uses_caller_find_class(tmpdir):
     loaded = numpy_pickle.load(filename)
     assert isinstance(loaded, np.ndarray)
     assert loaded.dtype == object
+
+
+@with_numpy
+def test_legacy_object_array_companion_uses_caller_find_class(tmpdir):
+    # joblib <= 0.9 stored arrays in companion .npy files referenced by an
+    # NDArrayWrapper in the main stream. An object-dtype companion holds a
+    # pickle stream after the .npy header, which must go through the caller's
+    # find_class like the NumpyArrayWrapper inner stream above.
+    filename = tmpdir.join("legacy.pkl").strpath
+    companion = "legacy.pkl_01.npy"
+
+    class _Boom:
+        # A global that a hardened ``find_class`` is expected to reject.
+        def __reduce__(self):
+            return (os.getcwd, ())
+
+    with open(filename, "wb") as f:
+        pickle.dump([NDArrayWrapper(companion, np.ndarray)], f, protocol=2)
+    np.save(
+        tmpdir.join(companion).strpath,
+        np.array([_Boom()], dtype=object),
+        allow_pickle=True,
+    )
+
+    rejected = []
+
+    class RestrictedUnpickler(numpy_pickle.NumpyUnpickler):
+        def find_class(self, module, name):
+            if module.split(".")[0] in {"os", "posix", "nt"}:
+                rejected.append((module, name))
+                raise pickle.UnpicklingError(f"blocked {module}.{name}")
+            return super().find_class(module, name)
+
+    with open(filename, "rb") as f:
+        unpickler = RestrictedUnpickler(filename, f, ensure_native_byte_order=True)
+        with pytest.raises(pickle.UnpicklingError, match="blocked"):
+            unpickler.load()
+
+    # The rejection must come from the companion file, proving the caller's
+    # find_class was applied there and not bypassed.
+    assert any(module in ("os", "posix", "nt") for module, _ in rejected)
+
+    # The default loader still reads the legacy object array.
+    with pytest.warns(DeprecationWarning, match="less than 0.10"):
+        loaded = numpy_pickle.load(filename)
+    assert loaded[0].dtype == object
+    assert loaded[0][0] == os.getcwd()
 
 
 @with_numpy
