@@ -190,13 +190,7 @@ class StoreBackendMixin(object):
                 "cleared).\nFile %s does not exist" % filename
             )
 
-        # file-like object cannot be used when mmap_mode is set
-        if mmap_mode is None:
-            with self._open_item(filename, "rb") as f:
-                item = numpy_pickle.load(f)
-        else:
-            item = numpy_pickle.load(filename, mmap_mode=mmap_mode)
-        return item
+        return numpy_pickle.load(filename, mmap_mode=mmap_mode)
 
     def dump_item(self, call_id, item, verbose=1):
         """Dump an item in the store at the id given as a list of str."""
