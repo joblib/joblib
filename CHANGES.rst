@@ -4,6 +4,9 @@ Release Notes
 In Development
 --------------
 
+- Fix hashing of ``frozenset`` to be independent of ``PYTHONHASHSEED``.
+  https://github.com/joblib/joblib/pull/1914
+
 - Fix ``await cached_func.call(...)`` for async functions when caching is
   disabled with ``Memory(location=None)``. The call now awaits the function
   and returns its output with empty metadata.

@@ -24,6 +24,9 @@ class _ConsistentSet(object):
     """
 
     def __init__(self, set_sequence):
+        seq_type = type(set_sequence)
+        if seq_type is not set:
+            self.type = seq_type
         # Forces order of elements in set to ensure consistent hash.
         try:
             # Trying first to order the set assuming the type of elements is
@@ -152,7 +155,38 @@ class Hasher(Pickler):
         # forces order of items in Set to ensure consistent hash
         Pickler.save(self, _ConsistentSet(set_items))
 
-    dispatch[type(set())] = save_set
+    dispatch[set] = save_set
+    dispatch[frozenset] = save_set
+
+    def save_code(self, code):
+        """Digest the contents of a code object.
+        The fields below mirror CPython's own ``code_hash()``:
+        https://github.com/python/cpython/blob/5918085bb6f4a3a48193cacb9bb99b044d4e0452/Objects/codeobject.c#L2608-L2624
+        co_localsplusnames is spelled out as varnames/cellvars/freevars. Only the
+        position information, co_firstlineno and co_linetable, is deliberately left
+        out: joblib compares source *text* and tracks the line number separately,
+        so moving a function without editing it must not invalidate its cache. For
+        the same reason co_filename is not included, which would key a notebook
+        function to the cell number it last ran in.
+        """
+        obj = _MyHash(
+            code.co_name,
+            code.co_consts,
+            code.co_names,
+            code.co_varnames,
+            code.co_cellvars,
+            code.co_freevars,
+            code.co_exceptiontable,
+            code.co_argcount,
+            code.co_posonlyargcount,
+            code.co_kwonlyargcount,
+            code.co_flags,
+            # co_code de-specializes adaptive bytecode, like _Py_GetBaseCodeUnit
+            code.co_code,
+        )
+        Pickler.save(self, obj)
+
+    dispatch[type(save_code.__code__)] = save_code
 
 
 class NumpyHasher(Hasher):

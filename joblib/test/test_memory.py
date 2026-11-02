@@ -265,7 +265,8 @@ _JUPYTER_SESSION = """if 1:
                 def f(x):
                     with open(WITNESS, "a") as fh:
                         fh.write("ran\\\\n")
-                    return x * 2
+                    S = {1, 2, 3, "abc", (1, 2), 1.1, b'xyz', None, False}
+                    return x if x in S else x * 2
             '''),
             filename="<ipython-input-0-000000000000>",
             mode="exec",
@@ -275,6 +276,7 @@ _JUPYTER_SESSION = """if 1:
     )
     f = ns["f"]
     f.__module__ = "__main__"
+    print({1, 2, 3, "abc", (1, 2), 1.1, b'xyz', None, False})
 
     assert Memory(location=LOCATION, verbose=0).cache(f)(21) == 42
 """
@@ -297,7 +299,7 @@ def test_cached_jupyter_function_persists_across_sessions(tmpdir):
 
     # Two seeds stand in for two independently started interpreters, which is
     # what makes this deterministic rather than one-in-N flaky.
-    for seed in ("1", "2"):
+    for seed in "1234":
         env["PYTHONHASHSEED"] = seed
         p = subprocess.run(
             [sys.executable, "-c", _JUPYTER_SESSION, location, witness],
