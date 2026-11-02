@@ -13,9 +13,7 @@ from joblib._store_backends import (
     CacheWarning,
     FileSystemStoreBackend,
     _old_split_id,
-    concurrency_safe_write,
 )
-from joblib.backports import concurrency_safe_rename
 from joblib.test.common import with_multiprocessing
 from joblib.testing import parametrize, raises, timeout, warns
 
@@ -41,21 +39,19 @@ def load_func(expected, filename):
     assert expected == reloaded
 
 
-def concurrency_safe_write_rename(to_write, filename, write_func):
-    temporary_filename = concurrency_safe_write(to_write, filename, write_func)
-    concurrency_safe_rename(temporary_filename, filename)
-
-
 @timeout(0)  # No timeout as this test can be long
 @with_multiprocessing
 @parametrize("backend", ["multiprocessing", "loky", "threading"])
 def test_concurrency_safe_write(tmpdir, backend):
+    store_backend = FileSystemStoreBackend()
+    store_backend.configure(tmpdir.join("store").strpath)
+
     # Add one item to cache
     filename = tmpdir.join("test.pkl").strpath
 
     obj = {str(i): i for i in range(int(1e5))}
     funcs = [
-        functools.partial(concurrency_safe_write_rename, write_func=write_func)
+        functools.partial(store_backend._concurrency_safe_write, write_func=write_func)
         if i % 3 != 2
         else load_func
         for i in range(12)
@@ -87,7 +83,7 @@ def test_store_cached_func_code_is_not_written_in_place(tmpdir):
     assert backend.get_cached_func_code(call_id) == original
 
 
-def test_warning_on_dump_failure(tmpdir):
+def test_warning_on_dump_failure(tmp_path):
     # Check that a warning is raised when the dump fails for any reason but
     # a PicklingError.
     class UnpicklableObject(object):
@@ -95,14 +91,14 @@ def test_warning_on_dump_failure(tmpdir):
             raise RuntimeError("some exception")
 
     backend = FileSystemStoreBackend()
-    backend.location = tmpdir.join("test_warning_on_pickling_error").strpath
-    backend.compress = None
+    backend.configure(str(tmp_path))
 
     with pytest.warns(CacheWarning, match="some exception"):
         backend.dump_item(("func", "input"), UnpicklableObject())
+    assert not list(tmp_path.rglob("output.pkl.*"))
 
 
-def test_warning_on_pickling_error(tmpdir):
+def test_warning_on_pickling_error(tmp_path):
     # This is separate from test_warning_on_dump_failure because in the
     # future we will turn this into an exception.
     class UnpicklableObject(object):
@@ -110,8 +106,7 @@ def test_warning_on_pickling_error(tmpdir):
             raise PicklingError("not picklable")
 
     backend = FileSystemStoreBackend()
-    backend.location = tmpdir.join("test_warning_on_pickling_error").strpath
-    backend.compress = None
+    backend.configure(str(tmp_path))
 
     with pytest.warns(FutureWarning, match="not picklable"):
         backend.dump_item(("func", "input"), UnpicklableObject())

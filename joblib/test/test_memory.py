@@ -1267,6 +1267,10 @@ class DummyStoreBackend(StoreBackendBase):
         """Check if an item location exists."""
         "Does nothing"
 
+    def _unlink_item(self, location):
+        """Unlink an item on store."""
+        "Does nothing"
+
     def _move_item(self, src, dst):
         """Move an item from src to dst in store."""
         "Does nothing"
