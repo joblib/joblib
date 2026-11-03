@@ -4,6 +4,9 @@ Release Notes
 In Development
 --------------
 
+- Fix ``filter_args`` to handle positional-only arguments and "*" keyword argument.
+  https://github.com/joblib/joblib/pull/1936
+
 - Fix ``await cached_func.call(...)`` for async functions when caching is
   disabled with ``Memory(location=None)``. The call now awaits the function
   and returns its output with empty metadata.
