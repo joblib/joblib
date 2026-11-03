@@ -54,6 +54,10 @@ def m2(x, *, y, z=3):
     pass
 
 
+def n(x=0, /, **kwargs):
+    pass
+
+
 @fixture(scope="module")
 def cached_func(tmpdir_factory):
     # Create a Memory object to test decorated functions.
@@ -119,19 +123,16 @@ def test_filter_varargs(func, args, filtered_args):
     assert filter_args(func, *args) == filtered_args
 
 
-test_filter_kwargs_extra_params = [
-    (m1, [[], (1,), {"y": 2}], {"x": 1, "y": 2}),
-    (m2, [[], (1,), {"y": 2}], {"x": 1, "y": 2, "z": 3}),
-]
-
-
 @parametrize(
     "func,args,filtered_args",
     [
         (k, [[], (1, 2), {"ee": 2}], {"*": [1, 2], "**": {"ee": 2}}),
         (k, [[], (3, 4)], {"*": [3, 4], "**": {}}),
-    ]
-    + test_filter_kwargs_extra_params,
+        (k, [[], (), {"*": 0, "**": 1}], {"*": [], "**": {"*": 0, "**": 1}}),
+        (m1, [[], (1,), {"y": 2}], {"x": 1, "y": 2}),
+        (m2, [[], (1,), {"y": 2}], {"x": 1, "y": 2, "z": 3}),
+        (n, [[], (), {"x": 1}], {"x": 0, "**": {"x": 1}}),
+    ],
 )
 def test_filter_kwargs(func, args, filtered_args):
     assert filter_args(func, *args) == filtered_args
