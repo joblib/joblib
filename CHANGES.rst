@@ -8,6 +8,11 @@ In Development
   ``type(...)``.
   https://github.com/joblib/joblib/pull/1928
 
+- Fix ``await cached_func.call(...)`` for async functions when caching is
+  disabled with ``Memory(location=None)``. The call now awaits the function
+  and returns its output with empty metadata.
+  https://github.com/joblib/joblib/issues/1876
+
 - Fix the ``ensure_native_byte_order`` parameter of ``numpy_pickle.load``
   to apply correctly to structured NumPy arrays.
   https://github.com/joblib/joblib/pull/1895
