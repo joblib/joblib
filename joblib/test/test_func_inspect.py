@@ -138,6 +138,11 @@ def test_filter_kwargs(func, args, filtered_args):
     assert filter_args(func, *args) == filtered_args
 
 
+def test_filter_unknown_kwarg():
+    with raises(ValueError, match="Too many keyword arguments"):
+        filter_args(f, [], (1, 2), {"z": 3})
+
+
 def test_filter_args_2():
     assert filter_args(j, [], (1, 2), {"ee": 2}) == {"x": 1, "y": 2, "**": {"ee": 2}}
 
