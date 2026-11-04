@@ -4,7 +4,8 @@ Release Notes
 In Development
 --------------
 
-- Fix ``filter_args`` to handle positional-only arguments and "*" keyword argument.
+- Fix ``Memory().cache`` to work on functions having positional-only arguments.
+  Using "*" keyword argument in cached function is also now possible.
   https://github.com/joblib/joblib/pull/1936
 
 - Fix ``await cached_func.call(...)`` for async functions when caching is
