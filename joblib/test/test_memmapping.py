@@ -5,6 +5,7 @@ import mmap
 import os
 import pickle
 import platform
+import stat
 import subprocess
 import sys
 import threading
@@ -1155,6 +1156,32 @@ def test_pool_get_temp_dir_no_statvfs(tmpdir, monkeypatch):
     if sys.platform.startswith("win"):
         assert shared_mem is False
     assert pool_folder.endswith(pool_folder_name)
+
+
+@skipif(
+    sys.platform == "win32", reason="POSIX permissions are not available on Windows"
+)
+def test_pool_get_temp_dir_shared_mem_permissions(tmpdir, monkeypatch):
+    """Check that the pool folder created in the shared memory fs is private
+
+    The shared memory fs is world writable, so the folder must only be
+    accessible by the owner of the process, as for the lazily created folders.
+    """
+    pool_folder_name = "test.tmpdir"
+    monkeypatch.delenv("JOBLIB_TEMP_FOLDER", raising=False)
+    monkeypatch.setattr(jmr, "SYSTEM_SHARED_MEM_FS", tmpdir.strpath)
+    monkeypatch.setattr(jmr, "SYSTEM_SHARED_MEM_FS_MIN_SIZE", 1)
+
+    old_umask = os.umask(0o022)
+    try:
+        pool_folder, shared_mem = _get_temp_dir(pool_folder_name, temp_folder=None)
+    finally:
+        os.umask(old_umask)
+
+    assert shared_mem is True
+    assert pool_folder == tmpdir.join(pool_folder_name).strpath
+    mode = stat.S_IMODE(os.stat(pool_folder).st_mode)
+    assert mode & (stat.S_IRWXG | stat.S_IRWXO) == 0
 
 
 @with_numpy

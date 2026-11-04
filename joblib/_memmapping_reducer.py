@@ -219,7 +219,7 @@ def _get_temp_dir(pool_folder_name, temp_folder=None):
                     temp_folder = SYSTEM_SHARED_MEM_FS
                     pool_folder = os.path.join(temp_folder, pool_folder_name)
                     if not os.path.exists(pool_folder):
-                        os.makedirs(pool_folder)
+                        os.makedirs(pool_folder, mode=FOLDER_PERMISSIONS)
                     use_shared_mem = True
             except (IOError, OSError):
                 # Missing rights in the /dev/shm partition, fallback to regular
