@@ -2424,7 +2424,9 @@ def test_controlling_thread_openblas_non_openmp(n_jobs):
     t.join()
     assert openblas_lib.get_num_threads() == 1
     openblas_lib.set_num_threads(current)
-
+    # Note that the `reset_openblas_controlling_thread` fixure in conftest.py
+    # always ensures that any thread control ownership is force-released between
+    # tests so we don't need to do it here.
 
 @with_multiprocessing
 @parametrize("n_jobs", [2, 4, -1])

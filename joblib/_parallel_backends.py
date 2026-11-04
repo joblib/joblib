@@ -614,7 +614,7 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
         self._threadpool_controller = _get_threadpool_controller()
         # Calculate how many cores a worker will get:
         self._worker_cores_per_thread = self._n_threads_for_worker_external_libs(n_jobs)
-        # Limit shared process-level pools, if any:
+        # Limit shared process-level pools (if any) from the current thread:
         self._thread_limiter = self._threadpool_controller.limit(
             limits=self._worker_cores_per_thread
         )
@@ -631,6 +631,11 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
         if self._pool is None:
 
             def init():
+               # Also set limits from within each Python worker thread so as to 
+               # to avoid oversubscription caused by nested use of native threadpools
+               # with thread-local semantics (if any). Please refer to the
+               # threadpoolctl documentation for details about thread-local
+               # vs shared process-level threadpool limiting semantics.
                 set_thread_local_cpu_limit(self._worker_cores_per_thread)
                 self._threadpool_controller.limit(limits=self._worker_cores_per_thread)
 
