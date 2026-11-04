@@ -631,11 +631,11 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
         if self._pool is None:
 
             def init():
-               # Also set limits from within each Python worker thread so as to 
-               # to avoid oversubscription caused by nested use of native threadpools
-               # with thread-local semantics (if any). Please refer to the
-               # threadpoolctl documentation for details about thread-local
-               # vs shared process-level threadpool limiting semantics.
+                # Also set limits from within each Python worker thread so as to
+                # to avoid oversubscription caused by nested use of native threadpools
+                # with thread-local semantics (if any). Please refer to the
+                # threadpoolctl documentation for details about thread-local
+                # vs shared process-level threadpool limiting semantics.
                 set_thread_local_cpu_limit(self._worker_cores_per_thread)
                 self._threadpool_controller.limit(limits=self._worker_cores_per_thread)
 

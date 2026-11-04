@@ -2428,6 +2428,7 @@ def test_controlling_thread_openblas_non_openmp(n_jobs):
     # always ensures that any thread control ownership is force-released between
     # tests so we don't need to do it here.
 
+
 @with_multiprocessing
 @parametrize("n_jobs", [2, 4, -1])
 def test_loky_reuse_workers(n_jobs):
