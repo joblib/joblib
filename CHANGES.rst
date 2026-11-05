@@ -4,10 +4,7 @@ Release Notes
 In Development
 --------------
 
-- The threading backend now has significantly less overhead.
-  https://github.com/joblib/joblib/pull/1899
-
-- The threading backend no longer respects the ``pre_dispatch`` argument.
+- The threading backend now has significantly less overhead in most cases.
   https://github.com/joblib/joblib/pull/1899
 
 - Fix ``await cached_func.call(...)`` for async functions when caching is
