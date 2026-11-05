@@ -4,6 +4,10 @@ Release Notes
 In Development
 --------------
 
+- Fix a cache key collision between dictionaries or sets with unorderable
+  elements and containers holding the corresponding digest strings. Cached
+  calls involving unorderable keys or elements will be recomputed.
+
 - Fix ``await cached_func.call(...)`` for async functions when caching is
   disabled with ``Memory(location=None)``. The call now awaits the function
   and returns its output with empty metadata.

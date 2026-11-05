@@ -346,6 +346,31 @@ def test_set_decimal_hash():
     )
 
 
+@parametrize("container", [dict, set])
+def test_unorderable_items_do_not_collide_with_digest_strings(tmp_path, container):
+    keys = [1, "rate"]
+    digest_keys = [hash(key) for key in keys]
+    if container is dict:
+        original = dict.fromkeys(keys)
+        reordered = dict.fromkeys(reversed(keys))
+        digests = dict.fromkeys(digest_keys)
+    else:
+        original = set(keys)
+        reordered = set(reversed(keys))
+        digests = set(digest_keys)
+
+    memory = Memory(tmp_path, verbose=0)
+
+    @memory.cache
+    def count_integer_keys(data):
+        return sum(isinstance(key, int) for key in data)
+
+    assert count_integer_keys(original) == 1
+    assert count_integer_keys.check_call_in_cache(reordered)
+    assert count_integer_keys(digests) == 0
+    assert hash(original) != hash(digests)
+
+
 def test_string():
     # Test that we obtain the same hash for object owning several strings,
     # whatever the past of these strings (which are immutable in Python)
