@@ -929,6 +929,10 @@ def func_with_kwonly_args(a, b, *, kw1="kw1", kw2="kw2"):
     return a, b, kw1, kw2
 
 
+def func_with_positional_only_args(a=0, /, *args, **kwargs):
+    return a, args, kwargs
+
+
 def func_with_signature(a: int, b: float) -> float:
     return a + b
 
@@ -955,6 +959,23 @@ def test_memory_func_with_kwonly_args(tmpdir):
     func_cached = memory.cache(func_with_kwonly_args, ignore=["kw2"])
     assert func_cached(1, 2, kw1=3, kw2=4) == (1, 2, 3, 4)
     assert func_cached(1, 2, kw1=3, kw2="ignored") == (1, 2, 3, 4)
+
+
+def test_memory_func_with_positional_only_args(tmpdir):
+    memory = Memory(location=tmpdir.strpath, verbose=0)
+    func_cached = memory.cache(func_with_positional_only_args)
+
+    assert func_cached() == (0, (), {})
+
+    # Making sure setting "a" as keyword argument does not set positional argument
+    assert func_cached(1) == (1, (), {})
+    assert func_cached(a=1) == (0, (), {"a": 1})
+    assert func_cached(1, a=2) == (1, (), {"a": 2})
+
+    # Making sure "*" could be used in keyword argument
+    assert func_cached(1, 2) == (1, (2,), {})
+    for name in ["*", "args", "*args"]:
+        assert func_cached(1, **{name: 2}) == (1, (), {name: 2})
 
 
 def test_memory_func_with_signature(tmpdir):

@@ -329,7 +329,7 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
         if arg_position < len(args):
             # given as positional
             arg_dict[arg_name] = args[arg_position]
-            if arg_name in kwargs:
+            if arg_position >= n_positional_only and arg_name in kwargs:
                 raise ValueError(
                     f"Argument {arg_name} was given both as positional and as keyword"
                     f" for {_signature_str(name, arg_sig)}:\n"
