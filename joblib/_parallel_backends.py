@@ -13,6 +13,25 @@ from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Callable
 
+try:
+    from threadpoolctl import CONTROLLING_THREAD_OWNERSHIP
+except ImportError:
+    # Backwards compat for threadpoolctl 3.7 and earlier:
+    class CONTROLLING_THREAD_OWNERSHIP:
+        @staticmethod
+        def increment():
+            pass
+
+        @staticmethod
+        def decrement():
+            pass
+
+
+try:
+    from threadpoolctl import get_cached_controller as _get_threadpool_controller
+except ImportError:
+    from threadpoolctl import ThreadpoolController as _get_threadpool_controller
+
 from ._multiprocessing_helpers import mp
 from ._utils import (
     _retrieve_traceback_capturing_wrapped_call,
@@ -295,6 +314,20 @@ class ParallelBackendBase(metaclass=ABCMeta):
         else:
             return ThreadingBackend(nesting_level=nesting_level), None
 
+    def _n_threads_for_worker_external_libs(self, n_jobs: int) -> int:
+        """Return limit on number of threads for external libraries.
+
+        This can be used by threading backends to limit things like BLAS and
+        OpenMP.
+
+        Should for the most part match logic in `_prepare_worker_env`.
+        """
+        explicit_n_threads = self.inner_max_num_threads
+        if explicit_n_threads is None:
+            return _split_up_cores(cpu_count(), n_jobs)
+        else:
+            return explicit_n_threads
+
     def _prepare_worker_env(self, n_jobs):
         """Return environment variables limiting threadpools in external libs.
 
@@ -303,26 +336,15 @@ class ParallelBackendBase(metaclass=ABCMeta):
         number of threads to `n_threads` for OpenMP, MKL, Accelerated and
         OpenBLAS libraries in the child processes.
         """
-        explicit_n_threads = self.inner_max_num_threads
-        default_n_threads = _split_up_cores(cpu_count(), n_jobs)
-
         # Set the inner environment variables to self.inner_max_num_threads if
-        # it is given. Else, default to cpu_count // n_jobs unless the variable
-        # is already present in the parent process environment.
+        # it is given. Else, default to cpu_count // n_jobs.
+        inner_num_threads = self.inner_max_num_threads
+        if inner_num_threads is None:
+            inner_num_threads = _split_up_cores(cpu_count(), n_jobs)
+
         env = {}
         for var in self.MAX_NUM_THREADS_VARS:
-            if explicit_n_threads is None:
-                if var == "LOKY_MAX_CPU_COUNT":
-                    # We don't want to pass it through, it was intended for
-                    # this process, and we've potentially split it up due to
-                    # worker threads.
-                    var_value = default_n_threads
-                else:
-                    var_value = os.environ.get(var, default_n_threads)
-            else:
-                var_value = explicit_n_threads
-
-            env[var] = str(var_value)
+            env[var] = str(inner_num_threads)
 
         if self.TBB_ENABLE_IPC_VAR not in os.environ:
             # To avoid over-subscription when using TBB, let the TBB schedulers
@@ -360,9 +382,14 @@ class SequentialBackend(ParallelBackendBase):
     """
 
     uses_threads = True
+    supports_inner_max_num_threads = True
     supports_timeout = False
     supports_retrieve_callback = False
     supports_sharedmem = True
+
+    def configure(self, *args, **kwargs):
+        CONTROLLING_THREAD_OWNERSHIP.increment()
+        return super().configure(*args, **kwargs)
 
     def effective_n_jobs(self, n_jobs):
         """Determine the number of jobs which are going to run in parallel"""
@@ -384,6 +411,11 @@ class SequentialBackend(ParallelBackendBase):
         # SequentialBackend should neither change the nesting level, the
         # default backend or the number of jobs. Just return the current one.
         return get_active_backend()
+
+    def terminate(self):
+        result = super().terminate()
+        CONTROLLING_THREAD_OWNERSHIP.decrement()
+        return result
 
 
 class PoolManagerMixin(object):
@@ -566,6 +598,7 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
     ThreadingBackend is used as the default backend for nested calls.
     """
 
+    supports_inner_max_num_threads = True
     supports_retrieve_callback = True
     uses_threads = True
     supports_sharedmem = True
@@ -576,6 +609,15 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
         if n_jobs == 1:
             # Avoid unnecessary overhead and use sequential backend instead.
             raise FallbackToBackend(SequentialBackend(nesting_level=self.nesting_level))
+
+        CONTROLLING_THREAD_OWNERSHIP.increment()
+        self._threadpool_controller = _get_threadpool_controller()
+        # Calculate how many cores a worker will get:
+        self._worker_cores_per_thread = self._n_threads_for_worker_external_libs(n_jobs)
+        # Limit shared process-level pools (if any) from the current thread:
+        self._thread_limiter = self._threadpool_controller.limit(
+            limits=self._worker_cores_per_thread
+        )
         self.parallel = parallel
         self._n_jobs = n_jobs
         return n_jobs
@@ -586,17 +628,24 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
         The actual pool of worker threads is only initialized at the first
         call to apply_async.
         """
-        # Import here to prevent circular import:
-        from joblib.parallel import effective_n_jobs
-
         if self._pool is None:
-            available_cores = effective_n_jobs(-1)
-            cores_per_thread = _split_up_cores(available_cores, self._n_jobs)
-            self._pool = ThreadPool(
-                self._n_jobs,
-                initializer=lambda: set_thread_local_cpu_limit(cores_per_thread),
-            )
+
+            def init():
+                # Also set limits from within each Python worker thread so as to
+                # to avoid oversubscription caused by nested use of native threadpools
+                # with thread-local semantics (if any). Please refer to the
+                # threadpoolctl documentation for details about thread-local
+                # vs shared process-level threadpool limiting semantics.
+                set_thread_local_cpu_limit(self._worker_cores_per_thread)
+                self._threadpool_controller.limit(limits=self._worker_cores_per_thread)
+
+            self._pool = ThreadPool(self._n_jobs, initializer=init)
         return self._pool
+
+    def terminate(self):
+        self._thread_limiter.restore_original_limits()
+        CONTROLLING_THREAD_OWNERSHIP.decrement()
+        super().terminate()
 
 
 @dataclass
