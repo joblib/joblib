@@ -958,6 +958,29 @@ def effective_n_jobs(n_jobs=-1):
     return backend.effective_n_jobs(n_jobs=n_jobs)
 
 
+def _parse_pre_dispatch(pre_dispatch, n_jobs) -> int:
+    """Parse ``pre_dispatch`` argument into usable value.
+
+    ``"all"`` gets converted to ``0``.
+    """
+    if pre_dispatch == "all":
+        return 0
+
+    if hasattr(pre_dispatch, "endswith"):
+        result = int(eval_expr(pre_dispatch.replace("n_jobs", str(n_jobs))))
+
+    else:
+        result = int(pre_dispatch)
+
+    if result < 1:
+        raise ValueError(
+            "pre_dispatch must be 'all' or a positive number of "
+            f"batches, got: {pre_dispatch!r}"
+        )
+
+    return result
+
+
 ###############################################################################
 class Parallel(Logger):
     """Helper class for readable parallel mapping.
@@ -1978,7 +2001,7 @@ class Parallel(Logger):
         # Set to True after abortion is complete
         self._aborted = False
 
-    def _get_threaded_output(self, iterable):
+    def _get_threaded_output(self, iterable, n_jobs):
         """Fast path for dispatching threaded parallel tasks."""
         # Each worker thread needs its own nested backend instance: nested
         # Parallel calls configure it, and they can run concurrently in
@@ -1998,7 +2021,7 @@ class Parallel(Logger):
                     return False, e
 
         try:
-            self._pre_dispatch_amount = 0  # for print_progess()
+            self._pre_dispatch_amount = _parse_pre_dispatch(self.pre_dispatch, n_jobs)
             self._iterating = True
             self._original_iterator = iterable
 
@@ -2009,13 +2032,12 @@ class Parallel(Logger):
             pool = self._backend._get_pool()
 
             # Book keeping, for compatibility with normal code paths:
-            if self.return_ordered:
-                mapper = pool.imap
-            else:
-                mapper = pool.imap_unordered
             with self._backend.retrieval_context():
-                for success, res in mapper(
-                    apply, iterable, chunksize=self._get_batch_size()
+                for success, res in pool.map(
+                    apply,
+                    iterable,
+                    chunksize=self._get_batch_size(),
+                    buffersize=self._pre_dispatch_amount,
                 ):
                     self.n_dispatched_batches += 1
                     self.n_dispatched_tasks += 1
@@ -2063,8 +2085,12 @@ class Parallel(Logger):
         if n_jobs == 0:
             raise RuntimeError(f"{backend_name} has no active worker.")
 
-        if type(self._backend) is ThreadingBackend and self.timeout is None:
-            output = self._get_threaded_output(iterable)
+        if (
+            type(self._backend) is ThreadingBackend
+            and self.timeout is None
+            and self.return_ordered
+        ):
+            output = self._get_threaded_output(iterable, n_jobs)
             next(output)
             return output if self.return_generator else list(output)
 
@@ -2112,20 +2138,14 @@ class Parallel(Logger):
         iterator = iter(iterable)
         pre_dispatch = self.pre_dispatch
 
-        if pre_dispatch == "all":
+        pre_dispatch = _parse_pre_dispatch(pre_dispatch, n_jobs)
+        if pre_dispatch == 0:
             # prevent further dispatch via multiprocessing callback thread
             self._original_iterator = None
             self._pre_dispatch_amount = 0
         else:
             self._original_iterator = iterator
-            if hasattr(pre_dispatch, "endswith"):
-                pre_dispatch = eval_expr(pre_dispatch.replace("n_jobs", str(n_jobs)))
-            self._pre_dispatch_amount = pre_dispatch = int(pre_dispatch)
-            if pre_dispatch < 1:
-                raise ValueError(
-                    "pre_dispatch must be 'all' or a positive number of "
-                    f"batches, got: {self.pre_dispatch!r}"
-                )
+            self._pre_dispatch_amount = pre_dispatch
 
             # The main thread will consume the first pre_dispatch items and
             # the remaining items will later be lazily dispatched by async
