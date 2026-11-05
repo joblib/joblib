@@ -2087,6 +2087,9 @@ class Parallel(Logger):
 
         if (
             type(self._backend) is ThreadingBackend
+            # buffersize option to ThreadPoolExecutor.map() was only added
+            # in Python 3.14:
+            and sys.version_info[:2] >= (3, 14)
             and self.timeout is None
             and self.return_ordered
         ):

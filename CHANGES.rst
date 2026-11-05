@@ -4,7 +4,8 @@ Release Notes
 In Development
 --------------
 
-- The threading backend now has significantly less overhead in most cases.
+- On Python 3.14 and later, the threading backend now has significantly less
+  overhead in most cases.
   https://github.com/joblib/joblib/pull/1899
 
 - Fix ``await cached_func.call(...)`` for async functions when caching is
