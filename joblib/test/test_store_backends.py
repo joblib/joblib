@@ -97,9 +97,7 @@ def test_warning_on_dump_failure(tmpdir, store_factory):
             raise RuntimeError("some exception")
 
     backend = store_factory()
-    backend.location = tmpdir.join("test_warning_on_pickling_error").strpath
-    backend.compress = None
-    backend.configure(backend.location)
+    backend.configure(tmpdir.join("test_warning_on_pickling_error").strpath)
 
     with pytest.warns(CacheWarning, match="some exception"):
         backend.dump_item(("func", "input"), UnpicklableObject())
@@ -114,9 +112,7 @@ def test_warning_on_pickling_error(tmpdir, store_factory):
             raise PicklingError("not picklable")
 
     backend = store_factory()
-    backend.location = tmpdir.join("test_warning_on_pickling_error").strpath
-    backend.compress = None
-    backend.configure(backend.location)
+    backend.configure(tmpdir.join("test_warning_on_pickling_error").strpath)
 
     with pytest.raises(PicklingError, match="not picklable"):
         backend.dump_item(("func", "input"), UnpicklableObject())
@@ -213,3 +209,29 @@ def test_cache_tree_versions(tmpdir):
     assert old_store.load_item((funs[1], args[0])) == conflict_item
     with raises(KeyError):
         old_store.load_item(("not_a_function", args[0]))
+
+
+@parametrize("store_factory", [FileSystemStoreBackend, SQLStoreBackend])
+def test_clear_path(tmpdir, store_factory):
+    backend = store_factory()
+    backend.configure(tmpdir.join("clear_path").strpath)
+
+    foo = os.path.join("module", "foo")
+    FOO = os.path.join("module", "FOO")
+    code = "code"
+    arg = "input"
+    item = (1, 2, 3)
+
+    for f in [foo, FOO]:
+        backend.store_cached_func_code((f,), code)
+        call_id = (f, arg)
+        backend.dump_item(call_id, item)
+        assert backend.get_cached_func_code((f,)) == code
+        assert backend.contains_item(call_id)
+
+    backend.clear_path((foo,))
+    with raises(IOError):
+        backend.get_cached_func_code((foo,))
+    assert not backend.contains_item((foo, arg))
+    assert backend.get_cached_func_code((FOO,)) == code
+    assert backend.contains_item((FOO, arg))

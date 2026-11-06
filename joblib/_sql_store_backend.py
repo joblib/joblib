@@ -137,12 +137,12 @@ class SQLStoreBackend(StoreBackendBase):
             numpy_pickle.dump(item, file, compress=self.compress)
         except PicklingError:
             raise
-        except Exception as e:  # noqa: E722
+        except Exception as e:
             warnings.warn(
-                "Unable to cache to disk. Possibly a race condition in the "
-                f"creation of the directory. Exception: {e}.",
+                f"Unable to dumb an item. Exception: {e}.",
                 CacheWarning,
             )
+            return
         serialized_data = file.getvalue()
 
         with self.con:
@@ -294,22 +294,14 @@ class SQLStoreBackend(StoreBackendBase):
             return self.clear()
 
         path = os.path.join(*path_id)
+        prefix = os.path.join(path, "")
         with self.con:
-            self.con.execute("DELETE FROM cache WHERE path=?", (path,))
-            self.con.execute("DELETE FROM func_code WHERE path=?", (path,))
-
-        pattern = os.path.join(path, "")
-        pattern = pattern.replace("\\", "\\\\")
-        pattern = pattern.replace("_", "\\_")
-        pattern = pattern.replace("%", "\\%")
-        pattern += "%"
-        with self.con:
-            self.con.execute(
-                "DELETE FROM cache WHERE path LIKE ? ESCAPE '\\'", (pattern,)
-            )
-            self.con.execute(
-                "DELETE FROM func_code WHERE path LIKE ? ESCAPE '\\'", (pattern,)
-            )
+            for table in ["cache", "func_code"]:
+                self.con.execute(
+                    f"DELETE FROM {table} WHERE "
+                    "path=? OR substr(path, 1, length(?)) = ?",
+                    (path, prefix, prefix),
+                )
 
     def clear(self):
         """Clear the whole store content."""
