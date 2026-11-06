@@ -293,7 +293,6 @@ def test__strided_from_memmap(tmpdir):
     assert _get_backing_memmap(memmap_backed_obj).offset == offset
 
 
-@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 @with_numpy
 @with_multiprocessing
 @parametrize(
@@ -482,7 +481,6 @@ def test_permission_error_windows_memmap_sent_to_parent(backend):
         assert b"resource_tracker" not in err
 
 
-@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 @with_numpy
 @with_multiprocessing
 @parametrize("backend", ["multiprocessing", "loky"])
@@ -549,7 +547,6 @@ def test_memmapping_temp_folder_thread_safety():
     assert temp_dirs_thread_1 != temp_dirs_thread_2
 
 
-@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1794
 @with_numpy
 @with_multiprocessing
 def test_multithreaded_parallel_termination_resource_tracker_silent():
@@ -668,7 +665,29 @@ def test_many_parallel_calls_on_same_object(backend):
     assert b"resource_tracker" not in err
 
 
-@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
+@with_numpy
+@with_multiprocessing
+def test_no_leaked_folder_registration(monkeypatch):
+    # max_nbytes=None means the registered folders are never created
+    calls = {"register": [], "unregister": []}
+    for func_name, resource_names in calls.items():
+        orig = getattr(jmr.resource_tracker, func_name)
+
+        def wrapper(name, rtype, orig=orig, names=resource_names):
+            if rtype == "folder":
+                names.append(name)
+            return orig(name, rtype)
+
+        monkeypatch.setattr(jmr.resource_tracker, func_name, wrapper)
+
+    for _ in range(3):
+        Parallel(n_jobs=2, backend="loky", max_nbytes=None)(
+            delayed(id)(i) for i in range(4)
+        )
+    assert calls["register"]
+    assert set(calls["register"]) <= set(calls["unregister"])
+
+
 @with_numpy
 @with_multiprocessing
 @parametrize("backend", ["multiprocessing", "loky"])
@@ -737,7 +756,6 @@ def test_resource_tracker_silent_when_reference_cycles(backend):
     assert "resource_tracker" not in err, err
 
 
-@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 @with_numpy
 @with_multiprocessing
 @parametrize(
@@ -889,7 +907,6 @@ def test_child_raises_parent_exits_cleanly(backend):
     assert not os.path.exists(filename)
 
 
-@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 @with_numpy
 @with_multiprocessing
 @parametrize(
@@ -919,7 +936,6 @@ def test_memmapping_pool_for_large_arrays_disabled(factory, tmpdir):
         del p
 
 
-@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 @with_numpy
 @with_multiprocessing
 @with_dev_shm
@@ -977,7 +993,6 @@ def test_memmapping_on_large_enough_dev_shm(factory):
         jmr.SYSTEM_SHARED_MEM_FS_MIN_SIZE = orig_size
 
 
-@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1794
 @with_numpy
 @with_multiprocessing
 @with_dev_shm
@@ -1010,7 +1025,6 @@ def test_memmapping_on_too_small_dev_shm(factory):
         jmr.SYSTEM_SHARED_MEM_FS_MIN_SIZE = orig_size
 
 
-@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 @with_numpy
 @with_multiprocessing
 @parametrize(
@@ -1081,7 +1095,6 @@ def identity(arg):
     return arg
 
 
-@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 @with_numpy
 @with_multiprocessing
 @parametrize(
@@ -1144,7 +1157,6 @@ def test_pool_get_temp_dir_no_statvfs(tmpdir, monkeypatch):
     assert pool_folder.endswith(pool_folder_name)
 
 
-@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 @with_numpy
 @skipif(
     sys.platform == "win32", reason="This test fails with a PermissionError on Windows"
@@ -1231,7 +1243,6 @@ def test_weak_array_key_map_no_pickling():
         pickle.dumps(m)
 
 
-@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 @with_numpy
 @with_multiprocessing
 def test_direct_mmap(tmpdir):

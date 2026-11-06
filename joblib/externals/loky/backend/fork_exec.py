@@ -33,14 +33,10 @@ def fork_exec(cmd, keep_fds, env=None):
         # see https://github.com/python/cpython/pull/121383
         pgid_to_set = [-1]
         allow_vfork = []
-    elif sys.version_info >= (3, 11):
+    else:
         # Python 3.11 - 3.13 has allow_vfork in _posixsubprocess.fork_exec
         pgid_to_set = [-1]
         allow_vfork = [subprocess._USE_VFORK]
-    else:
-        # Python < 3.11
-        pgid_to_set = []
-        allow_vfork = []
 
     try:
         return _posixsubprocess.fork_exec(

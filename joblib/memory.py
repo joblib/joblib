@@ -173,13 +173,10 @@ class MemorizedResult(Logger):
     location: str
         The location of joblib cache. Depends on the store backend used.
 
-    func: function or str
-        function whose output is cached. The string case is intended only for
-        instantiation based on the output of repr() on another instance.
+    call_id: tuple of str
+        Function identifier and hash of the function arguments identifying the
+        cached value. Instances can be reconstructed from their representation
         (namely eval(repr(memorized_instance)) works).
-
-    argument_hash: str
-        hash of the function arguments.
 
     backend: str
         Type of store backend for reading/writing cache files.
@@ -260,8 +257,8 @@ class MemorizedResult(Logger):
         self.store_backend.clear_item(self._call_id)
 
     def __repr__(self):
-        return '{}(location="{}", func="{}", args_id="{}")'.format(
-            self.__class__.__name__, self.store_backend.location, *self._call_id
+        return "{}(location={!r}, call_id={!r})".format(
+            self.__class__.__name__, self.store_backend.location, self._call_id
         )
 
     def __getstate__(self):
@@ -352,6 +349,9 @@ class NotMemorizedFunc(object):
 # class `AsyncNotMemorizedFunc`
 ###############################################################################
 class AsyncNotMemorizedFunc(NotMemorizedFunc):
+    async def call(self, *args, **kwargs):
+        return await self.func(*args, **kwargs), {}
+
     async def call_and_shelve(self, *args, **kwargs):
         return NotMemorizedResult(await self.func(*args, **kwargs))
 
@@ -701,13 +701,12 @@ class MemorizedFunc(Logger):
         # also renders us robust to variations of the files when the
         # in-memory version of the code does not vary
         try:
-            if self.func in _FUNCTION_HASHES:
-                # We use as an identifier the id of the function and its
-                # hash. This is more likely to falsely change than have hash
-                # collisions, thus we are on the safe side.
-                func_hash = self._hash_func()
-                if func_hash == _FUNCTION_HASHES[self.func]:
-                    return True
+            func_hash = _FUNCTION_HASHES.get(self.func)
+            # We use as an identifier the id of the function and its
+            # hash. This is more likely to falsely change than have hash
+            # collisions, thus we are on the safe side.
+            if func_hash is not None and func_hash == self._hash_func():
+                return True
         except TypeError:
             # Some callables are not hashable
             pass
@@ -831,6 +830,10 @@ class MemorizedFunc(Logger):
             The metadata associated with the call.
         """
         call_id = (self.func_id, self._get_args_id(*args, **kwargs))
+
+        # Register the function code and invalidate old results before saving
+        # the new result, even when this is the first call.
+        self._check_previous_func_code(stacklevel=3)
 
         # Return the output and the metadata
         return self._call(call_id, args, kwargs)
@@ -1132,9 +1135,12 @@ class Memory(Logger):
         # we recreate the store_backend here
         store_backend = self.store_backend
         if (verbose, mmap_mode) != (self._verbose, self.mmap_mode):
+            location = self.location
+            if isinstance(location, str):
+                location = os.path.join(location, "joblib")
             store_backend = _store_backend_factory(
                 self.backend,
-                self.location,
+                location,
                 verbose=verbose,
                 backend_options=dict(
                     **self.backend_options,
@@ -1218,6 +1224,18 @@ class Memory(Logger):
         if self.store_backend is None:
             return func(*args, **kwargs)
         return self.cache(func)(*args, **kwargs)
+
+    def update_cache_tree(self):
+        """Update the cache tree to a more efficient system
+        when using backend 'local'.
+        """
+        if isinstance(self.store_backend, FileSystemStoreBackend):
+            self.store_backend.update_cache_tree()
+        else:
+            warnings.warn(
+                "Memory.update_cache_tree() does nothing when using a backend "
+                "other than FileSystemStoreBackend"
+            )
 
     # ------------------------------------------------------------------------
     # Private `object` interface

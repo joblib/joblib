@@ -70,7 +70,9 @@ extension that releases the Python Global Interpreter Lock (GIL) during
 most of its computation then it is more efficient to use threads instead
 of Python processes as concurrent workers. For instance this is the case
 if you write the CPU intensive part of your code inside a `with nogil`_
-block of a Cython function.
+block of a Cython function. However, starting with Python 3.14, there is
+a free-threaded version of Python that doesn't have a GIL, and it can benefit
+from the ``'threaded'`` backend.
 
 .. _`with nogil`: https://docs.cython.org/src/userguide/external_C_code.html#acquiring-and-releasing-the-gil
 
@@ -170,13 +172,11 @@ The main drawback of |cloudpickle| is that it can be slower than the :mod:`pickl
 
 - If you are on an UNIX system, you can switch back to the old ``multiprocessing`` backend. With this backend, interactively defined functions can be shared with the worker processes using the fast :mod:`pickle`. The main issue with this solution is that using ``fork`` to start the process breaks the standard POSIX and can have weird interaction with third party libraries such as ``numpy`` and ``openblas``.
 
-- If you wish to use the ``loky`` backend with a different serialization library, you can set the ``LOKY_PICKLER=mod_pickle`` environment variable to use the ``mod_pickle`` as the serialization library for ``loky``. The module ``mod_pickle`` passed as an argument should be importable as ``import mod_pickle`` and should contain a ``Pickler`` object, which will be used to serialize to objects. It can be set to ``LOKY_PICKLER=pickle`` to use the pickling module from stdlib. The main drawback with ``LOKY_PICKLER=pickle`` is that interactively defined functions will not be serializable anymore. To cope with this, you can use this solution together with the :func:`joblib.wrap_non_picklable_objects` wrapper, which can be used as a decorator to locally enable using |cloudpickle| for specific objects. This way, you can have fast pickling of all python objects and locally enable slow pickling for interactive functions. An example is given in loky_wrapper_.
+- If you wish to use the ``loky`` backend with a different serialization library, you can set the ``LOKY_PICKLER=mod_pickle`` environment variable to use the ``mod_pickle`` as the serialization library for ``loky``. The module ``mod_pickle`` passed as an argument should be importable as ``import mod_pickle`` and should contain a ``Pickler`` object, which will be used to serialize to objects. It can be set to ``LOKY_PICKLER=pickle`` to use the pickling module from stdlib. The main drawback with ``LOKY_PICKLER=pickle`` is that interactively defined functions will not be serializable anymore. To cope with this, you can use this solution together with the :func:`joblib.wrap_non_picklable_objects` wrapper, which can be used as a decorator to locally enable using |cloudpickle| for specific objects. This way, you can have fast pickling of all python objects and locally enable slow pickling for interactive functions. An example is given in :ref:`sphx_glr_auto_examples_serialization_and_wrappers.py`.
 
 .. |cloudpickle| raw:: html
 
     <a href="https://github.com/cloudpipe/cloudpickle"><code>cloudpickle</code></a>
-
-.. _loky_wrapper:  auto_examples/serialization_and_wrappers.html
 
 
 Shared-memory semantics
@@ -253,6 +253,26 @@ further hinder the performance of the computation. It is generally better to
 avoid using significantly more processes or threads than the number of CPUs on
 a machine.
 
+Nested :class:`joblib.Parallel`
+-------------------------------
+
+A nested :class:`joblib.Parallel` loop is one where the :class:`joblib.delayed`
+tasks in the top level loop create their own :class:`joblib.Parallel`. It can
+suffer from over-subscription if the product of the size of two worker pools is
+bigger than the number of available cores.
+
+Starting with version 1.6, in order to avoid over-subscription, the inner loop
+can use ``n_jobs=-1``. Each inner :class:`joblib.Parallel` will be limited to
+the number of cores divided by the outer by ``n_jobs`` in the outer
+:class:`joblib.Parallel`.
+
+For example, if you have 10 cores in your CPU, and the outer
+:class:`joblib.Parallel` has ``n_jobs=5``, a nested :class:`joblib.Parallel`
+should be set to ``n_jobs=-1``, and it will then only start 2 workers. The
+result will be 5×2=10 workers.
+
+Third-party libraries
+---------------------
 Some third-party libraries -- *e.g.* the BLAS runtime used by ``numpy`` --
 internally manage a thread-pool to perform their computations. The default
 behavior is generally to use a number of threads equals to the number of CPUs

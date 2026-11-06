@@ -1,20 +1,25 @@
 import functools
+import os
 import pickle
 import time
+import types
+import warnings
 from pickle import PicklingError
 
 import pytest
 
-from joblib import Parallel, delayed
+
+from joblib import Parallel, delayed, numpy_pickle
 from joblib._sql_store_backend import SQLStoreBackend
 from joblib._store_backends import (
     CacheWarning,
     FileSystemStoreBackend,
+    _old_split_id,
     concurrency_safe_write,
 )
 from joblib.backports import concurrency_safe_rename
 from joblib.test.common import with_multiprocessing
-from joblib.testing import parametrize, timeout
+from joblib.testing import parametrize, raises, timeout, warns
 
 
 def write_func(output, filename):
@@ -43,7 +48,6 @@ def concurrency_safe_write_rename(to_write, filename, write_func):
     concurrency_safe_rename(temporary_filename, filename)
 
 
-@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 @timeout(0)  # No timeout as this test can be long
 @with_multiprocessing
 @parametrize("backend", ["multiprocessing", "loky", "threading"])
@@ -85,39 +89,41 @@ def test_store_cached_func_code_is_not_written_in_place(tmpdir):
     assert backend.get_cached_func_code(call_id) == original
 
 
-def test_warning_on_dump_failure(tmpdir):
+@parametrize("store_factory", [FileSystemStoreBackend, SQLStoreBackend])
+def test_warning_on_dump_failure(tmpdir, store_factory):
     # Check that a warning is raised when the dump fails for any reason but
     # a PicklingError.
     class UnpicklableObject(object):
         def __reduce__(self):
             raise RuntimeError("some exception")
 
-    backend = FileSystemStoreBackend()
+    backend = store_factory()
     backend.location = tmpdir.join("test_warning_on_pickling_error").strpath
     backend.compress = None
 
     with pytest.warns(CacheWarning, match="some exception"):
-        backend.dump_item("testpath", UnpicklableObject())
+        backend.dump_item(("func", "input"), UnpicklableObject())
 
 
-def test_warning_on_pickling_error(tmpdir):
+@parametrize("store_factory", [FileSystemStoreBackend, SQLStoreBackend])
+def test_warning_on_pickling_error(tmpdir, store_factory):
     # This is separate from test_warning_on_dump_failure because in the
     # future we will turn this into an exception.
     class UnpicklableObject(object):
         def __reduce__(self):
             raise PicklingError("not picklable")
 
-    backend = FileSystemStoreBackend()
+    backend = store_factory()
     backend.location = tmpdir.join("test_warning_on_pickling_error").strpath
     backend.compress = None
 
-    with pytest.raises(PicklingError, match="not picklable"):
-        backend.dump_item("testpath", UnpicklableObject())
+    with pytest.warns(FutureWarning, match="not picklable"):
+        backend.dump_item(("func", "input"), UnpicklableObject())
 
 
-@parametrize("klass", [FileSystemStoreBackend, SQLStoreBackend])
-def test_metadata(tmpdir, klass):
-    backend = klass()
+@parametrize("store_factory", [FileSystemStoreBackend, SQLStoreBackend])
+def test_metadata(tmpdir, store_factory):
+    backend = store_factory()
     backend.configure(tmpdir.join("joblib").strpath)
     call_id = ("fun", "input")
     metadata = {"a": "b"}
@@ -139,3 +145,70 @@ def test_metadata(tmpdir, klass):
     assert backend.get_metadata(call_id) == metadata
     backend.clear_path([])
     assert backend.get_metadata(call_id) == dict()
+
+
+def test_cache_tree_versions(tmpdir):
+    # Makes a backend using old cache tree
+    old_store = FileSystemStoreBackend()
+    old_store.configure(tmpdir.strpath)
+    old_store._split_id = types.MethodType(_old_split_id, old_store)
+    os.remove(os.path.join(old_store.location, "store_backend_info.json"))
+
+    # Cache some items
+    funs = ["fun1", "fun2", os.path.join("z" * 32, "fun3")]
+    args = ["012" + "3" * 29, "012" + "4" * 29, "abcd" * 8]
+    items = [0, "xyz", [42, 6.9]]
+    for fun in funs:
+        for arg, item in zip(args, items):
+            old_store.dump_item((fun, arg), item)
+
+    # Assert store_backend finds items from old cache tree
+    old_items = old_store.get_items()
+    assert len(old_items) == len(funs) * len(args)
+    assert set(item.path for item in old_items) == set(
+        tmpdir.join(fun, arg).strpath for fun in funs for arg in args
+    )
+
+    # Assert a warning is raised when configuring a FileSystemStoreBackend
+    # with an old cache tree
+    with warns(UserWarning, match="using old cache storage tree"):
+        new_store = FileSystemStoreBackend()
+        new_store.configure(tmpdir.strpath)
+
+    # Pollute the backend
+    # Creates items with new tree. After the creation:
+    # (funs[0], args[0]) old tree version is more recent
+    # (funs[1], args[0]) new tree version is more recent
+    conflict_item = "bad"
+    for fun in funs[:2]:
+        arg = args[0]
+        conflict_dir = tmpdir.join(fun, arg[:3], arg[3:]).strpath
+        os.makedirs(conflict_dir)
+        numpy_pickle.dump(conflict_item, os.path.join(conflict_dir, "output.pkl"))
+    time.sleep(1.5)
+    new_store.dump_item((funs[0], args[0]), items[0])
+
+    # Assert (funs[0], args[0]) old tree version is more recent
+    assert os.path.getmtime(
+        tmpdir.join(funs[0], arg[:3], arg[3:], "output.pkl").strpath
+    ) < os.path.getmtime(tmpdir.join(funs[0], arg, "output.pkl").strpath)
+
+    # Assert update_cache_tree correctly updates the cache tree
+    new_store.update_cache_tree()
+    new_items = new_store.get_items()
+    assert len(new_items) == len(funs) * len(args)
+    assert set(item.path for item in new_items) == set(
+        tmpdir.join(fun, arg[:3], arg[3:]).strpath for fun in funs for arg in args
+    )
+
+    # Assert no warning is raised when caching a function with a new cache tree
+    with warnings.catch_warnings(record=True) as ws:
+        warnings.simplefilter("always")
+        FileSystemStoreBackend().configure(tmpdir.strpath)
+        assert len(ws) == 0
+
+    # Check that old_store shifted to new cache tree
+    assert old_store.load_item((funs[0], args[0])) == items[0]
+    assert old_store.load_item((funs[1], args[0])) == conflict_item
+    with raises(KeyError):
+        old_store.load_item(("not_a_function", args[0]))

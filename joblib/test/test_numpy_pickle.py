@@ -40,7 +40,6 @@ from joblib.numpy_pickle_utils import (
     _IO_BUFFER_SIZE,
     _detect_compressor,
     _ensure_native_byte_order,
-    _is_numpy_array_byte_order_mismatch,
 )
 from joblib.test import data
 from joblib.test.common import (
@@ -599,47 +598,115 @@ def test_joblib_pickle_across_python_versions_with_mmap():
         _check_pickle(fname, expected_list, mmap_mode="r")
 
 
+def _make_object_array(kind, order="C"):
+    foreign = ">" if sys.byteorder == "little" else "<"
+    fields = [("number", foreign + "i4"), ("object", "O")]
+    if kind == "object":
+        dtype = np.dtype("O")
+    elif kind == "structured":
+        dtype = np.dtype(fields)
+    elif kind == "nested":
+        dtype = np.dtype([("nested", fields)])
+    else:
+        dtype = np.dtype([("nested", fields, (2,))])
+    array = np.zeros((2, 3), dtype=dtype, order=order)
+    values = array["nested"] if kind in ("nested", "subarray") else array
+    objects = values if kind == "object" else values["object"]
+    shared = {"items": [1, 2]}
+    for index in np.ndindex(objects.shape):
+        objects[index] = shared
+    if kind != "object":
+        values["number"] = np.arange(values["number"].size).reshape(
+            values["number"].shape
+        )
+    return array, shared
+
+
+def _object_values(array, kind):
+    values = array["nested"] if kind in ("nested", "subarray") else array
+    return values if kind == "object" else values["object"]
+
+
 @with_numpy
-def test_numpy_array_byte_order_mismatch_detection():
-    # List of numpy arrays with big endian byteorder.
-    be_arrays = [
-        np.array([(1, 2.0), (3, 4.0)], dtype=[("", ">i8"), ("", ">f8")]),
-        np.arange(3, dtype=np.dtype(">i8")),
-        np.arange(3, dtype=np.dtype(">f8")),
-    ]
+@parametrize(
+    "kind",
+    [
+        "mixed",
+        "nested",
+        "subarray",
+        "byte",
+        "aligned",
+        "offsets",
+        "object",
+        "object-structured",
+        "object-nested",
+        "object-subarray",
+    ],
+)
+@parametrize("order", ["C", "F"])
+@parametrize("compress", [0, ("zlib", 3)])
+@parametrize("ensure_native_byte_order", [True, False])
+def test_load_array_native_byte_order(kind, order, compress, ensure_native_byte_order):
+    if kind.startswith("object"):
+        object_kind = kind.removeprefix("object-")
+        array, shared = _make_object_array(object_kind, order)
+    else:
+        foreign = ">" if sys.byteorder == "little" else "<"
+        if kind == "mixed":
+            dtype = np.dtype([("a", foreign + "i4"), ("b", "=i4")])
+        elif kind == "nested":
+            dtype = np.dtype(
+                [("a", [("x", foreign + "i4"), ("y", "=f8")]), ("b", "u1")]
+            )
+        elif kind == "subarray":
+            dtype = np.dtype([("a", foreign + "i4", (2,)), ("b", "=i4")])
+        elif kind in ("byte", "aligned"):
+            dtype = np.dtype(
+                [("a", foreign + "i4"), ("b", "u1")], align=kind == "aligned"
+            )
+        else:
+            dtype = np.dtype(
+                {
+                    "names": ["a", "b"],
+                    "formats": [foreign + "i4", "=f8"],
+                    "offsets": [0, 16],
+                    "itemsize": 32,
+                    "titles": ["left", None],
+                }
+            )
+        array = np.zeros((2, 3), dtype=dtype, order=order)
 
-    # Verify the byteorder mismatch is correctly detected.
-    for array in be_arrays:
-        if sys.byteorder == "big":
-            assert not _is_numpy_array_byte_order_mismatch(array)
-        else:
-            assert _is_numpy_array_byte_order_mismatch(array)
-        converted = _ensure_native_byte_order(array)
-        if converted.dtype.fields:
-            for f in converted.dtype.fields.values():
-                f[0].byteorder == "="
-        else:
-            assert converted.dtype.byteorder == "="
+        def fill_fields(values):
+            if values.dtype.names:
+                for name in values.dtype.names:
+                    fill_fields(values[name])
+            else:
+                values[...] = np.arange(values.size).reshape(values.shape)
 
-    # List of numpy arrays with little endian byteorder.
-    le_arrays = [
-        np.array([(1, 2.0), (3, 4.0)], dtype=[("", "<i8"), ("", "<f8")]),
-        np.arange(3, dtype=np.dtype("<i8")),
-        np.arange(3, dtype=np.dtype("<f8")),
-    ]
+        fill_fields(array)
+    dtype = array.dtype
+    stream = io.BytesIO()
+    numpy_pickle.dump(array, stream, compress=compress)
+    stream.seek(0)
+    result = numpy_pickle.load(
+        stream, ensure_native_byte_order=ensure_native_byte_order
+    )
 
-    # Verify the byteorder mismatch is correctly detected.
-    for array in le_arrays:
-        if sys.byteorder == "little":
-            assert not _is_numpy_array_byte_order_mismatch(array)
-        else:
-            assert _is_numpy_array_byte_order_mismatch(array)
-        converted = _ensure_native_byte_order(array)
-        if converted.dtype.fields:
-            for f in converted.dtype.fields.values():
-                f[0].byteorder == "="
-        else:
-            assert converted.dtype.byteorder == "="
+    expected_dtype = (
+        dtype if ensure_native_byte_order is False else dtype.newbyteorder("=")
+    )
+    assert result.dtype == expected_dtype
+    assert result.dtype.itemsize == dtype.itemsize
+    assert result.dtype.isalignedstruct == dtype.isalignedstruct
+    assert result.shape == array.shape
+    assert result.strides == array.strides
+    assert result.flags.c_contiguous == array.flags.c_contiguous
+    assert result.flags.f_contiguous == array.flags.f_contiguous
+    np.testing.assert_array_equal(result, array)
+    if kind.startswith("object"):
+        objects = _object_values(result, object_kind)
+        assert all(value is objects.flat[0] for value in objects.flat)
+        assert objects.flat[0] == shared
 
 
 @parametrize("compress_tuple", [("zlib", 3), ("gzip", 3)])
