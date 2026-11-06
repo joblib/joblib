@@ -291,9 +291,13 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
     arg_varargs = None
     arg_varkw = None
     arg_dict = dict()
+    n_positional_only = 0
     for param in arg_sig.parameters.values():
         if param.kind is param.POSITIONAL_OR_KEYWORD:
             arg_names.append(param.name)
+        elif param.kind is param.POSITIONAL_ONLY:
+            arg_names.append(param.name)
+            n_positional_only += 1
         elif param.kind is param.KEYWORD_ONLY:
             arg_kwonlyargs.append(param.name)
         elif param.kind is param.VAR_POSITIONAL:
@@ -314,6 +318,7 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
         class_method_sig = inspect.signature(func.__func__)
         self_name = next(iter(class_method_sig.parameters))
         arg_names = [self_name] + arg_names
+        n_positional_only += 1
     # XXX: Maybe I need an inspect.isbuiltin to detect C-level methods, such
     # as on ndarrays.
 
@@ -325,14 +330,14 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
         if arg_position < len(args):
             # given as positional
             arg_dict[arg_name] = args[arg_position]
-            if arg_name in kwargs:
+            if arg_position >= n_positional_only and arg_name in kwargs:
                 raise ValueError(
                     f"Argument {arg_name} was given both as positional and as keyword"
                     f" for {_signature_str(name, arg_sig)}:\n"
                     f"    {_function_called_str(name, args, kwargs)} was called."
                 )
-        elif arg_name in kwargs:
-            # given as keyword
+        elif arg_position >= n_positional_only and arg_name in kwargs:
+            # given as keyword if not positional only
             arg_dict[arg_name] = kwargs[arg_name]
         elif arg_name not in arg_dict:
             # Missing argument
@@ -366,10 +371,10 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
             )
 
     # If more keyword arguments are given, store them in varkwargs
-    varkwargs = {k: v for k, v in kwargs.items() if k not in arg_dict}
+    named_args = {*arg_names[n_positional_only:], *arg_kwonlyargs}
+    varkwargs = {k: v for k, v in kwargs.items() if k not in named_args}
     if arg_varkw is not None:
         arg_dict["**"] = varkwargs
-
     elif varkwargs:
         raise ValueError(
             f"Too many keyword arguments for {_signature_str(name, arg_sig)}:\n"
