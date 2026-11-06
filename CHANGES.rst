@@ -4,6 +4,10 @@ Release Notes
 In Development
 --------------
 
+- On Python 3.14 and later, the threading backend now has significantly less
+  overhead in most cases.
+  https://github.com/joblib/joblib/pull/1899
+
 - Fix ``await cached_func.call(...)`` for async functions when caching is
   disabled with ``Memory(location=None)``. The call now awaits the function
   and returns its output with empty metadata.
