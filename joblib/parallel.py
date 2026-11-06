@@ -2022,6 +2022,9 @@ class Parallel(Logger):
 
         try:
             self._pre_dispatch_amount = _parse_pre_dispatch(self.pre_dispatch, n_jobs)
+            if self._pre_dispatch_amount == 0:
+                # No buffersize, just send them as fast as possible:
+                self._pre_dispatch_amount = None
             self._iterating = True
             self._original_iterator = iterable
 

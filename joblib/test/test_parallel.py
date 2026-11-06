@@ -1296,6 +1296,7 @@ def test_invalid_pre_dispatch(pre_dispatch):
         )
 
 
+@parametrize("backend", ALL_VALID_BACKENDS)
 @parametrize(
     "n_tasks, n_jobs, pre_dispatch, batch_size",
     [
@@ -1312,11 +1313,16 @@ def test_invalid_pre_dispatch(pre_dispatch):
         (200, 12, "2 * n_jobs", "auto"),
     ],
 )
-def test_dispatch_race_condition(n_tasks, n_jobs, pre_dispatch, batch_size):
+def test_dispatch_race_condition(n_tasks, n_jobs, pre_dispatch, batch_size, backend):
     # Check that using (async-)dispatch does not yield a race condition on the
     # iterable generator that is not thread-safe natively.
     # This is a non-regression test for the "Pool seems closed" class of error
-    params = {"n_jobs": n_jobs, "pre_dispatch": pre_dispatch, "batch_size": batch_size}
+    params = {
+        "n_jobs": n_jobs,
+        "pre_dispatch": pre_dispatch,
+        "batch_size": batch_size,
+        "backend": backend,
+    }
     expected = [square(i) for i in range(n_tasks)]
     results = Parallel(**params)(delayed(square)(i) for i in range(n_tasks))
     assert results == expected
