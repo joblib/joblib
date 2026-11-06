@@ -318,6 +318,7 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
         class_method_sig = inspect.signature(func.__func__)
         self_name = next(iter(class_method_sig.parameters))
         arg_names = [self_name] + arg_names
+        n_positional_only += 1
     # XXX: Maybe I need an inspect.isbuiltin to detect C-level methods, such
     # as on ndarrays.
 

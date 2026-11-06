@@ -937,6 +937,11 @@ def func_with_signature(a: int, b: float) -> float:
     return a + b
 
 
+class Klass:
+    def meth_with_positional_only_args(self, a=0, /, *args, **kwargs):
+        return a, args, kwargs
+
+
 def test_memory_func_with_kwonly_args(tmpdir):
     memory = Memory(location=tmpdir.strpath, verbose=0)
     func_cached = memory.cache(func_with_kwonly_args)
@@ -961,9 +966,14 @@ def test_memory_func_with_kwonly_args(tmpdir):
     assert func_cached(1, 2, kw1=3, kw2="ignored") == (1, 2, 3, 4)
 
 
-def test_memory_func_with_positional_only_args(tmpdir):
+@parametrize("method", [False, True])
+def test_memory_func_with_positional_only_args(tmpdir, method):
     memory = Memory(location=tmpdir.strpath, verbose=0)
-    func_cached = memory.cache(func_with_positional_only_args)
+    f = func_with_positional_only_args
+    if method:
+        klass = Klass()
+        f = klass.meth_with_positional_only_args
+    func_cached = memory.cache(f)
 
     assert func_cached() == (0, (), {})
 
