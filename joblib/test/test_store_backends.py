@@ -1,6 +1,7 @@
 import functools
 import os
 import pickle
+import sys
 import time
 import types
 import warnings
@@ -217,7 +218,10 @@ def test_clear_path(tmpdir, store_factory):
     backend.configure(tmpdir.join("clear_path").strpath)
 
     foo = os.path.join("module", "foo")
-    FOO = os.path.join("module", "FOO")
+    if store_factory == FileSystemStoreBackend and sys.platform != "linux":
+        FOO = os.path.join("module", "foo2")
+    else:
+        FOO = os.path.join("module", "FOO")
     code = "code"
     arg = "input"
     item = (1, 2, 3)
