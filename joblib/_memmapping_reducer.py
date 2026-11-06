@@ -343,17 +343,16 @@ def _reduce_memmap_backed(a, m):
 def reduce_array_memmap_backward(a):
     """reduce a np.array or a np.memmap from a child process"""
     m = _get_backing_memmap(a)
-    if isinstance(m, np.memmap) and m.filename not in JOBLIB_MMAPS:
+    if isinstance(m, np.memmap) and m.mode != "c" and m.filename not in JOBLIB_MMAPS:
         # if a is backed by a memmaped file, reconstruct a using the
         # memmaped file.
         return _reduce_memmap_backed(a, m)
     else:
-        # a is either a regular (not memmap-backed) numpy array, or an array
-        # backed by a shared temporary file created by joblib. In the latter
-        # case, in order to limit the lifespan of these temporary files, we
-        # serialize the memmap as a regular numpy array, and decref the
-        # file backing the memmap (done implicitly in a previously registered
-        # finalizer, see ``unlink_on_gc_collect`` for more details)
+        # Serialize ordinary arrays and copy-on-write mappings by value. A
+        # copy-on-write mapping's private writes are absent from its file.
+        # Also serialize joblib's temporary mappings by value so that the
+        # previously registered finalizer can reclaim the backing file (see
+        # ``unlink_on_gc_collect``).
         return (loads, (dumps(np.asarray(a), protocol=HIGHEST_PROTOCOL),))
 
 
@@ -428,6 +427,10 @@ class ArrayMemmapForwardReducer(object):
     def __call__(self, a):
         m = _get_backing_memmap(a)
         if m is not None and isinstance(m, np.memmap):
+            if m.mode == "c":
+                # The backing file misses private writes. Send a fresh snapshot
+                # for each reduction because this array can change between tasks.
+                return (loads, (dumps(np.asarray(a), protocol=HIGHEST_PROTOCOL),))
             # a is already backed by a memmap file, let's reuse it directly
             return _reduce_memmap_backed(a, m)
 
