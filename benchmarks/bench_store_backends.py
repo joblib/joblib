@@ -9,10 +9,10 @@ from joblib import Memory, Parallel, delayed
 
 
 def fun(d):
-    ans = 0
+    s = 0
     for k, x in d.items():
-        ans += k * x.sum()
-    return ans
+        s += k * x.sum()
+    return s
 
 
 def gen_value(size_dict, size_array):
