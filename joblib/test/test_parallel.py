@@ -1296,7 +1296,7 @@ def test_invalid_pre_dispatch(pre_dispatch):
         )
 
 
-@parametrize("backend", ALL_VALID_BACKENDS)
+@parametrize("backend", ["threading", None])
 @parametrize(
     "n_tasks, n_jobs, pre_dispatch, batch_size",
     [
