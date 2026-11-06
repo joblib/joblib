@@ -8,7 +8,6 @@ from pickle import PicklingError
 
 import pytest
 
-
 from joblib import Parallel, delayed, numpy_pickle
 from joblib._sql_store_backend import SQLStoreBackend
 from joblib._store_backends import (
