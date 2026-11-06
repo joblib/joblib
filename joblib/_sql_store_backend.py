@@ -5,9 +5,11 @@ import json
 import os
 import sqlite3
 import time
+import warnings
+from pickle import PicklingError
 
 from . import numpy_pickle
-from ._store_backends import StoreBackendBase
+from ._store_backends import CacheWarning, StoreBackendBase
 from .logger import format_time
 
 
@@ -130,8 +132,17 @@ class SQLStoreBackend(StoreBackendBase):
         if verbose > 10:
             print("Persisting in %s" % path)
 
-        file = io.BytesIO()
-        numpy_pickle.dump(item, file, compress=self.compress)
+        try:
+            file = io.BytesIO()
+            numpy_pickle.dump(item, file, compress=self.compress)
+        except PicklingError:
+            raise
+        except Exception as e:  # noqa: E722
+            warnings.warn(
+                "Unable to cache to disk. Possibly a race condition in the "
+                f"creation of the directory. Exception: {e}.",
+                CacheWarning,
+            )
         serialized_data = file.getvalue()
 
         with self.con:

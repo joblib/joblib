@@ -99,6 +99,7 @@ def test_warning_on_dump_failure(tmpdir, store_factory):
     backend = store_factory()
     backend.location = tmpdir.join("test_warning_on_pickling_error").strpath
     backend.compress = None
+    backend.configure(backend.location)
 
     with pytest.warns(CacheWarning, match="some exception"):
         backend.dump_item(("func", "input"), UnpicklableObject())
@@ -115,8 +116,9 @@ def test_warning_on_pickling_error(tmpdir, store_factory):
     backend = store_factory()
     backend.location = tmpdir.join("test_warning_on_pickling_error").strpath
     backend.compress = None
+    backend.configure(backend.location)
 
-    with pytest.warns(FutureWarning, match="not picklable"):
+    with pytest.raises(PicklingError, match="not picklable"):
         backend.dump_item(("func", "input"), UnpicklableObject())
 
 
