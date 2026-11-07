@@ -1105,9 +1105,6 @@ def test_memory_reduce_size_items_limit(tmpdir):
 
 
 def test_memory_reduce_size_age_limit(tmpdir):
-    import datetime
-    import time
-
     memory, _, put_cache = _setup_toy_cache(tmpdir)
     ref_cache_items = memory.store_backend.get_items()
 
@@ -1130,15 +1127,20 @@ def test_memory_reduce_size_age_limit(tmpdir):
     assert not set.issubset(set(cache_items), set(ref_cache_items))
     assert len(cache_items) == 2
 
-    # ensure age_limit is forced to be positive
-    with pytest.raises(ValueError, match="has to be a positive"):
-        memory.reduce_size(age_limit=datetime.timedelta(seconds=-1))
-
     # age_limit set so that no cache item is kept
     time.sleep(0.001)  # make sure the age is different
     memory.reduce_size(age_limit=datetime.timedelta(seconds=0))
     cache_items = memory.store_backend.get_items()
     assert cache_items == []
+
+
+@parametrize("populate", [False, True], ids=["empty", "populated"])
+def test_memory_reduce_size_negative_age_limit(tmp_path, populate):
+    memory = Memory(tmp_path, verbose=0)
+    if populate:
+        memory.cache(f)(2)
+    with pytest.raises(ValueError, match="age_limit has to be a positive timedelta"):
+        memory.reduce_size(age_limit=datetime.timedelta(seconds=-1))
 
 
 def test_memory_clear(tmpdir):
