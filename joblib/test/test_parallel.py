@@ -1546,6 +1546,41 @@ def test_parallel_with_interactively_defined_bound_method_loky(tmpdir):
     )
 
 
+@with_multiprocessing
+def test_parallel_with_bound_method_in_interactive_class_state(tmpdir):
+    # A class can contain a bound method in its state (for instance, a
+    # Pydantic model's validation schema). Its method cannot be looked up on
+    # the class until the class has finished unpickling in the worker.
+    script = tmpdir.join("joblib_interactive_class_method_script.py")
+    script.write(
+        """\
+import sys
+sys.path.insert(0, {joblib_root_folder!r})
+
+from joblib import Parallel, delayed
+
+class ModelMeta(type):
+    def __getattr__(cls, name):
+        raise AttributeError(name)
+
+class Model(metaclass=ModelMeta):
+    @classmethod
+    def validate(cls, value):
+        return value
+
+Model.schema = {{"validator": Model.validate}}
+
+def validate(model):
+    return model.schema["validator"](42)
+
+print(Parallel(n_jobs=2)([delayed(validate)(Model())]))
+""".format(joblib_root_folder=os.path.dirname(os.path.dirname(joblib.__file__)))
+    )
+    check_subprocess_call(
+        [sys.executable, script.strpath], stdout_regex=r"\[42\]", timeout=15
+    )
+
+
 def test_parallel_with_exhausted_iterator():
     exhausted_iterator = iter([])
     assert Parallel(n_jobs=2)(exhausted_iterator) == []

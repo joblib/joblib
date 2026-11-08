@@ -166,8 +166,19 @@ def set_loky_pickler(loky_pickler=None):
                 # Use standard reducers as bases
                 loky_dt = copyreg.dispatch_table.copy()
 
-            # Register loky specific reducers
-            loky_dt.update(_dispatch_table)
+            # Register loky specific reducers. Cloudpickle's method reducer
+            # rebuilds a method from its function and instance, which is
+            # needed while an interactive class is still being reconstructed.
+            # Loky's getattr-based reducer can only find methods after the
+            # class has been fully initialized.
+            if loky_pickler == "cloudpickle":
+                loky_dt.update(
+                    (type_, reducer)
+                    for type_, reducer in _dispatch_table.items()
+                    if type_ is not types.MethodType
+                )
+            else:
+                loky_dt.update(_dispatch_table)
 
             # Set the new dispatch table, taking care of the fact that we
             # need to use the member_descriptor when we inherit from a
