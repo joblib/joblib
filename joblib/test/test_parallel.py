@@ -377,6 +377,41 @@ def test_loky_cores_split_up_in_subprocess(set_env, request):
 # Test parallel
 
 
+def test_inherited_negative_verbose_is_silent(capsys):
+    with parallel_config(verbose=-1):
+        result = Parallel(n_jobs=1)(delayed(abs)(i) for i in range(6))
+
+    assert result == list(range(6))
+    out, err = capsys.readouterr()
+    assert out == ""
+    assert err == ""
+
+
+@parametrize("backend", ["sequential", "threading", "loky"])
+@parametrize("verbose", [-1, -10])
+def test_negative_verbose_is_silent(backend, verbose):
+    if backend == "loky" and mp is None:
+        pytest.skip("Multiprocessing is unavailable")
+
+    code = f"""\
+from joblib import Parallel, delayed, parallel_config
+
+for kwargs, configured_verbose in (({{"verbose": {verbose}}}, 0), ({{}}, {verbose})):
+    with parallel_config(verbose=configured_verbose):
+        result = Parallel(n_jobs=2, backend={backend!r}, **kwargs)(
+            delayed(abs)(i) for i in range(6)
+        )
+    assert result == list(range(6))
+print("OK")
+"""
+    check_subprocess_call(
+        [sys.executable, "-c", code],
+        timeout=10,
+        stdout_regex=r"^OK\r?\n$",
+        stderr_regex=r"\A\Z",
+    )
+
+
 @parametrize("backend", ALL_VALID_BACKENDS)
 @parametrize("n_jobs", [1, 2, -1, -2])
 @parametrize("verbose", [2, 11, 100])

@@ -4,6 +4,10 @@ Release Notes
 In Development
 --------------
 
+- Treat negative ``Parallel`` verbosity as silent to avoid progress-reporting
+  errors and hangs with the threading backend.
+  https://github.com/joblib/joblib/issues/873
+
 - Fix ``await cached_func.call(...)`` for async functions when caching is
   disabled with ``Memory(location=None)``. The call now awaits the function
   and returns its output with empty metadata.
