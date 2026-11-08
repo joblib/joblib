@@ -1247,6 +1247,8 @@ class Parallel(Logger):
         nesting_level = active_backend.nesting_level
 
         self.verbose = _get_config_param(verbose, context_config, "verbose")
+        if self.verbose and self.verbose < 0:
+            self.verbose = 0
         self.timeout = timeout
         self.pre_dispatch = pre_dispatch
 
