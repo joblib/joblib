@@ -2429,6 +2429,44 @@ def test_controlling_thread_openblas_non_openmp(n_jobs):
     # tests so we don't need to do it here.
 
 
+@pytest.mark.thread_unsafe  # OpenBLAS-pthreads's pool is a process-wide shared resource
+@with_multiprocessing
+def test_openblas_restored_num_threads():
+    """OpenBLAS-pthreads gets number of threads restored correctly.
+
+    OpenBLAS without OpenMP has a concept of a controlling thread in
+    threadpoolctl, make sure it's cleared at the end of Parallel.
+    """
+    openblas_controller = ThreadpoolController().select(internal_api="openblas")
+    if not openblas_controller.lib_controllers:
+        pytest.skip("requires OpenBLAS.")
+
+    openblas_lib = openblas_controller.lib_controllers[0]
+    orig_n_threads = openblas_lib.get_num_threads()
+
+    def call_parallel(n_jobs):
+        for _ in range(20):
+            Parallel(n_jobs=n_jobs, backend="threading")(
+                delayed(int)(i) for i in range(n_jobs)
+            )
+            with Parallel(n_jobs=n_jobs, backend="threading") as parallel:
+                parallel(delayed(int)(i) for i in range(n_jobs))
+
+    # Check both threading and sequential backends:
+    for parallelism_levels in [[2, 3, 4], [1, 1, 1]]:
+        threads = [
+            threading.Thread(target=call_parallel, args=(n,))
+            for n in parallelism_levels
+        ]
+
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        assert openblas_lib.get_num_threads() == orig_n_threads
+
+
 @with_multiprocessing
 @parametrize("n_jobs", [2, 4, -1])
 def test_loky_reuse_workers(n_jobs):
