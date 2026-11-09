@@ -269,7 +269,9 @@ The output of the function call is then pickled and saved to a path formatted as
 
         >>> Memory(location).update_cache_tree()
 
-Additional backends will be added in future joblib releases, including a planned SQL backend.
+The ``'sqlite'`` backend has been added in joblib 1.7, which stores the cache in a single
+SQLite database file. This drastically reduces the number of i-nodes, though it makes
+writing to the cache slightly slower.
 
 Gotchas
 -------
