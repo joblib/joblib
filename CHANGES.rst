@@ -4,6 +4,11 @@ Release Notes
 In Development
 --------------
 
+- Fix the memmapping folder created by ``Parallel`` in ``/dev/shm`` being
+  readable by other local users: it is now created with owner-only
+  permissions.
+  https://github.com/joblib/joblib/pull/1913
+
 - Fix the ``ensure_native_byte_order`` parameter of ``numpy_pickle.load``
   to apply correctly to structured NumPy arrays.
   https://github.com/joblib/joblib/pull/1895

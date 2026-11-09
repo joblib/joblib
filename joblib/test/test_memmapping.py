@@ -5,10 +5,12 @@ import mmap
 import os
 import pickle
 import platform
+import shutil
 import stat
 import subprocess
 import sys
 import threading
+import uuid
 from time import sleep
 
 import pytest
@@ -1159,28 +1161,34 @@ def test_pool_get_temp_dir_no_statvfs(tmpdir, monkeypatch):
 
 
 @skipif(
-    sys.platform == "win32", reason="POSIX permissions are not available on Windows"
+    not os.path.isdir(jmr.SYSTEM_SHARED_MEM_FS) or not hasattr(os, "statvfs"),
+    reason="Requires a shared memory filesystem",
 )
-def test_pool_get_temp_dir_shared_mem_permissions(tmpdir, monkeypatch):
+def test_pool_get_temp_dir_shared_mem_permissions(monkeypatch):
     """Check that the pool folder created in the shared memory fs is private
 
     The shared memory fs is world writable, so the folder must only be
     accessible by the owner of the process, as for the lazily created folders.
     """
-    pool_folder_name = "test.tmpdir"
+    pool_folder_name = f"joblib_test_{os.getpid()}_{uuid.uuid4().hex}"
     monkeypatch.delenv("JOBLIB_TEMP_FOLDER", raising=False)
-    monkeypatch.setattr(jmr, "SYSTEM_SHARED_MEM_FS", tmpdir.strpath)
+    # Do not depend on the free space available on the CI's /dev/shm.
     monkeypatch.setattr(jmr, "SYSTEM_SHARED_MEM_FS_MIN_SIZE", 1)
 
-    old_umask = os.umask(0o022)
-    try:
-        pool_folder, shared_mem = _get_temp_dir(pool_folder_name, temp_folder=None)
-    finally:
-        os.umask(old_umask)
+    # There is no way to read the umask without setting it.
+    umask = os.umask(0)
+    os.umask(umask)
 
-    assert shared_mem is True
-    assert pool_folder == tmpdir.join(pool_folder_name).strpath
-    mode = stat.S_IMODE(os.stat(pool_folder).st_mode)
+    pool_folder = os.path.join(jmr.SYSTEM_SHARED_MEM_FS, pool_folder_name)
+    try:
+        pool_folder_, shared_mem = _get_temp_dir(pool_folder_name, temp_folder=None)
+        assert shared_mem is True
+        assert pool_folder_ == pool_folder
+        mode = stat.S_IMODE(os.stat(pool_folder).st_mode)
+    finally:
+        shutil.rmtree(pool_folder, ignore_errors=True)
+
+    assert mode == jmr.FOLDER_PERMISSIONS & ~umask
     assert mode & (stat.S_IRWXG | stat.S_IRWXO) == 0
 
 
