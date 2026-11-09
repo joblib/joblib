@@ -15,6 +15,7 @@ import queue
 import sys
 import threading
 import time
+import traceback
 import warnings
 import weakref
 from contextlib import nullcontext
@@ -862,7 +863,7 @@ class BatchCompletionCallBack(object):
             outcome = dict(status=TASK_DONE, result=result)
         except BaseException as e:
             # Avoid keeping references to parallel in the error.
-            e.__traceback__ = None
+            traceback.clear_frames(e.__traceback__)
             outcome = dict(result=e, status=TASK_ERROR)
 
         self._register_outcome(outcome)

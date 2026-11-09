@@ -600,26 +600,12 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
 
     def submit(self, func, callback=None):
         """Schedule a func to be run"""
-
-        def both_callback(future):
-            try:
-                result = future.result()
-            except BaseException as exc:
-                result = exc
-            callback(result)
-
-        # Here, we need a wrapper to avoid crashes on KeyboardInterruptErrors.
-        # We also call the callback on error, to make sure the pool does not
-        # wait on crashed jobs.
-
-        future = self._get_pool().submit(
-            _TracebackCapturingWrapper(func),
-        )
+        future = self._get_pool().submit(func)
         if callback is not None:
-            future.add_done_callback(both_callback)
+            future.add_done_callback(callback)
         return future
 
-    def retrieve_result(self, out, timeout=None):
+    def retrieve_result_callback(self, out, timeout=None):
         return out.result(timeout=timeout)
 
     def terminate(self):
