@@ -36,6 +36,7 @@ from ._parallel_backends import (
     SequentialBackend,
     ThreadingBackend,
     _get_threadpool_controller,
+    _get_threadpoolctl_limits,
     cpu_count,  # noqa
     set_thread_local_cpu_limit,  # noqa
 )
@@ -1911,8 +1912,13 @@ class Parallel(Logger):
         limiter = None
         try:
             # This makes relevant libraries respect cgroups, for example:
-            limiter = _get_threadpool_controller().limit(
-                limits=self._backend._n_threads_for_worker_external_libs(n_jobs=1)
+            tp_controller = _get_threadpool_controller()
+            limiter = tp_controller.limit(
+                limits=_get_threadpoolctl_limits(
+                    tp_controller,
+                    self._backend._n_threads_for_worker_external_libs(n_jobs=1),
+                    False,
+                )
             )
             self._iterating = True
             self._original_iterator = iterable
