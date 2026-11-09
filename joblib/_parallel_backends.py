@@ -388,8 +388,9 @@ class SequentialBackend(ParallelBackendBase):
     supports_sharedmem = True
 
     def configure(self, *args, **kwargs):
+        result = super().configure(*args, **kwargs)
         CONTROLLING_THREAD_OWNERSHIP.increment()
-        return super().configure(*args, **kwargs)
+        return result
 
     def effective_n_jobs(self, n_jobs):
         """Determine the number of jobs which are going to run in parallel"""
@@ -610,7 +611,6 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
             # Avoid unnecessary overhead and use sequential backend instead.
             raise FallbackToBackend(SequentialBackend(nesting_level=self.nesting_level))
 
-        CONTROLLING_THREAD_OWNERSHIP.increment()
         self._threadpool_controller = _get_threadpool_controller()
         # Calculate how many cores a worker will get:
         self._worker_cores_per_thread = self._n_threads_for_worker_external_libs(n_jobs)
@@ -618,6 +618,7 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
         self._thread_limiter = self._threadpool_controller.limit(
             limits=self._worker_cores_per_thread
         )
+        CONTROLLING_THREAD_OWNERSHIP.increment()
         self.parallel = parallel
         self._n_jobs = n_jobs
         return n_jobs
@@ -643,9 +644,13 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
         return self._pool
 
     def terminate(self):
-        self._thread_limiter.restore_original_limits()
-        CONTROLLING_THREAD_OWNERSHIP.decrement()
+        # Make sure all threads are shutdown, so they won't set any more
+        # limits:
         super().terminate()
+        # Next, restore limits:
+        self._thread_limiter.restore_original_limits()
+        # And then check if we can release ownership of OpenBLAS-pthreads:
+        CONTROLLING_THREAD_OWNERSHIP.decrement()
 
 
 @dataclass
