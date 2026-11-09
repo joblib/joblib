@@ -475,6 +475,8 @@ class StoreBackendMixin(StoreBackendBase):
         """
         Get items to delete to keep the store under size, file, & age limits.
         """
+        if age_limit is not None and age_limit.total_seconds() < 0:
+            raise ValueError("age_limit has to be a positive timedelta")
         if isinstance(bytes_limit, str):
             bytes_limit = memstr_to_bytes(bytes_limit)
 
@@ -496,8 +498,6 @@ class StoreBackendMixin(StoreBackendBase):
 
         if age_limit is not None:
             older_item = min(item.last_access for item in items)
-            if age_limit.total_seconds() < 0:
-                raise ValueError("age_limit has to be a positive timedelta")
             deadline = datetime.datetime.now() - age_limit
         else:
             deadline = None
