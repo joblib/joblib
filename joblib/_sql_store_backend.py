@@ -135,6 +135,15 @@ class SQLStoreBackend(StoreBackendBase):
         try:
             file = io.BytesIO()
             numpy_pickle.dump(item, file, compress=self.compress)
+            serialized_data = file.getvalue()
+
+            with self.con:
+                self.con.execute(
+                    "INSERT INTO cache (path, data) "
+                    "VALUES (?, ?) "
+                    "ON CONFLICT(path) DO UPDATE SET data = excluded.data",
+                    (path, serialized_data),
+                )
         except PicklingError:
             raise
         except Exception as e:
@@ -143,15 +152,6 @@ class SQLStoreBackend(StoreBackendBase):
                 CacheWarning,
             )
             return
-        serialized_data = file.getvalue()
-
-        with self.con:
-            self.con.execute(
-                "INSERT INTO cache (path, data) "
-                "VALUES (?, ?) "
-                "ON CONFLICT(path) DO UPDATE SET data = excluded.data",
-                (path, serialized_data),
-            )
 
     def clear_item(self, call_id):
         """Clear an item from the store.
@@ -194,15 +194,19 @@ class SQLStoreBackend(StoreBackendBase):
             Metadata associated to the call
         """
         path = os.path.join(*call_id)
-        cursor = self.con.cursor()
-        cursor.execute(
-            "SELECT metadata FROM cache WHERE path=? AND metadata IS NOT NULL", (path,)
-        )
-        metadata = cursor.fetchone()
-        cursor.close()
-        if metadata is None:
+        try:
+            cursor = self.con.cursor()
+            cursor.execute(
+                "SELECT metadata FROM cache WHERE path=? AND metadata IS NOT NULL",
+                (path,),
+            )
+            metadata = cursor.fetchone()
+            cursor.close()
+            if metadata is None:
+                return {}
+            return json.loads(metadata[0])
+        except Exception:
             return {}
-        return json.loads(metadata[0])
 
     def store_metadata(self, call_id, metadata):
         """Store metadata of a computation.
@@ -215,14 +219,17 @@ class SQLStoreBackend(StoreBackendBase):
             Metadata associated to the call
         """
         path = os.path.join(*call_id)
-        metadata_str = json.dumps(metadata)
-        with self.con:
-            self.con.execute(
-                "INSERT INTO cache (path, metadata) "
-                "VALUES (?, ?) "
-                "ON CONFLICT(path) DO UPDATE SET metadata = excluded.metadata",
-                (path, metadata_str),
-            )
+        try:
+            metadata_str = json.dumps(metadata)
+            with self.con:
+                self.con.execute(
+                    "INSERT INTO cache (path, metadata) "
+                    "VALUES (?, ?) "
+                    "ON CONFLICT(path) DO UPDATE SET metadata = excluded.metadata",
+                    (path, metadata_str),
+                )
+        except Exception:
+            pass
 
     def get_cached_func_code(self, func_id):
         """Get the code of the cached function.
