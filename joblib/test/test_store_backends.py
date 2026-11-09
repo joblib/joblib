@@ -239,3 +239,15 @@ def test_clear_path(tmpdir, store_factory):
     assert not backend.contains_item((foo, arg))
     assert backend.get_cached_func_code((FOO,)) == code
     assert backend.contains_item((FOO, arg))
+
+
+@parametrize("store_factory", [FileSystemStoreBackend, SQLStoreBackend])
+def test_store_bad_metadata(tmpdir, store_factory):
+    backend = store_factory()
+    call_id = ("func", "input")
+    # getting metadata from a not configured store doesn't raise
+    assert backend.get_metadata(call_id) == {}
+    backend.configure(tmpdir.join("clear_path").strpath)
+    # storing bad metadata doesn't raise
+    backend.store_metadata(call_id, {"bad", "metadata"})
+    assert backend.get_metadata(call_id) == {}

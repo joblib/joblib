@@ -1192,13 +1192,16 @@ def test_cached_function_race_condition_when_persisting_output(tmpdir, capfd):
 
 
 @with_multiprocessing
-def test_cached_function_race_condition_when_persisting_output_2(tmpdir, capfd):
+@parametrize("backend", ["local", "sqlite"])
+def test_cached_function_race_condition_when_persisting_output_2(
+    tmpdir, capfd, backend
+):
     # Test race condition in first attempt at solving
     # https://github.com/joblib/joblib/issues/490. The race condition
     # was due to the delay between seeing the cache directory created
     # (interpreted as the result being cached) and the output.pkl being
     # pickled.
-    memory = Memory(location=tmpdir.strpath)
+    memory = Memory(location=tmpdir.strpath, backend=backend)
     func_cached = memory.cache(fast_func_with_conditional_complex_output)
 
     Parallel(n_jobs=2)(
