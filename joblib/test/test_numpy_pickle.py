@@ -1291,6 +1291,9 @@ def test_lz4_compression(tmpdir):
         assert f.read(len(_LZ4_PREFIX)) == _LZ4_PREFIX
     assert numpy_pickle.load(fname) == data
 
+    # Assert no warning is raised because of unclosed files
+    warnings.filterwarnings("error", message="Exception ignored")
+
 
 @without_lz4
 def test_lz4_compression_without_lz4(tmpdir):

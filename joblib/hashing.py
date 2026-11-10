@@ -11,7 +11,6 @@ import decimal
 import hashlib
 import io
 import pickle
-import struct
 import sys
 import types
 
@@ -103,16 +102,14 @@ class Hasher(Pickler):
 
     # The dispatch table of the pickler is not accessible in Python
     # 3, as these lines are only bugware for IPython, we skip them.
-    def save_global(self, obj, name=None, pack=struct.pack):
+    def save_global(self, obj, name=None):
         # We have to override this method in order to deal with objects
         # defined interactively in IPython that are not injected in
         # __main__
-        kwargs = dict(name=name, pack=pack)
-        del kwargs["pack"]
         try:
-            Pickler.save_global(self, obj, **kwargs)
+            Pickler.save_global(self, obj, name=name)
         except pickle.PicklingError:
-            Pickler.save_global(self, obj, **kwargs)
+            Pickler.save_global(self, obj, name=name)
             module = getattr(obj, "__module__", None)
             if module == "__main__":
                 my_name = name
@@ -127,12 +124,6 @@ class Hasher(Pickler):
     dispatch = Pickler.dispatch.copy()
     # builtin
     dispatch[type(len)] = save_global
-    # type
-    dispatch[type(object)] = save_global
-    # classobj
-    dispatch[type(Pickler)] = save_global
-    # function
-    dispatch[type(pickle.dump)] = save_global
 
     # We use *args in _batch_setitems signature because _batch_setitems has an
     # additional 'obj' argument in Python 3.14
