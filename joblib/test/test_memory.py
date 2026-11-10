@@ -265,7 +265,10 @@ _JUPYTER_SESSION = """if 1:
                 def f(x):
                     with open(WITNESS, "a") as fh:
                         fh.write("ran\\\\n")
-                    return x * 2
+                    ### Important ###
+                    # We use a frozenset S to check its hash consistency across sessions
+                    S = {1, 2, 3, "abc", (1, 2), 1.1, b'xyz', None, False}
+                    return x if x in S else x * 2
             '''),
             filename="<ipython-input-0-000000000000>",
             mode="exec",
@@ -297,7 +300,7 @@ def test_cached_jupyter_function_persists_across_sessions(tmpdir):
 
     # Two seeds stand in for two independently started interpreters, which is
     # what makes this deterministic rather than one-in-N flaky.
-    for seed in ("1", "2"):
+    for seed in "1234":
         env["PYTHONHASHSEED"] = seed
         p = subprocess.run(
             [sys.executable, "-c", _JUPYTER_SESSION, location, witness],
@@ -929,8 +932,17 @@ def func_with_kwonly_args(a, b, *, kw1="kw1", kw2="kw2"):
     return a, b, kw1, kw2
 
 
+def func_with_positional_only_args(a=0, /, *args, **kwargs):
+    return a, args, kwargs
+
+
 def func_with_signature(a: int, b: float) -> float:
     return a + b
+
+
+class Klass:
+    def meth_with_positional_only_args(self, a=0, /, *args, **kwargs):
+        return a, args, kwargs
 
 
 def test_memory_func_with_kwonly_args(tmpdir):
@@ -955,6 +967,28 @@ def test_memory_func_with_kwonly_args(tmpdir):
     func_cached = memory.cache(func_with_kwonly_args, ignore=["kw2"])
     assert func_cached(1, 2, kw1=3, kw2=4) == (1, 2, 3, 4)
     assert func_cached(1, 2, kw1=3, kw2="ignored") == (1, 2, 3, 4)
+
+
+@parametrize("method", [False, True])
+def test_memory_func_with_positional_only_args(tmpdir, method):
+    memory = Memory(location=tmpdir.strpath, verbose=0)
+    f = func_with_positional_only_args
+    if method:
+        klass = Klass()
+        f = klass.meth_with_positional_only_args
+    func_cached = memory.cache(f)
+
+    assert func_cached() == (0, (), {})
+
+    # Making sure setting "a" as keyword argument does not set positional argument
+    assert func_cached(1) == (1, (), {})
+    assert func_cached(a=1) == (0, (), {"a": 1})
+    assert func_cached(1, a=2) == (1, (), {"a": 2})
+
+    # Making sure "*" could be used in keyword argument
+    assert func_cached(1, 2) == (1, (2,), {})
+    for name in ["*", "args", "*args"]:
+        assert func_cached(1, **{name: 2}) == (1, (), {name: 2})
 
 
 def test_memory_func_with_signature(tmpdir):
@@ -1265,6 +1299,10 @@ class DummyStoreBackend(StoreBackendBase):
 
     def _item_exists(self, location):
         """Check if an item location exists."""
+        "Does nothing"
+
+    def _unlink_item(self, location):
+        """Unlink an item on store."""
         "Does nothing"
 
     def _move_item(self, src, dst):
