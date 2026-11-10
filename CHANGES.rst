@@ -50,6 +50,7 @@ In Development
 - Fix ``Memory`` to accept any ``os.PathLike`` object as ``location``, like
   ``pathlib.Path``. Other path-like objects previously disabled caching with a
   warning.
+  https://github.com/joblib/joblib/pull/1945
 
 - A non-positive value for ``pre_dispatch`` in ``Parallel`` now raises a
   ValueError.
