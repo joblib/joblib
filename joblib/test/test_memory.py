@@ -266,7 +266,7 @@ _JUPYTER_SESSION = """if 1:
                     with open(WITNESS, "a") as fh:
                         fh.write("ran\\\\n")
                     ### Important ###
-                    # We use a frozenset to check its hash consistency across sessions
+                    # We use a frozenset S to check its hash consistency across sessions
                     S = {1, 2, 3, "abc", (1, 2), 1.1, b'xyz', None, False}
                     return x if x in S else x * 2
             '''),
@@ -278,7 +278,6 @@ _JUPYTER_SESSION = """if 1:
     )
     f = ns["f"]
     f.__module__ = "__main__"
-    print({1, 2, 3, "abc", (1, 2), 1.1, b'xyz', None, False})
 
     assert Memory(location=LOCATION, verbose=0).cache(f)(21) == 42
 """
