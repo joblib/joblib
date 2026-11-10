@@ -2033,11 +2033,11 @@ class Parallel(Logger):
             # that we enter the try/except block and setup the generator.
             yield None
 
-            pool = self._backend._get_pool()
+            executor = self._backend._get_executor()
 
             # Book keeping, for compatibility with normal code paths:
             with self._backend.retrieval_context():
-                for success, res in pool.map(
+                for success, res in executor.map(
                     apply,
                     iterable,
                     chunksize=self._get_batch_size(),

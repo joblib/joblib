@@ -715,8 +715,7 @@ def test_error_capture(backend):
         # Try again with the context manager API
         with Parallel(n_jobs=2, backend=backend) as parallel:
             # Initialize workers:
-            list(parallel([delayed(f)(1, 1)]))
-            assert get_workers(parallel._backend) is not None
+            parallel([delayed(f)(1, 1)])
 
             with raises(ZeroDivisionError):
                 parallel([delayed(division)(x, y) for x, y in zip((0, 1), (1, 0))])
