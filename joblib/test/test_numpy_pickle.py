@@ -896,6 +896,39 @@ def test_file_handle_persistence(tmpdir):
                 assert obj_reloaded_2 == obj
 
 
+@pytest.mark.parametrize("compress", ["zlib", "gzip"])
+@pytest.mark.parametrize("trailing_data", ["bytes", "dump"])
+def test_compressed_file_with_trailing_data(
+    tmpdir, monkeypatch, compress, trailing_data
+):
+    decompressobj = zlib.decompressobj
+
+    # Fail before a regression can exhaust memory.
+    class BoundedDecompressor:
+        def __init__(self, *args, **kwargs):
+            self.decompressor = decompressobj(*args, **kwargs)
+            self.calls = 0
+
+        def __getattr__(self, name):
+            return getattr(self.decompressor, name)
+
+        def decompress(self, *args, **kwargs):
+            self.calls += 1
+            assert self.calls <= 10
+            return self.decompressor.decompress(*args, **kwargs)
+
+    monkeypatch.setattr(zlib, "decompressobj", BoundedDecompressor)
+    filename = tmpdir.join("test.pkl").strpath
+    numpy_pickle.dump("some data", filename, compress=(compress, 3))
+    with open(filename, "ab") as f:
+        if trailing_data == "dump":
+            numpy_pickle.dump("more data", f, compress=(compress, 3))
+        else:
+            f.write(b"\x00" * 16)
+
+    assert numpy_pickle.load(filename) == "some data"
+
+
 @with_numpy
 def test_in_memory_persistence():
     objs = [np.random.random((10, 10)), "some data"]
