@@ -1074,7 +1074,7 @@ class Parallel(Logger):
         Default is '2*n_jobs'. When batch_size="auto" this is reasonable
         default and the workers should never starve. Note that only basic
         arithmetic are allowed here and no modules can be used in this
-        expression. The threading backend may ignore this argument.
+        expression.
     batch_size: int or 'auto', default='auto'
         The number of atomic tasks to dispatch at once to each
         worker. When individual evaluations are very fast, dispatching
