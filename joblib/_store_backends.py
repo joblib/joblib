@@ -592,8 +592,7 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
                             break
                 if info is None:
                     info = {"cache_version": 2, "require_update": False}
-            with open(info_path, "wb") as file:
-                file.write(json.dumps(info).encode("utf-8"))
+            self._store_backend_info(info)
 
         # Warn if an update is required
         if info["require_update"]:
@@ -653,6 +652,16 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
         self.mmap_mode = mmap_mode
         self.verbose = verbose
 
+    def _store_backend_info(self, info):
+        """Publish cache layout metadata without exposing partial writes."""
+        info_path = os.path.join(self.location, "store_backend_info.json")
+
+        def write_info(to_write, filename):
+            with open(filename, "wb") as file:
+                file.write(json.dumps(to_write).encode("utf-8"))
+
+        self._concurrency_safe_write(info, info_path, write_info)
+
     def _split_id(self, call_id):
         if len(call_id) == 0 or not _check_hex(call_id[-1], 32):
             return call_id
@@ -661,10 +670,8 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
     # XXX: To remove in joblib 1.9
     def update_cache_tree(self):
         # First info update
-        info_path = os.path.join(self.location, "store_backend_info.json")
         info = {"cache_version": 2, "require_update": True}
-        with open(info_path, "wb") as file:
-            file.write(json.dumps(info).encode("utf-8"))
+        self._store_backend_info(info)
 
         # Find old cache directories
         old_cache = []
@@ -691,8 +698,7 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
 
         # Second info update
         info["require_update"] = False
-        with open(info_path, "wb") as file:
-            file.write(json.dumps(info).encode("utf-8"))
+        self._store_backend_info(info)
 
     def __reduce__(self):
         return (
