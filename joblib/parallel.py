@@ -2020,10 +2020,12 @@ class Parallel(Logger):
                     return False, e
 
         try:
-            self._pre_dispatch_amount = _parse_pre_dispatch(self.pre_dispatch, n_jobs)
-            if self._pre_dispatch_amount == 0:
+            self._pre_dispatch_amount = buffersize = _parse_pre_dispatch(
+                self.pre_dispatch, n_jobs
+            )
+            if buffersize == 0:
                 # No buffersize, just send them as fast as possible:
-                self._pre_dispatch_amount = None
+                buffersize = None
             self._iterating = True
             self._original_iterator = iterable
 
@@ -2039,7 +2041,7 @@ class Parallel(Logger):
                     apply,
                     iterable,
                     chunksize=self._get_batch_size(),
-                    buffersize=self._pre_dispatch_amount,
+                    buffersize=buffersize,
                 ):
                     self.n_dispatched_batches += 1
                     self.n_dispatched_tasks += 1
