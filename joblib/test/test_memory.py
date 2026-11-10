@@ -1415,7 +1415,15 @@ def test_memory_mmap_mode(tmpdir):
         assert isinstance(cached_f(a), np.memmap)
 
 
-@parametrize("location_type", [str, Path])
+class _CustomPathLike(os.PathLike):
+    def __init__(self, path):
+        self._path = path
+
+    def __fspath__(self):
+        return str(self._path)
+
+
+@parametrize("location_type", [str, Path, _CustomPathLike])
 @parametrize(
     "memory_mmap_mode, cache_options",
     [
@@ -1456,7 +1464,7 @@ def test_memory_cache_preserves_location(
         assert cached.store_backend.location == expected_location
 
 
-@parametrize("location_type", [str, Path])
+@parametrize("location_type", [str, Path, _CustomPathLike])
 def test_memory_cache_verbose_preserves_cache_hits(location_type):
     with TemporaryDirectory() as root:
         memory = Memory(location_type(root), verbose=0)

@@ -47,6 +47,10 @@ In Development
   mmap_mode and verbose instead of using the values used at Memory creation time.
   https://github.com/joblib/joblib/pull/1857
 
+- Fix ``Memory`` to accept any ``os.PathLike`` object as ``location``, like
+  ``pathlib.Path``. Other path-like objects previously disabled caching with a
+  warning.
+
 - A non-positive value for ``pre_dispatch`` in ``Parallel`` now raises a
   ValueError.
   https://github.com/joblib/joblib/pull/1839
