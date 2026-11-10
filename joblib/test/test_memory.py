@@ -265,6 +265,8 @@ _JUPYTER_SESSION = """if 1:
                 def f(x):
                     with open(WITNESS, "a") as fh:
                         fh.write("ran\\\\n")
+                    ### Important ###
+                    # We use a frozenset to check its hash consistency across sessions
                     S = {1, 2, 3, "abc", (1, 2), 1.1, b'xyz', None, False}
                     return x if x in S else x * 2
             '''),
