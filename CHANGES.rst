@@ -4,6 +4,10 @@ Release Notes
 In Development
 --------------
 
+- Fix ``hash`` to correctly handle ``type(None)``, ``type(NotImplemented)`` and
+  ``type(...)``.
+  https://github.com/joblib/joblib/pull/1928
+
 - Fix ``Memory().cache`` to work on functions having positional-only arguments.
   Using "*" keyword argument in cached function is also now possible.
   https://github.com/joblib/joblib/pull/1936
