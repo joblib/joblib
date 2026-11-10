@@ -968,7 +968,6 @@ def _parse_pre_dispatch(pre_dispatch, n_jobs) -> int:
 
     if hasattr(pre_dispatch, "endswith"):
         result = int(eval_expr(pre_dispatch.replace("n_jobs", str(n_jobs))))
-
     else:
         result = int(pre_dispatch)
 
