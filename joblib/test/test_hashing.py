@@ -338,6 +338,11 @@ def test_set_hash(tmpdir):
     assert hash(a) == hash(b)
 
 
+def test_frozenset():
+    S = {1, "abc", False, None, (2, 3), 3.14}
+    assert hash(S) != hash(frozenset(S))
+
+
 def test_set_decimal_hash():
     # Check that sets containing decimals hash consistently, even though
     # ordering is not guaranteed

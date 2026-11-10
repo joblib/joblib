@@ -4,6 +4,13 @@ Release Notes
 In Development
 --------------
 
+.. note::
+   This version changes the way functions defined in jupyter notebook are hashed.
+   This invalidates existing cache and will automatically clear them in these cases.
+
+- Fix hashing of ``frozenset`` to be independent of ``PYTHONHASHSEED``.
+  https://github.com/joblib/joblib/pull/1914
+
 - Temporary files created when dumping an item in the cache are now deleted on
   dumping failure.
   https://github.com/joblib/joblib/pull/1922
