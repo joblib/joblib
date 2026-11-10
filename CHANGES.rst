@@ -4,6 +4,18 @@ Release Notes
 In Development
 --------------
 
+- Temporary files created when dumping an item in the cache are now deleted on
+  dumping failure.
+  https://github.com/joblib/joblib/pull/1922
+
+- Fix ``hash`` to correctly handle ``type(None)``, ``type(NotImplemented)`` and
+  ``type(...)``.
+  https://github.com/joblib/joblib/pull/1928
+
+- Fix ``Memory().cache`` to work on functions having positional-only arguments.
+  Using "*" keyword argument in cached function is also now possible.
+  https://github.com/joblib/joblib/pull/1936
+
 - Fix ``await cached_func.call(...)`` for async functions when caching is
   disabled with ``Memory(location=None)``. The call now awaits the function
   and returns its output with empty metadata.
