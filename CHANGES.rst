@@ -11,6 +11,10 @@ In Development
 - Fix hashing of ``frozenset`` to be independent of ``PYTHONHASHSEED``.
   https://github.com/joblib/joblib/pull/1914
 
+- Temporary files created when dumping an item in the cache are now deleted on
+  dumping failure.
+  https://github.com/joblib/joblib/pull/1922
+
 - Fix ``hash`` to correctly handle ``type(None)``, ``type(NotImplemented)`` and
   ``type(...)``.
   https://github.com/joblib/joblib/pull/1928
