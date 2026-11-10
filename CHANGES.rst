@@ -4,9 +4,31 @@ Release Notes
 In Development
 --------------
 
+.. note::
+   This version changes the way functions defined in jupyter notebook are hashed.
+   This invalidates existing cache and will automatically clear them in these cases.
+
 - Fix a cache key collision between dictionaries or sets with unorderable
-  elements and containers holding the corresponding digest strings. Cached
-  calls involving unorderable keys or elements will be recomputed.
+  keys or elements and containers holding the corresponding digest strings.
+  Calls whose arguments contain these unorderable containers will be recomputed.
+  Clear affected caches populated before this fix, since an old collision can
+  leave an incorrect result under the digest-string input's unchanged key.
+  https://github.com/joblib/joblib/pull/1938
+
+- Fix hashing of ``frozenset`` to be independent of ``PYTHONHASHSEED``.
+  https://github.com/joblib/joblib/pull/1914
+
+- Temporary files created when dumping an item in the cache are now deleted on
+  dumping failure.
+  https://github.com/joblib/joblib/pull/1922
+
+- Fix ``hash`` to correctly handle ``type(None)``, ``type(NotImplemented)`` and
+  ``type(...)``.
+  https://github.com/joblib/joblib/pull/1928
+
+- Fix ``Memory().cache`` to work on functions having positional-only arguments.
+  Using "*" keyword argument in cached function is also now possible.
+  https://github.com/joblib/joblib/pull/1936
 
 - Fix ``await cached_func.call(...)`` for async functions when caching is
   disabled with ``Memory(location=None)``. The call now awaits the function
