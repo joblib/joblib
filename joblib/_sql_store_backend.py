@@ -4,6 +4,7 @@ import io
 import json
 import os
 import sqlite3
+import threading
 import time
 import warnings
 from pickle import PicklingError
@@ -21,6 +22,11 @@ def _reconstructSQLStoreBackend(cls, location, compress):
 
 class SQLStoreBackend(StoreBackendBase):
     """A StoreBackend a sqlite database."""
+
+    def _get_connection(self):
+        if not hasattr(self.local, "con"):
+            self.local.con = sqlite3.connect(self.location)
+        return self.local.con
 
     def configure(self, location, verbose=1, backend_options=None):
         """Configures the store.
@@ -40,20 +46,21 @@ class SQLStoreBackend(StoreBackendBase):
 
         self.location = location
         self.compress = backend_options.get("compress", False)
+        self.local = threading.local()
 
         os.makedirs(os.path.dirname(self.location), exist_ok=True)
-        self.con = sqlite3.connect(self.location)
 
-        with self.con:
-            self.con.execute("PRAGMA journal_mode=WAL;")
-            self.con.execute("PRAGMA synchronous=NORMAL;")
-            self.con.execute(
+        con = self._get_connection()
+        with con:
+            con.execute("PRAGMA journal_mode=WAL;")
+            con.execute("PRAGMA synchronous=NORMAL;")
+            con.execute(
                 "CREATE TABLE IF NOT EXISTS cache ("
                 "path TEXT PRIMARY KEY, "
                 "data BLOB,"
                 "metadata TEXT)"
             )
-            self.con.execute(
+            con.execute(
                 "CREATE TABLE IF NOT EXISTS func_code ("
                 "path TEXT PRIMARY KEY, "
                 "code TEXT)"
@@ -98,7 +105,7 @@ class SQLStoreBackend(StoreBackendBase):
             else:
                 print(f"{msg} from {self.location}::{path}")
 
-        cursor = self.con.cursor()
+        cursor = self._get_connection().cursor()
         cursor.execute(
             "SELECT data FROM cache WHERE path=? AND data IS NOT NULL", (path,)
         )
@@ -137,8 +144,9 @@ class SQLStoreBackend(StoreBackendBase):
             numpy_pickle.dump(item, file, compress=self.compress)
             serialized_data = file.getvalue()
 
-            with self.con:
-                self.con.execute(
+            con = self._get_connection()
+            with con:
+                con.execute(
                     "INSERT INTO cache (path, data) "
                     "VALUES (?, ?) "
                     "ON CONFLICT(path) DO UPDATE SET data = excluded.data",
@@ -162,8 +170,9 @@ class SQLStoreBackend(StoreBackendBase):
             id to be cleared
         """
         path = os.path.join(*call_id)
-        with self.con:
-            self.con.execute("DELETE FROM cache WHERE path=?", (path,))
+        con = self._get_connection()
+        with con:
+            con.execute("DELETE FROM cache WHERE path=?", (path,))
 
     def contains_item(self, call_id):
         """Check if the store contains an item for a given id.
@@ -174,7 +183,7 @@ class SQLStoreBackend(StoreBackendBase):
             id of the item to be checked
         """
         path = os.path.join(*call_id)
-        cursor = self.con.cursor()
+        cursor = self._get_connection().cursor()
         cursor.execute("SELECT 1 FROM cache WHERE path=? and data IS NOT NULL", (path,))
         has_item = cursor.fetchone() is not None
         cursor.close()
@@ -195,7 +204,7 @@ class SQLStoreBackend(StoreBackendBase):
         """
         path = os.path.join(*call_id)
         try:
-            cursor = self.con.cursor()
+            cursor = self._get_connection().cursor()
             cursor.execute(
                 "SELECT metadata FROM cache WHERE path=? AND metadata IS NOT NULL",
                 (path,),
@@ -221,8 +230,9 @@ class SQLStoreBackend(StoreBackendBase):
         path = os.path.join(*call_id)
         try:
             metadata_str = json.dumps(metadata)
-            with self.con:
-                self.con.execute(
+            con = self._get_connection()
+            with con:
+                con.execute(
                     "INSERT INTO cache (path, metadata) "
                     "VALUES (?, ?) "
                     "ON CONFLICT(path) DO UPDATE SET metadata = excluded.metadata",
@@ -245,7 +255,7 @@ class SQLStoreBackend(StoreBackendBase):
             The code of the cached function
         """
         path = os.path.join(*func_id)
-        cursor = self.con.cursor()
+        cursor = self._get_connection().cursor()
         cursor.execute("SELECT code FROM func_code WHERE path=?", (path,))
         code = cursor.fetchone()
         cursor.close()
@@ -267,8 +277,9 @@ class SQLStoreBackend(StoreBackendBase):
             return
 
         path = os.path.join(*func_id)
-        with self.con:
-            self.con.execute(
+        con = self._get_connection()
+        with con:
+            con.execute(
                 "INSERT OR REPLACE INTO func_code (path, code) VALUES (?, ?)",
                 (path, func_code),
             )
@@ -302,9 +313,10 @@ class SQLStoreBackend(StoreBackendBase):
 
         path = os.path.join(*path_id)
         prefix = os.path.join(path, "")
-        with self.con:
+        con = self._get_connection()
+        with con:
             for table in ["cache", "func_code"]:
-                self.con.execute(
+                con.execute(
                     f"DELETE FROM {table} WHERE "
                     "path=? OR substr(path, 1, length(?)) = ?",
                     (path, prefix, prefix),
@@ -312,19 +324,20 @@ class SQLStoreBackend(StoreBackendBase):
 
     def clear(self):
         """Clear the whole store content."""
-        with self.con:
-            self.con.execute("DELETE FROM cache")
-            self.con.execute("DELETE FROM func_code")
-        with self.con:
-            self.con.execute("PRAGMA wal_checkpoint(TRUNCATE);")
-            self.con.execute("VACUUM")
-            self.con.execute("PRAGMA wal_checkpoint(TRUNCATE);")
+        con = self._get_connection()
+        with con:
+            con.execute("DELETE FROM cache")
+            con.execute("DELETE FROM func_code")
+        with con:
+            con.execute("PRAGMA wal_checkpoint(TRUNCATE);")
+            con.execute("VACUUM")
+            con.execute("PRAGMA wal_checkpoint(TRUNCATE);")
 
     def __del__(self):
-        if self.con is None:
+        if not hasattr(self.local, "con"):
             return
-        self.con.close()
-        self.con = None
+        self.local.con.close()
+        delattr(self.local, "con")
 
     def __reduce__(self):
         return (
