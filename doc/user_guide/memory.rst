@@ -575,7 +575,7 @@ Helper Reference
 
 
 Opt-in coalescing of concurrent cache misses (prototype)
--------------------------------------------------------
+--------------------------------------------------------
 
 ``memory.cache(function, singleflight=True)`` serializes synchronous calls
 with the same function and argument cache key. A waiting caller rechecks the
