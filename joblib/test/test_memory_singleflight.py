@@ -1,4 +1,3 @@
-import multiprocessing
 import pickle
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -8,6 +7,7 @@ import pytest
 
 from joblib import Memory, Parallel, delayed
 from joblib._memory_singleflight import cache_call_lock
+from joblib._multiprocessing_helpers import mp
 
 
 def _record_call(value, marker):
@@ -19,6 +19,8 @@ def _record_call(value, marker):
 
 @pytest.mark.parametrize("backend", ["threading", "loky"])
 def test_singleflight_shared_key(tmp_path, backend):
+    if backend == "loky" and mp is None:
+        pytest.skip("multiprocessing is disabled or unavailable")
     marker = tmp_path / "calls"
     cached = Memory(tmp_path / "cache", verbose=0).cache(
         _record_call, singleflight=True
@@ -74,8 +76,9 @@ def _acquire_after_crash(location, acquired):
         acquired.set()
 
 
+@pytest.mark.skipif(mp is None, reason="multiprocessing is disabled or unavailable")
 def test_singleflight_process_death_releases_lock(tmp_path):
-    ctx = multiprocessing.get_context("spawn")
+    ctx = mp.get_context("spawn")
     ready, acquired = ctx.Event(), ctx.Event()
     holder = ctx.Process(target=_hold_lock, args=(str(tmp_path), ready))
     waiter = ctx.Process(target=_acquire_after_crash, args=(str(tmp_path), acquired))
