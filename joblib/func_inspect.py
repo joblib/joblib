@@ -7,69 +7,20 @@ My own variation on function-specific inspect-like features.
 # License: BSD Style, 3 clauses.
 
 import collections
-import hashlib
 import inspect
 import os
 import re
-import types
 import warnings
 from itertools import islice
 from tokenize import open as open_py_source
 
+from .hashing import hash
 from .logger import pformat
 
 full_argspec_fields = (
     "args varargs varkw defaults kwonlyargs kwonlydefaults annotations"
 )
 full_argspec_type = collections.namedtuple("FullArgSpec", full_argspec_fields)
-
-
-def _code_fingerprint(code):
-    """Digest the contents of a code object.
-
-    ``hash(code)`` would be simpler, but it hashes the strings it is built from
-    and those are salted by PYTHONHASHSEED. This value is written to
-    func_code.py and compared by *other* processes, which then conclude the
-    function changed and wipe its cache directory (#1694).
-
-    The fields below mirror CPython's own ``code_hash()``:
-    https://github.com/python/cpython/blob/5918085bb6f4a3a48193cacb9bb99b044d4e0452/Objects/codeobject.c#L2608-L2624
-    co_localsplusnames is spelled out as varnames/cellvars/freevars. Only the
-    position information, co_firstlineno and co_linetable, is deliberately left
-    out: joblib compares source *text* and tracks the line number separately,
-    so moving a function without editing it must not invalidate its cache. For
-    the same reason co_filename is not included, unlike ``marshal.dumps``,
-    which would key a notebook function to the cell number it last ran in.
-    """
-    parts = [
-        code.co_name,
-        # co_code de-specializes adaptive bytecode, like _Py_GetBaseCodeUnit
-        code.co_code.hex(),
-        # 3.11+ moved the try/except ranges out of the bytecode and in here
-        getattr(code, "co_exceptiontable", b"").hex(),
-        *code.co_names,
-        *code.co_varnames,
-        *code.co_cellvars,
-        *code.co_freevars,
-        *map(
-            repr,
-            (
-                code.co_argcount,
-                code.co_posonlyargcount,
-                code.co_kwonlyargcount,
-                code.co_flags,
-            ),
-        ),
-    ]
-    for const in code.co_consts:
-        # repr() of a nested code object embeds its address
-        if isinstance(const, types.CodeType):
-            parts.append(_code_fingerprint(const))
-        else:
-            parts.append(repr(const))
-    digest = hashlib.new("md5", usedforsecurity=False)
-    digest.update("\n".join(parts).encode("utf-8", errors="replace"))
-    return digest.hexdigest()
 
 
 def get_func_code(func):
@@ -120,7 +71,7 @@ def get_func_code(func):
         # might change from one session to another.
         if hasattr(func, "__code__"):
             # Python 3.X
-            return _code_fingerprint(func.__code__), source_file, -1
+            return hash(func.__code__), source_file, -1
         else:
             # Weird objects like numpy ufunc don't have __code__
             # This is fragile, as quite often the id of the object is
@@ -291,9 +242,13 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
     arg_varargs = None
     arg_varkw = None
     arg_dict = dict()
+    n_positional_only = 0
     for param in arg_sig.parameters.values():
         if param.kind is param.POSITIONAL_OR_KEYWORD:
             arg_names.append(param.name)
+        elif param.kind is param.POSITIONAL_ONLY:
+            arg_names.append(param.name)
+            n_positional_only += 1
         elif param.kind is param.KEYWORD_ONLY:
             arg_kwonlyargs.append(param.name)
         elif param.kind is param.VAR_POSITIONAL:
@@ -314,6 +269,7 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
         class_method_sig = inspect.signature(func.__func__)
         self_name = next(iter(class_method_sig.parameters))
         arg_names = [self_name] + arg_names
+        n_positional_only += 1
     # XXX: Maybe I need an inspect.isbuiltin to detect C-level methods, such
     # as on ndarrays.
 
@@ -325,14 +281,14 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
         if arg_position < len(args):
             # given as positional
             arg_dict[arg_name] = args[arg_position]
-            if arg_name in kwargs:
+            if arg_position >= n_positional_only and arg_name in kwargs:
                 raise ValueError(
                     f"Argument {arg_name} was given both as positional and as keyword"
                     f" for {_signature_str(name, arg_sig)}:\n"
                     f"    {_function_called_str(name, args, kwargs)} was called."
                 )
-        elif arg_name in kwargs:
-            # given as keyword
+        elif arg_position >= n_positional_only and arg_name in kwargs:
+            # given as keyword if not positional only
             arg_dict[arg_name] = kwargs[arg_name]
         elif arg_name not in arg_dict:
             # Missing argument
@@ -366,10 +322,10 @@ def filter_args(func, ignore_lst, args=(), kwargs=dict()):
             )
 
     # If more keyword arguments are given, store them in varkwargs
-    varkwargs = {k: v for k, v in kwargs.items() if k not in arg_dict}
+    named_args = {*arg_names[n_positional_only:], *arg_kwonlyargs}
+    varkwargs = {k: v for k, v in kwargs.items() if k not in named_args}
     if arg_varkw is not None:
         arg_dict["**"] = varkwargs
-
     elif varkwargs:
         raise ValueError(
             f"Too many keyword arguments for {_signature_str(name, arg_sig)}:\n"

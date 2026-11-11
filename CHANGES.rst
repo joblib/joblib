@@ -4,11 +4,35 @@ Release Notes
 In Development
 --------------
 
+.. note::
+   This version changes the way functions defined in jupyter notebook are hashed.
+   This invalidates existing cache and will automatically clear them in these cases.
+
 - Handle Ctrl+C in the parent process for default Windows loky workers. This
   avoids interrupting a running worker call only for the worker to start
   prefetched work while ``Parallel`` is stopping the pool. User initializers
   can still override the worker's SIGINT handler.
   https://github.com/joblib/loky/issues/477
+
+- Fix hashing of ``frozenset`` to be independent of ``PYTHONHASHSEED``.
+  https://github.com/joblib/joblib/pull/1914
+
+- Temporary files created when dumping an item in the cache are now deleted on
+  dumping failure.
+  https://github.com/joblib/joblib/pull/1922
+
+- Fix ``hash`` to correctly handle ``type(None)``, ``type(NotImplemented)`` and
+  ``type(...)``.
+  https://github.com/joblib/joblib/pull/1928
+
+- Fix ``Memory().cache`` to work on functions having positional-only arguments.
+  Using "*" keyword argument in cached function is also now possible.
+  https://github.com/joblib/joblib/pull/1936
+
+- Fix ``await cached_func.call(...)`` for async functions when caching is
+  disabled with ``Memory(location=None)``. The call now awaits the function
+  and returns its output with empty metadata.
+  https://github.com/joblib/joblib/issues/1876
 
 - Fix the ``ensure_native_byte_order`` parameter of ``numpy_pickle.load``
   to apply correctly to structured NumPy arrays.
