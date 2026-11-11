@@ -445,12 +445,12 @@ class MemorizedFunc(Logger):
             verbose=verbose,
             backend_options=dict(compress=compress, mmap_mode=mmap_mode),
         )
+        if singleflight and not isinstance(self.store_backend, FileSystemStoreBackend):
+            raise ValueError("singleflight requires the local filesystem store backend")
+
         if self.store_backend is not None:
             # Create func directory on demand.
             self.store_backend.store_cached_func_code([self.func_id])
-
-        if singleflight and not isinstance(self.store_backend, FileSystemStoreBackend):
-            raise ValueError("singleflight requires the local filesystem store backend")
 
         self.timestamp = timestamp if timestamp is not None else time.time()
         try:
