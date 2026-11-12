@@ -52,10 +52,13 @@ def test_external_backends(context):
 def test_parallel_config_no_backend(tmpdir):
     # Check that parallel_config allows to change the config
     # even if no backend is set.
-    with parallel_config(n_jobs=2, max_nbytes=1, temp_folder=tmpdir.strpath):
+    with parallel_config(
+        n_jobs=2, pre_dispatch=1, max_nbytes=1, temp_folder=tmpdir.strpath
+    ):
         with Parallel(prefer="processes") as p:
             assert isinstance(p._backend, LokyBackend)
             assert p.n_jobs == 2
+            assert p.pre_dispatch == 1
 
             # Checks that memmapping is enabled
             p(delayed(check_memmap)(a) for a in [np.random.random(10)] * 2)
@@ -65,14 +68,32 @@ def test_parallel_config_no_backend(tmpdir):
 @with_numpy
 @with_multiprocessing
 def test_parallel_config_params_explicit_set(tmpdir):
-    with parallel_config(n_jobs=3, max_nbytes=1, temp_folder=tmpdir):
-        with Parallel(n_jobs=2, prefer="processes", max_nbytes="1M") as p:
+    with parallel_config(n_jobs=3, pre_dispatch=1, max_nbytes=1, temp_folder=tmpdir):
+        with Parallel(
+            n_jobs=2, pre_dispatch="2 * n_jobs", prefer="processes", max_nbytes="1M"
+        ) as p:
             assert isinstance(p._backend, LokyBackend)
             assert p.n_jobs == 2
+            assert p.pre_dispatch == "2 * n_jobs"
 
             # Checks that memmapping is disabled
             with raises(TypeError, match="Expected np.memmap instance"):
                 p(delayed(check_memmap)(a) for a in [np.random.random(10)] * 2)
+
+
+@parametrize("context", [parallel_config, parallel_backend])
+@parametrize("pre_dispatch", [1, "n_jobs", "all"])
+def test_parallel_config_pre_dispatch(context, pre_dispatch):
+    # Check inheritance, explicit overrides and restoration of the default.
+    assert Parallel().pre_dispatch == "2 * n_jobs"
+
+    with context("threading", pre_dispatch=pre_dispatch):
+        assert Parallel().pre_dispatch == pre_dispatch
+        assert Parallel(pre_dispatch=2).pre_dispatch == 2
+        # Even an explicitly supplied default takes precedence over the context.
+        assert Parallel(pre_dispatch="2 * n_jobs").pre_dispatch == "2 * n_jobs"
+
+    assert Parallel().pre_dispatch == "2 * n_jobs"
 
 
 @parametrize("param", ["prefer", "require"])
@@ -115,11 +136,18 @@ def test_parallel_config_nested():
             assert isinstance(p._backend, ThreadingBackend)
             assert p.n_jobs == 2
 
-    with parallel_config(verbose=100):
+    with parallel_config(verbose=100, pre_dispatch=1):
         with parallel_config(n_jobs=2):
             p = Parallel()
             assert p.verbose == 100
             assert p.n_jobs == 2
+            assert p.pre_dispatch == 1
+
+        with parallel_config(pre_dispatch="all"):
+            assert Parallel().pre_dispatch == "all"
+        assert Parallel().pre_dispatch == 1
+
+    assert Parallel().pre_dispatch == "2 * n_jobs"
 
 
 @with_numpy
