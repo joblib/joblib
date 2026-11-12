@@ -82,6 +82,19 @@ from joblib.parallel import (
     register_parallel_backend,
 )
 
+
+class ThreadingBackendSubclass(ThreadingBackend):
+    """Otherwise identical subclass of ``ThreadingBackend``.
+
+    Threading backend can actually use two different code paths, depending if
+    it's a subclass or uses timeouts, so this allows for testing the uncommon
+    path more broadly, far more than the few tests that set a timeout.
+    """
+
+
+register_parallel_backend("__slow_path_threading_backend", ThreadingBackendSubclass)
+
+
 RETURN_GENERATOR_BACKENDS = BACKENDS.copy()
 RETURN_GENERATOR_BACKENDS.pop("multiprocessing", None)
 
@@ -97,7 +110,7 @@ if mp is None:
     PROCESS_BACKENDS = []
 else:
     PROCESS_BACKENDS = ["multiprocessing", "loky"]
-PARALLEL_BACKENDS = PROCESS_BACKENDS + ["threading"]
+PARALLEL_BACKENDS = PROCESS_BACKENDS + ["threading", "__slow_path_threading_backend"]
 
 if hasattr(mp, "get_context"):
     # Custom multiprocessing context in Python 3.4+
@@ -281,6 +294,9 @@ def _nested_second_level(n_jobs, third_level):
     )
 
 
+# Since the test depends on sleeps, slowdown from parallelism can make that
+# fragile, so don't run in parallel:
+@pytest.mark.thread_unsafe
 @with_multiprocessing
 @pytest.mark.parametrize("backend", ALL_VALID_BACKENDS)
 @pytest.mark.parametrize("nesting", [[2, -1], [-1, -1]])
@@ -681,13 +697,13 @@ def test_parallel_timeout_fail_with_generator(backend, return_as):
 
 
 @with_multiprocessing
-@parametrize("backend", PROCESS_BACKENDS)
+@parametrize("backend", PARALLEL_BACKENDS)
 def test_error_capture(backend):
     # Check that error are captured, and that correct exceptions
     # are raised.
     if mp is not None:
         with raises(ZeroDivisionError):
-            Parallel(n_jobs=2, backend=backend)(
+            Parallel(n_jobs=2, backend=backend, verbose=100)(
                 [delayed(division)(x, y) for x, y in zip((0, 1), (1, 0))]
             )
 
@@ -698,33 +714,25 @@ def test_error_capture(backend):
 
         # Try again with the context manager API
         with Parallel(n_jobs=2, backend=backend) as parallel:
-            assert get_workers(parallel._backend) is not None
-            original_workers = get_workers(parallel._backend)
+            # Initialize workers:
+            parallel([delayed(f)(1, 1)])
 
             with raises(ZeroDivisionError):
                 parallel([delayed(division)(x, y) for x, y in zip((0, 1), (1, 0))])
 
-            # The managed pool should still be available and be in a working
-            # state despite the previously raised (and caught) exception
-            assert get_workers(parallel._backend) is not None
-
-            # The pool should have been interrupted and restarted:
-            assert get_workers(parallel._backend) is not original_workers
-
+            # The backend should continue working despite an exception:
             assert [f(x, y=1) for x in range(10)] == parallel(
                 delayed(f)(x, y=1) for x in range(10)
             )
 
-            original_workers = get_workers(parallel._backend)
             with raises(KeyboardInterrupt):
                 parallel([delayed(interrupt_raiser)(x) for x in (1, 0)])
 
-            # The pool should still be available despite the exception
-            assert get_workers(parallel._backend) is not None
-
-            # The pool should have been interrupted and restarted:
-            assert get_workers(parallel._backend) is not original_workers
-
+            # We started with two workers, then raised two exceptions. If the
+            # pool was losing a worker per exception, we wouldn't be able to
+            # run anything at this point. So getting results implies either the
+            # pool got restarted, or that exceptions don't remove workers from
+            # the pool. Either is fine.
             assert [f(x, y=1) for x in range(10)] == parallel(
                 delayed(f)(x, y=1) for x in range(10)
             ), (
@@ -839,7 +847,7 @@ def test_dispatch_one_job(backend, batch_size, expected_queue):
 
 @pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1865
 @with_multiprocessing
-@parametrize("backend", PARALLEL_BACKENDS)
+@parametrize("backend", PROCESS_BACKENDS)
 def test_dispatch_multiprocessing(backend):
     """Check that using pre_dispatch Parallel does indeed dispatch items
     lazily.
@@ -911,7 +919,6 @@ def nested_function_outer(i):
 
 @with_multiprocessing
 @parametrize("backend", PARALLEL_BACKENDS)
-@pytest.mark.xfail(reason="https://github.com/joblib/loky/pull/255")
 def test_nested_exception_dispatch(backend):
     """Ensure errors for nested joblib cases gets propagated
 
@@ -1280,12 +1287,15 @@ def test_invalid_batch_size(batch_size):
 @parametrize("pre_dispatch", [0, -1, "0", "0*n_jobs"])
 def test_invalid_pre_dispatch(pre_dispatch):
     """A pre_dispatch below one dispatched nothing and returned no results."""
+    if issubclass(_active_backend_type(), ThreadingBackend):
+        pytest.skip("Threading backend ignores pre_dispatch")
     with raises(ValueError, match="pre_dispatch must be"):
         Parallel(n_jobs=2, pre_dispatch=pre_dispatch)(
             delayed(square)(i) for i in range(4)
         )
 
 
+@parametrize("backend", ["threading", None])
 @parametrize(
     "n_tasks, n_jobs, pre_dispatch, batch_size",
     [
@@ -1302,11 +1312,16 @@ def test_invalid_pre_dispatch(pre_dispatch):
         (200, 12, "2 * n_jobs", "auto"),
     ],
 )
-def test_dispatch_race_condition(n_tasks, n_jobs, pre_dispatch, batch_size):
+def test_dispatch_race_condition(n_tasks, n_jobs, pre_dispatch, batch_size, backend):
     # Check that using (async-)dispatch does not yield a race condition on the
     # iterable generator that is not thread-safe natively.
     # This is a non-regression test for the "Pool seems closed" class of error
-    params = {"n_jobs": n_jobs, "pre_dispatch": pre_dispatch, "batch_size": batch_size}
+    params = {
+        "n_jobs": n_jobs,
+        "pre_dispatch": pre_dispatch,
+        "batch_size": batch_size,
+        "backend": backend,
+    }
     expected = [square(i) for i in range(n_tasks)]
     results = Parallel(**params)(delayed(square)(i) for i in range(n_tasks))
     assert results == expected

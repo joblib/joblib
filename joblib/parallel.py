@@ -958,6 +958,28 @@ def effective_n_jobs(n_jobs=-1):
     return backend.effective_n_jobs(n_jobs=n_jobs)
 
 
+def _parse_pre_dispatch(pre_dispatch, n_jobs) -> int:
+    """Parse ``pre_dispatch`` argument into usable value.
+
+    ``"all"`` gets converted to ``0``.
+    """
+    if pre_dispatch == "all":
+        return 0
+
+    if hasattr(pre_dispatch, "endswith"):
+        result = int(eval_expr(pre_dispatch.replace("n_jobs", str(n_jobs))))
+    else:
+        result = int(pre_dispatch)
+
+    if result < 1:
+        raise ValueError(
+            "pre_dispatch must be 'all' or a positive number of "
+            f"batches, got: {pre_dispatch!r}"
+        )
+
+    return result
+
+
 ###############################################################################
 class Parallel(Logger):
     """Helper class for readable parallel mapping.
@@ -1978,9 +2000,75 @@ class Parallel(Logger):
         # Set to True after abortion is complete
         self._aborted = False
 
+    def _get_threaded_output(self, iterable, n_jobs):
+        """Fast path for dispatching threaded parallel tasks."""
+        # Each worker thread needs its own nested backend instance: nested
+        # Parallel calls configure it, and they can run concurrently in
+        # different worker threads.
+        nested = threading.local()
+
+        def apply(params):
+            f, args, kwargs = params
+            if not hasattr(nested, "backend"):
+                nested.backend, nested.n_jobs = self._backend.get_nested_backend()
+            nested_backend, nested_n_jobs = nested.backend, nested.n_jobs
+
+            with parallel_config(backend=nested_backend, n_jobs=nested_n_jobs):
+                try:
+                    return True, f(*args, **kwargs)
+                except BaseException as e:
+                    return False, e
+
+        try:
+            self._pre_dispatch_amount = buffersize = _parse_pre_dispatch(
+                self.pre_dispatch, n_jobs
+            )
+            if buffersize == 0:
+                # No buffersize, just send them as fast as possible:
+                buffersize = None
+            self._iterating = True
+            self._original_iterator = iterable
+
+            # first yield returns None, for internal use only. This ensures
+            # that we enter the try/except block and setup the generator.
+            yield None
+
+            executor = self._backend._get_executor()
+
+            # Book keeping, for compatibility with normal code paths:
+            with self._backend.retrieval_context():
+                for success, res in executor.map(
+                    apply,
+                    iterable,
+                    chunksize=self._get_batch_size(),
+                    buffersize=buffersize,
+                ):
+                    self.n_dispatched_batches += 1
+                    self.n_dispatched_tasks += 1
+                    self.n_completed_tasks += 1
+                    self.print_progress()
+                    if success:
+                        yield res
+                    else:
+                        raise res
+                    self._nb_consumed += 1
+        except BaseException:
+            self._exception = True
+            self._aborting = True
+            self._aborted = True
+            # Don't actually terminate here, rely on finally; an exception
+            # doesn't impact the pool since it will get caught in apply().
+            raise
+        finally:
+            self._running = False
+            self._iterating = False
+            self._original_iterator = None
+            self.print_progress()
+            if not self._managed_backend:
+                self._backend.terminate()
+
     def __call__(self, iterable):
         """Main function to dispatch parallel tasks."""
-
         self._reset_run_tracking()
         self.n_tasks = len(iterable) if hasattr(iterable, "__len__") else None
         self._start_time = time.time()
@@ -1994,6 +2082,22 @@ class Parallel(Logger):
             # If n_jobs==1, run the computation sequentially and return
             # immediately to avoid overheads.
             output = self._get_sequential_output(iterable)
+            next(output)
+            return output if self.return_generator else list(output)
+
+        backend_name = self._backend.__class__.__name__
+        if n_jobs == 0:
+            raise RuntimeError(f"{backend_name} has no active worker.")
+
+        if (
+            type(self._backend) is ThreadingBackend
+            # buffersize option to ThreadPoolExecutor.map() was only added
+            # in Python 3.14:
+            and sys.version_info[:2] >= (3, 14)
+            and self.timeout is None
+            and self.return_ordered
+        ):
+            output = self._get_threaded_output(iterable, n_jobs)
             next(output)
             return output if self.return_generator else list(output)
 
@@ -2031,14 +2135,6 @@ class Parallel(Logger):
 
             self._reducer_callback = _batched_calls_reducer_callback
 
-        # self._effective_n_jobs should be called in the Parallel.__call__
-        # thread only -- store its value in an attribute for further queries.
-        self._cached_effective_n_jobs = n_jobs
-
-        backend_name = self._backend.__class__.__name__
-        if n_jobs == 0:
-            raise RuntimeError("%s has no active worker." % backend_name)
-
         self._print(f"Using backend {backend_name} with {n_jobs} concurrent workers.")
         if hasattr(self._backend, "start_call"):
             self._backend.start_call()
@@ -2049,20 +2145,14 @@ class Parallel(Logger):
         iterator = iter(iterable)
         pre_dispatch = self.pre_dispatch
 
-        if pre_dispatch == "all":
+        pre_dispatch = _parse_pre_dispatch(pre_dispatch, n_jobs)
+        if pre_dispatch == 0:
             # prevent further dispatch via multiprocessing callback thread
             self._original_iterator = None
             self._pre_dispatch_amount = 0
         else:
             self._original_iterator = iterator
-            if hasattr(pre_dispatch, "endswith"):
-                pre_dispatch = eval_expr(pre_dispatch.replace("n_jobs", str(n_jobs)))
-            self._pre_dispatch_amount = pre_dispatch = int(pre_dispatch)
-            if pre_dispatch < 1:
-                raise ValueError(
-                    "pre_dispatch must be 'all' or a positive number of "
-                    f"batches, got: {self.pre_dispatch!r}"
-                )
+            self._pre_dispatch_amount = pre_dispatch
 
             # The main thread will consume the first pre_dispatch items and
             # the remaining items will later be lazily dispatched by async
