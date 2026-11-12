@@ -351,6 +351,31 @@ def test_set_decimal_hash():
     )
 
 
+@parametrize("container", [dict, set, frozenset])
+def test_unorderable_items_do_not_collide_with_digest_strings(tmp_path, container):
+    keys = [1, "rate"]
+    digest_keys = [hash(key) for key in keys]
+    if container is dict:
+        original = dict.fromkeys(keys)
+        reordered = dict.fromkeys(reversed(keys))
+        digests = dict.fromkeys(digest_keys)
+    else:
+        original = container(keys)
+        reordered = container(reversed(keys))
+        digests = container(digest_keys)
+
+    memory = Memory(tmp_path, verbose=0)
+
+    @memory.cache
+    def count_integer_keys(data):
+        return sum(isinstance(key, int) for key in data)
+
+    assert count_integer_keys(original) == 1
+    assert count_integer_keys.check_call_in_cache(reordered)
+    assert count_integer_keys(digests) == 0
+    assert hash(original) != hash(digests)
+
+
 def test_string():
     # Test that we obtain the same hash for object owning several strings,
     # whatever the past of these strings (which are immutable in Python)
@@ -418,6 +443,11 @@ def _generate_seeded_random_values():
             "9e4e9bf9b91890c9734a6111a35e6633",
         ),
         ({"abcde": 123, "sadfas": [-9999, 2, 3]}, "aeda150553d4bb5c69f0e69d51b0e2ef"),
+        # Pre-fix hashes for comparable containers must remain unchanged.
+        ({2: "b", 1: "a"}, "895d69ecf5128176983169bb1dac85a2"),
+        ({1, 2, 3}, "db5f18185982ea9bad010b4244dc2d9d"),
+        ({"a", "b"}, "fd2d2e6884dcf877385a87d9a6f0a9d8"),
+        ({"groups": [{1, 2}, {3, 4}]}, "8db93acc113d747966af7bd4a492e1c2"),
         (int, "8bb794cba14f5b0290887e3274299666"),
         (type(...), "ad6353374463c18988d22daf34e3d70c"),
     ],

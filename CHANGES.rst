@@ -8,6 +8,13 @@ In Development
    This version changes the way functions defined in jupyter notebook are hashed.
    This invalidates existing cache and will automatically clear them in these cases.
 
+- Fix a cache key collision between dictionaries or sets with unorderable
+  keys or elements and containers holding the corresponding digest strings.
+  Calls whose arguments contain these unorderable containers will be recomputed.
+  Clear affected caches populated before this fix, since an old collision can
+  leave an incorrect result under the digest-string input's unchanged key.
+  https://github.com/joblib/joblib/pull/1938
+
 - Fix hashing of ``frozenset`` to be independent of ``PYTHONHASHSEED``.
   https://github.com/joblib/joblib/pull/1914
 
