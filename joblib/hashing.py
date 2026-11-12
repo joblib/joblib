@@ -9,12 +9,55 @@ hashing of numpy arrays.
 
 import decimal
 import hashlib
-import io
 import pickle
 import sys
+import tempfile
 import types
 
 Pickler = pickle._Pickler
+
+
+# Bound temporary pickle storage separately from the input object and Pickler
+# memo. NumPy data is fed to the digest before this stream, so hashing pickle
+# writes immediately would change existing cache keys.
+_HASH_BUFFER_SIZE = 1024 * 1024
+
+
+class _HashingPickleBuffer:
+    """Keep small pickle streams in memory and spill larger ones to a file."""
+
+    def __init__(self):
+        self._stream = tempfile.SpooledTemporaryFile(
+            max_size=_HASH_BUFFER_SIZE, mode="w+b"
+        )
+        self._size = 0
+        self._rolled = False
+
+    def write(self, data):
+        # SpooledTemporaryFile checks its limit after writing. Roll over first
+        # so a single large pickle write does not grow the in-memory buffer
+        # beyond the threshold.
+        if not self._rolled and self._size + len(data) > _HASH_BUFFER_SIZE:
+            self._stream.rollover()
+            self._rolled = True
+        written = self._stream.write(data)
+        self._size += written
+        return written
+
+    def update_hash(self, digest):
+        # Retain the complete accumulated stream: direct Hasher users may call
+        # hash repeatedly, and historically each call appended the whole pickle
+        # stream to the existing digest.
+        self._stream.seek(0)
+        while True:
+            block = self._stream.read(_HASH_BUFFER_SIZE)
+            if not block:
+                break
+            digest.update(block)
+            del block
+
+    def close(self):
+        self._stream.close()
 
 
 class _ConsistentSet(object):
@@ -53,7 +96,7 @@ class Hasher(Pickler):
     """
 
     def __init__(self, hash_name="md5"):
-        self.stream = io.BytesIO()
+        self.stream = _HashingPickleBuffer()
         # By default we want a pickle protocol that only changes with
         # the major python version and not the minor one
         protocol = 3
@@ -67,8 +110,7 @@ class Hasher(Pickler):
         except pickle.PicklingError as e:
             e.args += ("PicklingError while hashing %r: %r" % (obj, e),)
             raise
-        dumps = self.stream.getvalue()
-        self._hash.update(dumps)
+        self.stream.update_hash(self._hash)
         if return_digest:
             return self._hash.hexdigest()
 
@@ -220,17 +262,40 @@ class NumpyHasher(Hasher):
                 obj_c_contiguous = obj
             elif obj.flags.f_contiguous:
                 obj_c_contiguous = obj.T
+            elif (
+                type(obj) in (self.np.ndarray, self.np.memmap)
+                and obj.dtype.kind in "biufcmM"
+                and obj.dtype.fields is None
+                and obj.dtype.isbuiltin in (0, 1)
+                # Extended precision may contain platform-specific padding.
+                # The character guard also excludes it on old NumPy releases
+                # whose built-in descriptors share one dtype class.
+                and obj.dtype.char in "?bBhHiIlLqQefdFDmM"
+                # Compare with the built-in descriptor without converting the
+                # data or admitting a custom numeric DType's transfer rules.
+                and type(obj.dtype) is type(self.np.dtype(obj.dtype.char))
+            ):
+                # Match flatten()'s C-order traversal without allocating a copy
+                # of the complete strided view. Do not request native byte order
+                # or a dtype conversion: existing hashes include the raw bytes.
+                block_size = max(1, _HASH_BUFFER_SIZE // obj.dtype.itemsize)
+                with self.np.nditer(
+                    obj,
+                    flags=["external_loop", "buffered", "zerosize_ok"],
+                    op_flags=["readonly", "contig"],
+                    order="C",
+                    buffersize=block_size,
+                ) as chunks:
+                    for block in chunks:
+                        self._hash.update(self._getbuffer(block.view(self.np.uint8)))
+                obj_c_contiguous = None
             else:
-                # Cater for non-single-segment arrays: this creates a
-                # copy, and thus alleviates this issue.
-                # XXX: There might be a more efficient way of doing this
                 obj_c_contiguous = obj.flatten()
 
-            # memoryview is not supported for some dtypes, e.g. datetime64, see
-            # https://github.com/numpy/numpy/issues/4983. The
-            # workaround is to view the array as bytes before
-            # taking the memoryview.
-            self._hash.update(self._getbuffer(obj_c_contiguous.view(self.np.uint8)))
+            if obj_c_contiguous is not None:
+                # memoryview does not support some dtypes, e.g. datetime64.
+                # View their existing raw representation as bytes first.
+                self._hash.update(self._getbuffer(obj_c_contiguous.view(self.np.uint8)))
 
             # We store the class, to be able to distinguish between
             # Objects with the same binary content, but different
@@ -292,4 +357,9 @@ def hash(obj, hash_name="md5", coerce_mmap=False):
         hasher = NumpyHasher(hash_name=hash_name, coerce_mmap=coerce_mmap)
     else:
         hasher = Hasher(hash_name=hash_name)
-    return hasher.hash(obj)
+    try:
+        return hasher.hash(obj)
+    finally:
+        # The public helper owns this short-lived Hasher. Direct Hasher users
+        # retain their stream so repeated hash calls keep their old semantics.
+        hasher.stream.close()

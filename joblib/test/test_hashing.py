@@ -20,7 +20,7 @@ from concurrent.futures import ProcessPoolExecutor
 from decimal import Decimal
 
 from joblib.func_inspect import filter_args
-from joblib.hashing import hash
+from joblib.hashing import Hasher, hash
 from joblib.memory import Memory
 from joblib.test.common import np, with_numpy
 from joblib.testing import fixture, parametrize, raises, skipif
@@ -431,6 +431,20 @@ def test_hashes_stay_the_same(to_hash, expected):
     assert hash(to_hash) == expected
 
 
+def test_large_bytes_hashes_stay_the_same():
+    # Retain the cache key across temporary-buffer rollover, including the
+    # cumulative behavior of a directly reused Hasher. Expected values come
+    # from the previous BytesIO implementation with pickle protocol 3.
+    data = b"joblib-large-object-data-" * 100000
+    assert hash(data) == "95bd5a2abd6ddc12d48e81e2709bb756"
+    hasher = Hasher()
+    try:
+        assert hasher.hash(data) == "95bd5a2abd6ddc12d48e81e2709bb756"
+        assert hasher.hash({"following": 17}) == "3692a3515cd323ecf98f0ddc4039dfaf"
+    finally:
+        hasher.stream.close()
+
+
 @with_numpy
 def test_hashes_are_different_between_c_and_fortran_contiguous_arrays():
     # We want to be sure that the c-contiguous and f-contiguous versions of the
@@ -493,6 +507,12 @@ def test_hashes_stay_the_same_with_numpy_objects():
             np.asfortranarray(np.arange(100, dtype="<i8").reshape((10, 10))),
             # Non contiguous array
             np.arange(100, dtype="<i8").reshape((10, 10))[:, :2],
+            # Exercise multiple C-order chunks and pickle-buffer rollover
+            # together while retaining equal values, shapes and strides.
+            (
+                b"joblib-large-object-data-" * 100000,
+                np.arange(600000, dtype=">i8").reshape(1000, 600)[::-1, ::2],
+            ),
         ]
         return to_hash_list
 
