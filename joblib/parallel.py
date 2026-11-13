@@ -35,6 +35,8 @@ from ._parallel_backends import (
     ParallelBackendBase,  # noqa
     SequentialBackend,
     ThreadingBackend,
+    _get_threadpool_controller,
+    _get_threadpoolctl_limits,
     cpu_count,  # noqa
     set_thread_local_cpu_limit,  # noqa
 )
@@ -330,7 +332,11 @@ class parallel_config:
     inner_max_num_threads: int, default=None
         If not None, overwrites the limit set on the number of threads
         usable in some third-party library threadpools like OpenBLAS,
-        MKL or OpenMP. This is only used with the ``loky`` backend.
+        MKL or OpenMP. This is only used with the ``loky``, ``sequential``
+        and ``threading`` backends. The ``threading`` and ``sequential``
+        backends are limited to constraining libraries supported by
+        ``threadpoolctl`` (at minimum OpenMP and BLAS), whereas the ``loky``
+        backend restricts additional third-party libraries.
 
     backend_params: dict
         Additional parameters to pass to the backend constructor when
@@ -1903,7 +1909,17 @@ class Parallel(Logger):
         This simplifies the traceback in case of errors and reduces the
         overhead of calling sequential tasks with `joblib`.
         """
+        limiter = None
         try:
+            # This makes relevant libraries respect cgroups, for example:
+            tp_controller = _get_threadpool_controller()
+            limiter = tp_controller.limit(
+                limits=_get_threadpoolctl_limits(
+                    tp_controller,
+                    self._backend._n_threads_for_worker_external_libs(n_jobs=1),
+                    False,
+                )
+            )
             self._iterating = True
             self._original_iterator = iterable
             batch_size = self._get_batch_size()
@@ -1934,10 +1950,15 @@ class Parallel(Logger):
             self._aborted = True
             raise
         finally:
+            # limiter might be None if instantiating it failed.
+            if limiter is not None:
+                limiter.restore_original_limits()
             self._running = False
             self._iterating = False
             self._original_iterator = None
             self.print_progress()
+            if not self._managed_backend:
+                self._backend.terminate()
 
     def _reset_run_tracking(self):
         """Reset the counters and flags used to track the execution."""

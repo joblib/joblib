@@ -261,7 +261,7 @@ tasks in the top level loop create their own :class:`joblib.Parallel`. It can
 suffer from over-subscription if the product of the size of two worker pools is
 bigger than the number of available cores.
 
-Starting with version 1.6, in order to avoid over-subscription, the inner loop
+Starting with version 1.7, in order to avoid over-subscription, the inner loop
 can use ``n_jobs=-1``. Each inner :class:`joblib.Parallel` will be limited to
 the number of cores divided by the outer by ``n_jobs`` in the outer
 :class:`joblib.Parallel`.
@@ -280,23 +280,17 @@ available. When these libraries are used with :class:`joblib.Parallel`, each
 worker will spawn its own thread-pools, resulting in a massive over-subscription
 of resources that can slow down the computation compared to a sequential
 one. To cope with this problem, joblib tells supported third-party libraries
-to use a limited number of threads in workers managed by the ``'loky'``
-backend: by default each worker process will have environment variables set to
+to use a limited number of threads in workers managed by the ``'loky'``,
+``'threading'``, and ``'sequential'`` backends, the last two since joblib 1.7.0.
+By default each worker process will have environment variables set to
 allow a maximum of ``cpu_count() // n_jobs`` so that the total number of
 threads used by all the workers does not exceed the number of CPUs of the
 host.
 
-This behavior can be overridden by setting the proper environment variables to
-the desired number of threads. This override is supported for the following
-libraries:
+> Before 1.7.0, this behavior could be overridden in the ``'loky'`` backend by
+> setting certain environment variables. This is no longer the case as of 1.7.0.
 
-    - OpenMP with the environment variable ``'OMP_NUM_THREADS'``,
-    - OpenBLAS with the ``'OPENBLAS_NUM_THREADS'``,
-    - MKL with the environment variable ``'MKL_NUM_THREADS'``,
-    - Accelerated with the environment variable ``'VECLIB_MAXIMUM_THREADS'``,
-    - Numexpr with the environment variable ``'NUMEXPR_NUM_THREADS'``.
-
-Since joblib 0.14, it is also possible to programmatically override the default
+It is also possible to programmatically override the default
 number of threads using the ``inner_max_num_threads`` argument of the
 :func:`~joblib.parallel_config` function as follows:
 
@@ -309,7 +303,6 @@ number of threads using the ``inner_max_num_threads`` argument of the
 
 In this example, 4 Python worker processes will be allowed to use 2 threads
 each, meaning that this program will be able to use up to 8 CPUs concurrently.
-
 
 Old multiprocessing backend
 ===========================

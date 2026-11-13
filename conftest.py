@@ -19,6 +19,18 @@ except ImportError:
     loop_in_thread = None
 
 
+@pytest.fixture(autouse=True)
+def reset_openblas_controlling_thread():
+    from threadpoolctl import OpenBLASController
+
+    try:
+        yield
+    finally:
+        # Only added in threadpoolctl 3.8:
+        if hasattr(OpenBLASController, "clear_controlling_thread"):
+            OpenBLASController.clear_controlling_thread(force=True)
+
+
 def pytest_collection_modifyitems(config, items):
     skip_doctests = True
 

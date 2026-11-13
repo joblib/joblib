@@ -19,12 +19,14 @@ from contextlib import nullcontext
 from math import sqrt
 from multiprocessing import TimeoutError
 from pickle import PicklingError
+from threading import Thread
 from time import sleep
 from traceback import format_exception
 from unittest import mock
 from uuid import uuid4
 
 import pytest
+from threadpoolctl import ThreadpoolController, threadpool_info
 
 import joblib
 from joblib import _parallel_backends, dump, load, parallel
@@ -281,6 +283,9 @@ def _nested_second_level(n_jobs, third_level):
     )
 
 
+# Technically thread-safe, but the extra CPU load makes the test less reliable
+# I think given it relies on tasks being distributed evenly across threads:
+@pytest.mark.thread_unsafe
 @with_multiprocessing
 @pytest.mark.parametrize("backend", ALL_VALID_BACKENDS)
 @pytest.mark.parametrize("nesting", [[2, -1], [-1, -1]])
@@ -343,6 +348,10 @@ def test_loky_cores_split_up_in_subprocess(set_env, request):
     This is true even if ``LOKY_MAX_CPU_COUNT`` is set.
     """
     if set_env:
+        # Clean up the existing executor because we change the environment of
+        # the parent at runtime and it is not detected in loky intentionally.
+        get_reusable_executor(reuse=True).shutdown()
+
         old_value = os.environ.get("LOKY_MAX_CPU_COUNT", None)
         os.environ["LOKY_MAX_CPU_COUNT"] = "4"
 
@@ -1099,6 +1108,7 @@ class ParameterizedParallelBackend(SequentialBackend):
         if param is None:
             raise ValueError("param should not be None")
         self.param = param
+        super().__init__()
 
 
 @parametrize("context", [parallel_config, parallel_backend])
@@ -2092,9 +2102,13 @@ def test_thread_bomb_mitigation(context, backend):
     # Test that recursive parallelism raises a recursion rather than
     # saturating the operating system resources by creating a unbounded number
     # of threads.
+    extra_exceptions = []
+    sys.unraisablehook = lambda arg: extra_exceptions.append(arg.exc_value)
+
     with context(backend, n_jobs=2):
         with raises(BaseException) as excinfo:
             _recursive_parallel()
+
     exc = excinfo.value
     if backend == "loky":
         # Local import because loky may not be importable for lack of
@@ -2111,6 +2125,8 @@ def test_thread_bomb_mitigation(context, backend):
             pytest.xfail("Loky worker crash when serializing RecursionError")
 
     assert isinstance(exc, RecursionError)
+    for exc in extra_exceptions:
+        assert isinstance(exc, RecursionError)
 
 
 def _run_parallel_sum():
@@ -2130,7 +2146,7 @@ def _run_parallel_sum():
 
 @parametrize("backend", ([None, "loky"] if mp is not None else [None]))
 @skipif(parallel_sum is None, reason="Need OpenMP helper compiled")
-def test_parallel_thread_limit(backend):
+def test_parallel_subprocess_thread_limit(backend):
     results = Parallel(n_jobs=2, backend=backend)(
         delayed(_run_parallel_sum)() for _ in range(2)
     )
@@ -2218,7 +2234,9 @@ def _check_numpy_threadpool_limits():
     a = np.random.randn(100, 100)
     np.dot(a, a)
     threadpoolctl = pytest.importorskip("threadpoolctl")
-    return threadpoolctl.threadpool_info()
+    return sorted(
+        threadpoolctl.threadpool_info(), key=lambda x: x.get("filepath", None)
+    )
 
 
 def _parent_max_num_threads_for(child_module, parent_info):
@@ -2270,49 +2288,65 @@ def test_threadpool_limitation_in_child_loky(n_jobs):
     )
 
 
+@pytest.mark.thread_unsafe  # modifies shared BLAS thread pool size
 @with_numpy
 @with_multiprocessing
 @parametrize("inner_max_num_threads", [1, 2, 4, None])
 @parametrize("n_jobs", [2, -1])
 @parametrize("context", [parallel_config, parallel_backend])
-def test_threadpool_limitation_in_child_context(context, n_jobs, inner_max_num_threads):
-    # Check that the protection against oversubscription in workers is working
-    # using threadpoolctl functionalities.
+@parametrize("backend", ["loky", "threading", "sequential"])
+@parametrize("return_as", ["list", "generator", "generator_unordered"])
+def test_third_party_threadpool_limitation_in_child_context(
+    return_as, backend, context, n_jobs, inner_max_num_threads
+):
+    """Validate protection against OpenMP/BLAS oversubscription."""
+    if inner_max_num_threads is not None:
+        # Some libraries may cap number of threads at the number of cores, e.g.
+        # some versions of OpenBLAS+pthreads on macOS.
+        inner_max_num_threads = min(cpu_count(), inner_max_num_threads)
 
     # Skip this test if numpy is not linked to a BLAS library
     parent_info = _check_numpy_threadpool_limits()
     if len(parent_info) == 0:
         pytest.skip(reason="Need a version of numpy linked to BLAS")
 
-    with context("loky", inner_max_num_threads=inner_max_num_threads):
-        workers_threadpool_infos = Parallel(n_jobs=n_jobs)(
-            delayed(_check_numpy_threadpool_limits)() for i in range(2)
-        )
-
-    n_jobs = effective_n_jobs(n_jobs)
-    if n_jobs == 1:
-        expected_child_num_threads = parent_info[0]["num_threads"]
-    elif inner_max_num_threads is None:
-        expected_child_num_threads = max(cpu_count() // n_jobs, 1)
+    expected_n_jobs = 1 if backend == "sequential" else effective_n_jobs(n_jobs)
+    if inner_max_num_threads is None:
+        expected_child_num_threads = max(cpu_count() // expected_n_jobs, 1)
     else:
         expected_child_num_threads = inner_max_num_threads
+
+    with context(backend, inner_max_num_threads=inner_max_num_threads):
+        with Parallel(n_jobs=n_jobs, return_as=return_as) as parallel:
+            if backend == "threading":
+                # Main thread also sets limit, for things like OpenBLAS
+                # w/pthreads:
+                for lib_controller in threadpool_info():
+                    assert lib_controller["num_threads"] == expected_child_num_threads
+            workers_threadpool_infos = list(
+                parallel(delayed(_check_numpy_threadpool_limits)() for _ in range(2))
+            )
 
     check_child_num_threads(
         workers_threadpool_infos, parent_info, expected_child_num_threads
     )
 
+    # Ensure limits were restored:
+    final_parent_info = _check_numpy_threadpool_limits()
+    for old, new in zip(parent_info, final_parent_info):
+        assert old["num_threads"] == new["num_threads"]
+
 
 @pytest.mark.thread_unsafe  # involves global mutable state in os.environ
 @with_multiprocessing
-@parametrize("n_jobs", [2, -1])
 @parametrize("var_name", ["OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "OMP_NUM_THREADS"])
 @parametrize("context", [parallel_config, parallel_backend])
-def test_threadpool_limitation_in_child_override(context, n_jobs, var_name):
+def test_threadpool_limitation_in_child_override(context, var_name):
     # Check that environment variables set by the user on the main process
-    # always have the priority.
+    # do not have the priority.
 
     # Skip this test if the process is run sequetially
-    if effective_n_jobs(n_jobs) == 1:
+    if effective_n_jobs(2) == 1:
         pytest.skip("Skip test when n_jobs == 1")
 
     # Clean up the existing executor because we change the environment of the
@@ -2324,15 +2358,17 @@ def test_threadpool_limitation_in_child_override(context, n_jobs, var_name):
 
     original_var_value = os.environ.get(var_name)
     try:
-        os.environ[var_name] = "4"
+        os.environ[var_name] = "16"
         # Skip this test if numpy is not linked to a BLAS library
-        results = Parallel(n_jobs=n_jobs)(delayed(_get_env)(var_name) for i in range(2))
-        assert results == ["4", "4"]
+        results = Parallel(n_jobs=2, backend="loky")(
+            delayed(_get_env)(var_name) for i in range(2)
+        )
+        expected = str(_split_up_cores(cpu_count(), 2))
+        assert results == [expected, expected]
 
+        # inner max num threads overrides the default, though:
         with context("loky", inner_max_num_threads=1):
-            results = Parallel(n_jobs=n_jobs)(
-                delayed(_get_env)(var_name) for i in range(2)
-            )
+            results = Parallel(n_jobs=2)(delayed(_get_env)(var_name) for i in range(2))
         assert results == ["1", "1"]
 
     finally:
@@ -2340,6 +2376,95 @@ def test_threadpool_limitation_in_child_override(context, n_jobs, var_name):
             del os.environ[var_name]
         else:
             os.environ[var_name] = original_var_value
+
+
+@pytest.mark.thread_unsafe  # OpenBLAS's pool is a process-wide shared resource
+@with_multiprocessing
+@pytest.mark.parametrize("n_jobs", [1, 2])
+def test_controlling_thread_openblas_non_openmp(n_jobs):
+    """OpenBLAS controlling thread gets cleared appropriately.
+
+    OpenBLAS without OpenMP has a concept of a controlling thread in
+    threadpoolctl, make sure it's cleared at the end of Parallel.
+    """
+    openblas_controller = ThreadpoolController().select(internal_api="openblas")
+
+    if not openblas_controller.lib_controllers:
+        pytest.skip("requires OpenBLAS.")
+
+    if cpu_count() < 3:
+        pytest.skip("Need at least 3 cores")
+
+    ok = []
+    for openblas_lib in openblas_controller.lib_controllers:
+        if (
+            openblas_lib.threading_layer == "openmp"
+            or openblas_lib.get_num_threads() < 3
+        ):
+            continue
+        else:
+            ok.append(openblas_lib)
+    if not ok:
+        return
+
+    openblas_lib = ok[0]
+
+    # For n_jobs=1 this will become sequential backend, so we can test both:
+    Parallel(backend="threading", n_jobs=n_jobs, return_as="list")(
+        delayed(lambda: None)() for _ in range(2)
+    )
+
+    # Now that Parallel is done, we should be able to set limits from another
+    # thread:
+    current = openblas_lib.get_num_threads()
+    assert current > 1
+
+    t = Thread(target=lambda: openblas_lib.set_num_threads(1))
+    t.start()
+    t.join()
+    assert openblas_lib.get_num_threads() == 1
+    openblas_lib.set_num_threads(current)
+    # Note that the `reset_openblas_controlling_thread` fixure in conftest.py
+    # always ensures that any thread control ownership is force-released between
+    # tests so we don't need to do it here.
+
+
+@pytest.mark.thread_unsafe  # OpenBLAS-pthreads's pool is a process-wide shared resource
+@with_multiprocessing
+def test_openblas_restored_num_threads():
+    """OpenBLAS-pthreads gets number of threads restored correctly.
+
+    OpenBLAS without OpenMP has a concept of a controlling thread in
+    threadpoolctl, make sure it's cleared at the end of Parallel.
+    """
+    openblas_controller = ThreadpoolController().select(internal_api="openblas")
+    if not openblas_controller.lib_controllers:
+        pytest.skip("requires OpenBLAS.")
+
+    openblas_lib = openblas_controller.lib_controllers[0]
+    orig_n_threads = openblas_lib.get_num_threads()
+
+    def call_parallel(n_jobs):
+        for _ in range(20):
+            Parallel(n_jobs=n_jobs, backend="threading")(
+                delayed(int)(i) for i in range(n_jobs)
+            )
+            with Parallel(n_jobs=n_jobs, backend="threading") as parallel:
+                parallel(delayed(int)(i) for i in range(n_jobs))
+
+    # Check both threading and sequential backends:
+    for parallelism_levels in [[2, 3, 4], [1, 1, 1]]:
+        threads = [
+            threading.Thread(target=call_parallel, args=(n,))
+            for n in parallelism_levels
+        ]
+
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        assert openblas_lib.get_num_threads() == orig_n_threads
 
 
 @with_multiprocessing

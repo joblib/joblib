@@ -13,8 +13,12 @@ CLOUDPICKLE="cloudpickle"
 NUMPY="numpy"
 DISTRIBUTED="distributed"
 
+if [[ -z "${THREADPOOLCTL}" ]]; then
+    THREADPOOLCTL="threadpoolctl"
+fi
+
 # Install pytest-timeout to fasten failure in deadlocking tests
-PIP_INSTALL_PACKAGES="pytest-timeout pytest-asyncio threadpoolctl"
+PIP_INSTALL_PACKAGES="pytest-timeout pytest-asyncio $THREADPOOLCTL"
 
 create_new_conda_env() {
     # Check python version
