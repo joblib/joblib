@@ -48,6 +48,12 @@ def check_memmap_and_send_back(array):
     return array
 
 
+def edit_copy_on_write_memmap(path, strided):
+    array = np.load(path, mmap_mode="c")
+    array[0] = 200
+    return np.asarray(array)[::2] if strided else array
+
+
 def check_array(args):
     """Dummy helper function to be executed in subprocesses
 
@@ -72,6 +78,48 @@ def inplace_double(args):
     assert data[position] == expected
     data[position] *= 2
     np.testing.assert_array_equal(data[position], 2 * expected)
+
+
+@with_numpy
+@with_multiprocessing
+@parametrize("backend", ["loky", "multiprocessing"])
+@parametrize("strided", [False, True], ids=["memmap", "strided-view"])
+def test_parallel_preserves_copy_on_write_memmap_edits(tmp_path, backend, strided):
+    path = tmp_path / "original.npy"
+    original = np.arange(6)
+    np.save(path, original)
+    mapped = np.load(path, mmap_mode="c")
+    array = np.asarray(mapped)[::2] if strided else mapped
+    expected = (original[::2] if strided else original).copy()
+
+    # Keep the same pool and array across calls to catch reuse of a stale copy.
+    with Parallel(n_jobs=2, backend=backend, max_nbytes=1) as parallel:
+        for value in (100, 101):
+            mapped[0] = value
+            expected[0] = value
+            received = parallel(delayed(np.copy)(array) for _ in range(2))
+            np.testing.assert_array_equal(received, [expected, expected])
+    np.testing.assert_array_equal(np.load(path), original)
+
+
+@with_numpy
+@with_multiprocessing
+@parametrize("backend", ["loky", "multiprocessing"])
+@parametrize("strided", [False, True], ids=["memmap", "strided-view"])
+def test_parallel_preserves_returned_copy_on_write_memmap_edits(
+    tmp_path, backend, strided
+):
+    path = tmp_path / "original.npy"
+    original = np.arange(6)
+    np.save(path, original)
+    expected = (original[::2] if strided else original).copy()
+    expected[0] = 200
+
+    received = Parallel(n_jobs=2, backend=backend)(
+        delayed(edit_copy_on_write_memmap)(path, strided) for _ in range(2)
+    )
+    np.testing.assert_array_equal(received, [expected, expected])
+    np.testing.assert_array_equal(np.load(path), original)
 
 
 @with_numpy
