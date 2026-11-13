@@ -24,6 +24,7 @@ import warnings
 import weakref
 
 from . import hashing
+from ._memory_singleflight import cache_call_lock
 from ._store_backends import (
     CacheWarning,  # noqa
     FileSystemStoreBackend,
@@ -422,8 +423,12 @@ class MemorizedFunc(Logger):
         verbose=1,
         timestamp=None,
         cache_validation_callback=None,
+        singleflight=False,
     ):
         Logger.__init__(self)
+        self.singleflight = singleflight
+        if singleflight and inspect.iscoroutinefunction(func):
+            raise ValueError("singleflight is only supported for synchronous functions")
         self.mmap_mode = mmap_mode
         self.compress = compress
         self.func = func
@@ -439,6 +444,9 @@ class MemorizedFunc(Logger):
             verbose=verbose,
             backend_options=dict(compress=compress, mmap_mode=mmap_mode),
         )
+        if singleflight and not isinstance(self.store_backend, FileSystemStoreBackend):
+            raise ValueError("singleflight requires the local filesystem store backend")
+
         if self.store_backend is not None:
             # Create func directory on demand.
             self.store_backend.store_cached_func_code([self.func_id])
@@ -493,6 +501,15 @@ class MemorizedFunc(Logger):
         return True
 
     def _cached_call(self, args, kwargs, shelving):
+        if not getattr(self, "singleflight", False):
+            return self._cached_call_unlocked(args, kwargs, shelving)
+        args_id = self._get_args_id(*args, **kwargs)
+        with cache_call_lock(self.store_backend.location, self.func_id, args_id):
+            # Recheck the cache after acquisition: another caller may have
+            # published the result while we waited.
+            return self._cached_call_unlocked(args, kwargs, shelving)
+
+    def _cached_call_unlocked(self, args, kwargs, shelving):
         """Call wrapped function and cache result, or read cache if available.
 
         This function returns the wrapped function output or a reference to
@@ -1063,6 +1080,7 @@ class Memory(Logger):
         verbose=None,
         mmap_mode=False,
         cache_validation_callback=None,
+        singleflight=False,
     ):
         """Decorates the given function func to only compute its return
         value for input arguments not cached on disk.
@@ -1088,6 +1106,12 @@ class Memory(Logger):
             cached result is returned, else the cache for these arguments
             is cleared and recomputed.
 
+        singleflight: bool, default=False
+            Serialize synchronous calls with the same cache key using a local
+            advisory file lock. Waiting callers recheck the cache. Requires a
+            local filesystem backend; not suitable for distributed filesystems.
+            Lock files are retained. Do not clear the cache concurrently.
+
         Returns
         -------
         decorated_func: MemorizedFunc object
@@ -1096,6 +1120,10 @@ class Memory(Logger):
             methods for cache lookup and management. See the
             documentation for :class:`joblib.memory.MemorizedFunc`.
         """
+        if not isinstance(singleflight, bool):
+            raise TypeError("singleflight must be a boolean")
+        if singleflight and self.store_backend is None:
+            raise ValueError("singleflight requires a cache location")
         if cache_validation_callback is not None and not callable(
             cache_validation_callback
         ):
@@ -1112,6 +1140,7 @@ class Memory(Logger):
                 mmap_mode=mmap_mode,
                 verbose=verbose,
                 cache_validation_callback=cache_validation_callback,
+                singleflight=singleflight,
             )
         if self.store_backend is None:
             cls = (
@@ -1155,6 +1184,7 @@ class Memory(Logger):
             verbose=verbose,
             timestamp=self.timestamp,
             cache_validation_callback=cache_validation_callback,
+            singleflight=singleflight,
         )
 
     def clear(self, warn=True):

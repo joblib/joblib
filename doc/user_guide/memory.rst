@@ -572,3 +572,25 @@ Helper Reference
 ~~~~~~~~~~~~~~~~
 
 .. autofunction:: joblib.expires_after
+
+
+Opt-in coalescing of concurrent cache misses (prototype)
+--------------------------------------------------------
+
+``memory.cache(function, singleflight=True)`` serializes synchronous calls
+with the same function and argument cache key. A waiting caller rechecks the
+cache after acquiring a local advisory lock. Different keys can run concurrently.
+The default remains ``False``. This requires a local filesystem backend;
+asynchronous functions are rejected rather than blocking their event loop.
+
+This prototype is intended for maintainer discussion, not as a distributed
+exactly-once execution guarantee. Network filesystems are outside its scope.
+The operating system releases the lock if its owning process exits. If the
+function raises or its result cannot be cached, a later call may execute it
+again. Recursive calls with the same key raise ``RuntimeError``.
+
+Lock files are retained to avoid races with existing waiters. Consequently,
+there is one small lock file per distinct key. Do not clear, relocate, or remove
+the cache while calls are running. Concurrent cache maintenance, reclamation
+of lock files, and Windows runtime validation need further work before this
+prototype should be considered for release.
