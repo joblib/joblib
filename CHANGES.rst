@@ -11,7 +11,7 @@ In Development
 - Fix ``Logger.info`` to log to its configured namespace instead of the
   root logger.
   https://github.com/joblib/joblib/pull/1919
-  
+
 - Fix hashing of ``frozenset`` to be independent of ``PYTHONHASHSEED``.
   https://github.com/joblib/joblib/pull/1914
 
