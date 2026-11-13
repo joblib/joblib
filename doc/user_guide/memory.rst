@@ -274,9 +274,14 @@ Additional backends will be added in future joblib releases, including a planned
 Gotchas
 -------
 
-* **Across sessions, function cache is identified by the function's name**.
-  Thus assigning the same name to different functions, their cache will
-  override each-others (e.g. there are 'name collisions'), and unwanted re-run
+* **Across sessions, function cache is identified by the function's
+  fully-qualified name (its module, plus the enclosing scopes for nested
+  functions), not just by its bare name**.
+  Two functions with the same name defined in different modules (e.g.
+  ``foo.bar.func`` and ``fizz.buzz.func``) therefore get separate caches
+  and do not collide. Collisions can still happen when two different
+  functions share the same name within the same module: their cache will
+  override each other's (so-called 'name collisions'), and unwanted re-runs
   will happen::
 
     >>> @memory.cache
@@ -289,9 +294,8 @@ Gotchas
     ... def func(x):
     ...     print('Running a different func(%s)' % x)
 
-  As long as the same session is used, there are no collisions (in joblib
-  0.8 and above), although joblib does warn you that you are doing something
-  dangerous::
+  As long as the same session is used, there are no collisions, although
+  joblib does warn you that you are doing something dangerous::
 
     >>> func(1)
     Running a different func(1)
@@ -329,7 +333,8 @@ Gotchas
 
 * **lambda functions**
 
-  Beware that with Python 2.7 lambda functions cannot be separated out::
+  Beware that lambda functions cannot be told apart: they all share the
+  name ``'<lambda>'``, so two different lambdas cannot be separated out::
 
     >>> def my_print(x):
     ...     print(x)
