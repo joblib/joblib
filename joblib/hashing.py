@@ -237,11 +237,14 @@ class NumpyHasher(Hasher):
             # To prevent memoization from interfering with hashing, we isolate
             # the serialization (and thus the pickle memoization) of each dtype
             # using each time a different ``pickle.dumps`` call unrelated to
-            # the current Hasher instance.
-            # The result goes in the pickle stream rather than straight into
-            # the hash: otherwise it leaves no trace of its position there and
-            # can be swapped with array bytes, e.g. [dtype, arr] and
-            # [arr, dtype] would hash the same.
+            # the current Hasher instance. The resulting bytes are wrapped in a
+            # fresh tuple, so the dtype object itself never enters this
+            # Hasher's memo, and that tuple is then saved through the regular
+            # pickle stream like any other object. Writing it to the stream
+            # (rather than feeding the bytes directly to ``self._hash``)
+            # records the dtype's position, so that e.g. ``[dtype, arr]`` and
+            # ``[arr, dtype]`` can't hash the same when ``arr``'s raw bytes
+            # match the dtype's contribution.
             obj = ("_HASHED_DTYPE", pickle.dumps(obj))
         Hasher.save(self, obj)
 
