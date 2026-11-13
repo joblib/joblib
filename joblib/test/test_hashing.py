@@ -338,6 +338,11 @@ def test_set_hash(tmpdir):
     assert hash(a) == hash(b)
 
 
+def test_frozenset():
+    S = {1, "abc", False, None, (2, 3), 3.14}
+    assert hash(S) != hash(frozenset(S))
+
+
 def test_set_decimal_hash():
     # Check that sets containing decimals hash consistently, even though
     # ordering is not guaranteed
@@ -413,6 +418,8 @@ def _generate_seeded_random_values():
             "9e4e9bf9b91890c9734a6111a35e6633",
         ),
         ({"abcde": 123, "sadfas": [-9999, 2, 3]}, "aeda150553d4bb5c69f0e69d51b0e2ef"),
+        (int, "8bb794cba14f5b0290887e3274299666"),
+        (type(...), "ad6353374463c18988d22daf34e3d70c"),
     ],
 )
 def test_hashes_stay_the_same(to_hash, expected):

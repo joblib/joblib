@@ -14,7 +14,6 @@ import functools
 import inspect
 import logging
 import os
-import pathlib
 import pydoc
 import re
 import textwrap
@@ -111,8 +110,8 @@ def _store_backend_factory(backend, location, verbose=0, backend_options=None):
     if backend_options is None:
         backend_options = {}
 
-    if isinstance(location, pathlib.Path):
-        location = str(location)
+    if isinstance(location, os.PathLike):
+        location = os.fspath(location)
 
     if isinstance(location, StoreBackendBase):
         return location
@@ -348,6 +347,9 @@ class NotMemorizedFunc(object):
 # class `AsyncNotMemorizedFunc`
 ###############################################################################
 class AsyncNotMemorizedFunc(NotMemorizedFunc):
+    async def call(self, *args, **kwargs):
+        return await self.func(*args, **kwargs), {}
+
     async def call_and_shelve(self, *args, **kwargs):
         return NotMemorizedResult(await self.func(*args, **kwargs))
 
@@ -980,7 +982,7 @@ class Memory(Logger):
 
     Parameters
     ----------
-    location: str, pathlib.Path or None
+    location: str, os.PathLike or None
         The path of the base directory to use as a data store
         or None. If None is given, no caching is done and
         the Memory object is completely transparent. This option
