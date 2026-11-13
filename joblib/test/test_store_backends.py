@@ -1,6 +1,7 @@
 import functools
 import os
-import pickle as cpickle
+import pickle
+import sys
 import time
 import types
 import warnings
@@ -9,6 +10,7 @@ from pickle import PicklingError
 import pytest
 
 from joblib import Parallel, delayed, numpy_pickle
+from joblib._sql_store_backend import SQLStoreBackend
 from joblib._store_backends import (
     CacheWarning,
     FileSystemStoreBackend,
@@ -20,14 +22,14 @@ from joblib.testing import parametrize, raises, timeout, warns
 
 def write_func(output, filename):
     with open(filename, "wb") as f:
-        cpickle.dump(output, f)
+        pickle.dump(output, f)
 
 
 def load_func(expected, filename):
     for i in range(10):
         try:
             with open(filename, "rb") as f:
-                reloaded = cpickle.load(f)
+                reloaded = pickle.load(f)
             break
         except (OSError, IOError):
             # On Windows you can have WindowsError ([Error 5] Access
@@ -83,33 +85,65 @@ def test_store_cached_func_code_is_not_written_in_place(tmpdir):
     assert backend.get_cached_func_code(call_id) == original
 
 
-def test_warning_on_dump_failure(tmp_path):
+@parametrize("store_factory", [FileSystemStoreBackend, SQLStoreBackend])
+def test_warning_on_dump_failure(tmp_path, store_factory):
     # Check that a warning is raised when the dump fails for any reason but
     # a PicklingError.
     class UnpicklableObject(object):
         def __reduce__(self):
             raise RuntimeError("some exception")
 
-    backend = FileSystemStoreBackend()
-    backend.configure(str(tmp_path))
+    backend = store_factory()
+    backend.configure(str(tmp_path / "test_warning_on_dump_failure"))
 
+    call_id = ("func", "input")
     with pytest.warns(CacheWarning, match="some exception"):
-        backend.dump_item(("func", "input"), UnpicklableObject())
-    assert not list(tmp_path.rglob("output.pkl.*"))
+        backend.dump_item(call_id, UnpicklableObject())
+    if store_factory == FileSystemStoreBackend:
+        assert not list(tmp_path.rglob("output.pkl.*"))
+    else:
+        assert not backend.contains_item(call_id)
 
 
-def test_warning_on_pickling_error(tmp_path):
+@parametrize("store_factory", [FileSystemStoreBackend, SQLStoreBackend])
+def test_warning_on_pickling_error(tmp_path, store_factory):
     # This is separate from test_warning_on_dump_failure because in the
     # future we will turn this into an exception.
     class UnpicklableObject(object):
         def __reduce__(self):
             raise PicklingError("not picklable")
 
-    backend = FileSystemStoreBackend()
-    backend.configure(str(tmp_path))
+    backend = store_factory()
+    backend.configure(str(tmp_path / "test_warning_on_pickling_error"))
 
-    with pytest.warns(FutureWarning, match="not picklable"):
+    with pytest.raises(PicklingError, match="not picklable"):
         backend.dump_item(("func", "input"), UnpicklableObject())
+
+
+@parametrize("store_factory", [FileSystemStoreBackend, SQLStoreBackend])
+def test_metadata(tmpdir, store_factory):
+    backend = store_factory()
+    backend.configure(tmpdir.join("joblib").strpath)
+    call_id = ("fun", "input")
+    metadata = {"a": "b"}
+    new_metadata = {"c": "d"}
+    item = "item"
+
+    assert backend.get_metadata(call_id) == dict()
+    backend.store_metadata(call_id, metadata)
+    assert backend.get_metadata(call_id) == metadata
+    backend.dump_item(call_id, item)
+    assert backend.get_metadata(call_id) == metadata
+    backend.dump_item(call_id, "new_item")
+    assert backend.get_metadata(call_id) == metadata
+    backend.store_metadata(call_id, new_metadata)
+    assert backend.get_metadata(call_id) == new_metadata
+    backend.clear_item(call_id)
+    assert backend.get_metadata(call_id) == dict()
+    backend.store_metadata(call_id, metadata)
+    assert backend.get_metadata(call_id) == metadata
+    backend.clear_path([])
+    assert backend.get_metadata(call_id) == dict()
 
 
 def test_cache_tree_versions(tmpdir):
@@ -177,3 +211,44 @@ def test_cache_tree_versions(tmpdir):
     assert old_store.load_item((funs[1], args[0])) == conflict_item
     with raises(KeyError):
         old_store.load_item(("not_a_function", args[0]))
+
+
+@parametrize("store_factory", [FileSystemStoreBackend, SQLStoreBackend])
+def test_clear_path(tmpdir, store_factory):
+    backend = store_factory()
+    backend.configure(tmpdir.join("clear_path").strpath)
+
+    foo = os.path.join("module", "foo")
+    if store_factory == FileSystemStoreBackend and sys.platform != "linux":
+        FOO = os.path.join("module", "foo2")
+    else:
+        FOO = os.path.join("module", "FOO")
+    code = "code"
+    arg = "input"
+    item = (1, 2, 3)
+
+    for f in [foo, FOO]:
+        backend.store_cached_func_code((f,), code)
+        call_id = (f, arg)
+        backend.dump_item(call_id, item)
+        assert backend.get_cached_func_code((f,)) == code
+        assert backend.contains_item(call_id)
+
+    backend.clear_path((foo,))
+    with raises(IOError):
+        backend.get_cached_func_code((foo,))
+    assert not backend.contains_item((foo, arg))
+    assert backend.get_cached_func_code((FOO,)) == code
+    assert backend.contains_item((FOO, arg))
+
+
+@parametrize("store_factory", [FileSystemStoreBackend, SQLStoreBackend])
+def test_store_bad_metadata(tmpdir, store_factory):
+    backend = store_factory()
+    call_id = ("func", "input")
+    # getting metadata from a not configured store doesn't raise
+    assert backend.get_metadata(call_id) == {}
+    backend.configure(tmpdir.join("clear_path").strpath)
+    # storing bad metadata doesn't raise
+    backend.store_metadata(call_id, {"bad", "metadata"})
+    assert backend.get_metadata(call_id) == {}
