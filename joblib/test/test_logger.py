@@ -7,6 +7,7 @@ Test the logger module.
 # License: BSD Style, 3 clauses.
 import logging
 import re
+
 import pytest
 
 from joblib.logger import Logger, PrintTime
@@ -29,6 +30,7 @@ def test_print_time(tmpdir, capsys):
     match = r"Foo: 0\..s, 0\..min\nFoo: 0\..s, 0..min\nFoo: " + r".\..s, 0..min\n"
     if not re.match(match, err_printed_text):
         raise AssertionError("Excepted %s, got %s" % (match, err_printed_text))
+
 
 @pytest.mark.thread_unsafe  # caplog is not thread-safe
 def test_logger_info_uses_named_logger(caplog):
