@@ -8,6 +8,10 @@ In Development
    This version changes the way functions defined in jupyter notebook are hashed.
    This invalidates existing cache and will automatically clear them in these cases.
 
+- Fix ``Logger.info`` to log to its configured namespace instead of the
+  root logger.
+  https://github.com/joblib/joblib/pull/1919
+
 - Handle Ctrl+C in the parent process for default Windows loky workers. This
   avoids interrupting a running worker call only for the worker to start
   prefetched work while ``Parallel`` is stopping the pool. User initializers
@@ -52,6 +56,11 @@ In Development
 - Fix ``Memory.cache(..., mmap_mode=..., verbose=...)`` to now uses its parameters
   mmap_mode and verbose instead of using the values used at Memory creation time.
   https://github.com/joblib/joblib/pull/1857
+
+- Fix ``Memory`` to accept any ``os.PathLike`` object as ``location``, like
+  ``pathlib.Path``. Other path-like objects previously disabled caching with a
+  warning.
+  https://github.com/joblib/joblib/pull/1945
 
 - A non-positive value for ``pre_dispatch`` in ``Parallel`` now raises a
   ValueError.
