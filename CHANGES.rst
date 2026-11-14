@@ -12,6 +12,12 @@ In Development
   root logger.
   https://github.com/joblib/joblib/pull/1919
 
+- Handle Ctrl+C in the parent process for default Windows loky workers. This
+  avoids interrupting a running worker call only for the worker to start
+  prefetched work while ``Parallel`` is stopping the pool. User initializers
+  can still override the worker's SIGINT handler.
+  https://github.com/joblib/loky/issues/477
+
 - Fix hashing of ``frozenset`` to be independent of ``PYTHONHASHSEED``.
   https://github.com/joblib/joblib/pull/1914
 

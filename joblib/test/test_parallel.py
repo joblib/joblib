@@ -7,10 +7,14 @@ Test the parallel module.
 # License: BSD Style, 3 clauses.
 
 import itertools
+import json
 import mmap
 import os
 import re
+import signal
+import subprocess
 import sys
+import textwrap
 import threading
 import time
 import warnings
@@ -2368,6 +2372,112 @@ def _set_initialized(status):
     status[os.getpid()] = "initialized"
 
 
+def _custom_sigint_handler(signum, frame):
+    pass
+
+
+def _set_custom_sigint_handler():
+    signal.signal(signal.SIGINT, _custom_sigint_handler)
+
+
+def _worker_sigint_is_custom():
+    return signal.getsignal(signal.SIGINT) is _custom_sigint_handler
+
+
+def _test_windows_worker_sigint_repro_script():
+    return textwrap.dedent(
+        """
+        import ctypes
+        import json
+        import os
+        import signal
+        import sys
+        import threading
+        import time
+        from pathlib import Path
+
+        from joblib import Parallel, delayed
+
+        root = Path(sys.argv[1])
+        pytest_pid = int(sys.argv[2])
+
+        # A launcher such as Git Bash can pass down the Win32 Ctrl+C-ignore
+        # attribute even though this process owns a new console.
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.SetConsoleCtrlHandler.argtypes = [ctypes.c_void_p, ctypes.c_int]
+        kernel32.SetConsoleCtrlHandler.restype = ctypes.c_int
+        if not kernel32.SetConsoleCtrlHandler(None, False):
+            raise ctypes.WinError(ctypes.get_last_error())
+
+        def task(task_index):
+            (root / f"started-{task_index}").write_text(
+                str(signal.getsignal(signal.SIGINT) is signal.SIG_IGN),
+                encoding="utf-8",
+            )
+            try:
+                time.sleep(60)
+            except KeyboardInterrupt:
+                (root / f"interrupted-{task_index}").touch()
+                raise
+
+        def interrupt_when_initial_workers_are_running():
+            deadline = time.monotonic() + 20
+            while time.monotonic() < deadline:
+                if (root / "started-0").exists() and (root / "started-1").exists():
+                    break
+                time.sleep(0.01)
+            else:
+                return
+
+            kernel32.GetConsoleProcessList.argtypes = [
+                ctypes.POINTER(ctypes.c_ulong),
+                ctypes.c_ulong,
+            ]
+            kernel32.GetConsoleProcessList.restype = ctypes.c_ulong
+            console_processes = (ctypes.c_ulong * 256)()
+            count = kernel32.GetConsoleProcessList(console_processes, 256)
+            if count == 0 or count > len(console_processes):
+                (root / "isolation-failed").write_text(
+                    "GetConsoleProcessList failed", encoding="utf-8"
+                )
+                return
+            console_pids = [int(console_processes[index]) for index in range(count)]
+            isolation = {
+                "console_pids": console_pids,
+                "runner_pid": os.getpid(),
+                "pytest_pid": pytest_pid,
+                "isolated": os.getpid() in console_pids
+                and pytest_pid not in console_pids,
+            }
+            (root / "isolation.json").write_text(
+                json.dumps(isolation), encoding="utf-8"
+            )
+            if not isolation["isolated"]:
+                (root / "isolation-failed").touch()
+                return
+
+            kernel32.GenerateConsoleCtrlEvent.argtypes = [ctypes.c_uint, ctypes.c_uint]
+            kernel32.GenerateConsoleCtrlEvent.restype = ctypes.c_int
+            sent = bool(kernel32.GenerateConsoleCtrlEvent(0, 0))
+            (root / "signal-sent").write_text(str(sent), encoding="utf-8")
+
+        sender = threading.Thread(
+            target=interrupt_when_initial_workers_are_running, daemon=True
+        )
+        sender.start()
+        try:
+            Parallel(n_jobs=2, backend="loky")(
+                delayed(task)(index) for index in range(6)
+            )
+        except KeyboardInterrupt:
+            (root / "parent-interrupted").touch()
+        else:
+            (root / "parallel-returned").touch()
+        sender.join(timeout=1)
+        """
+    )
+
+
 def _check_status(status, n_jobs, wait_workers=False):
     pid = os.getpid()
     state = status.get(pid, None)
@@ -2477,6 +2587,138 @@ def test_initializer_not_reused(n_jobs):
         pids = pids.union(set(results))
     assert len(pids) == n_repetitions * n_jobs, (
         "The workers should not be reused when the initializer arguments change"
+    )
+
+
+@pytest.mark.skipif(
+    os.name != "nt", reason="Windows Loky workers handle console SIGINT"
+)
+def test_windows_loky_initializer_can_override_sigint_ignore_directly():
+    results = Parallel(
+        backend="loky",
+        n_jobs=2,
+        initializer=_set_custom_sigint_handler,
+    )(delayed(_worker_sigint_is_custom)() for _ in range(2))
+    assert results == [True, True]
+
+
+@pytest.mark.skipif(
+    os.name != "nt", reason="Windows Loky workers handle console SIGINT"
+)
+@parametrize("context", [parallel_config, parallel_backend])
+def test_windows_loky_initializer_can_override_sigint_ignore_in_context(context):
+    with context(
+        backend="loky",
+        n_jobs=2,
+        initializer=_set_custom_sigint_handler,
+    ):
+        results = Parallel()(delayed(_worker_sigint_is_custom)() for _ in range(2))
+    assert results == [True, True]
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-only Loky initializer composition")
+def test_windows_loky_none_initializer_does_not_pickle_unused_initargs():
+    # Loky ignores initargs when initializer is None. The Windows wrapper must
+    # keep doing so rather than trying to serialize this lock through its own
+    # initializer arguments.
+    unpicklable = threading.Lock()
+    results = Parallel(
+        backend="loky",
+        n_jobs=2,
+        initializer=None,
+        initargs=(unpicklable,),
+    )(delayed(square)(index) for index in range(2))
+    assert results == [0, 1]
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-only Loky initializer composition")
+def test_windows_loky_non_callable_initializer_raises_synchronously():
+    with raises(TypeError):
+        Parallel(backend="loky", n_jobs=2, initializer=42)(
+            delayed(square)(index) for index in range(2)
+        )
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows console Ctrl+C behavior")
+def test_windows_keyboardinterrupt_does_not_start_queued_loky_tasks(tmp_path):
+    # This child owns a hidden, separate console. Its helper thread sends
+    # CTRL_C_EVENT only after tasks 0 and 1 are running; no signal is sent to
+    # the pytest process or its console.
+    run_dir = tmp_path / uuid4().hex
+    run_dir.mkdir()
+    script = run_dir / "interrupt_runner.py"
+    script.write_text(_test_windows_worker_sigint_repro_script(), encoding="utf-8")
+
+    startupinfo = subprocess.STARTUPINFO()
+    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    startupinfo.wShowWindow = subprocess.SW_HIDE
+    env = os.environ.copy()
+    source_root = os.path.dirname(os.path.dirname(joblib.__file__))
+    existing_pythonpath = env.get("PYTHONPATH")
+    env["PYTHONPATH"] = (
+        source_root
+        if not existing_pythonpath
+        else os.pathsep.join((source_root, existing_pythonpath))
+    )
+    process = subprocess.Popen(
+        [sys.executable, "-s", str(script), str(run_dir), str(os.getpid())],
+        cwd=os.getcwd(),
+        env=env,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+        creationflags=subprocess.CREATE_NEW_CONSOLE,
+        startupinfo=startupinfo,
+    )
+    try:
+        stdout, stderr = process.communicate(timeout=40)
+    except subprocess.TimeoutExpired:
+        cleanup_error = None
+        try:
+            cleanup = subprocess.run(
+                ["taskkill.exe", "/PID", str(process.pid), "/T", "/F"],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                check=False,
+                timeout=5,
+            )
+        except subprocess.TimeoutExpired as error:
+            cleanup = None
+            cleanup_error = repr(error)
+        try:
+            process.communicate(timeout=5)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.communicate(timeout=2)
+        markers = {
+            path.name: path.read_text(encoding="utf-8")
+            for path in run_dir.iterdir()
+            if path.suffix != ".py"
+        }
+        pytest.fail(
+            "The isolated Windows Ctrl+C reproduction timed out; "
+            f"taskkill exit={cleanup.returncode if cleanup else None}, "
+            f"error={cleanup_error!r}, "
+            f"markers={markers!r}"
+        )
+
+    assert process.returncode == 0, (stdout, stderr)
+    isolation = json.loads((run_dir / "isolation.json").read_text(encoding="utf-8"))
+    assert isolation["isolated"]
+    assert isolation["runner_pid"] in isolation["console_pids"]
+    assert isolation["pytest_pid"] == os.getpid()
+    assert isolation["pytest_pid"] not in isolation["console_pids"]
+    assert (run_dir / "parent-interrupted").exists()
+    assert (run_dir / "signal-sent").read_text(encoding="utf-8") == "True"
+    task_starts = list(run_dir.glob("started-*"))
+    assert {int(path.stem.split("-")[1]) for path in task_starts} == {0, 1}
+    assert not list(run_dir.glob("interrupted-*"))
+    assert all(
+        (run_dir / f"started-{index}").read_text(encoding="utf-8") == "True"
+        for index in (0, 1)
     )
 
 
