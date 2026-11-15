@@ -731,7 +731,7 @@ class MemorizedFunc(Logger):
             self.func, resolv_alias=False, win_characters=False
         )
         if old_first_line == first_line == -1 or func_name == "<lambda>":
-            if not first_line == -1:
+            if first_line != -1:
                 func_description = f"{func_name} ({source_file}:{first_line})"
             else:
                 func_description = func_name
@@ -786,7 +786,7 @@ class MemorizedFunc(Logger):
         """Empty the function's cache."""
         func_id = self.func_id
         if self._verbose > 0 and warn:
-            self.warn("Clearing function cache identified by %s" % func_id)
+            self.warn(f"Clearing function cache identified by {func_id}")
         self.store_backend.clear_path(
             [
                 func_id,

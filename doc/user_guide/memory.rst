@@ -351,9 +351,10 @@ Gotchas
     >>> g = memory.cache(lambda : my_print(2))
 
   ..
-        Change func ids to be <lambda> in order to simulate an ordinary file.
+        Change func ids to be lambda in order to simulate an ordinary file.
+        We can't use <lambda> as Windows does not support "<>" in paths
 
-        >>> f.func_id = g.func_id = "<lambda>"
+        >>> f.func_id = g.func_id = "lambda"
 
   >>> f()
   1
