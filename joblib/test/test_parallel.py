@@ -893,6 +893,19 @@ def test_batching_auto_subprocesses(backend):
         assert p._backend.compute_batch_size() > 0
 
 
+@parametrize("verbose", [1, 10, 100])
+@parametrize("return_as", ["list", "generator"])
+def test_sequential_exception_with_verbose(verbose, return_as):
+    # Non-regression test: with n_jobs=1, the progress message printed when a
+    # task fails raised AttributeError, which replaced the task's exception.
+    with raises(ValueError):
+        list(
+            Parallel(n_jobs=1, verbose=verbose, return_as=return_as)(
+                delayed(exception_raiser)(i) for i in range(30)
+            )
+        )
+
+
 def test_exception_dispatch():
     """Make sure that exception raised during dispatch are indeed captured"""
     with raises(ValueError):
