@@ -14,7 +14,6 @@ import functools
 import inspect
 import logging
 import os
-import pathlib
 import pydoc
 import re
 import textwrap
@@ -111,8 +110,8 @@ def _store_backend_factory(backend, location, verbose=0, backend_options=None):
     if backend_options is None:
         backend_options = {}
 
-    if isinstance(location, pathlib.Path):
-        location = str(location)
+    if isinstance(location, os.PathLike):
+        location = os.fspath(location)
 
     if isinstance(location, StoreBackendBase):
         return location
@@ -475,7 +474,7 @@ class MemorizedFunc(Logger):
         returns False otherwise.
         """
         # Check if the code of the function has changed
-        if not self._check_previous_func_code(stacklevel=4):
+        if not self._check_previous_func_code(stacklevel=5):
             return False
 
         # Check if this specific call is in the cache
@@ -673,7 +672,7 @@ class MemorizedFunc(Logger):
         # sometimes have several functions named the same way in a
         # file. This is bad practice, but joblib should be robust to bad
         # practice.
-        func_code = "%s %i\n%s" % (FIRST_LINE_TEXT, first_line, func_code)
+        func_code = f"{FIRST_LINE_TEXT} {first_line}\n{func_code}"
         self.store_backend.store_cached_func_code([self.func_id], func_code)
 
         # Also store in the in-memory store of function hashes
@@ -732,17 +731,13 @@ class MemorizedFunc(Logger):
             self.func, resolv_alias=False, win_characters=False
         )
         if old_first_line == first_line == -1 or func_name == "<lambda>":
-            if not first_line == -1:
-                func_description = "{0} ({1}:{2})".format(
-                    func_name, source_file, first_line
-                )
+            if first_line != -1:
+                func_description = f"{func_name} ({source_file}:{first_line})"
             else:
                 func_description = func_name
             warnings.warn(
                 JobLibCollisionWarning(
-                    "Cannot detect name collisions for function '{0}'".format(
-                        func_description
-                    )
+                    f"Cannot detect name collisions for function '{func_description}'"
                 ),
                 stacklevel=stacklevel,
             )
@@ -751,7 +746,7 @@ class MemorizedFunc(Logger):
         # same than the code store, we have a collision: the code in the
         # file has not changed, but the name we have is pointing to a new
         # code block.
-        if not old_first_line == first_line and source_file is not None:
+        elif old_first_line != first_line and source_file is not None:
             if os.path.exists(source_file):
                 _, func_name = get_func_name(self.func, resolv_alias=False)
                 num_lines = len(func_code.split("\n"))
@@ -769,15 +764,8 @@ class MemorizedFunc(Logger):
                 warnings.warn(
                     JobLibCollisionWarning(
                         "Possible name collisions between functions "
-                        "'%s' (%s:%i) and '%s' (%s:%i)"
-                        % (
-                            func_name,
-                            source_file,
-                            old_first_line,
-                            func_name,
-                            source_file,
-                            first_line,
-                        )
+                        f"'{func_name}' ({source_file}:{old_first_line}) "
+                        f"and '{func_name}' ({source_file}:{first_line})"
                     ),
                     stacklevel=stacklevel,
                 )
@@ -798,7 +786,7 @@ class MemorizedFunc(Logger):
         """Empty the function's cache."""
         func_id = self.func_id
         if self._verbose > 0 and warn:
-            self.warn("Clearing function cache identified by %s" % func_id)
+            self.warn(f"Clearing function cache identified by {func_id}")
         self.store_backend.clear_path(
             [
                 func_id,
@@ -983,7 +971,7 @@ class Memory(Logger):
 
     Parameters
     ----------
-    location: str, pathlib.Path or None
+    location: str, os.PathLike or None
         The path of the base directory to use as a data store
         or None. If None is given, no caching is done and
         the Memory object is completely transparent. This option

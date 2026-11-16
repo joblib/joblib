@@ -1906,6 +1906,7 @@ class Parallel(Logger):
         try:
             self._iterating = True
             self._original_iterator = iterable
+            self._pre_dispatch_amount = 0
             batch_size = self._get_batch_size()
 
             if batch_size != 1:

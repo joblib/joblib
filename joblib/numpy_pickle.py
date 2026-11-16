@@ -514,9 +514,10 @@ def dump(value, filename, compress=0, protocol=None):
 
     Returns
     -------
-    filenames: list of strings
-        The list of file names in which the data is stored. If
-        compress is false, each array is stored in a different file.
+    filenames: list of str or None
+        A list containing the path of the file in which the data is stored.
+        If `filename` is a file object, returns None instead. All arrays are
+        stored in the same file, whether or not compression is enabled.
 
     See Also
     --------

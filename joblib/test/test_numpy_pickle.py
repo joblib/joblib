@@ -901,7 +901,7 @@ def test_in_memory_persistence():
     objs = [np.random.random((10, 10)), "some data"]
     for obj in objs:
         f = io.BytesIO()
-        numpy_pickle.dump(obj, f)
+        assert numpy_pickle.dump(obj, f) is None
         obj_reloaded = numpy_pickle.load(f)
         if isinstance(obj, np.ndarray):
             np.testing.assert_array_equal(obj_reloaded, obj)
@@ -1290,6 +1290,9 @@ def test_lz4_compression(tmpdir):
     with open(fname, "rb") as f:
         assert f.read(len(_LZ4_PREFIX)) == _LZ4_PREFIX
     assert numpy_pickle.load(fname) == data
+
+    # Assert no warning is raised because of unclosed files
+    warnings.filterwarnings("error", message="Exception ignored")
 
 
 @without_lz4
