@@ -31,7 +31,6 @@ try:
     from threadpoolctl import get_cached_controller as _get_threadpool_controller
 except ImportError:
     from threadpoolctl import ThreadpoolController as _get_threadpool_controller
-from threadpoolctl import OpenBLASController
 
 from ._multiprocessing_helpers import mp
 from ._utils import (
@@ -54,39 +53,6 @@ else:
     from .externals.loky import process_executor
     from .externals.loky.process_executor import ShutdownExecutorError
     from .pool import MemmappingPool
-
-
-def _get_threadpoolctl_limits(tp_controller, limit, worker_thread):
-    """Return limits for OpenMP/BLAS.
-
-    The limits can then be passed to ``ThreadpoolController.limit()`` and
-    related APIs.
-
-    Allows setting different limits for worker threads and top-level managing
-    thread.
-    """
-    limits = []
-
-    for lib_controller in tp_controller.lib_controllers:
-        if worker_thread and (
-            isinstance(lib_controller, OpenBLASController)
-            and lib_controller.threading_layer != "openmp"
-        ):
-            # Worker threads shouldn't try to set OpenBLAS-pthreads global
-            # state in their initializer, because it might never get restored.
-            continue
-
-        # "filepath" is for threadpoolctl 3.8+, "prefix" for backwards compat
-        # with older versions.
-        limits.append(
-            {
-                "filepath": lib_controller.filepath,
-                "prefix": lib_controller.prefix,
-                "num_threads": limit,
-            }
-        )
-
-    return limits
 
 
 class _MaxCores(threading.local):
@@ -648,18 +614,8 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
         self._threadpool_controller = _get_threadpool_controller()
         # Calculate how many cores a worker will get:
         self._worker_cores_per_thread = self._n_threads_for_worker_external_libs(n_jobs)
-        # Limit shared process-level pools (if any) from the current thread:
-        self._worker_threadpoolctl_limits = _get_threadpoolctl_limits(
-            self._threadpool_controller,
-            self._worker_cores_per_thread,
-            worker_thread=True,
-        )
         self._thread_limiter = self._threadpool_controller.limit(
-            limits=_get_threadpoolctl_limits(
-                self._threadpool_controller,
-                self._worker_cores_per_thread,
-                worker_thread=False,
-            )
+            limits=self._worker_cores_per_thread
         )
         CONTROLLING_THREAD_OWNERSHIP.increment()
         self.parallel = parallel
@@ -675,15 +631,21 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
         if self._pool is None:
 
             def init():
-                # Also set limits from within each Python worker thread so as to
-                # to avoid oversubscription caused by nested use of native threadpools
-                # with thread-local semantics (if any). Please refer to the
-                # threadpoolctl documentation for details about thread-local
-                # vs shared process-level threadpool limiting semantics.
+                # Also set limits from within each Python worker thread so as
+                # to to avoid oversubscription caused by nested use of native
+                # threadpools with thread-local semantics (if any). Please
+                # refer to the threadpoolctl documentation for details about
+                # thread-local vs shared process-level threadpool limiting
+                # semantics.
                 set_thread_local_cpu_limit(self._worker_cores_per_thread)
-                self._threadpool_controller.limit(
-                    limits=self._worker_threadpoolctl_limits
+                # Only latest threadpoolctl has the API specifically for Python
+                # worker threads:
+                limit = getattr(
+                    self._threadpool_controller,
+                    "limit_in_worker_thread",
+                    self._threadpool_controller.limit,
                 )
+                limit(limits=self._worker_cores_per_thread)
 
             self._pool = ThreadPool(self._n_jobs, initializer=init)
         return self._pool
