@@ -2449,13 +2449,18 @@ def test_openblas_restored_num_threads():
     openblas_lib = openblas_controller.lib_controllers[0]
     orig_n_threads = openblas_lib.get_num_threads()
 
+    results = []
+
+    def task(_):
+        results.append("ok")
+
     def call_parallel(n_jobs):
         for _ in range(20):
             Parallel(n_jobs=n_jobs, backend="threading")(
-                delayed(int)(i) for i in range(n_jobs)
+                delayed(task)(i) for i in range(n_jobs)
             )
             with Parallel(n_jobs=n_jobs, backend="threading") as parallel:
-                parallel(delayed(int)(i) for i in range(n_jobs))
+                parallel(delayed(task)(i) for i in range(n_jobs))
 
     # Check both threading and sequential backends:
     for parallelism_levels in [[2, 3, 4], [1, 1, 1]]:
@@ -2469,6 +2474,8 @@ def test_openblas_restored_num_threads():
         for thread in threads:
             thread.join()
 
+        assert len(results) == 20 * sum(parallelism_levels) * 2
+        del results[:]
         assert openblas_lib.get_num_threads() == orig_n_threads
 
 
