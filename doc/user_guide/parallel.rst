@@ -172,13 +172,11 @@ The main drawback of |cloudpickle| is that it can be slower than the :mod:`pickl
 
 - If you are on an UNIX system, you can switch back to the old ``multiprocessing`` backend. With this backend, interactively defined functions can be shared with the worker processes using the fast :mod:`pickle`. The main issue with this solution is that using ``fork`` to start the process breaks the standard POSIX and can have weird interaction with third party libraries such as ``numpy`` and ``openblas``.
 
-- If you wish to use the ``loky`` backend with a different serialization library, you can set the ``LOKY_PICKLER=mod_pickle`` environment variable to use the ``mod_pickle`` as the serialization library for ``loky``. The module ``mod_pickle`` passed as an argument should be importable as ``import mod_pickle`` and should contain a ``Pickler`` object, which will be used to serialize to objects. It can be set to ``LOKY_PICKLER=pickle`` to use the pickling module from stdlib. The main drawback with ``LOKY_PICKLER=pickle`` is that interactively defined functions will not be serializable anymore. To cope with this, you can use this solution together with the :func:`joblib.wrap_non_picklable_objects` wrapper, which can be used as a decorator to locally enable using |cloudpickle| for specific objects. This way, you can have fast pickling of all python objects and locally enable slow pickling for interactive functions. An example is given in loky_wrapper_.
+- If you wish to use the ``loky`` backend with a different serialization library, you can set the ``LOKY_PICKLER=mod_pickle`` environment variable to use the ``mod_pickle`` as the serialization library for ``loky``. The module ``mod_pickle`` passed as an argument should be importable as ``import mod_pickle`` and should contain a ``Pickler`` object, which will be used to serialize to objects. It can be set to ``LOKY_PICKLER=pickle`` to use the pickling module from stdlib. The main drawback with ``LOKY_PICKLER=pickle`` is that interactively defined functions will not be serializable anymore. To cope with this, you can use this solution together with the :func:`joblib.wrap_non_picklable_objects` wrapper, which can be used as a decorator to locally enable using |cloudpickle| for specific objects. This way, you can have fast pickling of all python objects and locally enable slow pickling for interactive functions. An example is given in :ref:`sphx_glr_auto_examples_serialization_and_wrappers.py`.
 
 .. |cloudpickle| raw:: html
 
     <a href="https://github.com/cloudpipe/cloudpickle"><code>cloudpickle</code></a>
-
-.. _loky_wrapper:  auto_examples/serialization_and_wrappers.html
 
 
 Shared-memory semantics

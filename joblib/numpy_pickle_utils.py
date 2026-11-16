@@ -7,7 +7,6 @@
 import contextlib
 import io
 import pickle
-import sys
 import warnings
 
 from .compressor import _COMPRESSORS, _ZFILE_PREFIX
@@ -48,38 +47,14 @@ def _get_prefixes_max_len():
     return max(prefixes)
 
 
-def _is_numpy_array_byte_order_mismatch(array):
-    """Check if numpy array is having byte order mismatch"""
-    return (
-        sys.byteorder == "big"
-        and (
-            array.dtype.byteorder == "<"
-            or (
-                array.dtype.byteorder == "|"
-                and array.dtype.fields
-                and all(e[0].byteorder == "<" for e in array.dtype.fields.values())
-            )
-        )
-    ) or (
-        sys.byteorder == "little"
-        and (
-            array.dtype.byteorder == ">"
-            or (
-                array.dtype.byteorder == "|"
-                and array.dtype.fields
-                and all(e[0].byteorder == ">" for e in array.dtype.fields.values())
-            )
-        )
-    )
-
-
 def _ensure_native_byte_order(array):
     """Use the byte order of the host while preserving values
 
     Does nothing if array already uses the system byte order.
     """
-    if _is_numpy_array_byte_order_mismatch(array):
-        array = array.byteswap().view(array.dtype.newbyteorder("="))
+    native_dtype = array.dtype.newbyteorder("=")
+    if array.dtype != native_dtype:
+        array = array.astype(native_dtype)
     return array
 
 
@@ -170,12 +145,14 @@ def _validate_fileobject_and_memmap(fileobj, filename, mmap_mode=None):
         )
         yield filename, validated_mmap_mode
     else:
+        file_must_be_closed = False
         if compressor in _COMPRESSORS:
             # based on the compressor detected in the file, we open the
             # correct decompressor file object, wrapped in a buffer.
             compressor_wrapper = _COMPRESSORS[compressor]
             inst = compressor_wrapper.decompressor_file(fileobj)
             fileobj = _buffered_read_file(inst)
+            file_must_be_closed = True
 
         # Checking if incompatible load parameters with the type of file:
         # mmap_mode cannot be used with compressed file or in memory buffers
@@ -205,7 +182,11 @@ def _validate_fileobject_and_memmap(fileobj, filename, mmap_mode=None):
             else:
                 validated_mmap_mode = mmap_mode
 
-        yield fileobj, validated_mmap_mode
+        try:
+            yield fileobj, validated_mmap_mode
+        finally:
+            if file_must_be_closed:
+                fileobj.close()
 
 
 def _write_fileobject(filename, compress=("zlib", 3)):
