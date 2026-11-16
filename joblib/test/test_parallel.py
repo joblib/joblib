@@ -26,6 +26,7 @@ from unittest import mock
 from uuid import uuid4
 
 import pytest
+import threadpoolctl
 from threadpoolctl import ThreadpoolController, threadpool_info
 
 import joblib
@@ -2437,6 +2438,10 @@ def test_openblas_restored_num_threads():
     OpenBLAS without OpenMP has a concept of a controlling thread in
     threadpoolctl, make sure it's cleared at the end of Parallel.
     """
+    version = [int(v) for v in threadpoolctl.__version__.split(".")[:3]]
+    if (int(version[0]), int(version[1])) <= (3, 8):
+        pytest.skip("requires threadpoolctl 3.8.1 or later")
+
     openblas_controller = ThreadpoolController().select(internal_api="openblas")
     if not openblas_controller.lib_controllers:
         pytest.skip("requires OpenBLAS.")
