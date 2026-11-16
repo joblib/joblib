@@ -11,7 +11,11 @@ In Development
 - Fix the memory order of contiguous memmap views passed to and returned from
   ``Parallel`` workers, preserving values and shared writes after transposing
   or reshaping the backing mapping.
-  https://github.com/joblib/joblib/issues/1019
+  https://github.com/joblib/joblib/pull/1934
+
+- Fix private edits to copy-on-write memmapped arrays being lost when transferring
+  arrays between worker processes.
+  https://github.com/joblib/joblib/pull/1940
 
 - Fix ``Logger.info`` to log to its configured namespace instead of the
   root logger.
