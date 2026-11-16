@@ -8,6 +8,10 @@ In Development
    This version changes the way functions defined in jupyter notebook are hashed.
    This invalidates existing cache and will automatically clear them in these cases.
 
+- Fix private edits to copy-on-write memmapped arrays being lost when transferring
+  arrays between worker processes.
+  https://github.com/joblib/joblib/pull/1940
+
 - Fix ``Logger.info`` to log to its configured namespace instead of the
   root logger.
   https://github.com/joblib/joblib/pull/1919
