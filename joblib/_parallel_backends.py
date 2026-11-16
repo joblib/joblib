@@ -652,13 +652,13 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
         self._worker_threadpoolctl_limits = _get_threadpoolctl_limits(
             self._threadpool_controller,
             self._worker_cores_per_thread,
-            True,
+            worker_thread=True,
         )
         self._thread_limiter = self._threadpool_controller.limit(
             limits=_get_threadpoolctl_limits(
                 self._threadpool_controller,
                 self._worker_cores_per_thread,
-                False,
+                worker_thread=False,
             )
         )
         CONTROLLING_THREAD_OWNERSHIP.increment()

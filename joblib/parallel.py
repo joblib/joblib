@@ -1917,7 +1917,7 @@ class Parallel(Logger):
                 limits=_get_threadpoolctl_limits(
                     tp_controller,
                     self._backend._n_threads_for_worker_external_libs(n_jobs=1),
-                    False,
+                    worker_thread=False,
                 )
             )
             self._iterating = True
