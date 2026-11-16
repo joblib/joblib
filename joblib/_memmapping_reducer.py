@@ -159,19 +159,18 @@ class _WeakArrayKeyMap:
 
 def _get_backing_memmap(a):
     """Recursively look up the original np.memmap instance base if any."""
-    b = getattr(a, "base", None)
-    if b is None:
-        # TODO: check scipy sparse datastructure if scipy is installed
-        # a nor its descendants do not have a memmap base
-        return None
+    while True:
+        b = getattr(a, "base", None)
+        if b is None:
+            # TODO: check scipy sparse datastructure if scipy is installed
+            # a nor its descendants do not have a memmap base
+            return None
 
-    elif isinstance(b, mmap):
-        # a is already a real memmap instance.
-        return a
+        if isinstance(b, mmap):
+            # a is already a real memmap instance.
+            return a
 
-    else:
-        # Recursive exploration of the base ancestry
-        return _get_backing_memmap(b)
+        a = b
 
 
 def _get_temp_dir(pool_folder_name, temp_folder=None):
