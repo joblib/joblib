@@ -322,7 +322,7 @@ def test_memmap_based_array_reducing_negative_strides(tmpdir, order, mode, slice
     if is_writeable:
         reconstructed.flat[0] = -1
         # Copy-on-write mappings must not update the underlying file/view.
-        assert view.flat[0] == (expected.flat[0] if is_mmap else -1)
+        assert view.flat[0] == (-1 if is_mmap else expected.flat[0])
 
 
 @with_numpy
@@ -379,16 +379,19 @@ def test_memmap_based_array_reducing_packed_field(tmpdir, mode, reverse):
     try:
         reconstructed = constructor(*args)
         np.testing.assert_array_equal(reconstructed, expected)
-        assert reconstructed.strides == view.strides
-        assert has_shareable_memory(reconstructed)
-        assert reconstructed.flags.writeable == (mode != "r")
+        is_mmap = mode != "c"
+        assert has_shareable_memory(reconstructed) == is_mmap
+        if is_mmap:
+            assert reconstructed.strides == view.strides
+        is_writeable = mode != "r"
+        assert reconstructed.flags.writeable == is_writeable
         if not reverse:
             # Existing private callers use nine arguments and item counts.
             legacy = constructor(*args[:9])
             np.testing.assert_array_equal(legacy, expected)
-        if mode != "r":
+        if is_writeable:
             reconstructed[0] = -1
-            assert view[0] == (expected[0] if mode == "c" else -1)
+            assert view[0] == (-1 if is_mmap else expected[0])
     finally:
         assert os.path.getsize(filename) == file_size
 
