@@ -4,7 +4,6 @@ Release Notes
 In Development
 --------------
 
-=======
 .. note::
    This version changes the way functions defined in jupyter notebook are hashed.
    This invalidates existing cache and will automatically clear them in these cases.
