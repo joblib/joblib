@@ -901,7 +901,7 @@ def test_in_memory_persistence():
     objs = [np.random.random((10, 10)), "some data"]
     for obj in objs:
         f = io.BytesIO()
-        numpy_pickle.dump(obj, f)
+        assert numpy_pickle.dump(obj, f) is None
         obj_reloaded = numpy_pickle.load(f)
         if isinstance(obj, np.ndarray):
             np.testing.assert_array_equal(obj_reloaded, obj)
