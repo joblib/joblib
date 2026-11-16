@@ -898,6 +898,7 @@ def test_batching_auto_subprocesses(backend):
 def test_sequential_exception_with_verbose(verbose, return_as):
     # Non-regression test: with n_jobs=1, the progress message printed when a
     # task fails raised AttributeError, which replaced the task's exception.
+    # See https://github.com/joblib/joblib/pull/1950
     with raises(ValueError):
         list(
             Parallel(n_jobs=1, verbose=verbose, return_as=return_as)(
