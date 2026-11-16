@@ -8,6 +8,11 @@ In Development
    This version changes the way functions defined in jupyter notebook are hashed.
    This invalidates existing cache and will automatically clear them in these cases.
 
+- Fix the memory order of contiguous memmap views passed to and returned from
+  ``Parallel`` workers, preserving values and shared writes after transposing
+  or reshaping the backing mapping.
+  https://github.com/joblib/joblib/pull/1934
+
 - Fix private edits to copy-on-write memmapped arrays being lost when transferring
   arrays between worker processes.
   https://github.com/joblib/joblib/pull/1940
