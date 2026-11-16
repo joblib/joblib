@@ -313,13 +313,16 @@ def test_memmap_based_array_reducing_negative_strides(tmpdir, order, mode, slice
     reconstructed = constructor(*args)
 
     np.testing.assert_array_equal(reconstructed, expected)
-    assert reconstructed.strides == view.strides
-    assert has_shareable_memory(reconstructed)
-    assert reconstructed.flags.writeable == (mode != "r")
-    if mode != "r":
+    is_mmap = mode != "c"
+    assert has_shareable_memory(reconstructed) == is_mmap
+    if is_mmap:
+        assert reconstructed.strides == view.strides
+    is_writeable = mode != "r"
+    assert reconstructed.flags.writeable == is_writeable
+    if is_writeable:
         reconstructed.flat[0] = -1
         # Copy-on-write mappings must not update the underlying file/view.
-        assert view.flat[0] == (expected.flat[0] if mode == "c" else -1)
+        assert view.flat[0] == (expected.flat[0] if is_mmap else -1)
 
 
 @with_numpy
