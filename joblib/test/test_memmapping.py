@@ -508,8 +508,6 @@ def test__strided_from_memmap(tmpdir):
         order="C",
         shape=size,
         strides=None,
-        total_buffer_len=None,
-        unlink_on_gc_collect=False,
     )
     assert isinstance(memmap_obj, np.memmap)
     assert memmap_obj.offset == offset
@@ -522,7 +520,6 @@ def test__strided_from_memmap(tmpdir):
         shape=(size // 2,),
         strides=(2,),
         total_buffer_len=size,
-        unlink_on_gc_collect=False,
     )
     assert _get_backing_memmap(memmap_backed_obj).offset == offset
 
