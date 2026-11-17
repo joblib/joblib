@@ -26,7 +26,6 @@ except NameError:
 
 try:
     import numpy as np
-    from numpy.lib.stride_tricks import as_strided
 except ImportError:
     np = None
 
@@ -245,8 +244,8 @@ def _strided_from_memmap(
     order,
     shape,
     strides,
-    total_buffer_len,
-    unlink_on_gc_collect,
+    total_buffer_len=0,
+    view_offset=0,
 ):
     """Reconstruct an array view on a memory mapped file."""
     if mode == "w+":
@@ -262,21 +261,21 @@ def _strided_from_memmap(
             mode=mode,
             offset=offset,
             order=order,
-            unlink_on_gc_collect=unlink_on_gc_collect,
         )
     else:
         # For non-contiguous data, memmap the total enclosing buffer and then
-        # extract the non-contiguous view with the stride-tricks API
+        # extract the non-contiguous view
         base = make_memmap(
             filename,
-            dtype=dtype,
+            dtype=np.uint8,
             shape=total_buffer_len,
             offset=offset,
             mode=mode,
             order=order,
-            unlink_on_gc_collect=unlink_on_gc_collect,
         )
-        return as_strided(base, shape=shape, strides=strides)
+        return np.ndarray(
+            shape=shape, dtype=dtype, buffer=base, offset=view_offset, strides=strides
+        )
 
 
 def _reduce_memmap_backed(a, m):
@@ -288,9 +287,8 @@ def _reduce_memmap_backed(a, m):
     """
     # offset that comes from the striding differences between a and m
     util.debug(
-        "[MEMMAP REDUCE] reducing a memmap-backed array (shape, {}, pid: {})".format(
-            a.shape, os.getpid()
-        )
+        "[MEMMAP REDUCE] reducing a memmap-backed array "
+        f"(shape: {a.shape}, pid: {os.getpid()})"
     )
     try:
         from numpy.lib.array_utils import byte_bounds
@@ -299,10 +297,11 @@ def _reduce_memmap_backed(a, m):
         from numpy import byte_bounds
     a_start, a_end = byte_bounds(a)
     m_start = byte_bounds(m)[0]
-    offset = a_start - m_start
-
     # offset from the backing memmap
-    offset += m.offset
+    offset = m.offset + (a_start - m_start)
+    total_buffer_len = a_end - a_start
+    # A negative stride puts the first logical element above the lower bound.
+    view_offset = a.__array_interface__["data"][0] - a_start
 
     # Use the view's order, which can differ from the backing mapping after
     # transposing or reshaping it. 1D arrays are both F and C contiguous.
@@ -314,12 +313,10 @@ def _reduce_memmap_backed(a, m):
     if a.flags["F_CONTIGUOUS"] or a.flags["C_CONTIGUOUS"]:
         # If the array is a contiguous view, no need to pass the strides
         strides = None
-        total_buffer_len = None
     else:
         # Compute the total number of items to map from which the strided
         # view will be extracted.
         strides = a.strides
-        total_buffer_len = (a_end - a_start) // a.itemsize
 
     return (
         _strided_from_memmap,
@@ -332,7 +329,7 @@ def _reduce_memmap_backed(a, m):
             a.shape,
             strides,
             total_buffer_len,
-            False,
+            view_offset,
         ),
     )
 
