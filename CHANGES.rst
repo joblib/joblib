@@ -4,6 +4,11 @@ Release Notes
 In Development
 --------------
 
+- Reduce temporary allocations in ``hash`` while preserving existing cache
+  keys. Large pickle streams spill to temporary storage, and noncontiguous
+  built-in numeric arrays are hashed in bounded blocks. The pickle path needs
+  writable temporary space; its backing may be memory-based on some systems.
+
 .. note::
    This version changes the way functions defined in jupyter notebook are hashed.
    This invalidates existing cache and will automatically clear them in these cases.
