@@ -5,8 +5,17 @@ In Development
 --------------
 
 .. note::
-   This version changes the way functions defined in jupyter notebook are hashed.
+   This version changes the hash of numpy arrays, invalidating cache using numpy
+   arrays. We recommend clearing your cache on updating to this version.
+
+   This version also changes the way functions defined in jupyter notebook are hashed.
    This invalidates existing cache and will automatically clear them in these cases.
+
+- Fix hashing and caching of NumPy masked arrays to account for their masks.
+  Hash of Numpy arrays no longer depends on their strides.
+  Fix the hash collision by reordering tuples with dtypes as ``(42, dtype("i4"))``
+  and ``(dtype('i4'), 42)``.
+  https://github.com/joblib/joblib/pull/1868
 
 - Preserve the values and shared-memory writes of reversed memmap-backed
   array views passed to ``Parallel`` workers.
