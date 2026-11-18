@@ -199,49 +199,6 @@ def test_hash_masked_array_state():
 
 
 @with_numpy
-def test_hash_masked_array_nomask():
-    array = np.ma.array([1, 2, 3], dtype="uint8")
-    unmasked = np.ma.array([1, 2, 3], dtype="uint8", mask=False)
-    assert np.isscalar(array.mask)
-    assert not np.isscalar(unmasked.mask)
-    assert hash(array) == hash(unmasked)
-
-
-@with_numpy
-@parametrize("dtype", ["uint8", "float64", "object"])
-@parametrize("layout", ["C", "F", "strided", "scalar", "empty"])
-def test_hash_masked_array_layout(dtype, layout):
-    array = np.ma.array(
-        np.arange(12).reshape(3, 4), dtype=dtype, mask=False, fill_value=0
-    )
-    array.mask[0, 0] = True
-    if layout == "F":
-        array = array.T
-    elif layout == "strided":
-        array = array[:, ::2]
-    elif layout == "scalar":
-        array = np.ma.array(1, dtype=dtype, mask=True, fill_value=0)
-    elif layout == "empty":
-        array = array[:0]
-    assert hash(array) == hash(array)
-    restored = pickle.loads(pickle.dumps(array))
-    assert hash(array) == hash(restored)
-
-
-@with_numpy
-def test_hash_masked_constant():
-    assert hash(np.ma.masked) == hash(pickle.loads(pickle.dumps(np.ma.masked)))
-    assert hash(np.ma.masked) != hash(np.ma.array(0.0, mask=False))
-
-
-@with_numpy
-def test_hash_masked_array_recursive_object():
-    array = np.ma.array(np.empty(1, dtype=object), mask=False)
-    array.data[0] = array
-    assert hash(array) == hash(array)
-
-
-@with_numpy
 @parametrize("dtype", ["datetime64[s]", "timedelta64[D]"])
 def test_numpy_datetime_array(dtype):
     # memoryview is not supported for some dtypes e.g. datetime64

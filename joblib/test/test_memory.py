@@ -137,27 +137,6 @@ def test_memory_integration(tmpdir):
     memory.cache(f)(1)
 
 
-@with_numpy
-@parametrize("dtype", ["uint8", "uint16", "float64", "object"])
-def test_memory_masked_array(tmp_path, dtype):
-    calls = []
-
-    @Memory(tmp_path, verbose=0).cache
-    def sum_valid(array):
-        calls.append(1)
-        return array.sum()
-
-    first = np.ma.array([1, 2, 3], dtype=dtype, mask=[False, False, True], fill_value=0)
-    second = np.ma.array(
-        [1, 2, 3], dtype=dtype, mask=[False, True, False], fill_value=0
-    )
-    assert sum_valid(first) == 3
-    assert sum_valid(second) == 4
-    assert sum_valid(first.copy()) == 3
-    assert sum_valid(second.copy()) == 4
-    assert len(calls) == 2
-
-
 @parametrize("call_before_reducing", [True, False])
 def test_parallel_call_cached_function_defined_in_jupyter(tmpdir, call_before_reducing):
     # Calling an interactively defined memory.cache()'d function inside a

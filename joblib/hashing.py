@@ -220,32 +220,6 @@ class NumpyHasher(Hasher):
             else:
                 klass = obj.__class__
 
-            # Special case of masked arrays
-            if issubclass(klass, self.np.ma.MaskedArray):
-                # We also store the mask before the data (we ignore hard_mask)
-                if isinstance(obj.mask, self.np.bool_):
-                    # If mask is a bool we create an array in order to have
-                    # hash(np.ma.array(...)) == hash(np.ma.array(..., mask=False))
-                    # As both objects represent fully unmasked arrays
-                    mask = (
-                        self.np.ones(obj.shape, dtype=bool)
-                        if obj.mask
-                        else self.np.zeros(obj.shape, dtype=bool)
-                    )
-                else:
-                    mask = self.np.ascontiguousarray(obj.mask)
-                self._hash.update(memoryview(mask))
-
-                # Use obj.filled() to become independent on masked values
-                # but dependent on the fill_value when some values are masked
-                try:
-                    obj = obj.filled()
-                except AttributeError:
-                    # Constant masked array as `np.ma.masked` can't use filled()
-                    # For `np.ma.masked`, no value is masked so it is fine to use
-                    # obj.data
-                    obj = obj.data
-
             # Compute a hash of the object (if it has at least one dimension)
             # The update function of the hash requires a c_contiguous buffer.
             if obj.ndim:
