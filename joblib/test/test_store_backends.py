@@ -1,14 +1,17 @@
 import functools
+import json
 import os
 import pickle as cpickle
+import threading
 import time
 import types
 import warnings
+from concurrent.futures import ThreadPoolExecutor
 from pickle import PicklingError
 
 import pytest
 
-from joblib import Parallel, delayed, numpy_pickle
+from joblib import Memory, Parallel, delayed, numpy_pickle
 from joblib._store_backends import (
     CacheWarning,
     FileSystemStoreBackend,
@@ -177,3 +180,64 @@ def test_cache_tree_versions(tmpdir):
     assert old_store.load_item((funs[1], args[0])) == conflict_item
     with raises(KeyError):
         old_store.load_item(("not_a_function", args[0]))
+
+
+@parametrize("operation", ["initialize", "migrate_start", "migrate_finish"])
+def test_cache_info_is_published_atomically(tmp_path, monkeypatch, operation):
+    # Pause a real file write after opening it, while a second Memory opens
+    # the same cache. Readers must never see a truncated metadata file.
+    import joblib._store_backends as store_backends
+
+    location = tmp_path / "cache"
+    info_path = location / "joblib" / "store_backend_info.json"
+    if operation != "initialize":
+        memory = Memory(str(location), verbose=0)
+
+    opened = threading.Event()
+    resume = threading.Event()
+    main_thread = threading.current_thread()
+    write_count = 0
+    target_write = 2 if operation == "migrate_finish" else 1
+
+    def coordinated_open(filename, mode="r", *args, **kwargs):
+        nonlocal write_count
+        file = open(filename, mode, *args, **kwargs)
+        if (
+            threading.current_thread() is not main_thread
+            and str(filename).startswith(str(info_path))
+            and mode == "wb"
+        ):
+            write_count += 1
+            if write_count == target_write:
+                opened.set()
+                if not resume.wait(timeout=10):
+                    file.close()
+                    raise TimeoutError("Cache metadata reader did not finish")
+        return file
+
+    monkeypatch.setattr(store_backends, "open", coordinated_open, raising=False)
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        if operation == "initialize":
+            writer = pool.submit(Memory, str(location), verbose=0)
+        else:
+            writer = pool.submit(memory.update_cache_tree)
+        try:
+            assert opened.wait(timeout=10)
+            # The migration-finish reader may observe the valid in-progress
+            # migration flag; it must still be able to construct the cache.
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", UserWarning)
+                reader = Memory(str(location), verbose=0)
+        finally:
+            resume.set()
+        writer.result(timeout=10)
+
+    def sum_values(values):
+        return sum(values)
+
+    assert reader.cache(sum_values)([1, 2, 3]) == 6
+    assert json.loads(info_path.read_text()) == {
+        "cache_version": 2,
+        "require_update": False,
+    }
+    assert list(info_path.parent.glob("store_backend_info.json.*")) == []
