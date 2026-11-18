@@ -195,9 +195,13 @@ class NumpyHasher(Hasher):
             else:
                 klass = obj.__class__
 
+            # Special case of masked arrays
             if issubclass(klass, self.np.ma.MaskedArray):
-                # We also store the mask before the data
+                # We also store the mask before the data (we ignore hard_mask)
                 if isinstance(obj.mask, self.np.bool):
+                    # If mask is a bool we create an array in order to have
+                    # hash(np.ma.array(...)) == hash(np.ma.array(..., mask=False))
+                    # As both objects reprensent fully unmasked arrays
                     mask = (
                         self.np.ones(obj.shape, dtype=bool)
                         if obj.mask
