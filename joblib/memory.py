@@ -53,6 +53,20 @@ FIRST_LINE_TEXT = "# first line:"
 # mechanism.
 
 
+def _is_coroutine_function(func):
+    """Return True if calling `func` returns a coroutine.
+
+    This covers plain async functions as well as callable instances
+    whose ``__call__`` is async. Classes are excluded: calling a class
+    builds an instance, even when its ``__call__`` is async.
+    """
+    if inspect.iscoroutinefunction(func):
+        return True
+    if isinstance(func, type):
+        return False
+    return inspect.iscoroutinefunction(getattr(func, "__call__", None))
+
+
 def extract_first_line(func_code):
     """Extract the first line information from the function code
     text if available.
@@ -1105,7 +1119,7 @@ class Memory(Logger):
         if self.store_backend is None:
             cls = (
                 AsyncNotMemorizedFunc
-                if inspect.iscoroutinefunction(func)
+                if _is_coroutine_function(func)
                 else NotMemorizedFunc
             )
             return cls(func)
@@ -1115,7 +1129,7 @@ class Memory(Logger):
             mmap_mode = self.mmap_mode
         if isinstance(func, MemorizedFunc):
             func = func.func
-        cls = AsyncMemorizedFunc if inspect.iscoroutinefunction(func) else MemorizedFunc
+        cls = AsyncMemorizedFunc if _is_coroutine_function(func) else MemorizedFunc
 
         # To reuse backend_options which is not an argument of MemorizedFunc
         # we recreate the store_backend here
