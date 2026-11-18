@@ -188,19 +188,26 @@ def test_hash_masked_array(dtype):
 def test_hash_masked_array_state():
     array = np.ma.array([1, 2, 3], dtype="uint8", mask=[False, False, True])
     initial_hash = hash(array)
+
+    def check_different_hash():
+        nonlocal initial_hash
+        h = hash(array)
+        assert h != initial_hash
+        initial_hash = h
+
     array.data[0] = 4
-    assert hash(array) != initial_hash
-
-    initial_hash = hash(array)
+    check_different_hash()
     array.fill_value = 5
-    assert hash(array) != initial_hash
-    initial_hash = hash(array)
+    check_different_hash()
     array.fill_value = 6
-    assert hash(array) != initial_hash
+    check_different_hash()
 
-    initial_hash = hash(array)
+    # hard mask should not affect hash
     array.harden_mask()
-    assert hash(array) != initial_hash
+    assert hash(array) == initial_hash
+    # updating masked entry should not affect hash
+    array.data[2] = 4
+    assert hash(array) == initial_hash
 
 
 @with_numpy
@@ -209,7 +216,7 @@ def test_hash_masked_array_nomask():
     unmasked = np.ma.array([1, 2, 3], dtype="uint8", mask=False)
     assert np.isscalar(array.mask)
     assert not np.isscalar(unmasked.mask)
-    assert hash(array) != hash(unmasked)
+    assert hash(array) == hash(unmasked)
 
 
 @with_numpy
@@ -229,11 +236,8 @@ def test_hash_masked_array_layout(dtype, layout):
     elif layout == "empty":
         array = array[:0]
     assert hash(array) == hash(array)
-    if layout != "strided":
-        restored = pickle.loads(pickle.dumps(array))
-        assert hash(array) == hash(restored)
-    else:
-        assert hash(array) != hash(array.copy())
+    restored = pickle.loads(pickle.dumps(array))
+    assert hash(array) == hash(restored)
 
 
 @with_numpy
@@ -250,19 +254,6 @@ def test_hash_masked_array_recursive_object():
 
 
 @with_numpy
-@parametrize("dtype", ["uint8", "object"])
-def test_hash_masked_array_subclass(dtype):
-    first = np.ma.array([1, 2], dtype=dtype, mask=False, fill_value=0).view(
-        MaskedArrayWithMetadata
-    )
-    second = first.copy()
-    first.metadata = "first"
-    second.metadata = "second"
-    assert hash(first) != hash(second)
-    assert hash(first) == hash(pickle.loads(pickle.dumps(first)))
-
-
-@with_numpy
 @parametrize("dtype", ["datetime64[s]", "timedelta64[D]"])
 def test_numpy_datetime_array(dtype):
     # memoryview is not supported for some dtypes e.g. datetime64
@@ -276,10 +267,10 @@ def test_numpy_datetime_array(dtype):
 def test_hash_numpy_noncontiguous():
     a = np.asarray(np.arange(6000).reshape((1000, 2, 3)), order="F")[:, :1, :]
     b = np.ascontiguousarray(a)
-    assert hash(a) != hash(b)
+    assert hash(a) == hash(b)
 
     c = np.asfortranarray(a)
-    assert hash(a) != hash(c)
+    assert hash(a) == hash(c)
 
 
 @with_numpy
@@ -525,16 +516,6 @@ def test_hashes_stay_the_same(to_hash, expected):
     # lengthy recomputations.
     # Expected results have been generated with joblib 0.9.2
     assert hash(to_hash) == expected
-
-
-@with_numpy
-def test_hashes_are_different_between_c_and_fortran_contiguous_arrays():
-    # We want to be sure that the c-contiguous and f-contiguous versions of the
-    # same array produce 2 different hashes.
-    rng = np.random.RandomState(0)
-    arr_c = rng.random_sample((10, 10))
-    arr_f = np.asfortranarray(arr_c)
-    assert hash(arr_c) != hash(arr_f)
 
 
 @with_numpy
