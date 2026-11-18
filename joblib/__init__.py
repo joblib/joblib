@@ -137,6 +137,7 @@ __all__ = [
     # Parallel code execution
     "Parallel",
     "delayed",
+    # Not the same as loky.cpu_count(), it also has per-thread limits:
     "cpu_count",
     "effective_n_jobs",
     "wrap_non_picklable_objects",

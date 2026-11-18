@@ -4,13 +4,79 @@ Release Notes
 In Development
 --------------
 
-- Fix hashing and caching of NumPy masked arrays to account for their masks,
-  fill values and hard masks, and avoid errors for multi-byte dtypes.
-  https://github.com/joblib/joblib/issues/573
+.. note::
+   This version changes the hash of numpy arrays, invalidating cache using numpy
+   arrays. We recommend clearing your cache on updating to this version.
+
+   This version also changes the way functions defined in jupyter notebook are hashed.
+   This invalidates existing cache and will automatically clear them in these cases.
+
+- Fix hashing and caching of NumPy masked arrays to account for their masks.
+  Hash of Numpy arrays no longer depends on their strides.
+  Fix the hash collision by reordering tuples with dtypes as ``(42, dtype("i4"))``
+  ans ``(dtype('i4'), 42)``.
+  https://github.com/joblib/joblib/pull/1868
+
+- Preserve the values and shared-memory writes of reversed memmap-backed
+  array views passed to ``Parallel`` workers.
+  https://github.com/joblib/joblib/pull/1872
+
+- Fix the memory order of contiguous memmap views passed to and returned from
+  ``Parallel`` workers, preserving values and shared writes after transposing
+  or reshaping the backing mapping.
+  https://github.com/joblib/joblib/pull/1934
+
+- Fix private edits to copy-on-write memmapped arrays being lost when transferring
+  arrays between worker processes.
+  https://github.com/joblib/joblib/pull/1940
+
+- Fix ``Logger.info`` to log to its configured namespace instead of the
+  root logger.
+  https://github.com/joblib/joblib/pull/1919
+
+- Fix hashing of ``frozenset`` to be independent of ``PYTHONHASHSEED``.
+  https://github.com/joblib/joblib/pull/1914
+
+- Temporary files created when dumping an item in the cache are now deleted on
+  dumping failure.
+  https://github.com/joblib/joblib/pull/1922
+
+- Fix ``hash`` to correctly handle ``type(None)``, ``type(NotImplemented)`` and
+  ``type(...)``.
+  https://github.com/joblib/joblib/pull/1928
+
+- Fix ``Memory().cache`` to work on functions having positional-only arguments.
+  Using "*" keyword argument in cached function is also now possible.
+  https://github.com/joblib/joblib/pull/1936
+
+- Fix ``await cached_func.call(...)`` for async functions when caching is
+  disabled with ``Memory(location=None)``. The call now awaits the function
+  and returns its output with empty metadata.
+  https://github.com/joblib/joblib/issues/1876
+
+- Fix the ``ensure_native_byte_order`` parameter of ``numpy_pickle.load``
+  to apply correctly to structured NumPy arrays.
+  https://github.com/joblib/joblib/pull/1895
+
+- Fix ``MemorizedFunc.call`` to register the function code so subsequent regular
+  calls can reuse its cached result.
+  https://github.com/joblib/joblib/pull/1897
+
+- ``FileSystemStoreBackend`` (and hence ``Memory``) now stores its items using the format
+  "abc/defghijklmnopqrstuvwxyzabcdef/output.pkl" instead of
+  "abcdefghijklmnopqrstuvwxyzabcdef/output.pkl" in order to limit the number
+  of inodes inside the root cache directory. Migrating existing cache to this more
+  efficient behavior with ``Memory(...).update_cache_tree()``
+  https://github.com/joblib/joblib/pull/1781
 
 - Fix ``Memory.cache(..., mmap_mode=..., verbose=...)`` to now uses its parameters
   mmap_mode and verbose instead of using the values used at Memory creation time.
   https://github.com/joblib/joblib/pull/1857
+
+- Fix ``Memory`` to accept any ``os.PathLike`` object as ``location``, like
+  ``pathlib.Path``. Other path-like objects previously disabled caching with a
+  warning.
+  https://github.com/joblib/joblib/pull/1945
 
 - A non-positive value for ``pre_dispatch`` in ``Parallel`` now raises a
   ValueError.
@@ -28,14 +94,33 @@ In Development
 - Fix ``eval_expr`` to reject an oversized power before evaluating it.
   https://github.com/joblib/joblib/pull/1841
 
+- Fix a leaked temporary folder registration per ``Parallel`` call, which the
+  ``resource_tracker`` reported as leaked when ``atexit`` finalizers did not run.
+  https://github.com/joblib/joblib/pull/1829
+
+- A worker recycled for a suspected memory leak is now reported once per
+  executor with an accurate message (threshold configurable via
+  ``LOKY_MAX_MEMORY_LEAK_SIZE``), and turning that warning into an error no
+  longer hangs ``Parallel``.
+  https://github.com/joblib/joblib/issues/883
+  https://github.com/joblib/joblib/pull/1829
+
 - Update to latest ``loky``, v3.7.0. See
   https://github.com/joblib/loky/blob/master/CHANGES.md#370---2026-09-29 for
   details.
   https://github.com/joblib/joblib/pull/1834
 
+- Fix a thread-safety issue in ``joblib.memory.Memory``.
+  https://github.com/joblib/joblib/pull/1892
+
 - Fix a number of thread-safety issues when using reusable process executors
   from multiple threads.
   https://github.com/joblib/joblib/pull/1834
+
+- Dropped support for Python 3.10, which is now end-of-life. NumPy and
+  Distributed minimum supported versions were also increased to the oldest
+  versions that support 3.11.
+  https://github.com/joblib/joblib/pull/1888
 
 
 Release 1.6.0 - 2026/08/31

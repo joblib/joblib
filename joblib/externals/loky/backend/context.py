@@ -102,8 +102,7 @@ def cpu_count(only_physical_cores=False):
     On other platforms, it's the number of physical cores on the whole
     machine, since the affinity mask cannot be taken into account there.
 
-    Note that on Windows, the returned number of CPUs cannot exceed 61 (or 60 for
-    Python < 3.10), see:
+    Note that on Windows, the returned number of CPUs cannot exceed 61, see:
     https://bugs.python.org/issue26903.
 
     It is also always larger or equal to 1.
