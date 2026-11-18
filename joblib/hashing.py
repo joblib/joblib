@@ -199,38 +199,15 @@ class NumpyHasher(Hasher):
         import numpy as np
 
         self.np = np
-        if hasattr(np, "getbuffer"):
-            self._getbuffer = np.getbuffer
-        else:
-            self._getbuffer = memoryview
 
     def save(self, obj):
         """Subclass the save method, to hash ndarray subclass, rather
         than pickling them. Off course, this is a total abuse of
         the Pickler class.
         """
-        if isinstance(obj, self.np.ndarray) and not obj.dtype.hasobject:
-            # Compute a hash of the object
-            # The update function of the hash requires a c_contiguous buffer.
-            if obj.shape == ():
-                # 0d arrays need to be flattened because viewing them as bytes
-                # raises a ValueError exception.
-                obj_c_contiguous = obj.flatten()
-            elif obj.flags.c_contiguous:
-                obj_c_contiguous = obj
-            elif obj.flags.f_contiguous:
-                obj_c_contiguous = obj.T
-            else:
-                # Cater for non-single-segment arrays: this creates a
-                # copy, and thus alleviates this issue.
-                # XXX: There might be a more efficient way of doing this
-                obj_c_contiguous = obj.flatten()
-
-            # memoryview is not supported for some dtypes, e.g. datetime64, see
-            # https://github.com/numpy/numpy/issues/4983. The
-            # workaround is to view the array as bytes before
-            # taking the memoryview.
-            self._hash.update(self._getbuffer(obj_c_contiguous.view(self.np.uint8)))
+        if isinstance(obj, self.np.ndarray):
+            if obj.dtype.hasobject:
+                return Hasher.save(self, obj)
 
             # We store the class, to be able to distinguish between
             # Objects with the same binary content, but different
@@ -242,11 +219,22 @@ class NumpyHasher(Hasher):
                 klass = self.np.ndarray
             else:
                 klass = obj.__class__
+
+            # Compute a hash of the object (if it has at least one dimension)
+            # The update function of the hash requires a c_contiguous buffer.
+            if obj.ndim:
+                # memoryview is not supported for some dtypes, e.g. datetime64, see
+                # https://github.com/numpy/numpy/issues/4983. The
+                # workaround is to view the array as bytes before
+                # taking the memoryview.
+                self._hash.update(
+                    memoryview(self.np.ascontiguousarray(obj).view(self.np.uint8))
+                )
+
             # We also return the dtype and the shape, to distinguish
             # different views on the same data with different dtypes.
-
             # The object will be pickled by the pickler hashed at the end.
-            obj = (klass, ("HASHED", obj.dtype, obj.shape, obj.strides))
+            obj = _MyHash(klass, obj.dtype, obj.shape)
         elif isinstance(obj, self.np.dtype):
             # numpy.dtype consistent hashing is tricky to get right. This comes
             # from the fact that atomic np.dtype objects are interned:
@@ -263,9 +251,7 @@ class NumpyHasher(Hasher):
             # the serialization (and thus the pickle memoization) of each dtype
             # using each time a different ``pickle.dumps`` call unrelated to
             # the current Hasher instance.
-            self._hash.update("_HASHED_DTYPE".encode("utf-8"))
-            self._hash.update(pickle.dumps(obj))
-            return
+            obj = _MyHash(obj.__class__, pickle.dumps(obj))
         Hasher.save(self, obj)
 
 
