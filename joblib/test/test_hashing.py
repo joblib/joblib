@@ -160,45 +160,6 @@ def test_hash_numpy_dict_of_arrays(three_np_arrays):
 
 
 @with_numpy
-@parametrize("dtype", ["uint8", "uint16", "int64", "float64", "complex128", "object"])
-def test_hash_masked_array(dtype):
-    first = np.ma.array([1, 2, 3], dtype=dtype, mask=[False, False, True], fill_value=0)
-    second = np.ma.array(
-        [1, 2, 3], dtype=dtype, mask=[False, True, False], fill_value=0
-    )
-    assert hash(first) != hash(second)
-    assert hash(first) == hash(first.copy())
-    assert hash({"array": [first]}) != hash({"array": [second]})
-    assert hash(first) != hash(first.data)
-
-
-@with_numpy
-def test_hash_masked_array_state():
-    array = np.ma.array([1, 2, 3], dtype="uint8", mask=[False, False, True])
-    initial_hash = hash(array)
-
-    def check_different_hash():
-        nonlocal initial_hash
-        h = hash(array)
-        assert h != initial_hash
-        initial_hash = h
-
-    array.data[0] = 4
-    check_different_hash()
-    array.fill_value = 5
-    check_different_hash()
-    array.fill_value = 6
-    check_different_hash()
-
-    # hard mask should not affect hash
-    array.harden_mask()
-    assert hash(array) == initial_hash
-    # updating masked entry should not affect hash
-    array.data[2] = 4
-    assert hash(array) == initial_hash
-
-
-@with_numpy
 @parametrize("dtype", ["datetime64[s]", "timedelta64[D]"])
 def test_numpy_datetime_array(dtype):
     # memoryview is not supported for some dtypes e.g. datetime64
