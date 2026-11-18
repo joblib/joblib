@@ -226,7 +226,7 @@ class NumpyHasher(Hasher):
                 if isinstance(obj.mask, self.np.bool):
                     # If mask is a bool we create an array in order to have
                     # hash(np.ma.array(...)) == hash(np.ma.array(..., mask=False))
-                    # As both objects reprensent fully unmasked arrays
+                    # As both objects represent fully unmasked arrays
                     mask = (
                         self.np.ones(obj.shape, dtype=bool)
                         if obj.mask
@@ -236,8 +236,8 @@ class NumpyHasher(Hasher):
                     mask = self.np.ascontiguousarray(obj.mask)
                 self._hash.update(memoryview(mask))
 
-                # Use obj.filled() to become independant on masked values
-                # but dependant on the fill_value when some values are masked
+                # Use obj.filled() to become independent on masked values
+                # but dependent on the fill_value when some values are masked
                 try:
                     obj = obj.filled()
                 except AttributeError:
