@@ -113,6 +113,11 @@ In Development
   versions that support 3.11.
   https://github.com/joblib/joblib/pull/1888
 
+- Fix ``Memory.cache`` to use the async wrapper for callable instances
+  whose ``__call__`` is async, so their results are cached instead of
+  recomputed on every call.
+  https://github.com/joblib/joblib/pull/1953
+
 
 Release 1.6.0 - 2026/08/31
 --------------------------
