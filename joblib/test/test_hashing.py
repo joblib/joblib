@@ -66,18 +66,6 @@ class KlassWithCachedMethod(object):
         return x
 
 
-if np is not None:
-
-    class MaskedArrayWithMetadata(np.ma.MaskedArray):
-        def __reduce__(self):
-            constructor, args, state = super().__reduce__()
-            return constructor, args, (state, self.metadata)
-
-        def __setstate__(self, state):
-            super().__setstate__(state[0])
-            self.metadata = state[1]
-
-
 ###############################################################################
 # Tests
 
