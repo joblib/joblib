@@ -1395,6 +1395,12 @@ def test_dummy_store_backend():
     assert isinstance(backend_obj, DummyStoreBackend)
 
 
+def test_singleflight_rejects_custom_store_backend():
+    memory = Memory(location=DummyStoreBackend())
+    with pytest.raises(ValueError, match="requires the local filesystem store"):
+        memory.cache(f, singleflight=True)
+
+
 def test_instanciate_store_backend_with_pathlib_path():
     # Instantiate a FileSystemStoreBackend using a pathlib.Path object
     path = Path("some_folder")
