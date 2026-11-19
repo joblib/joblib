@@ -1714,14 +1714,14 @@ def test_memory_path(tmpdir):
     test(mem2)
 
     # Update the path
-    with warnings.catch_warnings(record=True) as ws:
-        mem2.update_store_backend_location()
-        assert len(ws) == 0, ws[0].message
-    assert mem2.location == tmpdir.strpath
-    assert mem2.store_backend.location == tmpdir.strpath
+    # test 2 times, to be sure calling the method again doesn't break anything
+    for _ in range(2):
+        with warnings.catch_warnings(record=True) as ws:
+            mem2.update_store_backend_location()
+            assert len(ws) == 0, ws[0].message
+        assert mem2.location == tmpdir.strpath
+        assert mem2.store_backend.location == tmpdir.strpath
     test(mem2)
-
-    # Retry to update
 
     # Recreate and assert no warnings is raised this time
     with warnings.catch_warnings(record=True) as ws:
