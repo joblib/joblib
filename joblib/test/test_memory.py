@@ -191,10 +191,11 @@ def test_parallel_call_cached_function_defined_in_jupyter(tmpdir, call_before_re
         # and 'store_backend_info.json'
         assert len(os.listdir(tmpdir)) == 3
         tmpdir_entries = os.listdir(tmpdir)
-        assert any("ipython-input" in entry for entry in tmpdir_entries)
-        f_cache_relative_directory = tmpdir_entries[
-            0 if "ipython-input" in tmpdir_entries[0] else 1
-        ]
+        f_cache_relative_directory = next(
+            (e for e in tmpdir_entries if "ipython-input" in e),
+            None,
+        )
+        assert f_cache_relative_directory is not None
 
         f_cache_directory = tmpdir / f_cache_relative_directory
 
