@@ -66,9 +66,9 @@ def test_store_cached_func_code_is_not_written_in_place(tmpdir):
     backend = FileSystemStoreBackend()
     backend.configure(tmpdir.join("store").strpath)
 
-    call_id = ("mod", "func")
-    backend.store_cached_func_code(call_id, "# first line: 1\ndef f(): pass\n")
-    original = backend.get_cached_func_code(call_id)
+    func_id = ("func",)
+    backend.store_cached_func_code(func_id, "# first line: 1\ndef f(): pass\n")
+    original = backend.get_cached_func_code(func_id)
 
     def exploding_open(name, mode):
         open(name, mode).close()  # truncates whatever it is pointed at
@@ -77,10 +77,10 @@ def test_store_cached_func_code_is_not_written_in_place(tmpdir):
     old_open = backend._open_item
     backend._open_item = exploding_open
     with pytest.raises(RuntimeError, match="boom"):
-        backend.store_cached_func_code(call_id, "# first line: 1\ndef g(): pass\n")
+        backend.store_cached_func_code(func_id, "# first line: 1\ndef g(): pass\n")
 
     backend._open_item = old_open
-    assert backend.get_cached_func_code(call_id) == original
+    assert backend.get_cached_func_code(func_id) == original
 
 
 def test_warning_on_dump_failure(tmp_path):

@@ -7,12 +7,14 @@ import operator
 import os
 import os.path
 import shutil
+import tempfile
 import threading
 import time
 import types
 import uuid
 import warnings
 from abc import ABCMeta, abstractmethod
+from pathlib import Path
 from pickle import PicklingError
 
 from . import numpy_pickle
@@ -285,6 +287,12 @@ class StoreBackendMixin(object):
         func_path = os.path.join(self.location, *call_id)
         if not self._item_exists(func_path):
             self.create_location(func_path)
+            # XXX: To remove in joblib 1.9
+            # When caching a function in joblib module, we need to add the file
+            # module_directory.info such that joblib know it's not the root of a
+            # cache directory
+            if Path(call_id[0]).parts[0] == "joblib":
+                (Path(self.location) / "joblib" / "module_directory.info").touch()
 
         if func_code is not None:
             filename = os.path.join(func_path, "func_code.py")
@@ -652,6 +660,35 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
 
         self.mmap_mode = mmap_mode
         self.verbose = verbose
+
+    # XXX: To remove in joblib 1.9
+    def _move_to_parent_directory(self):
+        dir = Path(self.location)
+        assert dir.name == "joblib"
+        assert not (dir / "module_directory.info").is_file()
+        new_dir = dir.parent
+        tmp_dir = None
+        for item in dir.iterdir():
+            if item.name == "joblib":
+                # When item is "joblib", moving it to new_dir
+                # will erase dir and raise an error.
+                # So, we first move the item to a temporary
+                tmp_dir = tempfile.TemporaryDirectory()
+                shutil.move(str(item), tmp_dir.name)
+            else:
+                dest = new_dir / item.name
+                if dest.exists():
+                    if dest.is_dir():
+                        shutil.rmtree(dest)
+                    else:
+                        dest.unlink()
+                shutil.move(str(item), str(dest))
+        dir.rmdir()
+        if tmp_dir:
+            shutil.move(os.path.join(tmp_dir.name, "joblib"), self.location)
+            (dir / "module_directory.info").touch()
+            tmp_dir.cleanup()
+        self.location = str(new_dir)
 
     def _split_id(self, call_id):
         if len(call_id) == 0 or not _check_hex(call_id[-1], 32):

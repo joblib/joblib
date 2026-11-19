@@ -22,6 +22,7 @@ import tokenize
 import traceback
 import warnings
 import weakref
+from pathlib import Path
 
 from . import hashing
 from ._store_backends import (
@@ -1034,7 +1035,18 @@ class Memory(Logger):
 
         self.location = location
         if isinstance(location, str):
-            location = os.path.join(location, "joblib")
+            folder = Path(location) / "joblib"
+            if folder.is_dir() and not (folder / "module_directory.info").is_file():
+                warnings.warn(
+                    f"Memory({location!r}) is using the already existing "
+                    f"store_backend at {str(folder)!r}.\n"
+                    "Starting with joblib 1.9, the store_backend will no longer "
+                    "be located in the 'joblib' subfolder.\n"
+                    f"Please run Memory({location!r}).update_store_backend_location() "
+                    "to move the store_backend to the correct location."
+                )
+                location = str(folder)
+                self.use_joblib_folder = True
 
         self.store_backend = _store_backend_factory(
             backend,
@@ -1122,7 +1134,7 @@ class Memory(Logger):
         store_backend = self.store_backend
         if (verbose, mmap_mode) != (self._verbose, self.mmap_mode):
             location = self.location
-            if isinstance(location, str):
+            if getattr(self, "use_joblib_folder", False):
                 location = os.path.join(location, "joblib")
             store_backend = _store_backend_factory(
                 self.backend,
@@ -1211,6 +1223,19 @@ class Memory(Logger):
             return func(*args, **kwargs)
         return self.cache(func)(*args, **kwargs)
 
+    # XXX: To remove in joblib 1.9
+    def update_store_backend_location(self):
+        if not getattr(self, "use_joblib_folder", False):
+            return
+        try:
+            self.store_backend._move_to_parent_directory()
+            self.use_joblib_folder = False
+        except Exception as e:
+            warnings.warn(
+                f"Failed to update memory location with error:\n{type(e).__name__}: {e}"
+            )
+
+    # XXX: To remove in joblib 1.9
     def update_cache_tree(self):
         """Update the cache tree to a more efficient system
         when using backend 'local'.
