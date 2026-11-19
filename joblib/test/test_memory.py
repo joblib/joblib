@@ -187,16 +187,16 @@ def test_parallel_call_cached_function_defined_in_jupyter(tmpdir, call_before_re
         memory = Memory(location=tmpdir.strpath, verbose=0)
         cached_f = memory.cache(f)
 
-        # The store backend should contain both the function directory
+        # The store backend should contain the function directory, '.gitignore'
         # and 'store_backend_info.json'
-        assert len(os.listdir(tmpdir / "joblib")) == 2
-        tmpdir_entries = os.listdir(tmpdir / "joblib")
+        assert len(os.listdir(tmpdir)) == 3
+        tmpdir_entries = os.listdir(tmpdir)
         assert any("ipython-input" in entry for entry in tmpdir_entries)
         f_cache_relative_directory = tmpdir_entries[
             0 if "ipython-input" in tmpdir_entries[0] else 1
         ]
 
-        f_cache_directory = tmpdir / "joblib" / f_cache_relative_directory
+        f_cache_directory = tmpdir / f_cache_relative_directory
 
         if session_no == 0:
             # The cache should be empty as cached_f has not been called yet.
@@ -658,15 +658,15 @@ def test_func_dir(tmpdir):
     memory = Memory(location=tmpdir.strpath, verbose=0)
     path = __name__.split(".")
     path.append("f")
-    path = tmpdir.join("joblib", *path).strpath
+    path = tmpdir.join(*path).strpath
 
     g = memory.cache(f)
+    assert memory.location == g.store_backend.location
     # Test that the function directory is created on demand
     func_id = _build_func_identifier(f)
     location = os.path.join(g.store_backend.location, func_id)
     assert location == path
     assert os.path.exists(path)
-    assert memory.location == os.path.dirname(g.store_backend.location)
 
     # Test that the code is stored.
     # For the following test to be robust to previous execution, we clear
@@ -1180,7 +1180,10 @@ def test_memory_clear(tmpdir):
     memory, _, g = _setup_toy_cache(tmpdir)
     memory.clear()
 
-    assert os.listdir(memory.store_backend.location) == ["store_backend_info.json"]
+    assert set(os.listdir(memory.store_backend.location)) == {
+        ".gitignore",
+        "store_backend_info.json",
+    }
 
     # Check that the cache for functions hash is also reset.
     assert not g._check_previous_func_code(stacklevel=4)
@@ -1445,10 +1448,7 @@ def test_memory_cache_preserves_location(
     identity.__module__ = "user_module"
     with TemporaryDirectory() as root:
         memory = Memory(location_type(root), mmap_mode=memory_mmap_mode, verbose=0)
-        expected_location = (
-            os.path.join(root, "joblib") if location_type is str else root
-        )
-        assert memory.store_backend.location == expected_location
+        assert memory.store_backend.location == root
         cached = memory.cache(identity, **cache_options)
         assert cached.store_backend.mmap_mode == cache_options.get(
             "mmap_mode", memory_mmap_mode
@@ -1462,7 +1462,7 @@ def test_memory_cache_preserves_location(
             memory.reduce_size(items_limit=0)
         with raises(KeyError):
             result.get()
-        assert cached.store_backend.location == expected_location
+        assert cached.store_backend.location == root
 
 
 @parametrize("location_type", [str, Path, _CustomPathLike])

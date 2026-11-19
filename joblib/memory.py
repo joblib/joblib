@@ -1134,7 +1134,7 @@ class Memory(Logger):
         store_backend = self.store_backend
         if (verbose, mmap_mode) != (self._verbose, self.mmap_mode):
             location = self.location
-            if isinstance(location, str):
+            if getattr(self, "use_joblib_folder", False):
                 location = os.path.join(location, "joblib")
             store_backend = _store_backend_factory(
                 self.backend,
