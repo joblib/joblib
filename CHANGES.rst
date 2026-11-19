@@ -8,6 +8,9 @@ In Development
    This version changes the way functions defined in jupyter notebook are hashed.
    This invalidates existing cache and will automatically clear them in these cases.
 
+- Honor each ``Parallel`` object's ``temp_folder`` when reusing a loky
+  executor, without changing other active calls' temporary folders.
+
 - Preserve the values and shared-memory writes of reversed memmap-backed
   array views passed to ``Parallel`` workers.
   https://github.com/joblib/joblib/pull/1872
