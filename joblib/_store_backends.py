@@ -287,6 +287,12 @@ class StoreBackendMixin(object):
         func_path = os.path.join(self.location, *call_id)
         if not self._item_exists(func_path):
             self.create_location(func_path)
+            # XXX: To remove in joblib 1.9
+            # When caching a function in joblib module, we need to add the file
+            # module_directory.info such that joblib know it's not the root of a
+            # cache directory
+            if Path(call_id[0]).parts[0] == "joblib":
+                (Path(self.location) / "joblib" / "module_directory.info").touch()
 
         if func_code is not None:
             filename = os.path.join(func_path, "func_code.py")
