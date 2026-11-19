@@ -22,6 +22,7 @@ import tokenize
 import traceback
 import warnings
 import weakref
+from pathlib import Path
 
 from . import hashing
 from ._store_backends import (
@@ -1034,17 +1035,17 @@ class Memory(Logger):
 
         self.location = location
         if isinstance(location, str):
-            new_location = os.path.join(location, "joblib")
-            if os.path.exists(new_location):
+            folder = Path(location) / "joblib"
+            if folder.is_dir() and not (folder / "module_directory.info").is_file():
                 warnings.warn(
                     f"Memory({location!r}) is using the already existing "
-                    f"store_backend at {new_location!r}.\n"
-                    "Starting with joblib 1.8, the store_backend will no longer "
+                    f"store_backend at {str(folder)!r}.\n"
+                    "Starting with joblib 1.9, the store_backend will no longer "
                     "be located in the 'joblib' subfolder.\n"
                     f"Please run Memory({location!r}).update_store_backend_location() "
                     "to move the store_backend to the correct location."
                 )
-                location = new_location
+                location = str(folder)
                 self.use_joblib_folder = True
 
         self.store_backend = _store_backend_factory(

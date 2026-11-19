@@ -7,6 +7,7 @@ import operator
 import os
 import os.path
 import shutil
+import tempfile
 import threading
 import time
 import types
@@ -658,17 +659,29 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
     def _move_to_parent_directory(self):
         dir = Path(self.location)
         assert dir.name == "joblib"
+        assert not (dir / "module_directory.info").is_file()
         new_dir = dir.parent
-        # XXX: If item.name == "joblib" then we delete the old cache...
+        tmp_dir = None
         for item in dir.iterdir():
-            dest = new_dir / item.name
-            if dest.exists():
-                if dest.is_dir():
-                    shutil.rmtree(dest)
-                else:
-                    dest.unlink()
-            shutil.move(str(item), str(dest))
+            if item.name == "joblib":
+                # When item is "joblib", moving it to new_dir
+                # will erase dir and raise an error.
+                # So, we first move the item to a temporary
+                tmp_dir = tempfile.TemporaryDirectory()
+                shutil.move(str(item), tmp_dir.name)
+            else:
+                dest = new_dir / item.name
+                if dest.exists():
+                    if dest.is_dir():
+                        shutil.rmtree(dest)
+                    else:
+                        dest.unlink()
+                shutil.move(str(item), str(dest))
         dir.rmdir()
+        if tmp_dir:
+            shutil.move(os.path.join(tmp_dir.name, "joblib"), self.location)
+            (dir / "module_directory.info").touch()
+            tmp_dir.cleanup()
         self.location = str(new_dir)
 
     def _split_id(self, call_id):
