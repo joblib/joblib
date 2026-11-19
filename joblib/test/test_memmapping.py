@@ -48,6 +48,12 @@ def check_memmap_and_send_back(array):
     return array
 
 
+def edit_copy_on_write_memmap(path, strided):
+    array = np.load(path, mmap_mode="c")
+    array[0] = 200
+    return np.asarray(array)[::2] if strided else array
+
+
 def check_array(args):
     """Dummy helper function to be executed in subprocesses
 
@@ -72,6 +78,116 @@ def inplace_double(args):
     assert data[position] == expected
     data[position] *= 2
     np.testing.assert_array_equal(data[position], 2 * expected)
+
+
+@with_numpy
+@pytest.mark.parametrize("order", ["C", "F"])
+@pytest.mark.parametrize("view", ["original", "transpose", "reshape"])
+@pytest.mark.parametrize("asarray", [False, True])
+def test_contiguous_memmap_view_order(tmp_path, order, view, asarray):
+    shape = (12,) if view == "reshape" else (3, 4)
+    backing = np.memmap(
+        tmp_path / "data.mmap",
+        dtype=np.int64,
+        mode="w+",
+        shape=shape,
+        order=order,
+        offset=16,
+    )
+    backing[:] = np.arange(12).reshape(shape)
+    if view == "transpose":
+        array = backing.T
+    elif view == "reshape":
+        array = backing.reshape((3, 4), order=order)
+    else:
+        array = backing
+    if asarray:
+        array = np.asarray(array)
+
+    reducer = ArrayMemmapForwardReducer(None, tmp_path, "r", True)
+    constructor, args = reducer(array)
+    reconstructed = constructor(*args)
+
+    np.testing.assert_array_equal(reconstructed, array)
+    assert reconstructed.strides == array.strides
+    assert has_shareable_memory(reconstructed)
+    reconstructed[1, 1] = -1
+    assert array[1, 1] == -1
+
+
+@with_numpy
+@with_multiprocessing
+@pytest.mark.parametrize("order", ["C", "F"])
+def test_transposed_memmap_parallel(tmp_path, order):
+    # A contiguous view can have a different order from its backing mapping.
+    # Both the parent-to-worker and worker-to-parent reducers must preserve it.
+    backing = np.memmap(
+        tmp_path / "data.mmap",
+        dtype=np.int64,
+        mode="w+",
+        shape=(2, 5),
+        order=order,
+    )
+    backing[:] = np.arange(10).reshape(backing.shape)
+    array = backing.T
+    expected = np.array(array)
+
+    def modify_and_transpose(array, expected):
+        np.testing.assert_array_equal(array, expected)
+        assert has_shareable_memory(array)
+        array[:, 0] = 1
+        array[:, 1] = 10
+        return array.T
+
+    (returned,) = Parallel(n_jobs=2)([delayed(modify_and_transpose)(array, expected)])
+    expected[:, 0] = 1
+    expected[:, 1] = 10
+    np.testing.assert_array_equal(array, expected)
+    np.testing.assert_array_equal(returned, expected.T)
+    assert returned.strides == backing.strides
+    assert has_shareable_memory(returned)
+
+
+@with_numpy
+@with_multiprocessing
+@parametrize("backend", ["loky", "multiprocessing"])
+@parametrize("strided", [False, True], ids=["memmap", "strided-view"])
+def test_parallel_preserves_copy_on_write_memmap_edits(tmp_path, backend, strided):
+    path = tmp_path / "original.npy"
+    original = np.arange(6)
+    np.save(path, original)
+    mapped = np.load(path, mmap_mode="c")
+    array = np.asarray(mapped)[::2] if strided else mapped
+    expected = (original[::2] if strided else original).copy()
+
+    # Keep the same pool and array across calls to catch reuse of a stale copy.
+    with Parallel(n_jobs=2, backend=backend, max_nbytes=1) as parallel:
+        for value in (100, 101):
+            mapped[0] = value
+            expected[0] = value
+            received = parallel(delayed(np.copy)(array) for _ in range(2))
+            np.testing.assert_array_equal(received, [expected, expected])
+    np.testing.assert_array_equal(np.load(path), original)
+
+
+@with_numpy
+@with_multiprocessing
+@parametrize("backend", ["loky", "multiprocessing"])
+@parametrize("strided", [False, True], ids=["memmap", "strided-view"])
+def test_parallel_preserves_returned_copy_on_write_memmap_edits(
+    tmp_path, backend, strided
+):
+    path = tmp_path / "original.npy"
+    original = np.arange(6)
+    np.save(path, original)
+    expected = (original[::2] if strided else original).copy()
+    expected[0] = 200
+
+    received = Parallel(n_jobs=2, backend=backend)(
+        delayed(edit_copy_on_write_memmap)(path, strided) for _ in range(2)
+    )
+    np.testing.assert_array_equal(received, [expected, expected])
+    np.testing.assert_array_equal(np.load(path), original)
 
 
 @with_numpy
@@ -160,6 +276,124 @@ def test_memmap_based_array_reducing(tmpdir):
     assert isinstance(b3_reconstructed, np.ndarray)
     assert not has_shareable_memory(b3_reconstructed)
     assert_array_equal(b3_reconstructed, b3)
+
+
+@with_numpy
+@with_multiprocessing
+@parametrize("order", ["C", "F"])
+@parametrize("mode", ["r", "r+", "w+", "c"])
+@parametrize(
+    "slices",
+    [
+        (5, slice(6, 2, -1)),
+        (slice(5, 7), slice(5, 2, -1)),
+        (slice(6, 4, -1), slice(3, 6)),
+        (slice(6, 4, -1), slice(5, 2, -1)),
+        (slice(5, 7), slice(3, 6, 2)),
+    ],
+)
+def test_memmap_based_array_reducing_negative_strides(tmpdir, order, mode, slices):
+    filename = tmpdir.join("test.mmap").strpath
+    # Leave a prefix and use an interior view so the file and view offsets
+    # both need to be preserved, independently of the backing array order.
+    original = np.memmap(
+        filename, dtype=np.int64, shape=(10, 10), mode="w+", order=order, offset=16
+    )
+    original[:] = np.arange(100).reshape(10, 10)
+    original.flush()
+    if mode != "w+":
+        del original
+        original = np.memmap(
+            filename, dtype=np.int64, shape=(10, 10), mode=mode, order=order, offset=16
+        )
+    view = original[slices]
+    expected = view.copy()
+    reducer = ArrayMemmapForwardReducer(None, tmpdir.strpath, "c", True)
+    constructor, args = reducer(view)
+    reconstructed = constructor(*args)
+
+    np.testing.assert_array_equal(reconstructed, expected)
+    is_mmap = mode != "c"
+    assert has_shareable_memory(reconstructed) == is_mmap
+    if is_mmap:
+        assert reconstructed.strides == view.strides
+    is_writeable = mode != "r"
+    assert reconstructed.flags.writeable == is_writeable
+    if is_writeable:
+        reconstructed.flat[0] = -1
+        # Copy-on-write mappings must not update the underlying file/view.
+        assert view.flat[0] == (-1 if is_mmap else expected.flat[0])
+
+
+@with_numpy
+@with_multiprocessing
+@parametrize("order", ["C", "F"])
+@parametrize("mode", ["r", "r+"])
+def test_parallel_memmap_negative_strides(tmpdir, order, mode):
+    filename = tmpdir.join("test.mmap").strpath
+    original = np.memmap(
+        filename, dtype=np.int64, shape=(10, 10), mode="w+", order=order
+    )
+    original[:] = np.arange(100).reshape(10, 10)
+    original.flush()
+    del original
+    original = np.memmap(
+        filename, dtype=np.int64, shape=(10, 10), mode=mode, order=order
+    )
+    views = [original[5, 6:2:-1], original[6:4:-1, 5:2:-1]]
+    with Parallel(n_jobs=2, backend="loky") as parallel:
+        parallel(delayed(check_array)((view, Ellipsis, view.copy())) for view in views)
+        results = parallel(delayed(check_memmap_and_send_back)(view) for view in views)
+        for result, view in zip(results, views):
+            np.testing.assert_array_equal(result, view)
+            assert has_shareable_memory(result)
+        if mode == "r+":
+            view = views[1]
+            expected = view[0, 0]
+            parallel([delayed(inplace_double)((view, (0, 0), expected))])
+            assert original[6, 5] == 2 * expected
+
+
+@with_numpy
+@with_multiprocessing
+@parametrize("mode", ["r", "r+", "c"])
+@parametrize("reverse", [False, True])
+def test_memmap_based_array_reducing_packed_field(tmpdir, mode, reverse):
+    filename = tmpdir.join("packed.mmap").strpath
+    dtype = np.dtype([("a", "i4"), ("b", "i8")])
+    original = np.memmap(filename, dtype=dtype, shape=4, mode="w+", offset=64)
+    original["b"] = [101, 102, 103, 104]
+    original.flush()
+    del original
+    original = np.memmap(filename, dtype=dtype, shape=4, mode=mode, offset=64)
+    view = original["b"]
+    if reverse:
+        view = view[::-1]
+    expected = view.copy()
+    file_size = os.path.getsize(filename)
+    assert file_size == 64 + 4 * dtype.itemsize
+    # The last field ends at EOF. Its 44-byte span is not a multiple of the
+    # 8-byte field dtype, so neither rounding down nor rounding up is valid.
+    reducer = ArrayMemmapForwardReducer(None, tmpdir.strpath, "c", True)
+    constructor, args = reducer(view)
+    try:
+        reconstructed = constructor(*args)
+        np.testing.assert_array_equal(reconstructed, expected)
+        is_mmap = mode != "c"
+        assert has_shareable_memory(reconstructed) == is_mmap
+        if is_mmap:
+            assert reconstructed.strides == view.strides
+        is_writeable = mode != "r"
+        assert reconstructed.flags.writeable == is_writeable
+        if not reverse:
+            # Existing private callers use nine arguments and item counts.
+            legacy = constructor(*args[:9])
+            np.testing.assert_array_equal(legacy, expected)
+        if is_writeable:
+            reconstructed[0] = -1
+            assert view[0] == (-1 if is_mmap else expected[0])
+    finally:
+        assert os.path.getsize(filename) == file_size
 
 
 @with_numpy
@@ -274,8 +508,6 @@ def test__strided_from_memmap(tmpdir):
         order="C",
         shape=size,
         strides=None,
-        total_buffer_len=None,
-        unlink_on_gc_collect=False,
     )
     assert isinstance(memmap_obj, np.memmap)
     assert memmap_obj.offset == offset
@@ -288,7 +520,6 @@ def test__strided_from_memmap(tmpdir):
         shape=(size // 2,),
         strides=(2,),
         total_buffer_len=size,
-        unlink_on_gc_collect=False,
     )
     assert _get_backing_memmap(memmap_backed_obj).offset == offset
 
