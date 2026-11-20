@@ -377,6 +377,22 @@ def test_loky_cores_split_up_in_subprocess(set_env, request):
 # Test parallel
 
 
+@parametrize("backend", ["sequential", "threading", "loky"])
+@parametrize("verbose", [-1, -2, -10])
+def test_negative_verbose_is_silent(backend, verbose, capsys):
+    # Regression test for https://github.com/joblib/joblib/issues/873
+    # A negative verbose used to make print_progress() hit ZeroDivisionError
+    # (frequency = (total_tasks // verbose) + 1 evaluates to 0) or hang
+    # with the threading backend.
+    result = Parallel(n_jobs=2, backend=backend, verbose=verbose)(
+        delayed(sqrt)(i**2) for i in range(10)
+    )
+    assert result == [float(i) for i in range(10)]
+    out, err = capsys.readouterr()
+    assert out == ""
+    assert err == ""
+
+
 @parametrize("backend", ALL_VALID_BACKENDS)
 @parametrize("n_jobs", [1, 2, -1, -2])
 @parametrize("verbose", [2, 11, 100])

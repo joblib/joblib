@@ -8,6 +8,10 @@ In Development
    This version changes the way functions defined in jupyter notebook are hashed.
    This invalidates existing cache and will automatically clear them in these cases.
 
+- Treat negative ``Parallel`` verbosity as silent to avoid progress-reporting
+  errors and hangs with the threading backend.
+  https://github.com/joblib/joblib/issues/873
+
 - Preserve the values and shared-memory writes of reversed memmap-backed
   array views passed to ``Parallel`` workers.
   https://github.com/joblib/joblib/pull/1872
