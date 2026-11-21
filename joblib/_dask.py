@@ -5,6 +5,7 @@ import concurrent.futures
 import contextlib
 import time
 import weakref
+from numbers import Real
 from uuid import uuid4
 
 from ._utils import (
@@ -153,6 +154,7 @@ class DaskDistributedBackend(AutoBatchingMixin, ParallelBackendBase):
         client=None,
         loop=None,
         wait_for_workers_timeout=10,
+        scatter_threshold=1000,
         **submit_kwargs,
     ):
         super().__init__()
@@ -164,6 +166,12 @@ class DaskDistributedBackend(AutoBatchingMixin, ParallelBackendBase):
                 "to fix this error."
             )
             raise ValueError(msg)
+
+        if scatter_threshold is not None and (
+            not isinstance(scatter_threshold, Real) or not scatter_threshold >= 0
+        ):
+            raise ValueError("scatter_threshold must be a non-negative number or None")
+        self.scatter_threshold = scatter_threshold
 
         if client is None:
             if scheduler_host:
@@ -291,7 +299,11 @@ class DaskDistributedBackend(AutoBatchingMixin, ParallelBackendBase):
                     except KeyError:
                         pass
                     if f is None:
-                        if is_weakrefable(arg) and sizeof(arg) > 1e3:
+                        if (
+                            self.scatter_threshold is not None
+                            and is_weakrefable(arg)
+                            and sizeof(arg) > self.scatter_threshold
+                        ):
                             # Automatically scatter large objects to some of
                             # the workers to avoid duplicated data transfers.
                             # Rely on automated inter-worker data stealing if
