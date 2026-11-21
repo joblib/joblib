@@ -484,6 +484,30 @@ list::
     >>> # my_func was not reevaluated
 
 
+Omitting arguments from logs
+---------------------------
+
+Formatting a large object for a call message can take time, even when that
+argument is excluded from hashing with ``ignore``. Use ``ignore_in_logs`` to
+omit selected argument values from call messages and newly stored
+``input_args`` metadata, without formatting them::
+
+    >>> @memory.cache(ignore_in_logs=['data'])
+    ... def total(data):
+    ...     return sum(data)
+    >>> total([1, 2, 3])
+    6
+    >>> total([1, 2, 4])
+    7
+
+``ignore_in_logs`` does not change the cache key: changing ``data`` still
+causes recomputation. It can be combined with ``ignore`` when an argument
+should also be excluded from hashing. With a nonempty ``ignore_in_logs``
+list, the remaining arguments are displayed by name, including defaults.
+As with ``ignore``, use ``'*'`` or ``'**'`` for all extra positional or keyword
+arguments. Existing cache entries and their metadata are left unchanged.
+
+
 Custom cache validation
 -----------------------
 
