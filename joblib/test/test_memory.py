@@ -618,6 +618,153 @@ def test_memory_ignore_decorated(tmpdir):
     assert len(accumulator) == 1
 
 
+class UnformattableArgument:
+    def __init__(self, value):
+        self.value = value
+
+    def __repr__(self):
+        raise AssertionError("This argument should not be formatted")
+
+
+@parametrize("verbose", [0, 1, 20])
+@parametrize("as_keyword", [False, True])
+@parametrize("ignore_hash", [False, True])
+def test_memory_ignore_in_logs(tmp_path, verbose, as_keyword, ignore_hash):
+    memory = Memory(tmp_path, verbose=verbose)
+    calls = []
+    ignored = ["data"] if ignore_hash else []
+
+    @memory.cache(ignore=ignored, ignore_in_logs=["data"])
+    def compute(x, data):
+        calls.append(data.value)
+        return x + data.value
+
+    def call(value):
+        data = UnformattableArgument(value)
+        if as_keyword:
+            return compute(1, data=data)
+        return compute(1, data)
+
+    assert call(2) == 3
+    assert call(2) == 3
+    assert call(3) == (3 if ignore_hash else 4)
+    assert calls == ([2] if ignore_hash else [2, 3])
+    data = UnformattableArgument(2)
+    assert compute.check_call_in_cache(1, data)
+    metadata = compute.store_backend.get_metadata(
+        (compute.func_id, compute._get_args_id(1, data))
+    )
+    assert metadata["input_args"] == {"x": "1"}
+    assert memory.cache(compute.func, ignore=ignored, verbose=0)(1, data) == 3
+
+
+@parametrize("verbose", [0, 1, 20])
+def test_memory_ignore_in_logs_corrupt_cache(tmp_path, monkeypatch, verbose):
+    memory = Memory(tmp_path, verbose=verbose)
+    calls = []
+
+    @memory.cache(ignore_in_logs=["data"])
+    def compute(data):
+        calls.append(1)
+        return data.value
+
+    data = UnformattableArgument(5)
+    assert compute(data) == 5
+    corrupt_single_cache_item(memory)
+    recorded = monkeypatch_cached_func_warn(compute, monkeypatch)
+    assert compute(data) == 5
+    assert calls == [1, 1]
+    assert any("Exception while loading results" in message for message in recorded)
+
+
+def test_memory_ignore_in_logs_variadic(tmp_path, capsys):
+    memory = Memory(tmp_path)
+
+    @memory.cache(ignore_in_logs=["data", "*", "**"])
+    def compute(data, /, *args, visible=1, **kwargs):
+        return data.value + args[0].value + kwargs["other"].value + visible
+
+    data = UnformattableArgument(2)
+    result, metadata = compute.call(data, data, other=data)
+    assert result == 7
+    assert metadata["input_args"] == {"visible": "1"}
+    assert "compute(visible=1)" in capsys.readouterr().out
+    assert compute.call_and_shelve(data, data, other=data).get() == 7
+
+
+def test_memory_ignore_in_logs_bound_method(tmp_path):
+    class Estimator:
+        def compute(self, data, *, visible):
+            return data.value + visible
+
+    memory = Memory(tmp_path)
+    compute = memory.cache(
+        Estimator().compute,
+        ignore=["self"],
+        ignore_in_logs=["self", "data"],
+    )
+    assert compute(UnformattableArgument(2), visible=3) == 5
+
+
+def test_memory_ignore_in_logs_named_func_argument(tmp_path, capsys):
+    @Memory(tmp_path).cache(ignore_in_logs=["data"])
+    def compute(func, data):
+        return func + data.value
+
+    assert compute(1, UnformattableArgument(2)) == 3
+    assert "compute(func=1)" in capsys.readouterr().out
+
+
+@parametrize("ignore_in_logs", [["missing"], "x", ""])
+def test_memory_ignore_in_logs_invalid(tmp_path, ignore_in_logs):
+    memory = Memory(tmp_path, verbose=0)
+    with raises(ValueError, match="ignore_lst|Ignore list"):
+        memory.cache(f, ignore_in_logs=ignore_in_logs)(1)
+
+
+def test_memory_ignore_in_logs_pickle(tmp_path):
+    cached = Memory(tmp_path, verbose=0).cache(f, ignore_in_logs=["y"])
+    assert cached(2, y=3) == 7
+    restored = pickle.loads(pickle.dumps(cached))
+    assert restored.ignore_in_logs == ["y"]
+    assert restored.check_call_in_cache(2, y=3)
+    assert restored(2, y=3) == 7
+
+
+@parametrize("verbose", [0, 20])
+def test_memory_ignore_in_logs_legacy_pickle(tmp_path, verbose):
+    cached = Memory(tmp_path, verbose=verbose).cache(f)
+    assert cached(2, y=3) == 7
+    # Older wrappers did not store an ignore_in_logs field in their pickle state.
+    cached.__dict__.pop("ignore_in_logs", None)
+    restored = pickle.loads(pickle.dumps(cached))
+    assert restored.check_call_in_cache(2, y=3)
+    assert restored(2, y=3) == 7
+    assert restored(3, y=3) == 12
+    result, metadata = restored.call(2, y=3)
+    assert result == 7
+    assert metadata["input_args"] == {"x": "2", "y": "3"}
+
+
+def test_memory_ignore_in_logs_memorized_func(tmp_path):
+    def compute(data):
+        return data.value
+
+    cached = MemorizedFunc(compute, tmp_path, ignore_in_logs=["data"])
+    assert cached(UnformattableArgument(2)) == 2
+    assert cached(UnformattableArgument(3)) == 3
+
+
+def test_memory_ignore_in_logs_disabled_cache():
+    @Memory(location=None).cache(ignore_in_logs=["data"])
+    def compute(data):
+        return data.value
+
+    assert compute(UnformattableArgument(2)) == 2
+    assert compute.call(UnformattableArgument(3)) == (3, {})
+    assert compute.call_and_shelve(UnformattableArgument(4)).get() == 4
+
+
 def test_memory_args_as_kwargs(tmpdir):
     """Non-regression test against 0.12.0 changes.
 
