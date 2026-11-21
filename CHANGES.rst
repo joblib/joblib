@@ -8,6 +8,10 @@ In Development
    This version changes the way functions defined in jupyter notebook are hashed.
    This invalidates existing cache and will automatically clear them in these cases.
 
+- Add a ``scatter_threshold`` parameter to the Dask backend to configure or
+  disable automatic argument scattering while keeping the 1000-byte default.
+  https://github.com/joblib/joblib/issues/1036
+
 - Preserve the values and shared-memory writes of reversed memmap-backed
   array views passed to ``Parallel`` workers.
   https://github.com/joblib/joblib/pull/1872
