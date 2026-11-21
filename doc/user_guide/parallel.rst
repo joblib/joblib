@@ -155,6 +155,21 @@ backends you can use:
 * `Joblib Apache Spark Backend <https://github.com/joblib/joblib-spark>`_
   to distribute joblib tasks on a Spark cluster.
 
+The Dask backend automatically scatters weak-referenceable arguments larger than
+1000 bytes to avoid repeatedly transferring the same object. Its
+``scatter_threshold`` backend parameter sets this size threshold in bytes,
+using Dask's ``sizeof`` estimate. An argument exactly as large as the threshold
+is not automatically scattered. For example, after creating a Dask client::
+
+    >>> with parallel_config(backend="dask", scatter_threshold=10000):  # doctest: +SKIP
+    ...     results = Parallel()(delayed(process)(data) for data in inputs)
+
+Use ``scatter_threshold=None`` to disable automatic scattering, or ``0`` to
+scatter all eligible arguments with a nonzero size. This parameter also works
+with :func:`~joblib.parallel_backend`. It does not change explicit scattering
+requested with ``scatter=[...]`` or the ``max_nbytes`` memory-mapping setting
+used by process-based backends.
+
 It is also possible to provide a custom backend implementation, as described in
 :ref:`custom_parallel_backend`.
 
