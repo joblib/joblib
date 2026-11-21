@@ -383,6 +383,59 @@ def test_auto_scatter(loop_in_thread):
             assert counts[b["address"]] == 0
 
 
+@with_numpy
+@pytest.mark.parametrize("context", [parallel_config, parallel_backend])
+@pytest.mark.parametrize(
+    "scatter_threshold, expected_scatters",
+    [(0, 1), (999, 1), (1000, 0), (1001, 0), (None, 0)],
+)
+def test_auto_scatter_threshold(
+    context, scatter_threshold, expected_scatters, monkeypatch
+):
+    # Non-regression test for https://github.com/joblib/joblib/issues/1036.
+    data = np.ones(1000, dtype=np.uint8)
+    with LocalCluster(
+        n_workers=2, threads_per_worker=1, processes=False, dashboard_address=None
+    ) as cluster:
+        with Client(cluster) as client:
+            scattered = []
+            original_scatter = client.scatter
+
+            def record_scatter(value, **kwargs):
+                scattered.append(value)
+                return original_scatter(value, **kwargs)
+
+            monkeypatch.setattr(client, "scatter", record_scatter)
+            with context("dask", scatter_threshold=scatter_threshold):
+                results = Parallel(batch_size=1)(
+                    delayed(add5)(data, data, data, d=data, e=data) for _ in range(4)
+                )
+            for result in results:
+                np.testing.assert_array_equal(result, data * 5)
+            assert len(scattered) == expected_scatters
+            assert all(value is data for value in scattered)
+
+
+@with_numpy
+def test_auto_scatter_disabled_with_manual_scatter():
+    data = np.ones(10000, dtype=np.uint8)
+    with LocalCluster(
+        n_workers=2, threads_per_worker=1, processes=False, dashboard_address=None
+    ) as cluster:
+        with Client(cluster) as client:
+            with parallel_config("dask", scatter_threshold=None, scatter=[data]):
+                results = Parallel()(delayed(add5)(data, data, data) for _ in range(2))
+            for result in results:
+                np.testing.assert_array_equal(result, data * 3)
+            assert sum(count_events("receive-from-scatter", client).values()) == 2
+
+
+@pytest.mark.parametrize("scatter_threshold", [-1, float("nan"), "1M", object()])
+def test_invalid_scatter_threshold(scatter_threshold):
+    with pytest.raises(ValueError, match="scatter_threshold"):
+        DaskDistributedBackend(scatter_threshold=scatter_threshold)
+
+
 @pytest.mark.parametrize("retry_no", list(range(2)))
 def test_nested_scatter(loop, retry_no):
     np = pytest.importorskip("numpy")
