@@ -30,9 +30,9 @@ from ._store_backends import (
     StoreBackendBase,
 )
 from .func_inspect import (
+    _format_signature,
     filter_args,
     format_call,
-    format_signature,
     get_func_code,
     get_func_name,
 )
@@ -405,6 +405,11 @@ class MemorizedFunc(Logger):
         the callback is called with the cache entry's metadata as its sole
         argument. If it returns True, the cached result is returned, else the
         cache for these arguments is cleared and the result is recomputed.
+
+    ignore_in_logs: list of strings or None, optional
+        Argument names to omit from call messages and newly stored input
+        metadata, without affecting hashing. Use '*' or '**' to omit all
+        extra positional or keyword arguments, respectively.
     """
 
     # ------------------------------------------------------------------------
@@ -422,6 +427,7 @@ class MemorizedFunc(Logger):
         verbose=1,
         timestamp=None,
         cache_validation_callback=None,
+        ignore_in_logs=None,
     ):
         Logger.__init__(self)
         self.mmap_mode = mmap_mode
@@ -430,6 +436,7 @@ class MemorizedFunc(Logger):
         self.cache_validation_callback = cache_validation_callback
         self.func_id = _build_func_identifier(func)
         self.ignore = ignore if ignore is not None else []
+        self.ignore_in_logs = ignore_in_logs
         self._verbose = verbose
 
         # retrieve store object from backend type and location.
@@ -522,7 +529,9 @@ class MemorizedFunc(Logger):
 
         if self._verbose >= 20:
             logging.basicConfig(level=logging.INFO)
-            _, signature = format_signature(self.func, *args, **kwargs)
+            _, signature = _format_signature(
+                self.func, args, kwargs, ignore=self.ignore_in_logs
+            )
             self.info(
                 textwrap.dedent(
                     f"""
@@ -553,7 +562,9 @@ class MemorizedFunc(Logger):
                 return output, {}
             except Exception:
                 # XXX: Should use an exception logger
-                _, signature = format_signature(self.func, *args, **kwargs)
+                _, signature = _format_signature(
+                    self.func, args, kwargs, ignore=self.ignore_in_logs
+                )
                 self.warn(
                     "Exception while loading results for {}\n {}".format(
                         signature, traceback.format_exc()
@@ -630,6 +641,11 @@ class MemorizedFunc(Logger):
 
         return state
 
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        # Wrappers pickled before this option was added retain default logging.
+        self.__dict__.setdefault("ignore_in_logs", None)
+
     def check_call_in_cache(self, *args, **kwargs):
         """Check if the function call is cached and valid for given arguments.
 
@@ -655,6 +671,9 @@ class MemorizedFunc(Logger):
 
     def _get_args_id(self, *args, **kwargs):
         """Return the input parameter hash of a result."""
+        if self.ignore_in_logs is not None:
+            # Validate names even on cache hits or when verbosity is disabled.
+            filter_args(self.func, self.ignore_in_logs, args, kwargs)
         return hashing.hash(
             filter_args(self.func, self.ignore, args, kwargs),
             coerce_mmap=self.mmap_mode is not None,
@@ -834,7 +853,7 @@ class MemorizedFunc(Logger):
 
     def _before_call(self, args, kwargs):
         if self._verbose > 0:
-            print(format_call(self.func, args, kwargs))
+            print(format_call(self.func, args, kwargs, ignore=self.ignore_in_logs))
 
     def _after_call(self, call_id, args, kwargs, shelving, output, start_time):
         self.store_backend.dump_item(call_id, output, verbose=self._verbose)
@@ -870,6 +889,13 @@ class MemorizedFunc(Logger):
         """
         start_time = time.time()
         argument_dict = filter_args(self.func, self.ignore, args, kwargs)
+        if self.ignore_in_logs:
+            logged_arguments = filter_args(self.func, self.ignore_in_logs, args, kwargs)
+            argument_dict = {
+                name: value
+                for name, value in argument_dict.items()
+                if name in logged_arguments
+            }
 
         input_repr = dict((k, repr(v)) for k, v in argument_dict.items())
         # This can fail due to race-conditions with multiple
@@ -1052,6 +1078,7 @@ class Memory(Logger):
         verbose=None,
         mmap_mode=False,
         cache_validation_callback=None,
+        ignore_in_logs=None,
     ):
         """Decorates the given function func to only compute its return
         value for input arguments not cached on disk.
@@ -1076,6 +1103,13 @@ class Memory(Logger):
             result as its sole argument. If it returns True, then the
             cached result is returned, else the cache for these arguments
             is cleared and recomputed.
+        ignore_in_logs: list of strings or None, optional
+            Argument names to omit from call messages and newly stored input
+            metadata. This avoids formatting their values and does not affect
+            hashing or cache reuse. Use '*' or '**' to omit all extra positional
+            or keyword arguments, respectively. By default no arguments are
+            omitted from messages. Hashed arguments are still recorded in the
+            input metadata unless explicitly omitted here.
 
         Returns
         -------
@@ -1101,6 +1135,7 @@ class Memory(Logger):
                 mmap_mode=mmap_mode,
                 verbose=verbose,
                 cache_validation_callback=cache_validation_callback,
+                ignore_in_logs=ignore_in_logs,
             )
         if self.store_backend is None:
             cls = (
@@ -1144,6 +1179,7 @@ class Memory(Logger):
             verbose=verbose,
             timestamp=self.timestamp,
             cache_validation_callback=cache_validation_callback,
+            ignore_in_logs=ignore_in_logs,
         )
 
     def clear(self, warn=True):

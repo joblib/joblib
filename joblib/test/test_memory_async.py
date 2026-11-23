@@ -14,7 +14,11 @@ from joblib.memory import (
 from joblib.test.common import np, with_numpy
 from joblib.testing import raises
 
-from .test_memory import corrupt_single_cache_item, monkeypatch_cached_func_warn
+from .test_memory import (
+    UnformattableArgument,
+    corrupt_single_cache_item,
+    monkeypatch_cached_func_warn,
+)
 
 # asyncio support in pytest isn't thread-safe, so can't run these tests in
 # parallel.
@@ -205,3 +209,25 @@ async def test_not_memorized_func_call_async(wrapper):
     assert await func.call(2, y=3) == ((7, 1), {})
     assert await func.call(2, y=3) == ((7, 2), {})
     assert calls == [(2, 3), (2, 3)]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("enabled", [False, True])
+async def test_memory_ignore_in_logs_async(tmp_path, enabled):
+    memory = Memory(tmp_path if enabled else None, verbose=20)
+    calls = []
+
+    @memory.cache(ignore_in_logs=["data"])
+    async def compute(data):
+        calls.append(data.value)
+        return data.value
+
+    data = UnformattableArgument(2)
+    assert await compute(data) == 2
+    assert await compute(data) == 2
+    assert calls == ([2] if enabled else [2, 2])
+    assert await compute(UnformattableArgument(3)) == 3
+    result, metadata = await compute.call(data)
+    assert result == 2
+    assert metadata.get("input_args", {}) == {}
+    assert (await compute.call_and_shelve(data)).get() == 2

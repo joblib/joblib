@@ -8,6 +8,11 @@ In Development
    This version changes the way functions defined in jupyter notebook are hashed.
    This invalidates existing cache and will automatically clear them in these cases.
 
+- Add ``Memory.cache(ignore_in_logs=...)`` to omit selected arguments from
+  call messages and newly stored input metadata without formatting their
+  values or changing cache keys.
+  https://github.com/joblib/joblib/issues/926
+
 - Preserve the values and shared-memory writes of reversed memmap-backed
   array views passed to ``Parallel`` workers.
   https://github.com/joblib/joblib/pull/1872
