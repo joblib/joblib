@@ -347,10 +347,10 @@ def test_manual_scatter(loop):
 
 
 # When the same IOLoop is used for multiple clients in a row, use
-# loop_in_thread instead of loop to prevent the Client from closing it.  See
-# dask/distributed #4112
+# loop_in_thread instead of loop to prevent the Client from closing it.
+# See dask/distributed #4112
+@with_numpy
 def test_auto_scatter(loop_in_thread):
-    np = pytest.importorskip("numpy")
     data1 = np.ones(int(1e4), dtype=np.uint8)
     data2 = np.ones(int(1e4), dtype=np.uint8)
     data_to_process = ([data1] * 3) + ([data2] * 3)
@@ -360,9 +360,11 @@ def test_auto_scatter(loop_in_thread):
             with parallel_config(backend="dask"):
                 # Passing the same data as arg and kwarg triggers a single
                 # scatter operation whose result is reused.
-                Parallel()(
-                    delayed(noop)(data, data, i, opt=data)
-                    for i, data in enumerate(data_to_process)
+                list(
+                    Parallel()(
+                        delayed(noop)(data, data, i, opt=data)
+                        for i, data in enumerate(data_to_process)
+                    )
                 )
             # By default large array are automatically scattered with
             # broadcast=1 which means that one worker must directly receive
@@ -373,7 +375,7 @@ def test_auto_scatter(loop_in_thread):
     with cluster() as (s, [a, b]):
         with Client(s["address"], loop=loop_in_thread) as client:
             with parallel_config(backend="dask"):
-                Parallel()(delayed(noop)(data1[:3], i) for i in range(5))
+                list(Parallel()(delayed(noop)(data1[:3], i) for i in range(5)))
             # Small arrays are passed within the task definition without going
             # through a scatter operation.
             counts = count_events("receive-from-scatter", client)

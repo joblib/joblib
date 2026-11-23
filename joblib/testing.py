@@ -2,7 +2,6 @@
 Helper for testing.
 """
 
-import os.path
 import re
 import subprocess
 import sys
@@ -28,10 +27,10 @@ def warnings_to_stdout():
     showwarning_orig = warnings.showwarning
 
     def showwarning(msg, cat, fname, lno, file=None, line=0):
-        showwarning_orig(msg, cat, os.path.basename(fname), line, sys.stdout)
+        showwarning_orig(msg, cat, fname, lno, sys.stdout, line)
 
     warnings.showwarning = showwarning
-    # warnings.simplefilter('always')
+    warnings.simplefilter("always")
 
 
 def check_subprocess_call(cmd, timeout=5, stdout_regex=None, stderr_regex=None):

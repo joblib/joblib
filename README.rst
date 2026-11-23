@@ -45,15 +45,15 @@ or install it in editable mode from the source directory::
 Dependencies
 ============
 
-- Joblib supports Python >= 3.10.
+- Joblib supports Python >= 3.11.
 - The only dependency is `cloudpickle <https://github.com/cloudpipe/cloudpickle>`_ >= 3.
 - Joblib includes its own vendored copy of
   `loky <https://github.com/tomMoral/loky>`_ for process management.
 - Joblib can efficiently dump and load numpy arrays but does not require numpy
   to be installed. The oldest numpy version supported is the oldest numpy version
-  supported by Python 3.10 (numpy version 1.21.3).
+  supported by Python 3.11 (numpy version 1.23.2).
 - Joblib can use Dask distributed backend but does not require distributed to be
-  installed. The oldest distributed version supported is 2022.8.1.
+  installed. The oldest distributed version supported is 2022.12.1.
 - Joblib has an optional dependency on
   `python-lz4 <https://pypi.python.org/pypi/lz4>`_ as a faster alternative to
   zlib and gzip for compressed serialization.

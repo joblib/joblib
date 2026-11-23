@@ -8,8 +8,6 @@ Test the func_inspect module.
 
 import functools
 
-import pytest
-
 from joblib.func_inspect import (
     _clean_win_chars,
     filter_args,
@@ -53,6 +51,10 @@ def m1(x, *, y):
 
 
 def m2(x, *, y, z=3):
+    pass
+
+
+def n(x=0, /, **kwargs):
     pass
 
 
@@ -121,22 +123,24 @@ def test_filter_varargs(func, args, filtered_args):
     assert filter_args(func, *args) == filtered_args
 
 
-test_filter_kwargs_extra_params = [
-    (m1, [[], (1,), {"y": 2}], {"x": 1, "y": 2}),
-    (m2, [[], (1,), {"y": 2}], {"x": 1, "y": 2, "z": 3}),
-]
-
-
 @parametrize(
     "func,args,filtered_args",
     [
         (k, [[], (1, 2), {"ee": 2}], {"*": [1, 2], "**": {"ee": 2}}),
         (k, [[], (3, 4)], {"*": [3, 4], "**": {}}),
-    ]
-    + test_filter_kwargs_extra_params,
+        (k, [[], (), {"*": 0, "**": 1}], {"*": [], "**": {"*": 0, "**": 1}}),
+        (m1, [[], (1,), {"y": 2}], {"x": 1, "y": 2}),
+        (m2, [[], (1,), {"y": 2}], {"x": 1, "y": 2, "z": 3}),
+        (n, [[], (), {"x": 1}], {"x": 0, "**": {"x": 1}}),
+    ],
 )
 def test_filter_kwargs(func, args, filtered_args):
     assert filter_args(func, *args) == filtered_args
+
+
+def test_filter_unknown_kwarg():
+    with raises(ValueError, match="Too many keyword arguments"):
+        filter_args(f, [], (1, 2), {"z": 3})
 
 
 def test_filter_args_2():
@@ -351,7 +355,6 @@ def _get_code():
     return get_func_code(big5_f)[0]
 
 
-@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 def test_func_code_consistency():
     from joblib.parallel import Parallel, delayed
 
@@ -375,7 +378,6 @@ def _get_code_no_source():
     return get_func_code(ns["f"])[0]
 
 
-@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1816
 def test_func_code_consistency_without_source():
     # Non-regression test for #1694: the fallback used to be
     # str(hash(func.__code__)), which is salted per process, so workers

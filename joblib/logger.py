@@ -128,7 +128,7 @@ class Logger(object):
         logging.getLogger(self._name).warning("[%s]: %s" % (self, msg))
 
     def info(self, msg):
-        logging.info("[%s]: %s" % (self, msg))
+        logging.getLogger(self._name).info("[%s]: %s" % (self, msg))
 
     def debug(self, msg):
         # XXX: This conflicts with the debug flag used in children class

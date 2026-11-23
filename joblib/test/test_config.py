@@ -1,8 +1,6 @@
 import os
 from uuid import uuid4
 
-import pytest
-
 from joblib._parallel_backends import (
     LokyBackend,
     MultiprocessingBackend,
@@ -49,15 +47,12 @@ def test_external_backends(context):
         del EXTERNAL_BACKENDS[backend_name]
 
 
-# Thread-unsafe due to https://github.com/joblib/joblib/issues/1794 maybe? If
-# fixing that doesn't fix this, file a new issue.
-@pytest.mark.thread_unsafe
 @with_numpy
 @with_multiprocessing
 def test_parallel_config_no_backend(tmpdir):
     # Check that parallel_config allows to change the config
     # even if no backend is set.
-    with parallel_config(n_jobs=2, max_nbytes=1, temp_folder=tmpdir):
+    with parallel_config(n_jobs=2, max_nbytes=1, temp_folder=tmpdir.strpath):
         with Parallel(prefer="processes") as p:
             assert isinstance(p._backend, LokyBackend)
             assert p.n_jobs == 2
@@ -67,7 +62,6 @@ def test_parallel_config_no_backend(tmpdir):
             assert len(os.listdir(tmpdir)) > 0
 
 
-@pytest.mark.thread_unsafe  # https://github.com/joblib/joblib/issues/1743
 @with_numpy
 @with_multiprocessing
 def test_parallel_config_params_explicit_set(tmpdir):

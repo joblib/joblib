@@ -204,7 +204,7 @@ Getting a reference to the cache can be done using the
     >>> result = g.call_and_shelve(4)
     A long-running calculation, with parameter 4
     >>> result  #doctest: +ELLIPSIS
-    MemorizedResult(location="...", func="...g...", args_id="...")
+    MemorizedResult(location='...', call_id=('...g...', '...'))
 
 Once computed, the output of `g` is stored on disk, and deleted from
 memory. Reading the associated value can then be performed with the
@@ -238,13 +238,50 @@ python interpreter.
     point to). All the above remains valid though, except for the
     copy-pasting feature.
 
+Backends
+--------
+
+`Memory` supports several storage backends via the ``backend`` parameter.
+By default, it uses ``backend='local'``, which stores cached data on the local filesystem.
+
+When calling a cached function::
+
+    >>> memory = Memory(location, backend='local', verbose=0)
+    >>> func = lambda x: x
+    >>> x = 1
+    >>> memory.cache(func)(x)
+    1
+
+Joblib computes a 16-byte (32-character) hexadecimal hash of the inputs (here ``x``).
+The output of the function call is then pickled and saved to a path formatted as:
+``<location>/<path/to/func>/012/3456789abcdef0123456789abcdef/output.pkl``.
+
+.. XXX: To remove in joblib 1.9
+.. warning::
+    Prior to joblib 1.7, cached outputs were stored directly under
+    ``<location>/<path/to/func>/0123456789abcdef0123456789abcdef/output.pkl``.
+    When caching a large number of results, the ``func`` directory could contain
+    too many inodes, degrading filesystem performance.
+
+    Starting in joblib 1.7, the cache hierarchy includes a three-character subfolder
+    (e.g., ``012``) to reduce the number of entries per directory. Older cache directories
+    can be updated using :meth:`~joblib.Memory.update_cache_tree`::
+
+        >>> Memory(location).update_cache_tree()
+
+Additional backends will be added in future joblib releases, including a planned SQL backend.
 
 Gotchas
 -------
 
-* **Across sessions, function cache is identified by the function's name**.
-  Thus assigning the same name to different functions, their cache will
-  override each-others (e.g. there are 'name collisions'), and unwanted re-run
+* **Across sessions, function cache is identified by the function's
+  fully-qualified name (its module, plus the enclosing scopes for nested
+  functions), not just by its bare name**.
+  Two functions with the same name defined in different modules (e.g.
+  ``foo.bar.func`` and ``fizz.buzz.func``) therefore get separate caches
+  and do not collide. Collisions can still happen when two different
+  functions share the same name within the same module: their cache will
+  override each other's (so-called 'name collisions'), and unwanted re-runs
   will happen::
 
     >>> @memory.cache
@@ -257,16 +294,21 @@ Gotchas
     ... def func(x):
     ...     print('Running a different func(%s)' % x)
 
-  As long as the same session is used, there are no collisions (in joblib
-  0.8 and above), although joblib does warn you that you are doing something
-  dangerous::
+  ..
+     Change func ids to have the same value in order to simulate an ordinary file.
+
+     >>> import re
+     >>> func.func_id = func2.func_id = re.sub(r'\[\d+\]>', '>', func.func_id)
+
+  As long as the same session is used, there are no collisions, although
+  joblib does warn you that you are doing something dangerous::
 
     >>> func(1)
     Running a different func(1)
 
-    >>> # FIXME: The next line should create a JolibCollisionWarning but does not
-    >>> # memory.rst:0: JobLibCollisionWarning: Possible name collisions between functions 'func' (<doctest memory.rst>:...) and 'func' (<doctest memory.rst>:...)
-    >>> func2(1)  #doctest: +ELLIPSIS
+    >>> func2(1) # doctest: +ELLIPSIS
+    <...>:1: JobLibCollisionWarning: Possible name collisions between functions 'func' (...:...) and 'func' (...:...)
+      func2(1) ...
     Running func(1)
 
     >>> func(1) # No recomputation so far
@@ -282,11 +324,13 @@ Gotchas
   But suppose the interpreter is exited and then restarted, the cache will not
   be identified properly, and the functions will be rerun::
 
-    >>> # FIXME: The next line will should create a JoblibCollisionWarning but does not. Also it is skipped because it does not produce any output
-    >>> # memory.rst:0: JobLibCollisionWarning: Possible name collisions between functions 'func' (<doctest memory.rst>:...) and 'func' (<doctest memory.rst>:...)
-    >>> func(1) #doctest: +ELLIPSIS +SKIP
+    >>> func(1) # doctest: +ELLIPSIS
+    <...>:1: JobLibCollisionWarning: Possible name collisions between functions 'func' (...:...) and 'func' (...:...)
+      func(1) ...
     Running a different func(1)
-    >>> func2(1)  #doctest: +ELLIPSIS +SKIP
+    >>> func2(1) # doctest: +ELLIPSIS
+    <...>:1: JobLibCollisionWarning: Possible name collisions between functions 'func' (...:...) and 'func' (...:...)
+      func2(1) ...
     Running func(1)
 
   As long as the same session is used, there are no needless
@@ -297,7 +341,8 @@ Gotchas
 
 * **lambda functions**
 
-  Beware that with Python 2.7 lambda functions cannot be separated out::
+  Beware that lambda functions cannot be told apart: they all share the
+  name ``'<lambda>'``, so two different lambdas cannot be separated out::
 
     >>> def my_print(x):
     ...     print(x)
@@ -305,15 +350,24 @@ Gotchas
     >>> f = memory.cache(lambda : my_print(1))
     >>> g = memory.cache(lambda : my_print(2))
 
-    >>> f()
-    1
-    >>> f()
-    >>> g() # doctest: +SKIP
-    memory.rst:0: JobLibCollisionWarning: Cannot detect name collisions for function '<lambda>'
-    2
-    >>> g() # doctest: +SKIP
-    >>> f() # doctest: +SKIP
-    1
+  ..
+        Change func ids to be lambda in order to simulate an ordinary file.
+        We can't use <lambda> as Windows does not support "<>" in paths
+
+        >>> f.func_id = g.func_id = "lambda"
+
+  >>> f()
+  1
+  >>> f()
+  >>> g() # doctest: +ELLIPSIS
+  <...>:1: JobLibCollisionWarning: Cannot detect name collisions for function '<lambda> (...:...)'
+      g() ...
+  2
+  >>> g()
+  >>> f() # doctest: +ELLIPSIS
+  <...>:1: JobLibCollisionWarning: Cannot detect name collisions for function '<lambda> (...:...)'
+      f() ...
+  1
 
 * **memory cannot be used on some complex objects**, e.g. a callable
   object with a `__call__` method.
