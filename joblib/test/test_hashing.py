@@ -173,10 +173,10 @@ def test_numpy_datetime_array(dtype):
 def test_hash_numpy_noncontiguous():
     a = np.asarray(np.arange(6000).reshape((1000, 2, 3)), order="F")[:, :1, :]
     b = np.ascontiguousarray(a)
-    assert hash(a) != hash(b)
+    assert hash(a) == hash(b)
 
     c = np.asfortranarray(a)
-    assert hash(a) != hash(c)
+    assert hash(a) == hash(c)
 
 
 @with_numpy
@@ -280,6 +280,7 @@ def test_numpy_scalar():
     a = np.float64(2.0)
     b = np.float64(3.0)
     assert hash(a) != hash(b)
+    assert hash(np.array(a)) != hash(np.array(b))
 
 
 def test_dict_hash(tmpdir):
@@ -429,16 +430,6 @@ def test_hashes_stay_the_same(to_hash, expected):
     # lengthy recomputations.
     # Expected results have been generated with joblib 0.9.2
     assert hash(to_hash) == expected
-
-
-@with_numpy
-def test_hashes_are_different_between_c_and_fortran_contiguous_arrays():
-    # We want to be sure that the c-contiguous and f-contiguous versions of the
-    # same array produce 2 different hashes.
-    rng = np.random.RandomState(0)
-    arr_c = rng.random_sample((10, 10))
-    arr_f = np.asfortranarray(arr_c)
-    assert hash(arr_c) != hash(arr_f)
 
 
 @with_numpy
