@@ -25,6 +25,7 @@ if mp is None:
     def system_cpu_count(only_physical_cores: bool = False) -> int:
         return _os_cpu_count() or 1
 else:
+    from concurrent.futures import ThreadPoolExecutor
     from multiprocessing.pool import ThreadPool
 
     from .executor import get_memmapping_executor
@@ -569,6 +570,7 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
     supports_retrieve_callback = True
     uses_threads = True
     supports_sharedmem = True
+    _executor = None
 
     def configure(self, n_jobs=1, parallel=None, **backend_kwargs):
         """Build a process or thread pool and return the number of workers"""
@@ -597,6 +599,30 @@ class ThreadingBackend(PoolManagerMixin, ParallelBackendBase):
                 initializer=lambda: set_thread_local_cpu_limit(cores_per_thread),
             )
         return self._pool
+
+    def terminate(self):
+        """Shutdown the process or thread pool"""
+        super().terminate()
+        if self._executor is not None:
+            self._executor.shutdown(wait=False, cancel_futures=True)
+            self._executor = None
+
+    def _get_executor(self):
+        """Lazily initialize a ``ThreadPoolExecutor`` for the threading fast path
+
+        Specifically used by ``Parallel._get_threaded_output()``.
+        """
+        # Import here to prevent circular import:
+        from joblib.parallel import effective_n_jobs
+
+        if self._executor is None:
+            available_cores = effective_n_jobs(-1)
+            cores_per_thread = _split_up_cores(available_cores, self._n_jobs)
+            self._executor = ThreadPoolExecutor(
+                self._n_jobs,
+                initializer=lambda: set_thread_local_cpu_limit(cores_per_thread),
+            )
+        return self._executor
 
 
 @dataclass

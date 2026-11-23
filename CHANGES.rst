@@ -8,6 +8,10 @@ In Development
    This version changes the way functions defined in jupyter notebook are hashed.
    This invalidates existing cache and will automatically clear them in these cases.
 
+- On Python 3.14 and later, the threading backend now has significantly less
+  overhead in most cases.
+  https://github.com/joblib/joblib/pull/1899
+
 - Preserve the values and shared-memory writes of reversed memmap-backed
   array views passed to ``Parallel`` workers.
   https://github.com/joblib/joblib/pull/1872
