@@ -2440,7 +2440,7 @@ def test_openblas_restored_num_threads():
     """
     version = [int(v) for v in threadpoolctl.__version__.split(".")[:3]]
     if (int(version[0]), int(version[1])) <= (3, 8):
-        pytest.skip("requires threadpoolctl 3.8.1 or later")
+        pytest.skip("requires threadpoolctl 3.9.0 or later")
 
     openblas_controller = ThreadpoolController().select(internal_api="openblas")
     if not openblas_controller.lib_controllers:
