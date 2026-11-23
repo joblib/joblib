@@ -12,6 +12,23 @@ In Development
   overhead in most cases.
   https://github.com/joblib/joblib/pull/1899
 
+- Preserve the values and shared-memory writes of reversed memmap-backed
+  array views passed to ``Parallel`` workers.
+  https://github.com/joblib/joblib/pull/1872
+
+- Fix the memory order of contiguous memmap views passed to and returned from
+  ``Parallel`` workers, preserving values and shared writes after transposing
+  or reshaping the backing mapping.
+  https://github.com/joblib/joblib/pull/1934
+
+- Fix private edits to copy-on-write memmapped arrays being lost when transferring
+  arrays between worker processes.
+  https://github.com/joblib/joblib/pull/1940
+
+- Fix ``Logger.info`` to log to its configured namespace instead of the
+  root logger.
+  https://github.com/joblib/joblib/pull/1919
+
 - Fix hashing of ``frozenset`` to be independent of ``PYTHONHASHSEED``.
   https://github.com/joblib/joblib/pull/1914
 
@@ -50,6 +67,11 @@ In Development
 - Fix ``Memory.cache(..., mmap_mode=..., verbose=...)`` to now uses its parameters
   mmap_mode and verbose instead of using the values used at Memory creation time.
   https://github.com/joblib/joblib/pull/1857
+
+- Fix ``Memory`` to accept any ``os.PathLike`` object as ``location``, like
+  ``pathlib.Path``. Other path-like objects previously disabled caching with a
+  warning.
+  https://github.com/joblib/joblib/pull/1945
 
 - A non-positive value for ``pre_dispatch`` in ``Parallel`` now raises a
   ValueError.

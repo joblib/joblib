@@ -121,15 +121,11 @@ try:
     ):
         """Custom memmap constructor compatible with numpy.memmap.
 
-        This function:
-        - is a backport the numpy memmap offset fix (See
-          https://github.com/numpy/numpy/pull/8443 for more details.
-          The numpy fix is available starting numpy 1.13)
-        - adds ``unlink_on_gc_collect``, which specifies  explicitly whether
-          the process re-constructing the memmap owns a reference to the
-          underlying file. If set to True, it adds a finalizer to the
-          newly-created memmap that sends a maybe_unlink request for the
-          memmaped file to resource_tracker.
+        This function adds ``unlink_on_gc_collect``, which specifies explicitly
+        whether the process re-constructing the memmap owns a reference to the
+        underlying file. If set to True, it adds a finalizer to the newly-created
+        memmap that sends a maybe_unlink request for the memmaped file to
+        resource_tracker.
         """
         util.debug(
             "[MEMMAP READ] creating a memmap (shape {}, filename {}, pid {})".format(
@@ -140,8 +136,6 @@ try:
         mm = np.memmap(
             filename, dtype=dtype, mode=mode, offset=offset, shape=shape, order=order
         )
-        if LooseVersion(np.__version__) < "1.13":
-            mm.offset = offset
         if unlink_on_gc_collect:
             from ._memmapping_reducer import add_maybe_unlink_finalizer
 

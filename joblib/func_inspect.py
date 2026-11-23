@@ -82,15 +82,8 @@ def get_func_code(func):
 
 def _clean_win_chars(string):
     """Windows cannot encode some characters in filename."""
-    import urllib
+    from urllib.parse import quote
 
-    if hasattr(urllib, "quote"):
-        quote = urllib.quote
-    else:
-        # In Python 3, quote is elsewhere
-        import urllib.parse
-
-        quote = urllib.parse.quote
     for char in ("<", ">", "!", ":", "\\"):
         string = string.replace(char, quote(char))
     return string
