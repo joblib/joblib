@@ -485,7 +485,7 @@ list::
 
 
 Omitting arguments from logs
----------------------------
+----------------------------
 
 Formatting a large object for a call message can take time, even when that
 argument is excluded from hashing with ``ignore``. Use ``ignore_in_logs`` to
