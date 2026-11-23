@@ -280,6 +280,7 @@ def test_numpy_scalar():
     a = np.float64(2.0)
     b = np.float64(3.0)
     assert hash(a) != hash(b)
+    assert hash(np.array(a)) != hash(np.array(b))
 
 
 def test_dict_hash(tmpdir):

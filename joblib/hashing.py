@@ -220,16 +220,18 @@ class NumpyHasher(Hasher):
             else:
                 klass = obj.__class__
 
-            # Compute a hash of the object (if it has at least one dimension)
+            # Compute a hash of the object
             # The update function of the hash requires a c_contiguous buffer.
-            if obj.ndim:
-                # memoryview is not supported for some dtypes, e.g. datetime64, see
-                # https://github.com/numpy/numpy/issues/4983. The
-                # workaround is to view the array as bytes before
-                # taking the memoryview.
-                self._hash.update(
-                    memoryview(self.np.ascontiguousarray(obj).view(self.np.uint8))
-                )
+            # 0d arrays need to be flattened because viewing them as bytes
+            # raises a ValueError exception.
+            data = obj if obj.ndim else obj.flatten()
+            # memoryview is not supported for some dtypes, e.g. datetime64, see
+            # https://github.com/numpy/numpy/issues/4983. The
+            # workaround is to view the array as bytes before
+            # taking the memoryview.
+            self._hash.update(
+                memoryview(self.np.ascontiguousarray(data).view(self.np.uint8))
+            )
 
             # We also return the dtype and the shape, to distinguish
             # different views on the same data with different dtypes.
