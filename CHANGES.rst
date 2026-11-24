@@ -8,6 +8,10 @@ In Development
    This version changes the way functions defined in jupyter notebook are hashed.
    This invalidates existing cache and will automatically clear them in these cases.
 
+- Fix bug in ``Memory`` with decorated function where code would not be
+  properly inspected for changes.
+  https://github.com/joblib/joblib/pull/1746
+
 - Preserve the values and shared-memory writes of reversed memmap-backed
   array views passed to ``Parallel`` workers.
   https://github.com/joblib/joblib/pull/1872
@@ -181,10 +185,6 @@ Release 1.5.3 - 2025/12/15
 
 - Vendor cloudpickle 3.1.2 to fix a pickling problem with interactively
   defined abstract base classes and type annotations in Python 3.14+.
-
-- Fix bug in ``Memory`` with decorated function where code would not be
-  properly inspected for changes.
-  https://github.com/joblib/joblib/pull/1746
 
 Release 1.5.2 - 2025/08/27
 --------------------------
