@@ -4,6 +4,9 @@ Release Notes
 In Development
 --------------
 
+- Add an opt-in ``Memory.cache(singleflight=True)`` prototype for coalescing
+  concurrent local cache misses.
+
 .. note::
    This version changes the way functions defined in jupyter notebook are hashed.
    This invalidates existing cache and will automatically clear them in these cases.
