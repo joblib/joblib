@@ -29,21 +29,6 @@ class CacheWarning(Warning):
     pass
 
 
-def concurrency_safe_write(object_to_write, filename, write_func):
-    """Writes an object into a unique file in a concurrency-safe way."""
-    # Temporary name is composed of UUID, process_id and thread_id to avoid
-    # collisions due to concurrent write.
-    # UUID is unique across nodes and time and help avoid collisions, even if
-    # the cache folder is shared by several Python processes with the same pid and
-    # thread id on different nodes of a cluster for instance.
-    thread_id = id(threading.current_thread())
-    temporary_filename = f"{filename}.{uuid.uuid4().hex}-{os.getpid()}-{thread_id}"
-
-    write_func(object_to_write, temporary_filename)
-
-    return temporary_filename
-
-
 class StoreBackendBase(metaclass=ABCMeta):
     """Helper Abstract Base Class which defines all methods that
     a StorageBackend must implement."""
@@ -84,6 +69,19 @@ class StoreBackendBase(metaclass=ABCMeta):
         Returns
         -------
         True if the item exists, False otherwise
+        """
+
+    @abstractmethod
+    def _unlink_item(self, location):
+        """Unlink an item from the store.
+
+        This method is private and only used by the StoreBackendMixin object.
+
+        Parameters
+        ----------
+        location: string
+            The location of an item. On a filesystem, this corresponds to the
+            absolute path, including the filename, of a file.
         """
 
     @abstractmethod
@@ -154,9 +152,9 @@ class StoreBackendMixin(object):
 
     The StoreBackend subclass has to implement 3 methods: create_location,
     clear_location and configure. The StoreBackend also has to provide
-    a private _open_item, _item_exists and _move_item methods. The _open_item
-    method has to have the same signature as the builtin open and return a
-    file-like object.
+    a private _open_item, _item_exists, _unlink_item and _move_item methods.
+    The _open_item method has to have the same signature as the builtin open
+    and return a file-like object.
     """
 
     def load_item(self, call_id, verbose=1, timestamp=None, metadata=None):
@@ -396,8 +394,23 @@ class StoreBackendMixin(object):
 
     def _concurrency_safe_write(self, to_write, filename, write_func):
         """Writes an object into a file in a concurrency-safe way."""
-        temporary_filename = concurrency_safe_write(to_write, filename, write_func)
-        self._move_item(temporary_filename, filename)
+
+        # Temporary name is composed of UUID, process_id and thread_id to avoid
+        # collisions due to concurrent write.
+        # UUID is unique across nodes and time and help avoid collisions, even if
+        # the cache folder is shared by several Python processes with the same pid and
+        # thread id on different nodes of a cluster for instance.
+        thread_id = id(threading.current_thread())
+        temporary_filename = f"{filename}.{uuid.uuid4().hex}-{os.getpid()}-{thread_id}"
+
+        try:
+            write_func(to_write, temporary_filename)
+        except BaseException:
+            if self._item_exists(temporary_filename):
+                self._unlink_item(temporary_filename)
+            raise
+        else:
+            self._move_item(temporary_filename, filename)
 
     def __repr__(self):
         """Printable representation of the store location."""
@@ -497,6 +510,7 @@ class FileSystemStoreBackend(StoreBackendBase, StoreBackendMixin):
 
     _open_item = staticmethod(open)
     _item_exists = staticmethod(os.path.exists)
+    _unlink_item = staticmethod(os.unlink)
     _move_item = staticmethod(concurrency_safe_rename)
 
     def clear_location(self, location):

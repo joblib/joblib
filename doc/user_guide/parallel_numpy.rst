@@ -129,6 +129,11 @@ The pickling machinery of ``Parallel`` multiprocessing queues are
 able to detect this situation and optimize it on the fly to limit
 the number of memory copies.
 
+Copy-on-write mappings (mode ``'c'``) and views backed by them are instead
+serialized as ordinary arrays when sent to or returned from worker processes.
+This preserves private writes that are absent from the backing file, at the
+cost of copying the array data during transfer.
+
 
 Writing parallel computation results in shared memory
 -----------------------------------------------------
