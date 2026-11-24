@@ -8,6 +8,9 @@ In Development
    This version changes the way functions defined in jupyter notebook are hashed.
    This invalidates existing cache and will automatically clear them in these cases.
 
+- Respect ``prewarm="auto"`` when using shared memory for temporary arrays,
+  avoiding an unnecessary full read before dispatching work to processes.
+
 - Fix bug in ``Memory`` with decorated function where code would not be
   properly inspected for changes.
   https://github.com/joblib/joblib/pull/1746

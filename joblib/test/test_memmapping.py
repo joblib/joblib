@@ -192,6 +192,45 @@ def test_parallel_preserves_returned_copy_on_write_memmap_edits(
 
 @with_numpy
 @with_multiprocessing
+@parametrize(
+    "prewarm,shared,expected_reads",
+    [
+        ("auto", True, 0),
+        ("auto", False, 1),
+        (True, True, 1),
+        (True, False, 1),
+        (False, True, 0),
+        (False, False, 0),
+    ],
+)
+def test_memmapping_pool_prewarm(
+    tmp_path, monkeypatch, prewarm, shared, expected_reads
+):
+    # Exercise the shared-memory policy on all platforms, with real files and
+    # workers. Only the location identifying shared memory is substituted.
+    shared_root = tmp_path / "shared"
+    monkeypatch.setattr(jmr, "SYSTEM_SHARED_MEM_FS", str(shared_root))
+    temp_folder = shared_root if shared else tmp_path / "regular"
+    warm_reads = []
+    original_load = jmr.load
+
+    def record_load(*args, **kwargs):
+        warm_reads.append(args[0])
+        return original_load(*args, **kwargs)
+
+    monkeypatch.setattr(jmr, "load", record_load)
+    array = np.arange(10)
+    with MemmappingPool(
+        processes=2, temp_folder=str(temp_folder), max_nbytes=1, prewarm=prewarm
+    ) as pool:
+        assert pool.map(np.sum, [array, array]) == [45, 45]
+
+    # Reusing the same mapped array does not need another warm-up read.
+    assert len(warm_reads) == expected_reads
+
+
+@with_numpy
+@with_multiprocessing
 def test_memmap_based_array_reducing(tmpdir):
     """Check that it is possible to reduce a memmap backed array"""
     assert_array_equal = np.testing.assert_array_equal

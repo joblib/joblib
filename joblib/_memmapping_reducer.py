@@ -392,7 +392,6 @@ class ArrayMemmapForwardReducer(object):
             self._prewarm = not self._temp_folder.startswith(SYSTEM_SHARED_MEM_FS)
         else:
             self._prewarm = prewarm
-        self._prewarm = prewarm
         self._memmaped_arrays = _WeakArrayKeyMap()
         self._temporary_memmaped_filenames = set()
         self._unlink_on_gc_collect = unlink_on_gc_collect
