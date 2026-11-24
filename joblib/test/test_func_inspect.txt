@@ -18,6 +18,6 @@ That's not perfect, but it's good enough for us.
 >>> code
 'def my_func(x):\n  return x + 1\n'
 >>> file
-'<doctest test_func_inspect.txt[0]>'
+'<doctest test_func_inspect.txt>'
 >>> line_no
 1

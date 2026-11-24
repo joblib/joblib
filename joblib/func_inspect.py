@@ -9,6 +9,7 @@ My own variation on function-specific inspect-like features.
 import collections
 import inspect
 import os
+import re
 import warnings
 
 from .hashing import hash
@@ -44,11 +45,15 @@ def get_func_code(func):
     try:
         source_file = inspect.getsourcefile(func)
         code, first_line = inspect.getsourcelines(func)
+        m = re.fullmatch(r"<doctest (.*)\[(\d+)\]>", source_file)
+        if m:
+            source_file = f"<doctest {m.group(1)}>"
+            first_line = int(m.group(2)) + 1
         return "".join(code), source_file, first_line
     except Exception:
+        # If the source code fails, we use the hash. This is fragile and
         # might change from one session to another.
         if hasattr(func, "__code__"):
-            # Python 3.X
             return hash(func.__code__), source_file, -1
         else:
             # Weird objects like numpy ufunc don't have __code__
