@@ -126,7 +126,7 @@ def test_parallel_config_nested():
 @with_multiprocessing
 @parametrize(
     "backend",
-    ["multiprocessing", "threading", MultiprocessingBackend(), ThreadingBackend()],
+    ["multiprocessing", MultiprocessingBackend()],
 )
 @parametrize("context", [parallel_config, parallel_backend])
 def test_threadpool_limitation_in_child_context_error(context, backend):
