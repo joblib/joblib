@@ -11,6 +11,10 @@ In Development
 - Respect ``prewarm="auto"`` when using shared memory for temporary arrays,
   avoiding an unnecessary full read before dispatching work to processes.
 
+- Fix bug in ``Memory`` with decorated function where code would not be
+  properly inspected for changes.
+  https://github.com/joblib/joblib/pull/1746
+
 - Preserve the values and shared-memory writes of reversed memmap-backed
   array views passed to ``Parallel`` workers.
   https://github.com/joblib/joblib/pull/1872
