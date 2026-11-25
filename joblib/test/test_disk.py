@@ -52,6 +52,9 @@ def test_memstr_to_bytes(text, value):
     [
         ("fooG", ValueError, r"Invalid literal for size.*fooG.*"),
         ("1.4N", ValueError, r"Invalid literal for size.*1.4N.*"),
+        ("", ValueError, r"Invalid literal for size.*"),
+        ("infM", ValueError, r"Invalid literal for size.*infM.*"),
+        ("1e309G", ValueError, r"Invalid literal for size.*1e309G.*"),
     ],
 )
 def test_memstr_to_bytes_exception(text, exception, regex):
