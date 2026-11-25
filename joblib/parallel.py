@@ -97,6 +97,7 @@ default_parallel_config = {
     "backend": _Sentinel(default_value=None),
     "n_jobs": _Sentinel(default_value=None),
     "verbose": _Sentinel(default_value=0),
+    "pre_dispatch": _Sentinel(default_value="2 * n_jobs"),
     "temp_folder": _Sentinel(default_value=None),
     "max_nbytes": _Sentinel(default_value="1M"),
     "mmap_mode": _Sentinel(default_value="r"),
@@ -291,6 +292,16 @@ class parallel_config:
         The frequency of the messages increases with the verbosity level.
         If it more than 10, all iterations are reported.
 
+    pre_dispatch: int or str, default='2*n_jobs'
+        The number of batches (of tasks) to be pre-dispatched. Can be
+        'all', a positive integer, or an expression such as '3*n_jobs'.
+        Only basic arithmetic is allowed here and no modules can be used
+        in this expression.
+        This value is only used if ``pre_dispatch`` is not explicitly set
+        in the :class:`~joblib.Parallel` constructor.
+
+        .. versionadded:: 1.7
+
     temp_folder: str or None, default=None
         Folder to be used by the pool for memmapping large arrays
         for sharing memory with worker processes. If None, this will try in
@@ -371,6 +382,7 @@ class parallel_config:
         *,
         n_jobs=default_parallel_config["n_jobs"],
         verbose=default_parallel_config["verbose"],
+        pre_dispatch=default_parallel_config["pre_dispatch"],
         temp_folder=default_parallel_config["temp_folder"],
         max_nbytes=default_parallel_config["max_nbytes"],
         mmap_mode=default_parallel_config["mmap_mode"],
@@ -387,6 +399,7 @@ class parallel_config:
         new_config = {
             "n_jobs": n_jobs,
             "verbose": verbose,
+            "pre_dispatch": pre_dispatch,
             "temp_folder": temp_folder,
             "max_nbytes": max_nbytes,
             "mmap_mode": mmap_mode,
@@ -1051,6 +1064,8 @@ class Parallel(Logger):
         default and the workers should never starve. Note that only basic
         arithmetic are allowed here and no modules can be used in this
         expression.
+        If not explicitly set, this parameter is taken from the
+        :func:`~parallel_config` context manager, or defaults to '2*n_jobs'.
     batch_size: int or 'auto', default='auto'
         The number of atomic tasks to dispatch at once to each
         worker. When individual evaluations are very fast, dispatching
@@ -1224,7 +1239,7 @@ class Parallel(Logger):
         return_as="list",
         verbose=default_parallel_config["verbose"],
         timeout=None,
-        pre_dispatch="2 * n_jobs",
+        pre_dispatch=default_parallel_config["pre_dispatch"],
         batch_size="auto",
         temp_folder=default_parallel_config["temp_folder"],
         max_nbytes=default_parallel_config["max_nbytes"],
@@ -1248,7 +1263,9 @@ class Parallel(Logger):
 
         self.verbose = _get_config_param(verbose, context_config, "verbose")
         self.timeout = timeout
-        self.pre_dispatch = pre_dispatch
+        self.pre_dispatch = _get_config_param(
+            pre_dispatch, context_config, "pre_dispatch"
+        )
 
         if return_as not in {"list", "generator", "generator_unordered"}:
             raise ValueError(
