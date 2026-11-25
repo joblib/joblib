@@ -1993,7 +1993,7 @@ def test_backend_hinting_and_constraints_with_custom_backends(capsys, context):
     # semantics:
     class MyCustomThreadingBackend(ParallelBackendBase):
         supports_sharedmem = True
-        use_threads = True
+        uses_threads = True
 
         def apply_async(self):
             pass
@@ -2010,7 +2010,7 @@ def test_backend_hinting_and_constraints_with_custom_backends(capsys, context):
 
     class MyCustomProcessingBackend(ParallelBackendBase):
         supports_sharedmem = False
-        use_threads = False
+        uses_threads = False
 
         def apply_async(self):
             pass
