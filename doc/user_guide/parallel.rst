@@ -72,14 +72,14 @@ of Python processes as concurrent workers. For instance this is the case
 if you write the CPU intensive part of your code inside a `with nogil`_
 block of a Cython function. However, starting with Python 3.14, there is
 a free-threaded version of Python that doesn't have a GIL, and it can benefit
-from the ``'threaded'`` backend.
+from the ``'threading'`` backend.
 
 .. _`with nogil`: https://docs.cython.org/src/userguide/external_C_code.html#acquiring-and-releasing-the-gil
 
 To hint that your code can efficiently use threads, just pass
 ``prefer="threads"`` as parameter of the :class:`joblib.Parallel` constructor.
-In this case joblib will automatically use the ``"threading"`` backend
-instead of the default ``"loky"`` backend:
+In this case joblib will automatically use the ``'threading'`` backend
+instead of the default ``'loky'`` backend:
 
     >>> Parallel(n_jobs=2, prefer="threads")(
     ...     delayed(sqrt)(i ** 2) for i in range(10))
@@ -95,8 +95,8 @@ choice with the :func:`~joblib.parallel_config` context manager (see the next se
 .. topic:: The loky backend may not always be available
 
    Some rare systems do not support multiprocessing (for instance
-   Pyodide). In this case the loky backend is not available and the
-   default backend falls back to threading.
+   Pyodide). In this case the ``'loky'`` backend is not available and the
+   default backend falls back to ``'threading'``.
 
 .. _parallel_config_backend:
 
@@ -165,14 +165,14 @@ Serialization & Processes
 
 To share function definition across multiple python processes, it is necessary to rely on a serialization protocol. The standard protocol in python is :mod:`pickle` but its default implementation in the standard library has several limitations. For instance, it cannot serialize functions which are defined interactively or in the :code:`__main__` module.
 
-To avoid this limitation, the ``loky`` backend now relies on |cloudpickle| to serialize python objects. |cloudpickle| is an alternative implementation of the pickle protocol which allows the serialization of a greater number of objects, in particular interactively defined functions. So for most usages, the loky ``backend`` should work seamlessly.
+To avoid this limitation, the ``'loky'`` backend now relies on |cloudpickle| to serialize python objects. |cloudpickle| is an alternative implementation of the pickle protocol which allows the serialization of a greater number of objects, in particular interactively defined functions. So for most usages, the ``'loky'`` backend should work seamlessly.
 
 
 The main drawback of |cloudpickle| is that it can be slower than the :mod:`pickle` module in the standard library. In particular, it is critical for large python dictionaries or lists, where the serialization time can be up to 100 times slower. There is two ways to alter the serialization process for the ``joblib`` to temper this issue:
 
-- If you are on an UNIX system, you can switch back to the old ``multiprocessing`` backend. With this backend, interactively defined functions can be shared with the worker processes using the fast :mod:`pickle`. The main issue with this solution is that using ``fork`` to start the process breaks the standard POSIX and can have weird interaction with third party libraries such as ``numpy`` and ``openblas``.
+- If you are on an UNIX system, you can switch back to the old ``'multiprocessing'`` backend. With this backend, interactively defined functions can be shared with the worker processes using the fast :mod:`pickle`. The main issue with this solution is that using ``fork`` to start the process breaks the standard POSIX and can have weird interaction with third party libraries such as ``numpy`` and ``openblas``.
 
-- If you wish to use the ``loky`` backend with a different serialization library, you can set the ``LOKY_PICKLER=mod_pickle`` environment variable to use the ``mod_pickle`` as the serialization library for ``loky``. The module ``mod_pickle`` passed as an argument should be importable as ``import mod_pickle`` and should contain a ``Pickler`` object, which will be used to serialize to objects. It can be set to ``LOKY_PICKLER=pickle`` to use the pickling module from stdlib. The main drawback with ``LOKY_PICKLER=pickle`` is that interactively defined functions will not be serializable anymore. To cope with this, you can use this solution together with the :func:`joblib.wrap_non_picklable_objects` wrapper, which can be used as a decorator to locally enable using |cloudpickle| for specific objects. This way, you can have fast pickling of all python objects and locally enable slow pickling for interactive functions. An example is given in :ref:`sphx_glr_auto_examples_serialization_and_wrappers.py`.
+- If you wish to use the ``'loky'`` backend with a different serialization library, you can set the ``LOKY_PICKLER=mod_pickle`` environment variable to use the ``mod_pickle`` as the serialization library for ``'loky'``. The module ``mod_pickle`` passed as an argument should be importable as ``import mod_pickle`` and should contain a ``Pickler`` object, which will be used to serialize to objects. It can be set to ``LOKY_PICKLER=pickle`` to use the pickling module from stdlib. The main drawback with ``LOKY_PICKLER=pickle`` is that interactively defined functions will not be serializable anymore. To cope with this, you can use this solution together with the :func:`joblib.wrap_non_picklable_objects` wrapper, which can be used as a decorator to locally enable using |cloudpickle| for specific objects. This way, you can have fast pickling of all python objects and locally enable slow pickling for interactive functions. An example is given in :ref:`sphx_glr_auto_examples_serialization_and_wrappers.py`.
 
 .. |cloudpickle| raw:: html
 
@@ -317,7 +317,7 @@ Old multiprocessing backend
 Prior to version 0.12, joblib used the ``'multiprocessing'`` backend as
 default backend instead of ``'loky'``.
 
-This backend creates an instance of `multiprocessing.Pool` that forks
+This backend creates an instance of ``multiprocessing.Pool`` that forks
 the Python interpreter in multiple processes to execute each of the
 items of the list. The `delayed` function is a simple trick to be able
 to create a tuple `(function, args, kwargs)` with a function-call
@@ -374,7 +374,7 @@ runtime implementation from GCC which is used internally by third-party
 libraries such as XGBoost, spaCy, OpenCV...
 
 The best way to avoid this problem is to use the ``'loky'`` backend
-instead of the ``multiprocessing`` backend. Prior to joblib 0.12, it is
+instead of the ``'multiprocessing'`` backend. Prior to joblib 0.12, it is
 also possible  to get :class:`joblib.Parallel` configured to use the
 ``'forkserver'`` start method on Python 3.4 and later. The start method
 has to be configured by setting the ``JOBLIB_START_METHOD`` environment
