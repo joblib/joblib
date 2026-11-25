@@ -7,6 +7,7 @@ import pytest
 from joblib.memory import (
     AsyncMemorizedFunc,
     AsyncNotMemorizedFunc,
+    MemorizedFunc,
     MemorizedResult,
     Memory,
     NotMemorizedResult,
@@ -205,3 +206,108 @@ async def test_not_memorized_func_call_async(wrapper):
     assert await func.call(2, y=3) == ((7, 1), {})
     assert await func.call(2, y=3) == ((7, 2), {})
     assert calls == [(2, 3), (2, 3)]
+
+
+class _AsyncCallable:
+    """Callable instance whose __call__ is async."""
+
+    def __init__(self):
+        self.calls = []
+
+    async def __call__(self, value):
+        await asyncio.sleep(0)
+        self.calls.append(value)
+        return value + 1
+
+
+class _SyncCallable:
+    """Callable instance whose __call__ is sync."""
+
+    def __init__(self):
+        self.calls = []
+
+    def __call__(self, value):
+        self.calls.append(value)
+        return value + 1
+
+
+class _AsyncCallClass:
+    """Class whose instances are built synchronously but __call__ is async."""
+
+    def __init__(self, value):
+        self.value = value
+
+    async def __call__(self):
+        return self.value + 1
+
+
+@pytest.mark.asyncio
+async def test_memory_async_callable_instance(tmp_path):
+    """Memory.cache uses the async wrapper for instances with async __call__."""
+    cached = Memory(location=tmp_path, verbose=0).cache(_AsyncCallable())
+    assert isinstance(cached, AsyncMemorizedFunc)
+
+    assert await cached(1) == 2
+    assert await cached(1) == 2
+    assert cached.func.calls == [1]
+    assert cached.check_call_in_cache(1)
+
+    out, metadata = await cached.call(2)
+    assert out == 3
+    assert isinstance(metadata, dict)
+
+    result = await cached.call_and_shelve(3)
+    assert isinstance(result, MemorizedResult)
+    assert result.get() == 4
+
+
+@pytest.mark.asyncio
+async def test_no_memory_async_callable_instance():
+    """With location=None, call and call_and_shelve of an async instance
+    are awaitable too."""
+    cached = Memory(location=None, verbose=0).cache(_AsyncCallable())
+    assert isinstance(cached, AsyncNotMemorizedFunc)
+
+    assert await cached(1) == 2
+
+    out, metadata = await cached.call(2)
+    assert out == 3
+    assert metadata == {}
+
+    result = await cached.call_and_shelve(3)
+    assert isinstance(result, NotMemorizedResult)
+    assert result.get() == 4
+
+
+@pytest.mark.asyncio
+async def test_memory_async_bound_method_still_works(tmp_path):
+    """Passing the bound async __call__ method keeps working."""
+    cached = Memory(location=tmp_path, verbose=0).cache(_AsyncCallable().__call__)
+    assert isinstance(cached, AsyncMemorizedFunc)
+
+    assert await cached(1) == 2
+    assert await cached(1) == 2
+
+
+def test_memory_sync_callable_instance_uses_sync_wrapper(tmp_path):
+    """A sync __call__ instance keeps the sync wrapper."""
+    cached = Memory(location=tmp_path, verbose=0).cache(_SyncCallable())
+    assert isinstance(cached, MemorizedFunc)
+    assert not isinstance(cached, AsyncMemorizedFunc)
+
+    assert cached(1) == 2
+    assert cached(1) == 2
+    assert cached.func.calls == [1]
+    assert cached.check_call_in_cache(1)
+
+
+def test_memory_class_with_async_call_uses_sync_wrapper(tmp_path):
+    """Caching a class stays sync: calling it builds an instance,
+    even when its __call__ is async."""
+    cached = Memory(location=tmp_path, verbose=0).cache(_AsyncCallClass)
+    assert isinstance(cached, MemorizedFunc)
+    assert not isinstance(cached, AsyncMemorizedFunc)
+
+    instance = cached(7)
+    assert isinstance(instance, _AsyncCallClass)
+    assert instance.value == 7
