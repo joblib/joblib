@@ -261,7 +261,7 @@ tasks in the top level loop create their own :class:`joblib.Parallel`. It can
 suffer from over-subscription if the product of the size of two worker pools is
 bigger than the number of available cores.
 
-Starting with version 1.6, in order to avoid over-subscription, the inner loop
+Starting with version 1.7, in order to avoid over-subscription, the inner loop
 can use ``n_jobs=-1``. Each inner :class:`joblib.Parallel` will be limited to
 the number of cores divided by the outer by ``n_jobs`` in the outer
 :class:`joblib.Parallel`.
@@ -270,6 +270,13 @@ For example, if you have 10 cores in your CPU, and the outer
 :class:`joblib.Parallel` has ``n_jobs=5``, a nested :class:`joblib.Parallel`
 should be set to ``n_jobs=-1``, and it will then only start 2 workers. The
 result will be 5×2=10 workers.
+
+Note that if the inner :class:`joblib.Parallel` has a positive number of
+threads, it will not be restricted. So combined with an outer ``n_jobs=-1``,
+this can result in oversubscription. In other words, you should set inner
+:class:`joblib.Parallel` to have ``n_jobs=-1`` to ensure automatic prevention of
+oversubscription.
+
 
 Third-party libraries
 ---------------------
