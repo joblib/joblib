@@ -53,3 +53,6 @@ dask-worker-space/
 
 # Binary files created by benchmarks
 *.npy
+
+# Lock files from (e.g.) pipenv, pixi and uv
+*.lock

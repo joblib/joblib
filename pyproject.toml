@@ -31,8 +31,11 @@ dependencies = [
     "cloudpickle>=3.0",
 ]
 
-[project.optional-dependencies]
-
+[dependency-groups]
+dev = [
+    "pre-commit",
+    {include-group = "test"},
+]
 test = [
     "distributed",
     "lz4",
@@ -45,7 +48,6 @@ test = [
     "pytest-timeout",
     "threadpoolctl",
 ]
-
 docs = [
     "distributed",
     "lz4",
