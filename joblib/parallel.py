@@ -321,7 +321,9 @@ class parallel_config:
         Soft hint to choose the default backend.
         The default process-based backend is 'loky' and the default
         thread-based backend is 'threading'. Ignored if the ``backend``
-        parameter is specified.
+        parameter is specified, or inside nested :class:`~joblib.Parallel`
+        calls where ``joblib`` configures a nested backend by default (see
+        :ref:`nested_parallel`).
 
     require: 'sharedmem' or None, default=None
         Hard constraint to select the backend. If set to 'sharedmem',
@@ -1031,7 +1033,9 @@ class Parallel(Logger):
         was selected with the :func:`~parallel_config` context manager.
         The default process-based backend is 'loky' and the default
         thread-based backend is 'threading'. Ignored if the ``backend``
-        parameter is specified.
+        parameter is specified, or inside nested :class:`~Parallel` calls
+        where ``joblib`` configures a nested backend by default (see
+        :ref:`nested_parallel`).
     require: 'sharedmem' or None, default=None
         Hard constraint to select the backend. If set to 'sharedmem',
         the selected backend will be single-host and thread-based even
