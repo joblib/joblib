@@ -6,7 +6,6 @@ Test the parallel module.
 # Copyright (c) 2010-2011 Gael Varoquaux
 # License: BSD Style, 3 clauses.
 
-import itertools
 import mmap
 import os
 import re
@@ -254,31 +253,28 @@ def test_split_up_cores():
             assert _split_up_cores(max_cores, n_jobs) == max(max_cores // n_jobs, 1)
 
 
-def _nested_leaf_task():
-    # Delay a little to increase chances of distributing tasks across all
-    # workers.
-    time.sleep(0.1)
-    return threading.get_native_id()
-
-
-def _nested_second_level(n_jobs, third_level):
-    if third_level:
-
-        def task():
-            return set(
-                Parallel(n_jobs=-1, backend="threading")(
-                    delayed(_nested_leaf_task)()
-                    for _ in range(joblib.effective_n_jobs(-1))
-                )
+def _nested_pool_capacity(backend, nesting):
+    n_jobs, *inner_nesting = nesting
+    with Parallel(n_jobs=n_jobs, backend=backend) as pool:
+        if inner_nesting:
+            inner_capacities = pool(
+                delayed(_nested_pool_capacity)("threading", inner_nesting)
+                for _ in range(pool._effective_n_jobs())
             )
-    else:
+            assert len(set(inner_capacities)) == 1, inner_capacities
+            inner_capacity = inner_capacities[0]
+        else:
+            # Submit a task to start the pool, since some backends start lazily.
+            pool([delayed(os.getpid)()])
+            inner_capacity = 1
 
-        def task():
-            return {_nested_leaf_task()}
-
-    return Parallel(n_jobs=n_jobs, backend="threading")(
-        delayed(task)() for _ in range(joblib.effective_n_jobs(n_jobs))
-    )
+        # Count the pool's workers regardless of how tasks were distributed.
+        if isinstance(pool._backend, SequentialBackend):
+            return inner_capacity
+        workers = get_workers(pool._backend)
+        if isinstance(pool._backend, LokyBackend):
+            return len(workers._processes) * inner_capacity
+        return len(workers._pool) * inner_capacity
 
 
 @with_multiprocessing
@@ -286,22 +282,11 @@ def _nested_second_level(n_jobs, third_level):
 @pytest.mark.parametrize("nesting", [[2, -1], [-1, -1]])
 @pytest.mark.parametrize("third_level", [False, True])
 def test_nested_pools_automatic_size(backend, nesting, third_level):
-    """Nested thread pools limit their number of cores."""
-    if backend == "sequential" or isinstance(backend, SequentialBackend):
-        n_outer_tasks = 1
-    else:
-        n_outer_tasks = joblib.effective_n_jobs(nesting[0])
-    unique_thread_ids = set()
-    for observed_thread_ids in itertools.chain.from_iterable(
-        Parallel(n_jobs=nesting[0], backend=backend)(
-            delayed(_nested_second_level)(nesting[1], third_level)
-            for _ in range(n_outer_tasks)
-        )
-    ):
-        unique_thread_ids |= observed_thread_ids
-
-    num_threads = len(unique_thread_ids)
-    assert max(joblib.cpu_count() // 2, 1) <= num_threads <= max(joblib.cpu_count(), 2)
+    """The total worker capacity of nested pools stays within the CPU budget."""
+    if third_level:
+        nesting = [*nesting, -1]
+    capacity = _nested_pool_capacity(backend, nesting)
+    assert max(joblib.cpu_count() // 2, 1) <= capacity <= max(joblib.cpu_count(), 2)
 
 
 @with_multiprocessing
