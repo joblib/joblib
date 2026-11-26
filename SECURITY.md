@@ -12,7 +12,7 @@
 Joblib focuses on **parallelism, caching, and distributed computation**. Its
 persistence layer is built on Python's `pickle` and is designed for **trusted
 environments only** — see the
-[persistence documentation](https://joblib.readthedocs.io/en/stable/persistence.html#security-considerations)
+[persistence documentation](https://joblib.readthedocs.io/en/stable/user_guide/persistence.html#security-considerations)
 for the full security rationale and recommendations.
 
 **Out of scope:**
