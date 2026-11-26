@@ -253,6 +253,8 @@ further hinder the performance of the computation. It is generally better to
 avoid using significantly more processes or threads than the number of CPUs on
 a machine.
 
+.. _nested_parallel:
+
 Nested :class:`joblib.Parallel`
 -------------------------------
 
@@ -270,6 +272,50 @@ For example, if you have 10 cores in your CPU, and the outer
 :class:`joblib.Parallel` has ``n_jobs=5``, a nested :class:`joblib.Parallel`
 should be set to ``n_jobs=-1``, and it will then only start 2 workers. The
 result will be 5×2=10 workers.
+
+By default, ``joblib`` also changes the backend used inside nested
+:class:`joblib.Parallel` calls depending on the nesting depth (except when the
+outer loop runs sequentially with ``n_jobs=1``, which leaves the active backend
+and nesting level unchanged, or when using a distributed backend such as
+``'dask'``):
+
+- **Top level (nesting level 0)**: defaults to the ``'loky'`` process-based
+  backend.
+- **First level of nesting (nesting level 1)**: inside tasks dispatched by a
+  parallel backend (such as ``'loky'``, ``'threading'``, or
+  ``'multiprocessing'``), ``joblib`` sets the active default backend to
+  ``'threading'`` via :func:`~joblib.parallel_config`. This avoids the cost of
+  spawning nested Python worker processes and helps prevent resource
+  over-subscription.
+- **Deeper nesting (nesting level 2 or greater)**: switches to the sequential
+  backend (equivalent to ``n_jobs=1``) so deeply nested or recursive loops
+  cannot spawn an unbounded number of threads.
+
+Because the nested default backend is configured explicitly via
+:func:`~joblib.parallel_config` when dispatching outer tasks, soft hints such as
+``prefer="processes"`` (passed either to :class:`joblib.Parallel` or to
+:func:`~joblib.parallel_config`) are ignored inside nested calls: the inner
+loop continues to use ``'threading'`` at nesting level 1, or sequential
+execution at deeper nesting levels.
+
+To force process-based parallelism inside a first-level nested call (for
+example, inside a ``'loky'`` worker), explicitly specify ``backend="loky"`` in
+:class:`joblib.Parallel` or via :func:`~joblib.parallel_config`:
+
+.. code-block:: python
+
+    from joblib import Parallel, delayed, parallel_config
+
+    def inner_task(x):
+        with parallel_config(backend="loky"):
+            return Parallel(n_jobs=2)(delayed(func)(y) for y in x)
+
+    results = Parallel(n_jobs=2)(delayed(inner_task)(chunk) for chunk in data)
+
+Note that nesting ``'loky'`` or ``'multiprocessing'`` below a
+``'threading'`` loop (from a non-main thread) or inside a daemonic
+``'multiprocessing'`` worker process is not supported and falls back to
+sequential execution (``n_jobs=1``) with a warning.
 
 Third-party libraries
 ---------------------
